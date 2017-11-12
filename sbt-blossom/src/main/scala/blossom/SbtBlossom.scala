@@ -30,6 +30,7 @@ object SbtBlossom extends AutoPlugin {
     }.value
   )
 
+  private val home = System.getProperty("user.home")
   override def projectSettings: Seq[Def.Setting[_]] =
     List(Compile, Test).flatMap { c =>
       inConfig(c)(
@@ -57,7 +58,7 @@ object SbtBlossom extends AutoPlugin {
               scalaOrganization,
               scalaName,
               scalaVersion.value,
-              file("/Users/martin/.blossom/components"),
+              file(s"$home/.blossom/components"),
               classpath,
               classesDir,
               scalacOptions.value,
