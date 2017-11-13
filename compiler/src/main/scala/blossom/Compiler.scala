@@ -35,6 +35,7 @@ object Compiler {
     incrementalCompiler.compile(inputs, ConsoleLogger)
   }
 
+  private val home = System.getProperty("user.home")
   def getScalaCompiler(scalaInstance: ScalaInstance,
                        classpathOptions: ClasspathOptions,
                        componentProvider: ComponentProvider,
@@ -52,7 +53,7 @@ object Compiler {
           /* globalLock           = */ GlobalLock,
           /* componentProvider    = */ componentProvider,
           /* secondaryCacheDir    = */ Some(
-            Paths.get("/Users/martin/.blossom/secondary-cache").toFile),
+            Paths.get(s"$home/.blossom/secondary-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine(null),
           /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(
             scalaInstance.version),

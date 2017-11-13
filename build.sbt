@@ -1,5 +1,5 @@
 val sharedSettings: Seq[Setting[_]] = Seq(
-  organization := "org.scalacenter",
+  organization := "ch.epfl.scala",
   version := "0.1.0-SNAPSHOT"
 )
 
