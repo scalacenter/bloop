@@ -30,7 +30,7 @@ lazy val compiler = project
     ),
     fork in run := true,
     connectInput in run := true,
-    javaOptions in run ++= Seq("-Xmx8g", "-Xms4g")
+    javaOptions in run ++= Seq("-Xmx4g", "-Xms2g")
   )
 
 lazy val sbtBlossom = project
