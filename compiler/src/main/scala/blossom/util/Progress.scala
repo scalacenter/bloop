@@ -4,6 +4,8 @@ class Progress(total: Int, start: String = "[", end: String = "]", sym: String =
   private[this] val symLength  = sym.length
   private[this] var value: Int = 0
 
+  show()
+
   def increment(): Unit =
     value += 1
 
