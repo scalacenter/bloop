@@ -12,15 +12,22 @@ lazy val blossom = project
   .settings(sharedSettings)
   .aggregate(allProjectReferences: _*)
 
+val ZincProject = RootProject(
+  uri("git://github.com/scalacenter/zinc.git#a90a0e98f5be965452261388050debe5a7396dac")
+)
+val Zinc = ProjectRef(ZincProject.build, "zinc")
+
 lazy val compiler = project
+  .dependsOn(Zinc)
   .in(file("compiler"))
   .settings(
     blossomSettings,
     name := "compiler",
-    libraryDependencies += Dependencies.zinc,
-    libraryDependencies += Dependencies.libraryManagement,
-    libraryDependencies += Dependencies.coursier,
-    libraryDependencies += Dependencies.coursierCache,
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.libraryManagement,
+    ),
     fork in run := true,
     connectInput in run := true,
     javaOptions in run ++= Seq("-Xmx8g", "-Xms4g")
