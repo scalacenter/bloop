@@ -39,8 +39,8 @@ object SbtBlossom extends AutoPlugin {
             if (configuration == Compile) name else name + "-test"
           val projectName = makeName(projectID.value.name, configuration.value)
           // TODO: We should extract the right configuration for the dependency.
-          val dependencies = projectDependencies.value.map(proj =>
-            makeName(proj.name, configuration.value))
+          val dependencies =
+            projectDependencies.value.map(proj => makeName(proj.name, configuration.value))
           val scalaOrganization =
             Keys.ivyScala.value
               .map(_.scalaOrganization)
@@ -72,8 +72,7 @@ object SbtBlossom extends AutoPlugin {
           try properties.store(stream, null)
           finally stream.close()
 
-          streams.value.log.info(
-            s"Wrote configuration of project '$projectName' to '$outFile'")
+          streams.value.log.info(s"Wrote configuration of project '$projectName' to '$outFile'")
         })
       )
     }
@@ -97,16 +96,13 @@ object SbtBlossom extends AutoPlugin {
       properties.setProperty("scalaOrganization", scalaOrganization)
       properties.setProperty("scalaName", scalaName)
       properties.setProperty("scalaVersion", scalaVersion)
-      properties.setProperty("componentProviderBase",
-                             componentProvider.getAbsolutePath)
-      properties.setProperty("classpath",
-                             classpath.map(_.getAbsolutePath).mkString(","))
+      properties.setProperty("componentProviderBase", componentProvider.getAbsolutePath)
+      properties.setProperty("classpath", classpath.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("classesDir", classesDir.getAbsolutePath)
       properties.setProperty("scalacOptions", scalacOptions.mkString(","))
       properties.setProperty("javacOptions", javacOptions.mkString(","))
-      properties.setProperty(
-        "sourceDirectories",
-        sourceDirectories.map(_.getAbsolutePath).mkString(","))
+      properties.setProperty("sourceDirectories",
+                             sourceDirectories.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("tmp", tmp.getAbsolutePath)
       properties
     }

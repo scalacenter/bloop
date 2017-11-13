@@ -9,8 +9,7 @@ class ComponentProvider(val baseDir: Path) extends xsbti.ComponentProvider {
 
   override val lockFile: File = baseDir.resolve("lockfile").toFile
 
-  override def addToComponent(componentID: String,
-                              components: Array[File]): Boolean =
+  override def addToComponent(componentID: String, components: Array[File]): Boolean =
     GlobalLock(lockFile) {
       val location = componentLocation(componentID).toPath
       if (components.forall(_.isFile)) {
@@ -31,8 +30,7 @@ class ComponentProvider(val baseDir: Path) extends xsbti.ComponentProvider {
   override def componentLocation(componentID: String): File =
     componentsBaseDir.resolve(componentID).toFile
 
-  override def defineComponent(componentID: String,
-                               components: Array[File]): Unit =
+  override def defineComponent(componentID: String, components: Array[File]): Unit =
     GlobalLock(lockFile) {
       val location = componentsBaseDir.resolve(componentID)
       Files.createDirectory(location)

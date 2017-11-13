@@ -5,7 +5,7 @@ import sbt.Keys._
 import java.io._
 
 object ScalametaLanguageServerPlugin extends AutoPlugin {
-  override def trigger = allRequirements
+  override def trigger  = allRequirements
   override def requires = sbt.plugins.JvmPlugin
   val scalametaCompilerConfig =
     taskKey[String]("Configuration parameters for autocompletion.")
@@ -43,8 +43,8 @@ object ScalametaLanguageServerPlugin extends AutoPlugin {
           )
           val sourceJars = for {
             configurationReport <- updateClassifiers.value.configurations
-            moduleReport <- configurationReport.modules
-            (artifact, file) <- moduleReport.artifacts
+            moduleReport        <- configurationReport.modules
+            (artifact, file)    <- moduleReport.artifacts
             if artifact.classifier.exists(_ == "sources")
           } yield file
           props.setProperty(

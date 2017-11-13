@@ -11,9 +11,7 @@ import scala.concurrent.{Await, ExecutionContext}
 
 object CompilationTask {
 
-  def apply(project: Project,
-            projects: Map[String, Project],
-            compilerCache: CompilerCache)(
+  def apply(project: Project, projects: Map[String, Project], compilerCache: CompilerCache)(
       implicit ec: ExecutionContext): Map[String, Project] = {
     val toCompile = TopologicalSort.reachable(project, projects)
 
@@ -21,9 +19,9 @@ object CompilationTask {
     val tasks =
       toCompile.map {
         case (name, proj) =>
-          name -> new Task((projects: Map[String, Project]) =>
-                             doCompile(proj, projects, compilerCache),
-                           () => progress.update())
+          name -> new Task(
+            (projects: Map[String, Project]) => doCompile(proj, projects, compilerCache),
+            () => progress.update())
       }
 
     tasks.foreach {
@@ -40,10 +38,9 @@ object CompilationTask {
                         projects: Map[String, Project],
                         compilerCache: CompilerCache): Map[String, Project] = {
     val result = Compiler.compile(project, compilerCache)
-    val previousResult = PreviousResult.of(Optional.of(result.analysis()),
-                                           Optional.of(result.setup()))
-    projects ++ Map(
-      project.name -> project.copy(previousResult = previousResult))
+    val previousResult =
+      PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+    projects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
 }

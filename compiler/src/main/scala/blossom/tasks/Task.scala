@@ -18,8 +18,7 @@ class Task[T: Mergeable](op: T => T, onComplete: () => Unit) {
     task.dependents += this
   }
 
-  def run()(implicit ec: ExecutionContext,
-            mergeable: Mergeable[T]): Future[T] = {
+  def run()(implicit ec: ExecutionContext, mergeable: Mergeable[T]): Future[T] = {
     preExecution()
     Future {
       semaphore.acquire(dependencies.length)

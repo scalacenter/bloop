@@ -1,9 +1,6 @@
 package blossom.util
 
-class Progress(total: Int,
-               start: String = "[",
-               end: String = "]",
-               sym: String = "#") {
+class Progress(total: Int, start: String = "[", end: String = "]", sym: String = "#") {
   private[this] val symLength  = sym.length
   private[this] var value: Int = 0
 
@@ -12,8 +9,7 @@ class Progress(total: Int,
 
   def show(): Unit = {
     val percent = ((value.toDouble / total.toDouble) * 100.0).toInt
-    print(
-      start + sym * percent + " " * symLength * (100 - percent) + end + s" ($percent%)\r")
+    print(start + sym * percent + " " * symLength * (100 - percent) + end + s" ($percent%)\r")
     if (value == total) println()
   }
 

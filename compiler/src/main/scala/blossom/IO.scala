@@ -10,24 +10,19 @@ object IO {
     val out     = collection.mutable.ArrayBuffer.empty[Path]
     val matcher = FileSystems.getDefault.getPathMatcher(pattern)
     val visitor = new FileVisitor[Path] {
-      override def preVisitDirectory(
-          directory: Path,
-          attributes: BasicFileAttributes): FileVisitResult =
+      override def preVisitDirectory(directory: Path,
+                                     attributes: BasicFileAttributes): FileVisitResult =
         FileVisitResult.CONTINUE
 
-      override def postVisitDirectory(directory: Path,
-                                      exception: IOException): FileVisitResult =
+      override def postVisitDirectory(directory: Path, exception: IOException): FileVisitResult =
         FileVisitResult.CONTINUE
 
-      override def visitFile(
-          file: Path,
-          attributes: BasicFileAttributes): FileVisitResult = {
+      override def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (matcher.matches(file)) out += file.toAbsolutePath
         FileVisitResult.CONTINUE
       }
 
-      override def visitFileFailed(file: Path,
-                                   exception: IOException): FileVisitResult =
+      override def visitFileFailed(file: Path, exception: IOException): FileVisitResult =
         FileVisitResult.CONTINUE
     }
     Files.walkFileTree(base, visitor)
