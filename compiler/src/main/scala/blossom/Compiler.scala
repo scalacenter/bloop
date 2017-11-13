@@ -27,7 +27,7 @@ object Compiler {
     val scalaOrganization = project.scalaInstance.organization
     val scalaName         = project.scalaInstance.name
     val scalaVersion      = project.scalaInstance.version
-    val compiler          = compilerCache.get(scalaOrganization, scalaName, scalaVersion)
+    val compiler          = compilerCache.get((scalaOrganization, scalaName, scalaVersion))
     compile(project, compiler)
   }
 
