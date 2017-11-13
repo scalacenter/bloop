@@ -56,7 +56,7 @@ object ScalaInstance {
       Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
     val fetch                                        = Fetch.from(repositories, Cache.fetch())
     val resolution                                   = start.process.run(fetch).unsafePerformSync
-    val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
+    //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
     // TODO: Do something with the errors.
     val localArtifacts: Seq[FileError \/ File] = Task
       .gatherUnordered(

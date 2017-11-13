@@ -2,7 +2,6 @@ package blossom
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import java.util.stream.Stream
 
 class ComponentProvider(val baseDir: Path) extends xsbti.ComponentProvider {
   private[this] val componentsBaseDir = baseDir.resolve("components")

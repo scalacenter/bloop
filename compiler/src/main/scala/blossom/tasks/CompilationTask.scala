@@ -4,7 +4,7 @@ package tasks
 import java.util.Optional
 
 import blossom.util.{Progress, TopologicalSort}
-import xsbti.compile.{CompileResult, PreviousResult}
+import xsbti.compile.PreviousResult
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}

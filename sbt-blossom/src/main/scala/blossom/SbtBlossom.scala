@@ -26,7 +26,7 @@ object SbtBlossom extends AutoPlugin {
     blossomConfigDir in Global := (baseDirectory in ThisBuild).value / ".blossom-config",
     install := Def.taskDyn {
       val filter = ScopeFilter(inAnyProject, inConfigurations(Compile, Test))
-      blossomInstall.all(filter)
+      blossomInstall.all(filter).map(_ => ())
     }.value
   )
 

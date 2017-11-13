@@ -132,6 +132,7 @@ object Blossom {
     Files.write(src,
                 java.util.Arrays.asList("// foobar\n"),
                 StandardOpenOption.APPEND)
+    ()
   }
 
 }
