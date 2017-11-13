@@ -1,8 +1,7 @@
 package blossom
 
 import java.nio.file.{Files, Path, Paths}
-import java.util.{Map, Optional, Properties}
-import java.util.concurrent.ConcurrentHashMap
+import java.util.{Optional, Properties}
 
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -42,17 +41,15 @@ case class Project(name: String,
 
 object Project {
   def fromDir(config: Path): Map[String, Project] = {
-    val configFiles = IO.getAll(config, "glob:**.config")
+    val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
     println(s"Loading ${configFiles.length} projects from '$config'...")
-    val inputs = new ConcurrentHashMap[String, Project]()
-    val start  = System.nanoTime()
-    configFiles.par.foreach { file =>
-      val input = fromFile(file)
-      inputs.put(input.name, input)
+    val projects = new Array[(String, Project)](configFiles.length)
+    configFiles.par.foreach {
+      case (file, idx) =>
+        val project = fromFile(file)
+        projects(idx) = project.name -> project
     }
-    val taken = System.nanoTime() - start
-    println("Took: " + (taken.toDouble / 1e6) + " ms")
-    inputs
+    projects.toMap
   }
 
   def fromFile(config: Path): Project = {

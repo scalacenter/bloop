@@ -11,7 +11,7 @@ import xsbti.compile.{
   IncOptions,
   PerClasspathEntryLookup,
   Setup,
-  Inputs => ZincInputs
+  Inputs
 }
 import sbt.internal.inc._
 import java.util.Optional
@@ -21,18 +21,14 @@ import java.nio.file.{Path, Paths}
 object Compiler {
 
   final val ZINC_VERSION = "1.0.2"
+  val logger             = QuietLogger
 
-  def apply(inputs: Project, compilers: Compilers): CompileResult = {
-    val zincInputs = ZincInputs.of(compilers,
-                                   getCompilationOptions(inputs),
-                                   getSetup(inputs),
-                                   inputs.previousResult)
-    apply(zincInputs)
-  }
-
-  private def apply(inputs: ZincInputs): CompileResult = {
-    val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
-    incrementalCompiler.compile(inputs, ConsoleLogger)
+  def compile(project: Project, compilerCache: CompilerCache): CompileResult = {
+    val scalaOrganization = project.scalaInstance.organization
+    val scalaName         = project.scalaInstance.name
+    val scalaVersion      = project.scalaInstance.version
+    val compiler          = compilerCache.get(scalaOrganization, scalaName, scalaVersion)
+    compile(project, compiler)
   }
 
   private val home = System.getProperty("user.home")
@@ -58,20 +54,23 @@ object Compiler {
           /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(
             scalaInstance.version),
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
-          /* log                  = */ ConsoleLogger
+          /* log                  = */ logger
         )
     }
   }
 
   def getCompilationOptions(inputs: Project): CompileOptions = {
-    val sources = inputs.sourceDirectories.flatMap(src =>
-      IO.getAll(src, "glob:**.{scala,java}"))
+    val sources = inputs.sourceDirectories.distinct
+      .flatMap(src => IO.getAll(src, "glob:**.{scala,java}"))
+      .distinct
+
     CompileOptions
       .create()
       .withClassesDirectory(inputs.classesDir.toFile)
       .withSources(sources.map(_.toFile))
       .withClasspath(
-        inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars)
+        inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars ++ Array(
+          inputs.classesDir.toFile))
   }
 
   def getSetup(inputs: Project): Setup = {
@@ -91,7 +90,7 @@ object Compiler {
       /*               cacheFile    = */ inputs.tmp.resolve("cache").toFile,
       /*                   cache    = */ new FreshCompilerCache,
       /* incrementalCompilerOptions = */ IncOptions.create(),
-      /*                  reporter  = */ new LoggedReporter(100, ConsoleLogger),
+      /*                  reporter  = */ new LoggedReporter(100, logger),
       /*                  progress  = */ Optional.empty[CompileProgress],
       /*                     extra  = */ Array.empty
     )
@@ -105,4 +104,13 @@ object Compiler {
 
   def bridgeComponentID(inputs: Project): String =
     bridgeComponentID(inputs.scalaInstance.version)
+
+  private def compile(project: Project, compilers: Compilers): CompileResult = {
+    val zincInputs = Inputs.of(compilers,
+                               getCompilationOptions(project),
+                               getSetup(project),
+                               project.previousResult)
+    val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
+    incrementalCompiler.compile(zincInputs, logger)
+  }
 }

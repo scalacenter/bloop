@@ -10,7 +10,7 @@ object QuietLogger extends Logger {
     ()
 
   override def error(msg: Supplier[String]): Unit =
-    ()
+    println(msg.get())
 
   override def info(msg: Supplier[String]): Unit =
     ()
