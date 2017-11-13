@@ -3,6 +3,8 @@ package blossom
 import java.nio.file.{Files, Path, Paths}
 import java.util.{Optional, Properties}
 
+import blossom.util.Progress
+import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 case class Project(name: String,
@@ -15,7 +17,8 @@ case class Project(name: String,
                    javacOptions: Array[String],
                    sourceDirectories: Array[Path],
                    previousResult: PreviousResult,
-                   tmp: Path) {
+                   tmp: Path,
+                   origin: Option[Path]) {
   def toProperties(): Properties = {
     val properties = new Properties()
     properties.setProperty("name", name)
@@ -40,11 +43,14 @@ object Project {
   def fromDir(config: Path): Map[String, Project] = {
     val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
     println(s"Loading ${configFiles.length} projects from '$config'...")
+
+    val progress = new Progress(configFiles.length)
     val projects = new Array[(String, Project)](configFiles.length)
     configFiles.par.foreach {
       case (file, idx) =>
         val project = fromFile(file)
         projects(idx) = project.name -> project
+        progress.update()
     }
     projects.toMap
   }
@@ -53,7 +59,26 @@ object Project {
     val inputStream = Files.newInputStream(config)
     val properties  = new Properties()
     properties.load(inputStream)
-    fromProperties(properties)
+    val project = fromProperties(properties)
+    val previousResult = {
+      lazy val emptyResult = PreviousResult.of(Optional.empty[CompileAnalysis],
+                                               Optional.empty[MiniSetup])
+      val analysisFile =
+        config.getParent.resolve(s"${project.name}-analysis.bin")
+      if (Files.exists(analysisFile)) {
+        FileAnalysisStore
+          .binary(analysisFile.toFile)
+          .get()
+          .map[PreviousResult] { a =>
+            PreviousResult.of(Optional.of(a.getAnalysis),
+                              Optional.of(a.getMiniSetup))
+          }
+          .orElseGet(() => emptyResult)
+      } else {
+        emptyResult
+      }
+    }
+    project.copy(previousResult = previousResult, origin = Some(config))
   }
 
   def fromProperties(properties: Properties): Project = {
@@ -92,6 +117,7 @@ object Project {
             javacOptions,
             sourceDirectories,
             previousResult,
-            tmp)
+            tmp,
+            None)
   }
 }
