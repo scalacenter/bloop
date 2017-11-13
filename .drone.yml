@@ -1,0 +1,41 @@
+matrix:
+  SBT_RUN:
+    - sbt "compile"
+
+clone:
+  git:
+    image: plugins/git
+    tags: true
+    recursive: true
+    depth: 50
+    submodule_update_remote: true
+    submodule_override:
+      zinc: https://github.com/scalacenter/zinc.git
+
+pipeline:
+  restore_cache:
+    image: appleboy/drone-sftp-cache
+    secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
+    restore: true
+    mount:
+      - /drone/.ivy2/cache
+      - /drone/.coursier
+      - /drone/.sbt
+
+  build:
+    image: scalaplatform/scala:2.1
+    when:
+      branch: master
+    commands:
+      - git log | head -n 20
+      - ${SBT_RUN}
+      - ./bin/ci-clean-cache.sh
+
+  rebuild_cache:
+    image: appleboy/drone-sftp-cache
+    secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
+    rebuild: true
+    mount:
+      - /drone/.ivy2/cache
+      - /drone/.coursier
+      - /drone/.sbt
