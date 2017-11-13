@@ -5,7 +5,7 @@ import sbt.{Keys, State, Project, ProjectRef, CrossVersion, Command, Def, ThisBu
 
 /** Command to automatically enable semanticdb-scalac for shell session */
 object Semanticdb {
-  def partialToFullScalaVersion(scalaVersions: List[String]): Map[(Long, Long), String] = {
+  def partialToFullScalaVersion(scalaVersions: Seq[String]): Map[(Long, Long), String] = {
     (for {
       v <- scalaVersions
       p <- CrossVersion.partialVersion(v).toList
@@ -13,7 +13,7 @@ object Semanticdb {
   }
 
   def projectsWithMatchingScalaVersion(state: State,
-                                       scalaVersions: List[String]): Seq[(ProjectRef, String)] = {
+                                       scalaVersions: Seq[String]): Seq[(ProjectRef, String)] = {
     val extracted = Project.extract(state)
     for {
       p              <- extracted.structure.allProjectRefs
@@ -26,7 +26,7 @@ object Semanticdb {
   }
 
   import sbt.librarymanagement.syntax.stringToOrganization
-  def command(scalaVersions: List[String]) =
+  def command(scalaVersions: Seq[String]) =
     Command.command(
       "semanticdbEnable",
       briefHelp = "Configure libraryDependencies, scalaVersion and scalacOptions for scalafix.",
