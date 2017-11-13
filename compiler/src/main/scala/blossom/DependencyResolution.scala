@@ -4,7 +4,7 @@ import sbt.librarymanagement._
 import sbt.librarymanagement.ivy._
 
 object DependencyResolution {
-  def getEngine(inputs: Project): DependencyResolution = {
+  def getEngine: DependencyResolution = {
     val configuration = InlineIvyConfiguration()
     IvyDependencyResolution(configuration)
   }

@@ -49,7 +49,7 @@ object Compiler {
           /* globalLock           = */ GlobalLock,
           /* componentProvider    = */ componentProvider,
           /* secondaryCacheDir    = */ Some(Paths.get(s"$home/.blossom/secondary-cache").toFile),
-          /* dependencyResolution = */ DependencyResolution.getEngine(null),
+          /* dependencyResolution = */ DependencyResolution.getEngine,
           /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(scalaInstance.version),
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
           /* log                  = */ logger
