@@ -5,6 +5,7 @@ import java.util.Optional
 
 import blossom.tasks.CompilationTask
 import blossom.util.TopologicalSort
+import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.annotation.tailrec
@@ -61,7 +62,27 @@ object Blossom {
         run(projects, compilerCache)
 
       case Array("exit") =>
-        ()
+        def hasAnalysis(project: Project): Boolean =
+          project.previousResult.analysis().isPresent && project.previousResult
+            .setup()
+            .isPresent
+
+        timed {
+          projects.foreach {
+            case (name, project) if hasAnalysis(project) =>
+              project.origin foreach { origin =>
+                val analysisPath =
+                  origin.getParent.resolve(s"$name-analysis.bin")
+                val analysis = project.previousResult.analysis().get()
+                val setup    = project.previousResult.setup().get()
+                FileAnalysisStore
+                  .binary(analysisPath.toFile)
+                  .set(ConcreteAnalysisContents(analysis, setup))
+              }
+            case _ =>
+              ()
+          }
+        }
 
       case Array("clean") =>
         val newProjects =
