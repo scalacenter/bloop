@@ -33,12 +33,11 @@ object Blossom {
   def main(args: Array[String]): Unit = {
     val base = args.lift(0).getOrElse("..")
 
-    val projects    = Project.fromDir(Paths.get(base).resolve(".blossom-config"))
-    val blossomHome = Paths.get(sys.props("user.home")).resolve(".")
-    val componentProvider = new ComponentProvider(
-      blossomHome.resolve("components"))
-    val scalaJarsTarget = blossomHome.resolve("scala-jars")
-    val compilerCache   = new CompilerCache(componentProvider, scalaJarsTarget)
+    val projects          = Project.fromDir(Paths.get(base).resolve(".blossom-config"))
+    val blossomHome       = Paths.get(sys.props("user.home")).resolve(".")
+    val componentProvider = new ComponentProvider(blossomHome.resolve("components"))
+    val scalaJarsTarget   = blossomHome.resolve("scala-jars")
+    val compilerCache     = new CompilerCache(componentProvider, scalaJarsTarget)
 
     run(projects, compilerCache)
   }
@@ -52,8 +51,7 @@ object Blossom {
   }
 
   @tailrec
-  def run(projects: Map[String, Project],
-          compilerCache: CompilerCache): Unit = {
+  def run(projects: Map[String, Project], compilerCache: CompilerCache): Unit = {
     val input = scala.io.StdIn.readLine("> ")
     input.split(" ") match {
       case Array("projects") =>
@@ -69,8 +67,7 @@ object Blossom {
         val newProjects =
           timed {
             val previousResult =
-              PreviousResult.of(Optional.empty[CompileAnalysis],
-                                Optional.empty[MiniSetup])
+              PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
             projects.mapValues(_.copy(previousResult = previousResult))
           }
         run(newProjects, compilerCache)
@@ -83,8 +80,7 @@ object Blossom {
             tasks.map { project =>
               val result = Compiler.compile(project, compilerCache)
               val previousResult =
-                PreviousResult.of(Optional.of(result.analysis()),
-                                  Optional.of(result.setup()))
+                PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
               project.name -> project.copy(previousResult = previousResult)
             }.toMap
           projects ++ changedProjects
@@ -100,8 +96,7 @@ object Blossom {
               tasks.par.map { project =>
                 val result = Compiler.compile(project, compilerCache)
                 val previousResult =
-                  PreviousResult.of(Optional.of(result.analysis()),
-                                    Optional.of(result.setup()))
+                  PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
                 project.name -> project.copy(previousResult = previousResult)
               }
             }.toMap
@@ -129,9 +124,8 @@ object Blossom {
     val srcs     = IO.getAll(toChange.sourceDirectories.head, "glob:**.scala")
     val nb2      = Random.nextInt(srcs.length)
     val src      = srcs(nb2)
-    Files.write(src,
-                java.util.Arrays.asList("// foobar\n"),
-                StandardOpenOption.APPEND)
+    Files.write(src, java.util.Arrays.asList("// foobar\n"), StandardOpenOption.APPEND)
+    ()
   }
 
 }

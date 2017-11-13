@@ -1,36 +1,23 @@
-val sharedSettings: Seq[Setting[_]] = Seq(
-  organization := "ch.epfl.scala",
-  version := "0.1.0-SNAPSHOT"
-)
-
-val blossomSettings = sharedSettings ++ Seq(
-  scalaVersion := "2.12.4"
-)
-
-lazy val blossom = project
+val blossom = project
   .in(file("."))
-  .settings(sharedSettings)
   .aggregate(allProjectReferences: _*)
 
 lazy val compiler = project
-  .in(file("compiler"))
+  .dependsOn(Zinc)
   .settings(
-    blossomSettings,
-    name := "compiler",
-    libraryDependencies += Dependencies.zinc,
-    libraryDependencies += Dependencies.libraryManagement,
-    libraryDependencies += Dependencies.coursier,
-    libraryDependencies += Dependencies.coursierCache,
     fork in run := true,
     connectInput in run := true,
-    javaOptions in run ++= Seq("-Xmx8g", "-Xms4g")
+    javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.libraryManagement,
+    )
   )
 
 lazy val sbtBlossom = project
   .in(file("sbt-blossom"))
   .settings(
-    sharedSettings,
-    name := "sbt-blossom",
     sbtPlugin := true,
     crossSbtVersions := Seq("0.13.16", "1.0.3")
   )

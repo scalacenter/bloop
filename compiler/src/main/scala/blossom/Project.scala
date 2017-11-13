@@ -25,15 +25,12 @@ case class Project(name: String,
     properties.setProperty("scalaVersion", scalaInstance.version)
     properties.setProperty("componentProviderBase",
                            componentProvider.baseDir.toAbsolutePath.toString)
-    properties.setProperty(
-      "classpath",
-      classpath.map(_.toAbsolutePath.toString).mkString(","))
+    properties.setProperty("classpath", classpath.map(_.toAbsolutePath.toString).mkString(","))
     properties.setProperty("classesDir", classesDir.toAbsolutePath.toString)
     properties.setProperty("scalacOptions", scalacOptions.mkString(","))
     properties.setProperty("javacOptions", javacOptions.mkString(","))
-    properties.setProperty(
-      "sourceDirectories",
-      sourceDirectories.map(_.toAbsolutePath.toString).mkString(","))
+    properties.setProperty("sourceDirectories",
+                           sourceDirectories.map(_.toAbsolutePath.toString).mkString(","))
     properties.setProperty("tmp", tmp.toAbsolutePath.toString)
     properties
   }
@@ -82,8 +79,8 @@ object Project {
       .split(",")
       .filterNot(_.isEmpty)
       .map(Paths.get(_))
-    val previousResult = PreviousResult.of(Optional.empty[CompileAnalysis],
-                                           Optional.empty[MiniSetup])
+    val previousResult =
+      PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
     val tmp = Paths.get(properties.getProperty("tmp"))
     Project(name,
             dependencies,

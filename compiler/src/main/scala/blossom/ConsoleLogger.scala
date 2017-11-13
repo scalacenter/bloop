@@ -3,7 +3,6 @@ package blossom
 import java.util.function.Supplier
 
 import xsbti.Logger
-import sbt.util.InterfaceUtil.toSupplier
 
 object QuietLogger extends Logger {
   override def debug(msg: Supplier[String]): Unit =

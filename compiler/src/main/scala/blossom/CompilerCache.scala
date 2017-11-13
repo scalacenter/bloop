@@ -6,8 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 import sbt.internal.inc.ZincUtil
 import xsbti.compile.{ClasspathOptions, Compilers}
 
-class CompilerCache(componentProvider: ComponentProvider,
-                    scalaJarsTarget: Path) {
+class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path) {
 
   private val cache =
     new ConcurrentHashMap[(String, String, String), Compilers]()

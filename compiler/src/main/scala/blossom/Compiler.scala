@@ -27,7 +27,7 @@ object Compiler {
     val scalaOrganization = project.scalaInstance.organization
     val scalaName         = project.scalaInstance.name
     val scalaVersion      = project.scalaInstance.version
-    val compiler          = compilerCache.get(scalaOrganization, scalaName, scalaVersion)
+    val compiler          = compilerCache.get((scalaOrganization, scalaName, scalaVersion))
     compile(project, compiler)
   }
 
@@ -48,11 +48,9 @@ object Compiler {
           /* classpathOptions     = */ classpathOptions,
           /* globalLock           = */ GlobalLock,
           /* componentProvider    = */ componentProvider,
-          /* secondaryCacheDir    = */ Some(
-            Paths.get(s"$home/.blossom/secondary-cache").toFile),
-          /* dependencyResolution = */ DependencyResolution.getEngine(null),
-          /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(
-            scalaInstance.version),
+          /* secondaryCacheDir    = */ Some(Paths.get(s"$home/.blossom/secondary-cache").toFile),
+          /* dependencyResolution = */ DependencyResolution.getEngine,
+          /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(scalaInstance.version),
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
           /* log                  = */ logger
         )
@@ -68,16 +66,14 @@ object Compiler {
       .create()
       .withClassesDirectory(inputs.classesDir.toFile)
       .withSources(sources.map(_.toFile))
-      .withClasspath(
-        inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars ++ Array(
-          inputs.classesDir.toFile))
+      .withClasspath(inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars ++ Array(
+        inputs.classesDir.toFile))
   }
 
   def getSetup(inputs: Project): Setup = {
     val perClasspathEntryLookup =
       new PerClasspathEntryLookup {
-        override def analysis(
-            classpathEntry: File): Optional[CompileAnalysis] = {
+        override def analysis(classpathEntry: File): Optional[CompileAnalysis] = {
           inputs.previousResult.analysis
         }
 
