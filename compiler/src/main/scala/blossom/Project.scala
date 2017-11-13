@@ -40,6 +40,13 @@ case class Project(name: String,
 }
 
 object Project {
+  private def createResult(analysis: CompileAnalysis,
+                           setup: MiniSetup): PreviousResult =
+    PreviousResult.of(Optional.of(analysis), Optional.of(setup))
+  private val emptyResult: PreviousResult =
+    PreviousResult.of(Optional.empty[CompileAnalysis],
+                      Optional.empty[MiniSetup])
+
   def fromDir(config: Path): Map[String, Project] = {
     val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
     println(s"Loading ${configFiles.length} projects from '$config'...")
@@ -61,22 +68,15 @@ object Project {
     properties.load(inputStream)
     val project = fromProperties(properties)
     val previousResult = {
-      lazy val emptyResult = PreviousResult.of(Optional.empty[CompileAnalysis],
-                                               Optional.empty[MiniSetup])
       val analysisFile =
         config.getParent.resolve(s"${project.name}-analysis.bin")
       if (Files.exists(analysisFile)) {
         FileAnalysisStore
           .binary(analysisFile.toFile)
           .get()
-          .map[PreviousResult] { a =>
-            PreviousResult.of(Optional.of(a.getAnalysis),
-                              Optional.of(a.getMiniSetup))
-          }
+          .map[PreviousResult](a => createResult(a.getAnalysis, a.getMiniSetup))
           .orElseGet(() => emptyResult)
-      } else {
-        emptyResult
-      }
+      } else emptyResult
     }
     project.copy(previousResult = previousResult, origin = Some(config))
   }
