@@ -40,12 +40,10 @@ case class Project(name: String,
 }
 
 object Project {
-  private def createResult(analysis: CompileAnalysis,
-                           setup: MiniSetup): PreviousResult =
+  private def createResult(analysis: CompileAnalysis, setup: MiniSetup): PreviousResult =
     PreviousResult.of(Optional.of(analysis), Optional.of(setup))
   private val emptyResult: PreviousResult =
-    PreviousResult.of(Optional.empty[CompileAnalysis],
-                      Optional.empty[MiniSetup])
+    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def fromDir(config: Path): Map[String, Project] = {
     val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
