@@ -1,3 +1,5 @@
 .idea
 bin/.coursier
 bin/.scalafmt*
+# zinc uses this local cache for publishing stuff
+.ivy2/
