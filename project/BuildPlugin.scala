@@ -74,7 +74,8 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
-    Keys.onLoadMessage := Header.intro
+    Keys.onLoadMessage := Header.intro,
+    Keys.commands += Semanticdb.command,
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
