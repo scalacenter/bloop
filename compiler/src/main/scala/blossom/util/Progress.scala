@@ -2,10 +2,7 @@ package blossom.util
 
 import java.util.concurrent.atomic.AtomicInteger
 
-class Progress(total: Int,
-               start: String = "[",
-               end: String = "]",
-               sym: String = "#") {
+class Progress(total: Int, start: String = "[", end: String = "]", sym: String = "#") {
   private[this] val symLength = sym.length
   private[this] val counter   = new AtomicInteger(0)
 
@@ -16,8 +13,7 @@ class Progress(total: Int,
 
   def show(): Unit = {
     val percent = ((counter.get.toDouble / total.toDouble) * 100.0).toInt
-    print(
-      start + sym * percent + " " * symLength * (100 - percent) + end + s" ($percent%)\r")
+    print(start + sym * percent + " " * symLength * (100 - percent) + end + s" ($percent%)\r")
     if (counter.get == total) println()
   }
 

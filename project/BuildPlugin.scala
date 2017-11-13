@@ -16,7 +16,7 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{Reference, RootProject, ProjectRef, uri}
+  import sbt.{Reference, RootProject, ProjectRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
   final val testDependencies = List(
     "junit" % "junit" % "4.12" % "test",
@@ -32,15 +32,14 @@ object BuildKeys {
   def inCompileAndTest(ss: Def.Setting[_]*): Seq[Def.Setting[_]] =
     Seq(sbt.Compile, sbt.Test).flatMap(sbt.inConfig(_)(ss))
 
-  val ZincProject = RootProject(
-    uri("git://github.com/scalacenter/zinc.git#a90a0e98f5be965452261388050debe5a7396dac")
-  )
-  val Zinc = ProjectRef(ZincProject.build, "zinc")
+  // Use absolute paths so that references work even if `ThisBuild` changes
+  final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
+  final val ZincProject = RootProject(file(s"$AbsolutePath/zinc"))
+  final val Zinc = ProjectRef(ZincProject.build, "zinc")
 }
 
 object BuildImplementation {
   import sbt.{url, file}
-  import sbt.io.syntax.fileToRichFile
   import sbt.{Developer, Resolver, Watched, Compile, Test}
 
   // This should be added to upstream sbt.
