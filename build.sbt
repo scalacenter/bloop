@@ -20,7 +20,10 @@ lazy val compiler = project
     libraryDependencies += Dependencies.zinc,
     libraryDependencies += Dependencies.libraryManagement,
     libraryDependencies += Dependencies.coursier,
-    libraryDependencies += Dependencies.coursierCache
+    libraryDependencies += Dependencies.coursierCache,
+    fork in run := true,
+    connectInput in run := true,
+    javaOptions in run ++= Seq("-Xmx8g", "-Xms4g")
   )
 
 lazy val sbtBlossom = project
