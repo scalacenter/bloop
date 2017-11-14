@@ -3,8 +3,13 @@ package build
 import sbt.{AutoPlugin, Def, Keys, PluginTrigger, Plugins}
 
 object BuildPlugin extends AutoPlugin {
+  import sbt.plugins.JvmPlugin
+  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
+  import com.lucidchart.sbt.scalafmt.ScalafmtCorePlugin
+
   override def trigger: PluginTrigger = allRequirements
-  override def requires: Plugins = ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
+  override def requires: Plugins =
+    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -16,10 +21,10 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{Reference, RootProject, ProjectRef, file}
+  import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
   final val testDependencies = List(
-    "junit" % "junit" % "4.12" % "test",
+    "junit"        % "junit"           % "4.12" % "test",
     "com.novocode" % "junit-interface" % "0.11" % "test"
   )
 
@@ -34,8 +39,17 @@ object BuildKeys {
 
   // Use absolute paths so that references work even if `ThisBuild` changes
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
+
   final val ZincProject = RootProject(file(s"$AbsolutePath/zinc"))
-  final val Zinc = ProjectRef(ZincProject.build, "zinc")
+  final val Zinc        = ProjectRef(ZincProject.build, "zinc")
+  final val ZincRoot    = ProjectRef(ZincProject.build, "zincRoot")
+  final val ZincBridge  = ProjectRef(ZincProject.build, "compilerBridge")
+
+  final val NailgunProject  = RootProject(file(s"$AbsolutePath/nailgun"))
+  final val NailgunBuild    = BuildRef(NailgunProject.build)
+  final val Nailgun         = ProjectRef(NailgunProject.build, "nailgun")
+  final val NailgunServer   = ProjectRef(NailgunProject.build, "nailgun-server")
+  final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 }
 
 object BuildImplementation {
@@ -49,9 +63,7 @@ object BuildImplementation {
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
   import com.typesafe.sbt.SbtPgp.autoImport.PgpKeys
-  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{
-    autoImport => ReleaseEarlyKeys
-  }
+  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   private final val ThisRepo = GitHub("scalacenter", "blossom")
   final val publishSettings: Seq[Def.Setting[_]] = Seq(
@@ -60,8 +72,7 @@ object BuildImplementation {
     Keys.publishMavenStyle := true,
     Keys.homepage := Some(ThisRepo),
     Keys.publishArtifact in Test := false,
-    Keys.licenses := Seq(
-      "BSD" -> url("http://opensource.org/licenses/BSD-3-Clause")),
+    Keys.licenses := Seq("BSD" -> url("http://opensource.org/licenses/BSD-3-Clause")),
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
@@ -83,11 +94,11 @@ object BuildImplementation {
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
-    Keys.publishArtifact in Compile in Keys.packageDoc := false
   ) ++ publishSettings
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.scalacOptions in Compile := reasonableCompileOptions
+    Keys.scalacOptions in Compile := reasonableCompileOptions,
+    Keys.publishArtifact in Compile in Keys.packageDoc := false
   )
 
   final val reasonableCompileOptions = (

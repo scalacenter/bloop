@@ -11,6 +11,7 @@ clone:
     submodule_update_remote: true
     submodule_override:
       zinc: https://github.com/scalacenter/zinc.git
+      nailgun: https://github.com/scalacenter/nailgun.git
 
 pipeline:
   restore_cache:
