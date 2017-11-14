@@ -1,5 +1,7 @@
 .idea
 bin/.coursier
 bin/.scalafmt*
+.bridge
+.zinc
 # zinc uses this local cache for publishing stuff
 .ivy2/

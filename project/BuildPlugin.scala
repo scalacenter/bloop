@@ -41,6 +41,8 @@ object BuildKeys {
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
   final val ZincProject  = RootProject(file(s"$AbsolutePath/zinc"))
   final val Zinc         = ProjectRef(ZincProject.build, "zinc")
+  final val ZincRoot     = ProjectRef(ZincProject.build, "zincRoot")
+  final val ZincBridge   = ProjectRef(ZincProject.build, "compilerBridge")
 }
 
 object BuildImplementation {
