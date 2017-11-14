@@ -37,10 +37,22 @@ object CompilationTask {
   private def doCompile(project: Project,
                         projects: Map[String, Project],
                         compilerCache: CompilerCache): Map[String, Project] = {
-    val result = Compiler.compile(project, compilerCache)
+    val inputs = toCompileInputs(project, compilerCache, QuietLogger)
+    val result = Compiler.compile(inputs)
     val previousResult =
       PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
     projects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
+  def toCompileInputs(project: Project,
+                      cache: CompilerCache,
+                      logger: xsbti.Logger): CompileInputs = {
+    val instance   = project.scalaInstance
+    val sourceDirs = project.sourceDirectories
+    val classpath  = project.classpath
+    val classesDir = project.classesDir
+    val target     = project.tmp
+    val previous   = project.previousResult
+    CompileInputs(instance, cache, sourceDirs, classpath, classesDir, target, previous, logger)
+  }
 }

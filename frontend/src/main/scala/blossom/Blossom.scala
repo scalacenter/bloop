@@ -99,7 +99,8 @@ object Blossom {
           val tasks   = TopologicalSort.tasks(project, projects).flatten
           val changedProjects =
             tasks.map { project =>
-              val result = Compiler.compile(project, compilerCache)
+              val inputs = CompilationTask.toCompileInputs(project, compilerCache, QuietLogger)
+              val result = Compiler.compile(inputs)
               val previousResult =
                 PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
               project.name -> project.copy(previousResult = previousResult)
@@ -115,7 +116,8 @@ object Blossom {
           val changedProjects =
             steps.flatMap { tasks =>
               tasks.par.map { project =>
-                val result = Compiler.compile(project, compilerCache)
+                val inputs = CompilationTask.toCompileInputs(project, compilerCache, QuietLogger)
+                val result = Compiler.compile(inputs)
                 val previousResult =
                   PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
                 project.name -> project.copy(previousResult = previousResult)
