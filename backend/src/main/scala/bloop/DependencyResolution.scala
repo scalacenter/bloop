@@ -1,4 +1,4 @@
-package blossom
+package bloop
 
 import sbt.librarymanagement._
 import sbt.librarymanagement.ivy._

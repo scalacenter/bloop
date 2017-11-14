@@ -1,4 +1,4 @@
-package blossom
+package bloop
 
 import xsbti.compile._
 import sbt.internal.inc._

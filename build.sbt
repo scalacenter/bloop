@@ -54,8 +54,8 @@ val frontend = project
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
   )
 
-val sbtBlossom = project
-  .in(file("sbt-blossom"))
+val sbtBloop = project
+  .in(file("sbt-bloop"))
   .settings(
     sbtPlugin := true,
     scalaVersion := {
@@ -64,9 +64,9 @@ val sbtBlossom = project
     },
   )
 
-val allProjects          = Seq(backend, frontend, sbtBlossom)
+val allProjects          = Seq(backend, frontend, sbtBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
-val blossom = project
+val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
   .settings(crossSbtVersions := Seq("1.0.3", "0.13.16"))

@@ -1,4 +1,4 @@
-package blossom
+package bloop
 
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.ConcurrentHashMap

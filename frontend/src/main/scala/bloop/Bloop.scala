@@ -1,10 +1,10 @@
-package blossom
+package bloop
 
 import java.nio.file._
 import java.util.Optional
 
-import blossom.tasks.CompilationTask
-import blossom.util.TopologicalSort
+import bloop.tasks.CompilationTask
+import bloop.util.TopologicalSort
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -12,7 +12,7 @@ import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
 
-object Blossom {
+object Bloop {
 
   def plan(base: String, projects: Map[String, Project]): Array[Project] = {
     val plan = new Array[Project](projects.size)
@@ -34,10 +34,10 @@ object Blossom {
   def main(args: Array[String]): Unit = {
     val base = args.lift(0).getOrElse("..")
 
-    val projects          = Project.fromDir(Paths.get(base).resolve(".blossom-config"))
-    val blossomHome       = Paths.get(sys.props("user.home")).resolve(".")
-    val componentProvider = new ComponentProvider(blossomHome.resolve("components"))
-    val scalaJarsTarget   = blossomHome.resolve("scala-jars")
+    val projects          = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
+    val bloopHome       = Paths.get(sys.props("user.home")).resolve(".")
+    val componentProvider = new ComponentProvider(bloopHome.resolve("components"))
+    val scalaJarsTarget   = bloopHome.resolve("scala-jars")
     val compilerCache     = new CompilerCache(componentProvider, scalaJarsTarget)
 
     run(projects, compilerCache)

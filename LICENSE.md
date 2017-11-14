@@ -1,6 +1,8 @@
-blossom is licensed under the [BSD 3-Clause License](http://opensource.org/licenses/BSD-3-Clause).
+bloop is licensed under the [BSD 3-Clause License](http://opensource.org/licenses/BSD-3-Clause).
 
-Copyright (c) 2016 EPFL
+Copyright (c) Martin Duhem
+Copyright (c) Jorge Vicente Cantero
+Copyright (c) 2017 EPFL
 
 All rights reserved.
 
