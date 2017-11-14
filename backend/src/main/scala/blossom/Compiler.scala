@@ -23,12 +23,18 @@ object Compiler {
   final val ZINC_VERSION = "1.0.2"
   val logger             = QuietLogger
 
-  def compile(project: Project, compilerCache: CompilerCache): CompileResult = {
-    val scalaOrganization = project.scalaInstance.organization
-    val scalaName         = project.scalaInstance.name
-    val scalaVersion      = project.scalaInstance.version
+  def compile(scalaInstance: ScalaInstance, compilerCache: CompilerCache): CompileResult = {
+    def getInputs()
+    val scalaOrganization = scalaInstance.organization
+    val scalaName         = scalaInstance.name
+    val scalaVersion      = scalaInstance.version
     val compiler          = compilerCache.get((scalaOrganization, scalaName, scalaVersion))
-    compile(project, compiler)
+    val zincInputs = Inputs.of(compilers,
+                               getCompilationOptions(project),
+                               getSetup(project),
+                               project.previousResult)
+    val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
+    incrementalCompiler.compile(zincInputs, logger)
   }
 
   private val home = System.getProperty("user.home")
@@ -100,13 +106,4 @@ object Compiler {
 
   def bridgeComponentID(inputs: Project): String =
     bridgeComponentID(inputs.scalaInstance.version)
-
-  private def compile(project: Project, compilers: Compilers): CompileResult = {
-    val zincInputs = Inputs.of(compilers,
-                               getCompilationOptions(project),
-                               getSetup(project),
-                               project.previousResult)
-    val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
-    incrementalCompiler.compile(zincInputs, logger)
-  }
 }

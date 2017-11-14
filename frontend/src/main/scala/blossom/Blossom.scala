@@ -9,8 +9,8 @@ import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.annotation.tailrec
-import scala.util.Random
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Random
 
 object Blossom {
 
