@@ -65,7 +65,7 @@ object BuildImplementation {
   import com.typesafe.sbt.SbtPgp.autoImport.PgpKeys
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
-  private final val ThisRepo = GitHub("scalacenter", "blossom")
+  private final val ThisRepo = GitHub("scalacenter", "bloop")
   final val publishSettings: Seq[Def.Setting[_]] = Seq(
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
@@ -117,7 +117,7 @@ object Header {
       |   /____/\___/\__,_/_/\__,_/   \____/\___/_/ /_/\__/\___/_/
       |
       |   ***********************************************************
-      |   ***       Welcome to the build of `loooooooooop`        ***
+      |   ***           Welcome to the build of `bloop`           ***
       |   *** An effort funded by the Scala Center Advisory Board ***
       |   ***********************************************************
     """.stripMargin

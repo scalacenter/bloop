@@ -1,4 +1,4 @@
-package blossom.tasks
+package bloop.tasks
 
 trait Mergeable[T] {
   def merge(inputs: Seq[T]): T

@@ -1,4 +1,4 @@
-package blossom
+package bloop
 
 import java.nio.file._
 import java.nio.file.attribute._

@@ -2,7 +2,7 @@
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 
-val blossom = project
+val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
 
@@ -19,14 +19,14 @@ lazy val compiler = project
     )
   )
 
-lazy val sbtBlossom = project
-  .in(file("sbt-blossom"))
+lazy val sbtBloop = project
+  .in(file("sbt-bloop"))
   .settings(
     sbtPlugin := true,
     crossSbtVersions := Seq("0.13.16", "1.0.3")
   )
 
-lazy val allProjects          = Seq(compiler, sbtBlossom)
+lazy val allProjects          = Seq(compiler, sbtBloop)
 lazy val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 
 /***************************************************************************************************/
