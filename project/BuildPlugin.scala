@@ -21,7 +21,7 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{Reference, RootProject, ProjectRef, file}
+  import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
   final val testDependencies = List(
     "junit"        % "junit"           % "4.12" % "test",
@@ -39,10 +39,17 @@ object BuildKeys {
 
   // Use absolute paths so that references work even if `ThisBuild` changes
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
-  final val ZincProject  = RootProject(file(s"$AbsolutePath/zinc"))
-  final val Zinc         = ProjectRef(ZincProject.build, "zinc")
-  final val ZincRoot     = ProjectRef(ZincProject.build, "zincRoot")
-  final val ZincBridge   = ProjectRef(ZincProject.build, "compilerBridge")
+
+  final val ZincProject = RootProject(file(s"$AbsolutePath/zinc"))
+  final val Zinc        = ProjectRef(ZincProject.build, "zinc")
+  final val ZincRoot    = ProjectRef(ZincProject.build, "zincRoot")
+  final val ZincBridge  = ProjectRef(ZincProject.build, "compilerBridge")
+
+  final val NailgunProject  = RootProject(file(s"$AbsolutePath/nailgun"))
+  final val NailgunBuild    = BuildRef(NailgunProject.build)
+  final val Nailgun         = ProjectRef(NailgunProject.build, "nailgun")
+  final val NailgunServer   = ProjectRef(NailgunProject.build, "nailgun-server")
+  final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 }
 
 object BuildImplementation {

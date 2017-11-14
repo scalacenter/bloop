@@ -52,3 +52,13 @@ val zincIntegration = project
     // Requires at least to cross publish the bridges
     test := (test in Test in ZincRoot).dependsOn(test in Test in ZincBridge).value,
   )
+
+// Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
+val SbtConfig = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
+val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just having fun.")
+val zincNailgun = project
+  .in(file(".nailgun"))
+  .aggregate(NailgunServer)
+  .settings(
+    hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
+  )
