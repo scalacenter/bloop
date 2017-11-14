@@ -1,3 +1,19 @@
-<p style="width=80%;width: 70%;margin: auto;"><a href="https://user-images.githubusercontent.com/2462974/32789841-12f16c02-c95d-11e7-9928-ddc5d4d9fb3d.png" target="_blank" style="width:50%;"><img src="https://user-images.githubusercontent.com/2462974/32789841-12f16c02-c95d-11e7-9928-ddc5d4d9fb3d.png" alt="bloop-design2 svg" style="max-width:100%;"><div></div></a></p>
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/2462974/32790850-d2eeffc2-c95f-11e7-8a3e-7032ca875ce3.png?style=centerme" alt="g38782" style="max-width:100%;">
+</p>
 
+<p align="center">
 Bloop gives you fast edit/compile/test workflows for Scala.
+</p>
+
+## Goals
+
+To document here what bloop is and is not.
+
+## Installation
+
+To be done.
+
+## How to use
+
+How to use bloop.
