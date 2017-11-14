@@ -40,7 +40,7 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
           /* classpathOptions     = */ classpathOptions,
           /* globalLock           = */ GlobalLock,
           /* componentProvider    = */ componentProvider,
-          /* secondaryCacheDir    = */ Some(Paths.get(s"$home/.blossom/secondary-cache").toFile),
+          /* secondaryCacheDir    = */ Some(Paths.get(s"$home/.bloop/secondary-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,
           /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(scalaInstance.version),
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
