@@ -1,9 +1,9 @@
-package blossom
+package bloop
 package tasks
 
 import java.util.Optional
 
-import blossom.util.{Progress, TopologicalSort}
+import bloop.util.{Progress, TopologicalSort}
 import xsbti.compile.PreviousResult
 
 import scala.concurrent.duration.Duration

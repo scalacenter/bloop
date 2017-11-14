@@ -1,4 +1,4 @@
-package blossom
+package bloop
 
 import java.io.File
 import java.nio.file.{Files, Path}
