@@ -2,3 +2,7 @@
 	path = zinc
 	url = git@github.com:scalacenter/zinc.git
 	branch = loop
+[submodule "nailgun"]
+	path = nailgun
+	url = git@github.com:scalacenter/nailgun.git
+	branch = zinc-nailgun
