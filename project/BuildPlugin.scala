@@ -6,11 +6,10 @@ object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
   import com.lucidchart.sbt.scalafmt.ScalafmtCorePlugin
-  import com.typesafe.sbt.GitPlugin
 
   override def trigger: PluginTrigger = allRequirements
   override def requires: Plugins =
-    JvmPlugin && ScalafmtCorePlugin && GitPlugin && ReleaseEarlyPlugin
+    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
