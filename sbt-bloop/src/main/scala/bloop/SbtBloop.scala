@@ -58,7 +58,6 @@ object SbtBloop extends AutoPlugin {
               scalaOrganization,
               scalaName,
               scalaVersion.value,
-              file(s"$home/.bloop/components"),
               classpath,
               classesDir,
               scalacOptions.value,
@@ -82,7 +81,6 @@ object SbtBloop extends AutoPlugin {
                             scalaOrganization: String,
                             scalaName: String,
                             scalaVersion: String,
-                            componentProvider: File,
                             classpath: Seq[File],
                             classesDir: File,
                             scalacOptions: Seq[String],
@@ -96,7 +94,6 @@ object SbtBloop extends AutoPlugin {
       properties.setProperty("scalaOrganization", scalaOrganization)
       properties.setProperty("scalaName", scalaName)
       properties.setProperty("scalaVersion", scalaVersion)
-      properties.setProperty("componentProviderBase", componentProvider.getAbsolutePath)
       properties.setProperty("classpath", classpath.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("classesDir", classesDir.getAbsolutePath)
       properties.setProperty("scalacOptions", scalacOptions.mkString(","))

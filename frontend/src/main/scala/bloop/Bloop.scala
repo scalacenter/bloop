@@ -5,6 +5,7 @@ import java.util.Optional
 
 import bloop.tasks.CompilationTask
 import bloop.util.TopologicalSort
+import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -35,9 +36,8 @@ object Bloop {
     val base = args.lift(0).getOrElse("..")
 
     val projects          = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
-    val componentProvider = new ComponentProvider(IO.bloopHome.resolve("components"))
-    val scalaJarsTarget   = IO.bloopHome.resolve("scala-jars")
-    val compilerCache     = new CompilerCache(componentProvider, scalaJarsTarget)
+    val componentProvider = ZincInternals.getComponentProvider(IO.bloopHome.resolve("components"))
+    val compilerCache   = new CompilerCache(componentProvider, IO.bloopHome.resolve("scala-jars"))
 
     run(projects, compilerCache)
   }
