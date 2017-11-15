@@ -1,4 +1,4 @@
-package blossom
+package bloop
 
 import java.io.FileOutputStream
 import java.util.Properties
@@ -7,26 +7,26 @@ import sbt._
 import Keys._
 import sbt.plugins.JvmPlugin
 
-object SbtBlossom extends AutoPlugin {
+object SbtBloop extends AutoPlugin {
   override def trigger  = allRequirements
   override def requires = JvmPlugin
 
   object autoImport {
-    lazy val blossomConfigDir: SettingKey[File] =
-      settingKey[File]("Directory where to write blossom configuration files")
-    lazy val blossomInstall: TaskKey[Unit] =
-      taskKey[Unit]("Generate blossom configuration files for this project")
+    lazy val bloopConfigDir: SettingKey[File] =
+      settingKey[File]("Directory where to write bloop configuration files")
+    lazy val bloopInstall: TaskKey[Unit] =
+      taskKey[Unit]("Generate bloop configuration files for this project")
     lazy val install: TaskKey[Unit] =
-      taskKey[Unit]("Generate all blossom configuration files")
+      taskKey[Unit]("Generate all bloop configuration files")
   }
 
   import autoImport._
 
   override def globalSettings: Seq[Def.Setting[_]] = Seq(
-    blossomConfigDir in Global := (baseDirectory in ThisBuild).value / ".blossom-config",
+    bloopConfigDir in Global := (baseDirectory in ThisBuild).value / ".bloop-config",
     install := Def.taskDyn {
       val filter = ScopeFilter(inAnyProject, inConfigurations(Compile, Test))
-      blossomInstall.all(filter).map(_ => ())
+      bloopInstall.all(filter).map(_ => ())
     }.value
   )
 
@@ -34,7 +34,7 @@ object SbtBlossom extends AutoPlugin {
   override def projectSettings: Seq[Def.Setting[_]] =
     List(Compile, Test).flatMap { c =>
       inConfig(c)(
-        Seq(blossomInstall := {
+        Seq(bloopInstall := {
           def makeName(name: String, configuration: Configuration): String =
             if (configuration == Compile) name else name + "-test"
           val projectName = makeName(projectID.value.name, configuration.value)
@@ -49,8 +49,8 @@ object SbtBlossom extends AutoPlugin {
           val classpath  = dependencyClasspath.value.map(_.data.getAbsoluteFile)
           val classesDir = classDirectory.value.getAbsoluteFile
           val sourceDirs = sourceDirectories.value
-          val tmp        = target.value / "tmp-blossom"
-          val outFile    = blossomConfigDir.value / (projectName + ".config")
+          val tmp        = target.value / "tmp-bloop"
+          val outFile    = bloopConfigDir.value / (projectName + ".config")
           val config =
             Config(
               projectName,
@@ -58,7 +58,7 @@ object SbtBlossom extends AutoPlugin {
               scalaOrganization,
               scalaName,
               scalaVersion.value,
-              file(s"$home/.blossom/components"),
+              file(s"$home/.bloop/components"),
               classpath,
               classesDir,
               scalacOptions.value,
@@ -67,7 +67,7 @@ object SbtBlossom extends AutoPlugin {
               tmp
             )
           val properties = config.toProperties
-          IO.createDirectory(blossomConfigDir.value)
+          IO.createDirectory(bloopConfigDir.value)
           val stream = new FileOutputStream(outFile)
           try properties.store(stream, null)
           finally stream.close()

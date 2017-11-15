@@ -1,9 +1,9 @@
-package blossom
+package bloop
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.{Optional, Properties}
 
-import blossom.util.Progress
+import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
