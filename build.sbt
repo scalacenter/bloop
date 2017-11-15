@@ -6,6 +6,7 @@ val bridgeIntegration = project
   .in(file(".bridge"))
   .aggregate(ZincBridge)
   .settings(
+    skip in publish := true,
     scalaVersion := (scalaVersion in ZincBridge).value,
     crossScalaVersions := (crossScalaVersions in ZincBridge).value,
   )
@@ -14,6 +15,7 @@ val zincIntegration = project
   .in(file(".zinc"))
   .aggregate(ZincRoot)
   .settings(
+    skip in publish := true,
     scalaVersion := (scalaVersion in ZincRoot).value,
     // This only covers 2.12 and 2.11, but this is enough.
     crossScalaVersions := (crossScalaVersions in ZincRoot).value,
@@ -26,6 +28,7 @@ val nailgun = project
   .in(file(".nailgun"))
   .aggregate(NailgunServer)
   .settings(
+    skip in publish := true,
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
@@ -33,7 +36,7 @@ val nailgun = project
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 val backend = project
-  .dependsOn(Zinc, nailgun)
+  .dependsOn(Zinc, NailgunServer)
   .settings(
     libraryDependencies ++= List(
       Dependencies.coursier,
