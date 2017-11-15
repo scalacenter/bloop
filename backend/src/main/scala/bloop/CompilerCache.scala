@@ -10,7 +10,7 @@ import xsbti.compile.{ClasspathOptions, Compilers}
 class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path) {
   import CompilerCache.CacheId
   private val logger = QuietLogger
-  private val cache = new ConcurrentHashMap[CacheId, Compilers]()
+  private val cache  = new ConcurrentHashMap[CacheId, Compilers]()
 
   def get(id: CacheId): Compilers = cache.computeIfAbsent(id, newCompilers)
 

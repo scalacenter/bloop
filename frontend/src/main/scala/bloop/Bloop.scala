@@ -35,7 +35,7 @@ object Bloop {
     val base = args.lift(0).getOrElse("..")
 
     val projects          = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
-    val bloopHome       = Paths.get(sys.props("user.home")).resolve(".")
+    val bloopHome         = Paths.get(sys.props("user.home")).resolve(".bloop")
     val componentProvider = new ComponentProvider(bloopHome.resolve("components"))
     val scalaJarsTarget   = bloopHome.resolve("scala-jars")
     val compilerCache     = new CompilerCache(componentProvider, scalaJarsTarget)
