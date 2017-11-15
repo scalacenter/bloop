@@ -30,7 +30,6 @@ object SbtBloop extends AutoPlugin {
     }.value
   )
 
-  private val home = System.getProperty("user.home")
   override def projectSettings: Seq[Def.Setting[_]] =
     List(Compile, Test).flatMap { c =>
       inConfig(c)(
