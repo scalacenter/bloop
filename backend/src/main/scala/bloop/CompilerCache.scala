@@ -23,7 +23,6 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
     ZincUtil.compilers(scalaInstance, classpathOptions, None, compiler)
   }
 
-  private val home = System.getProperty("user.home")
   def getScalaCompiler(scalaInstance: ScalaInstance,
                        classpathOptions: ClasspathOptions,
                        componentProvider: ComponentProvider,
@@ -40,7 +39,7 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
           /* classpathOptions     = */ classpathOptions,
           /* globalLock           = */ GlobalLock,
           /* componentProvider    = */ componentProvider,
-          /* secondaryCacheDir    = */ Some(Paths.get(s"$home/.bloop/secondary-cache").toFile),
+          /* secondaryCacheDir    = */ Some(IO.bloopHome.resolve("secondary-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,
           /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(scalaInstance.version),
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
