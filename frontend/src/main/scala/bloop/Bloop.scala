@@ -37,7 +37,7 @@ object Bloop {
 
     val projects          = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
     val componentProvider = ZincInternals.getComponentProvider(IO.bloopHome.resolve("components"))
-    val compilerCache   = new CompilerCache(componentProvider, IO.bloopHome.resolve("scala-jars"))
+    val compilerCache     = new CompilerCache(componentProvider, IO.bloopHome.resolve("scala-jars"))
 
     run(projects, compilerCache)
   }
