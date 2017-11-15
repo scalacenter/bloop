@@ -12,13 +12,11 @@ val bridgeIntegration = project
 
 val zincIntegration = project
   .in(file(".zinc"))
-  .aggregate(Zinc)
+  .aggregate(ZincRoot)
   .settings(
-    scalaVersion := (scalaVersion in Zinc).value,
+    scalaVersion := (scalaVersion in ZincRoot).value,
     // This only covers 2.12 and 2.11, but this is enough.
-    crossScalaVersions := (crossScalaVersions in Zinc).value,
-    // Requires at least to cross publish the bridges
-    test := (test in Test in ZincRoot).dependsOn(test in Test in ZincBridge).value,
+    crossScalaVersions := (crossScalaVersions in ZincRoot).value,
   )
 
 // Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
