@@ -6,6 +6,9 @@ import java.io.IOException
 
 object IO {
 
+  val userHome  = Paths.get(sys.props("user.home"))
+  val bloopHome = userHome.resolve(".bloop")
+
   def getAll(base: Path, pattern: String): Array[Path] = {
     val out     = collection.mutable.ArrayBuffer.empty[Path]
     val matcher = FileSystems.getDefault.getPathMatcher(pattern)
