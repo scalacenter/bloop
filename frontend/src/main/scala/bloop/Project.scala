@@ -10,7 +10,6 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 case class Project(name: String,
                    dependencies: Array[String],
                    scalaInstance: ScalaInstance,
-                   componentProvider: ComponentProvider,
                    classpath: Array[Path],
                    classesDir: Path,
                    scalacOptions: Array[String],
@@ -26,8 +25,6 @@ case class Project(name: String,
     properties.setProperty("scalaOrg", scalaInstance.organization)
     properties.setProperty("scalaName", scalaInstance.name)
     properties.setProperty("scalaVersion", scalaInstance.version)
-    properties.setProperty("componentProviderBase",
-                           componentProvider.baseDir.toAbsolutePath.toString)
     properties.setProperty("classpath", classpath.map(_.toAbsolutePath.toString).mkString(","))
     properties.setProperty("classesDir", classesDir.toAbsolutePath.toString)
     properties.setProperty("scalacOptions", scalacOptions.mkString(","))
@@ -88,8 +85,6 @@ object Project {
     val scalaVersion      = properties.getProperty("scalaVersion")
     val scalaInstance =
       ScalaInstance(scalaOrganization, scalaName, scalaVersion)
-    val componentProvider = new ComponentProvider(
-      Paths.get(properties.getProperty("componentProviderBase")))
     val classpath =
       properties.getProperty("classpath").split(",").map(Paths.get(_))
     val classesDir = Paths.get(properties.getProperty("classesDir"))
@@ -108,7 +103,6 @@ object Project {
     Project(name,
             dependencies,
             scalaInstance,
-            componentProvider,
             classpath,
             classesDir,
             scalacOptions,

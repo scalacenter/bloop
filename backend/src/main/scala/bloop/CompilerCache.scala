@@ -3,8 +3,9 @@ package bloop
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.ConcurrentHashMap
 
+import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
-import xsbti.Logger
+import xsbti.{ComponentProvider, Logger}
 import xsbti.compile.{ClasspathOptions, Compilers}
 
 class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path) {
@@ -37,7 +38,7 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
         ZincUtil.scalaCompiler(
           /* scalaInstance        = */ scalaInstance,
           /* classpathOptions     = */ classpathOptions,
-          /* globalLock           = */ GlobalLock,
+          /* globalLock           = */ ZincInternals.getGlobalLock,
           /* componentProvider    = */ componentProvider,
           /* secondaryCacheDir    = */ Some(IO.bloopHome.resolve("secondary-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,

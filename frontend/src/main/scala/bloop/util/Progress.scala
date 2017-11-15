@@ -8,8 +8,10 @@ class Progress(total: Int, start: String = "[", end: String = "]", sym: String =
 
   show()
 
-  def increment(): Unit =
+  def increment(): Unit = {
     counter.incrementAndGet()
+    ()
+  }
 
   def show(): Unit = {
     val percent = ((counter.get.toDouble / total.toDouble) * 100.0).toInt
