@@ -54,6 +54,7 @@ val frontend = project
 val sbtBloop = project
   .in(file("sbt-bloop"))
   .settings(
+    name := "sbt-bloop",
     sbtPlugin := true,
     scalaVersion := {
       val orig = scalaVersion.value
