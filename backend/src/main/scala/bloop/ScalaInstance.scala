@@ -20,22 +20,19 @@ class ScalaInstance(
 
   override val compilerJar: File =
     allJars
-      .find(f =>
-        f.getName.startsWith("scala-compiler-") && f.getName.endsWith(".jar"))
+      .find(f => f.getName.startsWith("scala-compiler-") && f.getName.endsWith(".jar"))
       .orNull
 
   override val libraryJar: File =
     allJars
-      .find(f =>
-        f.getName.startsWith("scala-library-") && f.getName.endsWith(".jar"))
+      .find(f => f.getName.startsWith("scala-library-") && f.getName.endsWith(".jar"))
       .orNull
 
   override val otherJars: Array[File] =
     allJars.filter(
       f =>
         f.getName.endsWith(".jar") && !(f.getName
-          .startsWith("scala-compiler-") || f.getName.startsWith(
-          "scala-library-")))
+          .startsWith("scala-compiler-") || f.getName.startsWith("scala-library-")))
 
   override def actualVersion(): String =
     Option(loader.getResource("compiler.properties")).map { url =>
@@ -47,15 +44,12 @@ class ScalaInstance(
 }
 
 object ScalaInstance {
-  def apply(scalaOrg: String,
-            scalaName: String,
-            scalaVersion: String): ScalaInstance = {
-    val start = Resolution(
-      Set(Dependency(Module(scalaOrg, scalaName), scalaVersion)))
+  def apply(scalaOrg: String, scalaName: String, scalaVersion: String): ScalaInstance = {
+    val start = Resolution(Set(Dependency(Module(scalaOrg, scalaName), scalaVersion)))
     val repositories =
       Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
-    val fetch                                        = Fetch.from(repositories, Cache.fetch())
-    val resolution                                   = start.process.run(fetch).unsafePerformSync
+    val fetch      = Fetch.from(repositories, Cache.fetch())
+    val resolution = start.process.run(fetch).unsafePerformSync
     //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
     // TODO: Do something with the errors.
     val localArtifacts: Seq[FileError \/ File] = Task
