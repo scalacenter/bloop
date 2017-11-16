@@ -7,11 +7,11 @@ import java.nio.file.attribute._
 import io.github.soc.directories.ProjectDirectories
 
 object IO {
-  private val projectDirectories = ProjectDirectories.fromProjectName("bloop")
+  private val projectDirectories                   = ProjectDirectories.fromProjectName("bloop")
   private def createDirFor(filepath: String): Path = Files.createDirectories(Paths.get(filepath))
-  final val bloopCacheDir: Path = createDirFor(projectDirectories.projectCacheDir)
-  final val bloopDataDir: Path = createDirFor(projectDirectories.projectDataDir)
-  final val bloopConfigDir: Path = createDirFor(projectDirectories.projectConfigDir)
+  final val bloopCacheDir: Path                    = createDirFor(projectDirectories.projectCacheDir)
+  final val bloopDataDir: Path                     = createDirFor(projectDirectories.projectDataDir)
+  final val bloopConfigDir: Path                   = createDirFor(projectDirectories.projectConfigDir)
 
   def getCacheDirectory(dirName: String): Path = {
     val dir = bloopCacheDir.resolve(dirName)
