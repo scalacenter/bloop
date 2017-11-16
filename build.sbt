@@ -53,6 +53,8 @@ val frontend = project
     fork in run := true,
     connectInput in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
+    libraryDependencies += "com.lihaoyi" %% "utest" % "0.6.0" % "test",
+    testFrameworks += new TestFramework("utest.runner.Framework")
   )
 
 val sbtBloop = project
