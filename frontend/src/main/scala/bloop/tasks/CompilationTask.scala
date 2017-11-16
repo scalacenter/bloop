@@ -8,6 +8,7 @@ import xsbti.compile.PreviousResult
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
+import Task._
 
 object CompilationTask {
 
@@ -30,8 +31,13 @@ object CompilationTask {
         dependencies.foreach(dep => task.dependsOn(tasks(dep)))
     }
 
-    val result = Await.result(tasks(project.name).run(), Duration.Inf)
-    projects ++ result
+    Await.result(tasks(project.name).run(), Duration.Inf) match {
+      case Success(result) =>
+        projects ++ result
+      case Failure(partial, reasons) =>
+        // TODO: Log reasons for failure
+        projects ++ partial
+    }
   }
 
   private def doCompile(project: Project,
