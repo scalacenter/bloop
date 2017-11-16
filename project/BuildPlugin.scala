@@ -1,6 +1,6 @@
 package build
 
-import sbt.{AutoPlugin, Def, Keys, PluginTrigger, Plugins}
+import sbt.{AutoPlugin, BuiltinCommands, Def, Keys, PluginTrigger, Plugins}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -41,6 +41,7 @@ object BuildKeys {
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
 
   final val ZincProject = RootProject(file(s"$AbsolutePath/zinc"))
+  final val ZincBuild   = BuildRef(ZincProject.build)
   final val Zinc        = ProjectRef(ZincProject.build, "zinc")
   final val ZincRoot    = ProjectRef(ZincProject.build, "zincRoot")
   final val ZincBridge  = ProjectRef(ZincProject.build, "compilerBridge")
@@ -86,6 +87,7 @@ object BuildImplementation {
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.commands += Semanticdb.command(Keys.crossScalaVersions.value),
+    Keys.onLoad := BuildDefaults.onLoad.value,
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -106,6 +108,38 @@ object BuildImplementation {
       "-language:higherKinds" :: "-language:implicitConversions" :: "-unchecked" :: "-Yno-adapted-args" ::
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: "-Xlint" :: Nil
   )
+
+  object BuildDefaults {
+    import sbt.State
+
+    /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
+     * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
+    val hijacked = sbt.AttributeKey[Boolean]("The hijacked option.")
+    val onLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
+      val globalSettings =
+        List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
+      def genProjectSettings(ref: sbt.ProjectRef) =
+        BuildKeys.inProject(ref)(Keys.organization := "ch.epfl.scala")
+
+      val buildStructure = sbt.Project.structure(state)
+      if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
+      else {
+        val hijackedState      = state.put(hijacked, true)
+        val extracted          = sbt.Project.extract(hijackedState)
+        val allZincProjects    = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
+        val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
+        val allProjects        = allZincProjects ++ allNailgunProjects
+        val projectSettings    = allProjects.flatMap(genProjectSettings)
+        // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
+        val currentSession = sbt.Project.session(state)
+        val currentProject = currentSession.current
+        val currentSessionSettings =
+          currentSession.append.get(currentProject).toList.flatten.map(_._1)
+        val allSessionSettings = currentSessionSettings ++ currentSession.rawAppend
+        extracted.append(globalSettings ++ projectSettings ++ allSessionSettings, hijackedState)
+      }
+    }
+  }
 }
 
 object Header {
