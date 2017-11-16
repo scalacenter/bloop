@@ -1,4 +1,6 @@
-package object bloop {
+package bloop.io
+
+object Timer {
 
   @inline def timed[T](op: => T): T = {
     val start   = System.nanoTime()

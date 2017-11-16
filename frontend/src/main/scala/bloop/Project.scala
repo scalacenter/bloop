@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.{Optional, Properties}
 
 import bloop.io.IO
+import bloop.io.Timer.timed
 import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}

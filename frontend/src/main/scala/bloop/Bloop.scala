@@ -4,6 +4,7 @@ import java.nio.file._
 import java.util.Optional
 
 import bloop.io.IO
+import bloop.io.Timer.timed
 import bloop.tasks.CompilationTask
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
