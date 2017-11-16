@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.{Optional, Properties}
 
 import bloop.io.IO
+import bloop.io.Timer.timed
 import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -43,7 +44,7 @@ object Project {
   private val emptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  def fromDir(config: Path): Map[String, Project] = {
+  def fromDir(config: Path): Map[String, Project] = timed {
     val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
     println(s"Loading ${configFiles.length} projects from '$config'...")
 
