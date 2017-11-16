@@ -128,7 +128,7 @@ object Bloop {
 
       case Array("compile", projectName) =>
         val newProjects = timed {
-          CompilationTask(projects(projectName), projects, compilerCache)
+          CompilationTask(projects(projectName), projects, compilerCache, QuietLogger)
         }
         run(newProjects, compilerCache)
 

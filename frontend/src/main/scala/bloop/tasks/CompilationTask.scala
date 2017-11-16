@@ -4,6 +4,8 @@ package tasks
 import java.util.Optional
 
 import bloop.util.{Progress, TopologicalSort}
+
+import xsbti.Logger
 import xsbti.compile.PreviousResult
 
 import scala.concurrent.duration.Duration
@@ -11,8 +13,10 @@ import scala.concurrent.{Await, ExecutionContext}
 
 object CompilationTask {
 
-  def apply(project: Project, projects: Map[String, Project], compilerCache: CompilerCache)(
-      implicit ec: ExecutionContext): Map[String, Project] = {
+  def apply(project: Project,
+            projects: Map[String, Project],
+            compilerCache: CompilerCache,
+            logger: Logger)(implicit ec: ExecutionContext): Map[String, Project] = {
     val toCompile = TopologicalSort.reachable(project, projects)
 
     val progress = new Progress(toCompile.size)
@@ -20,7 +24,7 @@ object CompilationTask {
       toCompile.map {
         case (name, proj) =>
           name -> new Task(
-            (projects: Map[String, Project]) => doCompile(proj, projects, compilerCache),
+            (projects: Map[String, Project]) => doCompile(proj, projects, compilerCache, logger),
             () => progress.update())
       }
 
@@ -30,23 +34,30 @@ object CompilationTask {
         dependencies.foreach(dep => task.dependsOn(tasks(dep)))
     }
 
-    val result = Await.result(tasks(project.name).run(), Duration.Inf)
-    projects ++ result
+    Await.result(tasks(project.name).run(), Duration.Inf) match {
+      case Task.Success(result) =>
+        projects ++ result
+      case Task.Failure(partial, reasons) =>
+        reasons.foreach { throwable =>
+          logger.trace(() => throwable)
+        }
+        // TODO: Log reasons for failure
+        projects ++ partial
+    }
   }
 
   private def doCompile(project: Project,
                         projects: Map[String, Project],
-                        compilerCache: CompilerCache): Map[String, Project] = {
-    val inputs = toCompileInputs(project, compilerCache, QuietLogger)
+                        compilerCache: CompilerCache,
+                        logger: Logger): Map[String, Project] = {
+    val inputs = toCompileInputs(project, compilerCache, logger)
     val result = Compiler.compile(inputs)
     val previousResult =
       PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
     projects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
-  def toCompileInputs(project: Project,
-                      cache: CompilerCache,
-                      logger: xsbti.Logger): CompileInputs = {
+  def toCompileInputs(project: Project, cache: CompilerCache, logger: Logger): CompileInputs = {
     val instance   = project.scalaInstance
     val sourceDirs = project.sourceDirectories
     val classpath  = project.classpath
