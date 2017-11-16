@@ -13,8 +13,10 @@ import scala.concurrent.{Await, ExecutionContext}
 
 object CompilationTask {
 
-  def apply(project: Project, projects: Map[String, Project], compilerCache: CompilerCache, logger: Logger)(
-      implicit ec: ExecutionContext): Map[String, Project] = {
+  def apply(project: Project,
+            projects: Map[String, Project],
+            compilerCache: CompilerCache,
+            logger: Logger)(implicit ec: ExecutionContext): Map[String, Project] = {
     val toCompile = TopologicalSort.reachable(project, projects)
 
     val progress = new Progress(toCompile.size)
@@ -46,7 +48,8 @@ object CompilationTask {
 
   private def doCompile(project: Project,
                         projects: Map[String, Project],
-                        compilerCache: CompilerCache, logger: Logger): Map[String, Project] = {
+                        compilerCache: CompilerCache,
+                        logger: Logger): Map[String, Project] = {
     val inputs = toCompileInputs(project, compilerCache, logger)
     val result = Compiler.compile(inputs)
     val previousResult =
@@ -54,9 +57,7 @@ object CompilationTask {
     projects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
-  def toCompileInputs(project: Project,
-                      cache: CompilerCache,
-                      logger: Logger): CompileInputs = {
+  def toCompileInputs(project: Project, cache: CompilerCache, logger: Logger): CompileInputs = {
     val instance   = project.scalaInstance
     val sourceDirs = project.sourceDirectories
     val classpath  = project.classpath

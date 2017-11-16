@@ -61,7 +61,8 @@ object Task {
   case class Success[T](value: T)                                  extends Result[T]
   case class Failure[T](partialResult: T, reasons: Seq[Throwable]) extends Result[T]
   object Failure {
-    def apply[T](partialResult: T, failures: Seq[Failure[T]])(implicit mergeable: Mergeable[T]): Failure[T] = {
+    def apply[T](partialResult: T, failures: Seq[Failure[T]])(
+        implicit mergeable: Mergeable[T]): Failure[T] = {
       val result  = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
       val reasons = failures.flatMap(_.reasons)
       Failure(result, reasons)
