@@ -39,7 +39,7 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
           /* classpathOptions     = */ classpathOptions,
           /* globalLock           = */ ZincInternals.getGlobalLock,
           /* componentProvider    = */ componentProvider,
-          /* secondaryCacheDir    = */ Some(IO.bloopHome.resolve("secondary-cache").toFile),
+          /* secondaryCacheDir    = */ Some(IO.getCacheDirectory("bridge-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,
           /* compilerBridgeSource = */ bridgeSources,
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,

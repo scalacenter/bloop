@@ -42,6 +42,7 @@ val backend = project
       Dependencies.coursier,
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
+      Dependencies.configDirectories
     )
   )
 

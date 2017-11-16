@@ -11,7 +11,7 @@ object ZincInternals {
   def latestVersion: String     = ZincComponentCompiler.incrementalVersion
   def getGlobalLock: GlobalLock = ZincComponentCompiler.getDefaultLock
   def getComponentProvider(componentsDir: Path): ComponentProvider = {
-    if (!Files.exists(componentsDir)) Files.createFile(componentsDir)
+    if (!Files.exists(componentsDir)) Files.createDirectory(componentsDir)
     ZincComponentCompiler.getDefaultComponentProvider(componentsDir.toFile())
   }
 
