@@ -5,7 +5,6 @@ import java.util.Optional
 
 import bloop.io.IO
 import bloop.tasks.CompilationTask
-import bloop.util.TopologicalSort
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -71,40 +70,21 @@ object Bloop {
       case Array("seqcompile", projectName) =>
         val newProjects = timed {
           val project = projects(projectName)
-          val tasks   = TopologicalSort.tasks(project, projects).flatten
-          val changedProjects =
-            tasks.map { project =>
-              val inputs = CompilationTask.toCompileInputs(project, compilerCache, QuietLogger)
-              val result = Compiler.compile(inputs)
-              val previousResult =
-                PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-              project.name -> project.copy(previousResult = previousResult)
-            }.toMap
-          projects ++ changedProjects
+          CompilationTask.sequential(project, projects, compilerCache, QuietLogger)
         }
         run(newProjects, compilerCache)
 
       case Array("naivecompile", projectName) =>
         val newProjects = timed {
           val project = projects(projectName)
-          val steps   = TopologicalSort.tasks(project, projects)
-          val changedProjects =
-            steps.flatMap { tasks =>
-              tasks.par.map { project =>
-                val inputs = CompilationTask.toCompileInputs(project, compilerCache, QuietLogger)
-                val result = Compiler.compile(inputs)
-                val previousResult =
-                  PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-                project.name -> project.copy(previousResult = previousResult)
-              }
-            }.toMap
-          projects ++ changedProjects
+          CompilationTask.parallelNaive(project, projects, compilerCache, QuietLogger)
         }
         run(newProjects, compilerCache)
 
       case Array("compile", projectName) =>
         val newProjects = timed {
-          CompilationTask(projects(projectName), projects, compilerCache, QuietLogger)
+          val project = projects(projectName)
+          CompilationTask.parallel(project, projects, compilerCache, QuietLogger)
         }
         run(newProjects, compilerCache)
 
