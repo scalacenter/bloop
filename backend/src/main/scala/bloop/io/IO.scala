@@ -1,11 +1,10 @@
-package bloop
+package bloop.io
 
+import java.io.IOException
 import java.nio.file._
 import java.nio.file.attribute._
-import java.io.IOException
 
 object IO {
-
   val userHome  = Paths.get(sys.props("user.home"))
   val bloopHome = userHome.resolve(".bloop")
 
@@ -31,5 +30,4 @@ object IO {
     Files.walkFileTree(base, visitor)
     out.toArray
   }
-
 }

@@ -1,11 +1,12 @@
 package bloop
 
-import java.nio.file.{Path}
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.io.IO
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
-import xsbti.{ComponentProvider}
+import xsbti.ComponentProvider
 import xsbti.compile.{ClasspathOptions, Compilers}
 
 class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path) {

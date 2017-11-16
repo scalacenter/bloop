@@ -29,7 +29,7 @@ class ScalaInstance(
   override val libraryJar: File =
     allJars.find(f => isJar(f.getName) && hasScalaLibraryName(f.getName)).orNull
   override val otherJars: Array[File] = allJars.filter { file =>
-    val filename = f.getName
+    val filename = file.getName
     isJar(filename) && !hasScalaCompilerName(filename) && !hasScalaLibraryName(filename)
   }
 

@@ -3,6 +3,7 @@ package bloop
 import java.nio.file._
 import java.util.Optional
 
+import bloop.io.IO
 import bloop.tasks.CompilationTask
 import bloop.util.TopologicalSort
 import sbt.internal.inc.bloop.ZincInternals
