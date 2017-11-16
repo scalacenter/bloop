@@ -1,11 +1,11 @@
 package bloop
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Path}
 import java.util.concurrent.ConcurrentHashMap
 
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
-import xsbti.{ComponentProvider, Logger}
+import xsbti.{ComponentProvider}
 import xsbti.compile.{ClasspathOptions, Compilers}
 
 class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path) {
@@ -28,12 +28,10 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
                        classpathOptions: ClasspathOptions,
                        componentProvider: ComponentProvider,
                        scalaJarsTarget: Path): AnalyzingCompiler = {
-    componentProvider.component(bridgeComponentID(scalaInstance.version)) match {
-      case Array(jar) =>
-        ZincUtil.scalaCompiler(
-                               /* scalaInstance     = */ scalaInstance,
-                               /* compilerBridgeJar = */ jar,
-                               /* classpathOptions  = */ classpathOptions)
+    val bridgeSources = ZincInternals.getModuleForBridgeSources(scalaInstance)
+    val bridgeId      = ZincInternals.getBridgeComponentId(bridgeSources, scalaInstance)
+    componentProvider.component(bridgeId) match {
+      case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar, classpathOptions)
       case _ =>
         ZincUtil.scalaCompiler(
           /* scalaInstance        = */ scalaInstance,
@@ -42,18 +40,11 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
           /* componentProvider    = */ componentProvider,
           /* secondaryCacheDir    = */ Some(IO.bloopHome.resolve("secondary-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,
-          /* compilerBridgeSource = */ ZincUtil.getDefaultBridgeModule(scalaInstance.version),
+          /* compilerBridgeSource = */ bridgeSources,
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
           /* log                  = */ logger
         )
     }
-  }
-
-  private final val ZINC_VERSION = "1.0.2"
-  def bridgeComponentID(scalaVersion: String): String = {
-    val shortScalaVersion = scalaVersion.take(4)
-    val classVersion      = sys.props("java.class.version")
-    s"org.scala-sbt-compiler-bridge_${shortScalaVersion}-${ZINC_VERSION}-bin_${scalaVersion}__${classVersion}"
   }
 }
 
