@@ -12,26 +12,8 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Random
 
 object Bloop {
-
-  def plan(base: String, projects: Map[String, Project]): Array[Project] = {
-    val plan = new Array[Project](projects.size)
-    var idx  = 0
-
-    def push(project: Project): Unit = {
-      project.dependencies.foreach(p => push(projects(p)))
-      if (plan.contains(project)) ()
-      else {
-        plan(idx) = project
-        idx += 1
-      }
-    }
-
-    Option(projects(base)).foreach(push)
-    plan
-  }
 
   def main(args: Array[String]): Unit = {
     val base = args.lift(0).getOrElse("..")
@@ -130,18 +112,6 @@ object Bloop {
         println(s"Not understood: '$input'")
         run(projects, compilerCache)
     }
-  }
-
-  def changeRandom(projects: Map[String, Project]): Unit = {
-    val nb  = Random.nextInt(projects.size)
-    val pjs = projects.values.iterator
-    for (_ <- 1 to nb) pjs.next()
-    val toChange = pjs.next()
-    val srcs     = IO.getAll(toChange.sourceDirectories.head, "glob:**.scala")
-    val nb2      = Random.nextInt(srcs.length)
-    val src      = srcs(nb2)
-    Files.write(src, java.util.Arrays.asList("// foobar\n"), StandardOpenOption.APPEND)
-    ()
   }
 
 }
