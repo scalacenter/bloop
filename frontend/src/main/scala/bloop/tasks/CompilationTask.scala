@@ -4,6 +4,8 @@ package tasks
 import java.util.Optional
 
 import bloop.util.{Progress, TopologicalSort}
+
+import xsbti.Logger
 import xsbti.compile.PreviousResult
 
 import scala.concurrent.duration.Duration
@@ -11,7 +13,7 @@ import scala.concurrent.{Await, ExecutionContext}
 
 object CompilationTask {
 
-  def apply(project: Project, projects: Map[String, Project], compilerCache: CompilerCache)(
+  def apply(project: Project, projects: Map[String, Project], compilerCache: CompilerCache, logger: Logger)(
       implicit ec: ExecutionContext): Map[String, Project] = {
     val toCompile = TopologicalSort.reachable(project, projects)
 
@@ -20,7 +22,7 @@ object CompilationTask {
       toCompile.map {
         case (name, proj) =>
           name -> new Task(
-            (projects: Map[String, Project]) => doCompile(proj, projects, compilerCache),
+            (projects: Map[String, Project]) => doCompile(proj, projects, compilerCache, logger),
             () => progress.update())
       }
 
@@ -34,6 +36,9 @@ object CompilationTask {
       case Task.Success(result) =>
         projects ++ result
       case Task.Failure(partial, reasons) =>
+        reasons.foreach { throwable =>
+          logger.trace(() => throwable)
+        }
         // TODO: Log reasons for failure
         projects ++ partial
     }
@@ -41,8 +46,8 @@ object CompilationTask {
 
   private def doCompile(project: Project,
                         projects: Map[String, Project],
-                        compilerCache: CompilerCache): Map[String, Project] = {
-    val inputs = toCompileInputs(project, compilerCache, QuietLogger)
+                        compilerCache: CompilerCache, logger: Logger): Map[String, Project] = {
+    val inputs = toCompileInputs(project, compilerCache, logger)
     val result = Compiler.compile(inputs)
     val previousResult =
       PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
@@ -51,7 +56,7 @@ object CompilationTask {
 
   def toCompileInputs(project: Project,
                       cache: CompilerCache,
-                      logger: xsbti.Logger): CompileInputs = {
+                      logger: Logger): CompileInputs = {
     val instance   = project.scalaInstance
     val sourceDirs = project.sourceDirectories
     val classpath  = project.classpath
