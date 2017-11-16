@@ -130,16 +130,13 @@ object BuildImplementation {
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
         val allProjects        = allZincProjects ++ allNailgunProjects
         val projectSettings    = allProjects.flatMap(genProjectSettings)
-        if (projectSettings.isEmpty) state
-        else {
-          // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
-          val currentSession = sbt.Project.session(state)
-          val currentProject = currentSession.current
-          val currentSessionSettings =
-            currentSession.append.get(currentProject).toList.flatten.map(_._1)
-          val allSessionSettings = currentSessionSettings ++ currentSession.rawAppend
-          extracted.append(globalSettings ++ projectSettings ++ allSessionSettings, hijackedState)
-        }
+        // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
+        val currentSession = sbt.Project.session(state)
+        val currentProject = currentSession.current
+        val currentSessionSettings =
+          currentSession.append.get(currentProject).toList.flatten.map(_._1)
+        val allSessionSettings = currentSessionSettings ++ currentSession.rawAppend
+        extracted.append(globalSettings ++ projectSettings ++ allSessionSettings, hijackedState)
       }
     }
   }
