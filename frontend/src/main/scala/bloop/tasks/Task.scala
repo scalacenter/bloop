@@ -6,9 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-import Task._
-
-class Task[T: Mergeable](op: T => T, onComplete: () => Unit) {
+class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[T]) {
   private val semaphore    = new Semaphore(0)
   private val inputs       = mutable.Buffer.empty[Task.Result[T]]
   private val dependencies = mutable.Buffer.empty[Task[T]]
@@ -31,7 +29,7 @@ class Task[T: Mergeable](op: T => T, onComplete: () => Unit) {
           case ((fs, ss), succ: Task.Success[_]) => (fs, succ :: ss)
         }
 
-      val input = implicitly[Mergeable[T]].merge(successes.map(_.value))
+      val input = mergeable.merge(successes.map(_.value))
       val result =
         if (failures.isEmpty) {
           Task.execute(op, input)
@@ -63,10 +61,9 @@ object Task {
   case class Success[T](value: T)                                  extends Result[T]
   case class Failure[T](partialResult: T, reasons: Seq[Throwable]) extends Result[T]
   object Failure {
-    def apply[T: Mergeable](partialResult: T, failures: Seq[Failure[T]]): Failure[T] = {
-      val mergeable = implicitly[Mergeable[T]]
-      val result    = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
-      val reasons   = failures.flatMap(_.reasons)
+    def apply[T](partialResult: T, failures: Seq[Failure[T]])(implicit mergeable: Mergeable[T]): Failure[T] = {
+      val result  = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
+      val reasons = failures.flatMap(_.reasons)
       Failure(result, reasons)
     }
   }
