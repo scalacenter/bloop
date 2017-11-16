@@ -3,6 +3,7 @@ package bloop
 import java.nio.file._
 import java.util.Optional
 
+import bloop.io.IO
 import bloop.tasks.CompilationTask
 import bloop.util.TopologicalSort
 import sbt.internal.inc.bloop.ZincInternals
@@ -35,9 +36,10 @@ object Bloop {
   def main(args: Array[String]): Unit = {
     val base = args.lift(0).getOrElse("..")
 
-    val projects          = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
-    val componentProvider = ZincInternals.getComponentProvider(IO.bloopHome.resolve("components"))
-    val compilerCache     = new CompilerCache(componentProvider, IO.bloopHome.resolve("scala-jars"))
+    val projects = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
+    val componentProvider =
+      ZincInternals.getComponentProvider(IO.getCacheDirectory("components"))
+    val compilerCache = new CompilerCache(componentProvider, IO.getCacheDirectory("scala-jars"))
 
     run(projects, compilerCache)
   }
