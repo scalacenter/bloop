@@ -3,7 +3,7 @@ object Dependencies {
   val coursierVersion   = "1.0.0-RC8"
   val lmVersion         = "1.0.0"
   val configDirsVersion = "5"
-  val caseAppVersion    = "1.2.0-M4"
+  val caseAppVersion    = "1.2.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc"              % "directories"            % configDirsVersion

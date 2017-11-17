@@ -4,7 +4,7 @@ import java.nio.file.{Path, Paths}
 import caseapp.core.ArgParser
 import scala.util.Try
 
-trait CustomParsers {
+object CustomCaseAppParsers {
   implicit val fileParser: ArgParser[Path] = ArgParser.instance("A filepath parser") {
     case supposedPath: String =>
       val toPath = Try(Paths.get(supposedPath)).toEither
