@@ -11,12 +11,14 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.util.{Progress, TopologicalSort}
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
-class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, logger: Logger) {
+class CompilationTasks(initialProjects: Map[String, Project],
+                       cache: CompilerCache,
+                       logger: Logger) {
   private final val EmptyCompileResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def clean(projectNames: List[String]): Map[String, Project] = {
-    projects.filterKeys(projectNames.contains).mapValues { p =>
+    initialProjects.filterKeys(projectNames.contains).mapValues { p =>
       p.copy(previousResult = EmptyCompileResult)
     }
   }
@@ -44,7 +46,7 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
       case Seq((_, fst), (_, snd)) => snd.dependsOn(fst)
       case single                  => ()
     }
-    projects ++ execute(subTasks(project.name), logger)
+    initialProjects ++ execute(subTasks(project.name), logger)
   }
 
   def parallel(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
@@ -52,15 +54,15 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
     val subTasks = getTasks(project, progress)
     subTasks.foreach {
       case (name, task) =>
-        val dependencies = projects(name).dependencies
+        val dependencies = initialProjects(name).dependencies
         dependencies.foreach(dep => task.dependsOn(subTasks(dep)))
     }
-    projects ++ execute(subTasks(project.name), logger)
+    initialProjects ++ execute(subTasks(project.name), logger)
   }
 
   def parallelNaive(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
     val progress = new Progress
-    val steps = TopologicalSort.tasks(project, projects)
+    val steps = TopologicalSort.tasks(project, initialProjects)
 
     progress.setTotal(steps.flatten.size)
     val changedProjects = for {
@@ -69,7 +71,7 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
     } yield execute(getTask(project, progress), logger)
 
     val mergeable = implicitly[Mergeable[Map[String, Project]]]
-    projects ++ mergeable.merge(changedProjects).toMap
+    initialProjects ++ mergeable.merge(changedProjects).toMap
   }
 
   private def execute(task: Task[Map[String, Project]], logger: Logger)(
@@ -84,7 +86,7 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
 
   private def getTasks(project: Project,
                        progress: Progress): Map[String, Task[Map[String, Project]]] = {
-    val toCompile = TopologicalSort.reachable(project, projects)
+    val toCompile = TopologicalSort.reachable(project, initialProjects)
     progress.setTotal(toCompile.size)
     toCompile.map {
       case (name, proj) => name -> getTask(proj, progress)
@@ -92,15 +94,16 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
   }
 
   private def getTask(project: Project, progress: Progress): Task[Map[String, Project]] = {
-    new Task(projects => doCompile(project), () => progress.update())
+    new Task(projects => doCompile(projects, project), () => progress.update())
   }
 
-  private def doCompile(project: Project): Map[String, Project] = {
+  private def doCompile(previousProjects: Map[String, Project],
+                        project: Project): Map[String, Project] = {
     val inputs = toCompileInputs(project)
     val result = Compiler.compile(inputs)
     val previousResult =
       PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-    projects ++ Map(project.name -> project.copy(previousResult = previousResult))
+    previousProjects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
   def toCompileInputs(project: Project): CompileInputs = {
