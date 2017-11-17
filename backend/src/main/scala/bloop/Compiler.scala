@@ -15,6 +15,8 @@ case class CompileInputs(
     classpath: Array[AbsolutePath],
     classesDir: AbsolutePath,
     baseDirectory: AbsolutePath,
+    scalacOptions: Array[String],
+    javacOptions: Array[String],
     previousResult: PreviousResult,
     logger: Logger
 )
@@ -48,6 +50,8 @@ object Compiler {
         .withSources(sources.map(_.toFile))
         .withClasspath(inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars ++ Array(
           inputs.classesDir.toFile))
+        .withScalacOptions(inputs.scalacOptions)
+        .withJavacOptions(inputs.javacOptions)
     }
 
     def getSetup(compileInputs: CompileInputs): Setup = {
