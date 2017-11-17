@@ -1,6 +1,6 @@
 matrix:
   SBT_RUN:
-    - sbt "compile" "frontend/test"
+    - sbt "compile" "zincIntegration/publishLocal" "frontend/test"
 
 clone:
   git:
