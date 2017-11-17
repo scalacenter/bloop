@@ -22,8 +22,9 @@ object CompilationTaskTest extends TestSuite {
         assert(!project.previousResult.analysis.isPresent)
         assert(!project.previousResult.setup.isPresent)
 
-        val newProjects = CompilationTask.parallel(project, projects, compilerCache, QuietLogger)
-        val newProject  = newProjects("empty")
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+        val newProjects = tasks.parallel(project)
+        val newProject = newProjects("empty")
 
         assert(newProject.previousResult.analysis.isPresent)
         assert(newProject.previousResult.setup.isPresent)
@@ -42,8 +43,9 @@ object CompilationTaskTest extends TestSuite {
         assert(!project.previousResult.analysis.isPresent)
         assert(!project.previousResult.setup.isPresent)
 
-        val newProjects = CompilationTask.parallel(project, projects, compilerCache, QuietLogger)
-        val newProject  = newProjects("prj")
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+        val newProjects = tasks.parallel(project)
+        val newProject = newProjects("prj")
 
         assert(newProject.previousResult.analysis.isPresent)
         assert(newProject.previousResult.setup.isPresent)
@@ -55,7 +57,7 @@ object CompilationTaskTest extends TestSuite {
         Map(
           "parent" -> Map("A.scala" -> """package p0
                                          |class A""".stripMargin),
-          "child"  -> Map("B.scala" -> """package p1
+          "child" -> Map("B.scala" -> """package p1
                                         |import p0.A
                                         |class B extends A""".stripMargin)
         )
@@ -66,8 +68,9 @@ object CompilationTaskTest extends TestSuite {
         assert(projects.forall { case (_, prj) => !prj.previousResult.analysis.isPresent })
         assert(projects.forall { case (_, prj) => !prj.previousResult.setup.isPresent })
 
-        val project     = projects("child")
-        val newProjects = CompilationTask.parallel(project, projects, compilerCache, ConsoleLogger)
+        val project = projects("child")
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+        val newProjects = tasks.parallel(project)
 
         assert(newProjects.forall { case (_, prj) => prj.previousResult.analysis.isPresent })
         assert(newProjects.forall { case (_, prj) => prj.previousResult.setup.isPresent })
@@ -82,7 +85,7 @@ object CompilationTaskTest extends TestSuite {
                                           |trait A""".stripMargin),
           "parent1" -> Map("B.scala" -> """package p1
                                           |trait B""".stripMargin),
-          "child"   -> Map("C.scala" -> """package p2
+          "child" -> Map("C.scala" -> """package p2
                                         |import p0.A
                                         |import p1.B
                                         |object C extends A with B""".stripMargin)
@@ -94,8 +97,9 @@ object CompilationTaskTest extends TestSuite {
         assert(projects.forall { case (_, prj) => !prj.previousResult.analysis.isPresent })
         assert(projects.forall { case (_, prj) => !prj.previousResult.setup.isPresent })
 
-        val child       = projects("child")
-        val newProjects = CompilationTask.parallel(child, projects, compilerCache, QuietLogger)
+        val child = projects("child")
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+        val newProjects = tasks.parallel(child)
 
         assert(newProjects.forall { case (_, prj) => prj.previousResult.analysis.isPresent })
         assert(newProjects.forall { case (_, prj) => prj.previousResult.setup.isPresent })
@@ -105,11 +109,11 @@ object CompilationTaskTest extends TestSuite {
     "Un-necessary projects are not compiled" - {
       val projectStructures =
         Map(
-          "parent"    -> Map("A.scala" -> """package p0
+          "parent" -> Map("A.scala" -> """package p0
                                          |trait A""".stripMargin),
           "unrelated" -> Map("B.scala" -> """package p1
                                             |trait B""".stripMargin),
-          "child"     -> Map("C.scala" -> """package p2
+          "child" -> Map("C.scala" -> """package p2
                                         |import p0.A
                                         |object C extends A""".stripMargin)
         )
@@ -120,8 +124,9 @@ object CompilationTaskTest extends TestSuite {
         assert(projects.forall { case (_, prj) => !prj.previousResult.analysis.isPresent })
         assert(projects.forall { case (_, prj) => !prj.previousResult.setup.isPresent })
 
-        val child       = projects("child")
-        val newProjects = CompilationTask.parallel(child, projects, compilerCache, QuietLogger)
+        val child = projects("child")
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+        val newProjects = tasks.parallel(child)
 
         // The unrelated project should not have been compiled
         assert(!newProjects("unrelated").previousResult.analysis.isPresent)

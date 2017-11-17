@@ -3,7 +3,7 @@ package tasks
 
 import sbt.internal.inc.bloop.ZincInternals
 
-import bloop.io.IO
+import bloop.io.Paths
 
 object CompilationHelpers {
 
@@ -11,8 +11,8 @@ object CompilationHelpers {
     ScalaInstance("org.scala-lang", "scala-compiler", "2.12.4")
 
   val componentProvider =
-    ZincInternals.getComponentProvider(IO.getCacheDirectory("components"))
+    ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
 
-  val compilerCache = new CompilerCache(componentProvider, IO.getCacheDirectory("scala-jars"))
+  val compilerCache = new CompilerCache(componentProvider, Paths.getCacheDirectory("scala-jars"))
 
 }

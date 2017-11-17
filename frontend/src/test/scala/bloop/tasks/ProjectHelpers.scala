@@ -5,9 +5,9 @@ import java.io.IOException
 import java.nio.charset.Charset
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
-
 import java.util.Optional
 
+import bloop.io.AbsolutePath
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 object ProjectHelpers {
@@ -21,7 +21,7 @@ object ProjectHelpers {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
-          val deps = dependencies.get(name).getOrElse(Set.empty)
+          val deps = dependencies.getOrElse(name, Set.empty)
           name -> makeProject(temp, name, sources, deps)
       }
       op(projects)
@@ -32,10 +32,10 @@ object ProjectHelpers {
                   sources: Map[String, String],
                   dependencies: Set[String]): Project = {
     val (srcs, classes) = makeProjectStructure(baseDir, name)
-    val tempDir         = projectDir(baseDir, name).resolve("tmp")
+    val tempDir = projectDir(baseDir, name).resolve("tmp")
     Files.createDirectories(tempDir)
 
-    val target    = classesDir(baseDir, name)
+    val target = classesDir(baseDir, name)
     val classpath = dependencies.map(classesDir(baseDir, _)) + target
     val previousResult =
       PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
@@ -44,19 +44,19 @@ object ProjectHelpers {
       name = name,
       dependencies = dependencies.toArray,
       scalaInstance = CompilationHelpers.scalaInstance,
-      classpath = classpath.toArray,
-      classesDir = target,
+      classpath = classpath.toArray.map(AbsolutePath.apply),
+      classesDir = AbsolutePath(target),
       scalacOptions = Array.empty,
       javacOptions = Array.empty,
-      sourceDirectories = Array(srcs),
+      sourceDirectories = Array(AbsolutePath(srcs)),
       previousResult = previousResult,
-      tmp = tempDir,
+      tmp = AbsolutePath(tempDir),
       origin = None
     )
   }
 
   def makeProjectStructure[T](base: Path, name: String): (Path, Path) = {
-    val srcs    = sourcesDir(base, name)
+    val srcs = sourcesDir(base, name)
     val classes = classesDir(base, name)
     Files.createDirectories(srcs)
     Files.createDirectories(classes)
