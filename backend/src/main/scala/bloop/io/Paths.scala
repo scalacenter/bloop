@@ -9,20 +9,23 @@ import io.github.soc.directories.ProjectDirectories
 
 object Paths {
   private val projectDirectories = ProjectDirectories.fromProjectName("bloop")
-  private def createDirFor(filepath: String): Path = Files.createDirectories(NioPaths.get(filepath))
-  final val bloopCacheDir: Path = createDirFor(projectDirectories.projectCacheDir)
-  final val bloopDataDir: Path = createDirFor(projectDirectories.projectDataDir)
-  final val bloopConfigDir: Path = createDirFor(projectDirectories.projectConfigDir)
+  private def createDirFor(filepath: String): AbsolutePath =
+    AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
 
-  def getCacheDirectory(dirName: String): Path = {
+  final val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.projectCacheDir)
+  final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.projectDataDir)
+  final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.projectConfigDir)
+
+  def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
-    if (!Files.exists(dir)) Files.createDirectory(dir)
-    else require(Files.isDirectory(dir), s"File ${dir.toAbsolutePath} is not a directory.")
+    val dirPath = dir.underlying
+    if (!Files.exists(dirPath)) Files.createDirectory(dirPath)
+    else require(Files.isDirectory(dirPath), s"File '${dir.syntax}' is not a directory.")
     dir
   }
 
-  def getAll(base: Path, pattern: String): Array[Path] = {
-    val out = collection.mutable.ArrayBuffer.empty[Path]
+  def getAll(base: AbsolutePath, pattern: String): Array[AbsolutePath] = {
+    val out = collection.mutable.ArrayBuffer.empty[AbsolutePath]
     val matcher = FileSystems.getDefault.getPathMatcher(pattern)
     val visitor = new FileVisitor[Path] {
       override def preVisitDirectory(directory: Path,
@@ -33,14 +36,14 @@ object Paths {
         FileVisitResult.CONTINUE
 
       override def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (matcher.matches(file)) out += file.toAbsolutePath
+        if (matcher.matches(file)) out += AbsolutePath(file)
         FileVisitResult.CONTINUE
       }
 
       override def visitFileFailed(file: Path, exception: IOException): FileVisitResult =
         FileVisitResult.CONTINUE
     }
-    Files.walkFileTree(base, visitor)
+    Files.walkFileTree(base.underlying, visitor)
     out.toArray
   }
 }

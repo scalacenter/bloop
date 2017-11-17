@@ -2,7 +2,8 @@ package sbt.internal.inc.bloop
 
 import java.nio.file.{Files, Path}
 
-import bloop.ScalaInstance
+import bloop.{CompilerCache, ScalaInstance}
+import bloop.io.AbsolutePath
 import xsbti.{ComponentProvider, GlobalLock}
 import sbt.internal.inc.ZincComponentCompiler
 import sbt.librarymanagement.{Configurations, ModuleID}
@@ -10,9 +11,10 @@ import sbt.librarymanagement.{Configurations, ModuleID}
 object ZincInternals {
   def latestVersion: String     = ZincComponentCompiler.incrementalVersion
   def getGlobalLock: GlobalLock = ZincComponentCompiler.getDefaultLock
-  def getComponentProvider(componentsDir: Path): ComponentProvider = {
-    if (!Files.exists(componentsDir)) Files.createDirectory(componentsDir)
-    ZincComponentCompiler.getDefaultComponentProvider(componentsDir.toFile())
+  def getComponentProvider(componentsDir: AbsolutePath): ComponentProvider = {
+    val componentsPath = componentsDir.underlying
+    if (!Files.exists(componentsPath)) Files.createDirectory(componentsPath)
+    ZincComponentCompiler.getDefaultComponentProvider(componentsPath.toFile())
   }
 
   private val CompileConf = Some(Configurations.Compile.name)

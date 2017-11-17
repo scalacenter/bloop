@@ -1,8 +1,6 @@
 package bloop
 
-import java.nio.file.{Paths => NioPaths}
-
-import bloop.io.Paths
+import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.tasks.CompilationTasks
 import sbt.internal.inc.bloop.ZincInternals
@@ -13,8 +11,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Bloop {
 
   def main(args: Array[String]): Unit = {
-    val base = args.lift(0).getOrElse("..")
-    val projects = Project.fromDir(NioPaths.get(base).resolve(".bloop-config"))
+    val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
+    val configDirectory = baseDirectory.resolve(".bloop-config")
+    val projects = Project.fromDir(configDirectory)
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
     val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
     // TODO: Remove projects and pass in the compilation tasks to abstract over the boilerplate

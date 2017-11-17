@@ -1,11 +1,11 @@
-package bloop
-package tasks
+package bloop.tasks
 
 import java.util.Optional
 
+import bloop.{CompileInputs, CompilerCache, Project, Compiler}
+
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
-
 import xsbti.Logger
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.util.{Progress, TopologicalSort}
@@ -30,6 +30,7 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
           case Some(origin) =>
             val storeFile = origin.getParent().resolve(s"${project.name}-analysis.bin").toFile
             FileAnalysisStore.binary(storeFile).set(ConcreteAnalysisContents(analysis, setup))
+          case None => logger.warn(s"Missing target directory for ${project.name}.")
         }
       case _ => logger.debug(s"Project ${project.name} has no analysis file.")
     }

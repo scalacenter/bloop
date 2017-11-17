@@ -3,13 +3,13 @@ package bloop
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
-import bloop.io.Paths
+import bloop.io.{AbsolutePath, Paths}
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
 import xsbti.ComponentProvider
 import xsbti.compile.{ClasspathOptions, Compilers}
 
-class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path) {
+class CompilerCache(componentProvider: ComponentProvider, retrieveDir: AbsolutePath) {
   import CompilerCache.CacheId
   private val logger = QuietLogger
   private val cache  = new ConcurrentHashMap[CacheId, Compilers]()
@@ -20,15 +20,13 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
     val scalaInstance =
       ScalaInstance(cacheId.scalaOrganization, cacheId.scalaName, cacheId.scalaVersion)
     val classpathOptions = ClasspathOptions.of(true, false, false, true, false)
-    val compiler =
-      getScalaCompiler(scalaInstance, classpathOptions, componentProvider, scalaJarsTarget)
+    val compiler = getScalaCompiler(scalaInstance, classpathOptions, componentProvider)
     ZincUtil.compilers(scalaInstance, classpathOptions, None, compiler)
   }
 
   def getScalaCompiler(scalaInstance: ScalaInstance,
                        classpathOptions: ClasspathOptions,
-                       componentProvider: ComponentProvider,
-                       scalaJarsTarget: Path): AnalyzingCompiler = {
+                       componentProvider: ComponentProvider): AnalyzingCompiler = {
     val bridgeSources = ZincInternals.getModuleForBridgeSources(scalaInstance)
     val bridgeId      = ZincInternals.getBridgeComponentId(bridgeSources, scalaInstance)
     componentProvider.component(bridgeId) match {
@@ -42,7 +40,7 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
           /* secondaryCacheDir    = */ Some(Paths.getCacheDirectory("bridge-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,
           /* compilerBridgeSource = */ bridgeSources,
-          /* scalaJarsTarget      = */ scalaJarsTarget.toFile,
+          /* scalaJarsTarget      = */ retrieveDir.toFile,
           /* log                  = */ logger
         )
     }

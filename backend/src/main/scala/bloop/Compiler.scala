@@ -4,18 +4,17 @@ import xsbti.compile._
 import xsbti.{Logger, T2}
 import java.util.Optional
 import java.io.File
-import java.nio.file.Path
 
-import bloop.io.Paths
+import bloop.io.{AbsolutePath, Paths}
 import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
-    sourceDirectories: Array[Path],
-    classpath: Array[Path],
-    classesDir: Path,
-    baseDirectory: Path,
+    sourceDirectories: Array[AbsolutePath],
+    classpath: Array[AbsolutePath],
+    classesDir: AbsolutePath,
+    baseDirectory: AbsolutePath,
     previousResult: PreviousResult,
     logger: Logger
 )
