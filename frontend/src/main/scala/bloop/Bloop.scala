@@ -5,7 +5,7 @@ import java.util.Optional
 
 import bloop.io.IO
 import bloop.io.Timer.timed
-import bloop.tasks.CompilationTask
+import bloop.tasks.CompilationTasks
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -17,12 +17,10 @@ object Bloop {
 
   def main(args: Array[String]): Unit = {
     val base = args.lift(0).getOrElse("..")
-
     val projects = Project.fromDir(Paths.get(base).resolve(".bloop-config"))
-    val componentProvider =
-      ZincInternals.getComponentProvider(IO.getCacheDirectory("components"))
+    val componentProvider = ZincInternals.getComponentProvider(IO.getCacheDirectory("components"))
     val compilerCache = new CompilerCache(componentProvider, IO.getCacheDirectory("scala-jars"))
-
+    // TODO: Remove projects and pass in the compilation tasks to abstract over the boilerplate
     run(projects, compilerCache)
   }
 
@@ -49,7 +47,7 @@ object Bloop {
                 val analysisPath =
                   origin.getParent.resolve(s"$name-analysis.bin")
                 val analysis = project.previousResult.analysis().get()
-                val setup    = project.previousResult.setup().get()
+                val setup = project.previousResult.setup().get()
                 FileAnalysisStore
                   .binary(analysisPath.toFile)
                   .set(ConcreteAnalysisContents(analysis, setup))
@@ -71,21 +69,24 @@ object Bloop {
       case Array("seqcompile", projectName) =>
         val newProjects = timed {
           val project = projects(projectName)
-          CompilationTask.sequential(project, projects, compilerCache, QuietLogger)
+          val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+          tasks.sequential(project)
         }
         run(newProjects, compilerCache)
 
       case Array("naivecompile", projectName) =>
         val newProjects = timed {
           val project = projects(projectName)
-          CompilationTask.parallelNaive(project, projects, compilerCache, QuietLogger)
+          val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+          tasks.parallelNaive(project)
         }
         run(newProjects, compilerCache)
 
       case Array("compile", projectName) =>
         val newProjects = timed {
           val project = projects(projectName)
-          CompilationTask.parallel(project, projects, compilerCache, QuietLogger)
+          val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+          tasks.parallel(project)
         }
         run(newProjects, compilerCache)
 
