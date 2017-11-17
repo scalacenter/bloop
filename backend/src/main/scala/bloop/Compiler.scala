@@ -6,7 +6,7 @@ import java.util.Optional
 import java.io.File
 import java.nio.file.Path
 
-import bloop.io.IO
+import bloop.io.Paths
 import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
 
 case class CompileInputs(
@@ -40,7 +40,7 @@ object Compiler {
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
       val sources = inputs.sourceDirectories.distinct
-        .flatMap(src => IO.getAll(src, "glob:**.{scala,java}"))
+        .flatMap(src => Paths.getAll(src, "glob:**.{scala,java}"))
         .distinct
 
       CompileOptions

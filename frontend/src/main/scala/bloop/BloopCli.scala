@@ -1,8 +1,8 @@
 package bloop
 
-import bloop.io.IO
+import bloop.io.Paths
 import bloop.cli.{Command, Commands}
-import bloop.cli.CustomCaseAppParsers._
+import bloop.cli.CustomCaseAppParsers.fileParser
 import bloop.tasks.CompilationTasks
 
 import caseapp.{CommandApp, RemainingArgs}
@@ -19,8 +19,8 @@ object BloopCli extends CommandApp[Command] {
     command match {
       case Commands.Compile(baseDir, projectName, batch, parallel) =>
         val projects = Project.fromDir(baseDir)
-        val provider = ZincInternals.getComponentProvider(IO.getCacheDirectory("components"))
-        val compilerCache = new CompilerCache(provider, IO.getCacheDirectory("scala-jars"))
+        val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
+        val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
         val project = projects(projectName)
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
 
@@ -32,12 +32,13 @@ object BloopCli extends CommandApp[Command] {
         ()
       case Commands.Clean(baseDir, projectNames) =>
         val projects = Project.fromDir(baseDir)
-        val provider = ZincInternals.getComponentProvider(IO.getCacheDirectory("components"))
-        val compilerCache = new CompilerCache(provider, IO.getCacheDirectory("scala-jars"))
+        val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
+        val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         tasks.clean(projects.keys.toList).valuesIterator.map { project =>
           tasks.persistAnalysis(project, QuietLogger)
         }
+        ()
     }
   }
 }

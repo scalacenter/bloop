@@ -3,7 +3,7 @@ package bloop
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
-import bloop.io.IO
+import bloop.io.Paths
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
 import xsbti.ComponentProvider
@@ -39,7 +39,7 @@ class CompilerCache(componentProvider: ComponentProvider, scalaJarsTarget: Path)
           /* classpathOptions     = */ classpathOptions,
           /* globalLock           = */ ZincInternals.getGlobalLock,
           /* componentProvider    = */ componentProvider,
-          /* secondaryCacheDir    = */ Some(IO.getCacheDirectory("bridge-cache").toFile),
+          /* secondaryCacheDir    = */ Some(Paths.getCacheDirectory("bridge-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine,
           /* compilerBridgeSource = */ bridgeSources,
           /* scalaJarsTarget      = */ scalaJarsTarget.toFile,

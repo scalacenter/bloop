@@ -1,9 +1,9 @@
 package bloop
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths => NioPaths}
 import java.util.{Optional, Properties}
 
-import bloop.io.IO
+import bloop.io.Paths
 import bloop.io.Timer.timed
 import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
@@ -45,7 +45,7 @@ object Project {
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def fromDir(config: Path): Map[String, Project] = timed {
-    val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
+    val configFiles = Paths.getAll(config, "glob:**.config").zipWithIndex
     println(s"Loading ${configFiles.length} projects from '$config'...")
 
     val progress = new Progress(configFiles.length)
@@ -88,8 +88,8 @@ object Project {
     val scalaInstance =
       ScalaInstance(scalaOrganization, scalaName, scalaVersion)
     val classpath =
-      properties.getProperty("classpath").split(",").map(Paths.get(_))
-    val classesDir = Paths.get(properties.getProperty("classesDir"))
+      properties.getProperty("classpath").split(",").map(NioPaths.get(_))
+    val classesDir = NioPaths.get(properties.getProperty("classesDir"))
     val scalacOptions =
       properties.getProperty("scalacOptions").split(",").filterNot(_.isEmpty)
     val javacOptions =
@@ -98,10 +98,10 @@ object Project {
       .getProperty("sourceDirectories")
       .split(",")
       .filterNot(_.isEmpty)
-      .map(Paths.get(_))
+      .map(NioPaths.get(_))
     val previousResult =
       PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
-    val tmp = Paths.get(properties.getProperty("tmp"))
+    val tmp = NioPaths.get(properties.getProperty("tmp"))
     Project(name,
             dependencies,
             scalaInstance,
