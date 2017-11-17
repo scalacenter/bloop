@@ -1,14 +1,11 @@
 package bloop
 
 import java.nio.file._
-import java.util.Optional
 
 import bloop.io.IO
 import bloop.io.Timer.timed
 import bloop.tasks.CompilationTasks
 import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
-import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -35,35 +32,17 @@ object Bloop {
         run(projects, compilerCache)
 
       case Array("exit") =>
-        def hasAnalysis(project: Project): Boolean =
-          project.previousResult.analysis().isPresent && project.previousResult
-            .setup()
-            .isPresent
-
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         timed {
-          projects.foreach {
-            case (name, project) if hasAnalysis(project) =>
-              project.origin foreach { origin =>
-                val analysisPath =
-                  origin.getParent.resolve(s"$name-analysis.bin")
-                val analysis = project.previousResult.analysis().get()
-                val setup = project.previousResult.setup().get()
-                FileAnalysisStore
-                  .binary(analysisPath.toFile)
-                  .set(ConcreteAnalysisContents(analysis, setup))
-              }
-            case _ =>
-              ()
+          tasks.clean(projects.keys.toList).valuesIterator.map { project =>
+            tasks.persistAnalysis(project, QuietLogger)
           }
         }
+        ()
 
       case Array("clean") =>
-        val newProjects =
-          timed {
-            val previousResult =
-              PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
-            projects.mapValues(_.copy(previousResult = previousResult))
-          }
+        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+        val newProjects = timed(tasks.clean(projects.keys.toList))
         run(newProjects, compilerCache)
 
       case Array("seqcompile", projectName) =>

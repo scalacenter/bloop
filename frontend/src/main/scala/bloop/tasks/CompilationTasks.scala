@@ -3,15 +3,38 @@ package tasks
 
 import java.util.Optional
 
-import bloop.util.{Progress, TopologicalSort}
-
-import xsbti.Logger
-import xsbti.compile.PreviousResult
-
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
+import xsbti.Logger
+import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
+import bloop.util.{Progress, TopologicalSort}
+import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
+
 class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, logger: Logger) {
+  private final val EmptyCompileResult =
+    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
+
+  def clean(projectNames: List[String]): Map[String, Project] = {
+    projects.filterKeys(projectNames.contains).mapValues { p =>
+      p.copy(previousResult = EmptyCompileResult)
+    }
+  }
+
+  def persistAnalysis(project: Project, logger: Logger): Unit = {
+    import bloop.util.JavaCompat.{EnrichOptional, toSupplier}
+    val previousResult = project.previousResult
+    (previousResult.analysis().toOption, previousResult.setup().toOption) match {
+      case (Some(analysis), Some(setup)) =>
+        project.origin match {
+          case Some(origin) =>
+            val storeFile = origin.getParent().resolve(s"${project.name}-analysis.bin").toFile
+            FileAnalysisStore.binary(storeFile).set(ConcreteAnalysisContents(analysis, setup))
+        }
+      case _ => logger.debug(s"Project ${project.name} has no analysis file.")
+    }
+  }
+
   def sequential(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
     val progress = new Progress
     val subTasks: Map[String, Task[Map[String, Project]]] =
@@ -36,11 +59,11 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
 
   def parallelNaive(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
     val progress = new Progress
-    val steps    = TopologicalSort.tasks(project, projects)
+    val steps = TopologicalSort.tasks(project, projects)
 
     progress.setTotal(steps.flatten.size)
     val changedProjects = for {
-      tasks   <- steps
+      tasks <- steps
       project <- tasks.par
     } yield execute(getTask(project, progress), logger)
 
@@ -58,7 +81,8 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
     }
   }
 
-  private def getTasks(project: Project, progress: Progress): Map[String, Task[Map[String, Project]]] = {
+  private def getTasks(project: Project,
+                       progress: Progress): Map[String, Task[Map[String, Project]]] = {
     val toCompile = TopologicalSort.reachable(project, projects)
     progress.setTotal(toCompile.size)
     toCompile.map {
@@ -79,12 +103,12 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
   }
 
   def toCompileInputs(project: Project): CompileInputs = {
-    val instance   = project.scalaInstance
+    val instance = project.scalaInstance
     val sourceDirs = project.sourceDirectories
-    val classpath  = project.classpath
+    val classpath = project.classpath
     val classesDir = project.classesDir
-    val target     = project.tmp
-    val previous   = project.previousResult
+    val target = project.tmp
+    val previous = project.previousResult
     CompileInputs(instance, cache, sourceDirs, classpath, classesDir, target, previous, logger)
   }
 }
