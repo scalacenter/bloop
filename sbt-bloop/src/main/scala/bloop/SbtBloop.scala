@@ -100,8 +100,8 @@ object SbtBloop extends AutoPlugin {
       properties.setProperty("scalaVersion", scalaVersion)
       properties.setProperty("classpath", classpath.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("classesDir", classesDir.getAbsolutePath)
-      properties.setProperty("scalacOptions", scalacOptions.mkString(","))
-      properties.setProperty("javacOptions", javacOptions.mkString(","))
+      properties.setProperty("scalacOptions", scalacOptions.mkString(";"))
+      properties.setProperty("javacOptions", javacOptions.mkString(";"))
       properties.setProperty("sourceDirectories",
                              sourceDirectories.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("tmp", tmp.getAbsolutePath)
