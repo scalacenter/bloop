@@ -4,18 +4,17 @@ import xsbti.compile._
 import xsbti.{Logger, T2}
 import java.util.Optional
 import java.io.File
-import java.nio.file.Path
 
-import bloop.io.IO
+import bloop.io.{AbsolutePath, Paths}
 import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
-    sourceDirectories: Array[Path],
-    classpath: Array[Path],
-    classesDir: Path,
-    baseDirectory: Path,
+    sourceDirectories: Array[AbsolutePath],
+    classpath: Array[AbsolutePath],
+    classesDir: AbsolutePath,
+    baseDirectory: AbsolutePath,
     previousResult: PreviousResult,
     logger: Logger
 )
@@ -40,7 +39,7 @@ object Compiler {
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
       val sources = inputs.sourceDirectories.distinct
-        .flatMap(src => IO.getAll(src, "glob:**.{scala,java}"))
+        .flatMap(src => Paths.getAll(src, "glob:**.{scala,java}"))
         .distinct
 
       CompileOptions

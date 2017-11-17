@@ -1,9 +1,9 @@
 package bloop
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths => NioPaths}
 import java.util.{Optional, Properties}
 
-import bloop.io.IO
+import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
@@ -12,13 +12,13 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 case class Project(name: String,
                    dependencies: Array[String],
                    scalaInstance: ScalaInstance,
-                   classpath: Array[Path],
-                   classesDir: Path,
+                   classpath: Array[AbsolutePath],
+                   classesDir: AbsolutePath,
                    scalacOptions: Array[String],
                    javacOptions: Array[String],
-                   sourceDirectories: Array[Path],
+                   sourceDirectories: Array[AbsolutePath],
                    previousResult: PreviousResult,
-                   tmp: Path,
+                   tmp: AbsolutePath,
                    origin: Option[Path]) {
   def toProperties(): Properties = {
     val properties = new Properties()
@@ -27,13 +27,12 @@ case class Project(name: String,
     properties.setProperty("scalaOrg", scalaInstance.organization)
     properties.setProperty("scalaName", scalaInstance.name)
     properties.setProperty("scalaVersion", scalaInstance.version)
-    properties.setProperty("classpath", classpath.map(_.toAbsolutePath.toString).mkString(","))
-    properties.setProperty("classesDir", classesDir.toAbsolutePath.toString)
+    properties.setProperty("classpath", classpath.map(_.syntax).mkString(","))
+    properties.setProperty("classesDir", classesDir.syntax)
     properties.setProperty("scalacOptions", scalacOptions.mkString(","))
     properties.setProperty("javacOptions", javacOptions.mkString(","))
-    properties.setProperty("sourceDirectories",
-                           sourceDirectories.map(_.toAbsolutePath.toString).mkString(","))
-    properties.setProperty("tmp", tmp.toAbsolutePath.toString)
+    properties.setProperty("sourceDirectories", sourceDirectories.map(_.syntax).mkString(","))
+    properties.setProperty("tmp", tmp.syntax)
     properties
   }
 }
@@ -44,9 +43,9 @@ object Project {
   private val emptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  def fromDir(config: Path): Map[String, Project] = timed {
-    val configFiles = IO.getAll(config, "glob:**.config").zipWithIndex
-    println(s"Loading ${configFiles.length} projects from '$config'...")
+  def fromDir(config: AbsolutePath): Map[String, Project] = timed {
+    val configFiles = Paths.getAll(config, "glob:**.config").zipWithIndex
+    println(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
 
     val progress = new Progress(configFiles.length)
     val projects = new Array[(String, Project)](configFiles.length)
@@ -59,14 +58,15 @@ object Project {
     projects.toMap
   }
 
-  def fromFile(config: Path): Project = {
-    val inputStream = Files.newInputStream(config)
-    val properties  = new Properties()
+  def fromFile(config: AbsolutePath): Project = {
+    val configFilepath = config.underlying
+    val inputStream = Files.newInputStream(configFilepath)
+    val properties = new Properties()
     properties.load(inputStream)
     val project = fromProperties(properties)
     val previousResult = {
       val analysisFile =
-        config.getParent.resolve(s"${project.name}-analysis.bin")
+        configFilepath.getParent.resolve(s"${project.name}-analysis.bin")
       if (Files.exists(analysisFile)) {
         FileAnalysisStore
           .binary(analysisFile.toFile)
@@ -75,7 +75,7 @@ object Project {
           .orElseGet(() => emptyResult)
       } else emptyResult
     }
-    project.copy(previousResult = previousResult, origin = Some(config))
+    project.copy(previousResult = previousResult, origin = Some(configFilepath))
   }
 
   def fromProperties(properties: Properties): Project = {
@@ -83,13 +83,13 @@ object Project {
     val dependencies =
       properties.getProperty("dependencies").split(",").filterNot(_.isEmpty)
     val scalaOrganization = properties.getProperty("scalaOrganization")
-    val scalaName         = properties.getProperty("scalaName")
-    val scalaVersion      = properties.getProperty("scalaVersion")
+    val scalaName = properties.getProperty("scalaName")
+    val scalaVersion = properties.getProperty("scalaVersion")
     val scalaInstance =
       ScalaInstance(scalaOrganization, scalaName, scalaVersion)
     val classpath =
-      properties.getProperty("classpath").split(",").map(Paths.get(_))
-    val classesDir = Paths.get(properties.getProperty("classesDir"))
+      properties.getProperty("classpath").split(",").map(NioPaths.get(_)).map(AbsolutePath.apply)
+    val classesDir = AbsolutePath(NioPaths.get(properties.getProperty("classesDir")))
     val scalacOptions =
       properties.getProperty("scalacOptions").split(",").filterNot(_.isEmpty)
     val javacOptions =
@@ -98,10 +98,10 @@ object Project {
       .getProperty("sourceDirectories")
       .split(",")
       .filterNot(_.isEmpty)
-      .map(Paths.get(_))
+      .map(d => AbsolutePath(NioPaths.get(d)))
     val previousResult =
       PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
-    val tmp = Paths.get(properties.getProperty("tmp"))
+    val tmp = AbsolutePath(NioPaths.get(properties.getProperty("tmp")))
     Project(name,
             dependencies,
             scalaInstance,
