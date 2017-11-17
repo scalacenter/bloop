@@ -87,7 +87,7 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
     val toCompile = TopologicalSort.reachable(project, projects)
     progress.setTotal(toCompile.size)
     toCompile.map {
-      case (name, proj) => name -> getTask(project, progress)
+      case (name, proj) => name -> getTask(proj, progress)
     }
   }
 
