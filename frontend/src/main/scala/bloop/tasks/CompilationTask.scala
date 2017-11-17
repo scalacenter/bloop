@@ -81,7 +81,7 @@ object CompilationTask {
     progress.setTotal(toCompile.size)
     toCompile.map {
       case (name, proj) =>
-        name -> getTask(project, projects, compilerCache, progress, logger)
+        name -> getTask(proj, projects, compilerCache, progress, logger)
     }
   }
 
