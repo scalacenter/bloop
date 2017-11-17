@@ -33,7 +33,7 @@ object Bloop {
       case Array("exit") =>
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         timed {
-          tasks.clean(projects.keys.toList).valuesIterator.map { project =>
+          projects.valuesIterator.map { project =>
             tasks.persistAnalysis(project, QuietLogger)
           }
         }
