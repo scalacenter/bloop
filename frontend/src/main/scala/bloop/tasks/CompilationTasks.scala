@@ -38,18 +38,7 @@ class CompilationTasks(initialProjects: Map[String, Project],
     }
   }
 
-  def sequential(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
-    val progress = new Progress
-    val subTasks: Map[String, Task[Map[String, Project]]] =
-      getTasks(project, progress)
-    subTasks.toSeq.sliding(2).foreach {
-      case Seq((_, fst), (_, snd)) => snd.dependsOn(fst)
-      case single                  => ()
-    }
-    initialProjects ++ execute(subTasks(project.name), logger)
-  }
-
-  def parallel(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
+  def parallelCompile(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
     val progress = new Progress
     val subTasks = getTasks(project, progress)
     subTasks.foreach {
@@ -58,20 +47,6 @@ class CompilationTasks(initialProjects: Map[String, Project],
         dependencies.foreach(dep => task.dependsOn(subTasks(dep)))
     }
     initialProjects ++ execute(subTasks(project.name), logger)
-  }
-
-  def parallelNaive(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
-    val progress = new Progress
-    val steps = TopologicalSort.tasks(project, initialProjects)
-
-    progress.setTotal(steps.flatten.size)
-    val changedProjects = for {
-      tasks <- steps
-      project <- tasks.par
-    } yield execute(getTask(project, progress), logger)
-
-    val mergeable = implicitly[Mergeable[Map[String, Project]]]
-    initialProjects ++ mergeable.merge(changedProjects).toMap
   }
 
   private def execute(task: Task[Map[String, Project]], logger: Logger)(
@@ -106,7 +81,7 @@ class CompilationTasks(initialProjects: Map[String, Project],
     previousProjects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
-  def toCompileInputs(project: Project): CompileInputs = {
+  private def toCompileInputs(project: Project): CompileInputs = {
     val instance = project.scalaInstance
     val sourceDirs = project.sourceDirectories
     val classpath = project.classpath

@@ -24,24 +24,25 @@ object BloopCli extends CommandApp[Command] {
   def constructTasks(projects: Map[String, Project]): CompilationTasks = {
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
     val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
-    new CompilationTasks(projects, compilerCache, QuietLogger)
+    CompilationTasks(projects, compilerCache, QuietLogger)
   }
 
   // TODO: Remove all the boilerplate that arises from reading the config file and cache it.
   override def run(command: Command, remainingArgs: RemainingArgs): Unit = {
     import scala.concurrent.ExecutionContext.Implicits.global
     command match {
-      case Commands.Compile(baseDir, projectName, batch, parallel) =>
+      case Commands.Compile(baseDir, projectName, incremental) =>
         val projects = readAllProjects(baseDir)
         val tasks = constructTasks(projects)
-
-        // TODO: Handle the corner case where it's batch and sequential
         val project = projects(projectName)
-        if (parallel && batch) tasks.parallelNaive(project)
-        else if (parallel) tasks.parallel(project)
-        else tasks.sequential(project)
-
+        if (incremental) tasks.parallelCompile(project)
+        else {
+          val newProjects = tasks.clean(projects.keys.toList)
+          val newTasks = tasks.copy(projects = newProjects)
+          newTasks.parallelCompile(project)
+        }
         ()
+
       case Commands.Clean(baseDir, projectNames) =>
         val projects = readAllProjects(baseDir)
         val tasks = constructTasks(projects)

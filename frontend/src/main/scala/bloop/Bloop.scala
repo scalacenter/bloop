@@ -44,27 +44,11 @@ object Bloop {
         val newProjects = timed(tasks.clean(projects.keys.toList))
         run(newProjects, compilerCache)
 
-      case Array("seqcompile", projectName) =>
-        val newProjects = timed {
-          val project = projects(projectName)
-          val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-          tasks.sequential(project)
-        }
-        run(newProjects, compilerCache)
-
-      case Array("naivecompile", projectName) =>
-        val newProjects = timed {
-          val project = projects(projectName)
-          val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-          tasks.parallelNaive(project)
-        }
-        run(newProjects, compilerCache)
-
       case Array("compile", projectName) =>
         val newProjects = timed {
           val project = projects(projectName)
           val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-          tasks.parallel(project)
+          tasks.parallelCompile(project)
         }
         run(newProjects, compilerCache)
 

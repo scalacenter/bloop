@@ -8,8 +8,7 @@ object Commands {
   case class Compile(
       baseDir: Path,
       project: String,
-      batch: Boolean = false,
-      parallel: Boolean = true
+      incremental: Boolean = true
   ) extends Command
 
   case class Clean(
