@@ -14,3 +14,7 @@
 	path = frontend/src/test/resources/projects/utest
 	url = https://github.com/scalacenter/utest.git
 	branch = bloop
+[submodule "frontend/src/test/resources/projects/versions"]
+	path = frontend/src/test/resources/projects/versions
+	url = https://github.com/scalacenter/versions.git
+	branch = bloop
