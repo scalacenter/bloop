@@ -30,7 +30,7 @@ class CompilationTasks(initialProjects: Map[String, Project],
       case (Some(analysis), Some(setup)) =>
         project.origin match {
           case Some(origin) =>
-            val storeFile = origin.getParent().resolve(s"${project.name}-analysis.bin").toFile
+            val storeFile = origin.getParent.resolve(s"${project.name}-analysis.bin").toFile
             FileAnalysisStore.binary(storeFile).set(ConcreteAnalysisContents(analysis, setup))
           case None => logger.warn(s"Missing target directory for ${project.name}.")
         }
