@@ -10,3 +10,7 @@
 	path = frontend/src/test/resources/projects/sbt
 	url = https://github.com/scalacenter/sbt.git
 	branch = hardcoded-stuff
+[submodule "frontend/src/test/resources/projects/utest"]
+	path = frontend/src/test/resources/projects/utest
+	url = https://github.com/scalacenter/utest.git
+	branch = bloop
