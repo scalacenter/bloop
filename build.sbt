@@ -95,10 +95,15 @@ lazy val sbtBloop = project
            |TaskKey[Unit]("register-directory") := {
            |  val dir = (baseDirectory in ThisBuild).value
            |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
-           |}""".stripMargin
+           |}
+           |TaskKey[Unit]("do-install") := (Def.taskDyn {
+           |  val files = (bloopConfigDir.value ** "*.config").get
+           |  if (files.isEmpty) Def.task { install.value }
+           |  else Def.task { () }
+           |}).value""".stripMargin
       val scriptedTest =
         """> registerDirectory
-          |> install""".stripMargin
+          |> doInstall""".stripMargin
 
       val tests = ((resourceDirectory in Test in frontend).value / "projects").*(AllPassFilter).get
       tests.foreach { testDir =>
