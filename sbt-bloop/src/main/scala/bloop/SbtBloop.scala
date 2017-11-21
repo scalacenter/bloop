@@ -11,12 +11,13 @@ object SbtBloop extends AutoPlugin {
   override def trigger  = allRequirements
   override def requires = JvmPlugin
 
+  private val bloopInstall: TaskKey[Unit] =
+    taskKey[Unit]("Generate bloop configuration files for this project")
+
   object autoImport {
-    lazy val bloopConfigDir: SettingKey[File] =
+    val bloopConfigDir: SettingKey[File] =
       settingKey[File]("Directory where to write bloop configuration files")
-    lazy val bloopInstall: TaskKey[Unit] =
-      taskKey[Unit]("Generate bloop configuration files for this project")
-    lazy val install: TaskKey[Unit] =
+    val install: TaskKey[Unit] =
       taskKey[Unit]("Generate all bloop configuration files")
   }
 
@@ -34,12 +35,16 @@ object SbtBloop extends AutoPlugin {
     List(Compile, Test).flatMap { c =>
       inConfig(c)(
         Seq(bloopInstall := {
+          val project = thisProject.value
           def makeName(name: String, configuration: Configuration): String =
             if (configuration == Compile) name else name + "-test"
-          val projectName = makeName(projectID.value.name, configuration.value)
+          val projectName = makeName(thisProjectRef.value.project, configuration.value)
           // TODO: We should extract the right configuration for the dependency.
           val dependencies =
-            projectDependencies.value.map(proj => makeName(proj.name, configuration.value))
+            project.dependencies.map(dep => makeName(dep.project.project, configuration.value))
+          // TODO: We should extract the right configuration for the aggregate.
+          val aggregates =
+            project.aggregate.map(agg => makeName(agg.project, configuration.value))
           val scalaOrganization =
             Keys.ivyScala.value
               .map(_.scalaOrganization)
@@ -53,7 +58,7 @@ object SbtBloop extends AutoPlugin {
           val config =
             Config(
               projectName,
-              dependencies,
+              dependencies ++ aggregates,
               scalaOrganization,
               scalaName,
               scalaVersion.value,
@@ -95,8 +100,8 @@ object SbtBloop extends AutoPlugin {
       properties.setProperty("scalaVersion", scalaVersion)
       properties.setProperty("classpath", classpath.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("classesDir", classesDir.getAbsolutePath)
-      properties.setProperty("scalacOptions", scalacOptions.mkString(","))
-      properties.setProperty("javacOptions", javacOptions.mkString(","))
+      properties.setProperty("scalacOptions", scalacOptions.mkString(";"))
+      properties.setProperty("javacOptions", javacOptions.mkString(";"))
       properties.setProperty("sourceDirectories",
                              sourceDirectories.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("tmp", tmp.getAbsolutePath)

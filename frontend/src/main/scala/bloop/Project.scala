@@ -91,9 +91,9 @@ object Project {
       properties.getProperty("classpath").split(",").map(NioPaths.get(_)).map(AbsolutePath.apply)
     val classesDir = AbsolutePath(NioPaths.get(properties.getProperty("classesDir")))
     val scalacOptions =
-      properties.getProperty("scalacOptions").split(",").filterNot(_.isEmpty)
+      properties.getProperty("scalacOptions").split(";").filterNot(_.isEmpty)
     val javacOptions =
-      properties.getProperty("javacOptions").split(",").filterNot(_.isEmpty)
+      properties.getProperty("javacOptions").split(";").filterNot(_.isEmpty)
     val sourceDirectories = properties
       .getProperty("sourceDirectories")
       .split(",")

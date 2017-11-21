@@ -109,7 +109,9 @@ class CompilationTasks(projects: Map[String, Project], cache: CompilerCache, log
     val classpath = project.classpath
     val classesDir = project.classesDir
     val target = project.tmp
+    val scalacOptions = project.scalacOptions
+    val javacOptions = project.javacOptions
     val previous = project.previousResult
-    CompileInputs(instance, cache, sourceDirs, classpath, classesDir, target, previous, logger)
+    CompileInputs(instance, cache, sourceDirs, classpath, classesDir, target, scalacOptions, javacOptions, previous, logger)
   }
 }
