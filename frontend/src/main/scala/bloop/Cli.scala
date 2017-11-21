@@ -4,7 +4,7 @@ import bloop.cli.{CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run}
 import com.martiansoftware.nailgun
 
-object BloopCli {
+object Cli {
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
     val exit = run(action)
