@@ -16,7 +16,7 @@ object ProjectHelpers {
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
 
-  def rebase(from: Path, to: Path): Project => Project = project => {
+  def rebase(from: Path, to: Path, project: Project): Project = {
     def work(path: AbsolutePath): AbsolutePath = {
       val newPath = Paths.get(path.toString.replaceFirst(from.toString, to.toString))
       AbsolutePath(newPath)
@@ -34,7 +34,7 @@ object ProjectHelpers {
   def withProjects[T](projectStructures: Map[String, Map[String, String]],
                       dependencies: Map[String, Set[String]],
                       scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance)(
-      op: Map[String, Project] => T): T =
+      op: Map[String, Project] => T): T = {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
@@ -43,6 +43,7 @@ object ProjectHelpers {
       }
       op(projects)
     }
+  }
 
   def makeProject(baseDir: Path,
                   name: String,

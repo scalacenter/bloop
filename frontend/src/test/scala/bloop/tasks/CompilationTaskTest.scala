@@ -18,16 +18,13 @@ object CompilationTaskTest extends TestSuite {
 
       withProjects(projectStructures, dependencies) { projects =>
         val project = projects("empty")
-
-        assert(!project.previousResult.analysis.isPresent)
-        assert(!project.previousResult.setup.isPresent)
+        assert(noPreviousResult(project))
 
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         val newProjects = tasks.parallel(project)
         val newProject = newProjects("empty")
 
-        assert(newProject.previousResult.analysis.isPresent)
-        assert(newProject.previousResult.setup.isPresent)
+        assert(hasPreviousResult(newProject))
       }
     }
 
@@ -59,15 +56,13 @@ object CompilationTaskTest extends TestSuite {
       val dependencies = Map("child" -> Set("parent"))
 
       withProjects(projectStructures, dependencies) { projects =>
-        assert(projects.forall { case (_, prj) => !prj.previousResult.analysis.isPresent })
-        assert(projects.forall { case (_, prj) => !prj.previousResult.setup.isPresent })
+        assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
 
         val project = projects("child")
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         val newProjects = tasks.parallel(project)
 
-        assert(newProjects.forall { case (_, prj) => prj.previousResult.analysis.isPresent })
-        assert(newProjects.forall { case (_, prj) => prj.previousResult.setup.isPresent })
+        assert(newProjects.forall { case (_, prj) => hasPreviousResult(prj) })
       }
 
     }
@@ -88,15 +83,13 @@ object CompilationTaskTest extends TestSuite {
       val dependencies = Map("child" -> Set("parent0", "parent1"))
 
       withProjects(projectStructures, dependencies) { projects =>
-        assert(projects.forall { case (_, prj) => !prj.previousResult.analysis.isPresent })
-        assert(projects.forall { case (_, prj) => !prj.previousResult.setup.isPresent })
+        assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
 
         val child = projects("child")
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         val newProjects = tasks.parallel(child)
 
-        assert(newProjects.forall { case (_, prj) => prj.previousResult.analysis.isPresent })
-        assert(newProjects.forall { case (_, prj) => prj.previousResult.setup.isPresent })
+        assert(newProjects.forall { case (_, prj) => hasPreviousResult(prj) })
       }
     }
 
@@ -115,45 +108,44 @@ object CompilationTaskTest extends TestSuite {
       val dependencies = Map("child" -> Set("parent"))
 
       withProjects(projectStructures, dependencies) { projects =>
-        assert(projects.forall { case (_, prj) => !prj.previousResult.analysis.isPresent })
-        assert(projects.forall { case (_, prj) => !prj.previousResult.setup.isPresent })
+        assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
 
         val child = projects("child")
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
         val newProjects = tasks.parallel(child)
 
         // The unrelated project should not have been compiled
-        assert(!newProjects("unrelated").previousResult.analysis.isPresent)
-        assert(!newProjects("unrelated").previousResult.setup.isPresent)
-
-        assert(newProjects("parent").previousResult.analysis.isPresent)
-        assert(newProjects("parent").previousResult.setup.isPresent)
-        assert(newProjects("child").previousResult.analysis.isPresent)
-        assert(newProjects("child").previousResult.setup.isPresent)
+        assert(noPreviousResult(newProjects("unrelated")))
+        assert(hasPreviousResult(newProjects("parent")))
+        assert(hasPreviousResult(newProjects("child")))
       }
     }
-
-    def simpleProject(scalaInstance: ScalaInstance): Unit = {
-      val projectStructures =
-        Map("prj" -> Map("A.scala" -> "object A"))
-
-      val dependencies = Map.empty[String, Set[String]]
-
-      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.11.11")
-      withProjects(projectStructures, dependencies, scalaInstance) { projects =>
-        val project = projects("prj")
-
-        assert(!project.previousResult.analysis.isPresent)
-        assert(!project.previousResult.setup.isPresent)
-
-        val tasks = new CompilationTasks(projects, compilerCache, ConsoleLogger)
-        val newProjects = tasks.parallel(project)
-        val newProject = newProjects("prj")
-
-        assert(newProject.previousResult.analysis.isPresent)
-        assert(newProject.previousResult.setup.isPresent)
-      }
-    }
-
   }
+
+  private def simpleProject(scalaInstance: ScalaInstance): Unit = {
+    val projectStructures =
+      Map("prj" -> Map("A.scala" -> "object A"))
+
+    val dependencies = Map.empty[String, Set[String]]
+
+    val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.11.11")
+    withProjects(projectStructures, dependencies, scalaInstance) { projects =>
+      val project = projects("prj")
+
+      assert(noPreviousResult(project))
+
+      val tasks = new CompilationTasks(projects, compilerCache, ConsoleLogger)
+      val newProjects = tasks.parallel(project)
+      val newProject = newProjects("prj")
+
+      assert(hasPreviousResult(newProject))
+    }
+  }
+
+  private def hasPreviousResult(project: Project): Boolean = {
+    project.previousResult.analysis.isPresent &&
+    project.previousResult.setup.isPresent
+  }
+
+  private def noPreviousResult(project: Project): Boolean = !hasPreviousResult(project)
 }

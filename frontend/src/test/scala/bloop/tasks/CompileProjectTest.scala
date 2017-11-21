@@ -15,14 +15,14 @@ object CompileProjectTest extends DynTest {
 
   val base = getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
-    case _                          => ???
+    case _                          => throw new Exception("No projects to test?")
   }
 
   val projects = Files.list(base)
 
-  projects.forEach { project =>
-    test(project.getFileName.toString) {
-      val configDir = project.resolve("bloop-config")
+  projects.forEach { testDirectory =>
+    test(testDirectory.getFileName.toString) {
+      val configDir = testDirectory.resolve("bloop-config")
       val baseDirectoryFile = configDir.resolve("base-directory")
       assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
       val baseDirectory = {
@@ -31,7 +31,7 @@ object CompileProjectTest extends DynTest {
         Paths.get(contents.get(0))
       }
 
-      val rebase = ProjectHelpers.rebase(baseDirectory, project)
+      def rebase(proj: Project) = ProjectHelpers.rebase(baseDirectory, testDirectory, proj)
       val rootProjectName = "bloop-test-root"
       val projects = {
         val projects = Project.fromDir(AbsolutePath(configDir)).mapValues(rebase)
