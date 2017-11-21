@@ -1,16 +1,15 @@
 package sbt.internal.inc.bloop
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
-import bloop.{CompilerCache, ScalaInstance}
+import bloop.ScalaInstance
 import bloop.io.AbsolutePath
-import xsbti.{ComponentProvider, GlobalLock}
+import xsbti.ComponentProvider
 import sbt.internal.inc.ZincComponentCompiler
 import sbt.librarymanagement.{Configurations, ModuleID}
 
 object ZincInternals {
-  def latestVersion: String     = ZincComponentCompiler.incrementalVersion
-  def getGlobalLock: GlobalLock = ZincComponentCompiler.getDefaultLock
+  def latestVersion: String = ZincComponentCompiler.incrementalVersion
   def getComponentProvider(componentsDir: AbsolutePath): ComponentProvider = {
     val componentsPath = componentsDir.underlying
     if (!Files.exists(componentsPath)) Files.createDirectory(componentsPath)
@@ -50,7 +49,7 @@ object ZincInternals {
    */
   def getBridgeComponentId(sources: ModuleID, scalaInstance: ScalaInstance): String = {
     import ZincComponentCompiler.{binSeparator, javaClassVersion}
-    val id           = s"${sources.organization}-${sources.name}-${sources.revision}"
+    val id = s"${sources.organization}-${sources.name}-${sources.revision}"
     val scalaVersion = scalaInstance.actualVersion()
     s"$id$binSeparator${scalaVersion}__$javaClassVersion"
   }
