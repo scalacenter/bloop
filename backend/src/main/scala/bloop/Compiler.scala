@@ -35,7 +35,7 @@ object Compiler {
   def compile(compileInputs: CompileInputs): CompileResult = {
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
-      val setup   = getSetup(compileInputs)
+      val setup = getSetup(compileInputs)
       Inputs.of(compilers, options, setup, compileInputs.previousResult)
     }
 
@@ -55,21 +55,21 @@ object Compiler {
     }
 
     def getSetup(compileInputs: CompileInputs): Setup = {
-      val skip          = false
-      val empty         = Array.empty[T2[String, String]]
-      val lookup        = new ZincClasspathEntryLookup(compileInputs.previousResult)
-      val reporter      = new LoggedReporter(100, logger)
+      val skip = false
+      val empty = Array.empty[T2[String, String]]
+      val lookup = new ZincClasspathEntryLookup(compileInputs.previousResult)
+      val reporter = new LoggedReporter(100, logger)
       val compilerCache = new FreshCompilerCache
-      val cacheFile     = compileInputs.baseDirectory.resolve("cache").toFile
-      val incOptions    = IncOptions.create()
-      val progress      = Optional.empty[CompileProgress]
+      val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
+      val incOptions = IncOptions.create()
+      val progress = Optional.empty[CompileProgress]
       Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
-    val scalaInstance       = compileInputs.scalaInstance
-    val cacheId             = CompilerCache.CacheId.fromInstance(scalaInstance)
-    val compilers           = compileInputs.compilerCache.get(cacheId)
-    val inputs              = getInputs(compilers)
+    val scalaInstance = compileInputs.scalaInstance
+    val cacheId = CompilerCache.CacheId.fromInstance(scalaInstance)
+    val compilers = compileInputs.compilerCache.get(cacheId)
+    val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
     incrementalCompiler.compile(inputs, logger)
   }

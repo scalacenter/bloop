@@ -115,6 +115,15 @@ class CompilationTasks(initialProjects: Map[String, Project],
     val scalacOptions = project.scalacOptions
     val javacOptions = project.javacOptions
     val previous = project.previousResult
-    CompileInputs(instance, cache, sourceDirs, classpath, classesDir, target, scalacOptions, javacOptions, previous, logger)
+    CompileInputs(instance,
+                  cache,
+                  sourceDirs,
+                  classpath,
+                  classesDir,
+                  target,
+                  scalacOptions,
+                  javacOptions,
+                  previous,
+                  logger)
   }
 }

@@ -37,7 +37,7 @@ class ScalaInstance(
   override def actualVersion(): String = {
     // TODO: Report when the `actualVersion` and the passed in version do not match.
     Option(loader.getResource("compiler.properties")).map { url =>
-      val stream     = url.openStream()
+      val stream = url.openStream()
       val properties = new Properties()
       properties.load(stream)
       properties.get("version.number").asInstanceOf[String]
@@ -50,7 +50,7 @@ object ScalaInstance {
     val start = Resolution(Set(Dependency(Module(scalaOrg, scalaName), scalaVersion)))
     val repositories =
       Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
-    val fetch      = Fetch.from(repositories, Cache.fetch())
+    val fetch = Fetch.from(repositories, Cache.fetch())
     val resolution = start.process.run(fetch).unsafePerformSync
     //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
     // TODO: Do something with the errors.

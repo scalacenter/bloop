@@ -1,6 +1,10 @@
 matrix:
   SBT_RUN:
-    - sbt "compile" "zincIntegration/publishLocal" "frontend/test"
+    - sbt "compile" \
+          "++2.11.11 zincIntegration/publishLocal" \
+          "++2.12.4 zincIntegration/publishLocal" \
+          "setupTests" \
+          "frontend/test"
 
 clone:
   git:

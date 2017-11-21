@@ -31,25 +31,19 @@ object CompilationTaskTest extends TestSuite {
       }
     }
 
-    "Compile a project with a single correct source" - {
-      val projectStructures =
-        Map("prj" -> Map("A.scala" -> "object A"))
+    "Compile with scala 2.12.4" - {
+      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.12.4")
+      simpleProject(scalaInstance)
+    }
 
-      val dependencies = Map.empty[String, Set[String]]
+    "Compile with Scala 2.12.3" - {
+      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.12.3")
+      simpleProject(scalaInstance)
+    }
 
-      withProjects(projectStructures, dependencies) { projects =>
-        val project = projects("prj")
-
-        assert(!project.previousResult.analysis.isPresent)
-        assert(!project.previousResult.setup.isPresent)
-
-        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        val newProjects = tasks.parallel(project)
-        val newProject = newProjects("prj")
-
-        assert(newProject.previousResult.analysis.isPresent)
-        assert(newProject.previousResult.setup.isPresent)
-      }
+    "Compile with scala 2.11.11" - {
+      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compile", "2.11.11")
+      simpleProject(scalaInstance)
     }
 
     "Compile two projects with a dependency" - {
@@ -138,5 +132,28 @@ object CompilationTaskTest extends TestSuite {
         assert(newProjects("child").previousResult.setup.isPresent)
       }
     }
+
+    def simpleProject(scalaInstance: ScalaInstance): Unit = {
+      val projectStructures =
+        Map("prj" -> Map("A.scala" -> "object A"))
+
+      val dependencies = Map.empty[String, Set[String]]
+
+      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.11.11")
+      withProjects(projectStructures, dependencies, scalaInstance) { projects =>
+        val project = projects("prj")
+
+        assert(!project.previousResult.analysis.isPresent)
+        assert(!project.previousResult.setup.isPresent)
+
+        val tasks = new CompilationTasks(projects, compilerCache, ConsoleLogger)
+        val newProjects = tasks.parallel(project)
+        val newProject = newProjects("prj")
+
+        assert(newProject.previousResult.analysis.isPresent)
+        assert(newProject.previousResult.setup.isPresent)
+      }
+    }
+
   }
 }

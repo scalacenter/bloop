@@ -22,7 +22,7 @@ val zincIntegration = project
   )
 
 // Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
-val SbtConfig               = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
+val SbtConfig = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
 val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just having fun.")
 val nailgun = project
   .in(file(".nailgun"))
@@ -35,6 +35,16 @@ val nailgun = project
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
+// This command helps with setting up the tests:
+//  - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
+//  - Runs scripted, so that the configuration files are generated.
+val setupTests = Command.command("setupTests") { state =>
+  "sbtBloop/scriptedAddSbtBloop" ::
+    "sbtBloop/scripted" ::
+    state
+}
+commands += setupTests
+
 val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(
@@ -58,7 +68,8 @@ val frontend = project
     testFrameworks += new TestFramework("utest.runner.Framework")
   )
 
-val sbtBloop = project
+lazy val scriptedAddSbtBloop = taskKey[Unit]("...")
+lazy val sbtBloop = project
   .in(file("sbt-bloop"))
   .settings(
     name := "sbt-bloop",
@@ -68,8 +79,43 @@ val sbtBloop = project
       if ((sbtVersion in pluginCrossBuild).value.startsWith("0.13")) "2.10.6" else orig
     },
   )
+  .settings(
+    // The scripted tests (= projects) are in the resources of `frontend`, because
+    // we use them mostly for unit testing `frontend`.
+    sbtTestDirectory := (resourceDirectory in Test in frontend).value,
+    // Adds sbt-bloop to all the scripted tests. We will generate all the info that the tests
+    // need with sbt-bloop.
+    scriptedAddSbtBloop := {
+      val addSbtPlugin =
+        s"""addSbtPlugin("${organization.value}" % "${name.value}" % "${version.value}")""" + "\n"
+      // We write the base directory __HERE__ because sbt will copy the scripted test to a temporary
+      // directory, and we'll need to rebase the projects.
+      def bloopConfig(testDir: File) =
+        s"""bloopConfigDir in Global := file("$testDir/bloop-config")
+           |TaskKey[Unit]("register-directory") := {
+           |  val dir = (baseDirectory in ThisBuild).value
+           |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
+           |}""".stripMargin
+      val scriptedTest =
+        """> registerDirectory
+          |> install""".stripMargin
 
-val allProjects          = Seq(backend, frontend, sbtBloop)
+      val tests = ((resourceDirectory in Test in frontend).value / "projects").*(AllPassFilter).get
+      tests.foreach { testDir =>
+        IO.createDirectory(testDir / "bloop-config")
+        IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
+        IO.write(testDir / "test-config.sbt", bloopConfig(testDir))
+        IO.write(testDir / "test", scriptedTest)
+      }
+    },
+    scriptedLaunchOpts := {
+      scriptedLaunchOpts.value ++
+        Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
+    },
+    scriptedBufferLog := false
+  )
+
+val allProjects = Seq(backend, frontend, sbtBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))

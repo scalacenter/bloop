@@ -16,13 +16,30 @@ object ProjectHelpers {
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
 
+  def rebase(from: Path, to: Path): Project => Project = project => {
+    def work(path: AbsolutePath): AbsolutePath = {
+      val newPath = Paths.get(path.toString.replaceFirst(from.toString, to.toString))
+      AbsolutePath(newPath)
+    }
+
+    project.copy(
+      classpath = project.classpath.map(work),
+      classesDir = work(project.classesDir),
+      sourceDirectories = project.sourceDirectories.map(work),
+      tmp = work(project.tmp),
+      origin = project.origin.map(work)
+    )
+  }
+
   def withProjects[T](projectStructures: Map[String, Map[String, String]],
-                      dependencies: Map[String, Set[String]])(op: Map[String, Project] => T): T =
+                      dependencies: Map[String, Set[String]],
+                      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance)(
+      op: Map[String, Project] => T): T =
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
           val deps = dependencies.getOrElse(name, Set.empty)
-          name -> makeProject(temp, name, sources, deps)
+          name -> makeProject(temp, name, sources, deps, scalaInstance)
       }
       op(projects)
     }
@@ -30,7 +47,8 @@ object ProjectHelpers {
   def makeProject(baseDir: Path,
                   name: String,
                   sources: Map[String, String],
-                  dependencies: Set[String]): Project = {
+                  dependencies: Set[String],
+                  scalaInstance: ScalaInstance): Project = {
     val (srcs, classes) = makeProjectStructure(baseDir, name)
     val tempDir = projectDir(baseDir, name).resolve("tmp")
     Files.createDirectories(tempDir)
@@ -43,7 +61,7 @@ object ProjectHelpers {
     Project(
       name = name,
       dependencies = dependencies.toArray,
-      scalaInstance = CompilationHelpers.scalaInstance,
+      scalaInstance = scalaInstance,
       classpath = classpath.toArray.map(AbsolutePath.apply),
       classesDir = AbsolutePath(target),
       scalacOptions = Array.empty,
