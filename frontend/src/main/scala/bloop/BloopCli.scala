@@ -1,55 +1,63 @@
 package bloop
 
-import java.nio.file.Path
+import bloop.cli.{CliParsers, Commands, CommonOptions, ExitStatus}
+import bloop.engine.{Action, Exit, Interpreter, Print, Run}
+import com.martiansoftware.nailgun
 
-import bloop.io.{AbsolutePath, Paths}
-import bloop.cli.{Command, Commands}
-import bloop.cli.CustomCaseAppParsers.fileParser
-import bloop.tasks.CompilationTasks
-import caseapp.{CommandApp, RemainingArgs}
-import sbt.internal.inc.bloop.ZincInternals
-
-object BloopCli extends CommandApp[Command] {
-  // TODO: To be filled in via `BuildInfo`.
-  override def appName: String = "bloop"
-  override def appVersion: String = "0.1.0"
-
-  def readAllProjects(baseDir: Path): Map[String, Project] = {
-    // TODO: Control here and in `compile` the cwd used.
-    val baseDirectory = AbsolutePath(baseDir)
-    val configDirectory = baseDirectory.resolve(".bloop-config")
-    Project.fromDir(configDirectory)
+object BloopCli {
+  def main(args: Array[String]): Unit = {
+    val action = parse(args, CommonOptions.default)
+    val exit = run(action)
+    sys.exit(exit.code)
   }
 
-  def constructTasks(projects: Map[String, Project]): CompilationTasks = {
-    val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
-    val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
-    CompilationTasks(projects, compilerCache, QuietLogger)
+  def nailMain(ngContext: nailgun.NGContext): Unit = {
+    val nailgunOptions = CommonOptions(
+      in = ngContext.in,
+      out = ngContext.out,
+      err = ngContext.err,
+      workingDirectory = ngContext.getWorkingDirectory,
+    )
+    val cmd = parse(ngContext.getArgs, nailgunOptions)
+    val exit = run(cmd)
+    ngContext.exit(exit.code)
   }
 
-  // TODO: Remove all the boilerplate that arises from reading the config file and cache it.
-  override def run(command: Command, remainingArgs: RemainingArgs): Unit = {
-    import scala.concurrent.ExecutionContext.Implicits.global
-    command match {
-      case Commands.Compile(baseDir, projectName, incremental) =>
-        val projects = readAllProjects(baseDir)
-        val tasks = constructTasks(projects)
-        val project = projects(projectName)
-        if (incremental) tasks.parallelCompile(project)
-        else {
-          val newProjects = tasks.clean(projects.keys.toList)
-          val newTasks = tasks.copy(projects = newProjects)
-          newTasks.parallelCompile(project)
-        }
-        ()
+  def parse(args: Array[String], commonOptions: CommonOptions): Action = {
+    import caseapp.core.WithHelp
+    import CliParsers.{CommandsParser, BeforeCommandParser}
+    def printAndExit(msg: String): Print =
+      Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
-      case Commands.Clean(baseDir, projectNames) =>
-        val projects = readAllProjects(baseDir)
-        val tasks = constructTasks(projects)
-        tasks.clean(projects.keys.toList).valuesIterator.map { project =>
-          tasks.persistAnalysis(project, QuietLogger)
+    CommandsParser.withHelp.detailedParse(args)(BeforeCommandParser.withHelp) match {
+      case Left(err) => printAndExit(err)
+      case Right((WithHelp(_, help @ true, _), _, _)) =>
+        Print("", commonOptions, Exit(ExitStatus.Ok))
+      case Right((WithHelp(usage @ true, _, _), _, _)) =>
+        Print("", commonOptions, Exit(ExitStatus.Ok))
+      case Right((_, _, commandOpt)) =>
+        val newAction = commandOpt map {
+          case Left(err) => printAndExit(err)
+          case Right((commandName, WithHelp(_, help @ true, _), _, _)) =>
+            Print("", commonOptions, Exit(ExitStatus.Ok))
+          case Right((commandName, WithHelp(usage @ true, _, _), _, _)) =>
+            Print("", commonOptions, Exit(ExitStatus.Ok))
+          case Right((commandName, WithHelp(_, _, command), _, _)) =>
+            // Override common options depending who's the caller of parse (whether nailgun or main)
+            def run(command: Commands.Command): Run = Run(command, Exit(ExitStatus.Ok))
+            command match {
+              case Left(err) => printAndExit(err)
+              case Right(v: Commands.Version) =>
+                run(v.copy(cliOptions = v.cliOptions.copy(common = commonOptions)))
+              case Right(c: Commands.Compile) =>
+                run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
+              case Right(c: Commands.Clean) =>
+                run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
+            }
         }
-        ()
+        newAction.getOrElse(Print("", commonOptions, Exit(ExitStatus.Ok)))
     }
   }
+
+  def run(action: Action): ExitStatus = Interpreter.execute(action)
 }

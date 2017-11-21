@@ -1,18 +1,25 @@
 package bloop.cli
 
-import java.nio.file.Path
-
-sealed trait Command
+import caseapp._
 
 object Commands {
-  case class Compile(
-      baseDir: Path,
-      project: String,
-      incremental: Boolean = true
+  sealed trait Command
+  case class Version(
+      @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 
+  case class Compile(
+      @ExtraName("v")
+      @HelpMessage("Print bloop's version number and exit.")
+      project: String,
+      incremental: Boolean = true,
+      @Recurse cliOptions: CliOptions = CliOptions.default,
+  ) extends Command
+
+
   case class Clean(
-      baseDir: Path,
-      projects: List[String]
+      @HelpMessage("The projects to be cleaned.")
+      projects: List[String],
+      @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 }
