@@ -24,7 +24,7 @@ object BuildKeys {
   import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
   final val testDependencies = List(
-    "junit"        % "junit"           % "4.12" % "test",
+    "junit" % "junit" % "4.12" % "test",
     "com.novocode" % "junit-interface" % "0.11" % "test"
   )
 
@@ -41,15 +41,15 @@ object BuildKeys {
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
 
   final val ZincProject = RootProject(file(s"$AbsolutePath/zinc"))
-  final val ZincBuild   = BuildRef(ZincProject.build)
-  final val Zinc        = ProjectRef(ZincProject.build, "zinc")
-  final val ZincRoot    = ProjectRef(ZincProject.build, "zincRoot")
-  final val ZincBridge  = ProjectRef(ZincProject.build, "compilerBridge")
+  final val ZincBuild = BuildRef(ZincProject.build)
+  final val Zinc = ProjectRef(ZincProject.build, "zinc")
+  final val ZincRoot = ProjectRef(ZincProject.build, "zincRoot")
+  final val ZincBridge = ProjectRef(ZincProject.build, "compilerBridge")
 
-  final val NailgunProject  = RootProject(file(s"$AbsolutePath/nailgun"))
-  final val NailgunBuild    = BuildRef(NailgunProject.build)
-  final val Nailgun         = ProjectRef(NailgunProject.build, "nailgun")
-  final val NailgunServer   = ProjectRef(NailgunProject.build, "nailgun-server")
+  final val NailgunProject = RootProject(file(s"$AbsolutePath/nailgun"))
+  final val NailgunBuild = BuildRef(NailgunProject.build)
+  final val Nailgun = ProjectRef(NailgunProject.build, "nailgun")
+  final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 }
 
@@ -87,6 +87,7 @@ object BuildImplementation {
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.commands += Semanticdb.command(Keys.crossScalaVersions.value),
+    Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
   )
 
@@ -110,7 +111,7 @@ object BuildImplementation {
   )
 
   object BuildDefaults {
-    import sbt.State
+    import sbt.{State, Command}
 
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
@@ -138,6 +139,11 @@ object BuildImplementation {
         val allSessionSettings = currentSessionSettings ++ currentSession.rawAppend
         extracted.append(globalSettings ++ projectSettings ++ allSessionSettings, hijackedState)
       }
+    }
+
+    def fixPluginCross(commands: Seq[Command]): Seq[Command] = {
+      val pruned = commands.filterNot(p => p == sbt.WorkingPluginCross.oldPluginSwitch)
+      sbt.WorkingPluginCross.pluginSwitch +: pruned
     }
   }
 }
