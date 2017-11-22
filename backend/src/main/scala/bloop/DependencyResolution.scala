@@ -5,8 +5,9 @@ import sbt.librarymanagement.ivy._
 
 object DependencyResolution {
   private final val BloopResolvers = Vector(Resolver.defaultLocal, Resolver.mavenCentral)
-  def getEngine: DependencyResolution = {
-    val configuration = InlineIvyConfiguration().withResolvers(BloopResolvers)
+  def getEngine(userResolvers: List[Resolver]): DependencyResolution = {
+    val resolvers = if (userResolvers.isEmpty) BloopResolvers else userResolvers.toVector
+    val configuration = InlineIvyConfiguration().withResolvers(resolvers)
     IvyDependencyResolution(configuration)
   }
 }

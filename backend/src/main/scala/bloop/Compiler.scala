@@ -43,13 +43,15 @@ object Compiler {
       val sources = inputs.sourceDirectories.distinct
         .flatMap(src => Paths.getAll(src, "glob:**.{scala,java}"))
         .distinct
+      val classesDir = inputs.classesDir.toFile
+      val classpath =
+        inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars ++ Array(classesDir)
 
       CompileOptions
         .create()
-        .withClassesDirectory(inputs.classesDir.toFile)
+        .withClassesDirectory(classesDir)
         .withSources(sources.map(_.toFile))
-        .withClasspath(inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars ++ Array(
-          inputs.classesDir.toFile))
+        .withClasspath(classpath)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
     }

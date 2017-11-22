@@ -55,7 +55,7 @@ object CompileProjectTest extends DynTest {
     }
 
     val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-    val _ = tasks.parallel(projects(rootProjectName))
+    val _ = tasks.parallelCompile(projects(rootProjectName))
   }
 
 }

@@ -5,10 +5,13 @@ import java.util.concurrent.ConcurrentHashMap
 import bloop.io.{AbsolutePath, Paths}
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
+import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
 import xsbti.compile.{ClasspathOptions, Compilers}
 
-class CompilerCache(componentProvider: ComponentProvider, retrieveDir: AbsolutePath) {
+class CompilerCache(componentProvider: ComponentProvider,
+                    retrieveDir: AbsolutePath,
+                    userResolvers: List[Resolver] = Nil) {
   import CompilerCache.CacheId
   private val logger = QuietLogger
   private val cache = new ConcurrentHashMap[CacheId, Compilers]()
@@ -37,7 +40,7 @@ class CompilerCache(componentProvider: ComponentProvider, retrieveDir: AbsoluteP
           /* globalLock           = */ Lock,
           /* componentProvider    = */ componentProvider,
           /* secondaryCacheDir    = */ Some(Paths.getCacheDirectory("bridge-cache").toFile),
-          /* dependencyResolution = */ DependencyResolution.getEngine,
+          /* dependencyResolution = */ DependencyResolution.getEngine(userResolvers),
           /* compilerBridgeSource = */ bridgeSources,
           /* scalaJarsTarget      = */ retrieveDir.toFile,
           /* log                  = */ logger
