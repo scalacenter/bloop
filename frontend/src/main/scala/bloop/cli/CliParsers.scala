@@ -19,8 +19,13 @@ object CliParsers {
       toPath.left.map(t => s"The provided path ${supposedPath} is not valid: '${t.getMessage()}'.")
   }
 
+  val BaseParser: caseapp.core.Parser[DefaultBaseCommand] =
+    caseapp.core.Parser.apply[DefaultBaseCommand]
+  val BaseMessages: caseapp.core.Messages[DefaultBaseCommand] =
+    caseapp.core.Messages[DefaultBaseCommand]
+
+  val CommandsMessages: caseapp.core.CommandsMessages[Commands.Command] =
+    caseapp.core.CommandsMessages[Commands.Command]
   val CommandsParser: CommandParser[Commands.Command] =
     caseapp.core.CommandParser.apply[Commands.Command]
-  val BeforeCommandParser: caseapp.core.Parser[DefaultBaseCommand] =
-    caseapp.core.Parser.apply[DefaultBaseCommand]
 }

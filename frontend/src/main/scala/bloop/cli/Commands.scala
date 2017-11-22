@@ -1,6 +1,6 @@
 package bloop.cli
 
-import caseapp._
+import caseapp.{ExtraName, HelpMessage, Recurse}
 
 object Commands {
   sealed trait Command
@@ -9,7 +9,7 @@ object Commands {
   ) extends Command
 
   case class Compile(
-      @ExtraName("v")
+      @ExtraName("p")
       @HelpMessage("Print bloop's version number and exit.")
       project: String,
       incremental: Boolean = true,
