@@ -1,6 +1,6 @@
 package build
 
-import sbt.{AutoPlugin, BuiltinCommands, Command, Def, Keys, PluginTrigger, Plugins}
+import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -53,6 +53,15 @@ object BuildKeys {
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 
   final val TestSetup = TestSetupSettings
+
+  import sbtbuildinfo.BuildInfoKey
+  final val BloopInfoKeys = {
+    val zincVersion = Keys.version in ZincRoot
+    val zincKey = BuildInfoKey.map(zincVersion) { case (k, version) => "zincVersion" -> version }
+    val developersKey = BuildInfoKey.map(Keys.developers) { case (k, devs) => k -> devs.map(_.id) }
+    val commonKeys = List[BuildInfoKey](Keys.name, Keys.version, Keys.scalaVersion, Keys.sbtVersion)
+    commonKeys ++ List(zincKey, developersKey)
+  }
 }
 
 object BuildImplementation {

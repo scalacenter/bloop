@@ -23,8 +23,32 @@ object Interpreter {
       execute(next)
   }
 
+  private final val t = "    "
   private def printVersion(cliOptions: CliOptions): ExitStatus = {
-    cliOptions.common.out.println("bloop 0.1.0 -- To be redone.")
+    val bloopName = bloop.internal.build.BuildInfo.name
+    val bloopVersion = bloop.internal.build.BuildInfo.version
+    val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
+    val zincVersion = bloop.internal.build.BuildInfo.zincVersion
+    val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
+    val header =
+      s"""|$t   _____            __         ______           __
+          |$t  / ___/_________ _/ /___ _   / ____/__  ____  / /____  _____
+          |$t  \\__ \\/ ___/ __ `/ / __ `/  / /   / _ \\/ __ \\/ __/ _ \\/ ___/
+          |$t ___/ / /__/ /_/ / / /_/ /  / /___/ /__/ / / / /_/ /__/ /
+          |$t/____/\\___/\\__,_/_/\\__,_/   \\____/\\___/_/ /_/\\__/\\___/_/
+          |""".stripMargin
+    val versions = s"""
+         |$t$bloopName version: `$bloopVersion`.
+         |${t}Zinc version: `$zincVersion`.
+         |${t}Scala version: `$scalaVersion`.""".stripMargin
+    cliOptions.common.out.println(header)
+    cliOptions.common.out.println(t) // This is the only way to add newline, otherwise ignored
+    cliOptions.common.out.println(s"$t$bloopName is made with love from the Scala Center <3")
+    cliOptions.common.out.println(t)
+    cliOptions.common.out.println(versions)
+    cliOptions.common.out.println(t)
+    cliOptions.common.out.println(s"${t}It is maintained by $developers.")
+
     ExitStatus.Ok
   }
 
@@ -68,7 +92,7 @@ object Interpreter {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir)
     val tasks = constructTasks(projects)
-    tasks.clean(projectNames).valuesIterator.map { project =>
+    tasks.clean(projectNames).valuesIterator.foreach { project =>
       tasks.persistAnalysis(project, QuietLogger)
     }
     ExitStatus.Ok
