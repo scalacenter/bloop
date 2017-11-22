@@ -11,9 +11,9 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.util.{Progress, TopologicalSort}
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
-class CompilationTasks(initialProjects: Map[String, Project],
-                       cache: CompilerCache,
-                       logger: Logger) {
+case class CompilationTasks(initialProjects: Map[String, Project],
+                            cache: CompilerCache,
+                            logger: Logger) {
   private final val EmptyCompileResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 

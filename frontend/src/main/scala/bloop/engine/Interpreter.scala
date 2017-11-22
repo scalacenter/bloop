@@ -58,7 +58,7 @@ object Interpreter {
       ExitStatus.Ok
     } else {
       val newProjects = tasks.clean(projects.keys.toList)
-      val newTasks = tasks.copy(projects = newProjects)
+      val newTasks = tasks.copy(initialProjects = newProjects)
       newTasks.parallelCompile(project)
       ExitStatus.Ok
     }
