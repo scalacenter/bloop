@@ -12,8 +12,8 @@ object Interpreter {
     case Print(msg, commonOptions, next) =>
       printOut(msg, commonOptions)
       execute(next)
-    case Run(Commands.Version(cliOptions), next) =>
-      printVersion(cliOptions)
+    case Run(Commands.About(cliOptions), next) =>
+      printAbout(cliOptions)
       execute(next)
     case Run(Commands.Clean(projects, cliOptions), next) =>
       clean(projects, cliOptions)
@@ -24,7 +24,7 @@ object Interpreter {
   }
 
   private final val t = "    "
-  private def printVersion(cliOptions: CliOptions): ExitStatus = {
+  private def printAbout(cliOptions: CliOptions): ExitStatus = {
     val bloopName = bloop.internal.build.BuildInfo.name
     val bloopVersion = bloop.internal.build.BuildInfo.version
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion

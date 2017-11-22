@@ -4,7 +4,7 @@ import caseapp.{ExtraName, HelpMessage, Recurse}
 
 object Commands {
   sealed trait Command
-  case class Version(
+  case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

@@ -76,7 +76,7 @@ object Cli {
             def run(command: Commands.Command): Run = Run(command, Exit(ExitStatus.Ok))
             command match {
               case Left(err) => printAndExit(err)
-              case Right(v: Commands.Version) =>
+              case Right(v: Commands.About) =>
                 run(v.copy(cliOptions = v.cliOptions.copy(common = commonOptions)))
               case Right(c: Commands.Compile) =>
                 run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
