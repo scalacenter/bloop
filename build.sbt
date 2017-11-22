@@ -35,16 +35,6 @@ val nailgun = project
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
-// This command helps with setting up the tests:
-//  - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
-//  - Runs scripted, so that the configuration files are generated.
-val setupTests = Command.command("setupTests") { state =>
-  "sbtBloop/scriptedAddSbtBloop" ::
-    "sbtBloop/scripted" ::
-    state
-}
-commands += setupTests
-
 val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(
@@ -68,7 +58,6 @@ val frontend = project
     testFrameworks += new TestFramework("utest.runner.Framework")
   )
 
-lazy val scriptedAddSbtBloop = taskKey[Unit]("...")
 lazy val sbtBloop = project
   .in(file("sbt-bloop"))
   .settings(
@@ -82,42 +71,7 @@ lazy val sbtBloop = project
   .settings(
     // The scripted tests (= projects) are in the resources of `frontend`, because
     // we use them mostly for unit testing `frontend`.
-    sbtTestDirectory := (resourceDirectory in Test in frontend).value,
-    // Adds sbt-bloop to all the scripted tests. We will generate all the info that the tests
-    // need with sbt-bloop.
-    scriptedAddSbtBloop := {
-      val addSbtPlugin =
-        s"""addSbtPlugin("${organization.value}" % "${name.value}" % "${version.value}")""" + "\n"
-      // We write the base directory __HERE__ because sbt will copy the scripted test to a temporary
-      // directory, and we'll need to rebase the projects.
-      def bloopConfig(testDir: File) =
-        s"""bloopConfigDir in Global := file("$testDir/bloop-config")
-           |TaskKey[Unit]("register-directory") := {
-           |  val dir = (baseDirectory in ThisBuild).value
-           |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
-           |}
-           |TaskKey[Unit]("do-install") := (Def.taskDyn {
-           |  val files = (bloopConfigDir.value ** "*.config").get
-           |  if (files.isEmpty) Def.task { install.value }
-           |  else Def.task { () }
-           |}).value""".stripMargin
-      val scriptedTest =
-        """> registerDirectory
-          |> doInstall""".stripMargin
-
-      val tests = ((resourceDirectory in Test in frontend).value / "projects").*(AllPassFilter).get
-      tests.foreach { testDir =>
-        IO.createDirectory(testDir / "bloop-config")
-        IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
-        IO.write(testDir / "test-config.sbt", bloopConfig(testDir))
-        IO.write(testDir / "test", scriptedTest)
-      }
-    },
-    scriptedLaunchOpts := {
-      scriptedLaunchOpts.value ++
-        Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
-    },
-    scriptedBufferLog := true
+    TestSetup.scriptedSettings(resourceDirectory in Test in frontend)
   )
 
 val allProjects = Seq(backend, frontend, sbtBloop)

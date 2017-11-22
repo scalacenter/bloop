@@ -1,6 +1,6 @@
 package build
 
-import sbt.{AutoPlugin, BuiltinCommands, Def, Keys, PluginTrigger, Plugins}
+import sbt.{AutoPlugin, BuiltinCommands, Command, Def, Keys, PluginTrigger, Plugins}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -51,6 +51,8 @@ object BuildKeys {
   final val Nailgun = ProjectRef(NailgunProject.build, "nailgun")
   final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
+
+  final val TestSetup = TestSetupSettings
 }
 
 object BuildImplementation {
@@ -88,6 +90,7 @@ object BuildImplementation {
     Keys.onLoadMessage := Header.intro,
     Keys.commands += Semanticdb.command(Keys.crossScalaVersions.value),
     Keys.commands ~= BuildDefaults.fixPluginCross _,
+    Keys.commands += TestSetupSettings.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
   )
 
@@ -111,7 +114,7 @@ object BuildImplementation {
   )
 
   object BuildDefaults {
-    import sbt.{State, Command}
+    import sbt.State
 
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
@@ -125,12 +128,12 @@ object BuildImplementation {
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
-        val hijackedState      = state.put(hijacked, true)
-        val extracted          = sbt.Project.extract(hijackedState)
-        val allZincProjects    = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
+        val hijackedState = state.put(hijacked, true)
+        val extracted = sbt.Project.extract(hijackedState)
+        val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
-        val allProjects        = allZincProjects ++ allNailgunProjects
-        val projectSettings    = allProjects.flatMap(genProjectSettings)
+        val allProjects = allZincProjects ++ allNailgunProjects
+        val projectSettings = allProjects.flatMap(genProjectSettings)
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)
         val currentProject = currentSession.current
@@ -161,4 +164,59 @@ object Header {
       |   *** An effort funded by the Scala Center Advisory Board ***
       |   ***********************************************************
     """.stripMargin
+}
+
+object TestSetupSettings {
+
+  import java.io.File
+  import sbt.io.syntax._
+  import sbt.io.{AllPassFilter, IO}
+  import sbt.ScriptedPlugin.autoImport._
+
+  val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+
+  // This command helps with setting up the tests:
+  //  - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
+  //  - Runs scripted, so that the configuration files are generated.
+  val setupTests = Command.command("setupTests") { state =>
+    "sbtBloop/scriptedAddSbtBloop" ::
+      "sbtBloop/scripted" ::
+      state
+  }
+
+  def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = Seq(
+    sbtTestDirectory := testDirectory.value,
+    // Adds sbt-bloop to all the scripted tests. We will generate all the info that the tests
+    // need with sbt-bloop.
+    scriptedAddSbtBloop := {
+      val addSbtPlugin =
+        s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")""" + "\n"
+      // We write the base directory __HERE__ because sbt will copy the scripted test to a temporary
+      // directory, and we'll need to rebase the projects.
+      def bloopConfig(testDir: File) =
+        s"""bloopConfigDir in Global := file("$testDir/bloop-config")
+           |TaskKey[Unit]("register-directory") := {
+           |  val dir = (baseDirectory in ThisBuild).value
+           |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
+           |}
+           |TaskKey[Unit]("do-install") := (Def.taskDyn {
+           |  val files = (bloopConfigDir.value ** "*.config").get
+           |  if (files.isEmpty) Def.task { install.value }
+           |  else Def.task { () }
+           |}).value""".stripMargin
+      val scriptedTest =
+        """> registerDirectory
+          |> doInstall""".stripMargin
+
+      val tests = (sbtTestDirectory.value / "projects").*(AllPassFilter).get
+      tests.foreach { testDir =>
+        IO.createDirectory(testDir / "bloop-config")
+        IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
+        IO.write(testDir / "test-config.sbt", bloopConfig(testDir))
+        IO.write(testDir / "test", scriptedTest)
+      }
+    },
+    scriptedBufferLog := true
+  )
+
 }
