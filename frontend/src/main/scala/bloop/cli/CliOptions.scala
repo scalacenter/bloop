@@ -5,7 +5,6 @@ import java.nio.file.Path
 
 import bloop.io.AbsolutePath
 import caseapp._
-import CliParsers._
 
 case class CliOptions(
     @ExtraName("c")
