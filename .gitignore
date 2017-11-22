@@ -9,3 +9,5 @@ bin/.scalafmt*
 
 # zinc uses this local cache for publishing stuff
 .ivy2/
+
+target/

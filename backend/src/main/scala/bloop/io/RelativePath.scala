@@ -13,6 +13,7 @@ final class RelativePath private (val underlying: Path) extends AnyVal {
   def toAbsolute(root: AbsolutePath): AbsolutePath = root.resolve(this)
   def relativize(other: RelativePath): RelativePath =
     RelativePath(underlying.relativize(other.underlying))
+  def getParent: RelativePath = RelativePath(underlying.getParent)
 
   def resolve(other: Path): RelativePath = RelativePath(underlying.resolve(other))
   def resolveRelative(other: RelativePath): RelativePath = resolve(other.underlying)

@@ -1,6 +1,6 @@
 package bloop
 
-import java.nio.file.{Files, Path, Paths => NioPaths}
+import java.nio.file.{Files, Paths => NioPaths}
 import java.util.{Optional, Properties}
 
 import bloop.io.{AbsolutePath, Paths}
@@ -19,7 +19,7 @@ case class Project(name: String,
                    sourceDirectories: Array[AbsolutePath],
                    previousResult: PreviousResult,
                    tmp: AbsolutePath,
-                   origin: Option[Path]) {
+                   origin: Option[AbsolutePath]) {
   def toProperties(): Properties = {
     val properties = new Properties()
     properties.setProperty("name", name)
@@ -75,7 +75,7 @@ object Project {
           .orElseGet(() => emptyResult)
       } else emptyResult
     }
-    project.copy(previousResult = previousResult, origin = Some(configFilepath))
+    project.copy(previousResult = previousResult, origin = Some(config))
   }
 
   def fromProperties(properties: Properties): Project = {

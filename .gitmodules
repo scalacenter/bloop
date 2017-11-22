@@ -6,3 +6,15 @@
 	path = nailgun
 	url = git@github.com:scalacenter/nailgun.git
 	branch = zinc-nailgun
+[submodule "frontend/src/test/resources/projects/sbt"]
+	path = frontend/src/test/resources/projects/sbt
+	url = https://github.com/scalacenter/sbt.git
+	branch = hardcoded-stuff
+[submodule "frontend/src/test/resources/projects/utest"]
+	path = frontend/src/test/resources/projects/utest
+	url = https://github.com/scalacenter/utest.git
+	branch = bloop
+[submodule "frontend/src/test/resources/projects/versions"]
+	path = frontend/src/test/resources/projects/versions
+	url = https://github.com/scalacenter/versions.git
+	branch = bloop

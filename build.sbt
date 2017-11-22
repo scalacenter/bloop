@@ -22,7 +22,7 @@ val zincIntegration = project
   )
 
 // Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
-val SbtConfig               = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
+val SbtConfig = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
 val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just having fun.")
 val nailgun = project
   .in(file(".nailgun"))
@@ -58,7 +58,7 @@ val frontend = project
     testFrameworks += new TestFramework("utest.runner.Framework")
   )
 
-val sbtBloop = project
+lazy val sbtBloop = project
   .in(file("sbt-bloop"))
   .settings(
     name := "sbt-bloop",
@@ -68,8 +68,13 @@ val sbtBloop = project
       if ((sbtVersion in pluginCrossBuild).value.startsWith("0.13")) "2.10.6" else orig
     },
   )
+  .settings(
+    // The scripted tests (= projects) are in the resources of `frontend`, because
+    // we use them mostly for unit testing `frontend`.
+    TestSetup.scriptedSettings(resourceDirectory in Test in frontend)
+  )
 
-val allProjects          = Seq(backend, frontend, sbtBloop)
+val allProjects = Seq(backend, frontend, sbtBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
