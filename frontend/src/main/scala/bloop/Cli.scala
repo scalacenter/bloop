@@ -27,9 +27,9 @@ object Cli {
   import CliParsers.{CommandsMessages, CommandsParser, BaseMessages, BaseParser}
   val commands: Seq[String] = CommandsMessages.messages.map(_._1)
   val beforeCommandMessages: Messages[DefaultBaseCommand] = BaseMessages.copy(
-    appName = "bloop",
-    appVersion = "0.1.0",
-    progName = "bloop",
+    appName = bloop.internal.build.BuildInfo.name,
+    appVersion = bloop.internal.build.BuildInfo.version,
+    progName = bloop.internal.build.BuildInfo.name,
     optionsDesc = s"[options] [command] [command-options]"
   )
 
