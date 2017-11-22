@@ -1,6 +1,6 @@
 matrix:
   SBT_RUN:
-    - sbt "compile" \
+    - sbt "^ sbtBloop/publishLocal" \
           "++2.11.11 zincIntegration/publishLocal" \
           "++2.12.4 zincIntegration/publishLocal" \
           "setupTests" \
