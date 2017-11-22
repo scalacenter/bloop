@@ -4,7 +4,6 @@ import java.io.IOException
 import java.nio.charset.Charset
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
-import java.util.Optional
 
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath

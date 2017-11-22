@@ -2,12 +2,12 @@ package bloop.tasks
 
 import java.util.Optional
 
-import bloop.{CompileInputs, CompilerCache, Project, Compiler}
+import bloop.{CompileInputs, Compiler, CompilerCache, Project}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
-import xsbti.Logger
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
+import bloop.logging.Logger
 import bloop.util.{Progress, TopologicalSort}
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
@@ -24,7 +24,7 @@ case class CompilationTasks(initialProjects: Map[String, Project],
   }
 
   def persistAnalysis(project: Project, logger: Logger): Unit = {
-    import bloop.util.JavaCompat.{EnrichOptional, toSupplier}
+    import bloop.util.JavaCompat.EnrichOptional
     val previousResult = project.previousResult
     (previousResult.analysis().toOption, previousResult.setup().toOption) match {
       case (Some(analysis), Some(setup)) =>
@@ -39,7 +39,7 @@ case class CompilationTasks(initialProjects: Map[String, Project],
   }
 
   def parallelCompile(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
-    val progress = new Progress
+    val progress = new Progress(logger)
     val subTasks = getTasks(project, progress)
     subTasks.foreach {
       case (name, task) =>

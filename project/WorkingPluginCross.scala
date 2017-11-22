@@ -23,7 +23,7 @@ object WorkingPluginCross {
     def crossExclude(s: Def.Setting[_]): Boolean =
       s.key match {
         case Def.ScopedKey(Scope(_, _, pluginCrossBuild.key, _), sbtVersion.key) => true
-        case _                                                                   => false
+        case _ => false
       }
 
     Command.arb(requireSession(switchParser), pluginSwitchHelp) {

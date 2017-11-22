@@ -1,19 +1,20 @@
 package bloop.tasks
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
-import bloop.{DynTest, Project, QuietLogger}
-import bloop.io.AbsolutePath
-
 import java.nio.file.{Files, Path, Paths}
 
-import CompilationHelpers._
+import bloop.{DynTest, Project}
+import bloop.io.AbsolutePath
+import bloop.logging.Logger
 
 object CompileProjectTest extends DynTest {
 
+  val logger = new Logger("bloop-test")
+  val compilerCache = CompilationHelpers.compilerCache(logger)
+
   val base = getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
-    case _                          => throw new Exception("No projects to test?")
+    case _ => throw new Exception("No projects to test?")
   }
 
   val projects = Files.list(base)
@@ -37,7 +38,7 @@ object CompileProjectTest extends DynTest {
     def rebase(proj: Project) = ProjectHelpers.rebase(baseDirectory, testDirectory, proj)
     val rootProjectName = "bloop-test-root"
     val projects = {
-      val projects = Project.fromDir(AbsolutePath(configDir)).mapValues(rebase)
+      val projects = Project.fromDir(AbsolutePath(configDir), logger).mapValues(rebase)
       val rootProject = Project(
         name = rootProjectName,
         dependencies = projects.keySet.filterNot(_ endsWith "-test").toArray,
@@ -47,14 +48,14 @@ object CompileProjectTest extends DynTest {
         scalacOptions = Array.empty,
         javacOptions = Array.empty,
         sourceDirectories = Array.empty,
-        previousResult = emptyPreviousResult,
+        previousResult = CompilationHelpers.emptyPreviousResult,
         tmp = AbsolutePath(baseDirectory),
         origin = None
       )
       projects + (rootProjectName -> rootProject)
     }
 
-    val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+    val tasks = new CompilationTasks(projects, compilerCache, logger)
     val _ = tasks.parallelCompile(projects(rootProjectName))
   }
 

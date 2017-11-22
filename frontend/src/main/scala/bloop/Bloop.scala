@@ -2,24 +2,23 @@ package bloop
 
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
+import bloop.logging.Logger
 import bloop.tasks.CompilationTasks
 import sbt.internal.inc.bloop.ZincInternals
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import org.apache.logging.log4j.LogManager
-
 object Bloop {
 
-  private final val logger = LogManager.getLogger("bloop")
+  private final val logger = new Logger("bloop")
 
   def main(args: Array[String]): Unit = {
     val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
     val configDirectory = baseDirectory.resolve(".bloop-config")
-    val projects = Project.fromDir(configDirectory)
+    val projects = Project.fromDir(configDirectory, logger)
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
-    val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
+    val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), logger)
     // TODO: Remove projects and pass in the compilation tasks to abstract over the boilerplate
     run(projects, compilerCache)
   }
@@ -29,35 +28,35 @@ object Bloop {
     val input = scala.io.StdIn.readLine("> ")
     input.split(" ") match {
       case Array("projects") =>
-        timed {
+        timed(logger) {
           logger.info(projects.keySet.toList.sorted.mkString(", "))
         }
         run(projects, compilerCache)
 
       case Array("exit") =>
-        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        timed {
+        val tasks = new CompilationTasks(projects, compilerCache, logger)
+        timed(logger) {
           projects.valuesIterator.map { project =>
-            tasks.persistAnalysis(project, QuietLogger)
+            tasks.persistAnalysis(project, logger)
           }
         }
         ()
 
       case Array("clean") =>
-        val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        val newProjects = timed(tasks.clean(projects.keys.toList))
+        val tasks = new CompilationTasks(projects, compilerCache, logger)
+        val newProjects = timed(logger)(tasks.clean(projects.keys.toList))
         run(newProjects, compilerCache)
 
       case Array("compile", projectName) =>
-        val newProjects = timed {
+        val newProjects = timed(logger) {
           val project = projects(projectName)
-          val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
+          val tasks = new CompilationTasks(projects, compilerCache, logger)
           tasks.parallelCompile(project)
         }
         run(newProjects, compilerCache)
 
       case _ =>
-        logger.info(s"Not understood: '$input'")
+        logger.error(s"Not understood: '$input'")
         run(projects, compilerCache)
     }
   }

@@ -3,6 +3,7 @@ package bloop
 import java.util.concurrent.ConcurrentHashMap
 
 import bloop.io.{AbsolutePath, Paths}
+import bloop.logging.Logger
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
 import sbt.librarymanagement.Resolver
@@ -11,8 +12,9 @@ import xsbti.compile.{ClasspathOptions, Compilers}
 
 class CompilerCache(componentProvider: ComponentProvider,
                     retrieveDir: AbsolutePath,
+                    logger: Logger,
                     userResolvers: List[Resolver] = Nil) {
-  private val logger = QuietLogger
+
   private val cache = new ConcurrentHashMap[ScalaInstance, Compilers]()
 
   def get(scalaInstance: ScalaInstance): Compilers =

@@ -2,11 +2,12 @@ package bloop.engine
 
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
+import bloop.logging.Logger
 import bloop.tasks.CompilationTasks
-import bloop.{CompilerCache, Project, QuietLogger}
+import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
 
-object Interpreter {
+class Interpreter(logger: Logger) {
   def execute(action: Action): ExitStatus = action match {
     case Exit(exitStatus) => exitStatus
     case Print(msg, commonOptions, next) =>
@@ -38,9 +39,9 @@ object Interpreter {
           |$t/____/\\___/\\__,_/_/\\__,_/   \\____/\\___/_/ /_/\\__/\\___/_/
           |""".stripMargin
     val versions = s"""
-         |$t${bloopName.capitalize} version    `$bloopVersion`
-         |${t}Zinc version     `$zincVersion`
-         |${t}Scala version    `$scalaVersion`""".stripMargin
+                      |$t${bloopName.capitalize} version    `$bloopVersion`
+                      |${t}Zinc version     `$zincVersion`
+                      |${t}Scala version    `$scalaVersion`""".stripMargin
     cliOptions.common.out.println(header)
     cliOptions.common.out.println(t) // This is the only way to add newline, otherwise ignored
     cliOptions.common.out.println(s"$t$bloopName is made with love at the Scala Center <3")
@@ -59,8 +60,8 @@ object Interpreter {
 
   private def constructTasks(projects: Map[String, Project]): CompilationTasks = {
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
-    val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"))
-    CompilationTasks(projects, compilerCache, QuietLogger)
+    val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), logger)
+    CompilationTasks(projects, compilerCache, logger)
   }
 
   private def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
@@ -74,7 +75,7 @@ object Interpreter {
                       cliOptions: CliOptions): ExitStatus = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val configDir = getConfigDir(cliOptions)
-    val projects = Project.fromDir(configDir)
+    val projects = Project.fromDir(configDir, logger)
     val tasks = constructTasks(projects)
     val project = projects(projectName)
     if (incremental) {
@@ -90,10 +91,10 @@ object Interpreter {
 
   private def clean(projectNames: List[String], cliOptions: CliOptions): ExitStatus = {
     val configDir = getConfigDir(cliOptions)
-    val projects = Project.fromDir(configDir)
+    val projects = Project.fromDir(configDir, logger)
     val tasks = constructTasks(projects)
     tasks.clean(projectNames).valuesIterator.foreach { project =>
-      tasks.persistAnalysis(project, QuietLogger)
+      tasks.persistAnalysis(project, logger)
     }
     ExitStatus.Ok
   }

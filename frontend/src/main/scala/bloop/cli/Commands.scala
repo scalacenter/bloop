@@ -17,7 +17,6 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
-
   case class Clean(
       @HelpMessage("The projects to clean.")
       projects: List[String],

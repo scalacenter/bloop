@@ -7,6 +7,8 @@ import java.util.Optional
 
 import bloop.{CompilerCache, ScalaInstance}
 import bloop.io.{AbsolutePath, Paths}
+import bloop.io.Paths
+import bloop.logging.Logger
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.librarymanagement.Resolver
@@ -23,9 +25,9 @@ object CompilationHelpers {
   private val ScriptedResolver: Resolver =
     Resolver.file(ScriptedResolverId, ScriptedResolveCacheDir)(Resolver.ivyStylePatterns)
 
-  final val compilerCache: CompilerCache = {
+  final def compilerCache(logger: Logger): CompilerCache = {
     val scalaJarsPath = Paths.getCacheDirectory("scala-jars")
-    new CompilerCache(componentProvider, scalaJarsPath, List(ScriptedResolver))
+    new CompilerCache(componentProvider, scalaJarsPath, logger, List(ScriptedResolver))
   }
 
   def scalaInstance: ScalaInstance =
