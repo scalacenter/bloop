@@ -84,7 +84,7 @@ object Cli {
                 run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
             }
         }
-        newAction.getOrElse(Print("", commonOptions, Exit(ExitStatus.Ok)))
+        newAction.getOrElse(Print("Nothing was passed in.", commonOptions, Exit(ExitStatus.Ok)))
     }
   }
 
