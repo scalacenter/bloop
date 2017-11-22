@@ -1,5 +1,4 @@
-package bloop
-package tasks
+package bloop.tasks
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -17,11 +16,11 @@ object TaskTest extends TestSuite {
 
   val tests = Tests {
     "Simple dependency chain" - {
-      val buf                     = Buffer.empty[Int]
+      val buf = Buffer.empty[Int]
       def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
 
-      val addOne   = add(1)
-      val addTwo   = add(2)
+      val addOne = add(1)
+      val addTwo = add(2)
       val addThree = add(3)
       addTwo.dependsOn(addOne)
       addThree.dependsOn(addTwo)
@@ -32,11 +31,11 @@ object TaskTest extends TestSuite {
     }
 
     "Two roots, one dependent" - {
-      val buf                     = Buffer.empty[Int]
+      val buf = Buffer.empty[Int]
       def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
 
-      val addOne   = add(1)
-      val addTwo   = add(2)
+      val addOne = add(1)
+      val addTwo = add(2)
       val addThree = add(3)
       addThree.dependsOn(addOne)
       addThree.dependsOn(addTwo)
@@ -47,13 +46,13 @@ object TaskTest extends TestSuite {
     }
 
     "Un-necessary tasks are not run" - {
-      val buf                     = Buffer.empty[Int]
+      val buf = Buffer.empty[Int]
       def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
 
-      val addOne   = add(1)
-      val addTwo   = add(2)
+      val addOne = add(1)
+      val addTwo = add(2)
       val addThree = add(3)
-      val addFour  = add(4)
+      val addFour = add(4)
 
       addTwo.dependsOn(addOne)
       addThree.dependsOn(addTwo)
@@ -65,11 +64,11 @@ object TaskTest extends TestSuite {
     "Results are combined" - {
       def add(x: Int): Task[Set[Int]] = new Task(_ + x, () => ())
 
-      val addOne   = add(1)
-      val addTwo   = add(2)
+      val addOne = add(1)
+      val addTwo = add(2)
       val addThree = add(3)
-      val addFour  = add(4)
-      val addFive  = add(5)
+      val addFour = add(4)
+      val addFive = add(5)
 
       addTwo.dependsOn(addOne)
       addThree.dependsOn(addTwo)
@@ -94,11 +93,11 @@ object TaskTest extends TestSuite {
           else nbs + x
         }, () => ())
 
-      val addOne   = add(1)
-      val addTwo   = add(2)
+      val addOne = add(1)
+      val addTwo = add(2)
       val addThree = add(3)
-      val addFour  = add(4)
-      val addFive  = add(5)
+      val addFour = add(4)
+      val addFive = add(5)
 
       addThree.dependsOn(addTwo)
       addFour.dependsOn(addOne)

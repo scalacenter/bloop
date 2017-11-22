@@ -1,9 +1,11 @@
-package bloop
-package tasks
+package bloop.tasks
 
 import utest._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+
+import bloop.{Project, QuietLogger, ScalaInstance}
+import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import CompilationHelpers._
 import ProjectHelpers._
@@ -134,7 +136,7 @@ object CompilationTaskTest extends TestSuite {
 
       assert(noPreviousResult(project))
 
-      val tasks = new CompilationTasks(projects, compilerCache, ConsoleLogger)
+      val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
       val newProjects = tasks.parallel(project)
       val newProject = newProjects("prj")
 

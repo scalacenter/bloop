@@ -1,5 +1,4 @@
-package bloop
-package tasks
+package bloop.tasks
 
 import java.io.IOException
 import java.nio.charset.Charset
@@ -7,8 +6,8 @@ import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Optional
 
+import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
-import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 object ProjectHelpers {
 
@@ -55,20 +54,20 @@ object ProjectHelpers {
     Files.createDirectories(tempDir)
 
     val target = classesDir(baseDir, name)
-    val classpath = dependencies.map(classesDir(baseDir, _)) + target
-    val previousResult =
-      PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
+    val classpath =
+      (dependencies.map(classesDir(baseDir, _)) + target).toArray.map(AbsolutePath.apply)
+    val sourceDirectories = Array(AbsolutePath(srcs))
     writeSources(srcs, sources)
     Project(
       name = name,
       dependencies = dependencies.toArray,
       scalaInstance = scalaInstance,
-      classpath = classpath.toArray.map(AbsolutePath.apply),
+      classpath = classpath,
       classesDir = AbsolutePath(target),
       scalacOptions = Array.empty,
       javacOptions = Array.empty,
-      sourceDirectories = Array(AbsolutePath(srcs)),
-      previousResult = previousResult,
+      sourceDirectories = sourceDirectories,
+      previousResult = CompilationHelpers.emptyPreviousResult,
       tmp = AbsolutePath(tempDir),
       origin = None
     )
