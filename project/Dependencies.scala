@@ -5,6 +5,7 @@ object Dependencies {
   val configDirsVersion = "5"
   val caseAppVersion = "1.2.0"
   val sourcecodeVersion = "0.1.4"
+  val log4jVersion = "2.9.1"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
@@ -13,4 +14,6 @@ object Dependencies {
   val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
+  val log4jApi = "org.apache.logging.log4j" % "log4j-api" % log4jVersion
+  val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
 }

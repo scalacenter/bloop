@@ -8,7 +8,11 @@ import sbt.internal.inc.bloop.ZincInternals
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import org.apache.logging.log4j.LogManager
+
 object Bloop {
+
+  private final val logger = LogManager.getLogger("bloop")
 
   def main(args: Array[String]): Unit = {
     val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
@@ -26,7 +30,7 @@ object Bloop {
     input.split(" ") match {
       case Array("projects") =>
         timed {
-          println(projects.keySet.toList.sorted.mkString(", "))
+          logger.info(projects.keySet.toList.sorted.mkString(", "))
         }
         run(projects, compilerCache)
 
@@ -53,7 +57,7 @@ object Bloop {
         run(newProjects, compilerCache)
 
       case _ =>
-        println(s"Not understood: '$input'")
+        logger.info(s"Not understood: '$input'")
         run(projects, compilerCache)
     }
   }
