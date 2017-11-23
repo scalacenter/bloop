@@ -8,8 +8,8 @@ import com.martiansoftware.nailgun
 object Cli {
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
-    val exit = run(action)
-    sys.exit(exit.code)
+    val exitStatus = run(action)
+    sys.exit(exitStatus.code)
   }
 
   def nailMain(ngContext: nailgun.NGContext): Unit = {
@@ -20,8 +20,8 @@ object Cli {
       workingDirectory = ngContext.getWorkingDirectory,
     )
     val cmd = parse(ngContext.getArgs, nailgunOptions)
-    val exit = run(cmd)
-    ngContext.exit(exit.code)
+    val exitStatus = run(cmd)
+    ngContext.exit(exitStatus.code)
   }
 
   import CliParsers.{CommandsMessages, CommandsParser, BaseMessages, BaseParser}
@@ -84,7 +84,7 @@ object Cli {
                 run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
             }
         }
-        newAction.getOrElse(Print("Nothing was passed in.", commonOptions, Exit(ExitStatus.Ok)))
+        newAction.getOrElse(Print(usageAsked, commonOptions, Exit(ExitStatus.Ok)))
     }
   }
 

@@ -38,12 +38,12 @@ object Interpreter {
           |$t/____/\\___/\\__,_/_/\\__,_/   \\____/\\___/_/ /_/\\__/\\___/_/
           |""".stripMargin
     val versions = s"""
-         |$t$bloopName version: `$bloopVersion`.
-         |${t}Zinc version: `$zincVersion`.
-         |${t}Scala version: `$scalaVersion`.""".stripMargin
+         |$t${bloopName.capitalize} version    `$bloopVersion`
+         |${t}Zinc version     `$zincVersion`
+         |${t}Scala version    `$scalaVersion`""".stripMargin
     cliOptions.common.out.println(header)
     cliOptions.common.out.println(t) // This is the only way to add newline, otherwise ignored
-    cliOptions.common.out.println(s"$t$bloopName is made with love from the Scala Center <3")
+    cliOptions.common.out.println(s"$t$bloopName is made with love at the Scala Center <3")
     cliOptions.common.out.println(t)
     cliOptions.common.out.println(versions)
     cliOptions.common.out.println(t)

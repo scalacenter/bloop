@@ -58,7 +58,9 @@ object BuildKeys {
   final val BloopInfoKeys = {
     val zincVersion = Keys.version in ZincRoot
     val zincKey = BuildInfoKey.map(zincVersion) { case (k, version) => "zincVersion" -> version }
-    val developersKey = BuildInfoKey.map(Keys.developers) { case (k, devs) => k -> devs.map(_.id) }
+    val developersKey = BuildInfoKey.map(Keys.developers) {
+      case (k, devs) => k -> devs.map(_.name)
+    }
     val commonKeys = List[BuildInfoKey](Keys.name, Keys.version, Keys.scalaVersion, Keys.sbtVersion)
     commonKeys ++ List(zincKey, developersKey)
   }
