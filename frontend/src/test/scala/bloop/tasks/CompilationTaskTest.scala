@@ -154,6 +154,25 @@ object CompilationTaskTest extends TestSuite {
         }
       }
     }
+
+    "Previous result is not updated when compilation fails" - {
+      logger.quietIfSuccess { logger =>
+        val projectStructures =
+          Map("p0" -> Map("A.scala" -> "iwontcompile"))
+
+        withProjects(projectStructures, Map.empty) { projects =>
+          assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
+
+          val project = projects("p0")
+          val tasks = CompilationTasks(projects, compilerCache, logger)
+          val newProjects = tasks.parallelCompile(project)
+
+          assert(newProjects.forall { case (_, prj) => noPreviousResult(prj) })
+
+          logger.flush()
+        }
+      }
+    }
   }
 
   private def simpleProject(scalaInstance: ScalaInstance, logger: Logger): Unit = {
