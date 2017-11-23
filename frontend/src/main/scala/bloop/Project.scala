@@ -32,6 +32,8 @@ case class Project(name: String,
     properties.setProperty("scalacOptions", scalacOptions.mkString(","))
     properties.setProperty("javacOptions", javacOptions.mkString(","))
     properties.setProperty("sourceDirectories", sourceDirectories.map(_.syntax).mkString(","))
+    properties.setProperty("allScalaJars",
+                           scalaInstance.allJars.map(_.getAbsolutePath).mkString(","))
     properties.setProperty("tmp", tmp.syntax)
     properties
   }
@@ -79,16 +81,16 @@ object Project {
   }
 
   def fromProperties(properties: Properties): Project = {
+    def toPaths(line: String) = line.split(",").map(NioPaths.get(_)).map(AbsolutePath.apply).toArray
     val name = properties.getProperty("name")
     val dependencies =
       properties.getProperty("dependencies").split(",").filterNot(_.isEmpty)
     val scalaOrganization = properties.getProperty("scalaOrganization")
+    val allScalaJars = toPaths(properties.getProperty("allScalaJars"))
     val scalaName = properties.getProperty("scalaName")
     val scalaVersion = properties.getProperty("scalaVersion")
-    val scalaInstance =
-      ScalaInstance(scalaOrganization, scalaName, scalaVersion)
-    val classpath =
-      properties.getProperty("classpath").split(",").map(NioPaths.get(_)).map(AbsolutePath.apply)
+    val scalaInstance = ScalaInstance(scalaOrganization, scalaName, scalaVersion, allScalaJars)
+    val classpath = toPaths(properties.getProperty("classpath"))
     val classesDir = AbsolutePath(NioPaths.get(properties.getProperty("classesDir")))
     val scalacOptions =
       properties.getProperty("scalacOptions").split(";").filterNot(_.isEmpty)

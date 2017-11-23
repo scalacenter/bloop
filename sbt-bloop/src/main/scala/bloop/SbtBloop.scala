@@ -8,7 +8,7 @@ import Keys._
 import sbt.plugins.JvmPlugin
 
 object SbtBloop extends AutoPlugin {
-  override def trigger  = allRequirements
+  override def trigger = allRequirements
   override def requires = JvmPlugin
 
   private val bloopInstall: TaskKey[Unit] =
@@ -49,12 +49,13 @@ object SbtBloop extends AutoPlugin {
             Keys.ivyScala.value
               .map(_.scalaOrganization)
               .getOrElse("org.scala-lang")
-          val scalaName  = "scala-compiler"
-          val classpath  = dependencyClasspath.value.map(_.data.getAbsoluteFile)
+          val scalaName = "scala-compiler"
+          val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
+          val classpath = dependencyClasspath.value.map(_.data.getAbsoluteFile)
           val classesDir = classDirectory.value.getAbsoluteFile
           val sourceDirs = sourceDirectories.value
-          val tmp        = target.value / "tmp-bloop"
-          val outFile    = bloopConfigDir.value / (projectName + ".config")
+          val tmp = target.value / "tmp-bloop"
+          val outFile = bloopConfigDir.value / (projectName + ".config")
           val config =
             Config(
               projectName,
@@ -67,6 +68,7 @@ object SbtBloop extends AutoPlugin {
               scalacOptions.value,
               javacOptions.value,
               sourceDirs,
+              allScalaJars,
               tmp
             )
           val properties = config.toProperties
@@ -90,6 +92,7 @@ object SbtBloop extends AutoPlugin {
                             scalacOptions: Seq[String],
                             javacOptions: Seq[String],
                             sourceDirectories: Seq[File],
+                            allScalaJars: Seq[File],
                             tmp: File) {
     def toProperties: Properties = {
       val properties = new Properties()
@@ -104,6 +107,7 @@ object SbtBloop extends AutoPlugin {
       properties.setProperty("javacOptions", javacOptions.mkString(";"))
       properties.setProperty("sourceDirectories",
                              sourceDirectories.map(_.getAbsolutePath).mkString(","))
+      properties.setProperty("allScalaJars", allScalaJars.map(_.getAbsolutePath).mkString(","))
       properties.setProperty("tmp", tmp.getAbsolutePath)
       properties
     }

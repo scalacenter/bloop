@@ -29,6 +29,5 @@ object CompilationHelpers {
   }
 
   def scalaInstance: ScalaInstance =
-    ScalaInstance("org.scala-lang", "scala-compiler", Properties.versionNumberString)
-
+    ScalaInstance.resolve("org.scala-lang", "scala-compiler", Properties.versionNumberString)
 }
