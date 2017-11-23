@@ -24,11 +24,21 @@ class Logger(logger: log4j.Logger) extends xsbti.Logger {
   override def warn(msg: Supplier[String]): Unit =
     msg.get().lines.foreach(l => logger.warn(l + EOL))
 
-  def trace(msg: Exception): Unit = logger.trace(msg)
+  def trace(exception: Throwable): Unit = logger.trace(exception)
   override def trace(exception: Supplier[Throwable]): Unit =
     logger.trace(exception.get())
 
   def info(msg: String): Unit = logger.info(msg + EOL)
   override def info(msg: Supplier[String]): Unit =
     msg.get().lines.foreach(l => logger.info(l + EOL))
+
+  def quietIfSuccess[T](op: BufferedLogger => T): T = {
+    val bufferedLogger = new BufferedLogger(this)
+    try op(bufferedLogger)
+    catch {
+      case ex: Throwable =>
+        bufferedLogger.flush()
+        throw ex
+    }
+  }
 }

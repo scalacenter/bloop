@@ -21,11 +21,13 @@ object CompileProjectTest extends DynTest {
 
   projects.forEach { testDirectory =>
     test(testDirectory.getFileName.toString) {
-      testProject(testDirectory)
+      logger.quietIfSuccess { logger =>
+        testProject(testDirectory, logger)
+      }
     }
   }
 
-  private def testProject(testDirectory: Path): Unit = {
+  private def testProject(testDirectory: Path, logger: Logger): Unit = {
     val configDir = testDirectory.resolve("bloop-config")
     val baseDirectoryFile = configDir.resolve("base-directory")
     assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
