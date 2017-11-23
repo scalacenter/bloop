@@ -1,6 +1,6 @@
 package bloop
 
-import bloop.cli.{CliParsers, Commands, CommonOptions, ExitStatus}
+import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -73,15 +73,23 @@ object Cli {
             Print(commandUsageAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(_, _, command), _, _)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
-            def run(command: Commands.Command): Run = Run(command, Exit(ExitStatus.Ok))
+            def run(command: Commands.Command, cliOptions: CliOptions): Run = {
+              if (!cliOptions.version) Run(command, Exit(ExitStatus.Ok))
+              else Run(Commands.About(cliOptions), Run(command, Exit(ExitStatus.Ok)))
+            }
+
             command match {
               case Left(err) => printErrorAndExit(err)
               case Right(v: Commands.About) =>
-                run(v.copy(cliOptions = v.cliOptions.copy(common = commonOptions)))
+                val newCommand = v.copy(cliOptions = v.cliOptions.copy(common = commonOptions))
+                // Disabling version here if user defines it because it has the same semantics
+                run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Compile) =>
-                run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Clean) =>
-                run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                run(newCommand, newCommand.cliOptions)
             }
         }
         newAction.getOrElse {
