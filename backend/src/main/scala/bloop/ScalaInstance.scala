@@ -22,9 +22,9 @@ class ScalaInstance(
 
   private def isJar(filename: String): Boolean = filename.endsWith(".jar")
   private def hasScalaCompilerName(filename: String): Boolean =
-    filename.startsWith("scala-compiler-")
+    filename.startsWith("scala-compiler")
   private def hasScalaLibraryName(filename: String): Boolean =
-    filename.startsWith("scala-library-")
+    filename.startsWith("scala-library")
 
   override val compilerJar: File =
     allJars.find(f => isJar(f.getName) && hasScalaCompilerName(f.getName)).orNull
@@ -51,17 +51,17 @@ object ScalaInstance {
   import bloop.io.AbsolutePath
 
   /**
-    * Reuses all jars to create an Scala instance if and only if all of them exist.
-    *
-    * This is done mainly by performance reasons, since dependency resolution is not
-    * in the scope of what bloop is supposed to do. All resolution should be done by the user.
-    *
-    * When this is not the case, we resolve the Scala jars from coursier. This is good
-    * because it means that if for some reason the scala jars do not exist, the user
-    * will get no matter what get the right instance. If the jars don't exist and they
-    * cannot be resolved, users will get a resolution error instead of a weird compilation
-    * error when compilation via Zinc starts.
-    */
+   * Reuses all jars to create an Scala instance if and only if all of them exist.
+   *
+   * This is done mainly by performance reasons, since dependency resolution is not
+   * in the scope of what bloop is supposed to do. All resolution should be done by the user.
+   *
+   * When this is not the case, we resolve the Scala jars from coursier. This is good
+   * because it means that if for some reason the scala jars do not exist, the user
+   * will get no matter what get the right instance. If the jars don't exist and they
+   * cannot be resolved, users will get a resolution error instead of a weird compilation
+   * error when compilation via Zinc starts.
+   */
   def apply(scalaOrg: String,
             scalaName: String,
             scalaVersion: String,
@@ -70,7 +70,6 @@ object ScalaInstance {
       new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
     else resolve(scalaOrg, scalaName, scalaVersion)
   }
-
 
   // Cannot wait to use opaque types for this
   type InstanceId = (String, String, String)
@@ -91,12 +90,6 @@ object ScalaInstance {
     }
 
     val instanceId = (scalaOrg, scalaName, scalaVersion)
-    instances.get(instanceId) match {
-      case instance: ScalaInstance => instance
-      case null =>
-        val newInstance = resolveInstance
-        instances.put(instanceId, newInstance)
-        newInstance
-    }
+    instances.computeIfAbsent(instanceId, _ => resolveInstance)
   }
 }
