@@ -7,21 +7,21 @@ import bloop.tasks.CompilationTasks
 import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
 
-class Interpreter(logger: Logger) {
-  def execute(action: Action): ExitStatus = action match {
+object Interpreter {
+  def execute(action: Action, logger: Logger): ExitStatus = action match {
     case Exit(exitStatus) => exitStatus
     case Print(msg, commonOptions, next) =>
       printOut(msg, commonOptions)
-      execute(next)
+      execute(next, logger)
     case Run(Commands.About(cliOptions), next) =>
       printAbout(cliOptions)
-      execute(next)
+      execute(next, logger)
     case Run(Commands.Clean(projects, cliOptions), next) =>
-      clean(projects, cliOptions)
-      execute(next)
+      clean(projects, cliOptions, logger)
+      execute(next, logger)
     case Run(Commands.Compile(projectName, incremental, cliOptions), next) =>
-      compile(projectName, incremental, cliOptions)
-      execute(next)
+      compile(projectName, incremental, cliOptions, logger)
+      execute(next, logger)
   }
 
   private final val t = "    "
@@ -58,7 +58,7 @@ class Interpreter(logger: Logger) {
     ExitStatus.Ok
   }
 
-  private def constructTasks(projects: Map[String, Project]): CompilationTasks = {
+  private def constructTasks(projects: Map[String, Project], logger: Logger): CompilationTasks = {
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
     val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), logger)
     CompilationTasks(projects, compilerCache, logger)
@@ -72,11 +72,12 @@ class Interpreter(logger: Logger) {
 
   private def compile(projectName: String,
                       incremental: Boolean,
-                      cliOptions: CliOptions): ExitStatus = {
+                      cliOptions: CliOptions,
+                      logger: Logger): ExitStatus = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val tasks = constructTasks(projects)
+    val tasks = constructTasks(projects, logger)
     val project = projects(projectName)
     if (incremental) {
       tasks.parallelCompile(project)
@@ -89,10 +90,12 @@ class Interpreter(logger: Logger) {
     }
   }
 
-  private def clean(projectNames: List[String], cliOptions: CliOptions): ExitStatus = {
+  private def clean(projectNames: List[String],
+                    cliOptions: CliOptions,
+                    logger: Logger): ExitStatus = {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val tasks = constructTasks(projects)
+    val tasks = constructTasks(projects, logger)
     tasks.clean(projectNames).valuesIterator.foreach { project =>
       tasks.persistAnalysis(project, logger)
     }

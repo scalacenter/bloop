@@ -15,8 +15,8 @@ import org.apache.logging.log4j.core.config.plugins.Plugin;
 
 import java.net.URI;
 
-@Plugin(name = "BloopLoggingConfigurationFactory", category = ConfigurationFactory.CATEGORY)
 @Order(50)
+@Plugin(name = "BloopLoggingConfigurationFactory", category = ConfigurationFactory.CATEGORY)
 public class BloopLoggingConfigurationFactory extends ConfigurationFactory {
 
     static Configuration createConfiguration(final String name, ConfigurationBuilder<BuiltConfiguration> builder) {

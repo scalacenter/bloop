@@ -57,16 +57,11 @@ object CompilationTaskTest extends TestSuite {
       logger.quietIfSuccess { logger =>
         val projectStructures =
           Map(
-            "parent" -> Map(
-              "A.scala" ->
-                """package p0
-                  |class A""".stripMargin),
-            "child" -> Map(
-              "B.scala" ->
-
-                """package p1
-                  |import p0.A
-                  |class B extends A""".stripMargin)
+            "parent" -> Map("A.scala" -> """package p0
+                                           |class A""".stripMargin),
+            "child" -> Map("B.scala" -> """package p1
+                                          |import p0.A
+                                          |class B extends A""".stripMargin)
           )
 
         val dependencies = Map("child" -> Set("parent"))
@@ -88,21 +83,14 @@ object CompilationTaskTest extends TestSuite {
       logger.quietIfSuccess { logger =>
         val projectStructures =
           Map(
-            "parent0" -> Map(
-              "A.scala" ->
-                """package p0
-                  |trait A""".stripMargin),
-            "parent1" -> Map(
-              "B.scala" ->
-                """package p1
-                  |trait B""".stripMargin),
-            "child" -> Map(
-              "C.scala" ->
-
-                """package p2
-                  |import p0.A
-                  |import p1.B
-                  |object C extends A with B""".stripMargin)
+            "parent0" -> Map("A.scala" -> """package p0
+                                            |trait A""".stripMargin),
+            "parent1" -> Map("B.scala" -> """package p1
+                                            |trait B""".stripMargin),
+            "child" -> Map("C.scala" -> """package p2
+                                          |import p0.A
+                                          |import p1.B
+                                          |object C extends A with B""".stripMargin)
           )
 
         val dependencies = Map("child" -> Set("parent0", "parent1"))
@@ -123,20 +111,13 @@ object CompilationTaskTest extends TestSuite {
       logger.quietIfSuccess { logger =>
         val projectStructures =
           Map(
-            "parent" -> Map(
-              "A.scala" ->
-                """package p0
-                  |trait A""".stripMargin),
-            "unrelated" -> Map(
-              "B.scala" ->
-                """package p1
-                  |trait B""".stripMargin),
-            "child" -> Map(
-              "C.scala" ->
-
-                """package p2
-                  |import p0.A
-                  |object C extends A""".stripMargin)
+            "parent" -> Map("A.scala" -> """package p0
+                                           |trait A""".stripMargin),
+            "unrelated" -> Map("B.scala" -> """package p1
+                                              |trait B""".stripMargin),
+            "child" -> Map("C.scala" -> """package p2
+                                          |import p0.A
+                                          |object C extends A""".stripMargin)
           )
 
         val dependencies = Map("child" -> Set("parent"))

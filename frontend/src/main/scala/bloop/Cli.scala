@@ -8,7 +8,7 @@ import com.martiansoftware.nailgun
 
 object Cli {
 
-  private final val logger = new Logger("bloop")
+  private val logger = new Logger("bloop")
 
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
@@ -111,5 +111,5 @@ object Cli {
     }
   }
 
-  def run(action: Action, logger: Logger): ExitStatus = new Interpreter(logger).execute(action)
+  def run(action: Action, logger: Logger): ExitStatus = Interpreter.execute(action, logger)
 }

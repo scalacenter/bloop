@@ -11,7 +11,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object Bloop {
 
-  private final val logger = new Logger("bloop")
+  private val logger = new Logger("bloop")
 
   def main(args: Array[String]): Unit = {
     val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
