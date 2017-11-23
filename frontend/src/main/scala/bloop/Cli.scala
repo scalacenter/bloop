@@ -57,7 +57,6 @@ object Cli {
     import caseapp.core.WithHelp
     def printErrorAndExit(msg: String): Print =
       Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
-    Thread.sleep(10000)
 
     CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
       case Left(err) => printErrorAndExit(err)

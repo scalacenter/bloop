@@ -48,8 +48,8 @@ class ScalaInstance(
 object ScalaInstance {
   // Cannot wait to use opaque types for this
   type InstanceId = (String, String, String)
-  import scala.collection.mutable
-  private val instances = new mutable.HashMap[InstanceId, ScalaInstance]
+  import java.util.concurrent.ConcurrentHashMap
+  private val instances = new ConcurrentHashMap[InstanceId, ScalaInstance]
 
   def apply(scalaOrg: String, scalaName: String, scalaVersion: String): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
@@ -67,8 +67,8 @@ object ScalaInstance {
 
     val instanceId = (scalaOrg, scalaName, scalaVersion)
     instances.get(instanceId) match {
-      case Some(instance) => instance
-      case None =>
+      case instance: ScalaInstance => instance
+      case null =>
         val newInstance = resolveInstance
         instances.put(instanceId, newInstance)
         newInstance
