@@ -24,7 +24,7 @@ object Cli {
     ngContext.exit(exitStatus.code)
   }
 
-  import CliParsers.{CommandsMessages, CommandsParser, BaseMessages, BaseParser}
+  import CliParsers.{CommandsMessages, CommandsParser, BaseMessages, OptionsParser}
   val commands: Seq[String] = CommandsMessages.messages.map(_._1)
   val beforeCommandMessages: Messages[DefaultBaseCommand] = BaseMessages.copy(
     appName = bloop.internal.build.BuildInfo.name,
@@ -55,18 +55,18 @@ object Cli {
 
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
     import caseapp.core.WithHelp
-    def printAndExit(msg: String): Print =
+    def printErrorAndExit(msg: String): Print =
       Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
-    CommandsParser.withHelp.detailedParse(args)(BaseParser.withHelp) match {
-      case Left(err) => printAndExit(err)
+    CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
+      case Left(err) => printErrorAndExit(err)
       case Right((WithHelp(_, help @ true, _), _, _)) =>
         Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
       case Right((WithHelp(usage @ true, _, _), _, _)) =>
         Print(usageAsked, commonOptions, Exit(ExitStatus.Ok))
-      case Right((_, _, commandOpt)) =>
+      case Right((WithHelp(_, _, userOptions), _, commandOpt)) =>
         val newAction = commandOpt map {
-          case Left(err) => printAndExit(err)
+          case Left(err) => printErrorAndExit(err)
           case Right((commandName, WithHelp(_, help @ true, _), _, _)) =>
             Print(commandHelpAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(usage @ true, _, _), _, _)) =>
@@ -75,7 +75,7 @@ object Cli {
             // Override common options depending who's the caller of parse (whether nailgun or main)
             def run(command: Commands.Command): Run = Run(command, Exit(ExitStatus.Ok))
             command match {
-              case Left(err) => printAndExit(err)
+              case Left(err) => printErrorAndExit(err)
               case Right(v: Commands.About) =>
                 run(v.copy(cliOptions = v.cliOptions.copy(common = commonOptions)))
               case Right(c: Commands.Compile) =>
@@ -84,7 +84,18 @@ object Cli {
                 run(c.copy(cliOptions = c.cliOptions.copy(common = commonOptions)))
             }
         }
-        newAction.getOrElse(Print(usageAsked, commonOptions, Exit(ExitStatus.Ok)))
+        newAction.getOrElse {
+          userOptions match {
+            case Left(err) => printErrorAndExit(err)
+            case Right(cliOptions0) =>
+              val cliOptions = cliOptions0.copy(common = commonOptions)
+              if (cliOptions.version) Run(Commands.About(cliOptions), Exit(ExitStatus.Ok))
+              else {
+                val msg = "These flags can only go together with commands!"
+                Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
+              }
+          }
+        }
     }
   }
 
