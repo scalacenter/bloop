@@ -1,11 +1,12 @@
 package bloop
 
 import xsbti.compile._
-import xsbti.{Logger, T2}
+import xsbti.T2
 import java.util.Optional
 import java.io.File
 
 import bloop.io.{AbsolutePath, Paths}
+import bloop.logging.Logger
 import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
 
 case class CompileInputs(
@@ -22,7 +23,6 @@ case class CompileInputs(
 )
 
 object Compiler {
-  val logger = QuietLogger
 
   private final class ZincClasspathEntryLookup(previousResult: PreviousResult)
       extends PerClasspathEntryLookup {
@@ -60,7 +60,7 @@ object Compiler {
       val skip = false
       val empty = Array.empty[T2[String, String]]
       val lookup = new ZincClasspathEntryLookup(compileInputs.previousResult)
-      val reporter = new LoggedReporter(100, logger)
+      val reporter = new LoggedReporter(100, compileInputs.logger)
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = IncOptions.create()
@@ -72,6 +72,6 @@ object Compiler {
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
-    incrementalCompiler.compile(inputs, logger)
+    incrementalCompiler.compile(inputs, compileInputs.logger)
   }
 }

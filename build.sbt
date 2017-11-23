@@ -44,7 +44,9 @@ val backend = project
       Dependencies.libraryManagement,
       Dependencies.configDirectories,
       Dependencies.caseApp,
-      Dependencies.sourcecode
+      Dependencies.sourcecode,
+      Dependencies.log4jApi,
+      Dependencies.log4jCore
     )
   )
 

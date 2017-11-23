@@ -5,6 +5,7 @@ import java.util.{Optional, Properties}
 
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
+import bloop.logging.Logger
 import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -45,11 +46,11 @@ object Project {
   private val emptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  def fromDir(config: AbsolutePath): Map[String, Project] = timed {
+  def fromDir(config: AbsolutePath, logger: Logger): Map[String, Project] = timed(logger) {
     val configFiles = Paths.getAll(config, "glob:**.config").zipWithIndex
-    println(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
+    logger.info(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
 
-    val progress = new Progress(configFiles.length)
+    val progress = new Progress(logger, configFiles.length)
     val projects = new Array[(String, Project)](configFiles.length)
     configFiles.par.foreach {
       case (file, idx) =>
