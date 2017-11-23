@@ -35,13 +35,17 @@ object SbtBloop extends AutoPlugin {
     List(Compile, Test).flatMap { c =>
       inConfig(c)(
         Seq(bloopInstall := {
-          val project = thisProject.value
           def makeName(name: String, configuration: Configuration): String =
             if (configuration == Compile) name else name + "-test"
+          val project = thisProject.value
           val projectName = makeName(thisProjectRef.value.project, configuration.value)
+          // In the test configuration, add a dependency on the base project
+          val baseProjectDependency =
+            if (configuration.value == Test) Seq(thisProjectRef.value.project) else Seq.empty
           // TODO: We should extract the right configuration for the dependency.
           val dependencies =
-            project.dependencies.map(dep => makeName(dep.project.project, configuration.value))
+            project.dependencies
+              .map(dep => makeName(dep.project.project, configuration.value)) ++ baseProjectDependency
           // TODO: We should extract the right configuration for the aggregate.
           val aggregates =
             project.aggregate.map(agg => makeName(agg.project, configuration.value))
