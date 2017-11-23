@@ -12,15 +12,13 @@ import xsbti.compile.{ClasspathOptions, Compilers}
 class CompilerCache(componentProvider: ComponentProvider,
                     retrieveDir: AbsolutePath,
                     userResolvers: List[Resolver] = Nil) {
-  import CompilerCache.CacheId
   private val logger = QuietLogger
-  private val cache = new ConcurrentHashMap[CacheId, Compilers]()
+  private val cache = new ConcurrentHashMap[ScalaInstance, Compilers]()
 
-  def get(id: CacheId): Compilers = cache.computeIfAbsent(id, newCompilers)
+  def get(scalaInstance: ScalaInstance): Compilers =
+    cache.computeIfAbsent(scalaInstance, newCompilers)
 
-  private def newCompilers(cacheId: CacheId): Compilers = {
-    val scalaInstance =
-      ScalaInstance(cacheId.scalaOrganization, cacheId.scalaName, cacheId.scalaVersion)
+  private def newCompilers(scalaInstance: ScalaInstance): Compilers = {
     val classpathOptions = ClasspathOptions.of(true, false, false, true, false)
     val compiler = getScalaCompiler(scalaInstance, classpathOptions, componentProvider)
     ZincUtil.compilers(scalaInstance, classpathOptions, None, compiler)
@@ -46,13 +44,5 @@ class CompilerCache(componentProvider: ComponentProvider,
           /* log                  = */ logger
         )
     }
-  }
-}
-
-object CompilerCache {
-  case class CacheId(scalaOrganization: String, scalaName: String, scalaVersion: String)
-  object CacheId {
-    def fromInstance(scalaInstance: ScalaInstance): CacheId =
-      CacheId(scalaInstance.organization, scalaInstance.name, scalaInstance.version)
   }
 }

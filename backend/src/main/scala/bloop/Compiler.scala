@@ -69,8 +69,7 @@ object Compiler {
     }
 
     val scalaInstance = compileInputs.scalaInstance
-    val cacheId = CompilerCache.CacheId.fromInstance(scalaInstance)
-    val compilers = compileInputs.compilerCache.get(cacheId)
+    val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
     incrementalCompiler.compile(inputs, logger)

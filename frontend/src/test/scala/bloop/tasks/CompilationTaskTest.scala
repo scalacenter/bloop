@@ -30,17 +30,17 @@ object CompilationTaskTest extends TestSuite {
     }
 
     "Compile with scala 2.12.4" - {
-      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.12.4")
+      val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4")
       simpleProject(scalaInstance)
     }
 
     "Compile with Scala 2.12.3" - {
-      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.12.3")
+      val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3")
       simpleProject(scalaInstance)
     }
 
     "Compile with scala 2.11.11" - {
-      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.11.11")
+      val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11")
       simpleProject(scalaInstance)
     }
 
@@ -129,7 +129,7 @@ object CompilationTaskTest extends TestSuite {
 
     val dependencies = Map.empty[String, Set[String]]
 
-    val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.11.11")
+    val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11")
     withProjects(projectStructures, dependencies, scalaInstance) { projects =>
       val project = projects("prj")
 
