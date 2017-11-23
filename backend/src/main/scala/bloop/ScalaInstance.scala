@@ -46,21 +46,32 @@ class ScalaInstance(
 }
 
 object ScalaInstance {
+  // Cannot wait to use opaque types for this
+  type InstanceId = (String, String, String)
+  import scala.collection.mutable
+  private val instances = new mutable.HashMap[InstanceId, ScalaInstance]
+
   def apply(scalaOrg: String, scalaName: String, scalaVersion: String): ScalaInstance = {
-    val start = Resolution(Set(Dependency(Module(scalaOrg, scalaName), scalaVersion)))
-    val repositories =
-      Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
-    val fetch = Fetch.from(repositories, Cache.fetch())
-    val resolution = start.process.run(fetch).unsafePerformSync
-    //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
-    // TODO: Do something with the errors.
-    val localArtifacts: Seq[FileError \/ File] = Task
-      .gatherUnordered(
-        resolution.artifacts.map(Cache.file(_).run)
-      )
-      .unsafePerformSync
-    val allJars =
-      localArtifacts.flatMap(_.toList).filter(_.getName.endsWith(".jar"))
-    new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.toArray)
+    def resolveInstance: ScalaInstance = {
+      val start = Resolution(Set(Dependency(Module(scalaOrg, scalaName), scalaVersion)))
+      val repositories = Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
+      val fetch = Fetch.from(repositories, Cache.fetch())
+      val resolution = start.process.run(fetch).unsafePerformSync
+      // TODO: Do something with the errors.
+      //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
+      val localArtifacts: Seq[FileError \/ File] =
+        Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
+      val allJars = localArtifacts.flatMap(_.toList).filter(_.getName.endsWith(".jar"))
+      new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.toArray)
+    }
+
+    val instanceId = (scalaOrg, scalaName, scalaVersion)
+    instances.get(instanceId) match {
+      case Some(instance) => instance
+      case None =>
+        val newInstance = resolveInstance
+        instances.put(instanceId, newInstance)
+        newInstance
+    }
   }
 }
