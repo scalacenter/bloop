@@ -20,6 +20,7 @@ object Commands {
   ) extends Command
 
   case class Clean(
+      @ExtraName("p")
       @HelpMessage("The projects to clean.")
       projects: List[String],
       @Recurse cliOptions: CliOptions = CliOptions.default,
