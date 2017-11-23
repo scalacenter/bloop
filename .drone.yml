@@ -1,8 +1,7 @@
 matrix:
   SBT_RUN:
-    - sbt "^ sbtBloop/publishLocal" \
-          "++2.11.11 zincIntegration/publishLocal" \
-          "++2.12.4 zincIntegration/publishLocal" \
+    - sbt "^sbtBloop/publishLocal" \
+          "+bridgeIntegration/cachedPublishLocal" \
           "setupTests" \
           "frontend/test"
 

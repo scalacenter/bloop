@@ -5,7 +5,6 @@ import utest._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import bloop.{Project, QuietLogger, ScalaInstance}
-import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import CompilationHelpers._
 import ProjectHelpers._
@@ -23,7 +22,7 @@ object CompilationTaskTest extends TestSuite {
         assert(noPreviousResult(project))
 
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        val newProjects = tasks.parallel(project)
+        val newProjects = tasks.parallelCompile(project)
         val newProject = newProjects("empty")
 
         assert(hasPreviousResult(newProject))
@@ -41,7 +40,7 @@ object CompilationTaskTest extends TestSuite {
     }
 
     "Compile with scala 2.11.11" - {
-      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compile", "2.11.11")
+      val scalaInstance = ScalaInstance("org.scala-lang", "scala-compiler", "2.11.11")
       simpleProject(scalaInstance)
     }
 
@@ -62,7 +61,7 @@ object CompilationTaskTest extends TestSuite {
 
         val project = projects("child")
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        val newProjects = tasks.parallel(project)
+        val newProjects = tasks.parallelCompile(project)
 
         assert(newProjects.forall { case (_, prj) => hasPreviousResult(prj) })
       }
@@ -89,7 +88,7 @@ object CompilationTaskTest extends TestSuite {
 
         val child = projects("child")
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        val newProjects = tasks.parallel(child)
+        val newProjects = tasks.parallelCompile(child)
 
         assert(newProjects.forall { case (_, prj) => hasPreviousResult(prj) })
       }
@@ -114,7 +113,7 @@ object CompilationTaskTest extends TestSuite {
 
         val child = projects("child")
         val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-        val newProjects = tasks.parallel(child)
+        val newProjects = tasks.parallelCompile(child)
 
         // The unrelated project should not have been compiled
         assert(noPreviousResult(newProjects("unrelated")))
@@ -137,7 +136,7 @@ object CompilationTaskTest extends TestSuite {
       assert(noPreviousResult(project))
 
       val tasks = new CompilationTasks(projects, compilerCache, QuietLogger)
-      val newProjects = tasks.parallel(project)
+      val newProjects = tasks.parallelCompile(project)
       val newProject = newProjects("prj")
 
       assert(hasPreviousResult(newProject))

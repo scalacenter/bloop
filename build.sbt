@@ -43,16 +43,20 @@ val backend = project
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
       Dependencies.configDirectories,
-      Dependencies.caseApp
+      Dependencies.caseApp,
+      Dependencies.sourcecode
     )
   )
 
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend)
+  .enablePlugins(BuildInfoPlugin)
   .settings(
+    name := "bloop",
+    buildInfoPackage := "bloop.internal.build",
+    buildInfoKeys := BloopInfoKeys,
     fork in run := true,
-    connectInput in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     libraryDependencies += "com.lihaoyi" %% "utest" % "0.6.0" % "test",
     testFrameworks += new TestFramework("utest.runner.Framework")
