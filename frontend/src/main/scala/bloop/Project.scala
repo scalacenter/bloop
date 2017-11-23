@@ -18,6 +18,7 @@ case class Project(name: String,
                    javacOptions: Array[String],
                    sourceDirectories: Array[AbsolutePath],
                    previousResult: PreviousResult,
+                   testFrameworks: Array[Array[String]],
                    tmp: AbsolutePath,
                    origin: Option[AbsolutePath]) {
   def toProperties(): Properties = {
@@ -85,7 +86,7 @@ object Project {
   }
 
   def fromProperties(properties: Properties): Project = {
-    def toPaths(line: String) = line.split(",").map(NioPaths.get(_)).map(AbsolutePath.apply).toArray
+    def toPaths(line: String) = line.split(",").map(NioPaths.get(_)).map(AbsolutePath.apply)
     val name = properties.getProperty("name")
     val dependencies =
       properties.getProperty("dependencies").split(",").filterNot(_.isEmpty)
@@ -107,6 +108,8 @@ object Project {
       .map(d => AbsolutePath(NioPaths.get(d)))
     val previousResult =
       PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
+    val testFrameworks =
+      properties.getProperty("testFrameworks").split(";").map(_.split(",").filterNot(_.isEmpty))
     val tmp = AbsolutePath(NioPaths.get(properties.getProperty("tmp")))
     Project(name,
             dependencies,
@@ -117,6 +120,7 @@ object Project {
             javacOptions,
             sourceDirectories,
             previousResult,
+            testFrameworks,
             tmp,
             None)
   }

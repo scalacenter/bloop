@@ -51,6 +51,7 @@ object CompileProjectTest extends DynTest {
         javacOptions = Array.empty,
         sourceDirectories = Array.empty,
         previousResult = CompilationHelpers.emptyPreviousResult,
+        testFrameworks = Array.empty,
         tmp = AbsolutePath(baseDirectory),
         origin = None
       )

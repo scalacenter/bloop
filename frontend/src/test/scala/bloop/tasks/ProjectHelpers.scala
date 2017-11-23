@@ -67,6 +67,7 @@ object ProjectHelpers {
       javacOptions = Array.empty,
       sourceDirectories = sourceDirectories,
       previousResult = CompilationHelpers.emptyPreviousResult,
+      testFrameworks = Array.empty,
       tmp = AbsolutePath(tempDir),
       origin = None
     )
