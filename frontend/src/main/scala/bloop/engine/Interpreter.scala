@@ -108,7 +108,7 @@ object Interpreter {
     val tests = tasks.definedTests(projectName, testLoader)
     tests.foreach {
       case (runner, taskDefs) =>
-        tasks.runTests(runner, taskDefs.toArray)
+        tasks.runTests(runner(), taskDefs.toArray)
     }
     ExitStatus.Ok
   }

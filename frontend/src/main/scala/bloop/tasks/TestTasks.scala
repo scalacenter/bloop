@@ -18,7 +18,8 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
 
   private type PrintInfo[F <: Fingerprint] = (String, Boolean, Framework, F)
 
-  def definedTests(projectName: String, testLoader: ClassLoader): Map[Runner, Seq[TaskDef]] = {
+  def definedTests(projectName: String,
+                   testLoader: ClassLoader): Seq[(() => Runner, Seq[TaskDef])] = {
     val project = projects(projectName)
     val frameworks = project.testFrameworks.flatMap(f => getFramework(testLoader, f.toList))
     logger.debug("Found frameworks: " + frameworks.map(_.name).mkString(", "))
@@ -31,20 +32,21 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
     val discovered = Discovery(subclassPrints.map(_._1), annotatedPrints.map(_._1))(definitions)
     logger.debug("Discovered tests: " + discovered.map(_._1.name()).mkString(", "))
 
-    val runners = getRunners(frameworks, testLoader)
-    val tasks = mutable.Map.empty[Runner, mutable.Buffer[TaskDef]]
-    runners.values.foreach { tasks += _ -> mutable.Buffer.empty }
+    val tasks = mutable.Map.empty[Framework, mutable.Buffer[TaskDef]]
+    frameworks.foreach(tasks(_) = mutable.Buffer.empty)
     discovered.foreach {
       case (de, di) =>
         val printInfos = matchingFingerprints(subclassPrints, annotatedPrints, di)
         printInfos.foreach {
           case (_, _, framework, fingerprint) =>
             val taskDef = new TaskDef(de.name, fingerprint, false, Array(new SuiteSelector))
-            tasks(runners(framework)) += taskDef
+            tasks(framework) += taskDef
         }
     }
 
-    tasks.toMap
+    tasks.toSeq.map {
+      case (framework, taskDefs) => (() => getRunner(framework, testLoader)) -> taskDefs
+    }
   }
 
   def runTests(runner: Runner, taskDefs: Array[TaskDef]): Unit = {
@@ -77,9 +79,8 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
       defined(annotatedPrints, d.annotations, d.isModule)
   }
 
-  private def getRunners(frameworks: Array[Framework],
-                         testClassLoader: ClassLoader): Map[Framework, Runner] = {
-    frameworks.map(f => f -> f.runner(Array.empty, Array.empty, testClassLoader)).toMap
+  private def getRunner(framework: Framework, testClassLoader: ClassLoader) = {
+    framework.runner(Array.empty, Array.empty, testClassLoader)
   }
 
   private def getFingerprints(frameworks: Array[Framework])
