@@ -5,41 +5,97 @@ import java.net.URLClassLoader
 import bloop.Project
 import bloop.logging.Logger
 import bloop.util.FilteredClassLoader
-import sbt.testing.{AnnotatedFingerprint, Framework, SubclassFingerprint}
+import sbt.testing._
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
-import xsbt.api.Discovery
+import xsbt.api.{Discovered, Discovery}
 import xsbti.compile.CompileAnalysis
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 class TestTasks(projects: Map[String, Project], logger: Logger) {
 
-  def definedTests(projectName: String): Unit = {
+  private type PrintInfo[F <: Fingerprint] = (String, Boolean, Framework, F)
+
+  def definedTests(projectName: String, testLoader: ClassLoader): Map[Runner, Seq[TaskDef]] = {
     val project = projects(projectName)
-    val thisLoader = new FilteredClassLoader(
-      name =>
-        name.startsWith("java.") || name.startsWith("sbt.testing.") || name.startsWith(
-          "org.scalatools.testing."),
-      getClass.getClassLoader)
-    val loader = getClassLoader(project, thisLoader)
-    val frameworks =
-      project.testFrameworks.flatMap(frameworks => getFramework(loader, frameworks.toList))
-    logger.debug("Found frameworks: " + frameworks.mkString(", "))
+    val frameworks = project.testFrameworks.flatMap(f => getFramework(testLoader, f.toList))
+    logger.debug("Found frameworks: " + frameworks.map(_.name).mkString(", "))
 
-    val definitions = allDefs(project.previousResult.analysis().orElse(Analysis.empty))
-    val fingerprints = frameworks.flatMap(_.fingerprints())
+    val (subclassPrints, annotatedPrints) = getFingerprints(frameworks)
 
-    val subclasses = mutable.Set.empty[SubclassFingerprint]
-    val annotated = mutable.Set.empty[AnnotatedFingerprint]
-    fingerprints.foreach {
-      case sub: SubclassFingerprint => subclasses += sub
-      case ann: AnnotatedFingerprint => annotated += ann
+    val analysis = project.previousResult.analysis().orElse(Analysis.empty)
+    val definitions = allDefs(analysis)
+
+    val discovered = Discovery(subclassPrints.map(_._1), annotatedPrints.map(_._1))(definitions)
+    logger.debug("Discovered tests: " + discovered.map(_._1.name()).mkString(", "))
+
+    val runners = getRunners(frameworks, testLoader)
+    val tasks = mutable.Map.empty[Runner, mutable.Buffer[TaskDef]]
+    runners.values.foreach { tasks += _ -> mutable.Buffer.empty }
+    discovered.foreach {
+      case (de, di) =>
+        val printInfos = matchingFingerprints(subclassPrints, annotatedPrints, di)
+        printInfos.foreach {
+          case (_, _, framework, fingerprint) =>
+            val taskDef = new TaskDef(de.name, fingerprint, false, Array(new SuiteSelector))
+            tasks(runners(framework)) += taskDef
+        }
     }
-    val discovered =
-      Discovery.apply(subclasses.map(_.superclassName()).toSet,
-                      annotated.map(_.annotationName()).toSet)(definitions)
-    logger.debug("Discovered tests: " + discovered)
+
+    tasks.toMap
+  }
+
+  def runTests(runner: Runner, taskDefs: Array[TaskDef]): Unit = {
+    val tasks = runner.tasks(taskDefs)
+    executeTasks(tasks)
+  }
+
+  def getTestLoader(projectName: String): ClassLoader = {
+    val project = projects(projectName)
+    val entries = (project.classpath :+ project.classesDir).map(_.underlying.toUri.toURL)
+    new URLClassLoader(entries, filteredLoader)
+  }
+
+  lazy val eventHandler = new EventHandler {
+    override def handle(event: Event): Unit = ()
+  }
+
+  // Slightly adapted from sbt/sbt
+  private def defined[T <: Fingerprint](in: Set[PrintInfo[T]],
+                                        names: Set[String],
+                                        IsModule: Boolean): Set[PrintInfo[T]] = {
+    in collect { case info @ (name, IsModule, _, _) if names(name) => info }
+  }
+
+  // Slightly adapted from sbt/sbt
+  private def matchingFingerprints(subclassPrints: Set[PrintInfo[SubclassFingerprint]],
+                                   annotatedPrints: Set[PrintInfo[AnnotatedFingerprint]],
+                                   d: Discovered): Set[PrintInfo[Fingerprint]] = {
+    defined(subclassPrints, d.baseClasses, d.isModule) ++
+      defined(annotatedPrints, d.annotations, d.isModule)
+  }
+
+  private def getRunners(frameworks: Array[Framework],
+                         testClassLoader: ClassLoader): Map[Framework, Runner] = {
+    frameworks.map(f => f -> f.runner(Array.empty, Array.empty, testClassLoader)).toMap
+  }
+
+  private def getFingerprints(frameworks: Array[Framework])
+    : (Set[PrintInfo[SubclassFingerprint]], Set[PrintInfo[AnnotatedFingerprint]]) = {
+    val subclasses = mutable.Set.empty[PrintInfo[SubclassFingerprint]]
+    val annotated = mutable.Set.empty[PrintInfo[AnnotatedFingerprint]]
+    for {
+      framework <- frameworks
+      fingerprint <- framework.fingerprints()
+    } fingerprint match {
+      case sub: SubclassFingerprint =>
+        subclasses += ((sub.superclassName, sub.isModule, framework, sub))
+      case ann: AnnotatedFingerprint =>
+        annotated += ((ann.annotationName, ann.isModule, framework, ann))
+    }
+    (subclasses.toSet, annotated.toSet)
   }
 
   private def getFramework(loader: ClassLoader, classNames: List[String]): Option[Framework] =
@@ -63,9 +119,15 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
       case _: ClassNotFoundException => None
     }
   }
-
-  private def getClassLoader(project: Project, parent: ClassLoader): ClassLoader = {
-    new URLClassLoader(project.classpath.map(_.underlying.toFile.toURI.toURL), parent)
+  @tailrec
+  private def executeTasks(tasks: Array[sbt.testing.Task]): Unit = {
+    tasks match {
+      case Array(task, rest @ _*) =>
+        val newTasks = task.execute(eventHandler, Array(logger))
+        executeTasks(rest.toArray ++ newTasks)
+      case Array() =>
+        ()
+    }
   }
 
   // Taken from sbt/sbt, see Tests.scala
@@ -80,7 +142,14 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
             companions.objectApi.structure.declared ++ companions.objectApi.structure.inherited
 
         all
-      }.toSeq
+      }
+  }
+
+  private lazy val filteredLoader = {
+    val allow = (className: String) =>
+      className.startsWith("java") || className.startsWith("sbt.testing.") || className.startsWith(
+        "org.scalatools.testing.")
+    new FilteredClassLoader(allow, getClass.getClassLoader)
   }
 
 }

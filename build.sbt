@@ -46,7 +46,8 @@ val backend = project
       Dependencies.caseApp,
       Dependencies.sourcecode,
       Dependencies.log4jApi,
-      Dependencies.log4jCore
+      Dependencies.log4jCore,
+      Dependencies.sbtTestInterface
     )
   )
 
@@ -60,7 +61,6 @@ val frontend = project
     buildInfoKeys := BloopInfoKeys,
     fork in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
-    libraryDependencies += Dependencies.sbtTestInterface,
     libraryDependencies += "com.lihaoyi" %% "utest" % "0.6.0" % "test",
     testFrameworks += new TestFramework("utest.runner.Framework")
   )

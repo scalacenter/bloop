@@ -104,7 +104,12 @@ object Interpreter {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = new TestTasks(projects, logger)
-    val _ = tasks.definedTests(projectName)
+    val testLoader = tasks.getTestLoader(projectName)
+    val tests = tasks.definedTests(projectName, testLoader)
+    tests.foreach {
+      case (runner, taskDefs) =>
+        tasks.runTests(runner, taskDefs.toArray)
+    }
     ExitStatus.Ok
   }
 

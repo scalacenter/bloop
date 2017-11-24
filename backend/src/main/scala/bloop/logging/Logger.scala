@@ -7,7 +7,7 @@ import org.apache.logging.log4j
 import org.apache.logging.log4j.{Level, LogManager}
 import org.apache.logging.log4j.core.config.Configurator
 
-class Logger(logger: log4j.Logger) extends xsbti.Logger {
+class Logger(logger: log4j.Logger) extends xsbti.Logger with sbt.testing.Logger {
   def this(name: String) = this(LogManager.getLogger(name))
   def this() = this("bloop")
 
@@ -42,6 +42,8 @@ class Logger(logger: log4j.Logger) extends xsbti.Logger {
         throw ex
     }
   }
+
+  override def ansiCodesSupported() = true
 
   def verboseIf[T](cond: Boolean)(op: => T): T =
     if (cond) verbose(op)
