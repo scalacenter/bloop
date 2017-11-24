@@ -149,8 +149,10 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
 
   private lazy val filteredLoader = {
     val allow = (className: String) =>
-      className.startsWith("java") || className.startsWith("sbt.testing.") || className.startsWith(
-        "org.scalatools.testing.")
+      className.startsWith("java") ||
+        className.startsWith("sun.") ||
+        className.startsWith("sbt.testing.") ||
+        className.startsWith("org.scalatools.testing.")
     new FilteredClassLoader(allow, getClass.getClassLoader)
   }
 
