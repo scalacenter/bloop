@@ -27,12 +27,12 @@ object AutoImportedKeys {
 
 object PluginImplementation {
 
-  val globalSettings: Seq[Def.Setting[_]] = List(
+  def globalSettings: Seq[Def.Setting[_]] = List(
     AutoImportedKeys.install := PluginDefaults.install.value,
     AutoImportedKeys.bloopConfigDir in Global := PluginDefaults.bloopConfigDir.value
   )
 
-  val projectSettings: Seq[Def.Setting[_]] =
+  def projectSettings: Seq[Def.Setting[_]] =
     List(Compile, Test).flatMap(conf =>
       sbt.inConfig(conf)(AutoImportedKeys.bloopInstall := PluginDefaults.bloopInstall.value))
 
@@ -50,7 +50,7 @@ object PluginImplementation {
       allScalaJars: Seq[File],
       tmp: File
   ) {
-    private def seqToString[T](xs: Seq[T]): String = xs.mkString(",")
+    private def seqToString[T](xs: Seq[T], sep: String = ","): String = xs.mkString(sep)
     private def toPaths(xs: Seq[File]): Seq[String] = xs.map(_.getAbsolutePath)
     def toProperties: java.util.Properties = {
       val properties = new java.util.Properties()
@@ -61,8 +61,8 @@ object PluginImplementation {
       properties.setProperty("scalaVersion", scalaVersion)
       properties.setProperty("classpath", seqToString(toPaths(classpath)))
       properties.setProperty("classesDir", classesDir.getAbsolutePath)
-      properties.setProperty("scalacOptions", seqToString(scalacOptions))
-      properties.setProperty("javacOptions", seqToString(javacOptions))
+      properties.setProperty("scalacOptions", seqToString(scalacOptions, ";"))
+      properties.setProperty("javacOptions", seqToString(javacOptions, ";"))
       properties.setProperty("sourceDirectories", seqToString(toPaths(sourceDirectories)))
       properties.setProperty("allScalaJars", seqToString(toPaths(allScalaJars)))
       properties.setProperty("tmp", tmp.getAbsolutePath)
@@ -72,9 +72,7 @@ object PluginImplementation {
 
   object PluginDefaults {
     import sbt.Task
-
-    // We do this because we're lazy and don't want to cross-compile these sources
-    private implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
+    import bloop.Compat._
 
     final val bloopInstall: Def.Initialize[Task[Unit]] = Def.task {
       def makeName(name: String, configuration: Configuration): String =
@@ -100,7 +98,7 @@ object PluginImplementation {
       val scalaVersion = Keys.scalaVersion.value
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
       val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
-      val classpath = Keys.dependencyClasspath.value.map(_.data.getAbsoluteFile)
+      val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
       val classesDir = Keys.classDirectory.value.getAbsoluteFile
       val sourceDirs = Keys.sourceDirectories.value
       val scalacOptions = Keys.scalacOptions.value
@@ -127,6 +125,28 @@ object PluginImplementation {
 
     final val bloopConfigDir: Def.Initialize[File] = Def.setting {
       (Keys.baseDirectory in ThisBuild).value / ".bloop-config"
+    }
+
+    import sbt.Classpaths
+    final val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
+      val projectRef = Keys.thisProjectRef.value
+      val data = Keys.settingsData.value
+      val deps = Keys.buildDependencies.value
+
+      import scala.collection.JavaConverters._
+      import sbt.Configurations.CompilerPlugin
+      val confName = CompilerPlugin.name
+      val visited = Classpaths.interSort(projectRef, CompilerPlugin, data, deps)
+      val tasks = (new java.util.LinkedHashSet[Task[Def.Classpath]]).asScala
+      for ((dep, c) <- visited)
+        if ((dep != projectRef) || (confName != c))
+          tasks += Classpaths.getClasspath(Keys.exportedProductsNoTracking, dep, c, data)
+      val internalClasspathTask = (tasks.toSeq.join).map(_.flatten.distinct)
+      Def.task {
+        val internalClasspath = internalClasspathTask.value
+        val externalClasspath = Keys.externalDependencyClasspath.value
+        (internalClasspath ++ externalClasspath).map(_.data)
+      }
     }
   }
 }
