@@ -1,120 +1,132 @@
 package bloop
 
 import java.io.FileOutputStream
-import java.util.Properties
+import java.io.File
 
-import sbt._
-import Keys._
-import sbt.plugins.JvmPlugin
+import sbt.{Keys, AutoPlugin, Def, Global, ScopeFilter, ThisBuild, Compile, Test, Configuration}
 
 object SbtBloop extends AutoPlugin {
-  override def trigger = allRequirements
+  import sbt.plugins.JvmPlugin
   override def requires = JvmPlugin
+  override def trigger = allRequirements
+  final val autoImport = AutoImportedKeys
 
-  private val bloopInstall: TaskKey[Unit] =
+  override def globalSettings: Seq[Def.Setting[_]] = PluginImplementation.globalSettings
+  override def projectSettings: Seq[Def.Setting[_]] = PluginImplementation.projectSettings
+}
+
+object AutoImportedKeys {
+  import sbt.{TaskKey, taskKey, settingKey, SettingKey}
+  private[bloop] val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate bloop configuration files for this project")
+  val bloopConfigDir: SettingKey[File] =
+    settingKey[File]("Directory where to write bloop configuration files")
+  val install: TaskKey[Unit] =
+    taskKey[Unit]("Generate all bloop configuration files")
+}
 
-  object autoImport {
-    val bloopConfigDir: SettingKey[File] =
-      settingKey[File]("Directory where to write bloop configuration files")
-    val install: TaskKey[Unit] =
-      taskKey[Unit]("Generate all bloop configuration files")
-  }
+object PluginImplementation {
 
-  import autoImport._
-
-  override def globalSettings: Seq[Def.Setting[_]] = Seq(
-    bloopConfigDir in Global := (baseDirectory in ThisBuild).value / ".bloop-config",
-    install := Def.taskDyn {
-      val filter = ScopeFilter(inAnyProject, inConfigurations(Compile, Test))
-      bloopInstall.all(filter).map(_ => ())
-    }.value
+  val globalSettings: Seq[Def.Setting[_]] = List(
+    AutoImportedKeys.install := PluginDefaults.install.value,
+    AutoImportedKeys.bloopConfigDir in Global := PluginDefaults.bloopConfigDir.value
   )
 
-  override def projectSettings: Seq[Def.Setting[_]] =
-    List(Compile, Test).flatMap { c =>
-      inConfig(c)(
-        Seq(bloopInstall := {
-          def makeName(name: String, configuration: Configuration): String =
-            if (configuration == Compile) name else name + "-test"
-          val project = thisProject.value
-          val projectName = makeName(thisProjectRef.value.project, configuration.value)
-          // In the test configuration, add a dependency on the base project
-          val baseProjectDependency =
-            if (configuration.value == Test) Seq(thisProjectRef.value.project) else Seq.empty
-          // TODO: We should extract the right configuration for the dependency.
-          val dependencies =
-            project.dependencies
-              .map(dep => makeName(dep.project.project, configuration.value)) ++ baseProjectDependency
-          // TODO: We should extract the right configuration for the aggregate.
-          val aggregates =
-            project.aggregate.map(agg => makeName(agg.project, configuration.value))
-          val scalaOrganization =
-            Keys.ivyScala.value
-              .map(_.scalaOrganization)
-              .getOrElse("org.scala-lang")
-          val scalaName = "scala-compiler"
-          val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
-          val classpath = dependencyClasspath.value.map(_.data.getAbsoluteFile)
-          val classesDir = classDirectory.value.getAbsoluteFile
-          val sourceDirs = sourceDirectories.value
-          val tmp = target.value / "tmp-bloop"
-          val outFile = bloopConfigDir.value / (projectName + ".config")
-          val config =
-            Config(
-              projectName,
-              dependencies ++ aggregates,
-              scalaOrganization,
-              scalaName,
-              scalaVersion.value,
-              classpath,
-              classesDir,
-              scalacOptions.value,
-              javacOptions.value,
-              sourceDirs,
-              allScalaJars,
-              tmp
-            )
-          val properties = config.toProperties
-          IO.createDirectory(bloopConfigDir.value)
-          val stream = new FileOutputStream(outFile)
-          try properties.store(stream, null)
-          finally stream.close()
+  val projectSettings: Seq[Def.Setting[_]] =
+    List(Compile, Test).flatMap(conf =>
+      sbt.inConfig(conf)(AutoImportedKeys.bloopInstall := PluginDefaults.bloopInstall.value))
 
-          streams.value.log.info(s"Wrote configuration of project '$projectName' to '$outFile'")
-        })
-      )
-    }
-
-  private case class Config(name: String,
-                            dependencies: Seq[String],
-                            scalaOrganization: String,
-                            scalaName: String,
-                            scalaVersion: String,
-                            classpath: Seq[File],
-                            classesDir: File,
-                            scalacOptions: Seq[String],
-                            javacOptions: Seq[String],
-                            sourceDirectories: Seq[File],
-                            allScalaJars: Seq[File],
-                            tmp: File) {
-    def toProperties: Properties = {
-      val properties = new Properties()
+  case class Config(
+      name: String,
+      dependencies: Seq[String],
+      scalaOrganization: String,
+      scalaName: String,
+      scalaVersion: String,
+      classpath: Seq[File],
+      classesDir: File,
+      scalacOptions: Seq[String],
+      javacOptions: Seq[String],
+      sourceDirectories: Seq[File],
+      allScalaJars: Seq[File],
+      tmp: File
+  ) {
+    private def seqToString[T](xs: Seq[T]): String = xs.mkString(",")
+    private def toPaths(xs: Seq[File]): Seq[String] = xs.map(_.getAbsolutePath)
+    def toProperties: java.util.Properties = {
+      val properties = new java.util.Properties()
       properties.setProperty("name", name)
-      properties.setProperty("dependencies", dependencies.mkString(","))
+      properties.setProperty("dependencies", seqToString(dependencies))
       properties.setProperty("scalaOrganization", scalaOrganization)
       properties.setProperty("scalaName", scalaName)
       properties.setProperty("scalaVersion", scalaVersion)
-      properties.setProperty("classpath", classpath.map(_.getAbsolutePath).mkString(","))
+      properties.setProperty("classpath", seqToString(toPaths(classpath)))
       properties.setProperty("classesDir", classesDir.getAbsolutePath)
-      properties.setProperty("scalacOptions", scalacOptions.mkString(";"))
-      properties.setProperty("javacOptions", javacOptions.mkString(";"))
-      properties.setProperty("sourceDirectories",
-                             sourceDirectories.map(_.getAbsolutePath).mkString(","))
-      properties.setProperty("allScalaJars", allScalaJars.map(_.getAbsolutePath).mkString(","))
+      properties.setProperty("scalacOptions", seqToString(scalacOptions))
+      properties.setProperty("javacOptions", seqToString(javacOptions))
+      properties.setProperty("sourceDirectories", seqToString(toPaths(sourceDirectories)))
+      properties.setProperty("allScalaJars", seqToString(toPaths(allScalaJars)))
       properties.setProperty("tmp", tmp.getAbsolutePath)
       properties
     }
+  }
 
+  object PluginDefaults {
+    import sbt.Task
+
+    // We do this because we're lazy and don't want to cross-compile these sources
+    private implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
+
+    final val bloopInstall: Def.Initialize[Task[Unit]] = Def.task {
+      def makeName(name: String, configuration: Configuration): String =
+        if (configuration == Compile) name else name + "-test"
+
+      val logger = Keys.streams.value.log
+      val project = Keys.thisProject.value
+      val configuration = Keys.configuration.value
+      val projectName = makeName(project.id, configuration)
+
+      // In the test configuration, add a dependency on the base project
+      val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
+
+      // TODO: We should extract the right configuration for the dependency.
+      val projectDependencies =
+        project.dependencies.map(dep => makeName(dep.project.project, configuration))
+      val dependencies = projectDependencies ++ baseProjectDependency
+      // TODO: We should extract the right configuration for the aggregate.
+      val aggregates = project.aggregate.map(agg => makeName(agg.project, configuration))
+      val dependenciesAndAggregates = dependencies ++ aggregates
+
+      val scalaName = "scala-compiler"
+      val scalaVersion = Keys.scalaVersion.value
+      val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
+      val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
+      val classpath = Keys.dependencyClasspath.value.map(_.data.getAbsoluteFile)
+      val classesDir = Keys.classDirectory.value.getAbsoluteFile
+      val sourceDirs = Keys.sourceDirectories.value
+      val scalacOptions = Keys.scalacOptions.value
+      val javacOptions = Keys.javacOptions.value
+      val tmp = Keys.target.value / "tmp-bloop"
+      val bloopConfigDir = AutoImportedKeys.bloopConfigDir.value
+      val outFile = bloopConfigDir / s"$projectName.config"
+
+      // format: OFF
+      val config = Config(projectName, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
+        classpath, classesDir, scalacOptions, javacOptions, sourceDirs, allScalaJars, tmp)
+      sbt.IO.createDirectory(bloopConfigDir)
+      val stream = new FileOutputStream(outFile)
+      try config.toProperties.store(stream, null)
+      finally stream.close()
+      logger.success(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+      // format: ON
+    }
+
+    final val install: Def.Initialize[Task[Unit]] = Def.taskDyn {
+      val filter = ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
+      AutoImportedKeys.bloopInstall.all(filter).map(_ => ())
+    }
+
+    final val bloopConfigDir: Def.Initialize[File] = Def.setting {
+      (Keys.baseDirectory in ThisBuild).value / ".bloop-config"
+    }
   }
 }
