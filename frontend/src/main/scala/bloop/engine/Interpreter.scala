@@ -89,7 +89,8 @@ object Interpreter {
     val tasks = constructTasks(projects, logger)
     val project = projects(projectName)
     if (incremental) {
-      tasks.parallelCompile(project)
+      val newProjects = tasks.parallelCompile(project)
+      tasks.persistAnalysis(newProjects(projectName), logger)
       ExitStatus.Ok
     } else {
       val newProjects = tasks.clean(projects.keys.toList)
