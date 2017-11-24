@@ -4,6 +4,7 @@ import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import bloop.tasks.{CompilationTasks, TestTasks}
+import bloop.util.TopologicalSort
 import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
 
@@ -88,9 +89,11 @@ object Interpreter {
     val projects = Project.fromDir(configDir, logger)
     val tasks = constructTasks(projects, logger)
     val project = projects(projectName)
+    val compiledProjects = TopologicalSort.reachable(project, projects).keys
     if (incremental) {
       val newProjects = tasks.parallelCompile(project)
-      tasks.persistAnalysis(newProjects(projectName), logger)
+      compiledProjects.foreach(projectName =>
+        tasks.persistAnalysis(newProjects(projectName), logger))
       ExitStatus.Ok
     } else {
       val newProjects = tasks.clean(projects.keys.toList)
