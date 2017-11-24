@@ -5,7 +5,7 @@ import java.net.URLClassLoader
 import bloop.Project
 import bloop.logging.Logger
 import bloop.util.FilteredClassLoader
-import sbt.testing._
+import sbt.testing.{Task => TestTask, _}
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
 import xsbt.api.{Discovered, Discovery}
@@ -50,7 +50,7 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
   }
 
   def runTests(runner: Runner, taskDefs: Array[TaskDef]): Unit = {
-    val tasks = runner.tasks(taskDefs)
+    val tasks = runner.tasks(taskDefs).toList
     executeTasks(tasks)
   }
 
@@ -120,13 +120,14 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
       case _: ClassNotFoundException => None
     }
   }
+
   @tailrec
-  private def executeTasks(tasks: Array[sbt.testing.Task]): Unit = {
+  private def executeTasks(tasks: List[TestTask]): Unit = {
     tasks match {
-      case Array(task, rest @ _*) =>
-        val newTasks = task.execute(eventHandler, Array(logger))
-        executeTasks(rest.toArray ++ newTasks)
-      case Array() =>
+      case task :: rest =>
+        val newTasks = task.execute(eventHandler, Array(logger)).toList
+        executeTasks(rest ::: newTasks)
+      case Nil =>
         ()
     }
   }
