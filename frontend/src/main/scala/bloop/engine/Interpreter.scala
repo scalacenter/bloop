@@ -29,8 +29,8 @@ object Interpreter {
         compile(projectName, incremental, cliOptions, logger)
       }
       execute(next, logger)
-    case Run(Commands.Test(projectName, cliOptions), next) =>
-      test(projectName, cliOptions, logger)
+    case Run(Commands.Test(projectName, dependencies, cliOptions), next) =>
+      test(projectName, dependencies, cliOptions, logger)
       execute(next, logger)
   }
 
@@ -103,16 +103,27 @@ object Interpreter {
     }
   }
 
-  private def test(projectName: String, cliOptions: CliOptions, logger: Logger): ExitStatus = {
+  private def test(projectName: String,
+                   dependencies: Boolean,
+                   cliOptions: CliOptions,
+                   logger: Logger): ExitStatus = {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = new TestTasks(projects, logger)
-    val testLoader = tasks.getTestLoader(projectName)
-    val tests = tasks.definedTests(projectName, testLoader)
-    tests.foreach {
-      case (runner, taskDefs) =>
-        tasks.runTests(runner(), taskDefs.toArray)
+    val projectsToTest =
+      if (dependencies) TopologicalSort.reachable(projects(projectName), projects).keys
+      else List(projectName)
+
+    def test(projectName: String): Unit = {
+      val testLoader = tasks.getTestLoader(projectName)
+      val tests = tasks.definedTests(projectName, testLoader)
+      tests.foreach {
+        case (runner, taskDefs) =>
+          tasks.runTests(runner(), taskDefs.toArray)
+      }
     }
+
+    projectsToTest.foreach(test)
     ExitStatus.Ok
   }
 
