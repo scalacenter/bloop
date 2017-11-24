@@ -3,7 +3,7 @@ package bloop.engine
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import bloop.tasks.CompilationTasks
+import bloop.tasks.{CompilationTasks, TestTasks}
 import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
 
@@ -27,6 +27,9 @@ object Interpreter {
       logger.verboseIf(cliOptions.verbose) {
         compile(projectName, incremental, cliOptions, logger)
       }
+      execute(next, logger)
+    case Run(Commands.Test(projectName, cliOptions), next) =>
+      test(projectName, cliOptions, logger)
       execute(next, logger)
   }
 
@@ -94,6 +97,14 @@ object Interpreter {
       newTasks.parallelCompile(project)
       ExitStatus.Ok
     }
+  }
+
+  private def test(projectName: String, cliOptions: CliOptions, logger: Logger): ExitStatus = {
+    val configDir = getConfigDir(cliOptions)
+    val projects = Project.fromDir(configDir, logger)
+    val tasks = new TestTasks(projects, logger)
+    val _ = tasks.definedTests(projectName)
+    ExitStatus.Ok
   }
 
   private def clean(projectNames: List[String],
