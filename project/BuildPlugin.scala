@@ -52,8 +52,6 @@ object BuildKeys {
   final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 
-  final val TestSetup = TestSetupSettings
-
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
     val zincVersion = Keys.version in ZincRoot
@@ -172,7 +170,8 @@ object BuildImplementation {
       * - Runs scripted, so that the configuration files are generated.
       */
     val setupTests = Command.command("setupTests") { state =>
-      s"sbtBloop/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
+      s"^sbtBloop/${Keys.publishLocal.key.label}" ::
+        s"sbtBloop/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
         s"sbtBloop/${ScriptedKeys.scripted.key.label}" ::
         state
     }
@@ -185,8 +184,8 @@ object BuildImplementation {
          |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
          |}
          |TaskKey[Unit]("checkInstall") := {
-         |  Thread.sleep(2000) // Let's wait a little bit because of OS's IO latency
-         |  val mostRecentStamp = (bloopConfigDir.value ** ".config").get.map(_.lastModified).min
+         |  Thread.sleep(1000) // Let's wait a little bit because of OS's IO latency
+         |  val mostRecentStamp = (bloopConfigDir.value ** "*.config").get.map(_.lastModified).min
          |  (System.currentTimeMillis() - mostRecentStamp)
          |  val diff = (System.currentTimeMillis() - mostRecentStamp) / 1000
          |  if (diff <= 15) () // If it happened in the last 15 seconds, this is ok!
@@ -196,16 +195,16 @@ object BuildImplementation {
     }
 
     private val scriptedTestContents = {
-      """
-        |> show bloopConfigDir
+      """> show bloopConfigDir
         |> registerDirectory
         |> install
+        |> checkInstall
       """.stripMargin
     }
 
     private val NewLine = System.getProperty("line.separator")
     def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = List(
-      ScriptedKeys.scriptedBufferLog := true,
+      ScriptedKeys.scriptedBufferLog := false,
       ScriptedKeys.sbtTestDirectory := testDirectory.value,
       BuildKeys.scriptedAddSbtBloop := {
         import sbt.io.syntax.{fileToRichFile, singleFileFinder}
@@ -236,8 +235,4 @@ object Header {
       |   *** An effort funded by the Scala Center Advisory Board ***
       |   ***********************************************************
     """.stripMargin
-}
-
-object TestSetupSettings {
-
 }

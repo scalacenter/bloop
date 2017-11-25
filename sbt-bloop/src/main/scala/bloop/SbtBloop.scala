@@ -3,7 +3,7 @@ package bloop
 import java.io.FileOutputStream
 import java.io.File
 
-import sbt.{Keys, AutoPlugin, Def, Global, ScopeFilter, ThisBuild, Compile, Test, Configuration}
+import sbt.{Keys, AutoPlugin, Def, ScopeFilter, ThisBuild, Compile, Test, Configuration}
 
 object SbtBloop extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -17,8 +17,6 @@ object SbtBloop extends AutoPlugin {
 
 object AutoImportedKeys {
   import sbt.{TaskKey, taskKey, settingKey, SettingKey}
-  private[bloop] val bloopInstall: TaskKey[Unit] =
-    taskKey[Unit]("Generate bloop configuration files for this project")
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
   val install: TaskKey[Unit] =
@@ -26,15 +24,17 @@ object AutoImportedKeys {
 }
 
 object PluginImplementation {
-
-  def globalSettings: Seq[Def.Setting[_]] = List(
+  val globalSettings: Seq[Def.Setting[_]] = List(
     AutoImportedKeys.install := PluginDefaults.install.value,
     AutoImportedKeys.bloopConfigDir := PluginDefaults.bloopConfigDir.value
   )
 
-  def projectSettings: Seq[Def.Setting[_]] =
-    List(Compile, Test).flatMap(conf =>
-      sbt.inConfig(conf)(AutoImportedKeys.bloopInstall := PluginDefaults.bloopInstall.value))
+  import sbt.inConfig
+  private val bloopInstall: sbt.TaskKey[Unit] =
+    sbt.taskKey[Unit]("Generate bloop configuration files for this project")
+  val projectSettings: Seq[Def.Setting[_]] = List(Compile, Test).flatMap { conf =>
+    inConfig(conf)(List(bloopInstall := PluginDefaults.bloopInstall.value))
+  }
 
   case class Config(
       name: String,
@@ -74,7 +74,7 @@ object PluginImplementation {
     import sbt.Task
     import bloop.Compat._
 
-    final val bloopInstall: Def.Initialize[Task[Unit]] = Def.task {
+    lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.task {
       def makeName(name: String, configuration: Configuration): String =
         if (configuration == Compile) name else name + "-test"
 
@@ -118,17 +118,17 @@ object PluginImplementation {
       // format: ON
     }
 
-    final val install: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    lazy val install: Def.Initialize[Task[Unit]] = Def.taskDyn {
       val filter = ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
-      AutoImportedKeys.bloopInstall.all(filter).map(_ => ())
+      PluginImplementation.bloopInstall.all(filter).map(_ => ())
     }
 
-    final val bloopConfigDir: Def.Initialize[File] = Def.setting {
+    lazy val bloopConfigDir: Def.Initialize[File] = Def.setting {
       (Keys.baseDirectory in ThisBuild).value / ".bloop-config"
     }
 
     import sbt.Classpaths
-    final val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
+    final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
       val projectRef = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
       val deps = Keys.buildDependencies.value
