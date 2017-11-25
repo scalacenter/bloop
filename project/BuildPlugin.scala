@@ -64,6 +64,8 @@ object BuildKeys {
     val commonKeys = List[BuildInfoKey](Keys.name, Keys.version, Keys.scalaVersion, Keys.sbtVersion)
     commonKeys ++ List(zincKey, developersKey)
   }
+
+  val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
 }
 
 object BuildImplementation {
@@ -182,47 +184,59 @@ object TestSetupSettings {
   import java.io.File
   import sbt.io.syntax._
   import sbt.io.{AllPassFilter, IO}
-  import sbt.ScriptedPlugin.autoImport._
+  import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
-  val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
-
-  // This command helps with setting up the tests:
-  //  - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
-  //  - Runs scripted, so that the configuration files are generated.
+  /**
+    * Helps with setting up the tests:
+    * - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
+    * - Runs scripted, so that the configuration files are generated.
+    */
   val setupTests = Command.command("setupTests") { state =>
-    "sbtBloop/scriptedAddSbtBloop" ::
-      "sbtBloop/scripted" ::
+    s"sbtBloop/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
+      s"sbtBloop/${ScriptedKeys.scripted.key.label}" ::
       state
   }
 
-  def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = Seq(
-    sbtTestDirectory := testDirectory.value,
-    // Adds sbt-bloop to all the scripted tests. We will generate all the info that the tests
-    // need with sbt-bloop.
-    scriptedAddSbtBloop := {
-      val addSbtPlugin =
-        s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")""" + "\n"
-      // We write the base directory __HERE__ because sbt will copy the scripted test to a temporary
-      // directory, and we'll need to rebase the projects.
-      def bloopConfig(testDir: File) =
-        s"""bloopConfigDir in Global := file("$testDir/bloop-config")
-           |TaskKey[Unit]("register-directory") := {
-           |  val dir = (baseDirectory in ThisBuild).value
-           |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
-           |}""".stripMargin
-      val scriptedTest =
-        """> registerDirectory
-          |> install""".stripMargin
+  private def createScriptedSetup(testDir: File) = {
+    s"""
+       |bloopConfigDir in Global := file("$testDir/bloop-config")
+       |TaskKey[Unit]("registerDirectory") := {
+       |  val dir = (baseDirectory in ThisBuild).value
+       |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
+       |}
+       |TaskKey[Unit]("checkInstall") := {
+       |  Thread.sleep(2000) // Let's wait a little bit because of OS's IO latency
+       |  val mostRecentStamp = (bloopConfigDir.value ** ".config").get.map(_.lastModified).min
+       |  (System.currentTimeMillis() - mostRecentStamp)
+       |  val diff = (System.currentTimeMillis() - mostRecentStamp) / 1000
+       |  if (diff <= 15) () // If it happened in the last 15 seconds, this is ok!
+       |  else sys.error("The sbt plugin didn't write any file")
+       |}
+    """.stripMargin
+  }
 
-      val tests = (sbtTestDirectory.value / "projects").*(AllPassFilter).get
+  private val scriptedTestContents = {
+    """
+      |> show bloopConfigDir
+      |> registerDirectory
+      |> install
+    """.stripMargin
+  }
+
+  val NewLine = System.getProperty("line.separator")
+  def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = List(
+    ScriptedKeys.scriptedBufferLog := true,
+    ScriptedKeys.sbtTestDirectory := testDirectory.value,
+    BuildKeys.scriptedAddSbtBloop := {
+      val addSbtPlugin =
+        s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
+      val tests = (ScriptedKeys.sbtTestDirectory.value / "projects").*(AllPassFilter).get
       tests.foreach { testDir =>
         IO.createDirectory(testDir / "bloop-config")
         IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
-        IO.write(testDir / "test-config.sbt", bloopConfig(testDir))
-        IO.write(testDir / "test", scriptedTest)
+        IO.write(testDir / "test-config.sbt", createScriptedSetup(testDir))
+        IO.write(testDir / "test", scriptedTestContents)
       }
     },
-    scriptedBufferLog := true
   )
-
 }
