@@ -29,7 +29,7 @@ object PluginImplementation {
 
   def globalSettings: Seq[Def.Setting[_]] = List(
     AutoImportedKeys.install := PluginDefaults.install.value,
-    AutoImportedKeys.bloopConfigDir in Global := PluginDefaults.bloopConfigDir.value
+    AutoImportedKeys.bloopConfigDir := PluginDefaults.bloopConfigDir.value
   )
 
   def projectSettings: Seq[Def.Setting[_]] =
