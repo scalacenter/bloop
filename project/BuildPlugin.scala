@@ -209,15 +209,10 @@ object TestSetupSettings {
            |TaskKey[Unit]("register-directory") := {
            |  val dir = (baseDirectory in ThisBuild).value
            |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
-           |}
-           |TaskKey[Unit]("do-install") := (Def.taskDyn {
-           |  val files = (bloopConfigDir.value ** "*.config").get
-           |  if (files.isEmpty) Def.task { install.value }
-           |  else Def.task { () }
-           |}).value""".stripMargin
+           |}""".stripMargin
       val scriptedTest =
         """> registerDirectory
-          |> doInstall""".stripMargin
+          |> install""".stripMargin
 
       val tests = (sbtTestDirectory.value / "projects").*(AllPassFilter).get
       tests.foreach { testDir =>
