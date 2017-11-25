@@ -140,36 +140,27 @@ object PluginImplementation {
       *    sources, etc) it's better that sbt's logic deals with it and we only compose it from there.
       */
     final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
-      val projectRef = Keys.thisProjectRef.value
+      val currentProject = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
       val deps = Keys.buildDependencies.value
+      val conf = Keys.classpathConfiguration.value
+      val self = Keys.configuration.value
 
       import scala.collection.JavaConverters._
-      import sbt.Configurations.CompilerPlugin
-      val confName = CompilerPlugin.name
-      val visited = Classpaths.interSort(projectRef, CompilerPlugin, data, deps)
-      val classpaths = (new java.util.LinkedHashSet[Task[Def.Classpath]]).asScala
+      val visited = Classpaths.interSort(currentProject, conf, data, deps)
       val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       for ((dep, c) <- visited) {
-        if ((dep != projectRef) || (confName != c)) {
-          classpaths += Classpaths.getClasspath(Keys.exportedProductsNoTracking, dep, c, data)
-          val productsKey = (Keys.productDirectories.in(dep).in(sbt.ConfigKey(c)))
-          productDirs += productsKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+        if ((dep != currentProject) || (conf.name != c && self.name != c)) {
+          val classpathKey = (Keys.productDirectories in (dep, sbt.ConfigKey(c)))
+          productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
         }
       }
 
-      def combine[T](xs: scala.collection.mutable.Set[Task[Seq[T]]]): Task[Seq[T]] =
-        (xs.toList.join).map(_.flatten.distinct)
-      val productDirsTask = combine(productDirs)
-      val internalClasspathTask = combine(classpaths)
-
-      def intersperse[T](xs: Seq[T], ys: Seq[T]): Seq[T] =
-        xs.zip(ys) flatMap { case (a, b) => List(a, b) }
+      val internalClasspathTask = (productDirs.toList.join).map(_.flatten.distinct)
       Def.task {
-        val internalJars = internalClasspathTask.value.map(_.data)
-        val internalClasspath = intersperse(productDirsTask.value, internalJars)
+        val internalClasspath = internalClasspathTask.value
         val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
-        (internalClasspath ++ externalClasspath)
+        internalClasspath ++ externalClasspath
       }
     }
   }
