@@ -133,11 +133,7 @@ object PluginImplementation {
       * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
       *
       * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
-      *
-      * 1. We want the classpath to have the correct topological order of the project dependencies.
-      * 2. We want to be as sure as possible that we don't badly emulate the semantics of the
-      *    classpath. As there are lots of things at play here (managed & unmanaged resources,
-      *    sources, etc) it's better that sbt's logic deals with it and we only compose it from there.
+      * We want the classpath to have the correct topological order of the project dependencies.
       */
     final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
       val currentProject = Keys.thisProjectRef.value
