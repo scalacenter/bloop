@@ -128,6 +128,17 @@ object PluginImplementation {
     }
 
     import sbt.Classpaths
+
+    /**
+      * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
+      *
+      * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
+      *
+      * 1. We want the classpath to have the correct topological order of the project dependencies.
+      * 2. We want to be as sure as possible that we don't badly emulate the semantics of the
+      *    classpath. As there are lots of things at play here (managed & unmanaged resources,
+      *    sources, etc) it's better that sbt's logic deals with it and we only compose it from there.
+      */
     final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
       val projectRef = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
@@ -137,15 +148,28 @@ object PluginImplementation {
       import sbt.Configurations.CompilerPlugin
       val confName = CompilerPlugin.name
       val visited = Classpaths.interSort(projectRef, CompilerPlugin, data, deps)
-      val tasks = (new java.util.LinkedHashSet[Task[Def.Classpath]]).asScala
-      for ((dep, c) <- visited)
-        if ((dep != projectRef) || (confName != c))
-          tasks += Classpaths.getClasspath(Keys.exportedProductsNoTracking, dep, c, data)
-      val internalClasspathTask = (tasks.toSeq.join).map(_.flatten.distinct)
+      val classpaths = (new java.util.LinkedHashSet[Task[Def.Classpath]]).asScala
+      val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
+      for ((dep, c) <- visited) {
+        if ((dep != projectRef) || (confName != c)) {
+          classpaths += Classpaths.getClasspath(Keys.exportedProductsNoTracking, dep, c, data)
+          val productsKey = (Keys.productDirectories.in(dep).in(sbt.ConfigKey(c)))
+          productDirs += productsKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+        }
+      }
+
+      def combine[T](xs: scala.collection.mutable.Set[Task[Seq[T]]]): Task[Seq[T]] =
+        (xs.toList.join).map(_.flatten.distinct)
+      val productDirsTask = combine(productDirs)
+      val internalClasspathTask = combine(classpaths)
+
+      def intersperse[T](xs: Seq[T], ys: Seq[T]): Seq[T] =
+        xs.zip(ys) flatMap { case (a, b) => List(a, b) }
       Def.task {
-        val internalClasspath = internalClasspathTask.value
-        val externalClasspath = Keys.externalDependencyClasspath.value
-        (internalClasspath ++ externalClasspath).map(_.data)
+        val internalJars = internalClasspathTask.value.map(_.data)
+        val internalClasspath = intersperse(productDirsTask.value, internalJars)
+        val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
+        (internalClasspath ++ externalClasspath)
       }
     }
   }
