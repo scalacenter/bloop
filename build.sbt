@@ -64,6 +64,7 @@ val frontend = project
     testFrameworks += new TestFramework("utest.runner.Framework")
   )
 
+import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
   .in(file("sbt-bloop"))
   .settings(
@@ -73,11 +74,8 @@ lazy val sbtBloop = project
       val orig = scalaVersion.value
       if ((sbtVersion in pluginCrossBuild).value.startsWith("0.13")) "2.10.6" else orig
     },
-  )
-  .settings(
-    // The scripted tests (= projects) are in the resources of `frontend`, because
-    // we use them mostly for unit testing `frontend`.
-    TestSetup.scriptedSettings(resourceDirectory in Test in frontend)
+    // The scripted projects to setup are in the test resources of frontend
+    BuildDefaults.scriptedSettings(resourceDirectory in Test in frontend),
   )
 
 val allProjects = Seq(backend, frontend, sbtBloop)
