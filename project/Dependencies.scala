@@ -1,3 +1,5 @@
+package build
+
 object Dependencies {
   val zincVersion = "1.0.2"
   val coursierVersion = "1.0.0-RC8"
@@ -18,4 +20,5 @@ object Dependencies {
   val log4jApi = "org.apache.logging.log4j" % "log4j-api" % log4jVersion
   val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
+  val utest = "com.lihaoyi" %% "utest" % "0.6.0" % sbt.Test
 }
