@@ -43,7 +43,7 @@ object CompileProjectTest extends DynTest {
       val projects = Project.fromDir(AbsolutePath(configDir), logger).mapValues(rebase)
       val rootProject = Project(
         name = rootProjectName,
-        dependencies = projects.keySet.filterNot(_ endsWith "-test").toArray,
+        dependencies = projects.keys.toArray,
         scalaInstance = projects.head._2.scalaInstance,
         classpath = Array.empty,
         classesDir = AbsolutePath(baseDirectory),
