@@ -25,7 +25,7 @@ object Commands {
       project: String,
       @ExtraName("all")
       @HelpMessage("If set, also runs the tests in dependencies. Defaults to true.")
-      dependencies: Boolean = false,
+      aggregate: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

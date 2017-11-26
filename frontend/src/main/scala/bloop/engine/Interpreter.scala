@@ -29,8 +29,10 @@ object Interpreter {
         compile(projectName, incremental, cliOptions, logger)
       }
       execute(next, logger)
-    case Run(Commands.Test(projectName, dependencies, cliOptions), next) =>
-      test(projectName, dependencies, cliOptions, logger)
+    case Run(Commands.Test(projectName, aggregate, cliOptions), next) =>
+      logger.verboseIf(cliOptions.verbose) {
+        test(projectName, aggregate, cliOptions, logger)
+      }
       execute(next, logger)
   }
 
@@ -104,14 +106,14 @@ object Interpreter {
   }
 
   private def test(projectName: String,
-                   dependencies: Boolean,
+                   aggregate: Boolean,
                    cliOptions: CliOptions,
                    logger: Logger): ExitStatus = {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = new TestTasks(projects, logger)
     val projectsToTest =
-      if (dependencies) TopologicalSort.reachable(projects(projectName), projects).keys
+      if (aggregate) TopologicalSort.reachable(projects(projectName), projects).keys
       else List(projectName)
 
     def test(projectName: String): Unit = {
