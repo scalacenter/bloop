@@ -8,7 +8,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.logging.Logger
-import bloop.util.{Progress, TopologicalSort}
+import bloop.util.TopologicalSort
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
 case class CompilationTasks(initialProjects: Map[String, Project],
@@ -39,8 +39,7 @@ case class CompilationTasks(initialProjects: Map[String, Project],
   }
 
   def parallelCompile(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
-    val progress = new Progress(logger)
-    val subTasks = getTasks(project, progress)
+    val subTasks = getTasks(project)
     subTasks.foreach {
       case (name, task) =>
         val dependencies = initialProjects(name).dependencies
@@ -59,17 +58,15 @@ case class CompilationTasks(initialProjects: Map[String, Project],
     }
   }
 
-  private def getTasks(project: Project,
-                       progress: Progress): Map[String, Task[Map[String, Project]]] = {
+  private def getTasks(project: Project): Map[String, Task[Map[String, Project]]] = {
     val toCompile = TopologicalSort.reachable(project, initialProjects)
-    progress.setTotal(toCompile.size)
     toCompile.map {
-      case (name, proj) => name -> getTask(proj, progress)
+      case (name, proj) => name -> getTask(proj)
     }
   }
 
-  private def getTask(project: Project, progress: Progress): Task[Map[String, Project]] = {
-    new Task(projects => doCompile(projects, project), () => progress.update())
+  private def getTask(project: Project): Task[Map[String, Project]] = {
+    new Task(projects => doCompile(projects, project), () => ())
   }
 
   private def doCompile(previousProjects: Map[String, Project],
