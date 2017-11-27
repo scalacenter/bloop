@@ -4,7 +4,8 @@ import scala.compat.Platform.EOL
 import java.util.function.Supplier
 
 import org.apache.logging.log4j
-import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.{Level, LogManager}
+import org.apache.logging.log4j.core.config.Configurator
 
 class Logger(logger: log4j.Logger) extends xsbti.Logger {
   def this(name: String) = this(LogManager.getLogger(name))
@@ -40,5 +41,16 @@ class Logger(logger: log4j.Logger) extends xsbti.Logger {
         bufferedLogger.flush()
         throw ex
     }
+  }
+
+  def verboseIf[T](cond: Boolean)(op: => T): T =
+    if (cond) verbose(op)
+    else op
+
+  def verbose[T](op: => T): T = {
+    val initialLevel = LogManager.getRootLogger.getLevel
+    Configurator.setRootLevel(Level.DEBUG)
+    try op
+    finally Configurator.setRootLevel(initialLevel)
   }
 }

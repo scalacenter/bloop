@@ -14,13 +14,19 @@ object Interpreter {
       printOut(msg, commonOptions)
       execute(next, logger)
     case Run(Commands.About(cliOptions), next) =>
-      printAbout(cliOptions)
+      logger.verboseIf(cliOptions.verbose) {
+        printAbout(cliOptions)
+      }
       execute(next, logger)
     case Run(Commands.Clean(projects, cliOptions), next) =>
-      clean(projects, cliOptions, logger)
+      logger.verboseIf(cliOptions.verbose) {
+        clean(projects, cliOptions, logger)
+      }
       execute(next, logger)
     case Run(Commands.Compile(projectName, incremental, cliOptions), next) =>
-      compile(projectName, incremental, cliOptions, logger)
+      logger.verboseIf(cliOptions.verbose) {
+        compile(projectName, incremental, cliOptions, logger)
+      }
       execute(next, logger)
   }
 

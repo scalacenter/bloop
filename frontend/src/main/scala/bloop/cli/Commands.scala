@@ -3,7 +3,9 @@ package bloop.cli
 import caseapp.{ExtraName, HelpMessage, Recurse}
 
 object Commands {
-  sealed trait Command
+  sealed trait Command {
+    def cliOptions: CliOptions
+  }
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
