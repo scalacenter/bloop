@@ -60,8 +60,10 @@ object Bloop {
         val testLoader = tasks.getTestLoader(projectName)
         val tests = tasks.definedTests(projectName, testLoader)
         tests.foreach {
-          case (runner, taskDefs) =>
-            tasks.runTests(runner(), taskDefs.toArray)
+          case (lazyRunner, taskDefs) =>
+            val runner = lazyRunner()
+            tasks.runTests(runner, taskDefs.toArray)
+            runner.done()
         }
 
       case _ =>
