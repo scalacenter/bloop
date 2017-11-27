@@ -56,7 +56,7 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
 
   def getTestLoader(projectName: String): ClassLoader = {
     val project = projects(projectName)
-    val entries = (project.classpath :+ project.classesDir).map(_.underlying.toUri.toURL)
+    val entries = (project.classesDir +: project.classpath).map(_.underlying.toUri.toURL)
     new URLClassLoader(entries, filteredLoader)
   }
 
