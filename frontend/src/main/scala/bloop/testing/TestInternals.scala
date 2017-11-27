@@ -115,6 +115,10 @@ object TestInternals {
       }
     } catch {
       case _: ClassNotFoundException => None
+      case ex: Throwable =>
+        logger.error(s"Couldn't initialize class $className:")
+        logger.trace(ex)
+        None
     }
   }
 
