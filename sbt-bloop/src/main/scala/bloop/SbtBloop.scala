@@ -107,6 +107,10 @@ object PluginImplementation {
       val bloopConfigDir = AutoImportedKeys.bloopConfigDir.value
       val outFile = bloopConfigDir / s"$projectName.config"
 
+      // Force source and resource generators on this task manually
+      // We cannot depend on `managedSources` and `managedResources` because they trigger compilation
+      (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
+
       // format: OFF
       val config = Config(projectName, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
         classpath, classesDir, scalacOptions, javacOptions, sourceDirs, allScalaJars, tmp)
@@ -130,11 +134,11 @@ object PluginImplementation {
     import sbt.Classpaths
 
     /**
-      * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
-      *
-      * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
-      * We want the classpath to have the correct topological order of the project dependencies.
-      */
+     * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
+     *
+     * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
+     * We want the classpath to have the correct topological order of the project dependencies.
+     */
     final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
       val currentProject = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
