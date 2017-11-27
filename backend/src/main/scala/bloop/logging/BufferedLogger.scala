@@ -24,6 +24,7 @@ class BufferedLogger(underlying: Logger) extends Logger {
   override def info(msg: String) = buffer.addLast(() => underlying.info(msg))
   override def info(msg: Supplier[String]) = buffer.addLast(() => underlying.info(msg.get))
 
+  def clear(): Unit = buffer.clear()
   def flush(): Unit = {
     buffer.forEach(op => op.apply())
     buffer.clear()
