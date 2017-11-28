@@ -1,7 +1,6 @@
 package bloop.testing
 
 import bloop.logging.Logger
-import bloop.util.FilteredClassLoader
 import sbt.testing.{
   AnnotatedFingerprint,
   EventHandler,
@@ -12,6 +11,7 @@ import sbt.testing.{
 }
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
+import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
 import xsbt.api.Discovered
 import xsbti.compile.CompileAnalysis
 
@@ -23,12 +23,9 @@ object TestInternals {
   private type PrintInfo[F <: Fingerprint] = (String, Boolean, Framework, F)
 
   lazy val filteredLoader = {
-    val allow = (className: String) =>
-      className.startsWith("java") ||
-        className.startsWith("sun.") ||
-        className.startsWith("sbt.testing.") ||
-        className.startsWith("org.scalatools.testing.")
-    new FilteredClassLoader(allow, getClass.getClassLoader)
+    val filter = new IncludePackagesFilter(
+      Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing."))
+    new FilteredLoader(getClass.getClassLoader, filter)
   }
 
   @tailrec
