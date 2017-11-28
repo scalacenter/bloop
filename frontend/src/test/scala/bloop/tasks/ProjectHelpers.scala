@@ -79,6 +79,12 @@ object ProjectHelpers {
     }
   }
 
+  def noPreviousResult(project: Project): Boolean = !hasPreviousResult(project)
+  def hasPreviousResult(project: Project): Boolean = {
+    project.previousResult.analysis.isPresent &&
+    project.previousResult.setup.isPresent
+  }
+
   def makeProject(baseDir: Path,
                   name: String,
                   sources: Map[String, String],
