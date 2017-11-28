@@ -23,23 +23,13 @@ object IntegrationTestSuite extends DynTest {
   }
 
   private def testProject(testDirectory: Path, logger: Logger): Unit = {
-    val configDir = testDirectory.resolve("bloop-config")
-    val baseDirectoryFile = configDir.resolve("base-directory")
-    assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
-    val baseDirectory = {
-      val contents = Files.readAllLines(baseDirectoryFile)
-      assert(!contents.isEmpty)
-      Paths.get(contents.get(0))
-    }
-
-    def rebase(proj: Project) = ProjectHelpers.rebase(baseDirectory, testDirectory, proj)
     val rootProjectName = "bloop-test-root"
-    val classesDir = AbsolutePath(baseDirectory)
+    val classesDir = AbsolutePath(testDirectory)
     val projects = {
-      val projects = Project.fromDir(AbsolutePath(configDir), logger).mapValues(rebase)
+      val projects = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString, logger)
       val rootProject = Project(
         name = rootProjectName,
-        dependencies = projects.keySet.filterNot(_ endsWith "-test").toArray,
+        dependencies = projects.keys.toArray,
         scalaInstance = projects.head._2.scalaInstance,
         classpath = Array.empty,
         classesDir = classesDir,
@@ -48,6 +38,7 @@ object IntegrationTestSuite extends DynTest {
         sourceDirectories = Array.empty,
         previousResult = CompilationHelpers.emptyPreviousResult,
         tmp = classesDir,
+        testFrameworks = Array.empty,
         origin = None
       )
       projects + (rootProjectName -> rootProject)
@@ -64,7 +55,6 @@ object IntegrationTestSuite extends DynTest {
     val tasks = new CompilationTasks(projects, compilerCache, logger)
     val newProjects = tasks.parallelCompile(projects(rootProjectName))
     val reachableProjects = TopologicalSort.reachable(newProjects(rootProjectName), newProjects)
-    println(reachableProjects.map { case (_, p) => p -> ProjectHelpers.hasPreviousResult(p) })
     assert(reachableProjects.forall { case (_, p) => ProjectHelpers.hasPreviousResult(p) })
   }
 }

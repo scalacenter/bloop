@@ -46,7 +46,8 @@ val backend = project
       Dependencies.caseApp,
       Dependencies.sourcecode,
       Dependencies.log4jApi,
-      Dependencies.log4jCore
+      Dependencies.log4jCore,
+      Dependencies.sbtTestInterface
     )
   )
 

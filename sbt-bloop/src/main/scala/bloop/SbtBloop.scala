@@ -47,6 +47,7 @@ object PluginImplementation {
       scalacOptions: Seq[String],
       javacOptions: Seq[String],
       sourceDirectories: Seq[File],
+      testFrameworks: Seq[Seq[String]],
       allScalaJars: Seq[File],
       tmp: File
   ) {
@@ -64,6 +65,8 @@ object PluginImplementation {
       properties.setProperty("scalacOptions", seqToString(scalacOptions, ";"))
       properties.setProperty("javacOptions", seqToString(javacOptions, ";"))
       properties.setProperty("sourceDirectories", seqToString(toPaths(sourceDirectories)))
+      properties.setProperty("testFrameworks",
+                             seqToString(testFrameworks.map(seqToString(_)), sep = ";"))
       properties.setProperty("allScalaJars", seqToString(toPaths(allScalaJars)))
       properties.setProperty("tmp", tmp.getAbsolutePath)
       properties
@@ -101,6 +104,7 @@ object PluginImplementation {
       val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
       val classesDir = Keys.classDirectory.value.getAbsoluteFile
       val sourceDirs = Keys.sourceDirectories.value
+      val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
       val scalacOptions = Keys.scalacOptions.value
       val javacOptions = Keys.javacOptions.value
       val tmp = Keys.target.value / "tmp-bloop"
@@ -109,7 +113,7 @@ object PluginImplementation {
 
       // format: OFF
       val config = Config(projectName, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
-        classpath, classesDir, scalacOptions, javacOptions, sourceDirs, allScalaJars, tmp)
+        classpath, classesDir, scalacOptions, javacOptions, sourceDirs, testFrameworks, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       val stream = new FileOutputStream(outFile)
       try config.toProperties.store(stream, null)
@@ -130,11 +134,11 @@ object PluginImplementation {
     import sbt.Classpaths
 
     /**
-      * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
-      *
-      * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
-      * We want the classpath to have the correct topological order of the project dependencies.
-      */
+     * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
+     *
+     * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
+     * We want the classpath to have the correct topological order of the project dependencies.
+     */
     final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
       val currentProject = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
