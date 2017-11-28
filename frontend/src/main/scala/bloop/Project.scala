@@ -6,7 +6,6 @@ import java.util.{Optional, Properties}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
-import bloop.util.Progress
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -50,18 +49,17 @@ object Project {
     val configFiles = Paths.getAll(config, "glob:**.config").zipWithIndex
     logger.info(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
 
-    val progress = new Progress(logger, configFiles.length)
     val projects = new Array[(String, Project)](configFiles.length)
     configFiles.par.foreach {
       case (file, idx) =>
-        val project = fromFile(file)
+        val project = fromFile(file, logger)
         projects(idx) = project.name -> project
-        progress.update()
     }
     projects.toMap
   }
 
-  def fromFile(config: AbsolutePath): Project = {
+  def fromFile(config: AbsolutePath, logger: Logger): Project = {
+    logger.debug(s"Loading project from '$config'")
     val configFilepath = config.underlying
     val inputStream = Files.newInputStream(configFilepath)
     val properties = new Properties()
@@ -71,12 +69,17 @@ object Project {
       val analysisFile =
         configFilepath.getParent.resolve(s"${project.name}-analysis.bin")
       if (Files.exists(analysisFile)) {
+        logger.debug(
+          s"Loading previous analysis for project '${project.name}' from '$analysisFile'")
         FileAnalysisStore
           .binary(analysisFile.toFile)
           .get()
           .map[PreviousResult](a => createResult(a.getAnalysis, a.getMiniSetup))
           .orElseGet(() => emptyResult)
-      } else emptyResult
+      } else {
+        logger.debug(s"No previous analysis for project '${project.name}'")
+        emptyResult
+      }
     }
     project.copy(previousResult = previousResult, origin = Some(config))
   }
