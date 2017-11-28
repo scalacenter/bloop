@@ -44,12 +44,15 @@ object IntegrationTestSuite extends DynTest {
       projects + (rootProjectName -> rootProject)
     }
 
-    // Remove classes from previous runs in the tmp directory
-    if (Files.exists(classesDir.underlying))
-      Files
-        .newDirectoryStream(classesDir.underlying, "*.class")
-        .iterator
-        .forEachRemaining(p => Files.delete(p))
+    def removeClassFiles(p: Project): Unit = {
+      val classesDirPath = p.classesDir.underlying
+      if (Files.exists(classesDirPath)) {
+        Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
+      }
+    }
+
+    // Remove class files from previous runs for all dependent projects
+    TopologicalSort.reachable(projects(rootProjectName), projects).values.foreach(removeClassFiles)
 
     assert(projects.forall { case (_, p) => ProjectHelpers.noPreviousResult(p) })
     val tasks = new CompilationTasks(projects, compilerCache, logger)
