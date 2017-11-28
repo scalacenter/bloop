@@ -31,11 +31,7 @@ pipeline:
       branch: master
     commands:
       - git log | head -n 20
-      - git status
-      - cd frontend/test/resources/projects/sbt && git status
       - ${SBT_RUN}
-      - git status
-      - cd frontend/test/resources/projects/sbt && git status
       - ./bin/ci-clean-cache.sh
 
   rebuild_cache:
