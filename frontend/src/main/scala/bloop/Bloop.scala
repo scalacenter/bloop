@@ -4,6 +4,7 @@ import bloop.engine.ExecutionContext.threadPool
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
+import bloop.reporter.ReporterConfig
 import bloop.tasks.{CompilationTasks, TestTasks}
 import sbt.internal.inc.bloop.ZincInternals
 
@@ -47,7 +48,7 @@ object Bloop {
         val newProjects = timed(logger) {
           val project = projects(projectName)
           val tasks = new CompilationTasks(projects, compilerCache, logger)
-          tasks.parallelCompile(project)
+          tasks.parallelCompile(project, ReporterConfig.defaultFormat)
         }
         run(newProjects, compilerCache)
 

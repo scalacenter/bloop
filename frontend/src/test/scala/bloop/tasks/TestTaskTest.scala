@@ -2,6 +2,7 @@ package bloop.tasks
 
 import bloop.DynTest
 import bloop.logging.Logger
+import bloop.reporter.ReporterConfig
 import sbt.testing.{Runner, TaskDef}
 
 import bloop.engine.ExecutionContext.threadPool
@@ -48,7 +49,7 @@ object TestTaskTest extends DynTest {
     val testProject = {
       val projects = ProjectHelpers.loadTestProject(projectName, logger)
       val tasks = CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
-      tasks.parallelCompile(projects(moduleName))
+      tasks.parallelCompile(projects(moduleName), ReporterConfig.defaultFormat)
     }
 
     new TestTasks(testProject, logger)

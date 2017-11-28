@@ -8,6 +8,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.logging.Logger
+import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.util.TopologicalSort
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
@@ -23,8 +24,9 @@ case class CompilationTasks(initialProjects: Map[String, Project],
     }
   }
 
-  def parallelCompile(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
-    val subTasks = getTasks(project)
+  def parallelCompile(project: Project, reporterConfig: ReporterConfig)(
+      implicit ec: ExecutionContext): Map[String, Project] = {
+    val subTasks = getTasks(project, reporterConfig)
     subTasks.foreach {
       case (name, task) =>
         val dependencies = initialProjects(name).dependencies
@@ -43,27 +45,30 @@ case class CompilationTasks(initialProjects: Map[String, Project],
     }
   }
 
-  private def getTasks(project: Project): Map[String, Task[Map[String, Project]]] = {
+  private def getTasks(project: Project,
+                       reporterConfig: ReporterConfig): Map[String, Task[Map[String, Project]]] = {
     val toCompile = TopologicalSort.reachable(project, initialProjects)
     toCompile.map {
-      case (name, proj) => name -> getTask(proj)
+      case (name, proj) => name -> getTask(proj, reporterConfig)
     }
   }
 
-  private def getTask(project: Project): Task[Map[String, Project]] = {
-    new Task(projects => doCompile(projects, project), () => ())
+  private def getTask(project: Project,
+                      reporterConfig: ReporterConfig): Task[Map[String, Project]] = {
+    new Task(projects => doCompile(projects, project, reporterConfig), () => ())
   }
 
   private def doCompile(previousProjects: Map[String, Project],
-                        project: Project): Map[String, Project] = {
-    val inputs = toCompileInputs(project)
+                        project: Project,
+                        reporterConfig: ReporterConfig): Map[String, Project] = {
+    val inputs = toCompileInputs(project, reporterConfig)
     val result = Compiler.compile(inputs)
     val previousResult =
       PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
     previousProjects ++ Map(project.name -> project.copy(previousResult = previousResult))
   }
 
-  private def toCompileInputs(project: Project): CompileInputs = {
+  private def toCompileInputs(project: Project, reporterConfig: ReporterConfig): CompileInputs = {
     val instance = project.scalaInstance
     val sourceDirs = project.sourceDirectories
     val classpath = project.classpath
@@ -72,6 +77,7 @@ case class CompilationTasks(initialProjects: Map[String, Project],
     val scalacOptions = project.scalacOptions
     val javacOptions = project.javacOptions
     val previous = project.previousResult
+    val reporter = new Reporter(logger, project.baseDirectory.syntax, identity, reporterConfig)
     CompileInputs(instance,
                   cache,
                   sourceDirs,
@@ -81,6 +87,7 @@ case class CompilationTasks(initialProjects: Map[String, Project],
                   scalacOptions,
                   javacOptions,
                   previous,
+                  reporter,
                   logger)
   }
 }

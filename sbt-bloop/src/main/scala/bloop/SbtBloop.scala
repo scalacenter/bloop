@@ -38,6 +38,7 @@ object PluginImplementation {
 
   case class Config(
       name: String,
+      baseDirectory: File,
       dependencies: Seq[String],
       scalaOrganization: String,
       scalaName: String,
@@ -56,6 +57,7 @@ object PluginImplementation {
     def toProperties: java.util.Properties = {
       val properties = new java.util.Properties()
       properties.setProperty("name", name)
+      properties.setProperty("baseDirectory", baseDirectory.getAbsolutePath)
       properties.setProperty("dependencies", seqToString(dependencies))
       properties.setProperty("scalaOrganization", scalaOrganization)
       properties.setProperty("scalaName", scalaName)
@@ -85,6 +87,7 @@ object PluginImplementation {
       val project = Keys.thisProject.value
       val configuration = Keys.configuration.value
       val projectName = makeName(project.id, configuration)
+      val baseDirectory = Keys.baseDirectory.value.getAbsoluteFile
 
       // In the test configuration, add a dependency on the base project
       val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
@@ -116,7 +119,7 @@ object PluginImplementation {
       (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
 
       // format: OFF
-      val config = Config(projectName, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
+      val config = Config(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
         classpath, classesDir, scalacOptions, javacOptions, sourceDirs, testFrameworks, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       val stream = new FileOutputStream(outFile)
