@@ -7,9 +7,17 @@ import org.apache.logging.log4j
 import org.apache.logging.log4j.{Level, LogManager}
 import org.apache.logging.log4j.core.config.Configurator
 
-class Logger(logger: log4j.Logger) extends xsbti.Logger with sbt.testing.Logger {
-  def this(name: String) = this(LogManager.getLogger(name))
-  def this() = this("bloop")
+object Logger {
+  val name = "bloop"
+  def get = new Logger
+}
+class Logger private (private val logger: log4j.Logger)
+    extends xsbti.Logger
+    with sbt.testing.Logger {
+  private def this() = this(LogManager.getLogger(Logger.name))
+  def this(logger: Logger) = this(logger.logger)
+
+  def name: String = logger.getName()
 
   def progress(msg: String): Unit = logger.info(msg)
 

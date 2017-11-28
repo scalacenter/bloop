@@ -8,7 +8,7 @@ import com.martiansoftware.nailgun
 
 object Cli {
 
-  private val logger = new Logger("bloop")
+  private val logger = Logger.get
 
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)

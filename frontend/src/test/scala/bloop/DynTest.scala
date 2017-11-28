@@ -7,6 +7,7 @@ trait DynTest extends TestSuite {
   private val myTests = IndexedSeq.newBuilder[(String, () => Unit)]
   def test(name: String)(fun: => Any): Unit = {
     myTests += (name -> (() => fun))
+    ()
   }
   final override def tests: Tests = {
     val ts = myTests.result()
