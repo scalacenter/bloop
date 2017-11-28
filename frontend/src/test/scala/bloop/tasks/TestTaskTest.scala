@@ -8,7 +8,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object TestTaskTest extends DynTest {
 
-  private val logger = new Logger("bloop-test")
+  private val logger = Logger.get
 
   val frameworks = List("ScalaTest", "ScalaCheck", "Specs2", "UTest")
 
@@ -47,7 +47,7 @@ object TestTaskTest extends DynTest {
   private def getTestTasks(projectName: String, moduleName: String, logger: Logger): TestTasks = {
     val testProject = {
       val projects = ProjectHelpers.loadTestProject(projectName, logger)
-      val tasks = CompilationTasks(projects, CompilationHelpers.compilerCache(logger), logger)
+      val tasks = CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
       tasks.parallelCompile(projects(moduleName))
     }
 

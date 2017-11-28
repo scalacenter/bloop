@@ -9,8 +9,7 @@ import bloop.logging.Logger
 import bloop.util.TopologicalSort
 
 object IntegrationTestSuite extends DynTest {
-  val logger = new Logger("bloop-test")
-  val compilerCache = CompilationHelpers.compilerCache(logger)
+  val logger = Logger.get
   val projects = Files.list(getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
     case _ => throw new Exception("No projects to test?")
@@ -55,7 +54,7 @@ object IntegrationTestSuite extends DynTest {
     TopologicalSort.reachable(projects(rootProjectName), projects).values.foreach(removeClassFiles)
 
     assert(projects.forall { case (_, p) => ProjectHelpers.noPreviousResult(p) })
-    val tasks = new CompilationTasks(projects, compilerCache, logger)
+    val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
     val newProjects = tasks.parallelCompile(projects(rootProjectName))
     val reachableProjects = TopologicalSort.reachable(newProjects(rootProjectName), newProjects)
     assert(reachableProjects.forall { case (_, p) => ProjectHelpers.hasPreviousResult(p) })

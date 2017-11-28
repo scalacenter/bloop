@@ -8,8 +8,7 @@ import ProjectHelpers._
 import bloop.logging.Logger
 
 object CompilationTaskTest extends TestSuite {
-  private val logger = new Logger("bloop-test")
-  private val compilerCache = CompilationHelpers.compilerCache(logger)
+  private val logger = Logger.get
 
   private val ProjectNameToCompile = "target-project"
   object ArtificialSources {
@@ -29,7 +28,7 @@ object CompilationTaskTest extends TestSuite {
       // Check that this is a clean compile!
       assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
       val project = projects(ProjectNameToCompile)
-      val tasks = new CompilationTasks(projects, compilerCache, logger)
+      val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
       val newProjects = tasks.parallelCompile(project)
       afterCompile(newProjects)
     }
