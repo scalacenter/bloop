@@ -1,5 +1,6 @@
 package bloop
 
+import bloop.engine.ExecutionContext.threadPool
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
@@ -7,7 +8,6 @@ import bloop.tasks.{CompilationTasks, TestTasks}
 import sbt.internal.inc.bloop.ZincInternals
 
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext.Implicits.global
 
 object Bloop {
 

@@ -4,6 +4,7 @@ import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import bloop.tasks.{CompilationTasks, TestTasks}
+import ExecutionContext.threadPool
 import bloop.util.TopologicalSort
 import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
@@ -86,7 +87,6 @@ object Interpreter {
                       incremental: Boolean,
                       cliOptions: CliOptions,
                       logger: Logger): ExitStatus = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = constructTasks(projects, logger)
