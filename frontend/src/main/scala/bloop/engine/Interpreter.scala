@@ -3,7 +3,8 @@ package bloop.engine
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import bloop.tasks.CompilationTasks
+import bloop.tasks.{CompilationTasks, TestTasks}
+import bloop.util.TopologicalSort
 import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
 
@@ -14,13 +15,24 @@ object Interpreter {
       printOut(msg, commonOptions)
       execute(next, logger)
     case Run(Commands.About(cliOptions), next) =>
-      printAbout(cliOptions)
+      logger.verboseIf(cliOptions.verbose) {
+        printAbout(cliOptions)
+      }
       execute(next, logger)
     case Run(Commands.Clean(projects, cliOptions), next) =>
-      clean(projects, cliOptions, logger)
+      logger.verboseIf(cliOptions.verbose) {
+        clean(projects, cliOptions, logger)
+      }
       execute(next, logger)
     case Run(Commands.Compile(projectName, incremental, cliOptions), next) =>
-      compile(projectName, incremental, cliOptions, logger)
+      logger.verboseIf(cliOptions.verbose) {
+        compile(projectName, incremental, cliOptions, logger)
+      }
+      execute(next, logger)
+    case Run(Commands.Test(projectName, aggregate, cliOptions), next) =>
+      logger.verboseIf(cliOptions.verbose) {
+        test(projectName, aggregate, cliOptions, logger)
+      }
       execute(next, logger)
   }
 
@@ -79,8 +91,11 @@ object Interpreter {
     val projects = Project.fromDir(configDir, logger)
     val tasks = constructTasks(projects, logger)
     val project = projects(projectName)
+    val compiledProjects = TopologicalSort.reachable(project, projects).keys
     if (incremental) {
-      tasks.parallelCompile(project)
+      val newProjects = tasks.parallelCompile(project)
+      compiledProjects.foreach(projectName =>
+        tasks.persistAnalysis(newProjects(projectName), logger))
       ExitStatus.Ok
     } else {
       val newProjects = tasks.clean(projects.keys.toList)
@@ -88,6 +103,32 @@ object Interpreter {
       newTasks.parallelCompile(project)
       ExitStatus.Ok
     }
+  }
+
+  private def test(projectName: String,
+                   aggregate: Boolean,
+                   cliOptions: CliOptions,
+                   logger: Logger): ExitStatus = {
+    val configDir = getConfigDir(cliOptions)
+    val projects = Project.fromDir(configDir, logger)
+    val tasks = new TestTasks(projects, logger)
+    val projectsToTest =
+      if (aggregate) TopologicalSort.reachable(projects(projectName), projects).keys
+      else List(projectName)
+
+    def test(projectName: String): Unit = {
+      val testLoader = tasks.getTestLoader(projectName)
+      val tests = tasks.definedTests(projectName, testLoader)
+      tests.foreach {
+        case (lazyRunner, taskDefs) =>
+          val runner = lazyRunner()
+          tasks.runTests(runner, taskDefs.toArray)
+          runner.done()
+      }
+    }
+
+    projectsToTest.foreach(test)
+    ExitStatus.Ok
   }
 
   private def clean(projectNames: List[String],

@@ -8,7 +8,7 @@ import com.martiansoftware.nailgun
 
 object Cli {
 
-  private val logger = new Logger("bloop")
+  private val logger = Logger.get
 
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
@@ -89,6 +89,9 @@ object Cli {
                 // Disabling version here if user defines it because it has the same semantics
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Compile) =>
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                run(newCommand, newCommand.cliOptions)
+              case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Clean) =>

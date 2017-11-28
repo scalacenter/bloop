@@ -2,7 +2,7 @@ package bloop.logging
 import java.util.function.Supplier
 import java.util.concurrent.ConcurrentLinkedDeque
 
-class BufferedLogger(underlying: Logger) extends Logger {
+class BufferedLogger(underlying: Logger) extends Logger(underlying) {
 
   private[this] val buffer = new ConcurrentLinkedDeque[() => Unit]()
 
@@ -24,6 +24,7 @@ class BufferedLogger(underlying: Logger) extends Logger {
   override def info(msg: String) = buffer.addLast(() => underlying.info(msg))
   override def info(msg: Supplier[String]) = buffer.addLast(() => underlying.info(msg.get))
 
+  def clear(): Unit = buffer.clear()
   def flush(): Unit = {
     buffer.forEach(op => op.apply())
     buffer.clear()

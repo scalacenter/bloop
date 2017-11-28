@@ -6,6 +6,7 @@ object Dependencies {
   val caseAppVersion = "1.2.0"
   val sourcecodeVersion = "0.1.4"
   val log4jVersion = "2.9.1"
+  val sbtTestInterfaceVersion = "1.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
@@ -16,4 +17,5 @@ object Dependencies {
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val log4jApi = "org.apache.logging.log4j" % "log4j-api" % log4jVersion
   val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
+  val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
 }
