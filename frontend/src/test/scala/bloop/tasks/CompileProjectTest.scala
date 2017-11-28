@@ -10,7 +10,6 @@ import bloop.logging.Logger
 object CompileProjectTest extends DynTest {
 
   val logger = new Logger("bloop-test")
-  val compilerCache = CompilationHelpers.compilerCache(logger)
 
   val base = getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
@@ -48,7 +47,7 @@ object CompileProjectTest extends DynTest {
       projects + (rootProjectName -> rootProject)
     }
 
-    val tasks = new CompilationTasks(projects, compilerCache, logger)
+    val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
     val _ = tasks.parallelCompile(projects(rootProjectName))
   }
 

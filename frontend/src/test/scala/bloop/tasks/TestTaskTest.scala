@@ -47,7 +47,7 @@ object TestTaskTest extends DynTest {
   private def getTestTasks(projectName: String, moduleName: String, logger: Logger): TestTasks = {
     val testProject = {
       val projects = ProjectHelpers.loadTestProject(projectName, logger)
-      val tasks = CompilationTasks(projects, CompilationHelpers.compilerCache(logger), logger)
+      val tasks = CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
       tasks.parallelCompile(projects(moduleName))
     }
 
