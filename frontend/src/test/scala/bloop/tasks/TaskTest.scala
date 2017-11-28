@@ -1,6 +1,6 @@
 package bloop.tasks
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import bloop.engine.ExecutionContext.threadPool
 
 import scala.collection.mutable.Buffer
 

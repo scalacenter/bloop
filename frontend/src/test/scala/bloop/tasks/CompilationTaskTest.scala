@@ -2,8 +2,8 @@ package bloop.tasks
 
 import utest._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import bloop.{Project, ScalaInstance}
+import bloop.engine.ExecutionContext.threadPool
 import ProjectHelpers._
 import bloop.logging.Logger
 

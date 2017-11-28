@@ -1,9 +1,9 @@
 package bloop.tasks
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import java.nio.file.{Files, Path, Paths}
 
 import bloop.{DynTest, Project}
+import bloop.engine.ExecutionContext.threadPool
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.util.TopologicalSort

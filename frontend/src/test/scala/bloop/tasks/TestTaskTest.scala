@@ -4,7 +4,7 @@ import bloop.DynTest
 import bloop.logging.Logger
 import sbt.testing.{Runner, TaskDef}
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import bloop.engine.ExecutionContext.threadPool
 
 object TestTaskTest extends DynTest {
 
