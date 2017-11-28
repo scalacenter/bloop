@@ -24,6 +24,7 @@ class CompilationTaskTest {
     val `B2.scala` = "package p1\ntrait B"
     val `C.scala` = "package p2\nimport p0.A\nimport p1.B\nobject C extends A with B"
     val `C2.scala` = "package p2\nimport p0.A\nobject C extends A"
+    val `Dotty.scala` = "package p0\nobject Foo { val x: String | Int = 1 }"
   }
 
   @Test
@@ -230,6 +231,18 @@ class CompilationTaskTest {
         assert(msgs.exists(m => m._1 == "error" && m._2.contains("'A' failed to compile.")))
         val targetMsg = s"Skipping compilation of project 'C'; dependent 'A' failed to compile."
         assert(msgs.exists(m => m._1 == "warn" && m._2.contains(targetMsg)))
+    }
+  }
+
+  @Test
+  def compileWithDotty080RC1: Unit = {
+    val logger = new RecordingLogger()
+    val scalaInstance =
+      ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.8", "0.8.0-RC1", logger)
+    val structures = Map(RootProject -> Map("Dotty.scala" -> ArtificialSources.`Dotty.scala`))
+    checkAfterCleanCompilation(structures, Map.empty, scalaInstance = scalaInstance) { state =>
+      val projects = state.build.projects
+      assert(projects.forall(p => hasPreviousResult(p, state)))
     }
   }
 }

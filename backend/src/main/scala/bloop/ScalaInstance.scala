@@ -20,7 +20,7 @@ class ScalaInstance(
 
   private def isJar(filename: String): Boolean = filename.endsWith(".jar")
   private def hasScalaCompilerName(filename: String): Boolean =
-    filename.startsWith("scala-compiler")
+    if (isDotty) filename.startsWith("dotty-compiler") else filename.startsWith("scala-compiler")
   private def hasScalaLibraryName(filename: String): Boolean =
     filename.startsWith("scala-library")
 
@@ -32,6 +32,10 @@ class ScalaInstance(
     val filename = file.getName
     isJar(filename) && !hasScalaCompilerName(filename) && !hasScalaLibraryName(filename)
   }
+
+  /** Is this `ScalaInstance` using Dotty? */
+  def isDotty: Boolean =
+    organization == "ch.epfl.lamp" && sbt.internal.inc.ScalaInstance.isDotty(version)
 
   /** Tells us what the real version of the classloaded scalac compiler in this instance is. */
   override def actualVersion(): String = {
