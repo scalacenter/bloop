@@ -1,7 +1,6 @@
 matrix:
   SBT_RUN:
-    - sbt "^sbtBloop/publishLocal" \
-          "+bridgeIntegration/cachedPublishLocal" \
+    - sbt "+bridgeIntegration/cachedPublishLocal" \
           "setupTests" \
           "frontend/test"
 

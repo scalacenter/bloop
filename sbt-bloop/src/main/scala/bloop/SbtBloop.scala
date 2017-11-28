@@ -111,6 +111,10 @@ object PluginImplementation {
       val bloopConfigDir = AutoImportedKeys.bloopConfigDir.value
       val outFile = bloopConfigDir / s"$projectName.config"
 
+      // Force source and resource generators on this task manually
+      // We cannot depend on `managedSources` and `managedResources` because they trigger compilation
+      (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
+
       // format: OFF
       val config = Config(projectName, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
         classpath, classesDir, scalacOptions, javacOptions, sourceDirs, testFrameworks, allScalaJars, tmp)
