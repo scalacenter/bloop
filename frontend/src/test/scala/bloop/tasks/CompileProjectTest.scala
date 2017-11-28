@@ -28,30 +28,21 @@ object CompileProjectTest extends DynTest {
   }
 
   private def testProject(testDirectory: Path, logger: Logger): Unit = {
-    val configDir = testDirectory.resolve("bloop-config")
-    val baseDirectoryFile = configDir.resolve("base-directory")
-    assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
-    val baseDirectory = {
-      val contents = Files.readAllLines(baseDirectoryFile)
-      assert(!contents.isEmpty)
-      Paths.get(contents.get(0))
-    }
-
-    def rebase(proj: Project) = ProjectHelpers.rebase(baseDirectory, testDirectory, proj)
     val rootProjectName = "bloop-test-root"
     val projects = {
-      val projects = Project.fromDir(AbsolutePath(configDir), logger).mapValues(rebase)
+      val projects = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString, logger)
       val rootProject = Project(
         name = rootProjectName,
-        dependencies = projects.keySet.filterNot(_ endsWith "-test").toArray,
+        dependencies = projects.keys.toArray,
         scalaInstance = projects.head._2.scalaInstance,
         classpath = Array.empty,
-        classesDir = AbsolutePath(baseDirectory),
+        classesDir = AbsolutePath(testDirectory),
         scalacOptions = Array.empty,
         javacOptions = Array.empty,
         sourceDirectories = Array.empty,
         previousResult = CompilationHelpers.emptyPreviousResult,
-        tmp = AbsolutePath(baseDirectory),
+        testFrameworks = Array.empty,
+        tmp = AbsolutePath(testDirectory),
         origin = None
       )
       projects + (rootProjectName -> rootProject)

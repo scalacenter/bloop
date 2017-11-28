@@ -7,6 +7,7 @@ import java.nio.file.attribute.BasicFileAttributes
 
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
+import bloop.logging.Logger
 
 object ProjectHelpers {
 
@@ -27,6 +28,41 @@ object ProjectHelpers {
       tmp = work(project.tmp),
       origin = project.origin.map(work)
     )
+  }
+
+  def loadTestProject(name: String, logger: Logger): Map[String, Project] = {
+    val base = getClass.getClassLoader.getResources(s"projects/$name") match {
+      case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
+      case _ => throw new Exception("No projects to test?")
+    }
+
+    val configDir = base.resolve("bloop-config")
+    val baseDirectoryFile = configDir.resolve("base-directory")
+    assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
+    val testBaseDirectory = {
+      val contents = Files.readAllLines(baseDirectoryFile)
+      assert(!contents.isEmpty)
+      contents.get(0)
+    }
+    def rebase(baseDirectory: String, proj: Project) = {
+      // We need to remove the `/private` prefix that's SOMETIMES present in OSX (!??!)
+      val testBaseDirectory = Paths.get(baseDirectory.stripPrefix("/private"))
+
+      val proj0 = ProjectHelpers.rebase(Paths.get("/private"), Paths.get(""), proj)
+
+      // Rebase the scala instance if it comes from sbt's boot directory
+      val proj1 = ProjectHelpers.rebase(
+        testBaseDirectory.resolve("global").resolve("boot"),
+        Paths.get(sys.props("user.home")).resolve(".sbt").resolve("boot"),
+        proj0)
+
+      // Rebase the rest of the paths
+      val proj2 = ProjectHelpers.rebase(testBaseDirectory, base, proj1)
+      proj2
+    }
+
+    val loadedProjects = Project.fromDir(AbsolutePath(configDir), logger)
+    loadedProjects.mapValues(rebase(testBaseDirectory, _))
   }
 
   def withProjects[T](projectStructures: Map[String, Map[String, String]],
@@ -67,6 +103,7 @@ object ProjectHelpers {
       javacOptions = Array.empty,
       sourceDirectories = sourceDirectories,
       previousResult = CompilationHelpers.emptyPreviousResult,
+      testFrameworks = Array.empty,
       tmp = AbsolutePath(tempDir),
       origin = None
     )

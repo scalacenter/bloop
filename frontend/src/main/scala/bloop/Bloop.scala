@@ -3,7 +3,7 @@ package bloop
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
-import bloop.tasks.CompilationTasks
+import bloop.tasks.{CompilationTasks, TestTasks}
 import sbt.internal.inc.bloop.ZincInternals
 
 import scala.annotation.tailrec
@@ -54,6 +54,17 @@ object Bloop {
           tasks.parallelCompile(project)
         }
         run(newProjects, compilerCache)
+
+      case Array("test", projectName) =>
+        val tasks = new TestTasks(projects, logger)
+        val testLoader = tasks.getTestLoader(projectName)
+        val tests = tasks.definedTests(projectName, testLoader)
+        tests.foreach {
+          case (lazyRunner, taskDefs) =>
+            val runner = lazyRunner()
+            tasks.runTests(runner, taskDefs.toArray)
+            runner.done()
+        }
 
       case _ =>
         logger.error(s"Not understood: '$input'")

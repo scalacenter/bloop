@@ -11,3 +11,7 @@ bin/.scalafmt*
 .ivy2/
 
 target/
+*.config
+test-config.sbt
+test
+base-directory
