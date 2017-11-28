@@ -3,6 +3,7 @@ package bloop
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.Properties
 
 import coursier._
@@ -47,12 +48,18 @@ class ScalaInstance(
   }
 
   override def equals(obj: Any): Boolean = obj match {
-    case other: ScalaInstance => other.hashCode() == hashCode()
+    case other: ScalaInstance => other.hashCode == hashCode
     case _ => false
   }
 
-  override def hashCode(): Int =
-    allJars.toSeq.hashCode()
+  override val hashCode: Int = {
+    val attributedJars =
+      allJars.toSeq.map { jar =>
+        val attrs = Files.readAttributes(jar.toPath, classOf[BasicFileAttributes])
+        (jar, attrs.lastModifiedTime(), attrs.size())
+      }
+    attributedJars.hashCode()
+  }
 }
 
 object ScalaInstance {
