@@ -21,6 +21,7 @@ object ZincInternals {
     def compilerBridgeId(scalaVersion: String) = {
       // Defaults to bridge for 2.13 for Scala versions bigger than 2.13.x
       scalaVersion match {
+        case sc if (sc startsWith "0.")    => "dotty-sbt-bridge"
         case sc if (sc startsWith "2.10.") => "compiler-bridge_2.10"
         case sc if (sc startsWith "2.11.") => "compiler-bridge_2.11"
         case sc if (sc startsWith "2.12.") => "compiler-bridge_2.12"
@@ -28,8 +29,15 @@ object ZincInternals {
       }
     }
 
-    val bridgeId = compilerBridgeId(scalaInstance.version)
-    ModuleID("ch.epfl.scala", bridgeId, latestVersion).withConfigurations(CompileConf).sources()
+    val (organization, name, version) = {
+      val bridgeId = compilerBridgeId(scalaInstance.version)
+      println(scalaInstance)
+      println(scalaInstance.isDotty)
+      if (scalaInstance.isDotty) (scalaInstance.organization, bridgeId, scalaInstance.version)
+      else ("ch.epfl.scala", bridgeId, latestVersion)
+    }
+
+    ModuleID(organization, name, version).withConfigurations(CompileConf).sources()
   }
 
   /**

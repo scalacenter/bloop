@@ -5,6 +5,7 @@ import xsbti.T2
 import java.util.Optional
 import java.io.File
 
+import bloop.internal.Ecosystem
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
@@ -23,7 +24,6 @@ case class CompileInputs(
 )
 
 object Compiler {
-
   private final class ZincClasspathEntryLookup(previousResult: PreviousResult)
       extends PerClasspathEntryLookup {
     override def analysis(classpathEntry: File): Optional[CompileAnalysis] =
@@ -63,7 +63,9 @@ object Compiler {
       val reporter = new LoggedReporter(100, compileInputs.logger)
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
-      val incOptions = IncOptions.create()
+      val incOptions =
+        if (!compileInputs.scalaInstance.isDotty) IncOptions.create()
+        else Ecosystem.supportDotty(IncOptions.create())
       val progress = Optional.empty[CompileProgress]
       Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }

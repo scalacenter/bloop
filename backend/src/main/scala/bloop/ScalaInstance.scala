@@ -36,6 +36,9 @@ class ScalaInstance(
     isJar(filename) && !hasScalaCompilerName(filename) && !hasScalaLibraryName(filename)
   }
 
+  def isDotty: Boolean =
+    organization == "ch.epfl.lamp" && sbt.internal.inc.ScalaInstance.isDotty(version)
+
   /** Tells us what the real version of the classloaded scalac compiler in this instance is. */
   override def actualVersion(): String = {
     // TODO: Report when the `actualVersion` and the passed in version do not match.
@@ -101,6 +104,7 @@ object ScalaInstance {
       val localArtifacts: Seq[FileError \/ File] =
         Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
       val allJars = localArtifacts.flatMap(_.toList).filter(_.getName.endsWith(".jar"))
+      println(allJars)
       new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.toArray)
     }
 
