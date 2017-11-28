@@ -9,7 +9,7 @@ import bloop.logging.Logger
 
 object CompileProjectTest extends DynTest {
 
-  val logger = new Logger("bloop-test")
+  val logger = Logger.get
 
   val base = getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)

@@ -27,7 +27,7 @@ object CompilationHelpers {
 
   final val compilerCache: CompilerCache = {
     val scalaJarsPath = Paths.getCacheDirectory("scala-jars")
-    new CompilerCache(componentProvider, scalaJarsPath, new Logger(), List(ScriptedResolver))
+    new CompilerCache(componentProvider, scalaJarsPath, Logger.get, List(ScriptedResolver))
   }
 
   final val scalaInstance: ScalaInstance =

@@ -8,7 +8,7 @@ import ProjectHelpers._
 import bloop.logging.Logger
 
 object CompilationTaskTest extends TestSuite {
-  val logger = new Logger("bloop-test")
+  val logger = Logger.get
 
   val tests = Tests {
     "compile an empty project" - {

@@ -2,7 +2,7 @@ package bloop.logging
 import java.util.function.Supplier
 import java.util.concurrent.ConcurrentLinkedDeque
 
-class BufferedLogger(underlying: Logger) extends Logger {
+class BufferedLogger(underlying: Logger) extends Logger(underlying) {
 
   private[this] val buffer = new ConcurrentLinkedDeque[() => Unit]()
 
