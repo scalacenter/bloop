@@ -45,6 +45,14 @@ class ScalaInstance(
       properties.get("version.number").asInstanceOf[String]
     }.orNull
   }
+
+  override def equals(obj: Any): Boolean = obj match {
+    case other: ScalaInstance => other.hashCode() == hashCode()
+    case _ => false
+  }
+
+  override def hashCode(): Int =
+    allJars.toSeq.hashCode()
 }
 
 object ScalaInstance {
