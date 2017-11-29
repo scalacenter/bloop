@@ -44,7 +44,8 @@ object Compiler {
         .flatMap(src => Paths.getAll(src, "glob:**.{scala,java}"))
         .distinct
       val classesDir = inputs.classesDir.toFile
-      val classpath = Array(classesDir) ++ inputs.classpath.map(_.toFile)
+      // TODO(jvican): Figure out why `inputs.scalaInstance.allJars` is required here.
+      val classpath = Array(classesDir) ++ inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars
 
       CompileOptions
         .create()
