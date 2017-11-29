@@ -1,6 +1,5 @@
 package bloop.logging
 
-import scala.compat.Platform.EOL
 import java.util.function.Supplier
 
 import org.apache.logging.log4j
@@ -18,28 +17,23 @@ class Logger private (private val logger: log4j.Logger)
   def this(logger: Logger) = this(logger.logger)
 
   def name: String = logger.getName()
+  override def ansiCodesSupported() = true
 
-  def progress(msg: String): Unit = logger.info(msg)
+  def debug(msg: String): Unit = msg.lines.foreach(logger.debug)
+  override def debug(msg: Supplier[String]): Unit = debug(msg.get())
 
-  def debug(msg: String): Unit = logger.debug(msg + EOL)
-  override def debug(msg: Supplier[String]): Unit =
-    msg.get().lines.foreach(l => logger.debug(l + EOL))
+  def error(msg: String): Unit = msg.lines.foreach(logger.error)
+  override def error(msg: Supplier[String]): Unit = error(msg.get())
 
-  def error(msg: String): Unit = logger.error(msg + EOL)
-  override def error(msg: Supplier[String]): Unit =
-    msg.get().lines.foreach(l => logger.error(l + EOL))
-
-  def warn(msg: String): Unit = logger.warn(msg + EOL)
-  override def warn(msg: Supplier[String]): Unit =
-    msg.get().lines.foreach(l => logger.warn(l + EOL))
+  def warn(msg: String): Unit = msg.lines.foreach(logger.warn)
+  override def warn(msg: Supplier[String]): Unit = warn(msg.get())
 
   def trace(exception: Throwable): Unit = logger.trace(exception)
   override def trace(exception: Supplier[Throwable]): Unit =
     logger.trace(exception.get())
 
-  def info(msg: String): Unit = logger.info(msg + EOL)
-  override def info(msg: Supplier[String]): Unit =
-    msg.get().lines.foreach(l => logger.info(l + EOL))
+  def info(msg: String): Unit = msg.lines.foreach(logger.info)
+  override def info(msg: Supplier[String]): Unit = info(msg.get)
 
   def quietIfError[T](op: BufferedLogger => T): T = verbose {
     val bufferedLogger = new BufferedLogger(this)
@@ -52,8 +46,6 @@ class Logger private (private val logger: log4j.Logger)
     try op(bufferedLogger)
     catch { case ex: Throwable => bufferedLogger.flush(); throw ex }
   }
-
-  override def ansiCodesSupported() = true
 
   def verboseIf[T](cond: Boolean)(op: => T): T =
     if (cond) verbose(op)
