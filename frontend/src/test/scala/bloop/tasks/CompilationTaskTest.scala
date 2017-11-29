@@ -6,6 +6,7 @@ import bloop.{Project, ScalaInstance}
 import bloop.engine.ExecutionContext.threadPool
 import ProjectHelpers._
 import bloop.logging.Logger
+import bloop.reporter.ReporterConfig
 
 object CompilationTaskTest extends TestSuite {
   private val logger = Logger.get
@@ -19,17 +20,17 @@ object CompilationTaskTest extends TestSuite {
     val `C2.scala` = "package p2\nimport p0.A\nobject C extends A"
   }
 
-  def checkAfterCleanCompilation(structures: Map[String, Map[String, String]],
-                                 dependencies: Map[String, Set[String]],
-                                 scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
-                                 logger: Logger)(
-      afterCompile: Map[String, Project] => Unit = (_ => ())) = {
+  def checkAfterCleanCompilation(
+      structures: Map[String, Map[String, String]],
+      dependencies: Map[String, Set[String]],
+      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
+      logger: Logger)(afterCompile: Map[String, Project] => Unit = (_ => ())) = {
     withProjects(structures, dependencies, scalaInstance = scalaInstance) { projects =>
       // Check that this is a clean compile!
       assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
       val project = projects(ProjectNameToCompile)
       val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
-      val newProjects = tasks.parallelCompile(project)
+      val newProjects = tasks.parallelCompile(project, ReporterConfig.defaultFormat)
       afterCompile(newProjects)
     }
   }

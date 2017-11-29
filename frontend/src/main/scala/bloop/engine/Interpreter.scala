@@ -4,6 +4,7 @@ import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
+import bloop.reporter.ReporterConfig
 import bloop.tasks.{CompilationTasks, TestTasks}
 import ExecutionContext.threadPool
 import bloop.util.TopologicalSort
@@ -26,14 +27,18 @@ object Interpreter {
         clean(projects, cliOptions, logger)
       }
       execute(next, logger)
-    case Run(Commands.Compile(projectName, incremental, cliOptions), next) =>
+    case Run(Commands.Compile(projectName, incremental, scalacstyle, cliOptions), next) =>
       logger.verboseIf(cliOptions.verbose) {
-        compile(projectName, incremental, cliOptions, logger)
+        val reporterConfig =
+          if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
+        compile(projectName, incremental, cliOptions, reporterConfig, logger)
       }
       execute(next, logger)
-    case Run(Commands.Test(projectName, aggregate, cliOptions), next) =>
+    case Run(Commands.Test(projectName, aggregate, scalacstyle, cliOptions), next) =>
       logger.verboseIf(cliOptions.verbose) {
-        test(projectName, aggregate, cliOptions, logger)
+        val reporterConfig =
+          if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
+        test(projectName, aggregate, cliOptions, reporterConfig, logger)
       }
       execute(next, logger)
   }
@@ -87,19 +92,20 @@ object Interpreter {
   private def compile(projectName: String,
                       incremental: Boolean,
                       cliOptions: CliOptions,
+                      reporterConfig: ReporterConfig,
                       logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = compilationTasks(projects, logger)
     val project = projects(projectName)
     if (incremental) {
-      val newProjects = tasks.parallelCompile(project)
+      val newProjects = tasks.parallelCompile(project, reporterConfig)
       Project.update(configDir, newProjects)
       ExitStatus.Ok
     } else {
       val newProjects = tasks.clean(projects.keys.toList)
       val newTasks = tasks.copy(initialProjects = newProjects)
-      newTasks.parallelCompile(project)
+      newTasks.parallelCompile(project, reporterConfig)
       ExitStatus.Ok
     }
   }
@@ -107,11 +113,12 @@ object Interpreter {
   private def test(projectName: String,
                    aggregate: Boolean,
                    cliOptions: CliOptions,
+                   reporterConfig: ReporterConfig,
                    logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val compilation = compilationTasks(projects, logger)
-    val compiledProjects = compilation.parallelCompile(projects(projectName))
+    val compiledProjects = compilation.parallelCompile(projects(projectName), reporterConfig)
     Project.update(configDir, compiledProjects)
     val testTasks = new TestTasks(compiledProjects, logger)
     val projectsToTest =

@@ -90,8 +90,9 @@ object ProjectHelpers {
                   sources: Map[String, String],
                   dependencies: Set[String],
                   scalaInstance: ScalaInstance): Project = {
+    val baseDirectory = projectDir(baseDir, name)
     val (srcs, classes) = makeProjectStructure(baseDir, name)
-    val tempDir = projectDir(baseDir, name).resolve("tmp")
+    val tempDir = baseDirectory.resolve("tmp")
     Files.createDirectories(tempDir)
 
     val target = classesDir(baseDir, name)
@@ -101,6 +102,7 @@ object ProjectHelpers {
     writeSources(srcs, sources)
     Project(
       name = name,
+      baseDirectory = AbsolutePath(baseDirectory),
       dependencies = dependencies.toArray,
       scalaInstance = scalaInstance,
       classpath = classpath,

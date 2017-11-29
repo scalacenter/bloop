@@ -12,6 +12,7 @@ import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 case class Project(name: String,
+                   baseDirectory: AbsolutePath,
                    dependencies: Array[String],
                    scalaInstance: ScalaInstance,
                    classpath: Array[AbsolutePath],
@@ -26,6 +27,7 @@ case class Project(name: String,
   def toProperties(): Properties = {
     val properties = new Properties()
     properties.setProperty("name", name)
+    properties.setProperty("baseDirectory", baseDirectory.syntax)
     properties.setProperty("dependencies", dependencies.mkString(","))
     properties.setProperty("scalaOrg", scalaInstance.organization)
     properties.setProperty("scalaName", scalaInstance.name)
@@ -110,6 +112,7 @@ object Project {
   def fromProperties(properties: Properties): Project = {
     def toPaths(line: String) = line.split(",").map(NioPaths.get(_)).map(AbsolutePath.apply)
     val name = properties.getProperty("name")
+    val baseDirectory = AbsolutePath(NioPaths.get(properties.getProperty("baseDirectory")))
     val dependencies =
       properties.getProperty("dependencies").split(",").filterNot(_.isEmpty)
     val scalaOrganization = properties.getProperty("scalaOrganization")
@@ -133,17 +136,20 @@ object Project {
     val testFrameworks =
       properties.getProperty("testFrameworks").split(";").map(_.split(",").filterNot(_.isEmpty))
     val tmp = AbsolutePath(NioPaths.get(properties.getProperty("tmp")))
-    Project(name,
-            dependencies,
-            scalaInstance,
-            classpath,
-            classesDir,
-            scalacOptions,
-            javacOptions,
-            sourceDirectories,
-            previousResult,
-            testFrameworks,
-            tmp,
-            None)
+    Project(
+      name,
+      baseDirectory,
+      dependencies,
+      scalaInstance,
+      classpath,
+      classesDir,
+      scalacOptions,
+      javacOptions,
+      sourceDirectories,
+      previousResult,
+      testFrameworks,
+      tmp,
+      None
+    )
   }
 }
