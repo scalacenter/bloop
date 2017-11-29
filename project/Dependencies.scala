@@ -5,7 +5,7 @@ object Dependencies {
   val configDirsVersion = "5"
   val caseAppVersion = "1.2.0"
   val sourcecodeVersion = "0.1.4"
-  val log4jVersion = "2.9.1"
+  val log4jVersion = "2.8.1"
   val sbtTestInterfaceVersion = "1.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
