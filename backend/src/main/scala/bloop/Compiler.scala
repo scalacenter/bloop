@@ -1,7 +1,7 @@
 package bloop
 
 import xsbti.compile._
-import xsbti.T2
+import xsbti.{Reporter, T2}
 import java.util.Optional
 import java.io.File
 
@@ -19,6 +19,7 @@ case class CompileInputs(
     scalacOptions: Array[String],
     javacOptions: Array[String],
     previousResult: PreviousResult,
+    reporter: Reporter,
     logger: Logger
 )
 
@@ -60,7 +61,7 @@ object Compiler {
       val skip = false
       val empty = Array.empty[T2[String, String]]
       val lookup = new ZincClasspathEntryLookup(compileInputs.previousResult)
-      val reporter = new LoggedReporter(100, compileInputs.logger)
+      val reporter = compileInputs.reporter
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = IncOptions.create()

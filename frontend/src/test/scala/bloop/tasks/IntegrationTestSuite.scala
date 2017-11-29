@@ -7,6 +7,7 @@ import bloop.engine.ExecutionContext.threadPool
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.util.TopologicalSort
+import bloop.reporter.ReporterConfig
 
 object IntegrationTestSuite extends DynTest {
   val logger = Logger.get
@@ -28,6 +29,7 @@ object IntegrationTestSuite extends DynTest {
       val projects = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString, logger)
       val rootProject = Project(
         name = rootProjectName,
+        baseDirectory = AbsolutePath(testDirectory),
         dependencies = projects.keys.toArray,
         scalaInstance = projects.head._2.scalaInstance,
         classpath = Array.empty,
@@ -55,7 +57,7 @@ object IntegrationTestSuite extends DynTest {
 
     assert(projects.forall { case (_, p) => ProjectHelpers.noPreviousResult(p) })
     val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
-    val newProjects = tasks.parallelCompile(projects(rootProjectName))
+    val newProjects = tasks.parallelCompile(projects(rootProjectName), ReporterConfig.defaultFormat)
     val reachableProjects = TopologicalSort.reachable(newProjects(rootProjectName), newProjects)
     assert(reachableProjects.forall { case (_, p) => ProjectHelpers.hasPreviousResult(p) })
   }
