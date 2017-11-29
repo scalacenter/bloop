@@ -6,6 +6,7 @@ import bloop.logging.Logger
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
 
+class Cli
 object Cli {
 
   private val logger = Logger.get
@@ -23,7 +24,7 @@ object Cli {
       err = ngContext.err,
       workingDirectory = ngContext.getWorkingDirectory,
     )
-    val cmd = parse(ngContext.getArgs, nailgunOptions)
+    val cmd = parse(ngContext.getCommand +: ngContext.getArgs, nailgunOptions)
     val exitStatus = run(cmd, logger)
     ngContext.exit(exitStatus.code)
   }
