@@ -34,6 +34,11 @@ object Interpreter {
         compile(projectName, incremental, cliOptions, reporterConfig, logger)
       }
       execute(next, logger)
+    case Run(Commands.Projects(cliOptions), next) =>
+      logger.verboseIf(cliOptions.verbose) {
+        showProjects(cliOptions, logger)
+      }
+      execute(next, logger)
     case Run(Commands.Test(projectName, aggregate, scalacstyle, cliOptions), next) =>
       logger.verboseIf(cliOptions.verbose) {
         val reporterConfig =
@@ -108,6 +113,17 @@ object Interpreter {
       newTasks.parallelCompile(project, reporterConfig)
       ExitStatus.Ok
     }
+  }
+
+  private def showProjects(cliOptions: CliOptions, logger: Logger): ExitStatus = {
+    val configDir = getConfigDir(cliOptions)
+    val projects = Project.fromDir(configDir, logger)
+
+    logger.info(s"Projects loaded from '$configDir':")
+    projects.keys.toList.sorted.foreach { projectName =>
+      logger.info(s" * $projectName")
+    }
+    ExitStatus.Ok
   }
 
   private def test(projectName: String,

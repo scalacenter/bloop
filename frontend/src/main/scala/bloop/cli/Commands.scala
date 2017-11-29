@@ -22,6 +22,8 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
+  case class Projects(@Recurse cliOptions: CliOptions = CliOptions.default) extends Command
+
   case class Test(
       @ExtraName("p")
       @HelpMessage("The project to test.")
