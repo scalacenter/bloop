@@ -95,8 +95,8 @@ object ProjectHelpers {
     Files.createDirectories(tempDir)
 
     val target = classesDir(baseDir, name)
-    val classpath =
-      (dependencies.map(classesDir(baseDir, _)) + target).toArray.map(AbsolutePath.apply)
+    val depsTargets = (dependencies.map(classesDir(baseDir, _))).toArray.map(AbsolutePath.apply)
+    val classpath = depsTargets ++ scalaInstance.allJars.map(AbsolutePath.apply)
     val sourceDirectories = Array(AbsolutePath(srcs))
     writeSources(srcs, sources)
     Project(
