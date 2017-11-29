@@ -34,13 +34,9 @@ object Bloop {
         run(projects, compilerCache)
 
       case Array("exit") =>
-        val tasks = new CompilationTasks(projects, compilerCache, logger)
         timed(logger) {
-          projects.valuesIterator.map { project =>
-            tasks.persistAnalysis(project, logger)
-          }
+          projects.valuesIterator.foreach(CompilationTasks.persistAnalysis(_, logger))
         }
-        ()
 
       case Array("clean") =>
         val tasks = new CompilationTasks(projects, compilerCache, logger)

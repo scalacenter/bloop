@@ -23,21 +23,6 @@ case class CompilationTasks(initialProjects: Map[String, Project],
     }
   }
 
-  def persistAnalysis(project: Project, logger: Logger): Unit = {
-    import bloop.util.JavaCompat.EnrichOptional
-    val previousResult = project.previousResult
-    (previousResult.analysis().toOption, previousResult.setup().toOption) match {
-      case (Some(analysis), Some(setup)) =>
-        project.origin match {
-          case Some(origin) =>
-            val storeFile = origin.getParent.resolve(s"${project.name}-analysis.bin").toFile
-            FileAnalysisStore.binary(storeFile).set(ConcreteAnalysisContents(analysis, setup))
-          case None => logger.warn(s"Missing target directory for ${project.name}.")
-        }
-      case _ => logger.debug(s"Project ${project.name} has no analysis file.")
-    }
-  }
-
   def parallelCompile(project: Project)(implicit ec: ExecutionContext): Map[String, Project] = {
     val subTasks = getTasks(project)
     subTasks.foreach {
@@ -97,5 +82,22 @@ case class CompilationTasks(initialProjects: Map[String, Project],
                   javacOptions,
                   previous,
                   logger)
+  }
+}
+
+object CompilationTasks {
+  def persistAnalysis(project: Project, logger: Logger): Unit = {
+    import bloop.util.JavaCompat.EnrichOptional
+    val previousResult = project.previousResult
+    (previousResult.analysis().toOption, previousResult.setup().toOption) match {
+      case (Some(analysis), Some(setup)) =>
+        project.origin match {
+          case Some(origin) =>
+            val storeFile = origin.getParent.resolve(s"${project.name}-analysis.bin").toFile
+            FileAnalysisStore.binary(storeFile).set(ConcreteAnalysisContents(analysis, setup))
+          case None => logger.warn(s"Missing target directory for ${project.name}.")
+        }
+      case _ => logger.debug(s"Project ${project.name} has no analysis file.")
+    }
   }
 }
