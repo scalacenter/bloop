@@ -1,11 +1,13 @@
 package bloop
 
 import java.nio.file.{Files, Paths => NioPaths}
+import java.util.concurrent.ConcurrentHashMap
 import java.util.{Optional, Properties}
 
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
+import bloop.tasks.CompilationTasks
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -41,12 +43,32 @@ case class Project(name: String,
 }
 
 object Project {
+
+  private val cache = new ConcurrentHashMap[AbsolutePath, Map[String, Project]]()
+
+  def update(config: AbsolutePath, projects: Map[String, Project]): Unit = {
+    val _ = cache.put(config, projects)
+  }
+
+  def persistAllProjects(logger: Logger): Unit = timed(logger) {
+    logger.info(s"Persisting incremental compiler state...")
+    cache.values().forEach { projectsMap =>
+      projectsMap.values.foreach { project =>
+        CompilationTasks.persistAnalysis(project, logger)
+      }
+    }
+  }
+
   private def createResult(analysis: CompileAnalysis, setup: MiniSetup): PreviousResult =
     PreviousResult.of(Optional.of(analysis), Optional.of(setup))
   private val emptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def fromDir(config: AbsolutePath, logger: Logger): Map[String, Project] = timed(logger) {
+    cache.computeIfAbsent(config, newProjectsFromDir(_, logger))
+  }
+
+  private def newProjectsFromDir(config: AbsolutePath, logger: Logger): Map[String, Project] = {
     val configFiles = Paths.getAll(config, "glob:**.config").zipWithIndex
     logger.info(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
 

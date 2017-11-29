@@ -72,7 +72,7 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private def constructTasks(projects: Map[String, Project], logger: Logger): CompilationTasks = {
+  private def compilationTasks(projects: Map[String, Project], logger: Logger): CompilationTasks = {
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
     val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), logger)
     CompilationTasks(projects, compilerCache, logger)
@@ -90,13 +90,11 @@ object Interpreter {
                       logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val tasks = constructTasks(projects, logger)
+    val tasks = compilationTasks(projects, logger)
     val project = projects(projectName)
-    val compiledProjects = TopologicalSort.reachable(project, projects).keys
     if (incremental) {
       val newProjects = tasks.parallelCompile(project)
-      compiledProjects.foreach(projectName =>
-        tasks.persistAnalysis(newProjects(projectName), logger))
+      Project.update(configDir, newProjects)
       ExitStatus.Ok
     } else {
       val newProjects = tasks.clean(projects.keys.toList)
@@ -112,18 +110,21 @@ object Interpreter {
                    logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val tasks = new TestTasks(projects, logger)
+    val compilation = compilationTasks(projects, logger)
+    val compiledProjects = compilation.parallelCompile(projects(projectName))
+    Project.update(configDir, compiledProjects)
+    val testTasks = new TestTasks(compiledProjects, logger)
     val projectsToTest =
       if (aggregate) TopologicalSort.reachable(projects(projectName), projects).keys
       else List(projectName)
 
     def test(projectName: String): Unit = {
-      val testLoader = tasks.getTestLoader(projectName)
-      val tests = tasks.definedTests(projectName, testLoader)
+      val testLoader = testTasks.getTestLoader(projectName)
+      val tests = testTasks.definedTests(projectName, testLoader)
       tests.foreach {
         case (lazyRunner, taskDefs) =>
           val runner = lazyRunner()
-          tasks.runTests(runner, taskDefs.toArray)
+          testTasks.runTests(runner, taskDefs.toArray)
           runner.done()
       }
     }
@@ -137,10 +138,9 @@ object Interpreter {
                     logger: Logger): ExitStatus = {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val tasks = constructTasks(projects, logger)
-    tasks.clean(projectNames).valuesIterator.foreach { project =>
-      tasks.persistAnalysis(project, logger)
-    }
+    val tasks = compilationTasks(projects, logger)
+    val cleanProjects = tasks.clean(projectNames)
+    Project.update(configDir, cleanProjects)
     ExitStatus.Ok
   }
 }
