@@ -24,7 +24,7 @@ object TestInternals {
 
   lazy val filteredLoader = {
     val filter = new IncludePackagesFilter(
-      Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing."))
+      Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing.", "org.xml.sax."))
     new FilteredLoader(getClass.getClassLoader, filter)
   }
 
