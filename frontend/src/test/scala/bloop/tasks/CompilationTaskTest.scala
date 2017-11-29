@@ -17,14 +17,15 @@ object CompilationTaskTest extends TestSuite {
     val `B2.scala` = "package p1\ntrait B"
     val `C.scala` = "package p2\nimport p0.A\nimport p1.B\nobject C extends A with B"
     val `C2.scala` = "package p2\nimport p0.A\nobject C extends A"
+    val `Dotty.scala` = "package p0\nobject Foo { val x: String | Int = 1 }"
   }
 
-  def checkAfterCleanCompilation(structures: Map[String, Map[String, String]],
-                                 dependencies: Map[String, Set[String]],
-                                 scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
-                                 logger: Logger)(
-      afterCompile: Map[String, Project] => Unit = (_ => ())) = {
-    withProjects(structures, dependencies) { projects =>
+  def checkAfterCleanCompilation(
+      structures: Map[String, Map[String, String]],
+      dependencies: Map[String, Set[String]],
+      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
+      logger: Logger)(afterCompile: Map[String, Project] => Unit = (_ => ())) = {
+    withProjects(structures, dependencies, scalaInstance) { projects =>
       // Check that this is a clean compile!
       assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
       val project = projects(ProjectNameToCompile)
@@ -124,6 +125,17 @@ object CompilationTaskTest extends TestSuite {
         checkAfterCleanCompilation(projectsStructure, Map.empty, logger = logger) {
           (projects: Map[String, Project]) =>
             assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
+        }
+      }
+    }
+
+    "Compile one project with Dotty 0.4.0-RC1" - {
+      val scalaInstance = ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.4", "0.4.0-RC1")
+      logger.quietIfSuccess { logger =>
+        val ps = Map(ProjectNameToCompile -> Map("Dotty.scala" -> ArtificialSources.`Dotty.scala`))
+        checkAfterCleanCompilation(ps, Map.empty, scalaInstance = scalaInstance, logger = logger) {
+          (projects: Map[String, Project]) =>
+            assert(projects.forall { case (_, prj) => hasPreviousResult(prj) })
         }
       }
     }
