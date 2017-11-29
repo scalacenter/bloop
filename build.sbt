@@ -60,6 +60,7 @@ val frontend = project
   .settings(testSettings)
   .settings(
     name := "bloop",
+    mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopInfoKeys,
     fork in run := true,
