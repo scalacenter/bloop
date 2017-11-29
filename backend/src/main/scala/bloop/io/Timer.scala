@@ -9,7 +9,7 @@ object Timer {
     try op
     finally {
       val elapsed = (System.nanoTime() - start).toDouble / 1e6
-      logger.info(s"Elapsed: $elapsed ms")
+      logger.debug(s"Elapsed: $elapsed ms")
     }
   }
 
