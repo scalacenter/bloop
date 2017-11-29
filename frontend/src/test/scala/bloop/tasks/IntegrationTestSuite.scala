@@ -57,6 +57,7 @@ object IntegrationTestSuite extends DynTest {
     val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
     val newProjects = tasks.parallelCompile(projects(rootProjectName))
     val reachableProjects = TopologicalSort.reachable(newProjects(rootProjectName), newProjects)
+    println(reachableProjects)
     assert(reachableProjects.forall { case (_, p) => ProjectHelpers.hasPreviousResult(p) })
   }
 }
