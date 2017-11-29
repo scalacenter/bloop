@@ -9,7 +9,7 @@ import scala.util.Try
 
 class Server
 object Server {
-  val defaultPort: Int = 2113
+  private val defaultPort: Int = 2113
 
   def main(args: Array[String]): Unit = {
     val port = Try { args(0).toInt }.getOrElse(Server.defaultPort)

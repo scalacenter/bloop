@@ -51,7 +51,7 @@ object Project {
   }
 
   def persistAllProjects(logger: Logger): Unit = timed(logger) {
-    logger.info(s"Persisting all analyses...")
+    logger.info(s"Persisting incremental compiler state...")
     cache.values().forEach { projectsMap =>
       projectsMap.values.foreach { project =>
         CompilationTasks.persistAnalysis(project, logger)
