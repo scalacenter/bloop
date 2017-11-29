@@ -27,7 +27,7 @@ public class BloopLoggingConfigurationFactory extends ConfigurationFactory {
         AppenderComponentBuilder appenderBuilder = builder.newAppender("Stdout", "CONSOLE").
                 addAttribute("target", ConsoleAppender.Target.SYSTEM_OUT);
         appenderBuilder.add(builder.newLayout("PatternLayout").
-                  addAttribute("pattern", "%highlight{%equals{[%-0.-1level] }{[I] }{}}{FATAL=white, ERROR=bright red, WARN=yellow, INFO=dim blue, DEBUG=green, TRACE=blue}%msg"));
+                  addAttribute("pattern", "%highlight{%equals{[%-0.-1level] }{[I] }{}}{FATAL=white, ERROR=bright red, WARN=yellow, INFO=dim blue, DEBUG=green, TRACE=blue}%msg%n"));
         appenderBuilder.add(builder.newFilter("MarkerFilter", Filter.Result.DENY,
                 Filter.Result.NEUTRAL).addAttribute("marker", "FLOW"));
         builder.add(appenderBuilder);

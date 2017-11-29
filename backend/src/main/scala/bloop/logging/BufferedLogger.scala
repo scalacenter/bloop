@@ -6,8 +6,6 @@ class BufferedLogger(underlying: Logger) extends Logger(underlying) {
 
   private[this] val buffer = new ConcurrentLinkedDeque[() => Unit]()
 
-  override def progress(msg: String): Unit = buffer.addLast(() => underlying.progress(msg))
-
   override def debug(msg: String) = buffer.addLast(() => underlying.debug(msg))
   override def debug(msg: Supplier[String]) = buffer.addLast(() => underlying.debug(msg))
 
