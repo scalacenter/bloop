@@ -1,6 +1,6 @@
 package bloop
 
-import utest.{TestSuite, Tests, TestRunner, TestableString, assert}
+import utest.{TestSuite, Tests, TestableString, assert}
 
 object ScalaInstanceCachingSpec extends TestSuite {
   val sameVersionPairs = List("2.10.6", "2.10.1", "2.11.11", "2.12.0", "2.12.4")
@@ -24,11 +24,5 @@ object ScalaInstanceCachingSpec extends TestSuite {
         }
       }
     }
-  }
-
-  import scala.concurrent.ExecutionContext.Implicits.global
-  TestRunner.runAsync(tests).map { results =>
-    val leafResults = results.leaves.toSeq
-    leafResults.foreach(result => assert(result.value.isSuccess))
   }
 }
