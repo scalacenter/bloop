@@ -39,12 +39,7 @@ class ScalaInstance(
   /** Tells us what the real version of the classloaded scalac compiler in this instance is. */
   override def actualVersion(): String = {
     // TODO: Report when the `actualVersion` and the passed in version do not match.
-    Option(loader.getResource("compiler.properties")).map { url =>
-      val stream = url.openStream()
-      val properties = new Properties()
-      properties.load(stream)
-      properties.get("version.number").asInstanceOf[String]
-    }.orNull
+    ScalaInstance.getVersion(loader)
   }
 
   override def equals(obj: Any): Boolean = obj match {
@@ -106,5 +101,15 @@ object ScalaInstance {
 
     val instanceId = (scalaOrg, scalaName, scalaVersion)
     instances.computeIfAbsent(instanceId, _ => resolveInstance)
+  }
+
+  def getVersion(loader: ClassLoader): String = {
+    val version = Option(loader.getResource("compiler.properties")).flatMap { url =>
+      val stream = url.openStream()
+      val properties = new Properties()
+      properties.load(stream)
+      Option(properties.get("version.number").asInstanceOf[String])
+    }
+    version.getOrElse(s"Loader $loader doesn't have Scala in it!")
   }
 }

@@ -64,6 +64,10 @@ object BuildKeys {
   }
 
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val testSettings: Seq[Def.Setting[_]] = List(
+    Keys.libraryDependencies += Dependencies.utest,
+    Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+  )
 }
 
 object BuildImplementation {
@@ -165,10 +169,10 @@ object BuildImplementation {
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
     /**
-      * Helps with setting up the tests:
-      * - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
-      * - Runs scripted, so that the configuration files are generated.
-      */
+     * Helps with setting up the tests:
+     * - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
+     * - Runs scripted, so that the configuration files are generated.
+     */
     val setupTests = Command.command("setupTests") { state =>
       s"^sbtBloop/${Keys.publishLocal.key.label}" ::
         s"sbtBloop/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
