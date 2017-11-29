@@ -2,6 +2,7 @@ package bloop.engine
 
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.{AbsolutePath, Paths}
+import bloop.io.Timer.timed
 import bloop.logging.Logger
 import bloop.tasks.{CompilationTasks, TestTasks}
 import ExecutionContext.threadPool
@@ -86,7 +87,7 @@ object Interpreter {
   private def compile(projectName: String,
                       incremental: Boolean,
                       cliOptions: CliOptions,
-                      logger: Logger): ExitStatus = {
+                      logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = constructTasks(projects, logger)
@@ -108,7 +109,7 @@ object Interpreter {
   private def test(projectName: String,
                    aggregate: Boolean,
                    cliOptions: CliOptions,
-                   logger: Logger): ExitStatus = {
+                   logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = new TestTasks(projects, logger)

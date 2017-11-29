@@ -2,6 +2,7 @@ matrix:
   SBT_RUN:
     - sbt "+bridgeIntegration/cachedPublishLocal" \
           "setupTests" \
+          "backend/test" \
           "frontend/test"
 
 clone:
