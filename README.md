@@ -8,11 +8,17 @@ Bloop gives you fast edit/compile/test workflows for Scala.
 
 ## Goals
 
-Bloop's primary goal is to offer a tight edit/test/debug loop for Scala development.
-Bloop accomplishes this goal by executing common tasks like `compile`/`run`/`test`/`console` as
-fast as possible.
+To understand the goals of bloop, we strongly encourage you to read [this Scala blog post]().
 
-Bloop aims to complement your build tool, not replace it.
+Bloop is a command-line tool for fast edit/compile/test workflows. Its primary
+goal is to compile and test your project as fast as possible, offering a snappy
+developer experience. Bloop does not aim to replace your stock build tool, but
+rather complement it.
+
+*Disclaimer*: Bloop is in beta, that means that you should not expect
+everything to make sense and you should be ready to see unexpected behaviours.
+We're working hard to quickly improve it, and we encourage you to update master
+on a daily basis if you start using the tool.
 
 ## Installation
 
@@ -24,8 +30,9 @@ sbt:
 ```sh
 $ git clone https://github.com/scalacenter/bloop.git
 $ cd bloop
-$ sbt install
-$ sbt frontend/version # copy this version number
+$ sbt
+> install
+> frontend/version # copy this version number
 $ bin/install <version> # paste here the version number obtained above
 ```
 
@@ -63,13 +70,14 @@ The next sections assume that you've added those lines to you profile, and reloa
 
 ## How to use
 
-### 1. Generate the configuration files
+### Generate the configuration files
 
-First, we'll need to generate Bloop's configuration files for your project. To do this, add the
-following sbt plugin in `project/plugins.sbt` in your project:
+First, we'll need to generate Bloop's configuration files for your project. To
+do this, add the following sbt plugin in `project/plugins.sbt` in your project,
+where `VERSION_NUMBER` is replaced by the commit your bloop repository is at:
 
 ```scala
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "XXXXX")
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "VERSION_NUMBER")
 ```
 
 You can then use sbt to generate the configuration:
@@ -78,7 +86,7 @@ You can then use sbt to generate the configuration:
 $ sbt installBloop
 ```
 
-### 2. Start the server
+### Start the server
 
 Using the server that you previously installed, run:
 
@@ -89,7 +97,7 @@ $ bloop-server &
 Note that you only need to start the server once on your machine, and you can use it with as many
 projects as you want, simultaneously.
 
-### 3. Start working!
+### Command examples
 
 ```
 $ bloop projects # show the projects that are loaded
