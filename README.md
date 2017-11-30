@@ -19,7 +19,7 @@ Bloop aims to complement your build tool, not replace it.
 Our [installation script][installation-script] lets you install those two components:
 
 ```sh
-$ curl https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install | sh
+$ curl https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh | sh
 ```
 
 The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
@@ -47,7 +47,7 @@ addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "XXXXX")
 You can then use sbt to generate the configuration:
 
 ```sh
-$ sbt install
+$ sbt installBloop
 ```
 
 ### 2. Start the server
@@ -81,4 +81,4 @@ Available commands: about, clean, compile, help, projects, test
 Type `bloop 'command' --help` for help on an individual command
 ```
 
-[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install 
+[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
