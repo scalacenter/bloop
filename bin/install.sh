@@ -19,6 +19,15 @@ test -e ~/.bloop/bloop-server || ( \
   echo "Installed bloop server in '~/.bloop/bloop-server'"
 )
 
+test -e ~/.bloop/bloop-shell || ( \
+  mkdir -p ~/.bloop && \
+  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop_2.12:$BLOOP_VERSION \
+    -o ~/.bloop/bloop-shell \
+    --standalone \
+    --main bloop.Bloop && \
+  echo "Installed bloop shell in '~/.bloop/bloop-shell'"
+)
+
 test -e ~/.bloop/ng.py || ( \
   mkdir -p ~/.bloop && \
   curl -Ls https://raw.githubusercontent.com/scalacenter/nailgun/zinc-nailgun/pynailgun/ng.py \

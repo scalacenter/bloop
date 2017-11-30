@@ -37,7 +37,15 @@ $ sbt
 $ bin/install.sh <version> # paste here the version number obtained above
 ```
 
-The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
+The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell` and 
+`~/.bloop/bloop-ng.py`:
+
+ - `bloop-server` is the Bloop server
+ - `bloop-ng.py` is the Bloop client
+ - `bloop-shell` is a shell that you can use while the Nailgun integration is experimental
+
+We describe how to use Bloop with the experimental Nailgun integration. To see how to use the Bloop
+shell, please see the [end of this guide][bloop-shell]
 
 We suggest that you add the following to your shell configuration:
 
@@ -118,5 +126,17 @@ Available commands: about, clean, compile, help, projects, test
 Type `bloop 'command' --help` for help on an individual command
 ```
 
+## Using the Bloop shell
+
+The Bloop shell is an alternative way to use Bloop while the Nailgun integration is still
+experimental. It is built along with `bloop-server` and `bloop-ng.py` using out installation script.
+
+To start the Bloop shell, run:
+
+```sh
+$ ~/.bloop/bloop-shell <path to your project>
+```
+
 [installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
 [bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
+[bloop-shell]: #using-the-bloop-shell
