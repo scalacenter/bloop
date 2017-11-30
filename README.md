@@ -45,7 +45,7 @@ export PATH="$PATH:~/.bloop"
 alias bloop="bloop-ng.py bloop.Cli"
 ```
 
-The next sections assume that you've added those lines to you profile, and reloaded your shell.
+The next sections assume that you've added those lines to your profile, and reloaded your shell.
 
 ### Installing a released version of Bloop
 
@@ -66,7 +66,7 @@ export PATH="$PATH:~/.bloop"
 alias bloop="bloop-ng.py bloop.Cli"
 ```
 
-The next sections assume that you've added those lines to you profile, and reloaded your shell.
+The next sections assume that you've added those lines to your profile, and reloaded your shell.
 
 ## How to use
 
