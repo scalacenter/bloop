@@ -1,4 +1,9 @@
 #!/usr/bin/env sh
+
+BLOOP_SPECIFIED_VERSION=$1
+BLOOP_LATEST_RELEASE=XXX # We have no release yet :(
+BLOOP_VERSION=${BLOOP_SPECIFIED_VERSION:-$BLOOP_LATEST_RELEASE}
+
 test -e ~/.coursier/coursier || ( \
   mkdir -p ~/.coursier && \
   curl -Lso ~/.coursier/coursier https://git.io/vgvpD && \
@@ -7,7 +12,7 @@ test -e ~/.coursier/coursier || ( \
 
 test -e ~/.bloop/bloop-server || ( \
   mkdir -p ~/.bloop && \
-  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop_2.12:XXXXX \
+  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop_2.12:$BLOOP_VERSION \
     -o ~/.bloop/bloop-server \
     --standalone \
     --main bloop.Server && \

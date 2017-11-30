@@ -16,6 +16,34 @@ Bloop aims to complement your build tool, not replace it.
 
 ## Installation
 
+### Building Bloop locally
+
+Bloop is not released yet. To publish bloop locally, you'll need to clone this repository and use
+sbt:
+
+```sh
+$ git clone https://github.com/scalacenter/bloop.git
+$ cd bloop
+$ sbt install
+$ sbt frontend/version # copy this version number
+$ bin/install <version> # paste here the version number obtained above
+```
+
+The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
+
+We suggest that you add the following to your shell configuration:
+
+```sh
+export PATH="$PATH:~/.bloop"
+alias bloop="bloop-ng.py bloop.Cli"
+```
+
+The next sections assume that you've added those lines to you profile, and reloaded your shell.
+
+### Installing a released version of Bloop
+
+**Bloop hasn't been released yet, so these instructions won't work!**
+
 Our [installation script][installation-script] lets you install those two components:
 
 ```sh

@@ -36,6 +36,20 @@ val nailgun = project
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 import build.Dependencies
+
+// This alias performs all the steps necessary to publish Bloop locally
+addCommandAlias(
+  "install",
+  Seq(
+    "+bridgeIntegration/publishLocal",
+    "+zincIntegration/publishLocal",
+    "^sbtBloop/publishLocal",
+    "nailgun/publishLocal",
+    "backend/publishLocal",
+    "frontend/publishLocal"
+  ).mkString(";", ";", "")
+)
+
 val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(testSettings)
