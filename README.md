@@ -8,50 +8,36 @@ Bloop gives you fast edit/compile/test workflows for Scala.
 
 ## Goals
 
-Bloop is a tool that focuses on giving you a very fast edit/compile/test loop. It enables you to
-perform 99% of the tasks that you usually perform in you build tool, but faster.
+Bloop's primary goal is to offer a tight edit/test/debug loop for Scala development.
+Bloop accomplishes this goal by executing common tasks like `compile`/`run`/`test`/`console` as
+fast as possible.
 
-It doesn't aim at replacing completely your build tool.
+Bloop doesn't aim at replacing completely your build tool.
 
 ## Installation
 
-The recommended way to install bloop is with Nailgun. To use bloop with Nailgun, you need two
-things:
-
-1. The server
-1. A nailgun client
-
-### Installing the server
-
-We recommend that you use [Coursier][coursier] to retrieve and package the server as an executable.
-Installing Coursier is very simple, and you can find instructions [here][coursier-installation].
-
-Create a standalone executable in `/usr/local/bin/bloop-server` with (add `sudo` if necessary):
+Our [installation script][installation-script] lets you install those two components:
 
 ```sh
-$ coursier bootstrap ch.epfl.scala:bloop_2.12:XXXXX \
-    -o /usr/local/bin/bloop-server --standalone --main bloop.Server
+$ curl https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install | sh
 ```
 
-### Installing the nailgun client
+The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
 
-In theory, any nailgun client can work with bloop. However, we suggest that you use our client, as
-it it better tested with bloop and uses protocol that is more secure to communicate with nailgun.
-
-Download and install the client in `/usr/local/bin/bloop` with (add `sudo` if necessary):
+We suggest that you add the following to your shell configuration:
 
 ```sh
-$ curl https://raw.githubusercontent.com/scalacenter/nailgun/zinc-nailgun/pynailgun/ng.py \
-    -o /usr/local/bin/bloop
+export PATH="$PATH:~/.bloop"
+alias bloop="bloop-ng.py bloop.Cli"
 ```
 
-And that's it! bloop is installed on your machine.
+The next sections assume that you've added those lines to you profile, and reloaded your shell.
 
 ## How to use
 
 ### 1. Generate the configuration files
 
-First, we'll need to generate bloop's configuration files for your project. To do this, add the
+First, we'll need to generate Bloop's configuration files for your project. To do this, add the
 following sbt plugin in `project/plugins.sbt` in your project:
 
 ```scala
@@ -69,7 +55,7 @@ $ sbt install
 Using the server that you previously installed, simply run:
 
 ```sh
-$ /usr/local/bin/bloop-server &
+$ bloop-server &
 ```
 
 Note that you only need to start the server once on your machine, and you can use it with as many
@@ -84,40 +70,14 @@ $ bloop exit
 
 ## Command reference
 
-#### `about`
-
-The `about` command shows information about bloop.
-
-#### `clean`
-
-The `clean` command resets the state of the incremental compiler for the projects specified with
-`-p` or `--projects`. For details, see:
-
 ```sh
-$ bloop -- clean --help
+$ bloop --help
+bloop 029b16d4
+Usage: bloop [options] [command] [command-options]
+
+
+Available commands: about, clean, compile, help, projects, test
+Type `bloop 'command' --help` for help on an individual command
 ```
 
-#### `compile`
-
-The `compile` command compiles the project that you specify with `-p` or `--project`, along with
-all its dependencies. For details, see:
-
-```sh
-$ bloop -- compile --help
-```
-
-#### `test`
-
-The `test` command compiles and runs the test in the project specified by `-p`. For details, see:
-
-```sh
-$ bloop -- test --help
-```
-
-#### `exit`
-
-The `exit` command shuts the bloop server down, and persists all the incremental compiler state on
-disk.
-
-[coursier]: http://get-coursier.io
-[coursier-installation]: https://github.com/coursier/coursier#command-line
+[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install 
