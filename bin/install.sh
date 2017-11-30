@@ -7,7 +7,7 @@ test -e ~/.coursier/coursier || ( \
 
 test -e ~/.bloop/bloop-server || ( \
   mkdir -p ~/.bloop && \
-  coursier bootstrap ch.epfl.scala:bloop_2.12:XXXXX \
+  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop_2.12:XXXXX \
     -o ~/.bloop/bloop-server \
     --standalone \
     --main bloop.Server && \
