@@ -24,7 +24,11 @@ object Cli {
       err = ngContext.err,
       workingDirectory = ngContext.getWorkingDirectory,
     )
-    val cmd = parse(ngContext.getCommand +: ngContext.getArgs, nailgunOptions)
+    val command = ngContext.getCommand
+    val args =
+      if (command == "bloop.Cli") ngContext.getArgs
+      else command +: ngContext.getArgs
+    val cmd = parse(args, nailgunOptions)
     val exitStatus = run(cmd, logger)
     ngContext.exit(exitStatus.code)
   }
@@ -85,6 +89,8 @@ object Cli {
 
             command match {
               case Left(err) => printErrorAndExit(err)
+              case Right(v: Commands.Help) =>
+                Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(v: Commands.About) =>
                 val newCommand = v.copy(cliOptions = v.cliOptions.copy(common = commonOptions))
                 // Disabling version here if user defines it because it has the same semantics
