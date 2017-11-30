@@ -8,7 +8,8 @@ Bloop gives you fast edit/compile/test workflows for Scala.
 
 ## Goals
 
-To understand the goals of bloop, we strongly encourage you to read [this Scala blog post]().
+To understand the goals of bloop, we strongly encourage you to read [this Scala blog
+post][bloop-release-post].
 
 Bloop is a command-line tool for fast edit/compile/test workflows. Its primary
 goal is to compile and test your project as fast as possible, offering a snappy
@@ -118,3 +119,4 @@ Type `bloop 'command' --help` for help on an individual command
 ```
 
 [installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
+[bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
