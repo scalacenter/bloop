@@ -29,7 +29,7 @@ Bloop is not released yet. To publish bloop locally, you'll need to clone this r
 sbt:
 
 ```sh
-$ git clone --recursive -j8 https://github.com/scalacenter/bloop.git
+$ git clone --recursive https://github.com/scalacenter/bloop.git
 $ cd bloop
 $ sbt
 > install
