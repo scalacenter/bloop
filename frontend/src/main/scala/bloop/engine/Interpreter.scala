@@ -102,16 +102,20 @@ object Interpreter {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = compilationTasks(projects, logger)
-    val project = projects(projectName)
-    if (incremental) {
-      val newProjects = tasks.parallelCompile(project, reporterConfig)
-      Project.update(configDir, newProjects)
-      ExitStatus.Ok
-    } else {
-      val newProjects = tasks.clean(projects.keys.toList)
-      val newTasks = tasks.copy(initialProjects = newProjects)
-      newTasks.parallelCompile(project, reporterConfig)
-      ExitStatus.Ok
+    projects.get(projectName) match {
+      case Some(project) =>
+        if (incremental) {
+          val newProjects = tasks.parallelCompile(project, reporterConfig)
+          Project.update(configDir, newProjects)
+          ExitStatus.Ok
+        } else {
+          val newProjects = tasks.clean(projects.keys.toList)
+          val newTasks = tasks.copy(initialProjects = newProjects)
+          newTasks.parallelCompile(project, reporterConfig)
+          ExitStatus.Ok
+        }
+      case None =>
+        projectNotFound(projectName :: Nil, configDir, logger)
     }
   }
 
@@ -133,27 +137,32 @@ object Interpreter {
                    logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val compilation = compilationTasks(projects, logger)
-    val compiledProjects = compilation.parallelCompile(projects(projectName), reporterConfig)
-    Project.update(configDir, compiledProjects)
-    val testTasks = new TestTasks(compiledProjects, logger)
-    val projectsToTest =
-      if (aggregate) TopologicalSort.reachable(projects(projectName), projects).keys
-      else List(projectName)
+    projects.get(projectName) match {
+      case Some(project) =>
+        val compilation = compilationTasks(projects, logger)
+        val compiledProjects = compilation.parallelCompile(project, reporterConfig)
+        Project.update(configDir, compiledProjects)
+        val testTasks = new TestTasks(compiledProjects, logger)
+        val projectsToTest =
+          if (aggregate) TopologicalSort.reachable(project, projects).keys
+          else List(projectName)
 
-    def test(projectName: String): Unit = {
-      val testLoader = testTasks.getTestLoader(projectName)
-      val tests = testTasks.definedTests(projectName, testLoader)
-      tests.foreach {
-        case (lazyRunner, taskDefs) =>
-          val runner = lazyRunner()
-          testTasks.runTests(runner, taskDefs.toArray)
-          runner.done()
-      }
+        def test(projectName: String): Unit = {
+          val testLoader = testTasks.getTestLoader(projectName)
+          val tests = testTasks.definedTests(projectName, testLoader)
+          tests.foreach {
+            case (lazyRunner, taskDefs) =>
+              val runner = lazyRunner()
+              testTasks.runTests(runner, taskDefs.toArray)
+              runner.done()
+          }
+        }
+
+        projectsToTest.foreach(test)
+        ExitStatus.Ok
+      case None =>
+        projectNotFound(projectName :: Nil, configDir, logger)
     }
-
-    projectsToTest.foreach(test)
-    ExitStatus.Ok
   }
 
   private def clean(projectNames: List[String],
@@ -161,9 +170,24 @@ object Interpreter {
                     logger: Logger): ExitStatus = {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    val tasks = compilationTasks(projects, logger)
-    val cleanProjects = tasks.clean(projectNames)
-    Project.update(configDir, cleanProjects)
-    ExitStatus.Ok
+    val notFoundProjects = projectNames.toSet -- projects.keySet
+
+    if (notFoundProjects.isEmpty) {
+      val tasks = compilationTasks(projects, logger)
+      val cleanProjects = tasks.clean(projectNames)
+      Project.update(configDir, cleanProjects)
+      ExitStatus.Ok
+    } else {
+      projectNotFound(notFoundProjects.toList.sorted, configDir, logger)
+    }
+  }
+
+  private def projectNotFound(projectNames: List[String],
+                              configDir: AbsolutePath,
+                              logger: Logger): ExitStatus = {
+    val projects = projectNames.mkString("'", "', '", "'")
+    logger.error(s"No projects named $projects found in '$configDir'.")
+    logger.error(s"Use the `projects` command to list existing projets.")
+    ExitStatus.InvalidCommandLineOption
   }
 }
