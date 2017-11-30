@@ -28,7 +28,7 @@ test -e ~/.bloop/bloop-shell || ( \
   echo "Installed bloop shell in '~/.bloop/bloop-shell'"
 )
 
-test -e ~/.bloop/ng.py || ( \
+test -e ~/.bloop/bloop-ng.py || ( \
   mkdir -p ~/.bloop && \
   curl -Ls https://raw.githubusercontent.com/scalacenter/nailgun/zinc-nailgun/pynailgun/ng.py \
   -o ~/.bloop/bloop-ng.py && \
