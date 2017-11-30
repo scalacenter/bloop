@@ -35,6 +35,7 @@ object Server {
     aliasManager.addAlias(new Alias("about", "Show information about bloop", classOf[Cli]))
     aliasManager.addAlias(new Alias("clean", "Clean projects", classOf[Cli]))
     aliasManager.addAlias(new Alias("compile", "Compile projects", classOf[Cli]))
+    aliasManager.addAlias(new Alias("help", "Show help message", classOf[Cli]))
     aliasManager.addAlias(new Alias("projects", "Shows the loaded projects", classOf[Cli]))
     aliasManager.addAlias(new Alias("test", "Runs the tests", classOf[Cli]))
     aliasManager.addAlias(new Alias("exit", "Exits bloop", classOf[Server]))

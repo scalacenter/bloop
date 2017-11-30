@@ -6,6 +6,11 @@ object Commands {
   sealed trait Command {
     def cliOptions: CliOptions
   }
+
+  case class Help(
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends Command
+
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
