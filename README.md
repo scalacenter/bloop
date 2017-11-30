@@ -8,12 +8,115 @@ Bloop gives you fast edit/compile/test workflows for Scala.
 
 ## Goals
 
-To document here what bloop is and is not.
+To understand the goals of bloop, we strongly encourage you to read [this Scala blog
+post][bloop-release-post].
+
+Bloop is a command-line tool for fast edit/compile/test workflows. Its primary
+goal is to compile and test your project as fast as possible, offering a snappy
+developer experience. Bloop does not aim to replace your stock build tool, but
+rather complement it.
+
+*Disclaimer*: Bloop is in beta, that means that you should not expect
+everything to make sense and you should be ready to see unexpected behaviours.
+We're working hard to quickly improve it, and we encourage you to update master
+on a daily basis if you start using the tool.
 
 ## Installation
 
-To be done.
+### Building Bloop locally
+
+Bloop is not released yet. To publish bloop locally, you'll need to clone this repository and use
+sbt:
+
+```sh
+$ git clone https://github.com/scalacenter/bloop.git
+$ cd bloop
+$ sbt
+> install
+> frontend/version # copy this version number
+$ bin/install.sh <version> # paste here the version number obtained above
+```
+
+The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
+
+We suggest that you add the following to your shell configuration:
+
+```sh
+export PATH="$PATH:~/.bloop"
+alias bloop="bloop-ng.py bloop.Cli"
+```
+
+The next sections assume that you've added those lines to your profile, and reloaded your shell.
+
+### Installing a released version of Bloop
+
+**Bloop hasn't been released yet, so these instructions won't work!**
+
+Our [installation script][installation-script] lets you install those two components:
+
+```sh
+$ curl https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh | sh
+```
+
+The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
+
+We suggest that you add the following to your shell configuration:
+
+```sh
+export PATH="$PATH:~/.bloop"
+alias bloop="bloop-ng.py bloop.Cli"
+```
+
+The next sections assume that you've added those lines to your profile, and reloaded your shell.
 
 ## How to use
 
-How to use bloop.
+### Generate the configuration files
+
+First, we'll need to generate Bloop's configuration files for your project. To
+do this, add the following sbt plugin in `project/plugins.sbt` in your project,
+where `VERSION_NUMBER` is replaced by the commit your bloop repository is at:
+
+```scala
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "VERSION_NUMBER")
+```
+
+You can then use sbt to generate the configuration:
+
+```sh
+$ sbt installBloop
+```
+
+### Start the server
+
+Using the server that you previously installed, run:
+
+```sh
+$ bloop-server &
+```
+
+Note that you only need to start the server once on your machine, and you can use it with as many
+projects as you want, simultaneously.
+
+### Command examples
+
+```
+$ bloop projects # show the projects that are loaded
+$ bloop compile -p my-project # compile my-project
+$ bloop test -p my-project-test # run the tests on my-project
+$ bloop exit # shuts the compilation server down
+```
+
+## Command reference
+
+```sh
+$ bloop --help
+Usage: bloop [options] [command] [command-options]
+
+
+Available commands: about, clean, compile, help, projects, test
+Type `bloop 'command' --help` for help on an individual command
+```
+
+[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
+[bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html

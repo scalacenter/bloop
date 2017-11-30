@@ -201,7 +201,7 @@ object BuildImplementation {
     private val scriptedTestContents = {
       """> show bloopConfigDir
         |> registerDirectory
-        |> install
+        |> installBloop
         |> checkInstall
       """.stripMargin
     }
