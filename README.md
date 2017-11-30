@@ -12,7 +12,7 @@ Bloop's primary goal is to offer a tight edit/test/debug loop for Scala developm
 Bloop accomplishes this goal by executing common tasks like `compile`/`run`/`test`/`console` as
 fast as possible.
 
-Bloop doesn't aim at replacing completely your build tool.
+Bloop aims to complement your build tool, not replace it.
 
 ## Installation
 
@@ -52,7 +52,7 @@ $ sbt install
 
 ### 2. Start the server
 
-Using the server that you previously installed, simply run:
+Using the server that you previously installed, run:
 
 ```sh
 $ bloop-server &
@@ -64,15 +64,16 @@ projects as you want, simultaneously.
 ### 3. Start working!
 
 ```
-$ bloop compile -p my-project
-$ bloop exit
+$ bloop projects # show the projects that are loaded
+$ bloop compile -p my-project # compile my-project
+$ bloop test -p my-project-test # run the tests on my-project
+$ bloop exit # shuts the compilation server down
 ```
 
 ## Command reference
 
 ```sh
 $ bloop --help
-bloop 029b16d4
 Usage: bloop [options] [command] [command-options]
 
 
