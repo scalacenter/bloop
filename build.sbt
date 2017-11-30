@@ -40,6 +40,10 @@ val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(testSettings)
   .settings(
+    sourceGenerators in Compile += Def.task {
+      println("AKLSJ:LKDJSLDKJSALKJD")
+      List(new File("."))
+    }.taskValue,
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
