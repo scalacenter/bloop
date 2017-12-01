@@ -137,7 +137,8 @@ object Interpreter {
                    logger: Logger): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
-    projects.get(projectName) match {
+    val testProject = TestTasks.selectTestProject(projectName, projects)
+    testProject match {
       case Some(project) =>
         val compilation = compilationTasks(projects, logger)
         val compiledProjects = compilation.parallelCompile(project, reporterConfig)
