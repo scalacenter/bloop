@@ -11,6 +11,16 @@ object TestTaskTest extends DynTest {
 
   private val logger = Logger.get
 
+  test("Test project can be selected with or without `-test` suffix") {
+    val projects = ProjectHelpers.loadTestProject("with-tests", logger)
+    val withoutSuffix = TestTasks.selectTestProject("with-tests", projects)
+    val withSuffix = TestTasks.selectTestProject("with-tests-test", projects)
+    assert(withoutSuffix.isDefined)
+    assert(withoutSuffix.get.name == "with-tests-test")
+    assert(withSuffix.isDefined)
+    assert(withSuffix.get.name == "with-tests-test")
+  }
+
   val frameworks = List("ScalaTest", "ScalaCheck", "Specs2", "UTest")
 
   frameworks.foreach { framework =>
@@ -27,7 +37,7 @@ object TestTaskTest extends DynTest {
       logger.quietIfSuccess { logger =>
         val projectName = "with-tests"
         val moduleName = projectName + "-test"
-        val tasks = getTestTasks("with-tests", "with-tests-test", logger)
+        val tasks = getTestTasks(projectName, moduleName, logger)
         val testClassLoader = tasks.getTestLoader(moduleName)
         val definedTests = tasks
           .definedTests(moduleName, testClassLoader)
