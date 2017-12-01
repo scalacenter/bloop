@@ -175,7 +175,7 @@ object Interpreter {
 
     if (notFoundProjects.isEmpty) {
       val tasks = compilationTasks(projects, logger)
-      val cleanProjects = tasks.clean(projectNames)
+      val cleanProjects = projects ++ tasks.clean(projectNames)
       Project.update(configDir, cleanProjects)
       ExitStatus.Ok
     } else {
