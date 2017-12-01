@@ -6,6 +6,10 @@
 Bloop gives you fast edit/compile/test workflows for Scala.
 </p>
 
+[![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](
+  https://gitter.im/scalacenter/bloop
+)
+
 ## Goals
 
 To understand the goals of bloop, we strongly encourage you to read [this Scala blog
