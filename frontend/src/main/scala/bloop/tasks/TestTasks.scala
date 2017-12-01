@@ -62,3 +62,8 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
   }
 
 }
+
+object TestTasks {
+  def selectTestProject(projectName: String, projects: Map[String, Project]): Option[Project] =
+    projects.get(projectName + "-test").orElse(projects.get(projectName))
+}
