@@ -81,6 +81,28 @@ val frontend = project
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
   )
 
+val rework = project
+  .disablePlugins(ScriptedPlugin, ScalafmtPlugin, ScalafmtCorePlugin, ScalafmtSbtPlugin)
+  .settings(
+    scalaVersion := "0.5.0-bin-SNAPSHOT",
+    scalacOptions ++= {
+      if (isDotty.value) Seq("-language:Scala2") else Nil
+    },
+    compile in Compile := {
+      (compile in Compile)
+        .dependsOn(publishLocal in frontend)
+        .dependsOn(publishLocal in backend)
+        .value
+    },
+    libraryDependencies += {
+      val organization = (Keys.organization in frontend).value
+      val name = (Keys.moduleName in frontend).value
+      val version = (Keys.version in frontend).value
+      val scalaBinaryVersion = (Keys.scalaBinaryVersion in frontend).value
+      organization % s"${name}_$scalaBinaryVersion" % version
+    }
+  )
+
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
   .in(file("sbt-bloop"))
