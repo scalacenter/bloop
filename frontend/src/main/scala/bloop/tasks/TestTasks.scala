@@ -23,18 +23,20 @@ class TestTasks(projects: Map[String, Project], logger: Logger) {
     val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
 
     val analysis = project.previousResult.analysis().orElse(Analysis.empty)
-    val definitions = TestInternals.allDefs(analysis)
+    val definitions = TestInternals.potentialTests(analysis)
 
     val discovered = Discovery(subclassPrints.map(_._1), annotatedPrints.map(_._1))(definitions)
-    logger.debug("Discovered tests: " + discovered.map(_._1.name()).mkString(", "))
 
     val tasks = mutable.Map.empty[Framework, mutable.Buffer[TaskDef]]
     frameworks.foreach(tasks(_) = mutable.Buffer.empty)
+
+    logger.debug(s"Tests discovered in project '$projectName':")
     discovered.foreach {
       case (de, di) =>
         val printInfos = TestInternals.matchingFingerprints(subclassPrints, annotatedPrints, di)
         printInfos.foreach {
           case (_, _, framework, fingerprint) =>
+            logger.debug(s" * ${de.name}")
             val taskDef = new TaskDef(de.name, fingerprint, false, Array(new SuiteSelector))
             tasks(framework) += taskDef
         }

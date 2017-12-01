@@ -13,6 +13,7 @@ import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
 import xsbt.api.Discovered
+import xsbti.api.ClassLike
 import xsbti.compile.CompileAnalysis
 
 import scala.annotation.tailrec
@@ -77,8 +78,23 @@ object TestInternals {
     framework.runner(Array.empty, Array.empty, testClassLoader)
   }
 
+  /**
+   * Filter all the `Definition`s from `analysis`, returning all the potential test suites.
+   * Only top level `ClassLike`s are eligible as test suites. It is then the job of the test
+   * frameworks to distinguish test suites from the rest.
+   *
+   * @param analysis The analysis containing all the definition
+   * @return All the potential test suites found in `analysis`.
+   */
+  def potentialTests(analysis: CompileAnalysis): Seq[ClassLike] = {
+    val all = allDefs(analysis)
+    all.collect {
+      case cl: ClassLike if cl.topLevel => cl
+    }
+  }
+
   // Taken from sbt/sbt, see Tests.scala
-  def allDefs(analysis: CompileAnalysis) = analysis match {
+  private def allDefs(analysis: CompileAnalysis) = analysis match {
     case analysis: Analysis =>
       val acs: Seq[xsbti.api.AnalyzedClass] = analysis.apis.internal.values.toVector
       acs.flatMap { ac =>
