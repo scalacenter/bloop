@@ -1,6 +1,6 @@
 package bloop
 
-import bloop.engine.ExecutionContext.threadPool
+import bloop.engine.ExecutionContext
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
@@ -21,11 +21,12 @@ object Bloop {
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
     val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), logger)
     // TODO: Remove projects and pass in the compilation tasks to abstract over the boilerplate
-    run(projects, compilerCache)
+    ExecutionContext.withFixedThreadPool { run(projects, compilerCache)(_) }
   }
 
   @tailrec
-  def run(projects: Map[String, Project], compilerCache: CompilerCache): Unit = {
+  def run(projects: Map[String, Project], compilerCache: CompilerCache)(
+      implicit executionContext: ExecutionContext): Unit = {
     val input = scala.io.StdIn.readLine("> ")
     input.split(" ") match {
       case Array("projects") =>

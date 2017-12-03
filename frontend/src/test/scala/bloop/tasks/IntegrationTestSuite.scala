@@ -3,7 +3,7 @@ package bloop.tasks
 import java.nio.file.{Files, Path, Paths}
 
 import bloop.{DynTest, Project}
-import bloop.engine.ExecutionContext.threadPool
+import bloop.engine.ExecutionContext.global
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.util.TopologicalSort

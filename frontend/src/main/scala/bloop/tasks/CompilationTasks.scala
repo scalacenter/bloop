@@ -2,10 +2,11 @@ package bloop.tasks
 
 import java.util.Optional
 
+import bloop.engine.ExecutionContext
 import bloop.{CompileInputs, Compiler, CompilerCache, Project}
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.Await
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.logging.Logger
 import bloop.reporter.{Reporter, ReporterConfig}

@@ -1,7 +1,7 @@
 package bloop
 
-import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, Exit, Interpreter, Print, Run}
+import bloop.cli._
+import bloop.engine._
 import bloop.logging.Logger
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -13,7 +13,8 @@ object Cli {
 
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, logger)
+    val exitStatus =
+      ExecutionContext.withFixedThreadPool { run(action, logger)(_) }
     sys.exit(exitStatus.code)
   }
 
@@ -29,7 +30,7 @@ object Cli {
       if (command == "bloop.Cli") ngContext.getArgs
       else command +: ngContext.getArgs
     val cmd = parse(args, nailgunOptions)
-    val exitStatus = run(cmd, logger)
+    val exitStatus = run(cmd, logger)(Server.executionContext)
     ngContext.exit(exitStatus.code)
   }
 
@@ -124,5 +125,6 @@ object Cli {
     }
   }
 
-  def run(action: Action, logger: Logger): ExitStatus = Interpreter.execute(action, logger)
+  def run(action: Action, logger: Logger)(implicit ec: ExecutionContext): ExitStatus =
+    Interpreter.execute(action, logger)
 }

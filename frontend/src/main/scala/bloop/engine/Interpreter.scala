@@ -6,47 +6,47 @@ import bloop.io.Timer.timed
 import bloop.logging.Logger
 import bloop.reporter.ReporterConfig
 import bloop.tasks.{CompilationTasks, TestTasks}
-import ExecutionContext.threadPool
 import bloop.util.TopologicalSort
 import bloop.{CompilerCache, Project}
 import sbt.internal.inc.bloop.ZincInternals
 
 object Interpreter {
-  def execute(action: Action, logger: Logger): ExitStatus = action match {
-    case Exit(exitStatus) => exitStatus
-    case Print(msg, commonOptions, next) =>
-      printOut(msg, commonOptions)
-      execute(next, logger)
-    case Run(Commands.About(cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        printAbout(cliOptions)
-      }
-      execute(next, logger)
-    case Run(Commands.Clean(projects, cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        clean(projects, cliOptions, logger)
-      }
-      execute(next, logger)
-    case Run(Commands.Compile(projectName, incremental, scalacstyle, cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        val reporterConfig =
-          if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
-        compile(projectName, incremental, cliOptions, reporterConfig, logger)
-      }
-      execute(next, logger)
-    case Run(Commands.Projects(cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        showProjects(cliOptions, logger)
-      }
-      execute(next, logger)
-    case Run(Commands.Test(projectName, aggregate, scalacstyle, cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        val reporterConfig =
-          if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
-        test(projectName, aggregate, cliOptions, reporterConfig, logger)
-      }
-      execute(next, logger)
-  }
+  def execute(action: Action, logger: Logger)(implicit ec: ExecutionContext): ExitStatus =
+    action match {
+      case Exit(exitStatus) => exitStatus
+      case Print(msg, commonOptions, next) =>
+        printOut(msg, commonOptions)
+        execute(next, logger)
+      case Run(Commands.About(cliOptions), next) =>
+        logger.verboseIf(cliOptions.verbose) {
+          printAbout(cliOptions)
+        }
+        execute(next, logger)
+      case Run(Commands.Clean(projects, cliOptions), next) =>
+        logger.verboseIf(cliOptions.verbose) {
+          clean(projects, cliOptions, logger)
+        }
+        execute(next, logger)
+      case Run(Commands.Compile(projectName, incremental, scalacstyle, cliOptions), next) =>
+        logger.verboseIf(cliOptions.verbose) {
+          val reporterConfig =
+            if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
+          compile(projectName, incremental, cliOptions, reporterConfig, logger)
+        }
+        execute(next, logger)
+      case Run(Commands.Projects(cliOptions), next) =>
+        logger.verboseIf(cliOptions.verbose) {
+          showProjects(cliOptions, logger)
+        }
+        execute(next, logger)
+      case Run(Commands.Test(projectName, aggregate, scalacstyle, cliOptions), next) =>
+        logger.verboseIf(cliOptions.verbose) {
+          val reporterConfig =
+            if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
+          test(projectName, aggregate, cliOptions, reporterConfig, logger)
+        }
+        execute(next, logger)
+    }
 
   private final val t = "    "
   private def printAbout(cliOptions: CliOptions): ExitStatus = {
@@ -98,7 +98,7 @@ object Interpreter {
                       incremental: Boolean,
                       cliOptions: CliOptions,
                       reporterConfig: ReporterConfig,
-                      logger: Logger): ExitStatus = timed(logger) {
+                      logger: Logger)(implicit ec: ExecutionContext): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val tasks = compilationTasks(projects, logger)
@@ -134,7 +134,7 @@ object Interpreter {
                    aggregate: Boolean,
                    cliOptions: CliOptions,
                    reporterConfig: ReporterConfig,
-                   logger: Logger): ExitStatus = timed(logger) {
+                   logger: Logger)(implicit ec: ExecutionContext): ExitStatus = timed(logger) {
     val configDir = getConfigDir(cliOptions)
     val projects = Project.fromDir(configDir, logger)
     val testProject = TestTasks.selectTestProject(projectName, projects)
