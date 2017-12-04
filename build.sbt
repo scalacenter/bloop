@@ -79,6 +79,7 @@ val frontend = project
     buildInfoKeys := BloopInfoKeys,
     fork in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
+    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
   )
 
 val rework = project
@@ -88,12 +89,14 @@ val rework = project
     scalacOptions ++= {
       if (isDotty.value) Seq("-language:Scala2") else Nil
     },
-    compile in Compile := {
-      (compile in Compile)
+    update := {
+      update
         .dependsOn(publishLocal in frontend)
         .dependsOn(publishLocal in backend)
         .value
     },
+    libraryDependencies += "guru.nidi" % "graphviz-java" % "0.2.2" % "test",
+    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
     libraryDependencies += {
       val organization = (Keys.organization in frontend).value
       val name = (Keys.moduleName in frontend).value
