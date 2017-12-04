@@ -76,7 +76,7 @@ object ScalaInstance {
             scalaName: String,
             scalaVersion: String,
             allJars: Array[AbsolutePath]): ScalaInstance = {
-    if (allJars.forall(j => Files.exists(j.underlying)))
+    if (allJars.nonEmpty && allJars.forall(j => Files.exists(j.underlying)))
       new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
     else resolve(scalaOrg, scalaName, scalaVersion)
   }
