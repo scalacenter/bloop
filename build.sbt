@@ -32,6 +32,13 @@ val nailgun = project
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
+val compilerBenchmark = project
+  .in(file(".compiler-benchmark-compilation"))
+  .aggregate(CompilerBenchmarkCompilation)
+  .settings(
+    skip in publish := true
+  )
+
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
@@ -81,6 +88,10 @@ val frontend = project
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     parallelExecution in Test := false
   )
+
+val benchmarks = project
+  .dependsOn(frontend, CompilerBenchmarkCompilation % "compile->jmh")
+  .enablePlugins(JmhPlugin)
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
