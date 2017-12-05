@@ -46,6 +46,8 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The projects to clean.")
       projects: List[String],
+      @HelpMessage("If set, the specified project and its dependencies. Defaults to false.")
+      aggregate: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 }
