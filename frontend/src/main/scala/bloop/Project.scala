@@ -34,8 +34,8 @@ case class Project(name: String,
     properties.setProperty("scalaVersion", scalaInstance.version)
     properties.setProperty("classpath", classpath.map(_.syntax).mkString(","))
     properties.setProperty("classesDir", classesDir.syntax)
-    properties.setProperty("scalacOptions", scalacOptions.mkString(","))
-    properties.setProperty("javacOptions", javacOptions.mkString(","))
+    properties.setProperty("scalacOptions", scalacOptions.mkString(";"))
+    properties.setProperty("javacOptions", javacOptions.mkString(";"))
     properties.setProperty("sourceDirectories", sourceDirectories.map(_.syntax).mkString(","))
     properties.setProperty("testFrameworks", testFrameworks.map(_.mkString(",")).mkString(";"))
     properties.setProperty("allScalaJars",
