@@ -72,6 +72,35 @@ object BuildKeys {
     Keys.libraryDependencies += Dependencies.utest,
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
   )
+
+  import sbtassembly.AssemblyKeys
+  val assemblySettings: Seq[Def.Setting[_]] = List(
+    Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
+    Keys.test in AssemblyKeys.assembly := {}
+  )
+
+  val benchmarksSettings: Seq[Def.Setting[_]] = List(
+    Keys.skip in Keys.publish := true,
+    Keys.javaOptions ++= {
+      def refOf(version: String) = {
+        val HasSha = """.*(?:bin|pre)-([0-9a-f]{7,})(?:-.*)?""".r
+        version match {
+          case HasSha(sha) => sha
+          case _ => "v" + version
+        }
+      }
+      List(
+        "-DscalaVersion=" + Keys.scalaVersion.value,
+        "-DscalaRef=" + refOf(Keys.scalaVersion.value),
+        "-Dsbt.launcher=" + (sys
+          .props("java.class.path")
+          .split(java.io.File.pathSeparatorChar)
+          .find(_.contains("sbt-launch"))
+          .getOrElse("")),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value
+      )
+    }
+  )
 }
 
 object BuildImplementation {

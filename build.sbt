@@ -79,6 +79,7 @@ val frontend = project
   .dependsOn(backend)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
+  .settings(assemblySettings)
   .settings(
     name := "bloop",
     mainClass in Compile in run := Some("bloop.Cli"),
@@ -90,8 +91,9 @@ val frontend = project
   )
 
 val benchmarks = project
-  .dependsOn(frontend, CompilerBenchmarkCompilation % "compile->jmh")
+  .dependsOn(frontend % "compile->test", CompilerBenchmarkCompilation % "compile->jmh")
   .enablePlugins(JmhPlugin)
+  .settings(benchmarksSettings)
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
