@@ -5,7 +5,7 @@ import bloop.logging.Logger
 import bloop.reporter.ReporterConfig
 import sbt.testing.{Runner, TaskDef}
 
-import bloop.engine.ExecutionContext.threadPool
+import bloop.engine.ExecutionContext.global
 
 object TestTaskTest extends DynTest {
 

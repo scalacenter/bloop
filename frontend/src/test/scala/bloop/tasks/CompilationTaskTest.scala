@@ -3,7 +3,7 @@ package bloop.tasks
 import utest._
 
 import bloop.{Project, ScalaInstance}
-import bloop.engine.ExecutionContext.threadPool
+import bloop.engine.ExecutionContext.global
 import ProjectHelpers._
 import bloop.logging.Logger
 import bloop.reporter.ReporterConfig

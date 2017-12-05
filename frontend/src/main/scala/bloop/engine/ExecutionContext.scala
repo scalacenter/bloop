@@ -1,10 +1,25 @@
 package bloop.engine
 
-import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext => ScalaExecutionContext}
 
+trait ExecutionContext {
+  implicit def context: ScalaExecutionContext
+  def shutdown(): Unit
+}
 object ExecutionContext {
-  private val nCPUs = Runtime.getRuntime.availableProcessors()
-  private val executor = Executors.newFixedThreadPool(nCPUs)
+  implicit val global = new ExecutionContext {
+    override implicit def context: ScalaExecutionContext = ScalaExecutionContext.global
+    override def shutdown(): Unit = ()
+  }
 
-  implicit val threadPool = scala.concurrent.ExecutionContext.fromExecutorService(executor)
+  def using[T](context: ExecutionContext)(op: ExecutionContext => T): T =
+    try op(context)
+    finally context.shutdown()
+
+  def withFixedThreadPool[T](op: ExecutionContext => T): T = {
+    using(new FixedThreadPool)(op)
+  }
+
+  def withGlobal[T](op: ExecutionContext => T): T =
+    using[T](global)(op)
 }

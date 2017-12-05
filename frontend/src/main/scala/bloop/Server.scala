@@ -2,6 +2,7 @@ package bloop
 
 import java.net.InetAddress
 
+import bloop.engine.{ExecutionContext, FixedThreadPool}
 import bloop.logging.Logger
 import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
 
@@ -10,6 +11,7 @@ import scala.util.Try
 class Server
 object Server {
   private val defaultPort: Int = 2113
+  private[bloop] val executionContext: ExecutionContext = new FixedThreadPool()
 
   def main(args: Array[String]): Unit = {
     val port = Try { args(0).toInt }.getOrElse(Server.defaultPort)
@@ -44,6 +46,7 @@ object Server {
   private def shutDown(server: NGServer): Unit = {
     val logger = Logger.get
     Project.persistAllProjects(logger)
+    executionContext.shutdown()
     server.shutdown(true)
   }
 

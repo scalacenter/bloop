@@ -3,15 +3,17 @@ package bloop.tasks
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
 
+import bloop.engine.ExecutionContext
+
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[T]) {
-  private val semaphore    = new Semaphore(0)
-  private val inputs       = mutable.Buffer.empty[Task.Result[T]]
+  private val semaphore = new Semaphore(0)
+  private val inputs = mutable.Buffer.empty[Task.Result[T]]
   private val dependencies = mutable.Buffer.empty[Task[T]]
-  private val dependents   = mutable.Buffer.empty[Task[T]]
-  private val started      = new AtomicBoolean(false)
+  private val dependents = mutable.Buffer.empty[Task[T]]
+  private val started = new AtomicBoolean(false)
 
   def dependsOn(task: Task[T]): Unit = {
     dependencies += task
@@ -19,6 +21,7 @@ class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[
   }
 
   def run()(implicit ec: ExecutionContext): Future[Task.Result[T]] = {
+    import ec.context
     preExecution()
     Future {
       semaphore.acquire(dependencies.length)
@@ -58,12 +61,12 @@ class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[
 
 object Task {
   sealed trait Result[T]
-  case class Success[T](value: T)                                  extends Result[T]
+  case class Success[T](value: T) extends Result[T]
   case class Failure[T](partialResult: T, reasons: Seq[Throwable]) extends Result[T]
   object Failure {
     def apply[T](partialResult: T, failures: Seq[Failure[T]])(
         implicit mergeable: Mergeable[T]): Failure[T] = {
-      val result  = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
+      val result = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
       val reasons = failures.flatMap(_.reasons)
       Failure(result, reasons)
     }
