@@ -29,7 +29,7 @@ case class Project(name: String,
     properties.setProperty("name", name)
     properties.setProperty("baseDirectory", baseDirectory.syntax)
     properties.setProperty("dependencies", dependencies.mkString(","))
-    properties.setProperty("scalaOrg", scalaInstance.organization)
+    properties.setProperty("scalaOrganization", scalaInstance.organization)
     properties.setProperty("scalaName", scalaInstance.name)
     properties.setProperty("scalaVersion", scalaInstance.version)
     properties.setProperty("classpath", classpath.map(_.syntax).mkString(","))
@@ -37,6 +37,7 @@ case class Project(name: String,
     properties.setProperty("scalacOptions", scalacOptions.mkString(","))
     properties.setProperty("javacOptions", javacOptions.mkString(","))
     properties.setProperty("sourceDirectories", sourceDirectories.map(_.syntax).mkString(","))
+    properties.setProperty("testFrameworks", testFrameworks.map(_.mkString(",")).mkString(";"))
     properties.setProperty("allScalaJars",
                            scalaInstance.allJars.map(_.getAbsolutePath).mkString(","))
     properties.setProperty("tmp", tmp.syntax)
