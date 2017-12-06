@@ -79,8 +79,12 @@ object BuildKeys {
     Keys.test in AssemblyKeys.assembly := {}
   )
 
+  import sbtbuildinfo.BuildInfoKeys
   val benchmarksSettings: Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
+    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](
+      Keys.resourceDirectory in sbt.Test in sbt.LocalProject("frontend")),
+    BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
         val HasSha = """([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r

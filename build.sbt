@@ -99,7 +99,7 @@ val frontend = project
 
 val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
-  .enablePlugins(JmhPlugin)
+  .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings)
 
 import build.BuildImplementation.BuildDefaults
