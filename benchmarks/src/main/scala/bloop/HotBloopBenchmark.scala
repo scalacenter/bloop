@@ -88,7 +88,7 @@ class HotBloopBenchmark {
       if (read == -1) sys.error("EOF: " + output.toString)
       else {
         output.append(buffer, 0, read)
-        if (output.toString.contains("> ")) {
+        if (output.toString.contains("\n> ")) {
           if (output.toString.contains("[E]")) sys.error(output.toString)
           return
         }
