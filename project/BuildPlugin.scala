@@ -83,21 +83,22 @@ object BuildKeys {
     Keys.skip in Keys.publish := true,
     Keys.javaOptions ++= {
       def refOf(version: String) = {
-        val HasSha = """.*(?:bin|pre)-([0-9a-f]{7,})(?:-.*)?""".r
+        val HasSha = """([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
         version match {
           case HasSha(sha) => sha
-          case _ => "v" + version
+          case _ => version
         }
       }
       List(
-        "-DscalaVersion=" + Keys.scalaVersion.value,
-        "-DscalaRef=" + refOf(Keys.scalaVersion.value),
         "-Dsbt.launcher=" + (sys
           .props("java.class.path")
           .split(java.io.File.pathSeparatorChar)
           .find(_.contains("sbt-launch"))
           .getOrElse("")),
-        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value
+        "-DbloopVersion=" + Keys.version.in(sbt.LocalProject("frontend")).value,
+        "-DbloopRef=" + refOf(Keys.version.in(sbt.LocalProject("frontend")).value),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value,
+        "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
       )
     }
   )
