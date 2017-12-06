@@ -2,16 +2,25 @@ package bloop.engine.tasks
 
 import bloop.engine.Dag
 import bloop.{CompileInputs, Compiler, Project}
+import bloop.io.AbsolutePath
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import bloop.reporter.{Reporter, ReporterConfig}
-import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
+import sbt.internal.inc.{AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
+import sbt.internal.inc.classpath.ClasspathUtilities
 
 object CompileTasks {
   import bloop.engine.State
-  def compile(state: State, project: Project, reporterConfig: ReporterConfig): State = {
+  private type Results = Map[Project, PreviousResult]
+  private val EmptyTask = new Task[Results](identity, () => ())
+  def compile(
+      state: State,
+      project: Project,
+      reporterConfig: ReporterConfig,
+      excludeRoot: Boolean = false
+  ): State = {
     import state.{logger, compilerCache}
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
       val instance = project.scalaInstance
@@ -27,7 +36,6 @@ object CompileTasks {
       // FORMAT: ON
     }
 
-    type Results = Map[Project, PreviousResult]
     def runCompilation(project: Project, rs: Results): Results = {
       val previousResult = state.results.getResult(project)
       val inputs = toInputs(project, reporterConfig, previousResult)
@@ -39,13 +47,14 @@ object CompileTasks {
     val visitedTasks = scala.collection.mutable.HashMap[Dag[Project], Task[Results]]()
     def compileTask(project: Project) =
       new Task((rs: Results) => runCompilation(project, rs), () => ())
-    def constructTaskGraph(dag: Dag[Project]): Task[Results] = {
+    def constructTaskGraph(dag: Dag[Project], root: Boolean): Task[Results] = {
       def createTask: Task[Results] = {
         dag match {
+          case Leaf(project) if root && excludeRoot => EmptyTask
           case Leaf(project) => compileTask(project)
           case Parent(project, children) =>
-            val childrenCompilations = children.map(constructTaskGraph)
-            val parentCompilation = compileTask(project)
+            val childrenCompilations = children.map(constructTaskGraph(_, false))
+            val parentCompilation = if (root && excludeRoot) EmptyTask else compileTask(project)
             childrenCompilations.foldLeft(parentCompilation) {
               case (task, childrenTask) => task.dependsOn(childrenTask); task
             }
@@ -66,7 +75,7 @@ object CompileTasks {
       state.copy(results = cache)
     }
 
-    val taskGraph = constructTaskGraph(state.build.getDagFor(project))
+    val taskGraph = constructTaskGraph(state.build.getDagFor(project), true)
     Await.result(taskGraph.run()(state.executionContext), Duration.Inf) match {
       case Task.Success(results) => updateState(state, results)
       case Task.Failure(partial, reasons) =>
@@ -80,6 +89,28 @@ object CompileTasks {
     val results = state.results
     val newResults = results.reset(state.build.projects)
     state.copy(results = newResults)
+  }
+
+  private def runConsole(state: State, project: Project, classpath: Array[AbsolutePath]): Unit = {
+    val scalaInstance = project.scalaInstance
+    val classpathFiles = classpath.map(_.underlying.toFile).toSeq
+    val loader = ClasspathUtilities.makeLoader(classpathFiles, scalaInstance)
+    val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
+    compiler.console(classpathFiles, project.scalacOptions, "", "", state.logger)(Some(loader))
+  }
+
+  def console(state: State, project: Project, reporterConfig: ReporterConfig): State = {
+    val newState = compile(state, project, reporterConfig)
+    val classpath = project.classesDir +: project.classpath
+    runConsole(newState, project, classpath)
+    newState
+  }
+
+  def consoleQuick(state: State, project: Project, reporterConfig: ReporterConfig): State = {
+    val newState = compile(state, project, reporterConfig, excludeRoot = true)
+    val classpath = project.classpath
+    runConsole(newState, project, classpath)
+    newState
   }
 
   def persist(state: State): State = {

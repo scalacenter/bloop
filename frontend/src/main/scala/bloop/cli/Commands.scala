@@ -1,10 +1,15 @@
 package bloop.cli
 
-import caseapp.{ExtraName, HelpMessage, Hidden, Recurse}
+import caseapp.{ExtraName, HelpMessage, Recurse}
 
 object Commands {
   sealed trait Command {
     def cliOptions: CliOptions
+  }
+
+  sealed trait CoreCommand extends Command {
+    def project: String
+    def scalacstyle: Boolean
   }
 
   case class Help(
@@ -27,7 +32,7 @@ object Commands {
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
-  ) extends Command
+  ) extends CoreCommand
 
   case class Projects(
       @ExtraName("dot")
@@ -50,7 +55,7 @@ object Commands {
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends Command
+  ) extends CoreCommand
 
   case class Clean(
       @ExtraName("p")
@@ -58,4 +63,24 @@ object Commands {
       projects: List[String],
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
+
+  sealed trait ConsoleCommand extends CoreCommand
+
+  case class Console(
+      @ExtraName("p")
+      @HelpMessage("The project for which to start the console.")
+      project: String,
+      @HelpMessage("If set, disable improved error message format. By default, false.")
+      scalacstyle: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends ConsoleCommand
+
+  case class ConsoleQuick(
+      @ExtraName("p")
+      @HelpMessage("The project for which to start the console.")
+      project: String,
+      @HelpMessage("If set, disable improved error message format. By default, false.")
+      scalacstyle: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends ConsoleCommand
 }
