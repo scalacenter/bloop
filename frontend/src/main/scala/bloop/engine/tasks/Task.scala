@@ -1,4 +1,4 @@
-package bloop.tasks
+package bloop.engine.tasks
 
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean

@@ -10,13 +10,10 @@ import scala.util.Try
 class Server
 object Server {
   private val defaultPort: Int = 2113
-
   def main(args: Array[String]): Unit = {
-    val port = Try { args(0).toInt }.getOrElse(Server.defaultPort)
+    val port = Try(args(0).toInt).getOrElse(Server.defaultPort)
     val addr = InetAddress.getLoopbackAddress
-
     val server = new NGServer(addr, port)
-
     registerAliases(server)
     run(server)
   }
@@ -42,9 +39,9 @@ object Server {
   }
 
   private def shutDown(server: NGServer): Unit = {
-    val logger = Logger.get
-    Project.persistAllProjects(logger)
+    import bloop.engine.State
+    import bloop.engine.tasks.CompileTasks
+    State.stateCache.allStates.foreach(s => CompileTasks.persist(s))
     server.shutdown(true)
   }
-
 }

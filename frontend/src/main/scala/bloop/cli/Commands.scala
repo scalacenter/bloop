@@ -1,6 +1,6 @@
 package bloop.cli
 
-import caseapp.{ExtraName, HelpMessage, Recurse}
+import caseapp.{ExtraName, HelpMessage, Hidden, Recurse}
 
 object Commands {
   sealed trait Command {
@@ -39,6 +39,7 @@ object Commands {
       @HelpMessage(
         "If set, displays compilation message following scalac's style. Defaults to false.")
       scalacstyle: Boolean = false,
+      @Hidden prependCompile: Boolean = true,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

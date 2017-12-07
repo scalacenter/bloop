@@ -9,7 +9,10 @@ object Dependencies {
   val sourcecodeVersion = "0.1.4"
   val log4jVersion = "2.8.1"
   val sbtTestInterfaceVersion = "1.0"
+  val junitVersion = "0.11"
+  val graphvizVersion = "0.2.2"
 
+  import sbt.Test
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
@@ -20,5 +23,8 @@ object Dependencies {
   val log4jApi = "org.apache.logging.log4j" % "log4j-api" % log4jVersion
   val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
-  val utest = "com.lihaoyi" %% "utest" % "0.6.0" % sbt.Test
+
+  val utest = "com.lihaoyi" %% "utest" % "0.6.0"
+  val junit = "com.novocode" % "junit-interface" % junitVersion
+  val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
 }

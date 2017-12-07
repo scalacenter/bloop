@@ -79,7 +79,7 @@ val frontend = project
     buildInfoKeys := BloopInfoKeys,
     fork in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
-    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
+    libraryDependencies += Dependencies.graphviz % Test,
   )
 
 val rework = project

@@ -32,8 +32,7 @@ final case class ReporterConfig(
                                 format: ConfigurableReporter => ReporterFormat)
 
 object ReporterConfig {
-
-  lazy val defaultFormat =
+  final val defaultFormat =
     new ReporterConfig(
       true,
       true,
@@ -49,7 +48,7 @@ object ReporterConfig {
       DefaultReporterFormat
     )
 
-  lazy val scalacFormat =
+  final val scalacFormat =
     new ReporterConfig(
       true,
       true,
@@ -64,4 +63,7 @@ object ReporterConfig {
       scala.Console.BLUE,
       ScalacFormat
     )
+
+  def getDefault(value: Boolean): ReporterConfig =
+    if (value) scalacFormat else defaultFormat
 }

@@ -1,9 +1,9 @@
 package bloop.tasks
 
 import bloop.engine.ExecutionContext.threadPool
+import bloop.engine.tasks.{Mergeable, Task}
 
 import scala.collection.mutable.Buffer
-
 import utest._
 
 object TaskTest extends TestSuite {
@@ -108,6 +108,7 @@ object TaskTest extends TestSuite {
         case Task.Failure(partial, reasons) =>
           assert(partial == Set(1, 2))
           assert(reasons.map(_.getMessage) == List("Boom!"))
+        case Task.Success(_) => sys.error("The task failure did not report partial results!")
       }
     }
   }

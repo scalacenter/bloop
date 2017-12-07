@@ -1,51 +1,37 @@
 package bloop.engine
 
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
-import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
-import bloop.logging.Logger
 import bloop.reporter.ReporterConfig
-import bloop.tasks.{CompilationTasks, TestTasks}
-import ExecutionContext.threadPool
-import bloop.util.TopologicalSort
-import bloop.{CompilerCache, Project}
-import sbt.internal.inc.bloop.ZincInternals
+import bloop.engine.tasks.{CompileTasks, TestTasks}
+import bloop.Project
 
 object Interpreter {
-  def execute(action: Action, logger: Logger): ExitStatus = action match {
-    case Exit(exitStatus) => exitStatus
-    case Print(msg, commonOptions, next) =>
-      printOut(msg, commonOptions)
-      execute(next, logger)
-    case Run(Commands.About(cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        printAbout(cliOptions)
-      }
-      execute(next, logger)
-    case Run(Commands.Clean(projects, cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        clean(projects, cliOptions, logger)
-      }
-      execute(next, logger)
-    case Run(Commands.Compile(projectName, incremental, scalacstyle, cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        val reporterConfig =
-          if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
-        compile(projectName, incremental, cliOptions, reporterConfig, logger)
-      }
-      execute(next, logger)
-    case Run(Commands.Projects(cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        showProjects(cliOptions, logger)
-      }
-      execute(next, logger)
-    case Run(Commands.Test(projectName, aggregate, scalacstyle, cliOptions), next) =>
-      logger.verboseIf(cliOptions.verbose) {
-        val reporterConfig =
-          if (scalacstyle) ReporterConfig.scalacFormat else ReporterConfig.defaultFormat
-        test(projectName, aggregate, cliOptions, reporterConfig, logger)
-      }
-      execute(next, logger)
+  def execute(action: Action, state: State): State = {
+    import state.logger
+    def logAndTime[T](cliOptions: CliOptions, action: => T): T =
+      logger.verboseIf(cliOptions.verbose) { timed(state.logger) { action } }
+    action match {
+      case Exit(exitStatus) if state.status.isOk => state.copy(status = exitStatus)
+      case Exit(exitStatus) => state
+      case Print(msg, commonOptions, next) =>
+        val status = printOut(msg, commonOptions)
+        execute(next, state.mergeStatus(status))
+      case Run(Commands.About(cliOptions), next) =>
+        val status = logger.verboseIf(cliOptions.verbose) { printAbout(cliOptions) }
+        execute(next, state.mergeStatus(status))
+      case Run(cmd: Commands.Clean, next) =>
+        execute(next, logAndTime(cmd.cliOptions, clean(cmd, state)))
+      case Run(cmd: Commands.Compile, next) =>
+        execute(next, logAndTime(cmd.cliOptions, compile(cmd, state)))
+      case Run(cmd: Commands.Projects, next) =>
+        execute(next, logAndTime(cmd.cliOptions, showProjects(state)))
+      case Run(cmd: Commands.Test, next) if cmd.prependCompile =>
+        val compile = Commands.Compile(cmd.project, true, cmd.scalacstyle, cmd.cliOptions)
+        execute(Run(compile, Run(cmd.copy(prependCompile = false), next)), state)
+      case Run(cmd: Commands.Test, next) =>
+        execute(next, logAndTime(cmd.cliOptions, test(cmd, state)))
+    }
   }
 
   private final val t = "    "
@@ -82,113 +68,65 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private def compilationTasks(projects: Map[String, Project], logger: Logger): CompilationTasks = {
-    val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
-    val compilerCache = new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), logger)
-    CompilationTasks(projects, compilerCache, logger)
+  private def compile(cmd: Commands.Compile, state: State): State = {
+    val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
+    def runCompile(project: Project): State = {
+      if (cmd.incremental) {
+        CompileTasks.compile(state, project, reporterConfig).mergeStatus(ExitStatus.Ok)
+      } else {
+        val newState = CompileTasks.clean(state, state.build.projects)
+        CompileTasks.compile(newState, project, reporterConfig).mergeStatus(ExitStatus.Ok)
+      }
+    }
+
+    state.build.getProjectFor(cmd.project) match {
+      case Some(project) => runCompile(project)
+      case None => reportMissing(cmd.project :: Nil, state)
+    }
   }
 
-  private def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
-    cliOptions.configDir
-      .map(AbsolutePath.apply)
-      .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
+  private def showProjects(state: State): State = {
+    // TODO: Pretty print output of show projects, please.
+    val configDirectory = state.build.origin.syntax
+    state.logger.info(s"Projects loaded from '$configDirectory':")
+    state.build.projects.map(_.name).sorted.foreach { projectName =>
+      state.logger.info(s" * $projectName")
+    }
+    state.mergeStatus(ExitStatus.Ok)
   }
 
-  private def compile(projectName: String,
-                      incremental: Boolean,
-                      cliOptions: CliOptions,
-                      reporterConfig: ReporterConfig,
-                      logger: Logger): ExitStatus = timed(logger) {
-    val configDir = getConfigDir(cliOptions)
-    val projects = Project.fromDir(configDir, logger)
-    val tasks = compilationTasks(projects, logger)
-    projects.get(projectName) match {
-      case Some(project) =>
-        if (incremental) {
-          val newProjects = tasks.parallelCompile(project, reporterConfig)
-          Project.update(configDir, newProjects)
-          ExitStatus.Ok
-        } else {
-          val newProjects = tasks.clean(projects.keys.toList)
-          val newTasks = tasks.copy(initialProjects = newProjects)
-          newTasks.parallelCompile(project, reporterConfig)
-          ExitStatus.Ok
+  private def test(cmd: Commands.Test, state: State): State = {
+    val projectToTest = TestTasks.pickTestProject(cmd.project, state)
+    projectToTest match {
+      case Some(project) => TestTasks.test(state, project, cmd.aggregate)
+      case None => reportMissing(cmd.project :: Nil, state)
+    }
+  }
+
+  type ProjectLookup = (List[Project], List[String])
+  private def lookupProjects(names: List[String], state: State): ProjectLookup = {
+    val build = state.build
+    val result = List[Project]() -> List[String]()
+    names.foldLeft(result) {
+      case ((projects, missing), name) =>
+        build.getProjectFor(name) match {
+          case Some(project) => (project :: projects) -> missing
+          case None => projects -> (name :: missing)
         }
-      case None =>
-        projectNotFound(projectName :: Nil, configDir, logger)
     }
   }
 
-  private def showProjects(cliOptions: CliOptions, logger: Logger): ExitStatus = {
-    val configDir = getConfigDir(cliOptions)
-    val projects = Project.fromDir(configDir, logger)
-
-    logger.info(s"Projects loaded from '$configDir':")
-    projects.keys.toList.sorted.foreach { projectName =>
-      logger.info(s" * $projectName")
-    }
-    ExitStatus.Ok
+  private def clean(cmd: Commands.Clean, state: State): State = {
+    val (projects, missing) = lookupProjects(cmd.projects, state)
+    if (missing.isEmpty) CompileTasks.clean(state, projects).mergeStatus(ExitStatus.Ok)
+    else reportMissing(missing, state)
   }
 
-  private def test(projectName: String,
-                   aggregate: Boolean,
-                   cliOptions: CliOptions,
-                   reporterConfig: ReporterConfig,
-                   logger: Logger): ExitStatus = timed(logger) {
-    val configDir = getConfigDir(cliOptions)
-    val projects = Project.fromDir(configDir, logger)
-    val testProject = TestTasks.selectTestProject(projectName, projects)
-    testProject match {
-      case Some(project) =>
-        val compilation = compilationTasks(projects, logger)
-        val compiledProjects = compilation.parallelCompile(project, reporterConfig)
-        Project.update(configDir, compiledProjects)
-        val testTasks = new TestTasks(compiledProjects, logger)
-        val projectsToTest =
-          if (aggregate) TopologicalSort.reachable(project, projects).keys
-          else List(projectName)
-
-        def test(projectName: String): Unit = {
-          val testLoader = testTasks.getTestLoader(projectName)
-          val tests = testTasks.definedTests(projectName, testLoader)
-          tests.foreach {
-            case (lazyRunner, taskDefs) =>
-              val runner = lazyRunner()
-              testTasks.runTests(runner, taskDefs.toArray)
-              runner.done()
-          }
-        }
-
-        projectsToTest.foreach(test)
-        ExitStatus.Ok
-      case None =>
-        projectNotFound(projectName :: Nil, configDir, logger)
-    }
-  }
-
-  private def clean(projectNames: List[String],
-                    cliOptions: CliOptions,
-                    logger: Logger): ExitStatus = {
-    val configDir = getConfigDir(cliOptions)
-    val projects = Project.fromDir(configDir, logger)
-    val notFoundProjects = projectNames.toSet -- projects.keySet
-
-    if (notFoundProjects.isEmpty) {
-      val tasks = compilationTasks(projects, logger)
-      val cleanProjects = projects ++ tasks.clean(projectNames)
-      Project.update(configDir, cleanProjects)
-      ExitStatus.Ok
-    } else {
-      projectNotFound(notFoundProjects.toList.sorted, configDir, logger)
-    }
-  }
-
-  private def projectNotFound(projectNames: List[String],
-                              configDir: AbsolutePath,
-                              logger: Logger): ExitStatus = {
+  private def reportMissing(projectNames: List[String], state: State): State = {
     val projects = projectNames.mkString("'", "', '", "'")
-    logger.error(s"No projects named $projects found in '$configDir'.")
-    logger.error(s"Use the `projects` command to list existing projets.")
-    ExitStatus.InvalidCommandLineOption
+    val configDirectory = state.build.origin.syntax
+    state.logger.error(s"No projects named $projects found in '$configDirectory'.")
+    state.logger.error(s"Use the `projects` command to list existing projects.")
+    state.mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 }

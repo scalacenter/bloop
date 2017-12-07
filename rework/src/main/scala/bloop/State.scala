@@ -22,22 +22,6 @@ final case class BareProject(
     origin: Option[AbsolutePath]
 )
 
-final case class Build private (
-    loadedFrom: AbsolutePath,
-    projects: Map[String, Project],
-    dags: List[DAG[Project]]
-) {
-  def reachableFrom(from: Project): List[Project] =
-    TopologicalSort.reachable(from, projects).values.toList
-}
-
-object Build {
-  def apply(loadedFrom: AbsolutePath, projects: Map[String, Project]): Build = {
-    val dags = DAG.fromMap(projects)
-    new Build(loadedFrom, projects, dags)
-  }
-}
-
 sealed abstract class State {
   def build: Build
   def logger: Logger
@@ -55,21 +39,6 @@ object Compat {
       def apply(t: T): R = f(t)
     }
   }
-}
-
-import java.util.concurrent.ConcurrentHashMap
-import xsbti.compile.PreviousResult
-final class ResultsCache(cache: ConcurrentHashMap[Project, PreviousResult]) {
-  import Compat.JavaFunction
-  def getResultFor(project: Project): Option[PreviousResult] = Option(cache.get(project))
-  def updateResult(project: Project, previousResult: PreviousResult): Unit =
-    cache.put(project, previousResult)
-  private val emptyGenerator = ((_: Project) => CompileState.EmptyCompileResult).toJava
-  def initializeResult(project: Project): Unit = cache.computeIfAbsent(project, emptyGenerator)
-}
-
-object ResultsCache {
-  def empty: ResultsCache = new ResultsCache(new ConcurrentHashMap())
 }
 
 sealed abstract class InitializedState extends State {

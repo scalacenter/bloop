@@ -24,7 +24,6 @@ case class CompileInputs(
 )
 
 object Compiler {
-
   private final class ZincClasspathEntryLookup(previousResult: PreviousResult)
       extends PerClasspathEntryLookup {
     override def analysis(classpathEntry: File): Optional[CompileAnalysis] =
@@ -33,7 +32,7 @@ object Compiler {
       Locate.definesClass(classpathEntry)
   }
 
-  def compile(compileInputs: CompileInputs): CompileResult = {
+  def compile(compileInputs: CompileInputs): PreviousResult = {
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -73,6 +72,7 @@ object Compiler {
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
-    incrementalCompiler.compile(inputs, compileInputs.logger)
+    val compilation = incrementalCompiler.compile(inputs, compileInputs.logger)
+    PreviousResult.of(Optional.of(compilation.analysis()), Optional.of(compilation.setup()))
   }
 }

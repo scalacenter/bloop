@@ -1,22 +1,23 @@
 package bloop.engine
 
-final case class Project(name: String, dependencies: List[String])
+import bloop.Project
 
-sealed trait DAG[T]
-final case class Leaf[T](value: T) extends DAG[T]
-final case class Parent[T](value: T, children: List[DAG[T]]) extends DAG[T]
+sealed trait Dag[T]
+final case class Leaf[T](value: T) extends Dag[T]
+final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T]
 
-object DAG {
+object Dag {
   private[bloop] class RecursiveCycle(path: List[Project])
       extends Exception(s"Not a DAG, cycle detected in ${path.map(_.name).mkString(" -> ")} ")
-  def fromMap(projectsMap: Map[String, Project]): List[DAG[Project]] = {
-    val visited = new scala.collection.mutable.HashMap[Project, DAG[Project]]()
+
+  def fromMap(projectsMap: Map[String, Project]): List[Dag[Project]] = {
+    val visited = new scala.collection.mutable.HashMap[Project, Dag[Project]]()
     val visiting = new scala.collection.mutable.LinkedHashSet[Project]()
-    val dependees = new scala.collection.mutable.HashSet[DAG[Project]]()
+    val dependees = new scala.collection.mutable.HashSet[Dag[Project]]()
     val projects = projectsMap.values.toList
-    def loop(project: Project, dependee: Boolean): DAG[Project] = {
-      def markVisited(dag: DAG[Project]): DAG[Project] = { visited.+=(project -> dag); dag }
-      def register(dag: DAG[Project]): DAG[Project] = {
+    def loop(project: Project, dependee: Boolean): Dag[Project] = {
+      def markVisited(dag: Dag[Project]): Dag[Project] = { visited.+=(project -> dag); dag }
+      def register(dag: Dag[Project]): Dag[Project] = {
         if (dependee && !dependees.contains(dag)) dependees.+=(dag); dag
       }
 
@@ -48,8 +49,21 @@ object DAG {
     dags.filterNot(node => dependees.contains(node))
   }
 
-  def dfs[T](dag: DAG[T]): List[T] = {
-    def loop(dag: DAG[T], acc: List[T]): List[T] = {
+  def dagFor[T](dags: List[Dag[T]], target: T): Option[Dag[T]] = {
+    dags.foldLeft[Option[Dag[T]]](None) {
+      case (found: Some[Dag[T]], _) => found
+      case (acc, dag) =>
+        dag match {
+          case Leaf(value) if value == target => Some(dag)
+          case Leaf(value) => None
+          case Parent(value, children) if value == target => Some(dag)
+          case Parent(value, children) => dagFor(children, target)
+        }
+    }
+  }
+
+  def dfs[T](dag: Dag[T]): List[T] = {
+    def loop(dag: Dag[T], acc: List[T]): List[T] = {
       dag match {
         case Leaf(value) => value :: acc
         case Parent(value, children) =>
@@ -62,7 +76,8 @@ object DAG {
     // Inefficient, but really who cares?
     loop(dag, Nil).distinct.reverse
   }
-  def toDotGraph(dags: List[DAG[Project]]): String = {
+
+  def toDotGraph(dags: List[Dag[Project]]): String = {
     val projects = dags.flatMap(dfs)
     val nodes = projects.map(node => s"""${node.name} [label="${node.name}"];""")
     val edges = projects.flatMap(n => n.dependencies.map(p => s"${n.name} -> $p;"))
