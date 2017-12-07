@@ -86,9 +86,10 @@ object Project {
   def fromFile(config: AbsolutePath, logger: Logger): Project = {
     logger.debug(s"Loading project from '$config'")
     val configFilepath = config.underlying
-    val inputStream = Files.newInputStream(configFilepath)
     val properties = new Properties()
-    properties.load(inputStream)
+    val inputStream = Files.newInputStream(configFilepath)
+    try properties.load(inputStream)
+    finally inputStream.close
     val project = fromProperties(properties)
     val previousResult = {
       val analysisFile =
