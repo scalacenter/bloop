@@ -30,6 +30,7 @@ object IntegrationTestSuite extends DynTest {
 
   private def testProject(testDirectory: Path, logger: Logger): Unit = {
     val rootProjectName = "bloop-test-root"
+    val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"rootProjectName"))
     val classesDir = AbsolutePath(testDirectory)
     val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString, logger)
     val previousProjects = state0.build.projects
@@ -50,7 +51,7 @@ object IntegrationTestSuite extends DynTest {
     )
 
     val state = state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
-    val reachable = Dag.dfs(state.build.getDagFor(rootProject))
+    val reachable = Dag.dfs(state.build.getDagFor(rootProject)).filter(_ != rootProject)
     reachable.foreach(removeClassFiles)
     assert(reachable.forall(p => ProjectHelpers.noPreviousResult(p, state)))
 

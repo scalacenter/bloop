@@ -10,7 +10,7 @@ object TestTasks {
   import bloop.cli.ExitStatus
   import bloop.engine.{State, Dag}
   def pickTestProject(projectName: String, state: State): Option[Project] = {
-    state.build.getProjectFor(projectName).orElse(state.build.getProjectFor(s"${projectName}-test"))
+    state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
 
   private[bloop] val eventHandler =

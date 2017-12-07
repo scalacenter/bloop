@@ -59,7 +59,8 @@ object TestTaskTest extends DynTest {
         val discovered = TestTasks.discoverTests(testAnalysis, frameworks).toList
         val toRun = discovered.flatMap {
           case (framework, taskDefs) =>
-            val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(s"${framework}Test"))
+            val testName = s"${framework.name()}Test"
+            val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
             if (filteredDefs.isEmpty) Nil
             else {
               val runner = TestInternals.getRunner(framework, testLoader)
@@ -68,7 +69,6 @@ object TestTaskTest extends DynTest {
             }
         }
 
-        assert(toRun.size == 1)
         toRun.foreach(thunk => thunk())
       }
     }

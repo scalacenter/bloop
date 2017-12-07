@@ -39,18 +39,30 @@ object CompileTasks {
       List(project)
     }
 
+    def compileTask(project: Project) =
+      new Task((_: Seq[Project]) => runCompilation(project), () => ())(Mergeable.SeqMergeable)
+
     import bloop.engine.{Leaf, Parent}
+    val visitedTasks = scala.collection.mutable.HashMap[Dag[Project], Task[Seq[Project]]]()
     def constructTaskGraph(dag: Dag[Project]): Task[Seq[Project]] = {
-      def compileTask(project: Project) =
-        new Task((_: Seq[Project]) => runCompilation(project), () => ())(Mergeable.SeqMergeable)
-      dag match {
-        case Leaf(project) => compileTask(project)
-        case Parent(project, children) =>
-          val childrenCompilations = children.map(constructTaskGraph)
-          val parentCompilation = compileTask(project)
-          childrenCompilations.foldLeft(parentCompilation) {
-            case (task, childrenTask) => task.dependsOn(childrenTask); task
-          }
+      def createTask: Task[Seq[Project]] = {
+        dag match {
+          case Leaf(project) => compileTask(project)
+          case Parent(project, children) =>
+            val childrenCompilations = children.map(constructTaskGraph)
+            val parentCompilation = compileTask(project)
+            childrenCompilations.foldLeft(parentCompilation) {
+              case (task, childrenTask) => task.dependsOn(childrenTask); task
+            }
+        }
+      }
+
+      visitedTasks.get(dag) match {
+        case Some(task) => task
+        case None =>
+          val task = createTask
+          visitedTasks.put(dag, task)
+          task
       }
     }
 
