@@ -26,7 +26,7 @@ object CompilationTaskTest extends TestSuite {
                                  dependencies: Map[String, Set[String]],
                                  scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
                                  logger: Logger)(afterCompile: State => Unit = (_ => ())) = {
-    withState(structures, dependencies, scalaInstance = scalaInstance) { (state: State) =>
+    withState(structures, dependencies, logger, scalaInstance = scalaInstance) { (state: State) =>
       // Check that this is a clean compile!
       val projects = state.build.projects
       assert(projects.forall(p => noPreviousResult(p, state)))

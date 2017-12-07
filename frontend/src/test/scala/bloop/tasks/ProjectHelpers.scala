@@ -70,14 +70,16 @@ object ProjectHelpers {
   def withState[T](
       projectStructures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
-      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance)(op: State => T): T = {
+      logger: Logger,
+      scalaInstance: ScalaInstance
+  )(op: State => T): T = {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
           makeProject(temp, name, sources, dependencies.getOrElse(name, Set.empty), scalaInstance)
       }
       val build = Build(AbsolutePath(temp), projects.toList)
-      val state = State(build, Logger.get)
+      val state = State(build, logger)
       op(state)
     }
   }

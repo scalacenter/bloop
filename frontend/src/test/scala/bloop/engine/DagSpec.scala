@@ -6,8 +6,6 @@ import guru.nidi.graphviz.parse.Parser
 
 class DagSpec {
   private object TestProjects {
-    import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
-    import java.util.Optional
     private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array())
     private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
 
@@ -25,7 +23,7 @@ class DagSpec {
     val f = dummyProject("f", List("d"))
     val complete = List(a, b, c, d, e, f)
     val g = dummyProject("g", List("g"))
-    val recurisve = List(a, b, c, d, e, f)
+    val recursive = List(a, b, c, d, e, f)
     val h = dummyProject("h", List("i"))
     val i = dummyProject("i", List("h"))
   }
@@ -57,7 +55,6 @@ class DagSpec {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
     val dags = Dag.fromMap(projectsMap)
 
-    println(Dag.toDotGraph(dags))
     assert(dags.size == 3)
     checkLeaf(dags.head, TestProjects.e)
     checkParent(dags.tail.head, TestProjects.f)
@@ -95,5 +92,30 @@ class DagSpec {
     val dotContents = Dag.toDotGraph(dags)
     Parser.read(dotContents)
     ()
+  }
+
+  @Test def EmptyDfs(): Unit = {
+    val dags = Dag.fromMap(Map())
+    val dfss = dags.map(dag => Dag.dfs(dag))
+    assert(dfss.isEmpty, "DFS for empty dag is empty")
+  }
+
+  @Test def SimpleDfs(): Unit = {
+    import TestProjects.a
+    val projectsMap = List(a.name -> a).toMap
+    val dags = Dag.fromMap(projectsMap)
+    val dfss = dags.map(dag => Dag.dfs(dag))
+    assert(dfss.size == 1)
+    assert(dfss.head == List(a), s"DFS for simple dag does not contain $a")
+  }
+
+  @Test def CompleteDfs(): Unit = {
+    val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
+    val dags = Dag.fromMap(projectsMap)
+    val dfss = dags.map(dag => Dag.dfs(dag))
+    assert(dfss.size == 3)
+    assert(dfss.head == List(TestProjects.e))
+    assert(dfss.tail.head == List(TestProjects.f, TestProjects.d, TestProjects.c, TestProjects.a))
+    assert(dfss.tail.tail.head == List(TestProjects.b, TestProjects.a))
   }
 }
