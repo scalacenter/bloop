@@ -2,8 +2,16 @@ package bloop.io
 
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileSystems, FileVisitResult, FileVisitor, Files, Path}
-import java.nio.file.{Paths => NioPaths}
+import java.nio.file.{
+  FileSystems,
+  FileVisitOption,
+  FileVisitResult,
+  FileVisitor,
+  Files,
+  Path,
+  Paths => NioPaths
+}
+import java.util
 
 import io.github.soc.directories.ProjectDirectories
 
@@ -43,7 +51,10 @@ object Paths {
       override def visitFileFailed(file: Path, exception: IOException): FileVisitResult =
         FileVisitResult.CONTINUE
     }
-    Files.walkFileTree(base.underlying, visitor)
+    Files.walkFileTree(base.underlying,
+                       util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+                       Int.MaxValue,
+                       visitor)
     out.toArray
   }
 }
