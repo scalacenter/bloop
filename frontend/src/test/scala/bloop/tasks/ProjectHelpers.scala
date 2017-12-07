@@ -64,7 +64,7 @@ object ProjectHelpers {
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = Project.fromDir(configDirectory, logger).map(rebase(testBaseDirectory, _))
     val build = Build(configDirectory, loadedProjects)
-    State(build, logger)
+    State.forTests(build, CompilationHelpers.compilerCache, logger)
   }
 
   def withState[T](
@@ -79,7 +79,7 @@ object ProjectHelpers {
           makeProject(temp, name, sources, dependencies.getOrElse(name, Set.empty), scalaInstance)
       }
       val build = Build(AbsolutePath(temp), projects.toList)
-      val state = State(build, logger)
+      val state = State.forTests(build, CompilationHelpers.compilerCache, logger)
       op(state)
     }
   }

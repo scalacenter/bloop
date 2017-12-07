@@ -12,8 +12,7 @@ import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 object CompileTasks {
   import bloop.engine.State
   def compile(state: State, project: Project, reporterConfig: ReporterConfig): State = {
-    import State.compilerCache
-    import state.logger
+    import state.{logger, compilerCache}
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
       val instance = project.scalaInstance
       val sourceDirs = project.sourceDirectories

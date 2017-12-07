@@ -9,6 +9,7 @@ import bloop.logging.Logger
 final case class State private (
     build: Build,
     results: ResultsCache,
+    compilerCache: CompilerCache,
     status: ExitStatus,
     logger: Logger
 ) {
@@ -26,9 +27,13 @@ object State {
     new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), Logger.get)
   }
 
+  private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
+    State(build, ResultsCache.empty, compilerCache, ExitStatus.Ok, logger)
+  }
+
   // Improve the caching by using file metadata
   def apply(build: Build, logger: Logger): State = {
-    val initialState = State(build, ResultsCache.empty, ExitStatus.Ok, logger)
+    val initialState = State(build, ResultsCache.empty, compilerCache, ExitStatus.Ok, logger)
     val initializedResults = build.projects.foldLeft(initialState.results) {
       case (results, project) => results.initializeResult(project)
     }
