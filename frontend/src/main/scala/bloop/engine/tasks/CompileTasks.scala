@@ -28,17 +28,19 @@ object CompileTasks {
     }
 
     type Results = Map[Project, PreviousResult]
-    def runCompilation(project: Project): Results = {
+    def runCompilation(project: Project, rs: Results): Results = {
       val previousResult = state.results
         .getResult(project)
         .getOrElse(sys.error("Results cache was not initialized"))
       val inputs = toInputs(project, reporterConfig, previousResult)
-      Map(project -> Compiler.compile(inputs))
+      val result = Compiler.compile(inputs)
+      rs + (project -> result)
     }
 
     import bloop.engine.{Leaf, Parent}
     val visitedTasks = scala.collection.mutable.HashMap[Dag[Project], Task[Results]]()
-    def compileTask(project: Project) = new Task((_: Results) => runCompilation(project), () => ())
+    def compileTask(project: Project) =
+      new Task((rs: Results) => runCompilation(project, rs), () => ())
     def constructTaskGraph(dag: Dag[Project]): Task[Results] = {
       def createTask: Task[Results] = {
         dag match {
@@ -70,6 +72,7 @@ object CompileTasks {
     Await.result(taskGraph.run()(state.executionContext), Duration.Inf) match {
       case Task.Success(results) => updateState(state, results)
       case Task.Failure(partial, reasons) =>
+        logger.error("Compilation failed because of the following reasons:")
         reasons.foreach(throwable => logger.trace(() => throwable))
         updateState(state, partial)
     }

@@ -43,7 +43,7 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
     else updateCache(project, fetchPreviousResult(project))
   }
 
-  override def toString: String = cache.mkString(", ")
+  override def toString: String = s"ResultsCache(${cache.mkString(", ")})"
 }
 
 object ResultsCache {

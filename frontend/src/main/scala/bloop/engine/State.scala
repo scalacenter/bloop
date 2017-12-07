@@ -28,17 +28,19 @@ object State {
   }
 
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
-    State(build, ResultsCache.empty, compilerCache, ExitStatus.Ok, logger)
+    val initializedResults = build.projects.foldLeft(ResultsCache.empty) {
+      case (results, project) => results.initializeResult(project)
+    }
+    State(build, initializedResults, compilerCache, ExitStatus.Ok, logger)
   }
 
   // Improve the caching by using file metadata
   def apply(build: Build, logger: Logger): State = {
-    val initialState = State(build, ResultsCache.empty, compilerCache, ExitStatus.Ok, logger)
-    val initializedResults = build.projects.foldLeft(initialState.results) {
+    val initializedResults = build.projects.foldLeft(ResultsCache.empty) {
       case (results, project) => results.initializeResult(project)
     }
 
-    val stateToCache = initialState.copy(results = initializedResults)
+    val stateToCache = State(build, initializedResults, compilerCache, ExitStatus.Ok, logger)
     stateCache.updateBuild(state = stateToCache)
     stateToCache
   }
