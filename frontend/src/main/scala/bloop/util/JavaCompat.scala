@@ -20,11 +20,4 @@ object JavaCompat {
   implicit class EnrichOption[T](option: Option[T]) {
     def toOptional: Optional[T] = InterfaceUtil.toOptional(option)
   }
-
-  implicit class EnrichSAM[T, R](f: T => R) {
-    import java.util.function.Function
-    def toJava: Function[T, R] = new Function[T, R] {
-      def apply(t: T): R = f(t)
-    }
-  }
 }

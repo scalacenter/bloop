@@ -7,18 +7,18 @@ final case class Leaf[T](value: T) extends Dag[T]
 final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T]
 
 object Dag {
-  private[bloop] class RecursiveCycle(path: List[Project])
+  class RecursiveCycle(path: List[Project])
       extends Exception(s"Not a DAG, cycle detected in ${path.map(_.name).mkString(" -> ")} ")
 
   def fromMap(projectsMap: Map[String, Project]): List[Dag[Project]] = {
     val visited = new scala.collection.mutable.HashMap[Project, Dag[Project]]()
     val visiting = new scala.collection.mutable.LinkedHashSet[Project]()
-    val dependees = new scala.collection.mutable.HashSet[Dag[Project]]()
+    val dependents = new scala.collection.mutable.HashSet[Dag[Project]]()
     val projects = projectsMap.values.toList
-    def loop(project: Project, dependee: Boolean): Dag[Project] = {
+    def loop(project: Project, dependent: Boolean): Dag[Project] = {
       def markVisited(dag: Dag[Project]): Dag[Project] = { visited.+=(project -> dag); dag }
       def register(dag: Dag[Project]): Dag[Project] = {
-        if (dependee && !dependees.contains(dag)) dependees.+=(dag); dag
+        if (dependent && !dependents.contains(dag)) dependents.+=(dag); dag
       }
 
       register {
@@ -46,7 +46,7 @@ object Dag {
 
     // Traverse through all the projects and only get the root nodes
     val dags = projects.map(loop(_, false))
-    dags.filterNot(node => dependees.contains(node))
+    dags.filterNot(node => dependents.contains(node))
   }
 
   def dagFor[T](dags: List[Dag[T]], target: T): Option[Dag[T]] = {

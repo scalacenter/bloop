@@ -28,24 +28,20 @@ object CompileTasks {
       // FORMAT: ON
     }
 
-    val results = new java.util.concurrent.ConcurrentHashMap[Project, PreviousResult]()
-    def runCompilation(project: Project): Seq[Project] = {
+    type Results = Map[Project, PreviousResult]
+    def runCompilation(project: Project): Results = {
       val previousResult = state.results
         .getResult(project)
         .getOrElse(sys.error("Results cache was not initialized"))
       val inputs = toInputs(project, reporterConfig, previousResult)
-      val result = Compiler.compile(inputs)
-      results.put(project, result)
-      List(project)
+      Map(project -> Compiler.compile(inputs))
     }
 
-    def compileTask(project: Project) =
-      new Task((_: Seq[Project]) => runCompilation(project), () => ())(Mergeable.SeqMergeable)
-
     import bloop.engine.{Leaf, Parent}
-    val visitedTasks = scala.collection.mutable.HashMap[Dag[Project], Task[Seq[Project]]]()
-    def constructTaskGraph(dag: Dag[Project]): Task[Seq[Project]] = {
-      def createTask: Task[Seq[Project]] = {
+    val visitedTasks = scala.collection.mutable.HashMap[Dag[Project], Task[Results]]()
+    def compileTask(project: Project) = new Task((_: Results) => runCompilation(project), () => ())
+    def constructTaskGraph(dag: Dag[Project]): Task[Results] = {
+      def createTask: Task[Results] = {
         dag match {
           case Leaf(project) => compileTask(project)
           case Parent(project, children) =>
@@ -66,20 +62,17 @@ object CompileTasks {
       }
     }
 
-    def updateState(state: State): State = {
-      import scala.collection.JavaConverters._
-      val updatedResults = results.asScala.iterator.foldLeft(state.results) {
-        case (results, (project, result)) => results.updateCache(project, result)
-      }
-      state.copy(results = updatedResults)
+    def updateState(state: State, results: Results): State = {
+      val cache = results.foldLeft(state.results) { case (rs, (p, r)) => rs.updateCache(p, r) }
+      state.copy(results = cache)
     }
 
     val taskGraph = constructTaskGraph(state.build.getDagFor(project))
     Await.result(taskGraph.run()(state.executionContext), Duration.Inf) match {
-      case _: Task.Success[_] => updateState(state)
+      case Task.Success(results) => updateState(state, results)
       case Task.Failure(partial, reasons) =>
         reasons.foreach(throwable => logger.trace(() => throwable))
-        updateState(state)
+        updateState(state, partial)
     }
   }
 
