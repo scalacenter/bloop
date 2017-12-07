@@ -42,6 +42,8 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
     if (cache.contains(project)) this
     else updateCache(project, fetchPreviousResult(project))
   }
+
+  override def toString: String = cache.mkString(", ")
 }
 
 object ResultsCache {
