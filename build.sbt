@@ -82,31 +82,6 @@ val frontend = project
     libraryDependencies += Dependencies.graphviz % Test,
   )
 
-// This is a playground for using Dotty and Dotty LSP in this project.
-val playground = project
-  .disablePlugins(ScriptedPlugin, ScalafmtPlugin, ScalafmtCorePlugin, ScalafmtSbtPlugin)
-  .settings(
-    scalaVersion := "0.5.0-bin-SNAPSHOT",
-    scalacOptions ++= {
-      if (isDotty.value) Seq("-language:Scala2") else Nil
-    },
-    update := {
-      update
-        .dependsOn(publishLocal in frontend)
-        .dependsOn(publishLocal in backend)
-        .value
-    },
-    libraryDependencies += "guru.nidi" % "graphviz-java" % "0.2.2" % "test",
-    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
-    libraryDependencies += {
-      val organization = (Keys.organization in frontend).value
-      val name = (Keys.moduleName in frontend).value
-      val version = (Keys.version in frontend).value
-      val scalaBinaryVersion = (Keys.scalaBinaryVersion in frontend).value
-      organization % s"${name}_$scalaBinaryVersion" % version
-    }
-  )
-
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
   .in(file("sbt-bloop"))
