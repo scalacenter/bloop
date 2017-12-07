@@ -79,8 +79,8 @@ object Dag {
 
   def toDotGraph(dags: List[Dag[Project]]): String = {
     val projects = dags.flatMap(dfs)
-    val nodes = projects.map(node => s"""${node.name} [label="${node.name}"];""")
-    val edges = projects.flatMap(n => n.dependencies.map(p => s"${n.name} -> $p;"))
+    val nodes = projects.map(node => s""""${node.name}" [label="${node.name}"];""")
+    val edges = projects.flatMap(n => n.dependencies.map(p => s""""${n.name}" -> "$p";"""))
     s"""digraph "project" {
        | graph [ranksep=0, rankdir=LR];
        |${nodes.mkString("  ", "\n  ", "\n  ")}
