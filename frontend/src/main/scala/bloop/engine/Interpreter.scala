@@ -25,7 +25,7 @@ object Interpreter {
       case Run(cmd: Commands.Compile, next) =>
         execute(next, logAndTime(cmd.cliOptions, compile(cmd, state)))
       case Run(cmd: Commands.Projects, next) =>
-        execute(next, logAndTime(cmd.cliOptions, showProjects(state)))
+        execute(next, logAndTime(cmd.cliOptions, showProjects(cmd, state)))
       case Run(cmd: Commands.Test, next) if cmd.prependCompile =>
         val compile = Commands.Compile(cmd.project, true, cmd.scalacstyle, cmd.cliOptions)
         execute(Run(compile, Run(cmd.copy(prependCompile = false), next)), state)
@@ -85,13 +85,19 @@ object Interpreter {
     }
   }
 
-  private def showProjects(state: State): State = {
-    // TODO: Pretty print output of show projects, please.
-    val configDirectory = state.build.origin.syntax
-    state.logger.info(s"Projects loaded from '$configDirectory':")
-    state.build.projects.map(_.name).sorted.foreach { projectName =>
-      state.logger.info(s" * $projectName")
+  private def showProjects(cmd: Commands.Projects, state: State): State = {
+    if (cmd.dotGraph) {
+      val contents = Dag.toDotGraph(state.build.dags)
+      printOut(contents, cmd.cliOptions.common)
+    } else {
+      // TODO: Pretty print output of show projects, please.
+      val configDirectory = state.build.origin.syntax
+      state.logger.info(s"Projects loaded from '$configDirectory':")
+      state.build.projects.map(_.name).sorted.foreach { projectName =>
+        state.logger.info(s" * $projectName")
+      }
     }
+
     state.mergeStatus(ExitStatus.Ok)
   }
 
