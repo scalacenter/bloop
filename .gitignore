@@ -13,5 +13,5 @@ bin/.scalafmt*
 target/
 *.config
 test-config.sbt
-frontend/src/test/resources/projects/*
+test
 base-directory
