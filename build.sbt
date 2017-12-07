@@ -82,7 +82,8 @@ val frontend = project
     libraryDependencies += Dependencies.graphviz % Test,
   )
 
-val rework = project
+// This is a playground for using Dotty and Dotty LSP in this project.
+val playground = project
   .disablePlugins(ScriptedPlugin, ScalafmtPlugin, ScalafmtCorePlugin, ScalafmtSbtPlugin)
   .settings(
     scalaVersion := "0.5.0-bin-SNAPSHOT",
