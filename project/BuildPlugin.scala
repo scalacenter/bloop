@@ -52,9 +52,9 @@ object BuildKeys {
   final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 
-  final val CompilerBenchmarkProject = RootProject(file(s"$AbsolutePath/compiler-benchmark"))
-  final val CompilerBenchmarkBuild = BuildRef(CompilerBenchmarkProject.build)
-  final val CompilerBenchmarkCompilation = ProjectRef(CompilerBenchmarkProject.build, "compilation")
+  final val BenchmarkBridgeProject = RootProject(file(s"$AbsolutePath/benchmark-bridge"))
+  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
+  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
@@ -180,9 +180,9 @@ object BuildImplementation {
         val extracted = sbt.Project.extract(hijackedState)
         val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
-        val allCompilerBenchmarkProjects =
-          buildStructure.allProjectRefs(BuildKeys.CompilerBenchmarkBuild.build)
-        val allProjects = allZincProjects ++ allNailgunProjects ++ allCompilerBenchmarkProjects
+        val allBenchmarkBridgeProjects =
+          buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
+        val allProjects = allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects
         val projectSettings = allProjects.flatMap(genProjectSettings)
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)

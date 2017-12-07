@@ -32,9 +32,9 @@ val nailgun = project
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
-val compilerBenchmark = project
-  .in(file(".compiler-benchmark-compilation"))
-  .aggregate(CompilerBenchmarkCompilation)
+val benchmarkBridge = project
+  .in(file(".benchmark-bridge-compilation"))
+  .aggregate(BenchmarkBridgeCompilation)
   .settings(
     skip in publish := true
   )
@@ -91,7 +91,7 @@ val frontend = project
   )
 
 val benchmarks = project
-  .dependsOn(frontend % "compile->test", CompilerBenchmarkCompilation % "compile->jmh")
+  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
   .enablePlugins(JmhPlugin)
   .settings(benchmarksSettings)
 
@@ -109,7 +109,7 @@ lazy val sbtBloop = project
     BuildDefaults.scriptedSettings(resourceDirectory in Test in frontend),
   )
 
-val allProjects = Seq(backend, frontend, sbtBloop)
+val allProjects = Seq(backend, benchmarks, frontend, sbtBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))

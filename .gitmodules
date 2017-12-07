@@ -22,6 +22,6 @@
 	branch = bloop
 	ignore = dirty
 [submodule "compiler-benchmark"]
-	path = compiler-benchmark
+	path = benchmark-bridge
 	url = https://github.com/scalacenter/compiler-benchmark
 	branch = bloop
