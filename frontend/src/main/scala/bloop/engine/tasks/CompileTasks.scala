@@ -54,18 +54,20 @@ object CompileTasks {
       }
     }
 
-    import scala.collection.JavaConverters._
-    val taskGraph = constructTaskGraph(state.build.getDagFor(project))
-    val updatedResults = results.asScala.iterator.foldLeft(state.results) {
-      case (results, (project, result)) => results.updateCache(project, result)
+    def updateState(state: State): State = {
+      import scala.collection.JavaConverters._
+      val updatedResults = results.asScala.iterator.foldLeft(state.results) {
+        case (results, (project, result)) => results.updateCache(project, result)
+      }
+      state.copy(results = updatedResults)
     }
 
-    val updatedState = state.copy(results = updatedResults)
-    Await.result(taskGraph.run()(updatedState.executionContext), Duration.Inf) match {
-      case _: Task.Success[_] => updatedState
+    val taskGraph = constructTaskGraph(state.build.getDagFor(project))
+    Await.result(taskGraph.run()(state.executionContext), Duration.Inf) match {
+      case _: Task.Success[_] => updateState(state)
       case Task.Failure(partial, reasons) =>
         reasons.foreach(throwable => logger.trace(() => throwable))
-        updatedState
+        updateState(state)
     }
   }
 
