@@ -52,6 +52,10 @@ object BuildKeys {
   final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 
+  final val BenchmarkBridgeProject = RootProject(file(s"$AbsolutePath/benchmark-bridge"))
+  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
+  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
+
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
     val zincVersion = Keys.version in ZincRoot
@@ -67,6 +71,35 @@ object BuildKeys {
   val testSettings: Seq[Def.Setting[_]] = List(
     Keys.libraryDependencies += Dependencies.utest,
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+  )
+
+  import sbtassembly.AssemblyKeys
+  val assemblySettings: Seq[Def.Setting[_]] = List(
+    Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
+    Keys.test in AssemblyKeys.assembly := {}
+  )
+
+  val benchmarksSettings: Seq[Def.Setting[_]] = List(
+    Keys.skip in Keys.publish := true,
+    Keys.javaOptions ++= {
+      def refOf(version: String) = {
+        val HasSha = """.*(?:bin|pre)-([0-9a-f]{7,})(?:-.*)?""".r
+        version match {
+          case HasSha(sha) => sha
+          case _ => "v" + version
+        }
+      }
+      List(
+        "-DscalaVersion=" + Keys.scalaVersion.value,
+        "-DscalaRef=" + refOf(Keys.scalaVersion.value),
+        "-Dsbt.launcher=" + (sys
+          .props("java.class.path")
+          .split(java.io.File.pathSeparatorChar)
+          .find(_.contains("sbt-launch"))
+          .getOrElse("")),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value
+      )
+    }
   )
 }
 
@@ -147,7 +180,9 @@ object BuildImplementation {
         val extracted = sbt.Project.extract(hijackedState)
         val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
-        val allProjects = allZincProjects ++ allNailgunProjects
+        val allBenchmarkBridgeProjects =
+          buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
+        val allProjects = allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects
         val projectSettings = allProjects.flatMap(genProjectSettings)
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)

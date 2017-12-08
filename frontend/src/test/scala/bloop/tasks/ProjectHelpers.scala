@@ -31,11 +31,15 @@ object ProjectHelpers {
   }
 
   def loadTestProject(name: String, logger: Logger): Map[String, Project] = {
-    val base = getClass.getClassLoader.getResources(s"projects/$name") match {
+    val projectsBase = getClass.getClassLoader.getResources("projects") match {
       case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
       case _ => throw new Exception("No projects to test?")
     }
+    loadTestProject(projectsBase, name, logger)
+  }
 
+  def loadTestProject(projectsBase: Path, name: String, logger: Logger): Map[String, Project] = {
+    val base = projectsBase.resolve(name)
     val configDir = base.resolve("bloop-config")
     val baseDirectoryFile = configDir.resolve("base-directory")
     assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
