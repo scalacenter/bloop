@@ -21,7 +21,7 @@ final case class State private (
 
 object State {
   private[bloop] val stateCache: StateCache = StateCache.empty
-  private[bloop] val compilerCache: CompilerCache = {
+  private[bloop] lazy val compilerCache: CompilerCache = {
     import sbt.internal.inc.bloop.ZincInternals
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
     new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), Logger.get)

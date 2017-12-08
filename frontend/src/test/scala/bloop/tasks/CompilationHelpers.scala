@@ -23,7 +23,7 @@ object CompilationHelpers {
   private val ScriptedResolver: Resolver =
     Resolver.file(ScriptedResolverId, ScriptedResolveCacheDir)(Resolver.ivyStylePatterns)
 
-  final val compilerCache: CompilerCache = {
+  final lazy val compilerCache: CompilerCache = {
     val scalaJarsPath = Paths.getCacheDirectory("scala-jars")
     new CompilerCache(componentProvider, scalaJarsPath, Logger.get, List(ScriptedResolver))
   }
