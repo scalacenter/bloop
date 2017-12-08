@@ -134,7 +134,7 @@ object Cli {
 
     import bloop.engine.{State, Build}
     def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
-      State.stateCache.getBuildFor(configDirectory) match {
+      State.stateCache.getStateFor(configDirectory) match {
         case Some(state) => state
         case None =>
           State.stateCache.addIfMissing(configDirectory, path => {
