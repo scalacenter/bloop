@@ -32,6 +32,13 @@ val nailgun = project
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
+val benchmarkBridge = project
+  .in(file(".benchmark-bridge-compilation"))
+  .aggregate(BenchmarkBridgeCompilation)
+  .settings(
+    skip in publish := true
+  )
+
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
@@ -72,6 +79,7 @@ val frontend = project
   .dependsOn(backend)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
+  .settings(assemblySettings)
   .settings(
     name := "bloop",
     mainClass in Compile in run := Some("bloop.Cli"),
@@ -81,6 +89,11 @@ val frontend = project
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     libraryDependencies += Dependencies.graphviz % Test
   )
+
+val benchmarks = project
+  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
+  .enablePlugins(JmhPlugin)
+  .settings(benchmarksSettings)
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
@@ -96,7 +109,7 @@ lazy val sbtBloop = project
     BuildDefaults.scriptedSettings(resourceDirectory in Test in frontend),
   )
 
-val allProjects = Seq(backend, frontend, sbtBloop)
+val allProjects = Seq(backend, benchmarks, frontend, sbtBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
