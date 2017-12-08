@@ -49,7 +49,7 @@ class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[
 
   private def postExecution(result: Task.Result[T]): Unit = {
     dependents.foreach { dep =>
-      dep.inputs += result
+      dep.inputs.synchronized(dep.inputs += result)
       dep.semaphore.release()
     }
     onComplete()
