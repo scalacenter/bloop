@@ -5,12 +5,12 @@ import java.nio.charset.Charset
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
+import bloop.engine.{Build, State}
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 
 object ProjectHelpers {
-
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
@@ -26,11 +26,11 @@ object ProjectHelpers {
       classesDir = work(project.classesDir),
       sourceDirectories = project.sourceDirectories.map(work),
       tmp = work(project.tmp),
-      origin = project.origin.map(work)
+      bloopConfigDir = work(project.bloopConfigDir)
     )
   }
 
-  def loadTestProject(name: String, logger: Logger): Map[String, Project] = {
+  def loadTestProject(name: String, logger: Logger): State = {
     val projectsBase = getClass.getClassLoader.getResources("projects") match {
       case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
       case _ => throw new Exception("No projects to test?")
@@ -38,7 +38,7 @@ object ProjectHelpers {
     loadTestProject(projectsBase, name, logger)
   }
 
-  def loadTestProject(projectsBase: Path, name: String, logger: Logger): Map[String, Project] = {
+  def loadTestProject(projectsBase: Path, name: String, logger: Logger): State = {
     val base = projectsBase.resolve(name)
     val configDir = base.resolve("bloop-config")
     val baseDirectoryFile = configDir.resolve("base-directory")
@@ -48,10 +48,10 @@ object ProjectHelpers {
       assert(!contents.isEmpty)
       contents.get(0)
     }
+
     def rebase(baseDirectory: String, proj: Project) = {
       // We need to remove the `/private` prefix that's SOMETIMES present in OSX (!??!)
       val testBaseDirectory = Paths.get(baseDirectory.stripPrefix("/private"))
-
       val proj0 = ProjectHelpers.rebase(Paths.get("/private"), Paths.get(""), proj)
 
       // Rebase the scala instance if it comes from sbt's boot directory
@@ -65,29 +65,33 @@ object ProjectHelpers {
       proj2
     }
 
-    val loadedProjects = Project.fromDir(AbsolutePath(configDir), logger)
-    loadedProjects.mapValues(rebase(testBaseDirectory, _))
+    val configDirectory = AbsolutePath(configDir)
+    val loadedProjects = Project.fromDir(configDirectory, logger).map(rebase(testBaseDirectory, _))
+    val build = Build(configDirectory, loadedProjects)
+    State.forTests(build, CompilationHelpers.compilerCache, logger)
   }
 
-  def withProjects[T](projectStructures: Map[String, Map[String, String]],
-                      dependencies: Map[String, Set[String]],
-                      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance)(
-      op: Map[String, Project] => T): T = {
+  def withState[T](
+      projectStructures: Map[String, Map[String, String]],
+      dependencies: Map[String, Set[String]],
+      logger: Logger,
+      scalaInstance: ScalaInstance
+  )(op: State => T): T = {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
-          val deps = dependencies.getOrElse(name, Set.empty)
-          name -> makeProject(temp, name, sources, deps, scalaInstance)
+          makeProject(temp, name, sources, dependencies.getOrElse(name, Set.empty), scalaInstance)
       }
-      op(projects)
+      val build = Build(AbsolutePath(temp), projects.toList)
+      val state = State.forTests(build, CompilationHelpers.compilerCache, logger)
+      op(state)
     }
   }
 
-  def noPreviousResult(project: Project): Boolean = !hasPreviousResult(project)
-  def hasPreviousResult(project: Project): Boolean = {
-    project.previousResult.analysis.isPresent &&
-    project.previousResult.setup.isPresent
-  }
+  def noPreviousResult(project: Project, state: State): Boolean =
+    !hasPreviousResult(project, state)
+  def hasPreviousResult(project: Project, state: State): Boolean =
+    state.results.getResult(project).exists(_.analysis().isPresent)
 
   def makeProject(baseDir: Path,
                   name: String,
@@ -114,10 +118,9 @@ object ProjectHelpers {
       scalacOptions = Array.empty,
       javacOptions = Array.empty,
       sourceDirectories = sourceDirectories,
-      previousResult = CompilationHelpers.emptyPreviousResult,
       testFrameworks = Array.empty,
       tmp = AbsolutePath(tempDir),
-      origin = None
+      bloopConfigDir = AbsolutePath(baseDirectory) // This means nothing in tests
     )
   }
 

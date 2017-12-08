@@ -41,14 +41,12 @@ class HotBloopBenchmark {
     val configDir = Files.createDirectory(tempDir.resolve(".bloop-config"))
 
     val path = Paths.get(s"../frontend/src/test/resources/projects")
-    val projects = ProjectHelpers.loadTestProject(path, project, Logger.get)
-
-    projects.foreach {
-      case (name, project) =>
-        val outPath = configDir.resolve(s"$name.config")
-        val stream = new FileOutputStream(outPath.toFile)
-        try project.toProperties.store(stream, null)
-        finally stream.close()
+    val state = ProjectHelpers.loadTestProject(path, project, Logger.get)
+    state.build.projects.foreach { project =>
+      val outPath = configDir.resolve(s"${project.name}.config")
+      val stream = new FileOutputStream(outPath.toFile)
+      try project.toProperties.store(stream, null)
+      finally stream.close()
     }
 
     val bloopJarPath = System.getProperty("bloop.jar")

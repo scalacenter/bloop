@@ -124,5 +124,37 @@ object Cli {
     }
   }
 
-  def run(action: Action, logger: Logger): ExitStatus = Interpreter.execute(action, logger)
+  def run(action: Action, logger: Logger): ExitStatus = {
+    import bloop.io.AbsolutePath
+    def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
+      cliOptions.configDir
+        .map(AbsolutePath.apply)
+        .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
+    }
+
+    import bloop.engine.{State, Build}
+    def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
+      State.stateCache.getStateFor(configDirectory) match {
+        case Some(state) => state
+        case None =>
+          State.stateCache.addIfMissing(configDirectory, path => {
+            val projects = Project.fromDir(configDirectory, logger)
+            val build: Build = Build(configDirectory, projects)
+            State(build, logger)
+          })
+      }
+    }
+
+    val cliOptions = action match {
+      case e: Exit => CliOptions.default
+      case p: Print => CliOptions.default
+      case r: Run => r.command.cliOptions
+    }
+
+    val configDirectory = getConfigDir(cliOptions)
+    val state = loadStateFor(configDirectory, logger)
+    val newState = Interpreter.execute(action, state)
+    State.stateCache.updateBuild(newState)
+    newState.status
+  }
 }

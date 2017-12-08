@@ -87,7 +87,8 @@ val frontend = project
     buildInfoKeys := BloopInfoKeys,
     fork in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
-    parallelExecution in Test := false
+    libraryDependencies += Dependencies.graphviz % Test,
+    parallelExecution in test := false,
   )
 
 val benchmarks = project

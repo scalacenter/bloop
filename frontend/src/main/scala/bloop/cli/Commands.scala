@@ -1,6 +1,6 @@
 package bloop.cli
 
-import caseapp.{ExtraName, HelpMessage, Recurse}
+import caseapp.{ExtraName, HelpMessage, Hidden, Recurse}
 
 object Commands {
   sealed trait Command {
@@ -27,7 +27,13 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
-  case class Projects(@Recurse cliOptions: CliOptions = CliOptions.default) extends Command
+  case class Projects(
+      @ExtraName("dot")
+      @HelpMessage(
+        "If set, prints out the contents of a dot graph you can pipe into `dot`. Defaults to false")
+      dotGraph: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends Command
 
   case class Test(
       @ExtraName("p")
@@ -39,6 +45,7 @@ object Commands {
       @HelpMessage(
         "If set, displays compilation message following scalac's style. Defaults to false.")
       scalacstyle: Boolean = false,
+      @Hidden prependCompile: Boolean = true,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

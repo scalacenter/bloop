@@ -14,8 +14,6 @@ import sbt.internal.inc.bloop.ZincInternals
 import sbt.librarymanagement.Resolver
 
 object CompilationHelpers {
-  final val emptyPreviousResult =
-    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
   final val componentProvider =
     ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
 

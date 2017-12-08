@@ -1,17 +1,15 @@
 package bloop.tasks
 
 import utest._
-
 import bloop.{Project, ScalaInstance}
-import bloop.engine.ExecutionContext.threadPool
-import ProjectHelpers._
+import bloop.cli.{Commands, ExitStatus}
+import bloop.engine.{Exit, Interpreter, Run, State}
 import bloop.logging.Logger
-import bloop.reporter.ReporterConfig
 
 object CompilationTaskTest extends TestSuite {
   private val logger = Logger.get
 
-  private val ProjectNameToCompile = "target-project"
+  private val ProjectToCompile = "target-project"
   object ArtificialSources {
     val `A.scala` = "package p0\nclass A"
     val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
@@ -20,30 +18,34 @@ object CompilationTaskTest extends TestSuite {
     val `C2.scala` = "package p2\nimport p0.A\nobject C extends A"
   }
 
-  def checkAfterCleanCompilation(
-      structures: Map[String, Map[String, String]],
-      dependencies: Map[String, Set[String]],
-      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
-      logger: Logger)(afterCompile: Map[String, Project] => Unit = (_ => ())) = {
-    withProjects(structures, dependencies, scalaInstance = scalaInstance) { projects =>
+  def getProject(name: String, state: State): Project =
+    state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
+
+  import ProjectHelpers.{withState, noPreviousResult, hasPreviousResult}
+  def checkAfterCleanCompilation(structures: Map[String, Map[String, String]],
+                                 dependencies: Map[String, Set[String]],
+                                 scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
+                                 logger: Logger)(afterCompile: State => Unit = (_ => ())) = {
+    withState(structures, dependencies, logger, scalaInstance = scalaInstance) { (state: State) =>
       // Check that this is a clean compile!
-      assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
-      val project = projects(ProjectNameToCompile)
-      val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
-      val newProjects = tasks.parallelCompile(project, ReporterConfig.defaultFormat)
-      afterCompile(newProjects)
+      val projects = state.build.projects
+      assert(projects.forall(p => noPreviousResult(p, state)))
+      val project = getProject(ProjectToCompile, state)
+      val action = Run(Commands.Compile(ProjectToCompile, incremental = true), Exit(ExitStatus.Ok))
+      val compiledState = Interpreter.execute(action, state)
+      afterCompile(compiledState)
     }
   }
 
   val tests = Tests {
     "compile an empty project" - {
       logger.quietIfSuccess { logger =>
-        val projectStructures = Map(ProjectNameToCompile -> Map.empty[String, String])
+        val projectStructures = Map(ProjectToCompile -> Map.empty[String, String])
         val dependencies = Map.empty[String, Set[String]]
         checkAfterCleanCompilation(projectStructures, dependencies, logger = logger) {
-          (projects: Map[String, Project]) =>
-            val targetProject = projects(ProjectNameToCompile)
-            assert(hasPreviousResult(targetProject))
+          (state: State) =>
+            val targetProject = getProject(ProjectToCompile, state)
+            assert(hasPreviousResult(targetProject, state))
         }
       }
     }
@@ -73,13 +75,13 @@ object CompilationTaskTest extends TestSuite {
       logger.quietIfSuccess { logger =>
         val projectsStructure = Map(
           "parent" -> Map("A.scala" -> ArtificialSources.`A.scala`),
-          ProjectNameToCompile -> Map("B.scala" -> ArtificialSources.`B.scala`)
+          ProjectToCompile -> Map("B.scala" -> ArtificialSources.`B.scala`)
         )
 
-        val dependencies = Map(ProjectNameToCompile -> Set("parent"))
+        val dependencies = Map(ProjectToCompile -> Set("parent"))
         checkAfterCleanCompilation(projectsStructure, dependencies, logger = logger) {
-          (projects: Map[String, Project]) =>
-            assert(projects.forall { case (_, prj) => hasPreviousResult(prj) })
+          (state: State) =>
+            assert(state.build.projects.forall(p => hasPreviousResult(p, state)))
         }
       }
     }
@@ -89,13 +91,13 @@ object CompilationTaskTest extends TestSuite {
         val projectsStructure = Map(
           "parent0" -> Map("A.scala" -> ArtificialSources.`A.scala`),
           "parent1" -> Map("B2.scala" -> ArtificialSources.`B2.scala`),
-          ProjectNameToCompile -> Map("C.scala" -> ArtificialSources.`C.scala`)
+          ProjectToCompile -> Map("C.scala" -> ArtificialSources.`C.scala`)
         )
 
-        val dependencies = Map(ProjectNameToCompile -> Set("parent0", "parent1"))
+        val dependencies = Map(ProjectToCompile -> Set("parent0", "parent1"))
         checkAfterCleanCompilation(projectsStructure, dependencies, logger = logger) {
-          (projects: Map[String, Project]) =>
-            assert(projects.forall { case (_, prj) => hasPreviousResult(prj) })
+          (state: State) =>
+            assert(state.build.projects.forall(p => hasPreviousResult(p, state)))
         }
       }
     }
@@ -105,26 +107,26 @@ object CompilationTaskTest extends TestSuite {
         val projectsStructures = Map(
           "parent" -> Map("A.scala" -> ArtificialSources.`A.scala`),
           "unrelated" -> Map("B2.scala" -> ArtificialSources.`B2.scala`),
-          ProjectNameToCompile -> Map("C.scala" -> ArtificialSources.`C2.scala`)
+          ProjectToCompile -> Map("C.scala" -> ArtificialSources.`C2.scala`)
         )
 
-        val dependencies = Map(ProjectNameToCompile -> Set("parent"))
+        val dependencies = Map(ProjectToCompile -> Set("parent"))
         checkAfterCleanCompilation(projectsStructures, dependencies, logger = logger) {
-          (projects: Map[String, Project]) =>
+          (state: State) =>
             // The unrelated project should not have been compiled
-            assert(noPreviousResult(projects("unrelated")))
-            assert(hasPreviousResult(projects("parent")))
-            assert(hasPreviousResult(projects(ProjectNameToCompile)))
+            assert(noPreviousResult(getProject("unrelated", state), state))
+            assert(hasPreviousResult(getProject("parent", state), state))
+            assert(hasPreviousResult(getProject(ProjectToCompile, state), state))
         }
       }
     }
 
     "There is no result when compilation fails" - {
       logger.quietIfError { logger =>
-        val projectsStructure = Map(ProjectNameToCompile -> Map("Error.scala" -> "iwontcompile"))
+        val projectsStructure = Map(ProjectToCompile -> Map("Error.scala" -> "iwontcompile"))
         checkAfterCleanCompilation(projectsStructure, Map.empty, logger = logger) {
-          (projects: Map[String, Project]) =>
-            assert(projects.forall { case (_, prj) => noPreviousResult(prj) })
+          (state: State) =>
+            assert(state.build.projects.forall(p => noPreviousResult(p, state)))
         }
       }
     }
@@ -132,7 +134,7 @@ object CompilationTaskTest extends TestSuite {
 
   private def simpleProject(scalaInstance: ScalaInstance, logger: Logger): Unit = {
     val dependencies = Map.empty[String, Set[String]]
-    val projectsStructure = Map(ProjectNameToCompile -> Map("A.scala" -> "object A"))
+    val projectsStructure = Map(ProjectToCompile -> Map("A.scala" -> "object A"))
     // Scala bug to report: removing `(_ => ())` fails to compile.
     checkAfterCleanCompilation(projectsStructure, dependencies, scalaInstance, logger)(_ => ())
   }

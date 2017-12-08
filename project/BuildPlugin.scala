@@ -23,11 +23,6 @@ object BuildPlugin extends AutoPlugin {
 object BuildKeys {
   import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
-  final val testDependencies = List(
-    "junit" % "junit" % "4.12" % "test",
-    "com.novocode" % "junit-interface" % "0.11" % "test"
-  )
-
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -67,10 +62,14 @@ object BuildKeys {
     commonKeys ++ List(zincKey, developersKey)
   }
 
+  import sbt.Test
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
   val testSettings: Seq[Def.Setting[_]] = List(
-    Keys.libraryDependencies += Dependencies.utest,
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+    Keys.libraryDependencies ++= List(
+      Dependencies.utest % Test,
+      Dependencies.junit % Test
+    ),
   )
 
   import sbtassembly.AssemblyKeys
@@ -158,7 +157,7 @@ object BuildImplementation {
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
       "-language:higherKinds" :: "-language:implicitConversions" :: "-unchecked" :: "-Yno-adapted-args" ::
-      "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: "-Xlint" :: Nil
+      "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
   object BuildDefaults {
