@@ -1,6 +1,7 @@
 package bloop.engine
 
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
+import bloop.io.{AbsolutePath, SourceWatcher}
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.engine.tasks.{CompileTasks, TestTasks}
@@ -26,9 +27,6 @@ object Interpreter {
         execute(next, logAndTime(cmd.cliOptions, compile(cmd, state)))
       case Run(cmd: Commands.Projects, next) =>
         execute(next, logAndTime(cmd.cliOptions, showProjects(cmd, state)))
-      case Run(cmd: Commands.Test, next) if cmd.prependCompile =>
-        val compile = Commands.Compile(cmd.project, true, cmd.scalacstyle, cmd.cliOptions)
-        execute(Run(compile, Run(cmd.copy(prependCompile = false), next)), state)
       case Run(cmd: Commands.Test, next) =>
         execute(next, logAndTime(cmd.cliOptions, test(cmd, state)))
     }
@@ -68,14 +66,25 @@ object Interpreter {
     ExitStatus.Ok
   }
 
+  private def watch(project: Project, state: State, f: State => State): State = {
+    val reachable = Dag.dfs(state.build.getDagFor(project))
+    val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
+    val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
+    watcher.watch(state, f)
+  }
+
   private def compile(cmd: Commands.Compile, state: State): State = {
     val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
     def runCompile(project: Project): State = {
-      if (cmd.incremental) {
+      def doCompile(state: State): State =
         CompileTasks.compile(state, project, reporterConfig).mergeStatus(ExitStatus.Ok)
+      if (cmd.incremental) {
+        if (!cmd.watch) doCompile(state)
+        else watch(project, state, doCompile _)
       } else {
         val newState = CompileTasks.clean(state, state.build.projects)
-        CompileTasks.compile(newState, project, reporterConfig).mergeStatus(ExitStatus.Ok)
+        if (!cmd.watch) doCompile(newState)
+        else watch(project, newState, doCompile _)
       }
     }
 
@@ -102,9 +111,21 @@ object Interpreter {
   }
 
   private def test(cmd: Commands.Test, state: State): State = {
+    def compileAndTest(state: State, project: Project): State = {
+      def run(state: State) = {
+        // Note that we always compile incrementally for test execution
+        val reporter = ReporterConfig.getDefault(cmd.scalacstyle)
+        val state1 = CompileTasks.compile(state, project, reporter)
+        TestTasks.test(state1, project, cmd.aggregate)
+      }
+
+      if (!cmd.watch) run(state)
+      else watch(project, state, run _)
+    }
+
     val projectToTest = TestTasks.pickTestProject(cmd.project, state)
     projectToTest match {
-      case Some(project) => TestTasks.test(state, project, cmd.aggregate)
+      case Some(project) => compileAndTest(state, project)
       case None => reportMissing(cmd.project :: Nil, state)
     }
   }

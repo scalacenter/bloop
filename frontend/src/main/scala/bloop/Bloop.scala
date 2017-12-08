@@ -42,7 +42,7 @@ object Bloop {
         run(Interpreter.execute(action, state))
 
       case Array("test", projectName) =>
-        val command = Commands.Test(projectName, prependCompile = false, aggregate = true)
+        val command = Commands.Test(projectName, aggregate = true)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
