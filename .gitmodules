@@ -26,3 +26,7 @@
 	url = https://github.com/scalacenter/compiler-benchmark
 	branch = bloop
   ignore = dirty
+[submodule "frontend/src/test/resources/projects/scala"]
+	path = frontend/src/test/resources/projects/scala
+	url = https://github.com/scalacenter/scala.git
+	branch = bloop
