@@ -12,6 +12,7 @@ object Dependencies {
   val junitVersion = "0.11"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.3.2"
+  val scalogVersion = "0.2.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
@@ -23,6 +24,7 @@ object Dependencies {
   val log4jApi = "org.apache.logging.log4j" % "log4j-api" % log4jVersion
   val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
+  val scalog =  "io.rbricks" %% "scalog-backend" % scalogVersion
 
   val utest = "com.lihaoyi" %% "utest" % "0.6.0"
   val junit = "com.novocode" % "junit-interface" % junitVersion
