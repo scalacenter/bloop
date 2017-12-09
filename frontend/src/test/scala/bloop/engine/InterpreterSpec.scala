@@ -2,25 +2,49 @@ package bloop.engine
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 
-import bloop.cli.{CliOptions, Commands, ExitStatus}
+import bloop.cli.{CliOptions, Commands}
 import bloop.tasks.ProjectHelpers
 import org.junit.Test
 import guru.nidi.graphviz.parse.Parser
 
 class InterpreterSpec {
-  @Test def ShowSbtProjects(): Unit = {
-    val state = ProjectHelpers.loadTestProject("sbt")
+  private final val state = ProjectHelpers.loadTestProject("sbt")
+
+  def changeOut(state: State): (CliOptions, ByteArrayOutputStream) = {
+    val inMemory = new ByteArrayOutputStream()
+    val newOut = new PrintStream(inMemory)
     val defaultCli = CliOptions.default
-    val memoryStream = new ByteArrayOutputStream()
-    val newOut = new PrintStream(memoryStream)
-    val cliOptions = defaultCli.copy(common = defaultCli.common.copy(out = newOut))
-    val action = Run(Commands.Projects(dotGraph = true, cliOptions), Exit(ExitStatus.Ok))
+    defaultCli.copy(common = state.commonOptions.copy(out = newOut)) -> inMemory
+  }
+
+  @Test def ShowDotGraphOfSbtProjects(): Unit = {
+    val (cliOptions, outStream) = changeOut(state)
+    val action = Run(Commands.Projects(dotGraph = true, cliOptions))
     Interpreter.execute(action, state)
 
-    newOut.flush() // Flush contents just in case
-    val dotGraph = memoryStream.toString("UTF-8")
+    val dotGraph = outStream.toString("UTF-8")
     val graph = Parser.read(dotGraph)
     assert(graph.isDirected, "Dot graph for sbt is not directed")
     ()
+  }
+
+  @Test def ShowProjectsInCustomCommonOptions(): Unit = {
+    val (cliOptions, outStream) = changeOut(state)
+    val action = Run(Commands.Projects(cliOptions = cliOptions))
+    Interpreter.execute(action, state)
+    val output = outStream.toString("UTF-8")
+    assert(output.contains("Projects loaded from"), "Loaded projects were not shown on the logger.")
+  }
+
+  @Test def ShowAbout(): Unit = {
+    val (cliOptions, outStream) = changeOut(state)
+    val action = Run(Commands.About(cliOptions = cliOptions))
+    Interpreter.execute(action, state)
+    val output = outStream.toString("UTF-8")
+    assert(output.contains("Bloop version"))
+    assert(output.contains("Zinc version"))
+    assert(output.contains("Scala version"))
+    assert(output.contains("maintained by"))
+    assert(output.contains("Scala Center"))
   }
 }

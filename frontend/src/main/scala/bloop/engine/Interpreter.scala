@@ -1,39 +1,54 @@
 package bloop.engine
 
 import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
-import bloop.io.{AbsolutePath, SourceWatcher}
+import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.engine.tasks.{CompileTasks, TestTasks}
 import bloop.Project
+import bloop.logging.BloopLogger
 
 object Interpreter {
-  def execute(action: Action, state: State): State = {
-    import state.logger
+  def execute(action: Action, state0: State): State = {
+    import state0.logger
     def logAndTime[T](cliOptions: CliOptions, action: => T): T =
-      logger.verboseIf(cliOptions.verbose) { timed(state.logger) { action } }
+      logger.verboseIf(cliOptions.verbose) { timed(state0.logger) { action } }
+    def updateState(state: State, commonOptions: CommonOptions): State = {
+      State.updateLogger(state.logger, commonOptions)
+      val logger = BloopLogger(state.logger.name)
+      state.copy(commonOptions = commonOptions, logger = logger)
+    }
+
     action match {
-      case Exit(exitStatus) if state.status.isOk => state.copy(status = exitStatus)
-      case Exit(exitStatus) => state
+      case Exit(exitStatus) if state0.status.isOk => state0.copy(status = exitStatus)
+      case Exit(exitStatus) => state0
       case Print(msg, commonOptions, next) =>
-        val status = printOut(msg, commonOptions)
-        execute(next, state.mergeStatus(status))
+        val state = updateState(state0, commonOptions)
+        state.logger.info(msg)
+        execute(next, state)
       case Run(Commands.About(cliOptions), next) =>
-        val status = logger.verboseIf(cliOptions.verbose) { printAbout(cliOptions) }
+        val state = updateState(state0, cliOptions.common)
+        val status = logAndTime(cliOptions, printAbout(state))
         execute(next, state.mergeStatus(status))
       case Run(cmd: Commands.Clean, next) =>
+        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(cmd.cliOptions, clean(cmd, state)))
       case Run(cmd: Commands.Compile, next) =>
+        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(cmd.cliOptions, compile(cmd, state)))
       case Run(cmd: Commands.Projects, next) =>
+        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(cmd.cliOptions, showProjects(cmd, state)))
       case Run(cmd: Commands.Test, next) =>
+        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(cmd.cliOptions, test(cmd, state)))
     }
   }
 
   private final val t = "    "
-  private def printAbout(cliOptions: CliOptions): ExitStatus = {
+  private final val line = System.lineSeparator()
+  private def printAbout(state: State): ExitStatus = {
+    import state.logger
     val bloopName = bloop.internal.build.BuildInfo.name
     val bloopVersion = bloop.internal.build.BuildInfo.version
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
@@ -50,19 +65,11 @@ object Interpreter {
                       |$t${bloopName.capitalize} version    `$bloopVersion`
                       |${t}Zinc version     `$zincVersion`
                       |${t}Scala version    `$scalaVersion`""".stripMargin
-    cliOptions.common.out.println(header)
-    cliOptions.common.out.println(t) // This is the only way to add newline, otherwise ignored
-    cliOptions.common.out.println(s"$t$bloopName is made with love at the Scala Center <3")
-    cliOptions.common.out.println(t)
-    cliOptions.common.out.println(versions)
-    cliOptions.common.out.println(t)
-    cliOptions.common.out.println(s"${t}It is maintained by $developers.")
+    logger.info(s"$header$line")
+    logger.info(s"$t$bloopName is made with love at the Scala Center <3$line")
+    logger.info(s"$versions$line$line") // I have no idea why two are required, one is not enough
+    logger.info(s"${t}It is maintained by $developers.")
 
-    ExitStatus.Ok
-  }
-
-  private def printOut(msg: String, commonOptions: CommonOptions): ExitStatus = {
-    commonOptions.out.println(msg)
     ExitStatus.Ok
   }
 
@@ -96,15 +103,16 @@ object Interpreter {
   }
 
   private def showProjects(cmd: Commands.Projects, state: State): State = {
+    import state.logger
     if (cmd.dotGraph) {
       val contents = Dag.toDotGraph(state.build.dags)
-      printOut(contents, cmd.cliOptions.common)
+      logger.info(contents)
     } else {
       // TODO: Pretty print output of show projects, please.
       val configDirectory = state.build.origin.syntax
-      state.logger.info(s"Projects loaded from '$configDirectory':")
+      logger.info(s"Projects loaded from '$configDirectory':")
       state.build.projects.map(_.name).sorted.foreach { projectName =>
-        state.logger.info(s" * $projectName")
+        logger.info(s" * $projectName")
       }
     }
 

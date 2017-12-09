@@ -4,7 +4,7 @@ import bloop.CompilerCache
 import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
-import bloop.logging.Logger
+import bloop.logging.{BloopLogger, Logger}
 
 /**
  * Represents the state for a given build.
@@ -28,9 +28,9 @@ final case class State private (
     status: ExitStatus,
     logger: Logger
 ) {
-  /* TODO: Improve the handling and merging of different status. Use the status to report errors. */
   private[bloop] val executionContext: scala.concurrent.ExecutionContext =
     ExecutionContext.threadPool
+  /* TODO: Improve the handling and merging of different status. Use the status to report errors. */
   def mergeStatus(newStatus: ExitStatus): State =
     this.copy(status = ExitStatus.merge(status, newStatus))
 }
@@ -67,5 +67,12 @@ object State {
     val stateToCache = State(build, results, compilerCache, options, ExitStatus.Ok, logger)
     stateCache.updateBuild(state = stateToCache)
     stateToCache
+  }
+
+  def updateLogger(logger: Logger, commonOptions: CommonOptions): Unit = {
+    logger match {
+      case bloopLogger: BloopLogger => BloopLogger.update(bloopLogger, commonOptions.out)
+      case _ => logger.warn(s"Logger $logger is not of type `bloop.logging.BloopLogger`.")
+    }
   }
 }
