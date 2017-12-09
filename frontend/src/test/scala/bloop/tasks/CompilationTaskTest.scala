@@ -98,6 +98,16 @@ object CompilationTaskTest extends TestSuite {
       }
     }
 
+    @scala.annotation.tailrec
+    def readCompilingLines(target: Int, out: ByteArrayOutputStream): Int = {
+      Thread.sleep(100) // Wait 10ms for the OS's file system
+      val allContents = out.toString("UTF-8")
+      val allLines = allContents.split(System.lineSeparator())
+      val compiled = allLines.count(_.contains("Compiling 1 Scala source to"))
+      if (compiled == target) compiled
+      else readCompilingLines(target, out)
+    }
+
     "Watch compile one project with two dependencies" - {
       val structures = Map(
         "parent0" -> Map("A.scala" -> ArtificialSources.`A.scala`),
@@ -115,65 +125,43 @@ object CompilationTaskTest extends TestSuite {
           .getOrElse(sys.error(s"Project $ProjectToCompile could not be found!"))
         assert(projects.forall(p => noPreviousResult(p, state)))
 
-        import java.nio.charset.StandardCharsets.UTF_8
-        val newIn = new PipedInputStream()
-        val testWriter = new PipedOutputStream(newIn)
+        // The worker thread runs the watched compilation
         val bloopOut = new ByteArrayOutputStream()
         val newOut = new PrintStream(bloopOut)
-
-        // The worker thread runs the watched compilation
         val workerThread = new Thread {
           override def run(): Unit = {
             val project = getProject(ProjectToCompile, state)
             val cliOptions0 = CliOptions.default
             val commonOptions = cliOptions0.common.copy(out = newOut)
-            val cliOptions = cliOptions0.copy(common = commonOptions)
+            val cliOptions = cliOptions0.copy(common = commonOptions, verbose = true)
             val cmd = Commands.Compile(ProjectToCompile, watch = true, cliOptions = cliOptions)
             val action = Run(cmd, Exit(ExitStatus.Ok))
             Interpreter.execute(action, state)
             ()
           }
         }
-        @scala.annotation.tailrec
-        def readCompilingLines(target: Int): Int = {
-          Thread.sleep(100) // Wait 10ms for the OS's file system
-          val allContents = bloopOut.toString("UTF-8")
-          val allLines = allContents.split(System.lineSeparator())
-          val compiled = allLines.count(_.contains("Compiling 1 Scala source to"))
-          if (compiled == target) compiled
-          else readCompilingLines(target)
-        }
 
         implicit val context = state.executionContext
         val testAction = scala.concurrent.Future {
           // Start the compilation
           workerThread.start()
-
-          println("JUST STARTED")
-
           // Wait for #1 compilation to finish
-          readCompilingLines(3)
-
-          println("FIRST COMPILATION DETECTED")
+          readCompilingLines(3, bloopOut)
+          // Let's wait 1 second so that file watching mode is enabled
+          Thread.sleep(1000)
 
           // Write the contents of a source back to the same source
-          val (fileName, fileContent) = structures(ProjectToCompile).head
-          val sourceA = rootProject.sourceDirectories.head.resolve(fileName).underlying
-          Files.write(sourceA, fileContent.getBytes(UTF_8))
-
+          val newSource = rootProject.sourceDirectories.head.resolve("D.scala").underlying
+          Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
           // Wait for #2 compilation to finish
-          readCompilingLines(4)
-
+          readCompilingLines(4, bloopOut)
           // Finish source file watching
-          //testWriter.write("\r\n".getBytes(UTF_8))
           workerThread.interrupt()
         }
 
         import scala.concurrent.Await
         import scala.concurrent.duration
-        Await.ready(testAction, duration.Duration(20, duration.SECONDS))
-        if (!testAction.isCompleted)
-          sys.error("File watching failed!")
+        Await.ready(testAction, duration.Duration(10, duration.SECONDS))
       }
     }
 

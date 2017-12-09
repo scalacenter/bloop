@@ -1,8 +1,7 @@
 package bloop.io
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
-import bloop.Project
 import bloop.cli.ExitStatus
 import bloop.engine.State
 import bloop.logging.Logger
@@ -18,11 +17,12 @@ final class SourceWatcher(paths0: Seq[Path], logger: Logger) {
   // Create source directories if they don't exist, otherwise the watcher fails.
   import java.nio.file.Files
   paths.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
+  logger.debug(s"Watching the following directories: ${paths.mkString(", ")}")
 
   def watch(initialState: State, action: State => State): State = {
     var result: State = initialState
     def runAction(event: DirectoryChangeEvent): Unit = {
-      logger.debug(s"An ${event.eventType()} in ${event.path()} has triggered an event.")
+      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
       result = action(result)
     }
 
