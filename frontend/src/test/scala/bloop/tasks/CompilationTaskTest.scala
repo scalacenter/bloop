@@ -1,10 +1,14 @@
 package bloop.tasks
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileOutputStream, InputStreamReader, PipedInputStream, PipedOutputStream, PrintStream}
+import java.nio.file.Files
+
 import utest._
 import bloop.{Project, ScalaInstance}
-import bloop.cli.{Commands, ExitStatus}
+import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.engine.{Exit, Interpreter, Run, State}
 import bloop.logging.Logger
+import org.apache.logging.log4j.core.appender.OutputStreamManager
 
 object CompilationTaskTest extends TestSuite {
   private val logger = Logger.get
@@ -99,6 +103,87 @@ object CompilationTaskTest extends TestSuite {
           (state: State) =>
             assert(state.build.projects.forall(p => hasPreviousResult(p, state)))
         }
+      }
+    }
+
+    "Watch compile one project with two dependencies" - {
+      val structures = Map(
+        "parent0" -> Map("A.scala" -> ArtificialSources.`A.scala`),
+        "parent1" -> Map("B2.scala" -> ArtificialSources.`B2.scala`),
+        ProjectToCompile -> Map("C.scala" -> ArtificialSources.`C.scala`)
+      )
+
+      val dependencies = Map(ProjectToCompile -> Set("parent0", "parent1"))
+      val instance = CompilationHelpers.scalaInstance
+
+      withState(structures, dependencies, logger, scalaInstance = instance) { (state: State) =>
+        val projects = state.build.projects
+        val rootProject = projects
+          .find(_.name == ProjectToCompile)
+          .getOrElse(sys.error(s"Project $ProjectToCompile could not be found!"))
+        assert(projects.forall(p => noPreviousResult(p, state)))
+
+        import java.nio.charset.StandardCharsets.UTF_8
+        val newIn = new PipedInputStream()
+        val testWriter = new PipedOutputStream(newIn)
+        val bloopOut = new ByteArrayOutputStream()
+        val newOut = new PrintStream(bloopOut)
+
+        // The worker thread runs the watched compilation
+        val workerThread = new Thread {
+          override def run(): Unit = {
+            val project = getProject(ProjectToCompile, state)
+            val cliOptions0 = CliOptions.default
+            val commonOptions = cliOptions0.common.copy(out = newOut)
+            val cliOptions = cliOptions0.copy(common = commonOptions)
+            val cmd = Commands.Compile(ProjectToCompile, watch = true, cliOptions = cliOptions)
+            val action = Run(cmd, Exit(ExitStatus.Ok))
+            Interpreter.execute(action, state)
+            ()
+          }
+        }
+
+
+        @scala.annotation.tailrec
+        def readCompilingLines(target: Int): Int = {
+          Thread.sleep(100) // Wait 10ms for the OS's file system
+          val allContents = bloopOut.toString("UTF-8")
+          val allLines = allContents.split(System.lineSeparator())
+          val compiled = allLines.count(_.contains("Compiling 1 Scala source to"))
+          if (compiled == target) compiled
+          else readCompilingLines(target)
+        }
+
+        implicit val context = state.executionContext
+        val testAction = scala.concurrent.Future {
+          // Start the compilation
+          workerThread.start()
+
+          println("JUST STARTED")
+
+          // Wait for #1 compilation to finish
+          readCompilingLines(3)
+
+          println("FIRST COMPILATION DETECTED")
+
+          // Write the contents of a source back to the same source
+          val (fileName, fileContent) = structures(ProjectToCompile).head
+          val sourceA = rootProject.sourceDirectories.head.resolve(fileName).underlying
+          Files.write(sourceA, fileContent.getBytes(UTF_8))
+
+          // Wait for #2 compilation to finish
+          readCompilingLines(4)
+
+          // Finish source file watching
+          //testWriter.write("\r\n".getBytes(UTF_8))
+          workerThread.interrupt()
+        }
+
+        import scala.concurrent.Await
+        import scala.concurrent.duration
+        Await.ready(testAction, duration.Duration(20, duration.SECONDS))
+        if (!testAction.isCompleted)
+          sys.error("File watching failed!")
       }
     }
 
