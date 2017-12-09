@@ -10,5 +10,5 @@ trait Logger extends xsbti.Logger with sbt.testing.Logger {
 
 object Logger {
   val name = "bloop"
-  def get = new Log4JLogger(name)
+  def get = new BloopLogger(name)
 }

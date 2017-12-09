@@ -10,7 +10,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout
 import org.apache.logging.log4j.core.config.{AppenderRef, Configurator, LoggerConfig}
 
 /** Creates a logger that is backed up by a Log4j logger. */
-class Log4JLogger(override val name: String) extends AbstractLogger {
+class BloopLogger(override val name: String) extends AbstractLogger {
   def this(logger: Logger) = this(logger.name)
   private val logger: log4j.Logger = LogManager.getLogger(name)
 
