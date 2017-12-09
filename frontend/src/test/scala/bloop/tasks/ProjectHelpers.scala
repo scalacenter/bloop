@@ -8,7 +8,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import bloop.engine.{Build, State}
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{BloopLogger, Logger}
 
 object ProjectHelpers {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -30,17 +30,18 @@ object ProjectHelpers {
     )
   }
 
-  def loadTestProject(name: String, logger: Logger): State = {
+  def loadTestProject(name: String): State = {
     val projectsBase = getClass.getClassLoader.getResources("projects") match {
       case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
       case _ => throw new Exception("No projects to test?")
     }
-    loadTestProject(projectsBase, name, logger)
+    loadTestProject(projectsBase, name)
   }
 
-  def loadTestProject(projectsBase: Path, name: String, logger: Logger): State = {
+  private def loadTestProject(projectsBase: Path, name: String): State = {
     val base = projectsBase.resolve(name)
     val configDir = base.resolve("bloop-config")
+    val logger = BloopLogger(configDir.toString())
     val baseDirectoryFile = configDir.resolve("base-directory")
     assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
     val testBaseDirectory = {
@@ -68,13 +69,12 @@ object ProjectHelpers {
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = Project.fromDir(configDirectory, logger).map(rebase(testBaseDirectory, _))
     val build = Build(configDirectory, loadedProjects)
-    State.forTests(build, CompilationHelpers.compilerCache, logger)
+    State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
   }
 
   def withState[T](
       projectStructures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
-      logger: Logger,
       scalaInstance: ScalaInstance
   )(op: State => T): T = {
     withTemporaryDirectory { temp =>
@@ -82,8 +82,9 @@ object ProjectHelpers {
         case (name, sources) =>
           makeProject(temp, name, sources, dependencies.getOrElse(name, Set.empty), scalaInstance)
       }
+      val logger = BloopLogger(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
-      val state = State.forTests(build, CompilationHelpers.compilerCache, logger)
+      val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
       op(state)
     }
   }

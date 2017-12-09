@@ -10,8 +10,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout
 import org.apache.logging.log4j.core.config.{AppenderRef, Configurator, LoggerConfig}
 
 /** Creates a logger that is backed up by a Log4j logger. */
-class BloopLogger(override val name: String) extends AbstractLogger {
-  def this(logger: Logger) = this(logger.name)
+class BloopLogger private (override val name: String) extends AbstractLogger {
   private val logger: log4j.Logger = LogManager.getLogger(name)
 
   override def ansiCodesSupported() = true
@@ -29,23 +28,25 @@ class BloopLogger(override val name: String) extends AbstractLogger {
   }
 }
 
-object Lof4JLogger {
+object BloopLogger {
+  def apply(name: String): BloopLogger = new BloopLogger(name)
   private val DefaultLayout: String =
     "%highlight{%equals{[%-0.-1level] }{[I] }{}}{FATAL=white, ERROR=bright red, WARN=yellow, INFO=dim blue, DEBUG=green, TRACE=blue}%msg%n"
   private final val LoggerName = "org.apache.logging.log4j"
   private final val AppenderName = "common-options-out"
-  def swapOut(logger: Logger, out: OutputStream): Unit = synchronized(logger) {
+  def swapOut(logger: Logger, out: OutputStream): Unit = {
     val ctx = LogManager.getContext(false).asInstanceOf[LoggerContext]
     val config = ctx.getConfiguration()
-    val layout = PatternLayout.newBuilder().withPattern(DefaultLayout)
-    val manager = new OutputStreamManager(out, AppenderName, layout, true)
-    val appender = new OutputStreamAppender(AppenderName, layout, null, manager, true)
-    appender.start(appender)
+    val layout = PatternLayout.newBuilder().withPattern(DefaultLayout).build()
+    val appenderBuilder =
+      OutputStreamAppender.newBuilder().setName(AppenderName).setLayout(layout).setTarget(out)
+    val appender = appenderBuilder.build()
+    appender.start()
     config.addAppender(appender)
 
     val refs = Array(AppenderRef.createAppenderRef(AppenderName, null, null))
     val loggerConfig: LoggerConfig =
-      LoggerConfig.createLogger("false", "debug", Loggername, "true", refs, null, config, null)
+      LoggerConfig.createLogger(false, Level.DEBUG, LoggerName, "true", refs, null, config, null)
     loggerConfig.addAppender(appender, null, null)
     config.addLogger(LoggerName, loggerConfig)
     ctx.updateLoggers()

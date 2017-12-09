@@ -3,14 +3,13 @@ package bloop.engine
 import java.io.{ByteArrayOutputStream, PrintStream}
 
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.logging.Logger
 import bloop.tasks.ProjectHelpers
 import org.junit.Test
 import guru.nidi.graphviz.parse.Parser
 
 class InterpreterSpec {
   @Test def ShowSbtProjects(): Unit = {
-    val state = ProjectHelpers.loadTestProject("sbt", Logger.get)
+    val state = ProjectHelpers.loadTestProject("sbt")
     val defaultCli = CliOptions.default
     val memoryStream = new ByteArrayOutputStream()
     val newOut = new PrintStream(memoryStream)

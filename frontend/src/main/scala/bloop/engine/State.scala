@@ -21,14 +21,20 @@ final case class State private (
 
 object State {
   private[bloop] val stateCache: StateCache = StateCache.empty
-  private[bloop] lazy val compilerCache: CompilerCache = {
-    import sbt.internal.inc.bloop.ZincInternals
-    val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
-    new CompilerCache(provider, Paths.getCacheDirectory("scala-jars"), Logger.get)
+  private var singleCompilerCache: CompilerCache = null
+  private def getCompilerCache(logger: Logger): CompilerCache = synchronized {
+    if (singleCompilerCache != null) singleCompilerCache
+    else {
+      import sbt.internal.inc.bloop.ZincInternals
+      val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
+      val jars = Paths.getCacheDirectory("scala-jars")
+      singleCompilerCache = new CompilerCache(provider, jars, logger)
+      singleCompilerCache
+    }
   }
 
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
-    val initializedResults = build.projects.foldLeft(ResultsCache.empty) {
+    val initializedResults = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
       case (results, project) => results.initializeResult(project)
     }
     State(build, initializedResults, compilerCache, ExitStatus.Ok, logger)
@@ -36,10 +42,11 @@ object State {
 
   // Improve the caching by using file metadata
   def apply(build: Build, logger: Logger): State = {
-    val initializedResults = build.projects.foldLeft(ResultsCache.empty) {
+    val initializedResults = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
       case (results, project) => results.initializeResult(project)
     }
 
+    val compilerCache = getCompilerCache(logger)
     val stateToCache = State(build, initializedResults, compilerCache, ExitStatus.Ok, logger)
     stateCache.updateBuild(state = stateToCache)
     stateToCache

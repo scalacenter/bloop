@@ -6,10 +6,9 @@ import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Dag, Exit, Interpreter, Run}
 import bloop.{DynTest, Project}
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{BloopLogger, Logger}
 
 object IntegrationTestSuite extends DynTest {
-  val logger = Logger.get
   val projects = Files.list(getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
     case _ => throw new Exception("No projects to test?")
@@ -17,7 +16,7 @@ object IntegrationTestSuite extends DynTest {
 
   projects.forEach { testDirectory =>
     test(testDirectory.getFileName.toString) {
-      testProject(testDirectory, logger)
+      testProject(testDirectory)
     }
   }
 
@@ -28,11 +27,12 @@ object IntegrationTestSuite extends DynTest {
     }
   }
 
-  private def testProject(testDirectory: Path, logger: Logger): Unit = {
+  private def testProject(testDirectory: Path): Unit = {
     val rootProjectName = "bloop-test-root"
     val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"rootProjectName"))
+    val logger = BloopLogger(fakeConfigDir.toString)
     val classesDir = AbsolutePath(testDirectory)
-    val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString, logger)
+    val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
     val previousProjects = state0.build.projects
 
     val rootProject = Project(
