@@ -70,7 +70,8 @@ object Interpreter {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
     val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
-    watcher.watch(state, f)
+    // Force the first operation and then allow the watcher to execute it in next steps
+    watcher.watch(f(state), f)
   }
 
   private def compile(cmd: Commands.Compile, state: State): State = {
