@@ -17,9 +17,9 @@ final class SourceWatcher(paths0: Seq[Path], logger: Logger) {
   // Create source directories if they don't exist, otherwise the watcher fails.
   import java.nio.file.Files
   paths.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
-  logger.debug(s"Watching the following directories: ${paths.mkString(", ")}")
 
   def watch(initialState: State, action: State => State): State = {
+    logger.debug(s"Watching the following directories: ${paths.mkString(", ")}")
     var result: State = initialState
     def runAction(event: DirectoryChangeEvent): Unit = {
       logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
