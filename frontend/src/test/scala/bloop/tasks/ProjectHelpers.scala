@@ -91,7 +91,7 @@ object ProjectHelpers {
   def noPreviousResult(project: Project, state: State): Boolean =
     !hasPreviousResult(project, state)
   def hasPreviousResult(project: Project, state: State): Boolean =
-    state.results.getResult(project).exists(_.analysis().isPresent)
+    state.results.getResult(project).analysis().isPresent
 
   def makeProject(baseDir: Path,
                   name: String,

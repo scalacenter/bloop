@@ -53,7 +53,7 @@ object TestTasks {
       val frameworks = project.testFrameworks
         .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
-      val analysis = state.results.getResult(project).flatMap(_.analysis().toOption).getOrElse {
+      val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
         sbt.internal.inc.Analysis.empty
       }
