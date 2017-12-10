@@ -5,10 +5,11 @@ import java.nio.charset.Charset
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
-import bloop.engine.{Build, State}
+import bloop.cli.Commands
+import bloop.engine.{Build, Interpreter, Run, State}
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
-import bloop.logging.{BloopLogger, Logger}
+import bloop.logging.BloopLogger
 
 object ProjectHelpers {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -28,6 +29,34 @@ object ProjectHelpers {
       tmp = work(project.tmp),
       bloopConfigDir = work(project.bloopConfigDir)
     )
+  }
+
+  def getProject(name: String, state: State): Project =
+    state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
+
+  val RootProject = "target-project"
+  def checkAfterCleanCompilation(
+      structures: Map[String, Map[String, String]],
+      dependencies: Map[String, Set[String]],
+      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
+      quiet: Boolean = false,
+      failure: Boolean = false)(afterCompile: State => Unit = (_ => ())) = {
+    withState(structures, dependencies, scalaInstance = scalaInstance) { (state: State) =>
+      def action(state: State): Unit = {
+        // Check that this is a clean compile!
+        val projects = state.build.projects
+        assert(projects.forall(p => noPreviousResult(p, state)))
+        val project = getProject(RootProject, state)
+        val action = Run(Commands.Compile(RootProject, incremental = true))
+        val compiledState = Interpreter.execute(action, state)
+        afterCompile(compiledState)
+      }
+
+      val logger = state.logger
+      if (quiet) logger.quietIfSuccess(newLogger => action(state.copy(logger = newLogger)))
+      else if (failure) logger.quietIfError(newLogger => action(state.copy(logger = newLogger)))
+      else action(state)
+    }
   }
 
   def loadTestProject(name: String): State = {
