@@ -38,7 +38,7 @@ object ProjectHelpers {
     loadTestProject(projectsBase, name)
   }
 
-  private def loadTestProject(projectsBase: Path, name: String): State = {
+  def loadTestProject(projectsBase: Path, name: String): State = {
     val base = projectsBase.resolve(name)
     val configDir = base.resolve("bloop-config")
     val logger = BloopLogger(configDir.toString())
