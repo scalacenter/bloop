@@ -16,7 +16,7 @@ object TestTaskTest extends DynTest {
     val state0 = ProjectHelpers.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
     val state = CompileTasks.compile(state0, project, ReporterConfig.defaultFormat)
-    val result = state.results.getResult(project).flatMap(_.analysis().toOption)
+    val result = state.results.getResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
   }

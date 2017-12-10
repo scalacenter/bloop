@@ -29,9 +29,7 @@ object CompileTasks {
 
     type Results = Map[Project, PreviousResult]
     def runCompilation(project: Project, rs: Results): Results = {
-      val previousResult = state.results
-        .getResult(project)
-        .getOrElse(sys.error("Results cache was not initialized"))
+      val previousResult = state.results.getResult(project)
       val inputs = toInputs(project, reporterConfig, previousResult)
       val result = Compiler.compile(inputs)
       rs + (project -> result)
