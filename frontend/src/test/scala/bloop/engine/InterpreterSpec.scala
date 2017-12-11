@@ -47,4 +47,24 @@ class InterpreterSpec {
     assert(output.contains("maintained by"))
     assert(output.contains("Scala Center"))
   }
+
+  @Test def SupportDynamicCoreSetup(): Unit = {
+    val (cliOptions, outStream) = changeOut(state)
+    val action1 = Run(Commands.Configure(cliOptions = cliOptions))
+    val state1 = Interpreter.execute(action1, state)
+    val output1 = outStream.toString("UTF-8")
+    // Make sure that threads are set to 6.
+    assert(!output1.contains("Reconfiguring the number of bloop threads to 4."))
+
+    val action2 = Run(Commands.Configure(threads = 6, cliOptions = cliOptions))
+    val state2 = Interpreter.execute(action2, state1)
+    val action3 = Run(Commands.Configure(threads = 4, cliOptions = cliOptions))
+    val _ = Interpreter.execute(action3, state2)
+    val output23 = outStream.toString("UTF-8")
+
+    // Make sure that threads are set to 6.
+    assert(output23.contains("Reconfiguring the number of bloop threads to 6."))
+    // Make sure that threads are set to 4.
+    assert(output23.contains("Reconfiguring the number of bloop threads to 4."))
+  }
 }

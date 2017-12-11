@@ -2,6 +2,7 @@ package bloop.cli
 
 import java.io.{InputStream, PrintStream}
 
+import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import caseapp.Hidden
 
@@ -19,6 +20,7 @@ case class CommonOptions(
     @Hidden out: PrintStream = System.out,
     @Hidden in: InputStream = System.in,
     @Hidden err: PrintStream = System.err,
+    threads: Int = ExecutionContext.nCPUs
 ) {
   def workingPath: AbsolutePath = AbsolutePath(workingDirectory)
 }

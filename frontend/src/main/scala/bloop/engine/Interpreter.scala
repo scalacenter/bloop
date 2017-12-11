@@ -41,6 +41,9 @@ object Interpreter {
       case Run(cmd: Commands.Test, next) =>
         val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, test(cmd, state)))
+      case Run(cmd: Commands.Configure, next) =>
+        val state = updateState(state0, cmd.cliOptions.common)
+        execute(next, logAndTime(state, cmd.cliOptions, configure(cmd, state)))
     }
   }
 
@@ -149,6 +152,12 @@ object Interpreter {
           case None => projects -> (name :: missing)
         }
     }
+  }
+
+  private def configure(cmd: Commands.Configure, state: State): State = {
+    if (cmd.threads != ExecutionContext.executor.getCorePoolSize)
+      State.setCores(state, cmd.threads)
+    else state
   }
 
   private def clean(cmd: Commands.Clean, state: State): State = {

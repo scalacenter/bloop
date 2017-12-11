@@ -1,5 +1,6 @@
 package bloop.cli
 
+import bloop.engine.ExecutionContext
 import caseapp.{ExtraName, HelpMessage, Hidden, Recurse}
 
 object Commands {
@@ -49,6 +50,13 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends Command
+
+  case class Configure(
+      @ExtraName("parallelism")
+      @HelpMessage("Set the number of threads used for parallel compilation and test execution.")
+      threads: Int = ExecutionContext.nCPUs,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 
