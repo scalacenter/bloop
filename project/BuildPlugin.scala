@@ -228,7 +228,7 @@ object BuildImplementation {
          |  val mostRecentStamp = (bloopConfigDir.value ** "*.config").get.map(_.lastModified).min
          |  (System.currentTimeMillis() - mostRecentStamp)
          |  val diff = (System.currentTimeMillis() - mostRecentStamp) / 1000
-         |  if (diff <= 15) () // If it happened in the last 15 seconds, this is ok!
+         |  if (diff <= 5 * 60) () // If it happened in the last 5 minutes, this is ok!
          |  else sys.error("The sbt plugin didn't write any file")
          |}
     """.stripMargin
