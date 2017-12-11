@@ -12,7 +12,7 @@ import org.junit.Test
 class FileWatchingSpec {
   @scala.annotation.tailrec
   final def readCompilingLines(target: Int, msg: String, out: ByteArrayOutputStream): Int = {
-    Thread.sleep(100) // Wait 10ms for the OS's file system
+    Thread.sleep(100) // Wait 100ms for the OS's file system
     val allContents = out.toString("UTF-8")
     val allLines = allContents.split(System.lineSeparator())
     val compiled = allLines.count(_.replaceAll("\u001B\\[[;\\d]*m", "").contains(msg))
