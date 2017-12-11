@@ -75,8 +75,7 @@ object BloopLogger {
     ()
   }
 
-  type LoggerUpdateKey = (BloopLogger, OutputStream)
-  private val updateCache: scala.collection.mutable.Map[BloopLogger, OutputStream] = {
+  private val currentStreams: scala.collection.mutable.Map[BloopLogger, OutputStream] = {
     import com.google.common.collect.MapMaker
     import scala.collection.JavaConverters._
     new MapMaker().weakKeys().makeMap[BloopLogger, OutputStream]().asScala
@@ -86,11 +85,11 @@ object BloopLogger {
     def swapAndCache: Unit = {
       logger.debug(s"Logger ${logger.name} has not been updated to use $out.")
       swapOut(logger, out)
-      updateCache += logger -> out
+      currentStreams += logger -> out
       ()
     }
 
-    updateCache.get(logger) match {
+    currentStreams.get(logger) match {
       case Some(previousOut) if previousOut == out =>
         logger.debug(s"Update of out ($out) in logger ${logger.name} is cached.")
       case _ => swapAndCache

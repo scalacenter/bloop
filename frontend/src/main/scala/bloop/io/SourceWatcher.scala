@@ -10,16 +10,16 @@ import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryWatcher}
 
-final class SourceWatcher(paths0: Seq[Path], logger: Logger) {
-  private val paths = paths0.distinct
-  private val pathsAsJava: java.util.List[Path] = paths.asJava
+final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
+  private val dirs = dirs0.distinct
+  private val dirsAsJava: java.util.List[Path] = dirs.asJava
 
   // Create source directories if they don't exist, otherwise the watcher fails.
   import java.nio.file.Files
-  paths.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
+  dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
 
   def watch(initialState: State, action: State => State): State = {
-    logger.debug(s"Watching the following directories: ${paths.mkString(", ")}")
+    logger.debug(s"Watching the following directories: ${dirs.mkString(", ")}")
     var result: State = initialState
     def runAction(event: DirectoryChangeEvent): Unit = {
       logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
@@ -27,7 +27,7 @@ final class SourceWatcher(paths0: Seq[Path], logger: Logger) {
     }
 
     val watcher = DirectoryWatcher.create(
-      pathsAsJava,
+      dirsAsJava,
       (event: DirectoryChangeEvent) => {
         val targetFile = event.path()
         val targetPath = targetFile.toFile.getAbsolutePath()

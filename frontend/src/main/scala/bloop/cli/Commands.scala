@@ -24,7 +24,7 @@ object Commands {
       @HelpMessage("If set, disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
       @ExtraName("w")
-      @HelpMessage("If set, run a command whenever projects' source files change.")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
@@ -47,7 +47,7 @@ object Commands {
       @HelpMessage("If set, disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
       @ExtraName("w")
-      @HelpMessage("If set, run a command whenever projects' source files change.")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
