@@ -85,7 +85,6 @@ class FileWatchingSpec {
         readCompilingLines(4, "Compiling 1 Scala source to", bloopOut)
         // Finish source file watching
         workerThread.interrupt()
-        Files.delete(newSource)
     }
 
     val dependencies = Map(RootProject -> Set("parent0", "parent1"))
