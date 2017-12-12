@@ -144,3 +144,4 @@ $ ~/.bloop/bloop-shell <path to your project>
 [installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
 [bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
 [bloop-shell]: #using-the-bloop-shell
+
