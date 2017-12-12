@@ -56,7 +56,7 @@ object Commands {
   case class Configure(
       @ExtraName("parallelism")
       @HelpMessage("Set the number of threads used for parallel compilation and test execution.")
-      threads: Int = ExecutionContext.nCPUs,
+      threads: Int = ExecutionContext.executor.getCorePoolSize,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 
