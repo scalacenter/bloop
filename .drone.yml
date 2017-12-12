@@ -36,6 +36,18 @@ pipeline:
       - ${SBT_RUN}
       - ./bin/ci-clean-cache.sh
 
+  publish:
+    image: scalaplatform/scala:2.1
+    volumes:
+      - /scalacenter:/keys
+    when:
+      branch: master # For now, we assume releases can only happen in master
+      event: [ push, tag, deployment ]
+      status: success
+    commands:
+      - git log | head -n 20
+      - sbt releaseEarly
+
   rebuild_cache:
     image: appleboy/drone-sftp-cache
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
