@@ -1,27 +1,30 @@
 #!/usr/bin/env bash
 set -o pipefail
 
-BLOOP_REFERENCE="master"
-BLOOP_JMH_OPTIONS="-i 10 -wi 10 -f1 -t1"
+BLOOP_DEFAULT_REFERENCE="master"
+BLOOP_DEFAULT_JMH_OPTIONS="-wi 10 -i 20 -f1 -t1"
+
+BLOOP_REFERENCE="$BLOOP_DEFAULT_REFERENCE"
+BLOOP_JMH_OPTIONS="$BLOOP_DEFAULT_JMH_OPTIONS"
 BLOOP_JMH_RUNNER="benchmarks/jmh:run"
 BLOOP_HOME="$HOME/bloop-benchmarks"
 BLOOP_REPO="https://github.com/scalacenter/bloop.git"
 
 usage() {
-    echo 'Usage: ./run-benchmarks.sh -r | --ref <git-ref> Build and benchmark the given reference.'
-    echo '                                                Defaults to "master"'
-    echo '                           --upload             If set, upload the results to InfluxDB.'
-    echo '                           -j | --jmh-options   Pass the given options to JMH.'
-    echo '                                                Defaults to "-i 10 -wi 10 -f1 -t1"'
-    echo '                           -h | --help          Show this message and exit.'
-    echo ''
-    echo 'Examples:'
-    echo '  ./run-benchmarks.sh --ref +refs/pull/42/merge'
-    echo '    Build and run the benchmarks on the pull request 42 (after merging)'
-    echo '  ./run-benchmarks.sh --ref deadbeef --upload'
-    echo '    Build and run the benchmarks on commit "deadbeef", uploads the results.'
-    echo '  ./run-benchmarks.sh --jmh-options "-i 1 -wi 1 -f1 -t1"'
-    echo '    Build and run the benchmarks on "master", pass "-i 1 -wi1 -f1 -t1" to JMH.'
+    echo "Usage: ./run-benchmarks.sh -r | --ref <git-ref> Build and benchmark the given reference."
+    echo "                                                Defaults to \"$BLOOP_DEFAULT_REFERENCE\""
+    echo "                           --upload             If set, upload the results to InfluxDB."
+    echo "                           -j | --jmh-options   Pass the given options to JMH."
+    echo "                                                Defaults to \"$BLOOP_DEFAULT_JMH_OPTIONS\""
+    echo "                           -h | --help          Show this message and exit."
+    echo ""
+    echo "Examples:"
+    echo "  ./run-benchmarks.sh --ref +refs/pull/42/merge"
+    echo "    Build and run the benchmarks on the pull request 42 (after merging)"
+    echo "  ./run-benchmarks.sh --ref deadbeef --upload"
+    echo "    Build and run the benchmarks on commit \"deadbeef\", uploads the results."
+    echo "  ./run-benchmarks.sh --jmh-options \"-i 1 -wi 1 -f1 -t1\""
+    echo "    Build and run the benchmarks on \"master\", pass \"-i 1 -wi1 -f1 -t1\" to JMH."
 }
 
 main() {
