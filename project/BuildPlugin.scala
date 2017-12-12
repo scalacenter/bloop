@@ -113,6 +113,7 @@ object BuildImplementation {
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
   import com.typesafe.sbt.SbtPgp.autoImport.PgpKeys
+  import bintray.BintrayPlugin.{autoImport => BintrayKeys}
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
