@@ -1,6 +1,7 @@
 matrix:
   SBT_RUN:
-    - sbt "+bridgeIntegration/cachedPublishLocal" \
+    - sbt "show pgpPublicRing" \
+          "+bridgeIntegration/cachedPublishLocal" \
           "benchmarks/compile" \
           "setupTests" \
           "backend/test" \

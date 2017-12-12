@@ -121,7 +121,6 @@ object BuildImplementation {
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
     Keys.homepage := Some(ThisRepo),
-    Keys.publishArtifact in Test := false,
     Keys.licenses := Seq("BSD" -> url("http://opensource.org/licenses/BSD-3-Clause")),
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
@@ -139,6 +138,9 @@ object BuildImplementation {
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
+    Keys.publishArtifact in Test := false,
+    // Remove the default bintray credentials because they are not present in CI
+    Keys.credentials --= (Keys.credentials in BintrayKeys.bintray).value,
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -147,6 +149,8 @@ object BuildImplementation {
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
+    PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
+    PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
   ) ++ publishSettings
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
