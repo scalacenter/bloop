@@ -7,8 +7,3 @@ trait Logger extends xsbti.Logger with sbt.testing.Logger {
   def verboseIf[T](cond: Boolean)(op: => T): T
   def verbose[T](op: => T): T
 }
-
-object Logger {
-  val name = "bloop"
-  def get = new Log4JLogger(name)
-}

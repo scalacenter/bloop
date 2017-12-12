@@ -5,15 +5,15 @@ import bloop.engine.{Build, Exit, Interpreter, Run, State}
 import bloop.engine.tasks.CompileTasks
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
-import bloop.logging.Logger
+import bloop.logging.BloopLogger
 
 import scala.annotation.tailrec
 
 object Bloop {
-  private final val logger = Logger.get
   def main(args: Array[String]): Unit = {
     val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
     val configDirectory = baseDirectory.resolve(".bloop-config")
+    val logger = BloopLogger(configDirectory.syntax)
     val projects = Project.fromDir(configDirectory, logger)
     val build: Build = Build(configDirectory, projects)
     val state = State(build, logger)
@@ -22,10 +22,11 @@ object Bloop {
 
   @tailrec
   def run(state: State): Unit = {
+    State.stateCache.updateBuild(state)
     val input = scala.io.StdIn.readLine("> ")
     input.split(" ") match {
       case Array("exit") =>
-        timed(logger) { CompileTasks.persist(state) }
+        timed(state.logger) { CompileTasks.persist(state) }
         ()
 
       case Array("projects") =>
@@ -42,12 +43,12 @@ object Bloop {
         run(Interpreter.execute(action, state))
 
       case Array("test", projectName) =>
-        val command = Commands.Test(projectName, prependCompile = false, aggregate = true)
+        val command = Commands.Test(projectName, aggregate = true)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
       case _ =>
-        logger.error(s"Not understood: '$input'")
+        state.logger.error(s"Not understood: '$input'")
         run(state)
     }
   }

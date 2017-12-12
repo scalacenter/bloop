@@ -2,7 +2,6 @@ package bloop
 
 import java.net.InetAddress
 
-import bloop.logging.Logger
 import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
 
 import scala.util.Try

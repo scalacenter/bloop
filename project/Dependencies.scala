@@ -11,8 +11,8 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val junitVersion = "0.11"
   val graphvizVersion = "0.2.2"
+  val directoryWatcherVersion = "0.4.0"
 
-  import sbt.Test
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
@@ -27,4 +27,5 @@ object Dependencies {
   val utest = "com.lihaoyi" %% "utest" % "0.6.0"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
+  val directoryWatcher = "io.methvin" %% "directory-watcher-better-files" % directoryWatcherVersion
 }

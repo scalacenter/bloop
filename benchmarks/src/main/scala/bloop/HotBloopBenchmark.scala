@@ -8,8 +8,6 @@ import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
 
 import scala.tools.nsc.BenchmarkUtils
-
-import bloop.logging.Logger
 import bloop.tasks.ProjectHelpers
 
 @State(Scope.Benchmark)
@@ -41,7 +39,7 @@ class HotBloopBenchmark {
     val configDir = Files.createDirectory(tempDir.resolve(".bloop-config"))
 
     val path = Paths.get(s"../frontend/src/test/resources/projects")
-    val state = ProjectHelpers.loadTestProject(path, project, Logger.get)
+    val state = ProjectHelpers.loadTestProject(path, project)
     state.build.projects.foreach { project =>
       val outPath = configDir.resolve(s"${project.name}.config")
       val stream = new FileOutputStream(outPath.toFile)
