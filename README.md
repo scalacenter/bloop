@@ -6,9 +6,9 @@
 Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
 </p>
 
-[![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](
-  https://gitter.im/scalacenter/bloop
-)
+[![GitHub tag](https://img.shields.io/github/tag/scalacenter/bloop.svg)]()
+[![Build Status](https://ci.scala-lang.org/api/badges/scalacenter/bloop/status.svg)](https://ci.scala-lang.org/scalacenter/bloop)
+[![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](https://gitter.im/scalacenter/bloop)
 
 ## Goals
 
