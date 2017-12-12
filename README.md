@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/2462974/32790850-d2eeffc2-c95f-11e7-8a3e-7032ca875ce3.png?style=centerme" alt="g38782" style="max-width:100%;">
+  <img src="./misc/logo.svg" alt="logo" width="30%">
 </p>
 
 <p align="center">
-Bloop gives you fast edit/compile/test workflows for Scala.
+Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
 </p>
 
-[![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](
-  https://gitter.im/scalacenter/bloop
-)
+[![GitHub tag](https://img.shields.io/github/tag/scalacenter/bloop.svg)]()
+[![Build Status](https://ci.scala-lang.org/api/badges/scalacenter/bloop/status.svg)](https://ci.scala-lang.org/scalacenter/bloop)
+[![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](https://gitter.im/scalacenter/bloop)
 
 ## Goals
 
