@@ -1,7 +1,6 @@
 matrix:
   SBT_RUN:
-    - sbt "show pgpPublicRing" \
-          "+bridgeIntegration/cachedPublishLocal" \
+    - sbt "+bridgeIntegration/cachedPublishLocal" \
           "benchmarks/compile" \
           "setupTests" \
           "backend/test" \
@@ -39,6 +38,7 @@ pipeline:
 
   publish:
     image: scalaplatform/scala:2.1
+    secrets: [ sonatype_user, sonatype_password, pgp_password ]
     volumes:
       - /scalacenter:/keys
     when:
