@@ -64,7 +64,7 @@ main() {
 
     BLOOP_BENCHMARKS=("bloop.ProjectBenchmark"
                       "bloop.engine.tasks.TaskBenchmark"
-                      "bloop.logging.Log4JLoggerBenchmark")
+                      "bloop.logging.BloopLoggerBenchmark")
     for benchmark in "${BLOOP_BENCHMARKS[@]}"
     do
         echo "$JMH_CMD $benchmark" >> "$COMMANDS_FILE"

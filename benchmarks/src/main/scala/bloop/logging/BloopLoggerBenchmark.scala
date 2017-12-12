@@ -1,13 +1,12 @@
 package bloop.logging
 
-import java.io.OutputStream
+import java.io.PrintStream
 
 import org.openjdk.jmh.annotations.Benchmark
 
 object BloopLoggerBenchmark {
-  val logger = BloopLogger("benchmark")
-  private val devnull: OutputStream = _ => ()
-  BloopLogger.update(logger, devnull)
+  private val devnull = new PrintStream(_ => ())
+  val logger = BloopLogger.at("benchmark", devnull, devnull)
 }
 
 class BloopLoggerBenchmark {
