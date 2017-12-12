@@ -73,4 +73,14 @@ object State {
       case _ => logger.warn(s"Logger $logger is not of type `bloop.logging.BloopLogger`.")
     }
   }
+
+  def setUpShutdownHoook(): Unit = {
+    Runtime
+      .getRuntime()
+      .addShutdownHook(new Thread {
+        import bloop.engine.tasks.CompileTasks
+        override def run(): Unit =
+          State.stateCache.allStates.foreach(s => CompileTasks.persist(s))
+      })
+  }
 }

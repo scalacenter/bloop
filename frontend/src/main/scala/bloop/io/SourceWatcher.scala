@@ -42,10 +42,6 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
             }
           }
         }
-
-        override def onException(e: Exception): Unit = e match {
-          case t: Throwable => println("HELLO"); println(t); throw t
-        }
       }
     )
     try { watcher.watch(); result } catch {

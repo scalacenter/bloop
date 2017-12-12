@@ -1,7 +1,7 @@
 package bloop
 
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, Exit, Interpreter, Print, Run}
+import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
 import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -9,6 +9,7 @@ import com.martiansoftware.nailgun
 class Cli
 object Cli {
   def main(args: Array[String]): Unit = {
+    State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action)
     sys.exit(exitStatus.code)
