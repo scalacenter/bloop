@@ -64,9 +64,7 @@ object State {
 
     val options = CommonOptions.default
     val compilerCache = getCompilerCache(logger)
-    val stateToCache = State(build, results, compilerCache, options, ExitStatus.Ok, logger)
-    stateCache.updateBuild(state = stateToCache)
-    stateToCache
+    State(build, results, compilerCache, options, ExitStatus.Ok, logger)
   }
 
   def updateLogger(logger: Logger, commonOptions: CommonOptions): Unit = {

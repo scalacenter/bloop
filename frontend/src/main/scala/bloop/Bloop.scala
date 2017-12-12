@@ -22,6 +22,7 @@ object Bloop {
 
   @tailrec
   def run(state: State): Unit = {
+    State.stateCache.updateBuild(state)
     val input = scala.io.StdIn.readLine("> ")
     input.split(" ") match {
       case Array("exit") =>
