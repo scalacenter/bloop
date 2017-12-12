@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="./misc/logo.svg?style=centerme" alt="logo" style="max-width:100%;">
+  <img src="./misc/logo.svg" alt="logo" width="30%">
 </p>
 
 <p align="center">
-Bloop gives you fast edit/compile/test workflows for Scala.
+Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
 </p>
 
 [![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](
