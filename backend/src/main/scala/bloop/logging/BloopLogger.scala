@@ -83,7 +83,7 @@ object BloopLogger {
 
   def update(logger: BloopLogger, out: OutputStream): Unit = {
     def swapAndCache: Unit = {
-      logger.debug(s"Logger ${logger.name} has not been updated to use $out.")
+      logger.debug(s"Updating logger ${logger.name} to use $out.")
       swapOut(logger, out)
       currentStreams += logger -> out
       ()
