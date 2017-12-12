@@ -2,7 +2,7 @@
 /*                      This is the build definition of the zinc integration                       */
 /***************************************************************************************************/
 // We need to set this here because they don't work in the `BuildPlugin`
-val publishSettings = (
+val publishSettings = List(
   pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
   pgpSecretRing := file("/drone/.gnupg/secring.asc")
 )
