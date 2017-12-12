@@ -8,7 +8,7 @@ import bloop.logging.Logger
 
 import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
-import io.methvin.watcher.{DirectoryChangeEvent, DirectoryWatcher}
+import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 
 final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
   private val dirs = dirs0.distinct
@@ -28,21 +28,26 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
 
     val watcher = DirectoryWatcher.create(
       dirsAsJava,
-      (event: DirectoryChangeEvent) => {
-        val targetFile = event.path()
-        val targetPath = targetFile.toFile.getAbsolutePath()
-        if (Files.isRegularFile(targetFile) &&
-            (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
-          event.eventType() match {
-            case EventType.CREATE => runAction(event)
-            case EventType.MODIFY => runAction(event)
-            case EventType.OVERFLOW => runAction(event)
-            case EventType.DELETE => () // We don't do anything when a file is deleted
+      new DirectoryChangeListener {
+        override def onEvent(event: DirectoryChangeEvent): Unit = {
+          val targetFile = event.path()
+          val targetPath = targetFile.toFile.getAbsolutePath()
+          if (Files.isRegularFile(targetFile) &&
+              (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
+            event.eventType() match {
+              case EventType.CREATE => runAction(event)
+              case EventType.MODIFY => runAction(event)
+              case EventType.OVERFLOW => runAction(event)
+              case EventType.DELETE => () // We don't do anything when a file is deleted
+            }
           }
+        }
+
+        override def onException(e: Exception): Unit = e match {
+          case t: Throwable => println("HELLO"); println(t); throw t
         }
       }
     )
-
     try { watcher.watch(); result } catch {
       case t: Throwable =>
         logger.error("Unexpected error happened when file watching.")
