@@ -150,13 +150,13 @@ object BuildImplementation {
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
-    PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
-    PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
   ) ++ publishSettings
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Keys.scalacOptions in Compile := reasonableCompileOptions,
-    Keys.publishArtifact in Compile in Keys.packageDoc := false
+    Keys.publishArtifact in Compile in Keys.packageDoc := false,
+    PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
+    PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
   )
 
   final val reasonableCompileOptions = (
