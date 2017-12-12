@@ -1,7 +1,5 @@
 package bloop.engine.caches
 
-import java.util.concurrent.ConcurrentHashMap
-
 import bloop.Project
 import bloop.logging.Logger
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -11,7 +9,7 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
   private val EmptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  def getResult(project: Project): Option[PreviousResult] = cache.get(project)
+  def getResult(project: Project): PreviousResult = cache.getOrElse(project, EmptyResult)
   def updateCache(project: Project, previousResult: PreviousResult): ResultsCache =
     new ResultsCache(cache + (project -> previousResult), logger)
   def iterator: Iterator[(Project, PreviousResult)] = cache.iterator
@@ -47,5 +45,5 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
 }
 
 object ResultsCache {
-  def empty: ResultsCache = new ResultsCache(Map.empty, Logger.get)
+  def getEmpty(logger: Logger): ResultsCache = new ResultsCache(Map.empty, logger)
 }

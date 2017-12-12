@@ -21,9 +21,11 @@ object Commands {
       project: String,
       @HelpMessage("If set, it compiles incrementally. By default, true.")
       incremental: Boolean = true,
-      @HelpMessage(
-        "If set, displays compilation message following scalac's style. Defaults to false.")
+      @HelpMessage("If set, disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
+      @ExtraName("w")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
+      watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
@@ -42,10 +44,11 @@ object Commands {
       @ExtraName("all")
       @HelpMessage("If set, also runs the tests in dependencies. Defaults to true.")
       aggregate: Boolean = false,
-      @HelpMessage(
-        "If set, displays compilation message following scalac's style. Defaults to false.")
+      @HelpMessage("If set, disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
-      @Hidden prependCompile: Boolean = true,
+      @ExtraName("w")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
+      watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

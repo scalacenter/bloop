@@ -1,19 +1,17 @@
 package bloop
 
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, Exit, Interpreter, Print, Run}
-import bloop.logging.Logger
+import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
+import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
 
 class Cli
 object Cli {
-
-  private val logger = Logger.get
-
   def main(args: Array[String]): Unit = {
+    State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, logger)
+    val exitStatus = run(action)
     sys.exit(exitStatus.code)
   }
 
@@ -29,7 +27,7 @@ object Cli {
       if (command == "bloop.Cli") ngContext.getArgs
       else command +: ngContext.getArgs
     val cmd = parse(args, nailgunOptions)
-    val exitStatus = run(cmd, logger)
+    val exitStatus = run(cmd)
     ngContext.exit(exitStatus.code)
   }
 
@@ -124,7 +122,7 @@ object Cli {
     }
   }
 
-  def run(action: Action, logger: Logger): ExitStatus = {
+  def run(action: Action): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       cliOptions.configDir
@@ -152,6 +150,7 @@ object Cli {
     }
 
     val configDirectory = getConfigDir(cliOptions)
+    val logger = BloopLogger(configDirectory.syntax)
     val state = loadStateFor(configDirectory, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)
