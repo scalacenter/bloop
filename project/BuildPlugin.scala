@@ -175,7 +175,11 @@ object BuildImplementation {
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(Keys.organization := "ch.epfl.scala")
+        BuildKeys.inProject(ref)(
+          Keys.organization := "ch.epfl.scala",
+          PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
+          PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
+        )
 
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
