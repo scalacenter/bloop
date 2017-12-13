@@ -38,3 +38,7 @@
 	path = frontend/src/test/resources/projects/frontend
 	url = https://github.com/scalacenter/frontend.git
 	branch = bloop
+[submodule "frontend/src/test/resources/projects/spark"]
+	path = frontend/src/test/resources/projects/spark
+	url = https://github.com/scalacenter/spark.git
+	branch = bloop
