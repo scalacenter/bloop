@@ -47,12 +47,11 @@ pipeline:
       event: [ push, tag, deployment ]
       status: success
     commands:
-      - echo $DRONE
-      - ls -al /keys
+      # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
       - /usr/local/bin/setup_keys.sh
       - git log | head -n 20
-      - sbt releaseEarly
+      - sbt "inspect pgpPublicRing" releaseEarly
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache
