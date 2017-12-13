@@ -24,20 +24,19 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project to compile.")
       project: String,
-      @HelpMessage("If set, it compiles incrementally. By default, true.")
+      @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
-      @HelpMessage("If set, disable improved error message format. By default, false.")
+      @HelpMessage("Disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
       @ExtraName("w")
-      @HelpMessage("If set, run the command whenever projects' source files change.")
+      @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends CoreCommand
 
   case class Projects(
       @ExtraName("dot")
-      @HelpMessage(
-        "If set, prints out the contents of a dot graph you can pipe into `dot`. Defaults to false")
+      @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
       dotGraph: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
@@ -47,12 +46,12 @@ object Commands {
       @HelpMessage("The project to test.")
       project: String,
       @ExtraName("all")
-      @HelpMessage("If set, also runs the tests in dependencies. Defaults to true.")
+      @HelpMessage("Run the tests in dependencies. Defaults to true.")
       aggregate: Boolean = false,
-      @HelpMessage("If set, disable improved error message format. By default, false.")
+      @HelpMessage("Disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
       @ExtraName("w")
-      @HelpMessage("If set, run the command whenever projects' source files change.")
+      @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CoreCommand
@@ -68,7 +67,7 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project for which to start the console.")
       project: String,
-      @HelpMessage("If set, disable improved error message format. By default, false.")
+      @HelpMessage("Disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
