@@ -177,6 +177,12 @@ object ProjectHelpers {
     finally delete(temp)
   }
 
+  def withTemporaryFile[T](op: Path => T): T = {
+    val temp = Files.createTempFile("tmp", "")
+    try op(temp)
+    finally delete(temp)
+  }
+
   def delete(path: Path): Unit = {
     Files.walkFileTree(
       path,
