@@ -35,7 +35,7 @@ object Interpreter {
       case Run(cmd: Commands.Compile, next) =>
         val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, compile(cmd, state)))
-      case Run(cmd: Commands.ConsoleCommand, next) =>
+      case Run(cmd: Commands.Console, next) =>
         val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, console(cmd, state)))
       case Run(cmd: Commands.Projects, next) =>
@@ -121,16 +121,10 @@ object Interpreter {
     state.mergeStatus(ExitStatus.Ok)
   }
 
-  private def console(cmd: Commands.ConsoleCommand, state: State): State = {
+  private def console(cmd: Commands.Console, state: State): State = {
     val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
-    def runConsole(project: Project) = {
-      cmd match {
-        case _: Commands.Console =>
-          CompileTasks.console(state, project, reporterConfig)
-        case _: Commands.ConsoleQuick =>
-          CompileTasks.consoleQuick(state, project, reporterConfig)
-      }
-    }
+    def runConsole(project: Project) =
+      CompileTasks.console(state, project, reporterConfig, cmd.excludeRoot)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) => runConsole(project).mergeStatus(ExitStatus.Ok)

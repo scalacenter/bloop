@@ -48,10 +48,6 @@ object Bloop {
         val action = Run(Commands.Console(projectName), Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
-      case Array("consoleQuick", projectName) =>
-        val action = Run(Commands.ConsoleQuick(projectName), Exit(ExitStatus.Ok))
-        run(Interpreter.execute(action, state))
-
       case Array("test", projectName) =>
         val command = Commands.Test(projectName, aggregate = true)
         val action = Run(command, Exit(ExitStatus.Ok))

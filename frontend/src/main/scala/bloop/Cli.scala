@@ -99,9 +99,6 @@ object Cli {
               case Right(c: Commands.Console) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
-              case Right(c: Commands.ConsoleQuick) =>
-                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)

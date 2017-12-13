@@ -64,23 +64,14 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
-  sealed trait ConsoleCommand extends CoreCommand
-
   case class Console(
       @ExtraName("p")
       @HelpMessage("The project for which to start the console.")
       project: String,
       @HelpMessage("If set, disable improved error message format. By default, false.")
       scalacstyle: Boolean = false,
+      @HelpMessage("Start up the console compiling only the target project's dependencies.")
+      excludeRoot: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends ConsoleCommand
-
-  case class ConsoleQuick(
-      @ExtraName("p")
-      @HelpMessage("The project for which to start the console.")
-      project: String,
-      @HelpMessage("If set, disable improved error message format. By default, false.")
-      scalacstyle: Boolean = false,
-      @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends ConsoleCommand
+  ) extends CoreCommand
 }

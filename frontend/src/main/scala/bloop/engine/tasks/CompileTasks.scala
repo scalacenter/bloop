@@ -99,15 +99,8 @@ object CompileTasks {
     compiler.console(classpathFiles, project.scalacOptions, "", "", state.logger)(Some(loader))
   }
 
-  def console(state: State, project: Project, reporterConfig: ReporterConfig): State = {
-    val newState = compile(state, project, reporterConfig)
-    val classpath = project.classesDir +: project.classpath
-    runConsole(newState, project, classpath)
-    newState
-  }
-
-  def consoleQuick(state: State, project: Project, reporterConfig: ReporterConfig): State = {
-    val newState = compile(state, project, reporterConfig, excludeRoot = true)
+  def console(state: State, project: Project, config: ReporterConfig, noRoot: Boolean): State = {
+    val newState = compile(state, project, config, excludeRoot = noRoot)
     val classpath = project.classpath
     runConsole(newState, project, classpath)
     newState
