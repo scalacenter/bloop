@@ -34,6 +34,7 @@ pipeline:
     commands:
       - git log | head -n 20
       - ${SBT_RUN}
+      - git status
       - ./bin/ci-clean-cache.sh
 
   publish:
