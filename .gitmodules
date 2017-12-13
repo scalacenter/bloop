@@ -34,3 +34,7 @@
 	path = frontend/src/test/resources/projects/mini-better-files
 	url = https://github.com/scalacenter/mini-better-files.git
 	branch = master
+[submodule "frontend/src/test/resources/projects/frontend"]
+	path = frontend/src/test/resources/projects/frontend
+	url = https://github.com/scalacenter/frontend.git
+	branch = bloop
