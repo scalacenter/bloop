@@ -56,7 +56,8 @@ main() {
                           "-p project=scala -p projectName=compiler"
                           "-p project=utest -p projectName=root"
                           "-p project=versions -p projectName=versions"
-                          "-p project=with-tests -p projectName=with-tests")
+                          "-p project=with-tests -p projectName=with-tests"
+                          "-p project=frontend -p projectName=main")
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"
     do
         echo "$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark" >> "$COMMANDS_FILE"
