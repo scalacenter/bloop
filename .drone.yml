@@ -47,6 +47,9 @@ pipeline:
       event: [ push, tag, deployment ]
       status: success
     commands:
+      - echo $DRONE
+      - echo $([[ -d "/keys" ]])
+      - /usr/local/bin/setup_keys.sh
       - git log | head -n 20
       - sbt releaseEarly
 
