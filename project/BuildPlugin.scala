@@ -248,7 +248,7 @@ object BuildImplementation {
 
     private val NewLine = System.lineSeparator
     def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = List(
-      ScriptedKeys.scriptedBufferLog := false,
+      ScriptedKeys.scriptedBufferLog := true,
       ScriptedKeys.sbtTestDirectory := testDirectory.value,
       BuildKeys.scriptedAddSbtBloop := {
         import sbt.io.syntax.{fileToRichFile, singleFileFinder}
