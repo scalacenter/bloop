@@ -157,7 +157,7 @@ object ProjectHelpers {
     )
   }
 
-  def makeProjectStructure[T](base: Path, name: String): (Path, Path) = {
+  def makeProjectStructure(base: Path, name: String): (Path, Path) = {
     val srcs = sourcesDir(base, name)
     val classes = classesDir(base, name)
     Files.createDirectories(srcs)
@@ -165,7 +165,7 @@ object ProjectHelpers {
     (srcs, classes)
   }
 
-  def writeSources[T](srcDir: Path, sources: Map[String, String]): Unit = {
+  def writeSources(srcDir: Path, sources: Map[String, String]): Unit = {
     sources.foreach {
       case (name, contents) =>
         val writer = Files.newBufferedWriter(srcDir.resolve(name), Charset.forName("UTF-8"))
