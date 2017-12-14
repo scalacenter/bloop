@@ -50,7 +50,7 @@ pipeline:
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
       - /usr/local/bin/setup_keys.sh
-      - touch "$HOME/.bintray/.credentials"
+      - mkdir "$HOME/.bintray" && touch "$HOME/.bintray/.credentials"
       - git log | head -n 20
       - sbt "inspect pgpPublicRing" releaseEarly
 
