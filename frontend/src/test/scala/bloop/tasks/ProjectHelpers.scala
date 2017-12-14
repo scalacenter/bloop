@@ -7,6 +7,7 @@ import java.nio.file.attribute.BasicFileAttributes
 
 import bloop.cli.Commands
 import bloop.engine.{Build, Interpreter, Run, State}
+import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
@@ -137,6 +138,7 @@ object ProjectHelpers {
     val depsTargets = (dependencies.map(classesDir(baseDir, _))).toArray.map(AbsolutePath.apply)
     val classpath = depsTargets ++ scalaInstance.allJars.map(AbsolutePath.apply)
     val sourceDirectories = Array(AbsolutePath(srcs))
+    val javaEnv = JavaEnv.default(fork = false)
     writeSources(srcs, sources)
     Project(
       name = name,
@@ -149,6 +151,7 @@ object ProjectHelpers {
       javacOptions = Array.empty,
       sourceDirectories = sourceDirectories,
       testFrameworks = Array.empty,
+      javaEnv = javaEnv,
       tmp = AbsolutePath(tempDir),
       bloopConfigDir = AbsolutePath(baseDirectory) // This means nothing in tests
     )

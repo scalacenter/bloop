@@ -49,6 +49,9 @@ object PluginImplementation {
       javacOptions: Seq[String],
       sourceDirectories: Seq[File],
       testFrameworks: Seq[Seq[String]],
+      fork: Boolean,
+      javaHome: File,
+      javaOptions: Seq[String],
       allScalaJars: Seq[File],
       tmp: File
   ) {
@@ -69,6 +72,9 @@ object PluginImplementation {
       properties.setProperty("sourceDirectories", seqToString(toPaths(sourceDirectories)))
       properties.setProperty("testFrameworks",
                              seqToString(testFrameworks.map(seqToString(_)), sep = ";"))
+      properties.setProperty("fork", fork.toString)
+      properties.setProperty("javaHome", javaHome.getAbsolutePath)
+      properties.setProperty("javaOptions", seqToString(javaOptions, ";"))
       properties.setProperty("allScalaJars", seqToString(toPaths(allScalaJars)))
       properties.setProperty("tmp", tmp.getAbsolutePath)
       properties
@@ -110,6 +116,9 @@ object PluginImplementation {
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
       val scalacOptions = Keys.scalacOptions.value
       val javacOptions = Keys.javacOptions.value
+
+      val (fork, javaHome, javaOptions) = javaConfiguration.value
+
       val tmp = Keys.target.value / "tmp-bloop"
       val bloopConfigDir = AutoImportedKeys.bloopConfigDir.value
       val outFile = bloopConfigDir / s"$projectName.config"
@@ -119,8 +128,9 @@ object PluginImplementation {
       (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
 
       // format: OFF
-      val config = Config(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
-        classpath, classesDir, scalacOptions, javacOptions, sourceDirs, testFrameworks, allScalaJars, tmp)
+      val config = Config(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg,
+        scalaName,scalaVersion, classpath, classesDir, scalacOptions, javacOptions, sourceDirs,
+        testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       val stream = new FileOutputStream(outFile)
       try config.toProperties.store(stream, null)
@@ -168,6 +178,28 @@ object PluginImplementation {
         val internalClasspath = internalClasspathTask.value
         val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
         internalClasspath ++ externalClasspath
+      }
+    }
+
+    private type JavaConfiguration = (Boolean, File, Seq[String])
+
+    /**
+     * Extract the information that we need to configure forking for run or test.
+     */
+    val javaConfiguration: Def.Initialize[Task[JavaConfiguration]] = Def.taskDyn {
+      import sbt.{ScopedKey, Scoped, SettingKey, TaskKey}
+      val configuration = Keys.configuration.value
+      lazy val defaultJavaHome = new File(sys.props("java.home"))
+      def scoped[T, K[T]](key: Scoped.ScopingSetting[K[T]]): K[T] =
+        if (configuration == Test) key.in(Test)
+        else key.in(Keys.run)
+
+      Def.task {
+        val fork = scoped(Keys.fork).value
+        val javaHome = scoped(Keys.javaHome).value.getOrElse(defaultJavaHome)
+        val javaOptions = scoped(Keys.javaOptions).value
+
+        (fork, javaHome, javaOptions)
       }
     }
   }
