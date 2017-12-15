@@ -5,7 +5,7 @@ import bloop.engine.{Dag, State}
 import bloop.exec.ProcessConfig
 import bloop.io.AbsolutePath
 import bloop.reporter.{Reporter, ReporterConfig}
-import bloop.testing.TestInternals
+import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 
 import java.net.URLClassLoader
@@ -203,18 +203,16 @@ object Tasks {
         sbt.internal.inc.Analysis.empty
       }
 
-      val discoveredTests = discoverTests(analysis, frameworks)
-      val allTestNames: List[String] =
-        discoveredTests.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName())).toList
-      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
-      discoveredTests.iterator.foreach {
-        case (framework, taskDefs) =>
-          val runner = TestInternals.getRunner(framework, testLoader)
-          val tasks = runner.tasks(taskDefs.toArray).toList
-          TestInternals.executeTasks(tasks, eventHandler, logger)
-          val summary = runner.done()
-          if (summary.nonEmpty) logger.info(summary)
+      val discoveredTests = {
+        val tests = discoverTests(analysis, frameworks)
+        DiscoveredTests(testLoader, tests)
       }
+      val allTestNames: List[String] =
+        discoveredTests.tests.valuesIterator
+          .flatMap(defs => defs.map(_.fullyQualifiedName()))
+          .toList
+      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
+      TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
     }
 
     // Return the previous state, test execution doesn't modify it.
@@ -270,9 +268,8 @@ object Tasks {
   private[bloop] val eventHandler =
     new EventHandler { override def handle(event: Event): Unit = () }
 
-  private type Discovered = Map[Framework, List[TaskDef]]
   private[bloop] def discoverTests(analysis: CompileAnalysis,
-                                   frameworks: Array[Framework]): Discovered = {
+                                   frameworks: Array[Framework]): Map[Framework, List[TaskDef]] = {
     import scala.collection.mutable
     val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
     val definitions = TestInternals.potentialTests(analysis)

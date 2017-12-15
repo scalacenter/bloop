@@ -2,10 +2,11 @@ package bloop.tasks
 
 import bloop.{DynTest, Project}
 import bloop.engine.State
+import bloop.exec.{InProcess, JavaEnv, ProcessConfig}
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.Tasks
-import bloop.testing.TestInternals
+import bloop.testing.{DiscoveredTests, TestInternals}
 import xsbti.compile.CompileAnalysis
 
 object TestTaskTest extends DynTest {
@@ -30,15 +31,34 @@ object TestTaskTest extends DynTest {
     assert(withSuffix.get.name == "with-tests-test")
   }
 
-  import bloop.exec.InProcess
-  private val testLoader: ClassLoader = {
+  private def processRunnerConfig(fork: Boolean): ProcessConfig = {
+    val javaEnv = JavaEnv.default(fork)
     val classpath = testProject.classpath
-    InProcess(classpath).toClassLoader(Some(TestInternals.filteredLoader))
+    ProcessConfig(javaEnv, classpath)
   }
 
-  private val frameworks: Array[Framework] = {
+  private def testLoader(processConfig: ProcessConfig): ClassLoader =
+    processConfig.toClassLoader(Some(TestInternals.filteredLoader))
+
+  private def frameworks(classLoader: ClassLoader): Array[Framework] = {
     testProject.testFrameworks.flatMap(n =>
-      TestInternals.getFramework(testLoader, n.toList, testState.logger))
+      TestInternals.getFramework(classLoader, n.toList, testState.logger))
+  }
+
+  private def runTestFramework(frameworkName: String, fork: Boolean): Unit = {
+    testState.logger.quietIfSuccess { logger =>
+      val config = processRunnerConfig(fork)
+      val classLoader = testLoader(config)
+      val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader)).toList
+      val tests = discovered.flatMap {
+        case (framework, taskDefs) =>
+          val testName = s"${frameworkName}Test"
+          val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
+          Seq(framework -> filteredDefs)
+      }.toMap
+      val discoveredTests = DiscoveredTests(classLoader, tests)
+      TestInternals.executeTasks(config, discoveredTests, Tasks.eventHandler, logger)
+    }
   }
 
   // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
@@ -46,29 +66,20 @@ object TestTaskTest extends DynTest {
   frameworkNames.foreach { framework =>
     test(s"$framework's tests are detected") {
       testState.logger.quietIfSuccess { logger =>
-        val discovered = Tasks.discoverTests(testAnalysis, frameworks)
+        val config = processRunnerConfig(fork = false)
+        val classLoader = testLoader(config)
+        val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader))
         val testNames = discovered.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName()))
         assert(testNames.exists(_.contains(s"${framework}Test")))
       }
     }
 
-    test(s"$framework tests can run") {
-      testState.logger.quietIfSuccess { logger =>
-        val discovered = Tasks.discoverTests(testAnalysis, frameworks).toList
-        val toRun = discovered.flatMap {
-          case (framework, taskDefs) =>
-            val testName = s"${framework.name()}Test"
-            val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
-            if (filteredDefs.isEmpty) Nil
-            else {
-              val runner = TestInternals.getRunner(framework, testLoader)
-              val tasks = runner.tasks(filteredDefs.toArray).toList
-              List(() => TestInternals.executeTasks(tasks, Tasks.eventHandler, logger))
-            }
-        }
+    test(s"$framework's tests can be run in process") {
+      runTestFramework(framework, fork = false)
+    }
 
-        toRun.foreach(thunk => thunk())
-      }
+    test(s"$framework's tests can be run in a forked JVM") {
+      runTestFramework(framework, fork = true)
     }
   }
 }

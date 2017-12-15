@@ -72,6 +72,7 @@ val backend = project
       Dependencies.log4jApi,
       Dependencies.log4jCore,
       Dependencies.sbtTestInterface,
+      Dependencies.sbtTestAgent,
       Dependencies.directoryWatcher
     )
   )
