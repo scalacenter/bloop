@@ -39,12 +39,9 @@ pipeline:
     commands:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
-      - export DRONE_DIR="/drone"
-      - export GNUPGHOME="/drone/.gnupg"
-      - /usr/local/bin/setup_keys.sh
-      - ls -al "$GNUPGHOME"
-      - chmod -R 755 "$GNUPGHOME"
-      - sbt "inspect pgpPublicRing" releaseEarly
+      - DRONE_DIR="$DRONE" && /usr/local/bin/setup_keys.sh
+      - chown -R $USER:$USER "$DRONE/.gnupg"
+      - sbt releaseEarly
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache
