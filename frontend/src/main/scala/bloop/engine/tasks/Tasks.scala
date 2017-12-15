@@ -193,8 +193,8 @@ object Tasks {
     val projectsToTest = if (aggregate) Dag.dfs(state.build.getDagFor(project)) else List(project)
     projectsToTest.foreach { project =>
       val projectName = project.name
-      val classpath = constructClasspath(project)
-      val testLoader = new URLClassLoader(classpath, TestInternals.filteredLoader)
+      val processConfig = ProcessConfig(project.javaEnv, project.classpath)
+      val testLoader = processConfig.toClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
@@ -288,8 +288,5 @@ object Tasks {
     }
     tasks.mapValues(_.toList).toMap
   }
-
-  private[bloop] def constructClasspath(project: Project): Array[java.net.URL] =
-    project.classpath.map(_.underlying.toUri.toURL())
 
 }

@@ -30,10 +30,10 @@ object TestTaskTest extends DynTest {
     assert(withSuffix.get.name == "with-tests-test")
   }
 
-  import java.net.URLClassLoader
+  import bloop.exec.InProcess
   private val testLoader: ClassLoader = {
-    val classpath = Tasks.constructClasspath(testProject)
-    new URLClassLoader(classpath, TestInternals.filteredLoader)
+    val classpath = testProject.classpath
+    InProcess(classpath).toClassLoader(Some(TestInternals.filteredLoader))
   }
 
   private val frameworks: Array[Framework] = {

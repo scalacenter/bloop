@@ -1,7 +1,9 @@
 package bloop.exec
 
 import java.io.File.{separator, pathSeparator}
+import java.lang.ClassLoader
 import java.net.URLClassLoader
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.util.control.NonFatal
 
@@ -11,12 +13,29 @@ import bloop.logging.{Logger, ProcessLogger}
 /**
  * Configures how to start new processes to run Java code.
  */
-sealed trait ProcessConfig {
+sealed abstract class ProcessConfig {
+
+  private var classLoaderCache: ConcurrentHashMap[Option[ClassLoader], ClassLoader] =
+    new ConcurrentHashMap
 
   /**
    * The full classpath with which the code should be executed
    */
   def classpath: Array[AbsolutePath]
+
+  /**
+   * Creates a `ClassLoader` from the classpath of this `ProcessConfig`.
+   *
+   * @param parent A parent classloader
+   * @return A classloader constructed from the classpath of this `ProcessConfig`.
+   */
+  final def toClassLoader(parent: Option[ClassLoader]): ClassLoader = {
+    def makeNew(parent: Option[ClassLoader]): ClassLoader = {
+      val classpathEntries = classpath.map(_.underlying.toUri.toURL)
+      new URLClassLoader(classpathEntries, parent.orNull)
+    }
+    classLoaderCache.computeIfAbsent(parent, makeNew)
+  }
 
   /**
    * Run the main function in class `className`, passing it `args`.
