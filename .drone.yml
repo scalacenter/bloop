@@ -39,9 +39,9 @@ pipeline:
     commands:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
-      - export DRONE_DIR="$DRONE"
+      - export DRONE_DIR="/drone"
       - /usr/local/bin/setup_keys.sh
-      - chown -R $USER:$USER "$DRONE/.gnupg"
+      - chown -R $USER:$USER "$DRONE_DIR/.gnupg"
       - sbt releaseEarly
 
   rebuild_cache:
