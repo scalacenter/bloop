@@ -47,11 +47,11 @@ pipeline:
       event: [ push, tag, deployment ]
       status: success
     commands:
+      - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
+      - export GNUPGHOME="/drone/.gnupg"
       - /usr/local/bin/setup_keys.sh
-      - mkdir "$HOME/.bintray" && touch "$HOME/.bintray/.credentials"
-      - git log | head -n 20
       - sbt "inspect pgpPublicRing" releaseEarly
 
   rebuild_cache:
