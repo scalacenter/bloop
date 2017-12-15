@@ -5,6 +5,11 @@ matrix:
           "setupTests" \
           "backend/test" \
           "frontend/test"
+  SBT_PUBLISH:
+    - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
+          "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
+          "show */*:pgpSecretRing" \
+          sbtBloop/releaseEarly
 
 clone:
   git:
@@ -33,7 +38,6 @@ pipeline:
     volumes:
       - /scalacenter:/keys
     when:
-      branch: master # For now, we assume releases can only happen in master
       event: [ push, tag, deployment ]
       status: success
     commands:
@@ -41,8 +45,7 @@ pipeline:
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
       - /usr/local/bin/setup_keys.sh
-      - chown -R $USER:$(id -g) "$DRONE_DIR/.gnupg"
-      - sbt releaseEarly
+      - ${SBT_PUBLISH}
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache
