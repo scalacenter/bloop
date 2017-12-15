@@ -34,6 +34,12 @@ object ProcessConfig {
   def apply(javaEnv: JavaEnv, classpath: Array[AbsolutePath]): ProcessConfig =
     if (javaEnv.fork) Fork(classpath, javaEnv)
     else InProcess(classpath)
+
+  /** The code returned after a successful execution. */
+  final val EXIT_OK = 0
+
+  /** The code returned after the execution errored. */
+  final val EXIT_ERROR = 1
 }
 
 /**
@@ -51,8 +57,8 @@ case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
   private def replaceStandardStreams[T](logger: Logger)(op: => T): T = InProcess.synchronized {
     val systemOut = System.out
     val systemErr = System.err
-    val newOut = ProcessLogger.toStream(logger.info)
-    val newErr = ProcessLogger.toStream(logger.error)
+    val newOut = ProcessLogger.toPrintStream(logger.info)
+    val newErr = ProcessLogger.toPrintStream(logger.error)
     System.setOut(newOut)
     System.setErr(newErr)
     try op
@@ -73,24 +79,15 @@ case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
         val main = clazz.getMethod("main", classOf[Array[String]])
         replaceStandardStreams(logger)(main.invoke(null, args))
         logger.debug("In process run finished successfully.")
-        InProcess.EXIT_OK
+        ProcessConfig.EXIT_OK
       } catch {
         case NonFatal(ex) =>
           logger.trace(ex)
-          InProcess.EXIT_ERROR
+          ProcessConfig.EXIT_ERROR
       }
     }
     exitCode
   }
-}
-
-object InProcess {
-
-  /** The code returned after a successful execution. */
-  final val EXIT_OK = 0
-
-  /** The code returned after the execution errored. */
-  final val EXIT_ERROR = 1
 }
 
 /**

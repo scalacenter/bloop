@@ -4,7 +4,8 @@ import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
-import bloop.engine.tasks.{CompileTasks, TestTasks}
+import bloop.engine.tasks.{CompileTasks, RunTasks, TestTasks}
+import bloop.exec.ProcessConfig
 import bloop.Project
 import bloop.logging.BloopLogger
 
@@ -32,6 +33,8 @@ object Interpreter {
         execute(next, logAndTime(state, cmd.cliOptions, showProjects(cmd, state)))
       case Run(cmd: Commands.Test, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, test(cmd, state)))
+      case Run(cmd: Commands.Run, next) =>
+        execute(next, logAndTime(state, cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, configure(cmd, state)))
     }
@@ -165,6 +168,38 @@ object Interpreter {
     val (projects, missing) = lookupProjects(cmd.projects, state)
     if (missing.isEmpty) CompileTasks.clean(state, projects).mergeStatus(ExitStatus.Ok)
     else reportMissing(missing, state)
+  }
+
+  private def run(cmd: Commands.Run, state: State): State = {
+    val reporter = ReporterConfig.getDefault(cmd.scalacstyle)
+    def getMainClass(state: State, project: Project): Option[String] = {
+      RunTasks.findMainClasses(state, project) match {
+        case Array() =>
+          state.logger.error(s"No main classes found in project '${project.name}'")
+          None
+        case Array(main) =>
+          Some(main)
+        case mainClasses =>
+          state.logger.error(s"Several main classes were found, specify which one:")
+          mainClasses.foreach(cl => state.logger.error(s" * $cl"))
+          None
+      }
+    }
+    def run(project: Project): State = {
+      val compiledState = CompileTasks.compile(state, project, reporter)
+      val selectedMainClass = cmd.main.orElse(getMainClass(compiledState, project))
+      selectedMainClass
+        .map { main =>
+          val args = cmd.args.toArray
+          RunTasks.run(compiledState, project, main, args)
+        }
+        .getOrElse(compiledState.mergeStatus(ExitStatus.UnexpectedError))
+    }
+
+    state.build.getProjectFor(cmd.project) match {
+      case Some(project) => run(project)
+      case None => reportMissing(cmd.project :: Nil, state)
+    }
   }
 
   private def reportMissing(projectNames: List[String], state: State): State = {

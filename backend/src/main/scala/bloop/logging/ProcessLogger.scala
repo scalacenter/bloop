@@ -18,14 +18,15 @@ class ProcessLogger(underlying: Logger) extends process.ProcessLogger {
 
 object ProcessLogger {
 
+  private val encoding = sys.props("file.encoding")
+
   /**
-   * Creates a `PrintStream` from a logging function
+   * Creates an `OutputStream` from a logging function
    *
-   * @param logger A function that logs the given string to a logger.
-   * @return A `PrintStream` that can be used as `System.in` or `System.err`.
+   * @param logFn A function that logs the given string to a logger.
+   * @return An `OutputStream` that can be used as `System.in` or `System.err`.
    */
-  def toStream(logger: String => Unit): PrintStream = {
-    val encoding = sys.props("file.encoding")
+  def toOutputStream(logFn: String => Unit): OutputStream = {
     val outputStream = new OutputStream {
       private val buffer = new ByteArrayOutputStream
 
@@ -37,9 +38,20 @@ object ProcessLogger {
         val bytes = buffer.toByteArray()
         buffer.reset()
         val content = new String(bytes, encoding)
-        logger(content)
+        logFn(content)
       }
     }
+    outputStream
+  }
+
+  /**
+   * Creates a `PrintStream` from a logging function
+   *
+   * @param logFn A function that logs the given string to a logger.
+   * @return A `PrintStream` that can be used as `System.in` or `System.err`.
+   */
+  def toPrintStream(logFn: String => Unit): PrintStream = {
+    val outputStream = toOutputStream(logFn)
     new PrintStream(outputStream, /* autoflush = */ true, encoding)
   }
 }
