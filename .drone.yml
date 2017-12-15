@@ -27,16 +27,6 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
 
-  build:
-    image: scalaplatform/scala:2.1
-    when:
-      branch: master
-    commands:
-      - git log | head -n 20
-      - ${SBT_RUN}
-      - git status
-      - ./bin/ci-clean-cache.sh
-
   publish:
     image: scalaplatform/scala:2.1
     secrets: [ sonatype_user, sonatype_password, pgp_password ]
@@ -52,6 +42,8 @@ pipeline:
       - export DRONE_DIR="/drone"
       - export GNUPGHOME="/drone/.gnupg"
       - /usr/local/bin/setup_keys.sh
+      - ls -al "$GNUPGHOME"
+      - chmod -R 755 "$GNUPGHOME"
       - sbt "inspect pgpPublicRing" releaseEarly
 
   rebuild_cache:
