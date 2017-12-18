@@ -116,7 +116,7 @@ object PluginImplementation {
 
       // Force source and resource generators on this task manually
       // We cannot depend on `managedSources` and `managedResources` because they trigger compilation
-      (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
+      val _ = (Keys.sourceManaged.value, Keys.resourceManaged.value)
 
       // format: OFF
       val config = Config(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg, scalaName,scalaVersion,
