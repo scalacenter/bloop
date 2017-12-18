@@ -32,7 +32,7 @@ class ProcessConfigSpec {
       op: (Int, List[(String, String)]) => Unit): Unit =
     ProjectHelpers.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
       val project = ProjectHelpers.getProject(ProjectHelpers.RootProject, state)
-      val classpath = project.classesDir +: project.classpath
+      val classpath = project.fullClasspath
       val config = ProcessConfig(env, classpath)
       val logger = new RecordingLogger
       val exitCode = config.runMain(s"$packageName.$mainClassName", args, logger)

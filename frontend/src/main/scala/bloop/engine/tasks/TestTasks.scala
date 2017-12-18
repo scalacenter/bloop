@@ -38,7 +38,7 @@ object TestTasks {
   }
 
   private[bloop] def constructClasspath(project: Project): Array[java.net.URL] =
-    (project.classesDir +: project.classpath).map(_.underlying.toUri.toURL())
+    project.fullClasspath.map(_.underlying.toUri.toURL())
 
   def test(state: State, project: Project, aggregate: Boolean): State = {
     // TODO(jvican): This method should cache the test loader always.

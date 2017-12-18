@@ -44,6 +44,10 @@ case class Project(name: String,
     properties.setProperty("javaOptions", javaEnv.javaOptions.mkString(";"))
     properties
   }
+
+  lazy val fullClasspath: Array[AbsolutePath] = {
+    classesDir +: classpath
+  }
 }
 
 object Project {

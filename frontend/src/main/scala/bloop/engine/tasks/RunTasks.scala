@@ -10,7 +10,7 @@ import xsbt.api.Discovery
 
 object RunTasks {
   def run(state: State, project: Project, className: String, args: Array[String]): State = {
-    val classpath = project.classesDir +: project.classpath
+    val classpath = project.fullClasspath
     val processConfig = ProcessConfig(project.javaEnv, classpath)
     val exitCode = processConfig.runMain(className, args, state.logger)
     val exitStatus = {

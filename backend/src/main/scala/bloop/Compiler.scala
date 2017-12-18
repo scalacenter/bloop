@@ -45,7 +45,7 @@ object Compiler {
         .distinct
       val classesDir = inputs.classesDir.toFile
       // TODO(jvican): Figure out why `inputs.scalaInstance.allJars` is required here.
-      val classpath = Array(classesDir) ++ inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars
+      val classpath = inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars
 
       CompileOptions
         .create()

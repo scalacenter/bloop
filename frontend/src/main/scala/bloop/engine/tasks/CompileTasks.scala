@@ -25,7 +25,7 @@ object CompileTasks {
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
       val instance = project.scalaInstance
       val sourceDirs = project.sourceDirectories
-      val classpath = project.classpath
+      val classpath = project.fullClasspath
       val classesDir = project.classesDir
       val target = project.tmp
       val scalacOptions = project.scalacOptions
