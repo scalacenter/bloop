@@ -234,6 +234,46 @@ object BuildImplementation {
     """.stripMargin
     }
 
+    private val testPluginContents = {
+      """import sbt._
+        |import Keys._
+        |import bloop.SbtBloop.autoImport._
+        |
+        |object TestPlugin extends AutoPlugin {
+        |  override def requires = bloop.SbtBloop
+        |  override def trigger = allRequirements
+        |
+        |  object autoImport {
+        |    lazy val copySources = taskKey[Unit]("Copy all generated sources")
+        |    lazy val copySourcesIndividual = taskKey[Unit]("Copy generated sources")
+        |  }
+        |  import autoImport._
+        |
+        |  override def globalSettings: Seq[Setting[_]] = Seq(
+        |    copySources := Def.taskDyn {
+        |      val filter = ScopeFilter(sbt.inAnyProject)
+        |      copySourcesIndividual.all(filter).map(_ => ())
+        |    }.value
+        |  )
+        |
+        |  override def projectSettings: Seq[Setting[_]] = Seq(
+        |    copySourcesIndividual := {
+        |      val outOfScriptedRoot = bloopConfigDir.value.getParentFile
+        |      val inScriptedRoot = baseDirectory.in(ThisBuild).value
+        |      def copy(managedSources: Seq[File]): Unit = {
+        |        for { src <- managedSources
+        |              generatedPath <- IO.relativize(inScriptedRoot, src)
+        |              generatedOutOfScripted = outOfScriptedRoot / generatedPath } {
+        |          IO.copyFile(src, generatedOutOfScripted)
+        |        }
+        |      }
+        |      val allManagedSources = (managedSources in Compile).value ++ (managedSources in Test).value
+        |      copy(allManagedSources)
+        |    }
+        |  )
+        |}""".stripMargin
+    }
+
     private val scriptedTestContents = {
       """> show bloopConfigDir
         |# Some projects need to compile to generate resources. We do it now so that the configuration
@@ -241,6 +281,7 @@ object BuildImplementation {
         |> resources
         |> registerDirectory
         |> installBloop
+        |> copySources
         |> checkInstall
         |> copyContentOutOfScripted
       """.stripMargin
@@ -262,6 +303,7 @@ object BuildImplementation {
           IO.copyFile(testPluginSrc, testDir / "project" / "TestPlugin.scala")
           IO.createDirectory(testDir / "bloop-config")
           IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
+          IO.write(testDir / "project" / "TestPlugin.scala", testPluginContents)
           IO.write(testDir / "test-config.sbt", createScriptedSetup(testDir))
           IO.write(testDir / "test", scriptedTestContents)
         }
