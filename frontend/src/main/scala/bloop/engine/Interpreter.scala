@@ -180,8 +180,10 @@ object Interpreter {
         case Array(main) =>
           Some(main)
         case mainClasses =>
-          state.logger.error(s"Several main classes were found, specify which one:")
-          mainClasses.foreach(cl => state.logger.error(s" * $cl"))
+          val eol = System.lineSeparator
+          val message = s"""Several main classes were found, specify which one:
+                           |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+          state.logger.error(message)
           None
       }
     }
