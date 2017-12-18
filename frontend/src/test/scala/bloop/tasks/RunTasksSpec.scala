@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, Run}
-import bloop.engine.tasks.RunTasks
+import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, ProcessLogger, RecordingLogger}
 import bloop.tasks.ProjectHelpers.{checkAfterCleanCompilation, getProject}
 
@@ -66,7 +66,7 @@ class RunTasksSpec {
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.NotRunnable))
     checkAfterCleanCompilation(projectsStructure, noDependencies, quiet = true) { state =>
       val project = getProject(projectName, state)
-      val mainClasses = RunTasks.findMainClasses(state, project)
+      val mainClasses = Tasks.findMainClasses(state, project)
       assertEquals(0, mainClasses.length.toLong)
     }
   }
@@ -76,7 +76,7 @@ class RunTasksSpec {
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0))
     checkAfterCleanCompilation(projectsStructure, noDependencies, quiet = true) { state =>
       val project = getProject(projectName, state)
-      val mainClasses = RunTasks.findMainClasses(state, project)
+      val mainClasses = Tasks.findMainClasses(state, project)
       assertEquals(1, mainClasses.length.toLong)
       assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
     }
@@ -89,7 +89,7 @@ class RunTasksSpec {
                          "B.scala" -> ArtificialSources.RunnableClass1))
     checkAfterCleanCompilation(projectsStructure, noDependencies, quiet = true) { state =>
       val project = getProject(projectName, state)
-      val mainClasses = RunTasks.findMainClasses(state, project).sorted
+      val mainClasses = Tasks.findMainClasses(state, project).sorted
       assertEquals(2, mainClasses.length.toLong)
       assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
       assertEquals(s"$packageName.$mainClassName1", mainClasses(1))

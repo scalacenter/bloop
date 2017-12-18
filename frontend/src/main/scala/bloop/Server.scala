@@ -39,8 +39,8 @@ object Server {
 
   private def shutDown(server: NGServer): Unit = {
     import bloop.engine.State
-    import bloop.engine.tasks.CompileTasks
-    State.stateCache.allStates.foreach(s => CompileTasks.persist(s))
+    import bloop.engine.tasks.Tasks
+    State.stateCache.allStates.foreach(s => Tasks.persist(s))
     server.shutdown(true)
   }
 }

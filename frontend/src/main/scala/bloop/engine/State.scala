@@ -71,9 +71,9 @@ object State {
     Runtime
       .getRuntime()
       .addShutdownHook(new Thread {
-        import bloop.engine.tasks.CompileTasks
+        import bloop.engine.tasks.Tasks
         override def run(): Unit =
-          State.stateCache.allStates.foreach(s => CompileTasks.persist(s))
+          State.stateCache.allStates.foreach(s => Tasks.persist(s))
       })
   }
 

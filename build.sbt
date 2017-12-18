@@ -121,4 +121,3 @@ val bloop = project
     skip in publish := true,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
-

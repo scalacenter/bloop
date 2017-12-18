@@ -3,7 +3,7 @@ package bloop
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.cli.CliParsers.{inputStreamRead, printStreamRead, OptionsParser, pathParser}
 import bloop.engine.{Build, Exit, Interpreter, Run, State}
-import bloop.engine.tasks.CompileTasks
+import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
@@ -32,7 +32,7 @@ object Bloop extends CaseApp[CliOptions] {
     val input = reader.readLine()
     input.split(" ") match {
       case Array("exit") =>
-        timed(state.logger) { CompileTasks.persist(state) }
+        timed(state.logger) { Tasks.persist(state) }
         ()
 
       case Array("projects") =>
