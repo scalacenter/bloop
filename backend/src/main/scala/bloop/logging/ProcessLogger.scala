@@ -1,19 +1,30 @@
 package bloop.logging
 
-import java.io.{ByteArrayOutputStream, OutputStream, PrintStream}
-
-import scala.sys.process
+import java.io.{
+  BufferedReader,
+  ByteArrayOutputStream,
+  InputStream,
+  InputStreamReader,
+  OutputStream,
+  PrintStream
+}
+import scala.annotation.tailrec
 
 /**
- *  Wrap a `Logger` to conform to `scala.sys.process.ProcessLogger`. All
- *  messages are forwarded to the `underlying` logger.
+ * Logs the output on stdout and std err of `process` to the `underlying` logger
  *
- *  @param underlying The logger to forward the messages to.
+ * @param underlying The logger that receives the output of the process
+ * @param process    The process whose output must be logged.
  */
-class ProcessLogger(underlying: Logger) extends process.ProcessLogger {
-  override def buffer[T](op: => T): T = op
-  override def err(s: => String): Unit = underlying.error(s)
-  override def out(s: => String): Unit = underlying.info(s)
+class ProcessLogger(underlying: Logger, process: Process) {
+  private[this] val processOut = process.getInputStream
+  private[this] val processErr = process.getErrorStream
+
+  def start(): Unit = {
+    underlying.debug("Starting to log output from process...")
+    new StreamLogger(underlying.info, processOut).start()
+    new StreamLogger(underlying.error, processErr).start()
+  }
 }
 
 object ProcessLogger {
@@ -53,5 +64,23 @@ object ProcessLogger {
   def toPrintStream(logFn: String => Unit): PrintStream = {
     val outputStream = toOutputStream(logFn)
     new PrintStream(outputStream, /* autoflush = */ true, encoding)
+  }
+}
+
+/**
+ * Pass all data from `stream` to `logFn`
+ *
+ * @param logFn  The handler that receives data from the `stream`
+ * @param stream The stream that produces the data.
+ */
+private class StreamLogger(logFn: String => Unit, stream: InputStream) extends Thread {
+  private[this] val reader = new BufferedReader(new InputStreamReader(stream))
+
+  @tailrec
+  override final def run(): Unit = {
+    Option(reader.readLine()) match {
+      case Some(line) => logFn(line); run()
+      case None => ()
+    }
   }
 }

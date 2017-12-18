@@ -4,7 +4,6 @@ import java.io.File.{separator, pathSeparator}
 import java.net.URLClassLoader
 
 import scala.util.control.NonFatal
-import scala.sys.process.stringSeqToProcess
 
 import bloop.io.AbsolutePath
 import bloop.logging.{Logger, ProcessLogger}
@@ -95,8 +94,6 @@ case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
  */
 case class Fork(classpath: Array[AbsolutePath], javaEnv: JavaEnv) extends ProcessConfig {
   override def runMain(className: String, args: Array[String], logger: Logger): Int = {
-    val processLogger = new ProcessLogger(logger)
-
     val java = javaEnv.javaHome.resolve("bin").resolve("java")
     val classpathOption = "-cp" :: classpath.map(_.syntax).mkString(pathSeparator) :: Nil
     val appOptions = className :: args.toList
@@ -108,7 +105,12 @@ case class Fork(classpath: Array[AbsolutePath], javaEnv: JavaEnv) extends Proces
     logger.debug(s"  classpath   = '${classpath.map(_.syntax).mkString(pathSeparator)}'")
     logger.debug(s"  command     = '${cmd.mkString(" ")}'")
 
-    val exitCode = cmd.!(processLogger)
+    val processBuilder = new ProcessBuilder(cmd: _*)
+    val process = processBuilder.start()
+    val processLogger = new ProcessLogger(logger, process)
+    processLogger.start()
+    val exitCode = process.waitFor()
+
     exitCode
   }
 }
