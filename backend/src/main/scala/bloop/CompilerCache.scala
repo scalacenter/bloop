@@ -37,7 +37,7 @@ class CompilerCache(componentProvider: ComponentProvider,
         ZincUtil.scalaCompiler(
           /* scalaInstance        = */ scalaInstance,
           /* classpathOptions     = */ classpathOptions,
-          /* globalLock           = */ Lock,
+          /* globalLock           = */ BloopComponentsLock,
           /* componentProvider    = */ componentProvider,
           /* secondaryCacheDir    = */ Some(Paths.getCacheDirectory("bridge-cache").toFile),
           /* dependencyResolution = */ DependencyResolution.getEngine(userResolvers),

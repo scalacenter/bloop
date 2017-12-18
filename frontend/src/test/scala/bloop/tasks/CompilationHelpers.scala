@@ -3,19 +3,15 @@ package bloop.tasks
 import java.io.File
 
 import scala.util.Properties
-import java.util.Optional
 
 import bloop.{CompilerCache, ScalaInstance}
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.Logger
-import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.librarymanagement.Resolver
 
 object CompilationHelpers {
-  final val emptyPreviousResult =
-    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
   final val componentProvider =
     ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
 
@@ -25,9 +21,15 @@ object CompilationHelpers {
   private val ScriptedResolver: Resolver =
     Resolver.file(ScriptedResolverId, ScriptedResolveCacheDir)(Resolver.ivyStylePatterns)
 
-  final val compilerCache: CompilerCache = {
-    val scalaJarsPath = Paths.getCacheDirectory("scala-jars")
-    new CompilerCache(componentProvider, scalaJarsPath, Logger.get, List(ScriptedResolver))
+  private var singleCompilerCache: CompilerCache = null
+  def getCompilerCache(logger: Logger): CompilerCache = synchronized {
+    if (singleCompilerCache != null) singleCompilerCache
+    else {
+      val jars = Paths.getCacheDirectory("scala-jars")
+      val resolvers = List(ScriptedResolver)
+      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, resolvers)
+      singleCompilerCache
+    }
   }
 
   final val scalaInstance: ScalaInstance =

@@ -1,6 +1,7 @@
 matrix:
   SBT_RUN:
     - sbt "+bridgeIntegration/cachedPublishLocal" \
+          "benchmarks/compile" \
           "setupTests" \
           "backend/test" \
           "frontend/test"
@@ -26,14 +27,22 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
 
-  build:
+  publish:
     image: scalaplatform/scala:2.1
+    secrets: [ sonatype_user, sonatype_password, pgp_password ]
+    volumes:
+      - /scalacenter:/keys
     when:
-      branch: master
+      branch: master # For now, we assume releases can only happen in master
+      event: [ push, tag, deployment ]
+      status: success
     commands:
       - git log | head -n 20
-      - ${SBT_RUN}
-      - ./bin/ci-clean-cache.sh
+      # I have no idea why this has to be done manually... TODO: inspect why.
+      - export DRONE_DIR="/drone"
+      - /usr/local/bin/setup_keys.sh
+      - chown -R $USER:$(id -g) "$DRONE_DIR/.gnupg"
+      - sbt releaseEarly
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache

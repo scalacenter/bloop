@@ -2,15 +2,13 @@ package bloop.tasks
 
 import java.nio.file.{Files, Path, Paths}
 
+import bloop.cli.{Commands, ExitStatus}
+import bloop.engine.{Dag, Exit, Interpreter, Run}
 import bloop.{DynTest, Project}
-import bloop.engine.ExecutionContext.threadPool
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
-import bloop.util.TopologicalSort
-import bloop.reporter.ReporterConfig
+import bloop.logging.{BloopLogger, Logger}
 
 object IntegrationTestSuite extends DynTest {
-  val logger = Logger.get
   val projects = Files.list(getClass.getClassLoader.getResources("projects") match {
     case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
     case _ => throw new Exception("No projects to test?")
@@ -18,47 +16,47 @@ object IntegrationTestSuite extends DynTest {
 
   projects.forEach { testDirectory =>
     test(testDirectory.getFileName.toString) {
-      testProject(testDirectory, logger)
+      testProject(testDirectory)
     }
   }
 
-  private def testProject(testDirectory: Path, logger: Logger): Unit = {
+  private def removeClassFiles(p: Project): Unit = {
+    val classesDirPath = p.classesDir.underlying
+    if (Files.exists(classesDirPath)) {
+      Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
+    }
+  }
+
+  private def testProject(testDirectory: Path): Unit = {
     val rootProjectName = "bloop-test-root"
+    val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"rootProjectName"))
+    val logger = BloopLogger(fakeConfigDir.toString)
     val classesDir = AbsolutePath(testDirectory)
-    val projects = {
-      val projects = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString, logger)
-      val rootProject = Project(
-        name = rootProjectName,
-        baseDirectory = AbsolutePath(testDirectory),
-        dependencies = projects.keys.toArray,
-        scalaInstance = projects.head._2.scalaInstance,
-        classpath = Array.empty,
-        classesDir = classesDir,
-        scalacOptions = Array.empty,
-        javacOptions = Array.empty,
-        sourceDirectories = Array.empty,
-        previousResult = CompilationHelpers.emptyPreviousResult,
-        tmp = classesDir,
-        testFrameworks = Array.empty,
-        origin = None
-      )
-      projects + (rootProjectName -> rootProject)
-    }
+    val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
+    val previousProjects = state0.build.projects
 
-    def removeClassFiles(p: Project): Unit = {
-      val classesDirPath = p.classesDir.underlying
-      if (Files.exists(classesDirPath)) {
-        Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
-      }
-    }
+    val rootProject = Project(
+      name = rootProjectName,
+      baseDirectory = AbsolutePath(testDirectory),
+      dependencies = previousProjects.map(_.name).toArray,
+      scalaInstance = previousProjects.head.scalaInstance,
+      classpath = Array.empty,
+      classesDir = classesDir,
+      scalacOptions = Array.empty,
+      javacOptions = Array.empty,
+      sourceDirectories = Array.empty,
+      tmp = classesDir,
+      testFrameworks = Array.empty,
+      bloopConfigDir = classesDir
+    )
 
-    // Remove class files from previous runs for all dependent projects
-    TopologicalSort.reachable(projects(rootProjectName), projects).values.foreach(removeClassFiles)
+    val state = state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
+    val reachable = Dag.dfs(state.build.getDagFor(rootProject)).filter(_ != rootProject)
+    reachable.foreach(removeClassFiles)
+    assert(reachable.forall(p => ProjectHelpers.noPreviousResult(p, state)))
 
-    assert(projects.forall { case (_, p) => ProjectHelpers.noPreviousResult(p) })
-    val tasks = new CompilationTasks(projects, CompilationHelpers.compilerCache, logger)
-    val newProjects = tasks.parallelCompile(projects(rootProjectName), ReporterConfig.defaultFormat)
-    val reachableProjects = TopologicalSort.reachable(newProjects(rootProjectName), newProjects)
-    assert(reachableProjects.forall { case (_, p) => ProjectHelpers.hasPreviousResult(p) })
+    val action = Run(Commands.Compile(rootProjectName, incremental = true), Exit(ExitStatus.Ok))
+    val state1 = Interpreter.execute(action, state)
+    assert(reachable.forall(p => ProjectHelpers.hasPreviousResult(p, state1)))
   }
 }

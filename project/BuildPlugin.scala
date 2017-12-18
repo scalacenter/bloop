@@ -23,11 +23,6 @@ object BuildPlugin extends AutoPlugin {
 object BuildKeys {
   import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
-  final val testDependencies = List(
-    "junit" % "junit" % "4.12" % "test",
-    "com.novocode" % "junit-interface" % "0.11" % "test"
-  )
-
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -52,6 +47,10 @@ object BuildKeys {
   final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 
+  final val BenchmarkBridgeProject = RootProject(file(s"$AbsolutePath/benchmark-bridge"))
+  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
+  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
+
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
     val zincVersion = Keys.version in ZincRoot
@@ -63,10 +62,43 @@ object BuildKeys {
     commonKeys ++ List(zincKey, developersKey)
   }
 
+  import sbt.Test
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
   val testSettings: Seq[Def.Setting[_]] = List(
-    Keys.libraryDependencies += Dependencies.utest,
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+    Keys.libraryDependencies ++= List(
+      Dependencies.utest % Test,
+      Dependencies.junit % Test
+    ),
+  )
+
+  import sbtassembly.AssemblyKeys
+  val assemblySettings: Seq[Def.Setting[_]] = List(
+    Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
+    Keys.test in AssemblyKeys.assembly := {}
+  )
+
+  val benchmarksSettings: Seq[Def.Setting[_]] = List(
+    Keys.skip in Keys.publish := true,
+    Keys.javaOptions ++= {
+      def refOf(version: String) = {
+        val HasSha = """.*(?:bin|pre)-([0-9a-f]{7,})(?:-.*)?""".r
+        version match {
+          case HasSha(sha) => sha
+          case _ => "v" + version
+        }
+      }
+      List(
+        "-DscalaVersion=" + Keys.scalaVersion.value,
+        "-DscalaRef=" + refOf(Keys.scalaVersion.value),
+        "-Dsbt.launcher=" + (sys
+          .props("java.class.path")
+          .split(java.io.File.pathSeparatorChar)
+          .find(_.contains("sbt-launch"))
+          .getOrElse("")),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value
+      )
+    }
   )
 }
 
@@ -81,6 +113,7 @@ object BuildImplementation {
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
   import com.typesafe.sbt.SbtPgp.autoImport.PgpKeys
+  import bintray.BintrayPlugin.{autoImport => BintrayKeys}
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
@@ -89,7 +122,6 @@ object BuildImplementation {
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
     Keys.homepage := Some(ThisRepo),
-    Keys.publishArtifact in Test := false,
     Keys.licenses := Seq("BSD" -> url("http://opensource.org/licenses/BSD-3-Clause")),
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
@@ -107,6 +139,9 @@ object BuildImplementation {
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
+    Keys.publishArtifact in Test := false,
+    // Remove the default bintray credentials because they are not present in CI
+    Keys.credentials --= (Keys.credentials in BintrayKeys.bintray).value,
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -119,13 +154,15 @@ object BuildImplementation {
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Keys.scalacOptions in Compile := reasonableCompileOptions,
-    Keys.publishArtifact in Compile in Keys.packageDoc := false
+    Keys.publishArtifact in Compile in Keys.packageDoc := false,
+    PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
+    PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
   )
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
       "-language:higherKinds" :: "-language:implicitConversions" :: "-unchecked" :: "-Yno-adapted-args" ::
-      "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: "-Xlint" :: Nil
+      "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
   object BuildDefaults {
@@ -138,7 +175,11 @@ object BuildImplementation {
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(Keys.organization := "ch.epfl.scala")
+        BuildKeys.inProject(ref)(List(
+          Keys.organization := "ch.epfl.scala",
+          PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
+          PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
+        ))
 
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
@@ -147,7 +188,9 @@ object BuildImplementation {
         val extracted = sbt.Project.extract(hijackedState)
         val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
-        val allProjects = allZincProjects ++ allNailgunProjects
+        val allBenchmarkBridgeProjects =
+          buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
+        val allProjects = allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects
         val projectSettings = allProjects.flatMap(genProjectSettings)
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)
@@ -201,7 +244,7 @@ object BuildImplementation {
     private val scriptedTestContents = {
       """> show bloopConfigDir
         |> registerDirectory
-        |> install
+        |> installBloop
         |> checkInstall
       """.stripMargin
     }

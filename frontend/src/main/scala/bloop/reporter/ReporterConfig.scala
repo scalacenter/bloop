@@ -6,34 +6,34 @@ package bloop.reporter
  * of those settings.
  */
 final case class ReporterConfig(
-                                /** `true` to enable colors, `false` to disable them. */
-                                colors: Boolean,
-                                /** `true` to strip the base directory, `false` to show the full path. */
-                                shortenPaths: Boolean,
-                                /** `true` to show the column number, `false` to hide it. */
-                                columnNumbers: Boolean,
-                                /** `true` to show the errors in reverse order, `false` to show them in FIFO order. */
-                                reverseOrder: Boolean,
-                                /** `true` to show a legend explaining the output of the reporter, `false` to hide it. */
-                                showLegend: Boolean,
-                                /** The color to use to show errors. */
-                                errorColor: String,
-                                /** The color to use to show warnings. */
-                                warningColor: String,
-                                /** The color to use to show information messages. */
-                                infoColor: String,
-                                /** The color to use to show debug messages. */
-                                debugColor: String,
-                                /** The color to use to highlight the path where a message was triggered. */
-                                sourcePathColor: String,
-                                /** The color to use to show an error ID. */
-                                errorIdColor: String,
-                                /** The format to use. */
-                                format: ConfigurableReporter => ReporterFormat)
+    /** `true` to enable colors, `false` to disable them. */
+    colors: Boolean,
+    /** `true` to strip the base directory, `false` to show the full path. */
+    shortenPaths: Boolean,
+    /** `true` to show the column number, `false` to hide it. */
+    columnNumbers: Boolean,
+    /** `true` to show the errors in reverse order, `false` to show them in FIFO order. */
+    reverseOrder: Boolean,
+    /** `true` to show a legend explaining the output of the reporter, `false` to hide it. */
+    showLegend: Boolean,
+    /** The color to use to show errors. */
+    errorColor: String,
+    /** The color to use to show warnings. */
+    warningColor: String,
+    /** The color to use to show information messages. */
+    infoColor: String,
+    /** The color to use to show debug messages. */
+    debugColor: String,
+    /** The color to use to highlight the path where a message was triggered. */
+    sourcePathColor: String,
+    /** The color to use to show an error ID. */
+    errorIdColor: String,
+    /** The format to use. */
+    format: ConfigurableReporter => ReporterFormat
+)
 
 object ReporterConfig {
-
-  lazy val defaultFormat =
+  final val defaultFormat =
     new ReporterConfig(
       true,
       true,
@@ -49,7 +49,7 @@ object ReporterConfig {
       DefaultReporterFormat
     )
 
-  lazy val scalacFormat =
+  final val scalacFormat =
     new ReporterConfig(
       true,
       true,
@@ -64,4 +64,7 @@ object ReporterConfig {
       scala.Console.BLUE,
       ScalacFormat
     )
+
+  def getDefault(value: Boolean): ReporterConfig =
+    if (value) scalacFormat else defaultFormat
 }

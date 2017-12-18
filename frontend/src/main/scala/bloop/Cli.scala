@@ -1,19 +1,17 @@
 package bloop
 
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, Exit, Interpreter, Print, Run}
-import bloop.logging.Logger
+import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
+import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
 
 class Cli
 object Cli {
-
-  private val logger = Logger.get
-
   def main(args: Array[String]): Unit = {
+    State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, logger)
+    val exitStatus = run(action)
     sys.exit(exitStatus.code)
   }
 
@@ -24,8 +22,12 @@ object Cli {
       err = ngContext.err,
       workingDirectory = ngContext.getWorkingDirectory,
     )
-    val cmd = parse(ngContext.getCommand +: ngContext.getArgs, nailgunOptions)
-    val exitStatus = run(cmd, logger)
+    val command = ngContext.getCommand
+    val args =
+      if (command == "bloop.Cli") ngContext.getArgs
+      else command +: ngContext.getArgs
+    val cmd = parse(args, nailgunOptions)
+    val exitStatus = run(cmd)
     ngContext.exit(exitStatus.code)
   }
 
@@ -85,6 +87,8 @@ object Cli {
 
             command match {
               case Left(err) => printErrorAndExit(err)
+              case Right(v: Commands.Help) =>
+                Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(v: Commands.About) =>
                 val newCommand = v.copy(cliOptions = v.cliOptions.copy(common = commonOptions))
                 // Disabling version here if user defines it because it has the same semantics
@@ -118,5 +122,38 @@ object Cli {
     }
   }
 
-  def run(action: Action, logger: Logger): ExitStatus = Interpreter.execute(action, logger)
+  def run(action: Action): ExitStatus = {
+    import bloop.io.AbsolutePath
+    def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
+      cliOptions.configDir
+        .map(AbsolutePath.apply)
+        .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
+    }
+
+    import bloop.engine.{State, Build}
+    def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
+      State.stateCache.getStateFor(configDirectory) match {
+        case Some(state) => state
+        case None =>
+          State.stateCache.addIfMissing(configDirectory, path => {
+            val projects = Project.fromDir(configDirectory, logger)
+            val build: Build = Build(configDirectory, projects)
+            State(build, logger)
+          })
+      }
+    }
+
+    val cliOptions = action match {
+      case e: Exit => CliOptions.default
+      case p: Print => CliOptions.default
+      case r: Run => r.command.cliOptions
+    }
+
+    val configDirectory = getConfigDir(cliOptions)
+    val logger = BloopLogger(configDirectory.syntax)
+    val state = loadStateFor(configDirectory, logger)
+    val newState = Interpreter.execute(action, state)
+    State.stateCache.updateBuild(newState)
+    newState.status
+  }
 }

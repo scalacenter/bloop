@@ -1,4 +1,4 @@
-package bloop.tasks
+package bloop.engine.tasks
 
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
@@ -7,11 +7,11 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[T]) {
-  private val semaphore    = new Semaphore(0)
-  private val inputs       = mutable.Buffer.empty[Task.Result[T]]
+  private val semaphore = new Semaphore(0)
+  private val inputs = mutable.Buffer.empty[Task.Result[T]]
   private val dependencies = mutable.Buffer.empty[Task[T]]
-  private val dependents   = mutable.Buffer.empty[Task[T]]
-  private val started      = new AtomicBoolean(false)
+  private val dependents = mutable.Buffer.empty[Task[T]]
+  private val started = new AtomicBoolean(false)
 
   def dependsOn(task: Task[T]): Unit = {
     dependencies += task
@@ -22,6 +22,10 @@ class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[
     preExecution()
     Future {
       semaphore.acquire(dependencies.length)
+
+      // We add this to track future issues with our task system.
+      assert(inputs.lengthCompare(dependencies.size) == 0,
+             s"The size of ${inputs.toList} is not ${dependencies.size}")
 
       val (failures, successes) =
         inputs.foldLeft((Nil, Nil): (List[Task.Failure[T]], List[Task.Success[T]])) {
@@ -49,7 +53,7 @@ class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[
 
   private def postExecution(result: Task.Result[T]): Unit = {
     dependents.foreach { dep =>
-      dep.inputs += result
+      dep.inputs.synchronized(dep.inputs += result)
       dep.semaphore.release()
     }
     onComplete()
@@ -58,12 +62,12 @@ class Task[T](op: T => T, onComplete: () => Unit)(implicit mergeable: Mergeable[
 
 object Task {
   sealed trait Result[T]
-  case class Success[T](value: T)                                  extends Result[T]
+  case class Success[T](value: T) extends Result[T]
   case class Failure[T](partialResult: T, reasons: Seq[Throwable]) extends Result[T]
   object Failure {
     def apply[T](partialResult: T, failures: Seq[Failure[T]])(
         implicit mergeable: Mergeable[T]): Failure[T] = {
-      val result  = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
+      val result = mergeable.merge(Seq(partialResult) ++ failures.map(_.partialResult))
       val reasons = failures.flatMap(_.reasons)
       Failure(result, reasons)
     }

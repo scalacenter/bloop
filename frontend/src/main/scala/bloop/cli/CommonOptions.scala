@@ -24,5 +24,5 @@ case class CommonOptions(
 }
 
 object CommonOptions {
-  val default = CommonOptions()
+  final val default = CommonOptions()
 }

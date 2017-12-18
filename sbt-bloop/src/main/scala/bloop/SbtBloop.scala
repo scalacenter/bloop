@@ -19,21 +19,21 @@ object AutoImportedKeys {
   import sbt.{TaskKey, taskKey, settingKey, SettingKey}
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
-  val install: TaskKey[Unit] =
+  val installBloop: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
 }
 
 object PluginImplementation {
   val globalSettings: Seq[Def.Setting[_]] = List(
-    AutoImportedKeys.install := PluginDefaults.install.value,
+    AutoImportedKeys.installBloop := PluginDefaults.installBloop.value,
     AutoImportedKeys.bloopConfigDir := PluginDefaults.bloopConfigDir.value
   )
 
   import sbt.inConfig
-  private val bloopInstall: sbt.TaskKey[Unit] =
+  private val bloopGenerate: sbt.TaskKey[Unit] =
     sbt.taskKey[Unit]("Generate bloop configuration files for this project")
   val projectSettings: Seq[Def.Setting[_]] = List(Compile, Test).flatMap { conf =>
-    inConfig(conf)(List(bloopInstall := PluginDefaults.bloopInstall.value))
+    inConfig(conf)(List(bloopGenerate := PluginDefaults.bloopGenerate.value))
   }
 
   case class Config(
@@ -79,7 +79,7 @@ object PluginImplementation {
     import sbt.Task
     import bloop.Compat._
 
-    lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.task {
+    lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
       def makeName(name: String, configuration: Configuration): String =
         if (configuration == Compile) name else name + "-test"
 
@@ -129,9 +129,9 @@ object PluginImplementation {
       // format: ON
     }
 
-    lazy val install: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    lazy val installBloop: Def.Initialize[Task[Unit]] = Def.taskDyn {
       val filter = ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
-      PluginImplementation.bloopInstall.all(filter).map(_ => ())
+      PluginImplementation.bloopGenerate.all(filter).map(_ => ())
     }
 
     lazy val bloopConfigDir: Def.Initialize[File] = Def.setting {
