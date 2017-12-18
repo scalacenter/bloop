@@ -93,6 +93,9 @@ object Commands {
       scalacstyle: Boolean = false,
       @HelpMessage("The arguments to pass to the application")
       args: List[String] = Nil,
+      @ExtraName("w")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
+      watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CoreCommand
 }

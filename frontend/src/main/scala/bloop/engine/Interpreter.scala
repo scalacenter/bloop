@@ -186,14 +186,19 @@ object Interpreter {
       }
     }
     def run(project: Project): State = {
-      val compiledState = CompileTasks.compile(state, project, reporter)
-      val selectedMainClass = cmd.main.orElse(getMainClass(compiledState, project))
-      selectedMainClass
-        .map { main =>
-          val args = cmd.args.toArray
-          RunTasks.run(compiledState, project, main, args)
-        }
-        .getOrElse(compiledState.mergeStatus(ExitStatus.UnexpectedError))
+      def doRun(state: State): State = {
+        val compiledState = CompileTasks.compile(state, project, reporter)
+        val selectedMainClass = cmd.main.orElse(getMainClass(compiledState, project))
+        selectedMainClass
+          .map { main =>
+            val args = cmd.args.toArray
+            RunTasks.run(compiledState, project, main, args)
+          }
+          .getOrElse(compiledState.mergeStatus(ExitStatus.UnexpectedError))
+      }
+
+      if (!cmd.watch) doRun(state)
+      else watch(project, state, doRun _)
     }
 
     state.build.getProjectFor(cmd.project) match {
