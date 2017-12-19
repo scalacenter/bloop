@@ -116,5 +116,8 @@ val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
-  .settings(crossSbtVersions := Seq("1.0.3", "0.13.16"))
+  .settings(
+    skip in publish := true,
+    crossSbtVersions := Seq("1.0.3", "0.13.16")
+  )
 
