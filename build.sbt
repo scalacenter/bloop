@@ -1,17 +1,10 @@
 /***************************************************************************************************/
 /*                      This is the build definition of the zinc integration                       */
 /***************************************************************************************************/
-// We need to set this here because they don't work in the `BuildPlugin`
-val publishSettings = List(
-  pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
-  pgpSecretRing := file("/drone/.gnupg/secring.asc")
-)
-
 // Remember, `scripted` and `cachedPublishLocal` are defined here via aggregation
 val bridgeIntegration = project
   .in(file(".bridge"))
   .aggregate(ZincBridge)
-  .settings(publishSettings)
   .settings(
     skip in publish := true,
     scalaVersion := (scalaVersion in ZincBridge).value,
@@ -21,7 +14,6 @@ val bridgeIntegration = project
 val zincIntegration = project
   .in(file(".zinc"))
   .aggregate(ZincRoot)
-  .settings(publishSettings)
   .settings(
     skip in publish := true,
     scalaVersion := (scalaVersion in ZincRoot).value,
@@ -35,7 +27,6 @@ val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just hav
 val nailgun = project
   .in(file(".nailgun"))
   .aggregate(NailgunServer)
-  .settings(publishSettings)
   .settings(
     skip in publish := true,
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
@@ -44,7 +35,6 @@ val nailgun = project
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
-  .settings(publishSettings)
   .settings(
     skip in publish := true
   )
@@ -70,8 +60,8 @@ addCommandAlias(
 val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(testSettings)
-  .settings(publishSettings)
   .settings(
+    name := "bloop-backend",
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
@@ -90,17 +80,16 @@ val backend = project
 val frontend = project
   .dependsOn(backend)
   .enablePlugins(BuildInfoPlugin)
-  .settings(publishSettings)
   .settings(testSettings)
   .settings(assemblySettings)
   .settings(
-    name := "bloop",
+    name := "bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopInfoKeys,
-    fork in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     libraryDependencies += Dependencies.graphviz % Test,
+    fork in run := true,
     parallelExecution in test := false,
   )
 
@@ -108,12 +97,10 @@ val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
   .enablePlugins(JmhPlugin)
   .settings(benchmarksSettings)
-  .settings(publishSettings)
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
   .in(file("sbt-bloop"))
-  .settings(publishSettings)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
@@ -130,5 +117,8 @@ val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
-  .settings(publishSettings)
-  .settings(crossSbtVersions := Seq("1.0.3", "0.13.16"))
+  .settings(
+    skip in publish := true,
+    crossSbtVersions := Seq("1.0.3", "0.13.16")
+  )
+

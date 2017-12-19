@@ -25,3 +25,4 @@
 	path = benchmark-bridge
 	url = https://github.com/scalacenter/compiler-benchmark
 	branch = bloop
+  ignore = dirty

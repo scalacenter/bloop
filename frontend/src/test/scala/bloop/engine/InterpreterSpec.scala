@@ -9,13 +9,7 @@ import guru.nidi.graphviz.parse.Parser
 
 class InterpreterSpec {
   private final val state = ProjectHelpers.loadTestProject("sbt")
-
-  def changeOut(state: State): (CliOptions, ByteArrayOutputStream) = {
-    val inMemory = new ByteArrayOutputStream()
-    val newOut = new PrintStream(inMemory)
-    val defaultCli = CliOptions.default
-    defaultCli.copy(common = state.commonOptions.copy(out = newOut)) -> inMemory
-  }
+  import InterpreterSpec.changeOut
 
   @Test def ShowDotGraphOfSbtProjects(): Unit = {
     val (cliOptions, outStream) = changeOut(state)
@@ -41,7 +35,7 @@ class InterpreterSpec {
     val action = Run(Commands.About(cliOptions = cliOptions))
     Interpreter.execute(action, state)
     val output = outStream.toString("UTF-8")
-    assert(output.contains("Bloop version"))
+    assert(output.contains("Bloop-frontend version"))
     assert(output.contains("Zinc version"))
     assert(output.contains("Scala version"))
     assert(output.contains("maintained by"))
@@ -66,5 +60,14 @@ class InterpreterSpec {
     assert(output23.contains("Reconfiguring the number of bloop threads to 6."))
     // Make sure that threads are set to 4.
     assert(output23.contains("Reconfiguring the number of bloop threads to 4."))
+  }
+}
+
+object InterpreterSpec {
+  def changeOut(state: State): (CliOptions, ByteArrayOutputStream) = {
+    val inMemory = new ByteArrayOutputStream()
+    val newOut = new PrintStream(inMemory)
+    val defaultCli = CliOptions.default
+    defaultCli.copy(common = state.commonOptions.copy(out = newOut)) -> inMemory
   }
 }
