@@ -40,23 +40,25 @@ object ProjectHelpers {
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
       scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
+      javaEnv: JavaEnv = JavaEnv.default(fork = false),
       quiet: Boolean = false,
       failure: Boolean = false)(afterCompile: State => Unit = (_ => ())) = {
-    withState(structures, dependencies, scalaInstance = scalaInstance) { (state: State) =>
-      def action(state: State): Unit = {
-        // Check that this is a clean compile!
-        val projects = state.build.projects
-        assert(projects.forall(p => noPreviousResult(p, state)))
-        val project = getProject(RootProject, state)
-        val action = Run(Commands.Compile(RootProject, incremental = true))
-        val compiledState = Interpreter.execute(action, state)
-        afterCompile(compiledState)
-      }
+    withState(structures, dependencies, scalaInstance = scalaInstance, javaEnv = javaEnv) {
+      (state: State) =>
+        def action(state: State): Unit = {
+          // Check that this is a clean compile!
+          val projects = state.build.projects
+          assert(projects.forall(p => noPreviousResult(p, state)))
+          val project = getProject(RootProject, state)
+          val action = Run(Commands.Compile(RootProject, incremental = true))
+          val compiledState = Interpreter.execute(action, state)
+          afterCompile(compiledState)
+        }
 
-      val logger = state.logger
-      if (quiet) logger.quietIfSuccess(newLogger => action(state.copy(logger = newLogger)))
-      else if (failure) logger.quietIfError(newLogger => action(state.copy(logger = newLogger)))
-      else action(state)
+        val logger = state.logger
+        if (quiet) logger.quietIfSuccess(newLogger => action(state.copy(logger = newLogger)))
+        else if (failure) logger.quietIfError(newLogger => action(state.copy(logger = newLogger)))
+        else action(state)
     }
   }
 
@@ -105,12 +107,18 @@ object ProjectHelpers {
   def withState[T](
       projectStructures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
-      scalaInstance: ScalaInstance
+      scalaInstance: ScalaInstance,
+      javaEnv: JavaEnv
   )(op: State => T): T = {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
-          makeProject(temp, name, sources, dependencies.getOrElse(name, Set.empty), scalaInstance)
+          makeProject(temp,
+                      name,
+                      sources,
+                      dependencies.getOrElse(name, Set.empty),
+                      scalaInstance,
+                      javaEnv)
       }
       val logger = BloopLogger.default(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
@@ -128,7 +136,8 @@ object ProjectHelpers {
                   name: String,
                   sources: Map[String, String],
                   dependencies: Set[String],
-                  scalaInstance: ScalaInstance): Project = {
+                  scalaInstance: ScalaInstance,
+                  javaEnv: JavaEnv): Project = {
     val baseDirectory = projectDir(baseDir, name)
     val (srcs, classes) = makeProjectStructure(baseDir, name)
     val tempDir = baseDirectory.resolve("tmp")
@@ -138,7 +147,6 @@ object ProjectHelpers {
     val depsTargets = (dependencies.map(classesDir(baseDir, _))).toArray.map(AbsolutePath.apply)
     val classpath = depsTargets ++ scalaInstance.allJars.map(AbsolutePath.apply)
     val sourceDirectories = Array(AbsolutePath(srcs))
-    val javaEnv = JavaEnv.default(fork = false)
     writeSources(srcs, sources)
     Project(
       name = name,

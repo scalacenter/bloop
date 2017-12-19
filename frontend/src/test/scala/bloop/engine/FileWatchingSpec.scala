@@ -7,6 +7,7 @@ import java.util.UUID
 import bloop.Project
 import bloop.cli.{CliOptions, Commands}
 import bloop.logging.BloopLogger
+import bloop.exec.JavaEnv
 import bloop.tasks.{CompilationHelpers, ProjectHelpers}
 import bloop.tasks.ProjectHelpers.{RootProject, noPreviousResult, withState}
 import org.junit.Test
@@ -94,8 +95,10 @@ class FileWatchingSpec {
 
     val dependencies = Map(RootProject -> Set("parent0", "parent1"))
     val instance = CompilationHelpers.scalaInstance
-    withState(structures, dependencies, scalaInstance = instance) { (state: State) =>
-      testFileWatcher(state, RootProject)(workerAction, testAction)
+    val javaEnv = JavaEnv.default(fork = false)
+    withState(structures, dependencies, scalaInstance = instance, javaEnv = javaEnv) {
+      (state: State) =>
+        testFileWatcher(state, RootProject)(workerAction, testAction)
     }
   }
 
