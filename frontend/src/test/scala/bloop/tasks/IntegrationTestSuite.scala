@@ -42,7 +42,7 @@ object IntegrationTestSuite extends DynTest {
       baseDirectory = AbsolutePath(testDirectory),
       dependencies = previousProjects.map(_.name).toArray,
       scalaInstance = previousProjects.head.scalaInstance,
-      classpath = Array.empty,
+      rawClasspath = Array.empty,
       classesDir = classesDir,
       scalacOptions = Array.empty,
       javacOptions = Array.empty,

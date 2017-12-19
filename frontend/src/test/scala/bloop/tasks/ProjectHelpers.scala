@@ -24,7 +24,7 @@ object ProjectHelpers {
     }
 
     project.copy(
-      classpath = project.classpath.map(work),
+      rawClasspath = project.rawClasspath.map(work),
       classesDir = work(project.classesDir),
       sourceDirectories = project.sourceDirectories.map(work),
       tmp = work(project.tmp),
@@ -145,7 +145,7 @@ object ProjectHelpers {
       baseDirectory = AbsolutePath(baseDirectory),
       dependencies = dependencies.toArray,
       scalaInstance = scalaInstance,
-      classpath = classpath,
+      rawClasspath = classpath,
       classesDir = AbsolutePath(target),
       scalacOptions = Array.empty,
       javacOptions = Array.empty,

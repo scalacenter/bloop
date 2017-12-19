@@ -13,7 +13,7 @@ case class Project(name: String,
                    baseDirectory: AbsolutePath,
                    dependencies: Array[String],
                    scalaInstance: ScalaInstance,
-                   classpath: Array[AbsolutePath],
+                   rawClasspath: Array[AbsolutePath],
                    classesDir: AbsolutePath,
                    scalacOptions: Array[String],
                    javacOptions: Array[String],
@@ -45,8 +45,9 @@ case class Project(name: String,
     properties
   }
 
-  lazy val fullClasspath: Array[AbsolutePath] = {
-    classesDir +: classpath
+  /** This project's full classpath (classes directory and raw classpath) */
+  val classpath: Array[AbsolutePath] = {
+    classesDir +: rawClasspath
   }
 }
 

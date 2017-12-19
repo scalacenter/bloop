@@ -44,7 +44,7 @@ object Tasks {
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
       val instance = project.scalaInstance
       val sourceDirs = project.sourceDirectories
-      val classpath = project.fullClasspath
+      val classpath = project.classpath
       val classesDir = project.classesDir
       val target = project.tmp
       val scalacOptions = project.scalacOptions
@@ -229,7 +229,7 @@ object Tasks {
    * @param args      The arguments to pass to the main class.
    */
   def run(state: State, project: Project, className: String, args: Array[String]): State = {
-    val classpath = project.fullClasspath
+    val classpath = project.classpath
     val processConfig = ProcessConfig(project.javaEnv, classpath)
     val exitCode = processConfig.runMain(className, args, state.logger)
     val exitStatus = {
@@ -289,6 +289,6 @@ object Tasks {
   }
 
   private[bloop] def constructClasspath(project: Project): Array[java.net.URL] =
-    project.fullClasspath.map(_.underlying.toUri.toURL())
+    project.classpath.map(_.underlying.toUri.toURL())
 
 }
