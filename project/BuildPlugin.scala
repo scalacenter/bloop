@@ -165,9 +165,8 @@ object BuildImplementation {
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
     val hijacked = sbt.AttributeKey[Boolean]("The hijacked option.")
     val onLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
-      val globalSettings = List(
-        Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.",
-      )
+      val globalSettings =
+        List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
         BuildKeys.inProject(ref)(List(Keys.organization := "ch.epfl.scala"))
       val buildStructure = sbt.Project.structure(state)
@@ -255,13 +254,6 @@ object BuildImplementation {
         }
       },
     )
-
-    import ch.epfl.scala.sbt.release.ReleaseEarly.{Defaults => ReleaseEarlyDefaults}
-    private final val SonatypeRealm = "Sonatype Nexus Repository Manager"
-    private final val SonatypeHost = "oss.sonatype.org"
-    val releaseEarlySonatypeCredentials: Def.Initialize[sbt.Task[Seq[sbt.Credentials]]] = Def.task {
-      ReleaseEarlyDefaults.releaseEarlySonatypeCredentials.value
-    }
   }
 }
 
