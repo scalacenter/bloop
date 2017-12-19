@@ -41,7 +41,7 @@ class InterpreterSpec {
     val action = Run(Commands.About(cliOptions = cliOptions))
     Interpreter.execute(action, state)
     val output = outStream.toString("UTF-8")
-    assert(output.contains("Bloop version"))
+    assert(output.contains("Bloop-frontend version"))
     assert(output.contains("Zinc version"))
     assert(output.contains("Scala version"))
     assert(output.contains("maintained by"))
