@@ -9,13 +9,7 @@ import guru.nidi.graphviz.parse.Parser
 
 class InterpreterSpec {
   private final val state = ProjectHelpers.loadTestProject("sbt")
-
-  def changeOut(state: State): (CliOptions, ByteArrayOutputStream) = {
-    val inMemory = new ByteArrayOutputStream()
-    val newOut = new PrintStream(inMemory)
-    val defaultCli = CliOptions.default
-    defaultCli.copy(common = state.commonOptions.copy(out = newOut)) -> inMemory
-  }
+  import InterpreterSpec.changeOut
 
   @Test def ShowDotGraphOfSbtProjects(): Unit = {
     val (cliOptions, outStream) = changeOut(state)
@@ -46,5 +40,14 @@ class InterpreterSpec {
     assert(output.contains("Scala version"))
     assert(output.contains("maintained by"))
     assert(output.contains("Scala Center"))
+  }
+}
+
+object InterpreterSpec {
+  def changeOut(state: State): (CliOptions, ByteArrayOutputStream) = {
+    val inMemory = new ByteArrayOutputStream()
+    val newOut = new PrintStream(inMemory)
+    val defaultCli = CliOptions.default
+    defaultCli.copy(common = state.commonOptions.copy(out = newOut)) -> inMemory
   }
 }

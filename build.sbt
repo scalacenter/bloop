@@ -87,9 +87,9 @@ val frontend = project
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopInfoKeys,
-    fork in run := true,
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     libraryDependencies += Dependencies.graphviz % Test,
+    fork in run := true,
     parallelExecution in test := false,
   )
 

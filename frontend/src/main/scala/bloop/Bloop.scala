@@ -6,10 +6,12 @@ import bloop.engine.tasks.CompileTasks
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
+import jline.console.ConsoleReader
 
 import scala.annotation.tailrec
 
 object Bloop {
+  private val reader = consoleReader()
   def main(args: Array[String]): Unit = {
     val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
     val configDirectory = baseDirectory.resolve(".bloop-config")
@@ -23,7 +25,7 @@ object Bloop {
   @tailrec
   def run(state: State): Unit = {
     State.stateCache.updateBuild(state)
-    val input = scala.io.StdIn.readLine("> ")
+    val input = reader.readLine()
     input.split(" ") match {
       case Array("exit") =>
         timed(state.logger) { CompileTasks.persist(state) }
@@ -42,6 +44,10 @@ object Bloop {
         val action = Run(Commands.Compile(projectName), Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
+      case Array("console", projectName) =>
+        val action = Run(Commands.Console(projectName), Exit(ExitStatus.Ok))
+        run(Interpreter.execute(action, state))
+
       case Array("test", projectName) =>
         val command = Commands.Test(projectName, aggregate = true)
         val action = Run(command, Exit(ExitStatus.Ok))
@@ -52,4 +58,11 @@ object Bloop {
         run(state)
     }
   }
+
+  private def consoleReader(): ConsoleReader = {
+    val reader = new ConsoleReader()
+    reader.setPrompt("> ")
+    reader
+  }
+
 }
