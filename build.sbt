@@ -115,6 +115,16 @@ lazy val sbtBloop = project
     BuildDefaults.scriptedSettings,
   )
 
+val mavenIntegration = project
+  .in(file("maven-integration"))
+  .settings(
+    name := "bloop-maven-plugin",
+    libraryDependencies ++= List(
+      Dependencies.mavenPluginApi,
+      Dependencies.mavenPluginAnnotations % Provided
+    )
+  )
+
 val allProjects = Seq(backend, benchmarks, frontend, sbtBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
