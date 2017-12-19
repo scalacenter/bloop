@@ -79,7 +79,7 @@ object CompileTasks {
     Await.result(taskGraph.run()(state.executionContext), Duration.Inf) match {
       case Task.Success(results) => updateState(state, results)
       case Task.Failure(partial, reasons) =>
-        logger.error("Compilation failed because of the following reasons:")
+        logger.error(s"Compilation of ${project.name} failed because of the following reasons:")
         reasons.foreach(throwable => logger.trace(() => throwable))
         updateState(state, partial)
     }

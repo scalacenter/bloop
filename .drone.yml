@@ -2,9 +2,16 @@ matrix:
   SBT_RUN:
     - sbt "+bridgeIntegration/cachedPublishLocal" \
           "benchmarks/compile" \
+          "git status" \
           "setupTests" \
+          "git status" \
           "backend/test" \
           "frontend/test"
+
+  SBT_PUBLISH:
+    - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
+          "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
+          ";backend/releaseEarly;frontend/releaseEarly;^sbtBloop/releaseEarly"
 
 clone:
   git:
@@ -34,6 +41,23 @@ pipeline:
     commands:
       - git log | head -n 20
       - ${SBT_RUN}
+      - ./bin/ci-clean-cache.sh
+
+  publish:
+    image: scalaplatform/scala:2.1
+    secrets: [ sonatype_user, sonatype_password, pgp_password ]
+    volumes:
+      - /scalacenter:/keys
+    when:
+      branch: master
+      event: [ push, tag, deployment ]
+      status: success
+    commands:
+      - git log | head -n 20
+      # I have no idea why this has to be done manually... TODO: inspect why.
+      - export DRONE_DIR="/drone"
+      - /usr/local/bin/setup_keys.sh
+      - ${SBT_PUBLISH}
       - ./bin/ci-clean-cache.sh
 
   rebuild_cache:

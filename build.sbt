@@ -61,6 +61,7 @@ val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(testSettings)
   .settings(
+    name := "bloop-backend",
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
@@ -82,7 +83,7 @@ val frontend = project
   .settings(testSettings)
   .settings(assemblySettings)
   .settings(
-    name := "bloop",
+    name := "bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopInfoKeys,
@@ -116,4 +117,8 @@ val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
-  .settings(crossSbtVersions := Seq("1.0.3", "0.13.16"))
+  .settings(
+    skip in publish := true,
+    crossSbtVersions := Seq("1.0.3", "0.13.16")
+  )
+

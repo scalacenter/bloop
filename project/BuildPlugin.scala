@@ -4,12 +4,13 @@ import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
+  import com.typesafe.sbt.SbtPgp
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
   import com.lucidchart.sbt.scalafmt.ScalafmtCorePlugin
 
   override def trigger: PluginTrigger = allRequirements
   override def requires: Plugins =
-    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin
+    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin && SbtPgp
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -112,24 +113,20 @@ object BuildImplementation {
   def GitHubDev(handle: String, fullName: String, email: String) =
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
-  import com.typesafe.sbt.SbtPgp.autoImport.PgpKeys
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
-  final val publishSettings: Seq[Def.Setting[_]] = Seq(
+  final val buildPublishSettings: Seq[Def.Setting[_]] = Seq(
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
     Keys.homepage := Some(ThisRepo),
-    Keys.publishArtifact in Test := false,
     Keys.licenses := Seq("BSD" -> url("http://opensource.org/licenses/BSD-3-Clause")),
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
     ),
-    PgpKeys.pgpPublicRing := file("/drone/.gnupg/pubring.asc"),
-    PgpKeys.pgpSecretRing := file("/drone/.gnupg/secring.asc"),
-    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher
+    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
   )
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
@@ -139,6 +136,7 @@ object BuildImplementation {
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
+    Keys.publishArtifact in Test := false,
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -147,11 +145,10 @@ object BuildImplementation {
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
-  ) ++ publishSettings
+  ) ++ buildPublishSettings
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Keys.scalacOptions in Compile := reasonableCompileOptions,
-    Keys.publishArtifact in Compile in Keys.packageDoc := false
   )
 
   final val reasonableCompileOptions = (
@@ -162,7 +159,6 @@ object BuildImplementation {
 
   object BuildDefaults {
     import sbt.State
-
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
     val hijacked = sbt.AttributeKey[Boolean]("The hijacked option.")
@@ -170,8 +166,7 @@ object BuildImplementation {
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(Keys.organization := "ch.epfl.scala")
-
+        BuildKeys.inProject(ref)(List(Keys.organization := "ch.epfl.scala"))
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
