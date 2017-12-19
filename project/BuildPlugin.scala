@@ -1,6 +1,5 @@
 package build
 
-import ch.epfl.scala.sbt.release.Feedback
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
 
 object BuildPlugin extends AutoPlugin {
@@ -114,7 +113,6 @@ object BuildImplementation {
   def GitHubDev(handle: String, fullName: String, email: String) =
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
-  import com.typesafe.sbt.pgp.PgpKeys
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")

@@ -43,7 +43,6 @@ val benchmarkBridge = project
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 import build.Dependencies
-import ch.epfl.scala.sbt.release.ReleaseEarly
 
 // This alias performs all the steps necessary to publish Bloop locally
 addCommandAlias(
