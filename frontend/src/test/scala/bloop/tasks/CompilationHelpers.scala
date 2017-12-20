@@ -17,7 +17,7 @@ object CompilationHelpers {
 
   private val ScriptedResolverId = "zinc-scripted-local"
   private val ScriptedResolveCacheDir: File =
-    AbsolutePath(s".ivy2/$ScriptedResolverId").toFile
+    AbsolutePath(s"../.ivy2/$ScriptedResolverId").toFile
   private val ScriptedResolver: Resolver =
     Resolver.file(ScriptedResolverId, ScriptedResolveCacheDir)(Resolver.ivyStylePatterns)
 
