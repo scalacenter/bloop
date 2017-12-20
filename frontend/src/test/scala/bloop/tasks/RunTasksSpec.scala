@@ -19,7 +19,6 @@ class RunTasksSpec {
   private val mainClassName2 = "Main2"
   private val noDependencies = Map.empty[String, Set[String]]
   private val args = List("arg0", "arg1", "multiple words")
-  private val EOL = System.lineSeparator
 
   private object ArtificialSources {
     val RunnableClass0 = s"""package $packageName
@@ -144,7 +143,7 @@ class RunTasksSpec {
     val mainClass = s"$packageName.$mainClassName2"
     val command = Commands.Run(projectName, Some(mainClass), args = args)
     runAndCheck(sources, fork, command) { messages =>
-      assert(messages.contains(("info", s"$mainClassName2: ${args.mkString(", ")}$EOL")))
+      assert(messages.contains(("info", s"$mainClassName2: ${args.mkString(", ")}")))
     }
   }
 
@@ -153,7 +152,7 @@ class RunTasksSpec {
     val mainClass = s"$packageName.$mainClassName0"
     val command = Commands.Run(projectName, Some(mainClass), args = args)
     runAndCheck(sources, fork, command) { messages =>
-      assert(messages.contains(("info", s"$mainClassName0: ${args.mkString(", ")}$EOL")))
+      assert(messages.contains(("info", s"$mainClassName0: ${args.mkString(", ")}")))
     }
   }
 
@@ -162,7 +161,7 @@ class RunTasksSpec {
     val mainClass = s"$packageName.$mainClassName1"
     val command = Commands.Run(projectName, Some(mainClass), args = args)
     runAndCheck(sources, fork, command) { messages =>
-      assert(messages.contains(("info", s"$mainClassName1: ${args.mkString(", ")}$EOL")))
+      assert(messages.contains(("info", s"$mainClassName1: ${args.mkString(", ")}")))
     }
   }
 

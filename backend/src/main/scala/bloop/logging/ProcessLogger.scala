@@ -42,7 +42,8 @@ object ProcessLogger {
       private val buffer = new ByteArrayOutputStream
 
       override def write(x: Int): Unit = synchronized {
-        buffer.write(x)
+        if (x == '\n') flush()
+        else buffer.write(x)
       }
 
       override def flush(): Unit = synchronized {
@@ -63,7 +64,7 @@ object ProcessLogger {
    */
   def toPrintStream(logFn: String => Unit): PrintStream = {
     val outputStream = toOutputStream(logFn)
-    new PrintStream(outputStream, /* autoflush = */ true, encoding)
+    new PrintStream(outputStream, /* autoflush = */ false, encoding)
   }
 }
 
