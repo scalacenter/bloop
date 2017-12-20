@@ -1,5 +1,6 @@
 package bloop.cli
 
+import bloop.engine.ExecutionContext
 import caseapp.{ExtraName, HelpMessage, Recurse}
 
 object Commands {
@@ -55,6 +56,13 @@ object Commands {
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CoreCommand
+
+  case class Configure(
+      @ExtraName("parallelism")
+      @HelpMessage("Set the number of threads used for parallel compilation and test execution.")
+      threads: Int = ExecutionContext.executor.getCorePoolSize,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends Command
 
   case class Clean(
       @ExtraName("p")
