@@ -119,9 +119,10 @@ val mavenIntegration = project
   .in(file("maven-integration"))
   .settings(
     name := "bloop-maven-plugin",
+    mavenPlugin := true,
     libraryDependencies ++= List(
       Dependencies.mavenPluginApi,
-      Dependencies.mavenPluginAnnotations % Provided
+      Dependencies.mavenPluginAnnotations,
     )
   )
 

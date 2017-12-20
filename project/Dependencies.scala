@@ -34,5 +34,5 @@ object Dependencies {
   val directoryWatcher = "io.methvin" %% "directory-watcher-better-files" % directoryWatcherVersion
 
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
-  val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion
+  val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % sbt.Provided
 }
