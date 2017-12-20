@@ -46,27 +46,6 @@ object ProcessConfig {
  */
 case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
 
-  /**
-   * Executes `op` while `System.in` and `System.err` are redirected to `logger`.
-   *
-   * @param logger The whole that will receive messages written to `System.in` and `System.err`.
-   * @param op The operation to perform while those streams are redirected.
-   * @return The result of executing `op`.
-   */
-  private def replaceStandardStreams[T](logger: Logger)(op: => T): T = InProcess.synchronized {
-    val systemOut = System.out
-    val systemErr = System.err
-    val newOut = ProcessLogger.toPrintStream(logger.info)
-    val newErr = ProcessLogger.toPrintStream(logger.error)
-    System.setOut(newOut)
-    System.setErr(newErr)
-    try op
-    finally {
-      System.setOut(systemOut)
-      System.setErr(systemErr)
-    }
-  }
-
   override def runMain(className: String, args: Array[String], logger: Logger): Int = {
     logger.debug(s"Running '$className' in process.")
     logger.debug(s"  Classpath: ${classpath.map(_.syntax).mkString(pathSeparator)}")
@@ -76,7 +55,9 @@ case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
       try {
         val clazz = classLoader.loadClass(className)
         val main = clazz.getMethod("main", classOf[Array[String]])
-        replaceStandardStreams(logger)(main.invoke(null, args))
+        val _ = MultiplexedStreams.withLoggerAsStreams(logger) {
+          main.invoke(null, args)
+        }
         logger.debug("In process run finished successfully.")
         ProcessConfig.EXIT_OK
       } catch {
