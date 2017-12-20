@@ -16,8 +16,9 @@ object CompilationHelpers {
     ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
 
   private val ScriptedResolverId = "zinc-scripted-local"
+  // `fork in Test` changes the base directory, so we need to adapt the path to the repository.
   private val ScriptedResolveCacheDir: File =
-    AbsolutePath(s".ivy2/$ScriptedResolverId").toFile
+    AbsolutePath(s"../.ivy2/$ScriptedResolverId").toFile
   private val ScriptedResolver: Resolver =
     Resolver.file(ScriptedResolverId, ScriptedResolveCacheDir)(Resolver.ivyStylePatterns)
 

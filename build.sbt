@@ -90,6 +90,7 @@ val frontend = project
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
+    fork in Test := true,
     parallelExecution in test := false,
   )
 
