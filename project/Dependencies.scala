@@ -33,6 +33,8 @@ object Dependencies {
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "io.methvin" %% "directory-watcher-better-files" % directoryWatcherVersion
 
+  import sbt.Provided
+  val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
-  val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % sbt.Provided
+  val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
 }

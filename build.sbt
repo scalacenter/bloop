@@ -126,6 +126,7 @@ val mavenBloop = project
     name := "maven-bloop",
     mavenPlugin := true,
     libraryDependencies ++= List(
+      Dependencies.mavenCore,
       Dependencies.mavenPluginApi,
       Dependencies.mavenPluginAnnotations,
     )
