@@ -1,4 +1,4 @@
-package bloop
+package bloop.integrations.sbt
 
 import sbt.{Compile, Def, PluginDiscovery, Setting}
 import sbt.Keys.{compile, discoveredSbtPlugins, sbtPlugin}

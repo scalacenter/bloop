@@ -102,9 +102,13 @@ val benchmarks = project
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
 
+lazy val integrationsCore = project
+  .in(file("integrations/core"))
+
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
   .in(file("integrations/sbt-bloop"))
+  .dependsOn(integrationsCore)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
@@ -117,6 +121,7 @@ lazy val sbtBloop = project
 
 val mavenBloop = project
   .in(file("integrations/maven-bloop"))
+  .dependsOn(integrationsCore)
   .settings(
     name := "maven-bloop",
     mavenPlugin := true,
