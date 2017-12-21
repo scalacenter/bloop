@@ -1,4 +1,4 @@
-package maven.ch.epfl.scala;
+package bloop.integrations.maven;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -10,7 +10,7 @@ import org.apache.maven.project.MavenProject;
 /**
  * Says "Hi" to the user.
  */
-@Mojo(name = "sayhi", threadSafe = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.COMPILE)
+@Mojo(name = "bloop", threadSafe = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.COMPILE)
 public class FooMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
@@ -22,7 +22,7 @@ public class FooMojo extends AbstractMojo {
     private String scalaName;
 
     public void execute() throws MojoExecutionException {
-        String name = project.getId();
+        String name = project.getArtifactId();
         getLog().info("Hello, " + name);
     }
 }
