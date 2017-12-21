@@ -104,7 +104,7 @@ val benchmarks = project
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
-  .in(file("sbt-bloop"))
+  .in(file("integrations/sbt-bloop"))
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
@@ -115,10 +115,10 @@ lazy val sbtBloop = project
     BuildDefaults.scriptedSettings,
   )
 
-val mavenIntegration = project
-  .in(file("maven-integration"))
+val mavenBloop = project
+  .in(file("integrations/maven-bloop"))
   .settings(
-    name := "bloop-maven-plugin",
+    name := "maven-bloop",
     mavenPlugin := true,
     libraryDependencies ++= List(
       Dependencies.mavenPluginApi,
