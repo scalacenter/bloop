@@ -22,7 +22,7 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
+  import sbt.{LocalProject, Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
@@ -51,6 +51,9 @@ object BuildKeys {
   final val BenchmarkBridgeProject = RootProject(file(s"$AbsolutePath/benchmark-bridge"))
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
+
+  final val frontendProjectId = "frontend"
+  final val FrontendProject = LocalProject(frontendProjectId)
 
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
@@ -83,7 +86,7 @@ object BuildKeys {
   val benchmarksSettings: Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
     BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](
-      Keys.resourceDirectory in sbt.Test in sbt.LocalProject("frontend")),
+      Keys.resourceDirectory in sbt.Test in FrontendProject),
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
@@ -99,9 +102,9 @@ object BuildKeys {
           .split(java.io.File.pathSeparatorChar)
           .find(_.contains("sbt-launch"))
           .getOrElse("")),
-        "-DbloopVersion=" + Keys.version.in(sbt.LocalProject("frontend")).value,
-        "-DbloopRef=" + refOf(Keys.version.in(sbt.LocalProject("frontend")).value),
-        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value,
+        "-DbloopVersion=" + Keys.version.in(FrontendProject).value,
+        "-DbloopRef=" + refOf(Keys.version.in(FrontendProject).value),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(FrontendProject).value,
         "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
       )
     }
