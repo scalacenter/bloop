@@ -30,7 +30,7 @@ object IntegrationTestSuite extends DynTest {
   private def testProject(testDirectory: Path): Unit = {
     val rootProjectName = "bloop-test-root"
     val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"rootProjectName"))
-    val logger = BloopLogger(fakeConfigDir.toString)
+    val logger = BloopLogger.default(fakeConfigDir.toString)
     val classesDir = AbsolutePath(testDirectory)
     val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
     val previousProjects = state0.build.projects

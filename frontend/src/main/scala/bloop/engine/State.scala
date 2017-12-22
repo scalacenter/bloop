@@ -67,13 +67,6 @@ object State {
     State(build, results, compilerCache, options, ExitStatus.Ok, logger)
   }
 
-  def updateLogger(logger: Logger, commonOptions: CommonOptions): Unit = {
-    logger match {
-      case bloopLogger: BloopLogger => BloopLogger.update(bloopLogger, commonOptions.out)
-      case _ => logger.warn(s"Logger $logger is not of type `bloop.logging.BloopLogger`.")
-    }
-  }
-
   def setUpShutdownHoook(): Unit = {
     Runtime
       .getRuntime()

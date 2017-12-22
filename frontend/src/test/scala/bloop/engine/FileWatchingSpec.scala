@@ -2,9 +2,11 @@ package bloop.engine
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.file.Files
+import java.util.UUID
 
 import bloop.Project
 import bloop.cli.{CliOptions, Commands}
+import bloop.logging.BloopLogger
 import bloop.tasks.{CompilationHelpers, ProjectHelpers}
 import bloop.tasks.ProjectHelpers.{RootProject, noPreviousResult, withState}
 import org.junit.Test
@@ -62,10 +64,13 @@ class FileWatchingSpec {
       case (state, project, bloopOut) =>
         val cliOptions0 = CliOptions.default
         val newOut = new PrintStream(bloopOut)
+        val loggerName = UUID.randomUUID().toString
+        val newLogger = BloopLogger.at(loggerName, newOut, newOut)
+        val newState = state.copy(logger = newLogger)
         val commonOptions = cliOptions0.common.copy(out = newOut)
         val cliOptions = cliOptions0.copy(common = commonOptions)
         val cmd = Commands.Compile(project.name, watch = true, cliOptions = cliOptions)
-        Interpreter.execute(Run(cmd), state)
+        Interpreter.execute(Run(cmd), newState)
         ()
     }
 
@@ -104,10 +109,13 @@ class FileWatchingSpec {
       case (state, project, bloopOut) =>
         val cliOptions0 = CliOptions.default
         val newOut = new PrintStream(bloopOut)
+        val loggerName = UUID.randomUUID().toString
+        val newLogger = BloopLogger.at(loggerName, newOut, newOut)
+        val newState = state.copy(logger = newLogger)
         val commonOptions = cliOptions0.common.copy(out = newOut)
         val cliOptions = cliOptions0.copy(common = commonOptions, verbose = true)
         val cmd = Commands.Test(project.name, watch = true, cliOptions = cliOptions)
-        Interpreter.execute(Run(cmd), state)
+        Interpreter.execute(Run(cmd), newState)
         ()
     }
 

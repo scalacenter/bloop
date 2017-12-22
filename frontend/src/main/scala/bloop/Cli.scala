@@ -153,7 +153,8 @@ object Cli {
     }
 
     val configDirectory = getConfigDir(cliOptions)
-    val logger = BloopLogger(configDirectory.syntax)
+    val logger =
+      BloopLogger.at(configDirectory.toString, cliOptions.common.out, cliOptions.common.err)
     val state = loadStateFor(configDirectory, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)
