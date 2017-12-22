@@ -1,7 +1,7 @@
 package bloop.logging
 
-object NoOpLogger extends AbstractLogger {
-  override def name: String = "NoOpLogger"
+object NoopLogger extends AbstractLogger {
+  override def name: String = "NoopLogger"
   override def ansiCodesSupported(): Boolean = true
 
   override def debug(msg: String): Unit = ()

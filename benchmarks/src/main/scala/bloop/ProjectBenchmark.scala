@@ -3,7 +3,7 @@ package bloop
 import java.nio.file.Files
 
 import bloop.io.AbsolutePath
-import bloop.logging.NoOpLogger
+import bloop.logging.NoopLogger
 import org.openjdk.jmh.annotations.Benchmark
 
 object ProjectBenchmark {
@@ -23,17 +23,17 @@ class ProjectBenchmark {
 
   @Benchmark
   def loadSbtProject(): Unit = {
-    val _ = Project.fromDir(ProjectBenchmark.sbtLocation, NoOpLogger)
+    val _ = Project.fromDir(ProjectBenchmark.sbtLocation, NoopLogger)
   }
 
   @Benchmark
   def loadUTestProject(): Unit = {
-    val _ = Project.fromDir(ProjectBenchmark.uTestLocation, NoOpLogger)
+    val _ = Project.fromDir(ProjectBenchmark.uTestLocation, NoopLogger)
   }
 
   @Benchmark
   def loadSbtRootProject(): Unit = {
-    val _ = Project.fromFile(ProjectBenchmark.sbtRootProjectLocation, NoOpLogger)
+    val _ = Project.fromFile(ProjectBenchmark.sbtRootProjectLocation, NoopLogger)
   }
 
 }
