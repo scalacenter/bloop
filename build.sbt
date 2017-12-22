@@ -134,7 +134,7 @@ val mavenBloop = project
     )
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, sbtBloop)
+val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
