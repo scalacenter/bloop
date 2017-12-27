@@ -12,7 +12,7 @@ test -e ~/.coursier/coursier || ( \
 
 test -e ~/.bloop/bloop-server || ( \
   mkdir -p ~/.bloop && \
-  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop_2.12:$BLOOP_VERSION \
+  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop-frontend_2.12:$BLOOP_VERSION \
     -o ~/.bloop/bloop-server \
     --standalone \
     --main bloop.Server && \
@@ -21,7 +21,7 @@ test -e ~/.bloop/bloop-server || ( \
 
 test -e ~/.bloop/bloop-shell || ( \
   mkdir -p ~/.bloop && \
-  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop_2.12:$BLOOP_VERSION \
+  ~/.coursier/coursier bootstrap ch.epfl.scala:bloop-frontend_2.12:$BLOOP_VERSION \
     -o ~/.bloop/bloop-shell \
     --standalone \
     --main bloop.Bloop && \
