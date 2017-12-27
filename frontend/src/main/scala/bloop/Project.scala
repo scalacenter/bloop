@@ -68,10 +68,10 @@ object Project {
     val inputStream = Files.newInputStream(configFilepath)
     try properties.load(inputStream)
     finally inputStream.close
-    fromProperties(properties, config)
+    fromProperties(properties, config, logger)
   }
 
-  def fromProperties(properties: Properties, config: AbsolutePath): Project = {
+  def fromProperties(properties: Properties, config: AbsolutePath, logger: Logger): Project = {
     def toPaths(line: String) = line.split(",").map(toPath)
     def toPath(line: String) = AbsolutePath(NioPaths.get(line))
     val name = properties.getProperty("name")
@@ -82,7 +82,8 @@ object Project {
     val allScalaJars = toPaths(properties.getProperty("allScalaJars"))
     val scalaName = properties.getProperty("scalaName")
     val scalaVersion = properties.getProperty("scalaVersion")
-    val scalaInstance = ScalaInstance(scalaOrganization, scalaName, scalaVersion, allScalaJars)
+    val scalaInstance =
+      ScalaInstance(scalaOrganization, scalaName, scalaVersion, allScalaJars, logger)
     val classpath = toPaths(properties.getProperty("classpath"))
     val classesDir = toPath(properties.getProperty("classesDir"))
     val scalacOptions =

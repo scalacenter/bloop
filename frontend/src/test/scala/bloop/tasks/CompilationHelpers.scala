@@ -7,7 +7,7 @@ import scala.util.Properties
 import bloop.{CompilerCache, ScalaInstance}
 import bloop.io.AbsolutePath
 import bloop.io.Paths
-import bloop.logging.Logger
+import bloop.logging.{RecordingLogger, Logger}
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.librarymanagement.Resolver
 
@@ -33,6 +33,11 @@ object CompilationHelpers {
     }
   }
 
-  final val scalaInstance: ScalaInstance =
-    ScalaInstance.resolve("org.scala-lang", "scala-compiler", Properties.versionNumberString)
+  final val scalaInstance: ScalaInstance = {
+    val logger = new RecordingLogger
+    ScalaInstance.resolve("org.scala-lang",
+                          "scala-compiler",
+                          Properties.versionNumberString,
+                          logger)
+  }
 }

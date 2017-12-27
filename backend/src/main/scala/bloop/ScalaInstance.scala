@@ -6,10 +6,7 @@ import java.nio.file.Files
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Properties
 
-import coursier._
-
-import scalaz.\/
-import scalaz.concurrent.Task
+import bloop.logging.Logger
 
 class ScalaInstance(
     val organization: String,
@@ -75,27 +72,27 @@ object ScalaInstance {
   def apply(scalaOrg: String,
             scalaName: String,
             scalaVersion: String,
-            allJars: Array[AbsolutePath]): ScalaInstance = {
+            allJars: Array[AbsolutePath],
+            logger: Logger): ScalaInstance = {
     if (allJars.nonEmpty && allJars.forall(j => Files.exists(j.underlying)))
       new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
-    else resolve(scalaOrg, scalaName, scalaVersion)
+    else resolve(scalaOrg, scalaName, scalaVersion, logger)
   }
 
   // Cannot wait to use opaque types for this
   type InstanceId = (String, String, String)
   import java.util.concurrent.ConcurrentHashMap
   private val instances = new ConcurrentHashMap[InstanceId, ScalaInstance]
-  def resolve(scalaOrg: String, scalaName: String, scalaVersion: String): ScalaInstance = {
+  def resolve(scalaOrg: String,
+              scalaName: String,
+              scalaVersion: String,
+              logger: Logger): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
-      val start = Resolution(Set(Dependency(Module(scalaOrg, scalaName), scalaVersion)))
-      val repositories = Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
-      val fetch = Fetch.from(repositories, Cache.fetch())
-      val resolution = start.process.run(fetch).unsafePerformSync
-      // TODO: Do something with the errors.
-      //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
-      val localArtifacts: Seq[FileError \/ File] =
-        Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
-      val allJars = localArtifacts.flatMap(_.toList).filter(_.getName.endsWith(".jar"))
+      val allPaths = DependencyResolution.resolve(scalaOrg, scalaName, scalaVersion, logger)
+      val allJars = allPaths.collect {
+        case path if path.underlying.toString.endsWith(".jar") =>
+          path.underlying.toFile
+      }
       new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.toArray)
     }
 
