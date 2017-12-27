@@ -42,12 +42,22 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
   }
 
   private[this] def initialize(): Unit = BloopLogger.synchronized {
+    removeAllAppenders()
+
     outAppender.start()
     errAppender.start()
 
     val coreLogger = logger.asInstanceOf[log4j.core.Logger]
     coreLogger.addAppender(outAppender)
     coreLogger.addAppender(errAppender)
+  }
+
+  private[this] def removeAllAppenders(): Unit = BloopLogger.synchronized {
+    val coreLogger = logger.asInstanceOf[log4j.core.Logger]
+    val appenders = coreLogger.getAppenders()
+    appenders.forEach {
+      case (_, appender) => coreLogger.removeAppender(appender)
+    }
   }
 
   /**
