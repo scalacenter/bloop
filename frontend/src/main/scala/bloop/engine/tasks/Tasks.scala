@@ -212,7 +212,8 @@ object Tasks {
           val runner = TestInternals.getRunner(framework, testLoader)
           val tasks = runner.tasks(taskDefs.toArray).toList
           TestInternals.executeTasks(tasks, eventHandler, logger)
-          val _ = runner.done() // TODO(jvican): We've never used this value, what is it?
+          val summary = runner.done()
+          if (summary.nonEmpty) logger.info(summary)
       }
     }
 
