@@ -15,7 +15,7 @@ object Bloop {
   def main(args: Array[String]): Unit = {
     val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
     val configDirectory = baseDirectory.resolve(".bloop-config")
-    val logger = BloopLogger(configDirectory.syntax)
+    val logger = BloopLogger.default("bloop-logger")
     val projects = Project.fromDir(configDirectory, logger)
     val build: Build = Build(configDirectory, projects)
     val state = State(build, logger)

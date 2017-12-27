@@ -1,17 +1,30 @@
 package bloop.logging
 
-import java.io.OutputStream
+import java.io.{OutputStream, PrintStream}
 
 import org.apache.logging.log4j
 import org.apache.logging.log4j.{Level, LogManager}
-import org.apache.logging.log4j.core.LoggerContext
+import org.apache.logging.log4j.core.{Filter, LoggerContext}
 import org.apache.logging.log4j.core.appender.{ConsoleAppender, OutputStreamAppender}
+import org.apache.logging.log4j.core.filter.{CompositeFilter, Filterable, ThresholdFilter}
 import org.apache.logging.log4j.core.layout.PatternLayout
 import org.apache.logging.log4j.core.config.{AppenderRef, Configurator, LoggerConfig}
 
-/** Creates a logger that is backed up by a Log4j logger. */
-class BloopLogger private (override val name: String) extends AbstractLogger {
+/**
+ * Creates a logger that is backed up by a Log4j logger.
+ *
+ * @param name The name of this logger.
+ * @param out  The stream to use to write `INFO` and `WARN` level messages.
+ * @param err  The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
+ */
+class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
+    extends AbstractLogger {
   private val logger: log4j.Logger = LogManager.getLogger(name)
+
+  private val outAppender = createAppender(out, "out", BloopLogger.outFilter)
+  private val errAppender = createAppender(err, "err", BloopLogger.normalErrFilter)
+
+  initialize()
 
   override def ansiCodesSupported() = true
   override def debug(msg: String): Unit = msg.lines.foreach(logger.debug)
@@ -21,78 +34,142 @@ class BloopLogger private (override val name: String) extends AbstractLogger {
   override def info(msg: String): Unit = msg.lines.foreach(logger.info)
 
   override def verbose[T](op: => T): T = {
-    val initialLevel = LogManager.getRootLogger.getLevel
-    Configurator.setRootLevel(Level.DEBUG)
+    val previousFilter = errAppender.getFilter()
+    val newFilter = BloopLogger.verboseErrFilter
+    BloopLogger.switchFilters(errAppender, previousFilter, newFilter)
     try op
-    finally Configurator.setRootLevel(initialLevel)
+    finally BloopLogger.switchFilters(errAppender, newFilter, previousFilter)
   }
+
+  private[this] def initialize(): Unit = BloopLogger.synchronized {
+    outAppender.start()
+    errAppender.start()
+
+    val coreLogger = logger.asInstanceOf[log4j.core.Logger]
+    coreLogger.addAppender(outAppender)
+    coreLogger.addAppender(errAppender)
+  }
+
+  /**
+   * Instantiate an `Appender` for writing to `stream`, using filter `filter`.
+   *
+   * @param stream     The stream to which this `Appender` should write.
+   * @param nameSuffix A suffix to add to this `Appender`'s name, unique per instance.
+   * @param filter     The filter to use to determine whether to accept a log event.
+   * @return An `Appender` writing to `stream` the log events that `filter` accepts.
+   */
+  private[this] def createAppender(stream: PrintStream,
+                                   nameSuffix: String,
+                                   filter: Filter): OutputStreamAppender = {
+    val layout = PatternLayout.newBuilder().withPattern(BloopLogger.DefaultLayout).build()
+    val appender = OutputStreamAppender
+      .newBuilder()
+      .setName(s"$name-$nameSuffix")
+      .setFilter(filter)
+      .setLayout(layout)
+      .setTarget(stream)
+      .build()
+
+    appender
+  }
+
 }
 
 object BloopLogger {
-  def apply(name: String): BloopLogger = new BloopLogger(name)
+
+  /**
+   * Instantiates a new `BloopLogger` using the specified streams.
+   *
+   * @param name The name of the logger.
+   * @param out  The stream to use to write `INFO` and `WARN` level messages.
+   * @param err  The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
+   * @return A `BloopLogger` whose output will be written in the specified streams.
+   */
+  def at(name: String, out: PrintStream, err: PrintStream): BloopLogger =
+    new BloopLogger(name, out, err)
+
+  /**
+   * Instantiates a new `BloopLogger` that writes to stdout and stderr.
+   *
+   * @param name The name of the logger.
+   * @return A `BloopLogger` writing to stdout and stderr. Calling this method is equivalent to
+   *         calling `at(name, System.out, System.err)`.
+   */
+  def default(name: String): BloopLogger = at(name, System.out, System.err)
 
   private val DefaultLayout: String =
     "%highlight{%equals{[%-0.-1level] }{[I] }{}}{FATAL=white, ERROR=bright red, WARN=yellow, INFO=dim blue, DEBUG=green, TRACE=blue}%msg%n"
   private final val AppenderName = "BloopCommonOptionsAppender"
 
   /**
-   * The following magic piece of code swaps the output stream of a current logger dynamically
-   * based on the new output stream passed in by the user.
+   * A filter that accepts events whose `level` is `level` or more specific. For less
+   * specific events, this filter returns `NEUTRAL`.
    *
-   * It is inspired by http://logging.apache.org/log4j/2.x/manual/customconfig.html#AddingToCurrent
-   * but it is different in that it allows subsequent modifications, and not only one modification.
-   *
-   * The code of the docs has two problems:
-   * 1. It is not able to update the output stream twice because of some weird reference error.
-   * 2. It does not preserve the previous configuration that the logger we modify had.
-   *
-   * As a result, the following hacky code does this two things and allows us to change the
-   * output stream where the logger writes. It is supposed to be inefficient, and that's why
-   * we cache this operation in a guava weak cache.
-   *
-   * @param logger The logger whose output stream we want to modify.
-   * @param out The output stream we should redirect the logger to.
+   * @param level The least specific `Level` that this filter should accept.
+   * @return A filter that accepts events at level `Level` or more specific.
    */
-  private def swapOut(logger: BloopLogger, out: OutputStream): Unit = logger.synchronized {
-    val ctx = LogManager.getContext(false).asInstanceOf[LoggerContext]
-    val config = ctx.getConfiguration()
-    val layout = PatternLayout.newBuilder().withPattern(DefaultLayout).build()
-    val appenderName = s"$AppenderName-${logger.name}"
-    val appender = OutputStreamAppender
-      .newBuilder()
-      .setName(appenderName)
-      .setLayout(layout)
-      .setTarget(out)
-      .setFollow(true)
-      .build()
-
-    appender.start()
-    val currentLoggerConfig = config.getLoggerConfig(logger.name)
-    currentLoggerConfig.removeAppender("STDOUT")
-    currentLoggerConfig.removeAppender(appenderName)
-    currentLoggerConfig.addAppender(appender, null, null)
-    ctx.updateLoggers()
-    ()
+  private[this] def accept(level: Level) = {
+    ThresholdFilter.createFilter(level, Filter.Result.ACCEPT, Filter.Result.NEUTRAL)
   }
 
-  private val currentStreams: scala.collection.mutable.Map[BloopLogger, OutputStream] = {
-    import com.google.common.collect.MapMaker
-    import scala.collection.JavaConverters._
-    new MapMaker().weakKeys().makeMap[BloopLogger, OutputStream]().asScala
+  /**
+   * A filter that rejects events whose `level` is `level` or more specific. For less
+   * specific events, this filter returns `NEUTRAL`.
+   *
+   * @param level The least specific `Level` that this filter should reject.
+   * @return A filter that rejects events at level `Level` or more specific.
+   */
+  private[this] def deny(level: Level) = {
+    ThresholdFilter.createFilter(level, Filter.Result.DENY, Filter.Result.NEUTRAL)
   }
 
-  def update(logger: BloopLogger, out: OutputStream): Unit = {
-    def swapAndCache: Unit = {
-      logger.debug(s"Updating logger ${logger.name} to use $out.")
-      swapOut(logger, out)
-      currentStreams += logger -> out
-      ()
-    }
+  /** A filter that rejects all messages. */
+  private[this] val denyAll = {
+    deny(Level.ALL)
+  }
 
-    currentStreams.get(logger) match {
-      case Some(previousOut) if previousOut == out =>
-        logger.debug(s"Update of out ($out) in logger ${logger.name} is cached.")
-      case _ => swapAndCache
-    }
+  /**
+   * The filter for writing to the `out` stream. Accepts messages between levels
+   * `WARN` and `INFO`. All other messages are rejected.
+   */
+  private val outFilter = {
+    val rejectErrorAndUp = deny(Level.ERROR)
+    val acceptInfoAndUp = accept(Level.INFO)
+    CompositeFilter.createFilters(Array(rejectErrorAndUp, acceptInfoAndUp, denyAll))
+  }
+
+  /**
+   * The filter for writing to the `err` stream. Accepts messages at level `ERROR` and
+   * up. All other messages are rejected.
+   */
+  private val normalErrFilter = {
+    val acceptErrorAndUp = accept(Level.ERROR)
+    CompositeFilter.createFilters(Array(acceptErrorAndUp, denyAll))
+  }
+
+  /**
+   * The filter for writing to the `err` stream when the logger is in `verbose` mode.
+   * Accepts messages at levels `ERROR` and up, and below `INFO`. Messages between levels
+   * `WARN` and `INFO` are rejected.
+   */
+  private val verboseErrFilter = {
+    val acceptErrorAndUp = accept(Level.ERROR)
+    val rejectInfoAndUp = deny(Level.INFO)
+    val acceptAll = accept(Level.ALL)
+    CompositeFilter.createFilters(Array(acceptErrorAndUp, rejectInfoAndUp, acceptAll))
+  }
+
+  /**
+   * Replaces the filter `previousFilter` with `newFilter` in `filterable`.
+   *
+   * @param filterable     The `Filterable` for which filters should be replaced.
+   * @param previousFilter The current filter.
+   * @param newFilter      The new filter to install in place of `previousFilter`.
+   */
+  private def switchFilters(filterable: Filterable,
+                            previousFilter: Filter,
+                            newFilter: Filter): Unit = {
+    filterable.removeFilter(previousFilter)
+    filterable.addFilter(newFilter)
   }
 }
