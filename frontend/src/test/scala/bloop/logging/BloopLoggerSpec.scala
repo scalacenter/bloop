@@ -113,6 +113,29 @@ class BloopLoggerSpec {
     assertEquals("info1", msgs1.head)
   }
 
+  @Test
+  def multipleLoggerSameNamesDifferentOutputs = {
+    val loggerName = "same-name-logger"
+
+    val bos0 = new ByteArrayOutputStream
+    val ps0 = new PrintStream(bos0)
+    val l0 = BloopLogger.at(loggerName, ps0, ps0)
+    l0.info("info0")
+
+    val bos1 = new ByteArrayOutputStream
+    val ps1 = new PrintStream(bos1)
+    val l1 = BloopLogger.at(loggerName, ps1, ps1)
+    l1.info("info1")
+
+    val msgs0 = convertAndReadAllFrom(bos0)
+    val msgs1 = convertAndReadAllFrom(bos1)
+
+    assertEquals(1, msgs0.length.toLong)
+    assertEquals(1, msgs1.length.toLong)
+    assertEquals("info0", msgs0.head)
+    assertEquals("info1", msgs1.head)
+  }
+
   private def isWarn(msg: String): Boolean = msg.contains("[W]")
   private def isError(msg: String): Boolean = msg.contains("[E]")
   private def isDebug(msg: String): Boolean = msg.contains("[D]")
