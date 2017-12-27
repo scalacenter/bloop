@@ -1,25 +1,29 @@
 package bloop
 
-import bloop.cli.{Commands, ExitStatus}
+import bloop.cli.{CliOptions, Commands, ExitStatus}
+import bloop.cli.CliParsers.{inputStreamRead, printStreamRead, OptionsParser, pathParser}
 import bloop.engine.{Build, Exit, Interpreter, Run, State}
 import bloop.engine.tasks.CompileTasks
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
 import jline.console.ConsoleReader
+import caseapp.{CaseApp, RemainingArgs}
 
 import scala.annotation.tailrec
 
-object Bloop {
+object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()
-  def main(args: Array[String]): Unit = {
-    val baseDirectory = AbsolutePath(args.lift(0).getOrElse(".."))
-    val configDirectory = baseDirectory.resolve(".bloop-config")
-    val logger = BloopLogger.default("bloop-logger")
-    val projects = Project.fromDir(configDirectory, logger)
-    val build: Build = Build(configDirectory, projects)
-    val state = State(build, logger)
-    run(state)
+
+  override def run(options: CliOptions, remainingArgs: RemainingArgs): Unit = {
+    val configDirectory = options.configDir.map(AbsolutePath.apply).getOrElse(AbsolutePath("."))
+    val logger = BloopLogger.default(configDirectory.syntax)
+    logger.verboseIf(options.verbose) {
+      val projects = Project.fromDir(configDirectory, logger)
+      val build = Build(configDirectory, projects)
+      val state = State(build, logger)
+      run(state)
+    }
   }
 
   @tailrec
