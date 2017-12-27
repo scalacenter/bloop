@@ -104,7 +104,14 @@ val benchmarks = project
 
 lazy val integrationsCore = project
   .in(file("integrations/core"))
-  .settings(publishLocal := publishM2.value)
+  .disablePlugins(sbt.ScriptedPlugin)
+  .settings(
+    crossScalaVersions := List("2.12.4", "2.10.7"),
+    publishLocal := {
+      publishLocal.value
+      publishM2.value
+    }
+  )
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
@@ -127,11 +134,15 @@ val mavenBloop = project
     name := "maven-bloop",
     mavenPlugin := true,
     publishLocal := publishM2.dependsOn(publishLocal in integrationsCore).value,
+    classpathTypes += "maven-plugin",
+    makePomConfiguration := makePomConfiguration.value.withIncludeTypes(Set("jar", "maven-plugin")),
     libraryDependencies ++= List(
       Dependencies.mavenCore,
       Dependencies.mavenPluginApi,
       Dependencies.mavenPluginAnnotations,
-    )
+      Dependencies.mavenScalaPlugin
+        .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
+    ),
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)

@@ -47,6 +47,7 @@ object MavenPluginImplementation {
     MavenPluginKeys.mavenPlugin := false,
     MavenPluginKeys.mavenLogger := MavenPluginDefaults.mavenLogger.value,
     MavenPluginKeys.mavenProject := MavenPluginDefaults.mavenProject.value,
+    Keys.artifact in Keys.packageBin ~= { _.withType("maven-plugin") },
     Keys.resourceGenerators in Compile +=
       MavenPluginDefaults.resourceGenerators.taskValue
   )
@@ -100,8 +101,9 @@ object MavenPluginImplementation {
           val mojoDescriptors = extractor.getMojoDescriptors(classesDir, descriptor)
           mojoDescriptors.foreach(mojo => descriptor.addMojo(mojo))
 
+          val deps = Keys.libraryDependencies.in(Runtime).value
           val resolution = Keys.update.in(Runtime).value
-          descriptor.setDependencies(getDescriptorDependencies(resolution))
+          descriptor.setDependencies(getDescriptorDependencies(resolution, deps))
 
           import sbt.io.syntax.fileToRichFile
           val generator = new PluginDescriptorGenerator(new SystemStreamLog())
@@ -117,13 +119,23 @@ object MavenPluginImplementation {
     val mavenLogger: Def.Initialize[Logger] =
       Def.setting(new ConsoleLogger(Logger.LEVEL_INFO, s"sbt-build-${Keys.name.value}"))
 
-    def getDescriptorDependencies(resolution: UpdateReport): java.util.List[ComponentDependency] = {
+    import sbt.librarymanagement.ModuleID
+    def getDescriptorDependencies(
+        resolution: UpdateReport,
+        originalDeps: Seq[ModuleID]): java.util.List[ComponentDependency] = {
+      val depsWithArtifacts = originalDeps.filterNot(_.explicitArtifacts.isEmpty)
       import scala.collection.JavaConverters._
       resolution.allModules.toList.map { module =>
         val dependency = new ComponentDependency()
         dependency.setGroupId(module.organization)
         dependency.setArtifactId(module.name)
         dependency.setVersion(module.revision)
+        depsWithArtifacts.find((m: ModuleID) =>
+          m.name == module.name && m.organization == module.organization && m.revision == module.revision) match {
+          case Some(moduleWithArtifact) =>
+            dependency.setType(moduleWithArtifact.explicitArtifacts.head.`type`)
+          case None => ()
+        }
         dependency
       }.asJava
     }

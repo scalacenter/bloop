@@ -15,6 +15,7 @@ object Dependencies {
   val directoryWatcherVersion = "0.4.0"
   val mavenApiVersion = "3.5.2"
   val mavenAnnotationsVersion = "3.5"
+  val mavenScalaPluginVersion = "3.2.2"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
@@ -37,4 +38,5 @@ object Dependencies {
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
+  val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 }

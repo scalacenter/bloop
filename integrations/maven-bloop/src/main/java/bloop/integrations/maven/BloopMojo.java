@@ -3,12 +3,11 @@ package bloop.integrations.maven;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MavenPluginManager;
 import org.apache.maven.plugin.MojoExecution;
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.project.MavenProject;
+import scala_maven.ScalaMojoSupport;
 
 import java.io.File;
 import java.util.HashSet;
@@ -16,7 +15,7 @@ import java.util.List;
 import java.util.Set;
 
 @Mojo(name = "bloop", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.COMPILE)
-public class BloopMojo extends AbstractMojo {
+public class BloopMojo extends ScalaMojoSupport {
 
     /**********************************************************************************************
      ******************************** BLOOP MOJO INIT OPTIONS *************************************
@@ -170,8 +169,9 @@ public class BloopMojo extends AbstractMojo {
     @Parameter(defaultValue = "${plugin.artifacts}")
     public List<Artifact> pluginArtifacts;
 
-    public void execute() throws MojoExecutionException {
-        BloopMojo initializedMojo = BloopIntegration.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
-        BloopIntegration.writeCompileAndTestConfiguration(initializedMojo, this.getLog());
+    @Override
+    protected void doExecute() throws Exception {
+        BloopMojo initializedMojo = MojoImplementation.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
+        MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, this.getLog());
     }
 }
