@@ -113,12 +113,8 @@ object ProjectHelpers {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
-          makeProject(temp,
-                      name,
-                      sources,
-                      dependencies.getOrElse(name, Set.empty),
-                      scalaInstance,
-                      javaEnv)
+          val projectDependencies = dependencies.getOrElse(name, Set.empty)
+          makeProject(temp, name, sources, projectDependencies, scalaInstance, javaEnv)
       }
       val logger = BloopLogger.default(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
