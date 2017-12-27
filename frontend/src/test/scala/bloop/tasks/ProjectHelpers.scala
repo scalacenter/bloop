@@ -70,7 +70,7 @@ object ProjectHelpers {
   def loadTestProject(projectsBase: Path, name: String): State = {
     val base = projectsBase.resolve(name)
     val configDir = base.resolve("bloop-config")
-    val logger = BloopLogger(configDir.toString())
+    val logger = BloopLogger.default(configDir.toString())
     val baseDirectoryFile = configDir.resolve("base-directory")
     assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
     val testBaseDirectory = {
@@ -111,7 +111,7 @@ object ProjectHelpers {
         case (name, sources) =>
           makeProject(temp, name, sources, dependencies.getOrElse(name, Set.empty), scalaInstance)
       }
-      val logger = BloopLogger(temp.toString)
+      val logger = BloopLogger.default(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
       val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
       op(state)

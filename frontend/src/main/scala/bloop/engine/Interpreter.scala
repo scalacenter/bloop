@@ -9,43 +9,30 @@ import bloop.Project
 import bloop.logging.BloopLogger
 
 object Interpreter {
-  def execute(action: Action, state0: State): State = {
+  def execute(action: Action, state: State): State = {
     def logAndTime[T](state: State, cliOptions: CliOptions, action: => T): T =
       state.logger.verboseIf(cliOptions.verbose) { timed(state.logger) { action } }
-    def updateState(state: State, commonOptions: CommonOptions): State = {
-      State.updateLogger(state.logger, commonOptions)
-      val logger = BloopLogger(state.logger.name)
-      state.copy(commonOptions = commonOptions, logger = logger)
-    }
 
     action match {
-      case Exit(exitStatus) if state0.status.isOk => state0.mergeStatus(exitStatus)
-      case Exit(exitStatus) => state0
+      case Exit(exitStatus) if state.status.isOk => state.mergeStatus(exitStatus)
+      case Exit(exitStatus) => state
       case Print(msg, commonOptions, next) =>
-        val state = updateState(state0, commonOptions)
         state.logger.info(msg)
         execute(next, state)
       case Run(Commands.About(cliOptions), next) =>
-        val state = updateState(state0, cliOptions.common)
         val status = logAndTime(state, cliOptions, printAbout(state))
         execute(next, state.mergeStatus(status))
       case Run(cmd: Commands.Clean, next) =>
-        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, clean(cmd, state)))
       case Run(cmd: Commands.Compile, next) =>
-        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, compile(cmd, state)))
       case Run(cmd: Commands.Console, next) =>
-        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, console(cmd, state)))
       case Run(cmd: Commands.Projects, next) =>
-        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, showProjects(cmd, state)))
       case Run(cmd: Commands.Test, next) =>
-        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, test(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
-        val state = updateState(state0, cmd.cliOptions.common)
         execute(next, logAndTime(state, cmd.cliOptions, configure(cmd, state)))
     }
   }

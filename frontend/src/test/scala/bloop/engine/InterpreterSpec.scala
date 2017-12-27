@@ -1,18 +1,20 @@
 package bloop.engine
 
 import java.io.{ByteArrayOutputStream, PrintStream}
+import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
+import bloop.logging.BloopLogger
 import bloop.tasks.ProjectHelpers
 import org.junit.Test
 import guru.nidi.graphviz.parse.Parser
 
 class InterpreterSpec {
-  private final val state = ProjectHelpers.loadTestProject("sbt")
+  private final val initialState = ProjectHelpers.loadTestProject("sbt")
   import InterpreterSpec.changeOut
 
   @Test def ShowDotGraphOfSbtProjects(): Unit = {
-    val (cliOptions, outStream) = changeOut(state)
+    val (state, cliOptions, outStream) = changeOut(initialState)
     val action = Run(Commands.Projects(dotGraph = true, cliOptions))
     Interpreter.execute(action, state)
 
@@ -23,7 +25,7 @@ class InterpreterSpec {
   }
 
   @Test def ShowProjectsInCustomCommonOptions(): Unit = {
-    val (cliOptions, outStream) = changeOut(state)
+    val (state, cliOptions, outStream) = changeOut(initialState)
     val action = Run(Commands.Projects(cliOptions = cliOptions))
     Interpreter.execute(action, state)
     val output = outStream.toString("UTF-8")
@@ -31,7 +33,7 @@ class InterpreterSpec {
   }
 
   @Test def ShowAbout(): Unit = {
-    val (cliOptions, outStream) = changeOut(state)
+    val (state, cliOptions, outStream) = changeOut(initialState)
     val action = Run(Commands.About(cliOptions = cliOptions))
     Interpreter.execute(action, state)
     val output = outStream.toString("UTF-8")
@@ -43,7 +45,7 @@ class InterpreterSpec {
   }
 
   @Test def SupportDynamicCoreSetup(): Unit = {
-    val (cliOptions, outStream) = changeOut(state)
+    val (state, cliOptions, outStream) = changeOut(initialState)
     val action1 = Run(Commands.Configure(cliOptions = cliOptions))
     val state1 = Interpreter.execute(action1, state)
     val output1 = outStream.toString("UTF-8")
@@ -64,10 +66,15 @@ class InterpreterSpec {
 }
 
 object InterpreterSpec {
-  def changeOut(state: State): (CliOptions, ByteArrayOutputStream) = {
+  def changeOut(state: State): (State, CliOptions, ByteArrayOutputStream) = {
     val inMemory = new ByteArrayOutputStream()
     val newOut = new PrintStream(inMemory)
+    val loggerName = UUID.randomUUID().toString
+    val newLogger = BloopLogger.at(loggerName, newOut, newOut)
     val defaultCli = CliOptions.default
-    defaultCli.copy(common = state.commonOptions.copy(out = newOut)) -> inMemory
+    val newCommonOptions = state.commonOptions.copy(out = newOut)
+    val newState = state.copy(logger = newLogger, commonOptions = newCommonOptions)
+    val newCli = defaultCli.copy(common = newCommonOptions)
+    (newState, newCli, inMemory)
   }
 }
