@@ -4,7 +4,8 @@ import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
-import bloop.engine.tasks.{CompileTasks, TestTasks}
+import bloop.engine.tasks.Tasks
+import bloop.exec.ProcessConfig
 import bloop.Project
 import bloop.logging.BloopLogger
 
@@ -32,6 +33,8 @@ object Interpreter {
         execute(next, logAndTime(state, cmd.cliOptions, showProjects(cmd, state)))
       case Run(cmd: Commands.Test, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, test(cmd, state)))
+      case Run(cmd: Commands.Run, next) =>
+        execute(next, logAndTime(state, cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, configure(cmd, state)))
     }
@@ -77,12 +80,12 @@ object Interpreter {
     val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
     def runCompile(project: Project): State = {
       def doCompile(state: State): State =
-        CompileTasks.compile(state, project, reporterConfig).mergeStatus(ExitStatus.Ok)
+        Tasks.compile(state, project, reporterConfig).mergeStatus(ExitStatus.Ok)
       if (cmd.incremental) {
         if (!cmd.watch) doCompile(state)
         else watch(project, state, doCompile _)
       } else {
-        val newState = CompileTasks.clean(state, state.build.projects)
+        val newState = Tasks.clean(state, state.build.projects)
         if (!cmd.watch) doCompile(newState)
         else watch(project, newState, doCompile _)
       }
@@ -114,7 +117,7 @@ object Interpreter {
   private def console(cmd: Commands.Console, state: State): State = {
     val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
     def runConsole(project: Project) =
-      CompileTasks.console(state, project, reporterConfig, cmd.excludeRoot)
+      Tasks.console(state, project, reporterConfig, cmd.excludeRoot)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) => runConsole(project).mergeStatus(ExitStatus.Ok)
@@ -127,15 +130,15 @@ object Interpreter {
       def run(state: State) = {
         // Note that we always compile incrementally for test execution
         val reporter = ReporterConfig.getDefault(cmd.scalacstyle)
-        val state1 = CompileTasks.compile(state, project, reporter)
-        TestTasks.test(state1, project, cmd.aggregate)
+        val state1 = Tasks.compile(state, project, reporter)
+        Tasks.test(state1, project, cmd.aggregate)
       }
 
       if (!cmd.watch) run(state)
       else watch(project, state, run _)
     }
 
-    val projectToTest = TestTasks.pickTestProject(cmd.project, state)
+    val projectToTest = Tasks.pickTestProject(cmd.project, state)
     projectToTest match {
       case Some(project) => compileAndTest(state, project)
       case None => reportMissing(cmd.project :: Nil, state)
@@ -163,8 +166,47 @@ object Interpreter {
 
   private def clean(cmd: Commands.Clean, state: State): State = {
     val (projects, missing) = lookupProjects(cmd.projects, state)
-    if (missing.isEmpty) CompileTasks.clean(state, projects).mergeStatus(ExitStatus.Ok)
+    if (missing.isEmpty) Tasks.clean(state, projects).mergeStatus(ExitStatus.Ok)
     else reportMissing(missing, state)
+  }
+
+  private def run(cmd: Commands.Run, state: State): State = {
+    val reporter = ReporterConfig.getDefault(cmd.scalacstyle)
+    def getMainClass(state: State, project: Project): Option[String] = {
+      Tasks.findMainClasses(state, project) match {
+        case Array() =>
+          state.logger.error(s"No main classes found in project '${project.name}'")
+          None
+        case Array(main) =>
+          Some(main)
+        case mainClasses =>
+          val eol = System.lineSeparator
+          val message = s"""Several main classes were found, specify which one:
+                           |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+          state.logger.error(message)
+          None
+      }
+    }
+    def run(project: Project): State = {
+      def doRun(state: State): State = {
+        val compiledState = Tasks.compile(state, project, reporter)
+        val selectedMainClass = cmd.main.orElse(getMainClass(compiledState, project))
+        selectedMainClass
+          .map { main =>
+            val args = cmd.args.toArray
+            Tasks.run(compiledState, project, main, args)
+          }
+          .getOrElse(compiledState.mergeStatus(ExitStatus.UnexpectedError))
+      }
+
+      if (!cmd.watch) doRun(state)
+      else watch(project, state, doRun _)
+    }
+
+    state.build.getProjectFor(cmd.project) match {
+      case Some(project) => run(project)
+      case None => reportMissing(cmd.project :: Nil, state)
+    }
   }
 
   private def reportMissing(projectNames: List[String], state: State): State = {

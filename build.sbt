@@ -90,6 +90,7 @@ val frontend = project
     javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
+    fork in Test := true,
     parallelExecution in test := false,
   )
 
@@ -121,4 +122,3 @@ val bloop = project
     skip in publish := true,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
-

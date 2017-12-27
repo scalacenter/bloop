@@ -1,6 +1,7 @@
 package bloop.engine
 
 import org.junit.Test
+import bloop.exec.JavaEnv
 import bloop.Project
 import guru.nidi.graphviz.parse.Parser
 
@@ -8,11 +9,12 @@ class DagSpec {
   private object TestProjects {
     private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array())
     private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
+    private val javaEnv = JavaEnv.default(fork = false)
 
     // format: OFF
     def dummyProject(name: String, dependencies: List[String]): Project =
       Project(name, dummyPath, dependencies.toArray, dummyInstance, Array(), dummyPath, Array(),
-              Array(), Array(), Array(), dummyPath, dummyPath)
+              Array(), Array(), Array(), javaEnv, dummyPath, dummyPath)
     // format: ON
 
     val a = dummyProject("a", List())

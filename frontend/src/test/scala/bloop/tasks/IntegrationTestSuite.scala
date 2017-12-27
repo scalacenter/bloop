@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Dag, Exit, Interpreter, Run}
+import bloop.exec.JavaEnv
 import bloop.{DynTest, Project}
 import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger}
@@ -34,19 +35,21 @@ object IntegrationTestSuite extends DynTest {
     val classesDir = AbsolutePath(testDirectory)
     val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
     val previousProjects = state0.build.projects
+    val javaEnv = JavaEnv.default(fork = false)
 
     val rootProject = Project(
       name = rootProjectName,
       baseDirectory = AbsolutePath(testDirectory),
       dependencies = previousProjects.map(_.name).toArray,
       scalaInstance = previousProjects.head.scalaInstance,
-      classpath = Array.empty,
+      rawClasspath = Array.empty,
       classesDir = classesDir,
       scalacOptions = Array.empty,
       javacOptions = Array.empty,
       sourceDirectories = Array.empty,
       tmp = classesDir,
       testFrameworks = Array.empty,
+      javaEnv = javaEnv,
       bloopConfigDir = classesDir
     )
 

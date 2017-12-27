@@ -81,4 +81,21 @@ object Commands {
       excludeRoot: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CoreCommand
+
+  case class Run(
+      @ExtraName("p")
+      @HelpMessage("The project to run.")
+      project: String,
+      @ExtraName("m")
+      @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
+      main: Option[String] = None,
+      @HelpMessage("If set, disable improved error message format. By default, false.")
+      scalacstyle: Boolean = false,
+      @HelpMessage("The arguments to pass to the application")
+      args: List[String] = Nil,
+      @ExtraName("w")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
+      watch: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends CoreCommand
 }

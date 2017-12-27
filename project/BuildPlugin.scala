@@ -235,7 +235,7 @@ object BuildImplementation {
       """.stripMargin
     }
 
-    private val NewLine = System.getProperty("line.separator")
+    private val NewLine = System.lineSeparator
     def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := false,
       ScriptedKeys.sbtTestDirectory := testDirectory.value,

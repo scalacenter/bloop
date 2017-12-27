@@ -4,7 +4,7 @@ import bloop.{DynTest, Project}
 import bloop.engine.State
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
-import bloop.engine.tasks.{CompileTasks, TestTasks}
+import bloop.engine.tasks.Tasks
 import bloop.testing.TestInternals
 import xsbti.compile.CompileAnalysis
 
@@ -15,15 +15,15 @@ object TestTaskTest extends DynTest {
     val target = s"$TestProjectName-test"
     val state0 = ProjectHelpers.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
-    val state = CompileTasks.compile(state0, project, ReporterConfig.defaultFormat)
+    val state = Tasks.compile(state0, project, ReporterConfig.defaultFormat)
     val result = state.results.getResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
   }
 
   test("Test project can be selected with or without `-test` suffix") {
-    val withoutSuffix = TestTasks.pickTestProject(TestProjectName, testState)
-    val withSuffix = TestTasks.pickTestProject(s"$TestProjectName-test", testState)
+    val withoutSuffix = Tasks.pickTestProject(TestProjectName, testState)
+    val withSuffix = Tasks.pickTestProject(s"$TestProjectName-test", testState)
     assert(withoutSuffix.isDefined)
     assert(withoutSuffix.get.name == "with-tests-test")
     assert(withSuffix.isDefined)
@@ -32,7 +32,7 @@ object TestTaskTest extends DynTest {
 
   import java.net.URLClassLoader
   private val testLoader: ClassLoader = {
-    val classpath = TestTasks.constructClasspath(testProject)
+    val classpath = Tasks.constructClasspath(testProject)
     new URLClassLoader(classpath, TestInternals.filteredLoader)
   }
 
@@ -46,7 +46,7 @@ object TestTaskTest extends DynTest {
   frameworkNames.foreach { framework =>
     test(s"$framework's tests are detected") {
       testState.logger.quietIfSuccess { logger =>
-        val discovered = TestTasks.discoverTests(testAnalysis, frameworks)
+        val discovered = Tasks.discoverTests(testAnalysis, frameworks)
         val testNames = discovered.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName()))
         assert(testNames.exists(_.contains(s"${framework}Test")))
       }
@@ -54,7 +54,7 @@ object TestTaskTest extends DynTest {
 
     test(s"$framework tests can run") {
       testState.logger.quietIfSuccess { logger =>
-        val discovered = TestTasks.discoverTests(testAnalysis, frameworks).toList
+        val discovered = Tasks.discoverTests(testAnalysis, frameworks).toList
         val toRun = discovered.flatMap {
           case (framework, taskDefs) =>
             val testName = s"${framework.name()}Test"
@@ -63,7 +63,7 @@ object TestTaskTest extends DynTest {
             else {
               val runner = TestInternals.getRunner(framework, testLoader)
               val tasks = runner.tasks(filteredDefs.toArray).toList
-              List(() => TestInternals.executeTasks(tasks, TestTasks.eventHandler, logger))
+              List(() => TestInternals.executeTasks(tasks, Tasks.eventHandler, logger))
             }
         }
 
