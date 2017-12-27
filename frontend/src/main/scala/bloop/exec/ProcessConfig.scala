@@ -110,6 +110,7 @@ case class Fork(classpath: Array[AbsolutePath], javaEnv: JavaEnv) extends Proces
     val processLogger = new ProcessLogger(logger, process)
     processLogger.start()
     val exitCode = process.waitFor()
+    logger.debug(s"Forked JVM exited with code: $exitCode")
 
     exitCode
   }
