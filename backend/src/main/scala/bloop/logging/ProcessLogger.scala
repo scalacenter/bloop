@@ -39,18 +39,27 @@ object ProcessLogger {
    */
   def toOutputStream(logFn: String => Unit): OutputStream = {
     val outputStream = new OutputStream {
-      private val buffer = new ByteArrayOutputStream
+      private[this] var dirty = false
+      private[this] val buffer = new ByteArrayOutputStream
 
       override def write(x: Int): Unit = synchronized {
+        dirty = true
         if (x == '\n') flush()
         else buffer.write(x)
       }
 
       override def flush(): Unit = synchronized {
-        val bytes = buffer.toByteArray()
-        buffer.reset()
-        val content = new String(bytes, encoding)
-        logFn(content)
+        if (dirty) {
+          dirty = false
+          val bytes = buffer.toByteArray()
+          buffer.reset()
+          val content = new String(bytes, encoding)
+          logFn(content)
+        }
+      }
+
+      override def close(): Unit = {
+        flush()
       }
     }
     outputStream

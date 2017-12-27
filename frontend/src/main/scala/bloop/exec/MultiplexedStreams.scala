@@ -57,7 +57,10 @@ object MultiplexedStreams {
         registerStreams(id, logger)
         result = {
           try Some(op)
-          finally removeStreams(id)
+          finally {
+            flushStreams()
+            removeStreams(id)
+          }
         }
       }
     }
@@ -112,6 +115,15 @@ object MultiplexedStreams {
         Option(streams.get(id))
       }
       .getOrElse { defaultStreams }
+  }
+
+  /**
+   * Flushes the two streams that receive output for the current thread.
+   */
+  private def flushStreams(): Unit = {
+    val Streams(out, err) = getStreams()
+    out.flush()
+    err.flush()
   }
 
 }
