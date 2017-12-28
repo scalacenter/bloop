@@ -7,6 +7,8 @@ import org.apache.maven.plugin.MavenPluginManager;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import scala_maven.ScalaMojoSupport;
 
 import java.io.File;
@@ -170,8 +172,13 @@ public class BloopMojo extends ScalaMojoSupport {
     public List<Artifact> pluginArtifacts;
 
     @Override
-    protected void doExecute() throws Exception {
+    public void execute() throws MojoExecutionException, MojoFailureException {
         BloopMojo initializedMojo = MojoImplementation.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
         MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, this.getLog());
+    }
+
+    @Override
+    protected void doExecute() throws Exception {
+        return;
     }
 }
