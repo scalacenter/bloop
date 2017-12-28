@@ -33,8 +33,11 @@ object PluginImplementation {
   private val bloopGenerate: sbt.TaskKey[Unit] =
     sbt.taskKey[Unit]("Generate bloop configuration files for this project")
   val projectSettings: Seq[Def.Setting[_]] = List(Compile, Test).flatMap { conf =>
-    inConfig(conf)(List(bloopGenerate := PluginDefaults.bloopGenerate.value))
-  } ++ DiscoveredSbtPlugins.settings // discoveredSbtPlugins triggers compilation in 0.13, we replace it.
+    inConfig(conf) {
+      List(bloopGenerate := PluginDefaults.bloopGenerate.value) ++
+        DiscoveredSbtPlugins.settings // discoveredSbtPlugins triggers compilation in 0.13, we replace it.
+    }
+  }
 
   case class Config(
       name: String,

@@ -8,7 +8,7 @@ object DiscoveredSbtPlugins {
   // that uses a dynamic task. This way, we don't need to compile to generate the resources,
   // except if the project is an sbt plugin.
   val settings: Seq[Setting[_]] = Seq(
-    discoveredSbtPlugins in Compile := Def.taskDyn {
+    discoveredSbtPlugins := Def.taskDyn {
       if (sbtPlugin.value) Def.task { PluginDiscovery.discoverSourceAll(compile.value) } else
         Def.task { PluginDiscovery.emptyDiscoveredNames }
     }.value
