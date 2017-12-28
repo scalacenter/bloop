@@ -29,7 +29,7 @@ sealed abstract class ProcessConfig {
    * @param parent A parent classloader
    * @return A classloader constructed from the classpath of this `ProcessConfig`.
    */
-  final def toClassLoader(parent: Option[ClassLoader]): ClassLoader = {
+  final def toExecutionClassLoader(parent: Option[ClassLoader]): ClassLoader = {
     def makeNew(parent: Option[ClassLoader]): ClassLoader = {
       val classpathEntries = classpath.map(_.underlying.toUri.toURL)
       new URLClassLoader(classpathEntries, parent.orNull)

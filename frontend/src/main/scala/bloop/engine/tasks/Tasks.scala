@@ -194,7 +194,7 @@ object Tasks {
     projectsToTest.foreach { project =>
       val projectName = project.name
       val processConfig = ProcessConfig(project.javaEnv, project.classpath)
-      val testLoader = processConfig.toClassLoader(Some(TestInternals.filteredLoader))
+      val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")

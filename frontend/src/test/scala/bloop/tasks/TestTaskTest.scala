@@ -38,7 +38,7 @@ object TestTaskTest extends DynTest {
   }
 
   private def testLoader(processConfig: ProcessConfig): ClassLoader =
-    processConfig.toClassLoader(Some(TestInternals.filteredLoader))
+    processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
 
   private def frameworks(classLoader: ClassLoader): Array[Framework] = {
     testProject.testFrameworks.flatMap(n =>

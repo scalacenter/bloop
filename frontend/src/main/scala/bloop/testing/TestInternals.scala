@@ -69,7 +69,7 @@ object TestInternals {
                            logger: Logger): Unit = {
     logger.debug("Starting forked test execution.")
 
-    val testLoader = fork.toClassLoader(Some(filteredLoader))
+    val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
     val server = new TestServer(logger, eventHandler, discoveredTests)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
