@@ -157,6 +157,8 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
+  final val jvmOptions = "-Xmx4g" :: "-Xms2g" :: Nil
+
   object BuildDefaults {
     import sbt.State
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
