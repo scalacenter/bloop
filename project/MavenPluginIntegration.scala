@@ -2,8 +2,15 @@ package ch.epfl.scala.sbt.maven
 
 import java.nio.charset.Charset
 
+import org.apache.maven.artifact.handler.DefaultArtifactHandler
+import org.apache.maven.artifact.{Artifact, DefaultArtifact}
 import org.apache.maven.model.Build
-import org.apache.maven.plugin.descriptor.{MojoDescriptor, PluginDescriptor}
+import org.apache.maven.plugin.descriptor.{
+  MojoDescriptor,
+  Parameter,
+  PluginDescriptor,
+  PluginDescriptorBuilder
+}
 import org.apache.maven.plugin.logging.SystemStreamLog
 import org.apache.maven.project.MavenProject
 import org.apache.maven.tools.plugin.DefaultPluginToolsRequest
@@ -60,20 +67,22 @@ object MavenPluginImplementation {
       val pomFile = Keys.makePom.value
       val pomFileReader = new DefaultModelReader()
       val model = pomFileReader.read(pomFile, Map[String, Any]().asJava)
-      val project = new MavenProject(model)
-
-      val baseDir = Keys.baseDirectory.value.toPath()
-      project.setBasedir(baseDir.toFile())
-      def shortenAndToString(f: File): String = baseDir.relativize(f.toPath()).toString()
-
       val build = new Build()
+      val baseDir = Keys.baseDirectory.value.toPath()
+      def shortenAndToString(f: File): String = baseDir.relativize(f.toPath()).toString()
       build.setSourceDirectory(shortenAndToString(Keys.sourceDirectory.in(Compile).value))
       build.setTestSourceDirectory(shortenAndToString(Keys.sourceDirectory.in(Test).value))
       build.setOutputDirectory(shortenAndToString(Keys.classDirectory.in(Compile).value))
       build.setTestOutputDirectory(shortenAndToString(Keys.classDirectory.in(Test).value))
-      project.setBuild(build)
+      model.setBuild(build)
 
-      project
+      new MavenProject(model) {
+        def fs(f: File): String = f.getAbsolutePath()
+        import scala.collection.JavaConverters._
+        this.setBasedir(baseDir.toFile())
+        this.setCompileSourceRoots(Keys.sourceDirectories.in(Compile).value.map(fs).asJava)
+        this.setTestCompileSourceRoots(Keys.sourceDirectories.in(Test).value.map(fs).asJava)
+      }
     }
 
     val artifactId: Def.Initialize[String] = Def.setting {
@@ -85,27 +94,35 @@ object MavenPluginImplementation {
       if (!MavenPluginKeys.mavenPlugin.value) Def.task(Nil)
       else {
         val task = Def.task {
+          val BloopGoal = "bloop"
           val descriptor = new PluginDescriptor()
           descriptor.setName(Keys.name.value)
           descriptor.setGroupId(Keys.organization.value)
           descriptor.setDescription(Keys.description.value)
           descriptor.setArtifactId(artifactId.value)
           descriptor.setVersion(Keys.version.value)
-          descriptor.setGoalPrefix("bloop")
+          descriptor.setGoalPrefix(BloopGoal)
           descriptor.setIsolatedRealm(true)
 
           val logger = MavenPluginKeys.mavenLogger.value
           val project = MavenPluginKeys.mavenProject.value
-          val extractor = new SbtJavaAnnotationsMojoDescriptorExtractor(project, logger)
           val classesDir = Keys.classDirectory.in(Compile).value
-          val mojoDescriptors = extractor.getMojoDescriptors(classesDir, descriptor)
-          mojoDescriptors.foreach(mojo => descriptor.addMojo(mojo))
 
-          val deps = Keys.libraryDependencies.in(Runtime).value
           val resolution = Keys.update.in(Runtime).value
-          descriptor.setDependencies(getDescriptorDependencies(resolution, deps))
+          val artifacts = getArtifacts(resolution)
+          descriptor.setDependencies(getDescriptorDependencies(artifacts))
 
           import sbt.io.syntax.fileToRichFile
+          val annotationExtractor = new SbtJavaAnnotationsMojoDescriptorExtractor(project, logger)
+          val annotationMojos =
+            annotationExtractor.getMojoDescriptors(classesDir, descriptor, artifacts)
+          annotationMojos.foreach(mojo => descriptor.addMojo(mojo))
+
+          // This is the plugin dependent part of the Maven plugin setup
+          val bloopMojoDescriptor = descriptor.getMojo(BloopGoal)
+          val selector = PluginSelector("scala-maven-plugin", "compile")
+          aggregateParametersFromDependentPlugins(artifacts, selector, bloopMojoDescriptor)
+
           val generator = new PluginDescriptorGenerator(new SystemStreamLog())
           val xmlDirectory = Keys.resourceManaged.in(Compile).value./("META-INF/maven")
           val request = new DefaultPluginToolsRequest(project, descriptor)
@@ -119,49 +136,140 @@ object MavenPluginImplementation {
     val mavenLogger: Def.Initialize[Logger] =
       Def.setting(new ConsoleLogger(Logger.LEVEL_INFO, s"sbt-build-${Keys.name.value}"))
 
-    import sbt.librarymanagement.ModuleID
-    def getDescriptorDependencies(
-        resolution: UpdateReport,
-        originalDeps: Seq[ModuleID]): java.util.List[ComponentDependency] = {
-      val depsWithArtifacts = originalDeps.filterNot(_.explicitArtifacts.isEmpty)
-      import scala.collection.JavaConverters._
-      resolution.allModules.toList.map { module =>
-        val dependency = new ComponentDependency()
-        dependency.setGroupId(module.organization)
-        dependency.setArtifactId(module.name)
-        dependency.setVersion(module.revision)
-        depsWithArtifacts.find((m: ModuleID) =>
-          m.name == module.name && m.organization == module.organization && m.revision == module.revision) match {
-          case Some(moduleWithArtifact) =>
-            dependency.setType(moduleWithArtifact.explicitArtifacts.head.`type`)
-          case None => ()
+    case class PluginSelector(name: String, goal: String)
+
+    /**
+     * Aggregates parameters from concrete dependent plugins.
+     *
+     * This function is custom and is not part of the conventional Maven plugin integration.
+     * It exists because our `BloopMojo` extends a class that defines parameters. As we cannot
+     * hijack them because they are almost all private, we need to tell Maven to trust us and
+     * set the parameters in the super classes. If Maven does this correctly, then we can reuse
+     * the functionality provided by the super class while avoiding to define the parameters
+     * in our own mojo.
+     *
+     * @param artifacts The artifacts which our plugin depend on.
+     * @param pluginSelector The selector that tells which parameters should be aggregated.
+     * @param mojoDescriptor The descriptor of the mojo we need to inject the parameters in.
+     * @return A mojo descriptor whose parameters are now correct.
+     */
+    def aggregateParametersFromDependentPlugins(
+        artifacts: Set[Artifact],
+        pluginSelector: PluginSelector,
+        mojoDescriptor: MojoDescriptor
+    ): MojoDescriptor = {
+      import sbt.io.IO
+      import sbt.io.syntax.fileToRichFile
+      val dependentMavenPlugins = artifacts.filter(_.getType() == "maven-plugin")
+      val dependencyPluginDescriptors = dependentMavenPlugins.map { (a: Artifact) =>
+        IO.withTemporaryDirectory { tempDir =>
+          val _ = IO.unzip(a.getFile(), tempDir)
+          val pluginXml = tempDir./("META-INF/maven/plugin.xml")
+          IO.reader(pluginXml)(reader => new PluginDescriptorBuilder().build(reader))
         }
+      }
+
+      val selectedMojos = dependencyPluginDescriptors
+        .filter(_.getName() == pluginSelector.name)
+        .flatMap(p => Option(p.getMojo(pluginSelector.goal)).toList)
+
+      import scala.collection.JavaConverters._
+      val existingParameters = mojoDescriptor.getParameters().asScala
+      val newParameters = selectedMojos
+        .flatMap(_.getParameters().asScala.toList.asInstanceOf[List[Parameter]])
+        .filter(!existingParameters.contains(_))
+      mojoDescriptor.setParameters(newParameters.toList.asJava)
+      mojoDescriptor
+    }
+
+    /**
+     * Convert Maven artifacts to component dependencies for the plugin descriptor.
+     *
+     * @param artifacts A list of maven artifacts.
+     * @return A list of component dependencies.
+     */
+    def getDescriptorDependencies(artifacts: Set[Artifact]): java.util.List[ComponentDependency] = {
+      import scala.collection.JavaConverters._
+      artifacts.toList.map { artifact =>
+        val dependency = new ComponentDependency()
+        dependency.setGroupId(artifact.getGroupId())
+        dependency.setArtifactId(artifact.getArtifactId())
+        dependency.setVersion(artifact.getVersion())
+        dependency.setType(artifact.getType())
         dependency
       }.asJava
     }
 
-    import org.apache.maven.tools.plugin.extractor.annotations.JavaAnnotationsMojoDescriptorExtractor
-    final class SbtJavaAnnotationsMojoDescriptorExtractor(mavenProject: MavenProject,
-                                                          logger: Logger)
-        extends JavaAnnotationsMojoDescriptorExtractor {
-      private val scanner = {
+    private final val handler = new DefaultArtifactHandler("jar")
+
+    /**
+     * Convert sbt's update report to a set of artifacts that are dependencies that we
+     * then will pass to the Maven APIs.
+     *
+     * @param resolution Sbt's update result.
+     * @return A set of Maven artifacts.
+     */
+    def getArtifacts(resolution: UpdateReport): Set[Artifact] = {
+      resolution.toVector.map {
+        case (configRef, module, artifact, file) =>
+          val classifier = artifact.classifier.getOrElse("")
+          // FORMAT: OFF
+          val mavenArtifact = new DefaultArtifact(module.organization, module.name, module.revision, configRef.name, artifact.`type`, classifier, handler)
+          // FORMAT: ON
+          mavenArtifact.setFile(file)
+          artifact.url.foreach(url => mavenArtifact.setDownloadUrl(url.toString()))
+          mavenArtifact.setResolved(true)
+          mavenArtifact
+      }.toSet
+    }
+
+    /**
+     * Extracts the descriptors of Maven plugins that define themselves via Java annotations.
+     *
+     * @param mavenProject The project whose java annotations we're inspecting.
+     * @param logger The logger that we should use to report.
+     */
+    final class SbtJavaAnnotationsMojoDescriptorExtractor(
+        mavenProject: MavenProject,
+        logger: Logger
+    ) extends org.apache.maven.tools.plugin.extractor.annotations.JavaAnnotationsMojoDescriptorExtractor {
+
+      private final val scanner = {
         val scanner0 = new DefaultMojoAnnotationsScanner()
         scanner0.enableLogging(logger)
         scanner0
       }
 
       import scala.collection.JavaConverters._
+
+      /**
+       * Get mojo descriptors using the clunky Maven APIs.
+       *
+       * This piece of code is really sensitive and it's handmade to avoid null pointer
+       * exceptions caused by the lack of plexus dependency injection. It reuses the barebone
+       * methods that provide the functionality and do not depend on plexus components. That's
+       * why we cannot reuse most of `JavaAnnotationsMojoDescriptorExtractor`'s API.
+       *
+       * @param classesDir The classes directory where Maven looks for plugin annotations.
+       * @param pluginDescriptor The work-in-progress plugin descriptor of the current plugin.
+       * @param artifacts The dependencies (in artifacts) of the plugin.
+       * @return A sequence of mojo descriptors to add to the wip plugin descriptor.
+       */
       def getMojoDescriptors(classesDir: File,
-                             pluginDescriptor: PluginDescriptor): Seq[MojoDescriptor] = {
+                             pluginDescriptor: PluginDescriptor,
+                             artifacts: Set[Artifact]): Seq[MojoDescriptor] = {
         val scanRequest = new MojoAnnotationsScannerRequest()
         scanRequest.setProject(mavenProject)
         scanRequest.setClassesDirectories(List(classesDir).asJava)
+        scanRequest.setDependencies(artifacts.asJava)
         val annotatedClasses = scanner.scan(scanRequest)
-        val javaClasses = super
-          .discoverClasses(Charset.defaultCharset().displayName(), mavenProject)
+
+        val encoding = Charset.defaultCharset().displayName()
+        val sources = mavenProject.getCompileSourceRoots().asScala.toIterator
+        val sourceDirs = sources.map(x => new File(x.toString)).toList
+        val javaClasses = super.discoverClasses(encoding, sourceDirs.asJava, artifacts.asJava)
         super.populateDataFromJavadoc(annotatedClasses, javaClasses)
 
-        import org.apache.maven.tools.plugin.extractor.annotations.scanner.MojoAnnotatedClass
         val mapClazz = classOf[java.util.Map[_, _]]
         val descriptorClazz = classOf[PluginDescriptor]
         val hijackedMethod = this
@@ -170,8 +278,7 @@ object MavenPluginImplementation {
           .getDeclaredMethod("toMojoDescriptors", mapClazz, descriptorClazz)
 
         hijackedMethod.setAccessible(true)
-        val descriptors =
-          hijackedMethod.invoke(this, annotatedClasses, pluginDescriptor)
+        val descriptors = hijackedMethod.invoke(this, annotatedClasses, pluginDescriptor)
         descriptors.asInstanceOf[java.util.List[MojoDescriptor]].asScala.toList
       }
     }

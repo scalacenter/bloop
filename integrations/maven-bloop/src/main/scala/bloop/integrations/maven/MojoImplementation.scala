@@ -29,12 +29,12 @@ object MojoImplementation {
   }
 
   def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
-    import mojo.project
     import scala.collection.JavaConverters._
+    val project = mojo.getProject()
     val configDir = mojo.bloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
 
-    def writeConfig(sourceDir: File, classesDir0: File, configuration: String): Unit = {
+    def writeConfig(sourceDirs0: Seq[File], classesDir0: File, configuration: String): Unit = {
       def fetchClasspath: Seq[File] = {
         ???
       }
@@ -42,7 +42,7 @@ object MojoImplementation {
       val name = project.getArtifactId()
       val build = project.getBuild()
       val baseDirectory = project.getBasedir()
-      val sourceDirs = List(sourceDir.getCanonicalFile())
+      val sourceDirs = sourceDirs0.map(_.getCanonicalFile())
       val classesDir = classesDir0.getCanonicalFile()
       val classpath = {
         val elements = project.getCompileClasspathElements().asScala.toList
@@ -59,9 +59,9 @@ object MojoImplementation {
       val javaHome = new File(classesDir, "fake-java-home")
 
       // FORMAT: OFF
-      val compileConfig = BloopConfig(name, baseDirectory, dependencies, mojo.scalaOrganization,
-        mojo.scalaArtifactID, mojo.scalaVersion, classpath, classesDir, mojo.args.toList,
-        mojo.javacArgs.toList, sourceDirs, testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmpDir
+      val compileConfig = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
+        mojo.scalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
+        mojo.getJavacArgs().asScala, sourceDirs, fork, javaHome, javaOptions, testFrameworks, allScalaJars, tmpDir
       )
       // FORMAT: ON
 
@@ -71,7 +71,7 @@ object MojoImplementation {
       compileConfig.writeTo(configTarget)
     }
 
-    writeConfig(mojo.sourceDir, mojo.outputDir, "compile")
-    writeConfig(mojo.testSourceDir, mojo.testOutputDir, "test")
+    writeConfig(mojo.getCompileSourceDirectories.asScala, mojo.getCompileOutputDir, "compile")
+    //writeConfig(mojo.testSourceDir, mojo.testOutputDir, "test")
   }
 }

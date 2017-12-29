@@ -136,7 +136,7 @@ val mavenBloop = project
     publishLocal := publishM2.dependsOn(publishLocal in integrationsCore).value,
     classpathTypes += "maven-plugin",
     makePomConfiguration :=
-      makePomConfiguration.value.withIncludeTypes(Set("jar", "maven-plugin")),
+      makePomConfiguration.value.withIncludeTypes(classpathTypes.value),
     libraryDependencies ++= List(
       Dependencies.mavenCore,
       Dependencies.mavenPluginApi,

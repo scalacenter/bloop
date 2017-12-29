@@ -142,7 +142,6 @@ object BuildImplementation {
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
-    Keys.commands += Semanticdb.command(Keys.crossScalaVersions.value),
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
