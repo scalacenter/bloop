@@ -120,7 +120,7 @@ object MavenPluginImplementation {
 
           // This is the plugin dependent part of the Maven plugin setup
           val bloopMojoDescriptor = descriptor.getMojo(BloopGoal)
-          val selector = PluginSelector("scala-maven-plugin", "compile")
+          val selector = PluginSelector("scala-maven-plugin", "cc")
           aggregateParametersFromDependentPlugins(artifacts, selector, bloopMojoDescriptor)
 
           val generator = new PluginDescriptorGenerator(new SystemStreamLog())

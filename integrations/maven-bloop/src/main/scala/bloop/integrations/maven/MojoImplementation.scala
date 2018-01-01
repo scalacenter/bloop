@@ -31,14 +31,10 @@ object MojoImplementation {
   def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
     import scala.collection.JavaConverters._
     val project = mojo.getProject()
-    val configDir = mojo.bloopConfigDir.toPath()
+    val configDir = mojo.getBloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
 
     def writeConfig(sourceDirs0: Seq[File], classesDir0: File, configuration: String): Unit = {
-      def fetchClasspath: Seq[File] = {
-        ???
-      }
-
       val name = project.getArtifactId()
       val build = project.getBuild()
       val baseDirectory = project.getBasedir()
@@ -60,18 +56,18 @@ object MojoImplementation {
 
       // FORMAT: OFF
       val compileConfig = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
-        mojo.scalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
-        mojo.getJavacArgs().asScala, sourceDirs, fork, javaHome, javaOptions, testFrameworks, allScalaJars, tmpDir
+        mojo.getScalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
+        mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmpDir
       )
       // FORMAT: ON
 
       val suffix = if (configuration == "compile") "" else s"-$configuration"
-      val configTarget = new File(mojo.bloopConfigDir, s"$name$suffix")
+      val configTarget = new File(mojo.getBloopConfigDir, s"$name$suffix")
       log.info(s"Writing bloop configuration file to ${configTarget.getAbsolutePath()}")
       compileConfig.writeTo(configTarget)
     }
 
     writeConfig(mojo.getCompileSourceDirectories.asScala, mojo.getCompileOutputDir, "compile")
-    //writeConfig(mojo.testSourceDir, mojo.testOutputDir, "test")
+    writeConfig(mojo.getTestSourceDirectories.asScala, mojo.getTestOutputDir, "test")
   }
 }
