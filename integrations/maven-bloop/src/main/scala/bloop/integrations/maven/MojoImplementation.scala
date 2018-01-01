@@ -52,7 +52,7 @@ object MojoImplementation {
       val tmpDir = new File(classesDir, "tmp-bloop")
       val fork = false
       val javaOptions = Nil
-      val javaHome = new File(classesDir, "fake-java-home")
+      val javaHome = mojo.getJavaHome()
 
       // FORMAT: OFF
       val compileConfig = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
