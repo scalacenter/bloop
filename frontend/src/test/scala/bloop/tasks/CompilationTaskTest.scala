@@ -3,7 +3,9 @@ package bloop.tasks
 import utest._
 import bloop.{ScalaInstance}
 import bloop.engine.State
-import bloop.tasks.ProjectHelpers.{ checkAfterCleanCompilation,
+import bloop.logging.RecordingLogger
+import bloop.tasks.ProjectHelpers.{
+  checkAfterCleanCompilation,
   getProject,
   hasPreviousResult,
   noPreviousResult,
@@ -30,17 +32,23 @@ object CompilationTaskTest extends TestSuite {
     }
 
     "Compile with scala 2.12.4" - {
-      val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4")
+      val logger = new RecordingLogger
+      val scalaInstance =
+        ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)
       simpleProject(scalaInstance)
     }
 
     "Compile with Scala 2.12.3" - {
-      val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3")
+      val logger = new RecordingLogger
+      val scalaInstance =
+        ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3", logger)
       simpleProject(scalaInstance)
     }
 
     "Compile with scala 2.11.11" - {
-      val scalaInstance = ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11")
+      val logger = new RecordingLogger
+      val scalaInstance =
+        ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)
       simpleProject(scalaInstance)
     }
 

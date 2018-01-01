@@ -72,10 +72,12 @@ val backend = project
       Dependencies.log4jApi,
       Dependencies.log4jCore,
       Dependencies.sbtTestInterface,
+      Dependencies.sbtTestAgent,
       Dependencies.directoryWatcher
     )
   )
 
+import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend)
@@ -87,7 +89,8 @@ val frontend = project
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopInfoKeys,
-    javaOptions in run ++= Seq("-Xmx4g", "-Xms2g"),
+    javaOptions in run ++= jvmOptions,
+    javaOptions in Test ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
     fork in Test := true,

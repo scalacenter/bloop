@@ -2,12 +2,14 @@ package bloop.engine
 
 import org.junit.Test
 import bloop.exec.JavaEnv
+import bloop.logging.RecordingLogger
 import bloop.Project
 import guru.nidi.graphviz.parse.Parser
 
 class DagSpec {
   private object TestProjects {
-    private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array())
+    private val logger = new RecordingLogger
+    private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array(), logger)
     private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
     private val javaEnv = JavaEnv.default(fork = false)
 

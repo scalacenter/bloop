@@ -1,7 +1,9 @@
 package bloop.exec
 
 import java.io.File.{separator, pathSeparator}
+import java.lang.ClassLoader
 import java.net.URLClassLoader
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.util.control.NonFatal
 
@@ -11,7 +13,10 @@ import bloop.logging.{Logger, ProcessLogger}
 /**
  * Configures how to start new processes to run Java code.
  */
-sealed trait ProcessConfig {
+sealed abstract class ProcessConfig {
+
+  private var classLoaderCache: ConcurrentHashMap[Option[ClassLoader], ClassLoader] =
+    new ConcurrentHashMap
 
   /**
    * The full classpath with which the code should be executed
@@ -19,14 +24,32 @@ sealed trait ProcessConfig {
   def classpath: Array[AbsolutePath]
 
   /**
+   * Creates a `ClassLoader` from the classpath of this `ProcessConfig`.
+   *
+   * @param parent A parent classloader
+   * @return A classloader constructed from the classpath of this `ProcessConfig`.
+   */
+  final def toExecutionClassLoader(parent: Option[ClassLoader]): ClassLoader = {
+    def makeNew(parent: Option[ClassLoader]): ClassLoader = {
+      val classpathEntries = classpath.map(_.underlying.toUri.toURL)
+      new URLClassLoader(classpathEntries, parent.orNull)
+    }
+    classLoaderCache.computeIfAbsent(parent, makeNew)
+  }
+
+  /**
    * Run the main function in class `className`, passing it `args`.
    *
-   * @param className The fully qualified name of the class to run.
-   * @param args      The arguments to pass to the main method.
-   * @param logger    Where to log the messages from execution.
+   * @param className      The fully qualified name of the class to run.
+   * @param args           The arguments to pass to the main method.
+   * @param logger         Where to log the messages from execution.
+   * @param extraClasspath Paths to append to the classpath before running.
    * @return 0 if the execution exited successfully, a non-zero number otherwise.
    */
-  def runMain(className: String, args: Array[String], logger: Logger): Int
+  def runMain(className: String,
+              args: Array[String],
+              logger: Logger,
+              extraClasspath: Array[AbsolutePath] = Array.empty): Int
 }
 
 object ProcessConfig {
@@ -46,10 +69,14 @@ object ProcessConfig {
  */
 case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
 
-  override def runMain(className: String, args: Array[String], logger: Logger): Int = {
+  override def runMain(className: String,
+                       args: Array[String],
+                       logger: Logger,
+                       extraClasspath: Array[AbsolutePath] = Array.empty): Int = {
+    val fullClasspath = classpath ++ extraClasspath
     logger.debug(s"Running '$className' in process.")
-    logger.debug(s"  Classpath: ${classpath.map(_.syntax).mkString(pathSeparator)}")
-    val entries = classpath.map(_.toFile.toURI.toURL)
+    logger.debug(s"  Classpath: ${fullClasspath.map(_.syntax).mkString(pathSeparator)}")
+    val entries = fullClasspath.map(_.toFile.toURI.toURL)
     val classLoader = new URLClassLoader(entries, null)
     val exitCode = {
       try {
@@ -74,16 +101,21 @@ case class InProcess(classpath: Array[AbsolutePath]) extends ProcessConfig {
  * Configuration to start a new JVM to execute Java code.
  */
 case class Fork(classpath: Array[AbsolutePath], javaEnv: JavaEnv) extends ProcessConfig {
-  override def runMain(className: String, args: Array[String], logger: Logger): Int = {
+  override def runMain(className: String,
+                       args: Array[String],
+                       logger: Logger,
+                       extraClasspath: Array[AbsolutePath] = Array.empty): Int = {
+    val fullClasspath = classpath ++ extraClasspath
+
     val java = javaEnv.javaHome.resolve("bin").resolve("java")
-    val classpathOption = "-cp" :: classpath.map(_.syntax).mkString(pathSeparator) :: Nil
+    val classpathOption = "-cp" :: fullClasspath.map(_.syntax).mkString(pathSeparator) :: Nil
     val appOptions = className :: args.toList
     val cmd = java.syntax :: javaEnv.javaOptions.toList ::: classpathOption ::: appOptions
 
     logger.debug(s"Running '$className' in a new JVM.")
     logger.debug(s"  java_home   = '${javaEnv.javaHome}'")
     logger.debug(s"  javaOptions = '${javaEnv.javaOptions.mkString(" ")}'")
-    logger.debug(s"  classpath   = '${classpath.map(_.syntax).mkString(pathSeparator)}'")
+    logger.debug(s"  classpath   = '${fullClasspath.map(_.syntax).mkString(pathSeparator)}'")
     logger.debug(s"  command     = '${cmd.mkString(" ")}'")
 
     val processBuilder = new ProcessBuilder(cmd: _*)
@@ -91,6 +123,7 @@ case class Fork(classpath: Array[AbsolutePath], javaEnv: JavaEnv) extends Proces
     val processLogger = new ProcessLogger(logger, process)
     processLogger.start()
     val exitCode = process.waitFor()
+    logger.debug(s"Forked JVM exited with code: $exitCode")
 
     exitCode
   }

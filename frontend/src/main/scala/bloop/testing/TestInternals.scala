@@ -1,5 +1,8 @@
 package bloop.testing
 
+import bloop.DependencyResolution
+import bloop.exec.{Fork, InProcess, JavaEnv, ProcessConfig}
+import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import sbt.testing.{
   AnnotatedFingerprint,
@@ -12,6 +15,7 @@ import sbt.testing.{
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
+import sbt.testing.{Framework, Task => TestTask, TaskDef}
 import xsbt.api.Discovered
 import xsbti.api.ClassLike
 import xsbti.compile.CompileAnalysis
@@ -21,6 +25,10 @@ import scala.collection.mutable
 
 object TestInternals {
 
+  private final val sbtOrg = "org.scala-sbt"
+  private final val testAgentId = "test-agent"
+  private final val testAgentVersion = "1.0.4"
+
   private type PrintInfo[F <: Fingerprint] = (String, Boolean, Framework, F)
 
   lazy val filteredLoader = {
@@ -29,14 +37,83 @@ object TestInternals {
     new FilteredLoader(getClass.getClassLoader, filter)
   }
 
-  @tailrec
-  def executeTasks(tasks: List[TestTask], eventHandler: EventHandler, logger: Logger): Unit = {
-    tasks match {
-      case task :: rest =>
-        val newTasks = task.execute(eventHandler, Array(logger)).toList
-        executeTasks(rest ::: newTasks, eventHandler, logger)
-      case Nil =>
-        ()
+  /**
+   * Execute the test tasks.
+   *
+   * @param processConfig   Configures whether tests should be run in a forked JVM or in process.
+   * @param discoveredTests The tests that were discovered.
+   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
+   * @param logger          Logger receiving test output.
+   */
+  def executeTasks(processConfig: ProcessConfig,
+                   discoveredTests: DiscoveredTests,
+                   eventHandler: EventHandler,
+                   logger: Logger): Unit = {
+    processConfig match {
+      case inProcess: InProcess => executeTasks(inProcess, discoveredTests, eventHandler, logger)
+      case fork: Fork => executeTasks(fork, discoveredTests, eventHandler, logger)
+    }
+  }
+
+  /**
+   * Execute the test tasks in a forked JVM.
+   *
+   * @param fork            Configuration for the forked JVM.
+   * @param discoveredTests The tests that were discovered.
+   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
+   * @param logger          Logger receiving test output.
+   */
+  private def executeTasks(fork: Fork,
+                           discoveredTests: DiscoveredTests,
+                           eventHandler: EventHandler,
+                           logger: Logger): Unit = {
+    logger.debug("Starting forked test execution.")
+
+    val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
+    val server = new TestServer(logger, eventHandler, discoveredTests)
+    val forkMain = classOf[sbt.ForkMain].getCanonicalName
+    val arguments = Array(server.port.toString)
+    val testAgentFiles = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
+    val testAgentJars = testAgentFiles.filter(_.underlying.toString.endsWith(".jar"))
+    logger.debug("Test agent jars: " + testAgentFiles.mkString(", "))
+
+    val exitCode = server.whileRunning {
+      fork.runMain(forkMain, arguments, logger, testAgentJars)
+    }
+
+    if (exitCode != 0) logger.error(s"Forked execution terminated with non-zero code: $exitCode")
+  }
+
+  /**
+   * Execute the test tasks in process.
+   *
+   * @param inProcess       The process configuration to run the tests
+   * @param discoveredTests The tests that were discovered
+   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
+   * @param logger          Logger receiving test output.
+   */
+  private def executeTasks(inProcess: InProcess,
+                           discoveredTests: DiscoveredTests,
+                           eventHandler: EventHandler,
+                           logger: Logger): Unit = {
+    @tailrec def loop(tasks: List[TestTask]): Unit = {
+      tasks match {
+        case task :: rest =>
+          val newTasks = task.execute(eventHandler, Array(logger)).toList
+          loop(rest ::: newTasks)
+
+        case Nil =>
+          ()
+      }
+    }
+
+    discoveredTests.tests.iterator.foreach {
+      case (framework, taskDefs) =>
+        val runner = getRunner(framework, discoveredTests.classLoader)
+        val tasks = runner.tasks(taskDefs.toArray).toList
+        loop(tasks)
+        val summary = runner.done()
+        if (summary.nonEmpty) logger.info(summary)
     }
   }
 

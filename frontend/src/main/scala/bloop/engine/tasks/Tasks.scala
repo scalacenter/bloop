@@ -5,7 +5,7 @@ import bloop.engine.{Dag, State}
 import bloop.exec.ProcessConfig
 import bloop.io.AbsolutePath
 import bloop.reporter.{Reporter, ReporterConfig}
-import bloop.testing.TestInternals
+import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 
 import java.net.URLClassLoader
@@ -193,8 +193,8 @@ object Tasks {
     val projectsToTest = if (aggregate) Dag.dfs(state.build.getDagFor(project)) else List(project)
     projectsToTest.foreach { project =>
       val projectName = project.name
-      val classpath = constructClasspath(project)
-      val testLoader = new URLClassLoader(classpath, TestInternals.filteredLoader)
+      val processConfig = ProcessConfig(project.javaEnv, project.classpath)
+      val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
@@ -203,17 +203,16 @@ object Tasks {
         sbt.internal.inc.Analysis.empty
       }
 
-      val discoveredTests = discoverTests(analysis, frameworks)
-      val allTestNames: List[String] =
-        discoveredTests.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName())).toList
-      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
-      discoveredTests.iterator.foreach {
-        case (framework, taskDefs) =>
-          val runner = TestInternals.getRunner(framework, testLoader)
-          val tasks = runner.tasks(taskDefs.toArray).toList
-          TestInternals.executeTasks(tasks, eventHandler, logger)
-          val _ = runner.done() // TODO(jvican): We've never used this value, what is it?
+      val discoveredTests = {
+        val tests = discoverTests(analysis, frameworks)
+        DiscoveredTests(testLoader, tests)
       }
+      val allTestNames: List[String] =
+        discoveredTests.tests.valuesIterator
+          .flatMap(defs => defs.map(_.fullyQualifiedName()))
+          .toList
+      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
+      TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
     }
 
     // Return the previous state, test execution doesn't modify it.
@@ -269,9 +268,8 @@ object Tasks {
   private[bloop] val eventHandler =
     new EventHandler { override def handle(event: Event): Unit = () }
 
-  private type Discovered = Map[Framework, List[TaskDef]]
   private[bloop] def discoverTests(analysis: CompileAnalysis,
-                                   frameworks: Array[Framework]): Discovered = {
+                                   frameworks: Array[Framework]): Map[Framework, List[TaskDef]] = {
     import scala.collection.mutable
     val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
     val definitions = TestInternals.potentialTests(analysis)
@@ -287,8 +285,5 @@ object Tasks {
     }
     tasks.mapValues(_.toList).toMap
   }
-
-  private[bloop] def constructClasspath(project: Project): Array[java.net.URL] =
-    project.classpath.map(_.underlying.toUri.toURL())
 
 }
