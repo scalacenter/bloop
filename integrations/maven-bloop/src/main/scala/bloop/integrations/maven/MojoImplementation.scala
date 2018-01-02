@@ -10,6 +10,8 @@ import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
 import org.codehaus.plexus.util.xml.Xpp3Dom
 
+import scala_maven.AppLauncher
+
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
 
@@ -28,15 +30,29 @@ object MojoImplementation {
       .asInstanceOf[BloopMojo]
   }
 
+  private val emptyLauncher = new AppLauncher("", "", Array(), Array())
   def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
     import scala.collection.JavaConverters._
     val project = mojo.getProject()
     val configDir = mojo.getBloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
 
+    val launcherId = mojo.getLauncher()
+    val launchers = mojo.getLaunchers()
+    val launcher = launchers
+      .find(_.getId == launcherId)
+      .getOrElse {
+        if (launchers.isEmpty)
+          log.info(s"Using empty launcher: no run setup for ${project.getName}.")
+        else if (launcherId.nonEmpty)
+          log.warn(s"Using empty launcher: launcher id '${launcherId}' doesn't exist.")
+        emptyLauncher
+      }
+
     def writeConfig(sourceDirs0: Seq[File],
                     classesDir0: File,
                     classpath0: java.util.List[_],
+                    launcher: AppLauncher,
                     configuration: String): Unit = {
       val name = project.getArtifactId()
       val build = project.getBuild()
@@ -53,8 +69,8 @@ object MojoImplementation {
       val testFrameworks = Nil
       val allScalaJars = Nil
       val tmpDir = new File(classesDir, "tmp-bloop")
-      val fork = false
-      val javaOptions = Nil
+      val fork = mojo.getFork()
+      val javaOptions = launcher.getJvmArgs()
       val javaHome = mojo.getJavaHome()
 
       // FORMAT: OFF
@@ -73,10 +89,12 @@ object MojoImplementation {
     writeConfig(mojo.getCompileSourceDirectories.asScala,
                 mojo.getCompileOutputDir,
                 project.getCompileClasspathElements(),
+                launcher,
                 "compile")
     writeConfig(mojo.getTestSourceDirectories.asScala,
                 mojo.getTestOutputDir,
                 project.getTestClasspathElements(),
+                launcher,
                 "test")
   }
 }

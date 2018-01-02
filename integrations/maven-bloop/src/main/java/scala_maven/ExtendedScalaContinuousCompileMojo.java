@@ -7,6 +7,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+// This is a java file instead of Scala because method implementations are copy pasted
 public class ExtendedScalaContinuousCompileMojo extends ScalaContinuousCompileMojo {
     public MavenProject getProject() {
         return super.project;
@@ -50,6 +51,10 @@ public class ExtendedScalaContinuousCompileMojo extends ScalaContinuousCompileMo
             testOutputDir.mkdirs();
         }
         return testOutputDir;
+    }
+
+    public Boolean getFork() {
+        return super.fork;
     }
 
     public File getCompileAnalysisCacheFile() throws Exception {
