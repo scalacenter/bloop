@@ -1,5 +1,6 @@
 package bloop.integrations.maven;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.maven.plugin.MavenPluginManager;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -9,6 +10,7 @@ import scala_maven.AppLauncher;
 import scala_maven.ExtendedScalaContinuousCompileMojo;
 
 import java.io.File;
+import java.util.List;
 
 @Mojo(name = "bloop", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.TEST)
 public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
@@ -47,6 +49,15 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     public void execute() throws MojoExecutionException, MojoFailureException {
         BloopMojo initializedMojo = MojoImplementation.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
         MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, this.getLog());
+    }
+
+    public File[] getAllScalaJars() throws Exception {
+        File libraryJar = getLibraryJar();
+        File compilerJar = getCompilerJar();
+        File[] mainJars = new File[] {libraryJar, compilerJar};
+        List<File> extraJars = getCompilerDependencies();
+        extraJars.remove(libraryJar);
+        return (File[]) ArrayUtils.addAll(mainJars, extraJars.toArray());
     }
 
     public File getBloopConfigDir() {

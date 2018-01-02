@@ -31,6 +31,15 @@ object MojoImplementation {
   }
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
+  private val testFrameworks: List[List[String]] = List(
+    List("org.scalacheck.ScalaCheckFramework"),
+    List("org.scalatest.tools.Framework", "org.scalatest.tools.ScalaTestFramework"),
+    List("org.specs.runner.SpecsFramework",
+         "org.specs2.runner.Specs2Framework",
+         "org.specs2.runner.SpecsFramework"),
+    List("com.novocode.junit.JUnitFramework")
+  )
+
   def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
     import scala.collection.JavaConverters._
     val project = mojo.getProject()
@@ -64,8 +73,7 @@ object MojoImplementation {
         if (cp.headOption.contains(classesDir)) cp.tail else cp
       }
       val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toList
-      val testFrameworks = Nil
-      val allScalaJars = Nil
+      val allScalaJars = mojo.getAllScalaJars()
       val tmpDir = new File(classesDir, "tmp-bloop")
       val fork = mojo.getFork()
       val javaOptions = launcher.getJvmArgs()
