@@ -5,24 +5,16 @@ import java.nio.charset.Charset
 import org.apache.maven.artifact.handler.DefaultArtifactHandler
 import org.apache.maven.artifact.{Artifact, DefaultArtifact}
 import org.apache.maven.model.Build
-import org.apache.maven.plugin.descriptor.{
-  MojoDescriptor,
-  Parameter,
-  PluginDescriptor,
-  PluginDescriptorBuilder
-}
+import org.apache.maven.plugin.descriptor.{MojoDescriptor, Parameter, PluginDescriptor, PluginDescriptorBuilder, Requirement}
 import org.apache.maven.plugin.logging.SystemStreamLog
 import org.apache.maven.project.MavenProject
 import org.apache.maven.tools.plugin.DefaultPluginToolsRequest
 import org.codehaus.plexus.logging.Logger
 import org.codehaus.plexus.logging.console.ConsoleLogger
-import org.apache.maven.tools.plugin.extractor.annotations.scanner.{
-  DefaultMojoAnnotationsScanner,
-  MojoAnnotationsScannerRequest
-}
+import org.apache.maven.tools.plugin.extractor.annotations.scanner.{DefaultMojoAnnotationsScanner, MojoAnnotationsScannerRequest}
 import org.apache.maven.tools.plugin.generator.PluginDescriptorGenerator
 import sbt.{AutoPlugin, Compile, Def, Keys, PluginTrigger, Plugins}
-import org.codehaus.plexus.component.repository.ComponentDependency
+import org.codehaus.plexus.component.repository.{ComponentDependency, ComponentRequirement}
 import sbt.librarymanagement.UpdateReport
 
 object MavenPluginIntegration extends AutoPlugin {
@@ -173,12 +165,26 @@ object MavenPluginImplementation {
         .filter(_.getName() == pluginSelector.name)
         .flatMap(p => Option(p.getMojo(pluginSelector.goal)).toList)
 
+      def fromRequirementToParameter(r: ComponentRequirement): Parameter = {
+        val p = new Parameter()
+        p.setRequired(true)
+        p.setName(r.getFieldName)
+        p.setRequirement(new Requirement(r.getRole(), r.getRoleHint))
+        p
+      }
+
       import scala.collection.JavaConverters._
       val existingParameters = mojoDescriptor.getParameters().asScala
-      val newParameters = selectedMojos
+      val pluginParameters = selectedMojos
         .flatMap(_.getParameters().asScala.toList.asInstanceOf[List[Parameter]])
         .filter(!existingParameters.contains(_))
-      mojoDescriptor.setParameters(newParameters.toList.asJava)
+      val pluginRequirementParameters = selectedMojos
+        .flatMap(_.getRequirements().asScala.toList.asInstanceOf[List[ComponentRequirement]])
+        .filter(p => !existingParameters.exists(p2 => p.getFieldName() == p2.getName()))
+        .map(fromRequirementToParameter)
+      val newPluginParameters = pluginParameters ++ pluginRequirementParameters
+      mojoDescriptor.setParameters(newPluginParameters.toList.asJava)
+
       mojoDescriptor
     }
 
