@@ -6,6 +6,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
 import scala_maven.ExtendedScalaContinuousCompileMojo;
+import scala_maven.Launcher;
 
 import java.io.File;
 
@@ -22,6 +23,24 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
 
     @Parameter(property = "scala.artifactID", defaultValue = "scala-compiler")
     protected String scalaArtifactID;
+
+    @Parameter(property = "launcher")
+    protected String launcher;
+
+    @Parameter(property="addArgs")
+    protected String addArgs;
+
+    @Parameter
+    protected Launcher[] launchers;
+
+    /**
+     * Main class to call, the call use the jvmArgs and args define in the pom.xml, and the addArgs define in the command line if define.
+     *
+     * Higher priority to launcher parameter)
+     * Using this parameter only from command line (-DmainClass=...), not from pom.xml.
+     * @parameter property="mainClass"
+     */
+    protected String mainClass;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
