@@ -34,14 +34,17 @@ object MojoImplementation {
     val configDir = mojo.getBloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
 
-    def writeConfig(sourceDirs0: Seq[File], classesDir0: File, configuration: String): Unit = {
+    def writeConfig(sourceDirs0: Seq[File],
+                    classesDir0: File,
+                    classpath0: java.util.List[_],
+                    configuration: String): Unit = {
       val name = project.getArtifactId()
       val build = project.getBuild()
       val baseDirectory = project.getBasedir()
       val sourceDirs = sourceDirs0.map(_.getCanonicalFile())
       val classesDir = classesDir0.getCanonicalFile()
       val classpath = {
-        val elements = project.getCompileClasspathElements().asScala.toList
+        val elements = classpath0.asScala.toList
         println(project.getModel().getPackaging)
         val cp = project.getCompileClasspathElements().asScala.map(new File(_))
         if (cp.headOption.contains(classesDir)) cp.tail else cp
@@ -67,7 +70,13 @@ object MojoImplementation {
       compileConfig.writeTo(configTarget)
     }
 
-    writeConfig(mojo.getCompileSourceDirectories.asScala, mojo.getCompileOutputDir, "compile")
-    writeConfig(mojo.getTestSourceDirectories.asScala, mojo.getTestOutputDir, "test")
+    writeConfig(mojo.getCompileSourceDirectories.asScala,
+                mojo.getCompileOutputDir,
+                project.getCompileClasspathElements(),
+                "compile")
+    writeConfig(mojo.getTestSourceDirectories.asScala,
+                mojo.getTestOutputDir,
+                project.getTestClasspathElements(),
+                "test")
   }
 }
