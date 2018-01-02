@@ -60,9 +60,7 @@ object MojoImplementation {
       val sourceDirs = sourceDirs0.map(_.getCanonicalFile())
       val classesDir = classesDir0.getCanonicalFile()
       val classpath = {
-        val elements = classpath0.asScala.toList
-        println(project.getModel().getPackaging)
-        val cp = project.getCompileClasspathElements().asScala.map(new File(_))
+        val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(new File(_))
         if (cp.headOption.contains(classesDir)) cp.tail else cp
       }
       val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toList
