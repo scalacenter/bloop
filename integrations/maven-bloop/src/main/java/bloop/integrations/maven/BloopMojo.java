@@ -35,14 +35,6 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter
     private AppLauncher[] launchers;
 
-    /**
-     * Main class to call, the call use the jvmArgs and args define in the pom.xml, and the addRunArgs define in the command line if define.
-     * <p>
-     * Higher priority to launcher parameter)
-     * Using this parameter only from command line (-DmainClass=...), not from pom.xml.
-     *
-     * @parameter property="mainClass"
-     */
     protected String mainClass;
 
     @Override
