@@ -9,19 +9,19 @@ import scala_maven.ExtendedScalaContinuousCompileMojo;
 
 import java.io.File;
 
-@Mojo(name = "bloop", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.COMPILE)
+@Mojo(name = "bloop", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.TEST)
 public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(defaultValue = "${mojoExecution}", readonly = true, required = true)
-    private MojoExecution mojoExecution;
+    protected MojoExecution mojoExecution;
 
     @Component
-    private MavenPluginManager mavenPluginManager;
+    protected MavenPluginManager mavenPluginManager;
 
     @Parameter(property = "bloop.configDirectory", defaultValue = "${session.executionRootDirectory}/.bloop-config")
-    private File bloopConfigDir;
+    protected File bloopConfigDir;
 
     @Parameter(property = "scala.artifactID", defaultValue = "scala-compiler")
-    private String scalaArtifactID;
+    protected String scalaArtifactID;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
