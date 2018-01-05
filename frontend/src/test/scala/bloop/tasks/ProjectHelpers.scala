@@ -10,7 +10,7 @@ import bloop.engine.{Build, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
-import bloop.logging.BloopLogger
+import bloop.logging.{BloopLogger, ProcessLogger, RecordingLogger}
 
 object ProjectHelpers {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -39,6 +39,7 @@ object ProjectHelpers {
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
+      rootProjectName: String = RootProject,
       scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default(fork = false),
       quiet: Boolean = false,
@@ -49,8 +50,8 @@ object ProjectHelpers {
           // Check that this is a clean compile!
           val projects = state.build.projects
           assert(projects.forall(p => noPreviousResult(p, state)))
-          val project = getProject(RootProject, state)
-          val action = Run(Commands.Compile(RootProject, incremental = true))
+          val project = getProject(rootProjectName, state)
+          val action = Run(Commands.Compile(rootProjectName, incremental = true))
           val compiledState = Interpreter.execute(action, state)
           afterCompile(compiledState)
         }
@@ -102,6 +103,46 @@ object ProjectHelpers {
     val loadedProjects = Project.fromDir(configDirectory, logger).map(rebase(testBaseDirectory, _))
     val build = Build(configDirectory, loadedProjects)
     State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+  }
+
+  /**
+   * Compile the given sources and then run `cmd`. Log messages are then given to `check`.
+   *
+   * @param sources The sources to compile.
+   * @param fork    Whether the jave env should be forking.
+   * @param cmd     The command to execute after compiling.
+   * @param check   A function that'll receive the resulting log messages.
+   */
+  def runAndCheck(sources: Seq[String], fork: Boolean, cmd: Commands.CoreCommand)(
+      check: List[(String, String)] => Unit): Unit = {
+    val noDependencies = Map.empty[String, Set[String]]
+    val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
+    val projectsStructure = Map(cmd.project -> namedSources)
+    val javaEnv = JavaEnv.default(fork)
+    checkAfterCleanCompilation(projectsStructure,
+                               noDependencies,
+                               rootProjectName = cmd.project,
+                               javaEnv = javaEnv,
+                               quiet = true) { state =>
+      runAndCheck(state, cmd)(check)
+    }
+  }
+
+  /**
+   * Executes the given `cmd` on `state`. The resulting log messages are passed to `check`.
+   *
+   * @param state The current state
+   * @param cmd   The command to execute.
+   * @param check A function that'll receive the resulting log messages.
+   */
+  def runAndCheck(state: State, cmd: Commands.CoreCommand)(
+      check: List[(String, String)] => Unit): Unit = {
+    val recordingLogger = new RecordingLogger
+    val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)
+    val recordingState = state.copy(logger = recordingLogger)
+    val project = getProject(cmd.project, recordingState)
+    val _ = Interpreter.execute(Run(cmd), recordingState)
+    check(recordingLogger.getMessages)
   }
 
   def withState[T](

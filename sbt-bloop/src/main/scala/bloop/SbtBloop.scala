@@ -130,6 +130,9 @@ object PluginImplementation {
       // We cannot depend on `managedSources` and `managedResources` because they trigger compilation
       (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
 
+      // Copy the resources, so that they're available when running and testing
+      val _ = Keys.copyResources.value
+
       // format: OFF
       val config = Config(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg,
         scalaName,scalaVersion, classpath, classesDir, scalacOptions, javacOptions, sourceDirs,

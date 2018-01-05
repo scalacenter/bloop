@@ -4,15 +4,19 @@ import org.junit.Test
 import org.junit.Assert.assertEquals
 
 import bloop.cli.Commands
-import bloop.engine.{Interpreter, Run}
+import bloop.engine.{Interpreter, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
 import bloop.logging.{ProcessLogger, RecordingLogger}
-import bloop.tasks.ProjectHelpers.{checkAfterCleanCompilation, getProject}
+import bloop.tasks.ProjectHelpers.{
+  checkAfterCleanCompilation,
+  getProject,
+  loadTestProject,
+  runAndCheck
+}
 
 class RunTasksSpec {
 
-  private val projectName = ProjectHelpers.RootProject
   private val packageName = "foo.bar"
   private val mainClassName0 = "Main0"
   private val mainClassName1 = "Main1"
@@ -46,58 +50,56 @@ class RunTasksSpec {
                                |object $mainClassName2 extends BaseRunnable""".stripMargin
   }
 
-  private def runAndCheck(sources: Seq[String], cmd: Commands.Command)(
-      check: List[(String, String)] => Unit): Unit = {
-    val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
-    val projectsStructure = Map(projectName -> namedSources)
-    checkAfterCleanCompilation(projectsStructure, noDependencies, quiet = true) { state =>
-      val recordingLogger = new RecordingLogger
-      val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)
-      val recordingState = state.copy(logger = recordingLogger)
-      val project = getProject(projectName, recordingState)
-      val _ = Interpreter.execute(Run(cmd), recordingState)
-      check(recordingLogger.getMessages)
-    }
-  }
-
   @Test
   def doesntDetectNonRunnableClasses() = {
+    val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.NotRunnable))
     val javaEnv = JavaEnv.default(fork = false)
-    checkAfterCleanCompilation(projectsStructure, noDependencies, javaEnv = javaEnv, quiet = true) {
-      state =>
-        val project = getProject(projectName, state)
-        val mainClasses = Tasks.findMainClasses(state, project)
-        assertEquals(0, mainClasses.length.toLong)
+    checkAfterCleanCompilation(projectsStructure,
+                               noDependencies,
+                               rootProjectName = projectName,
+                               javaEnv = javaEnv,
+                               quiet = true) { state =>
+      val project = getProject(projectName, state)
+      val mainClasses = Tasks.findMainClasses(state, project)
+      assertEquals(0, mainClasses.length.toLong)
     }
   }
 
   @Test
   def canDetectOneMainClass() = {
+    val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0))
     val javaEnv = JavaEnv.default(fork = false)
-    checkAfterCleanCompilation(projectsStructure, noDependencies, javaEnv = javaEnv, quiet = true) {
-      state =>
-        val project = getProject(projectName, state)
-        val mainClasses = Tasks.findMainClasses(state, project)
-        assertEquals(1, mainClasses.length.toLong)
-        assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
+    checkAfterCleanCompilation(projectsStructure,
+                               noDependencies,
+                               rootProjectName = projectName,
+                               javaEnv = javaEnv,
+                               quiet = true) { state =>
+      val project = getProject(projectName, state)
+      val mainClasses = Tasks.findMainClasses(state, project)
+      assertEquals(1, mainClasses.length.toLong)
+      assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
     }
   }
 
   @Test
   def canDetectMultipleMainClasses() = {
+    val projectName = "test-project"
     val projectsStructure = Map(
       projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0,
                          "B.scala" -> ArtificialSources.RunnableClass1))
     val javaEnv = JavaEnv.default(fork = false)
-    checkAfterCleanCompilation(projectsStructure, noDependencies, javaEnv = javaEnv, quiet = true) {
-      state =>
-        val project = getProject(projectName, state)
-        val mainClasses = Tasks.findMainClasses(state, project).sorted
-        assertEquals(2, mainClasses.length.toLong)
-        assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
-        assertEquals(s"$packageName.$mainClassName1", mainClasses(1))
+    checkAfterCleanCompilation(projectsStructure,
+                               noDependencies,
+                               rootProjectName = projectName,
+                               javaEnv = javaEnv,
+                               quiet = true) { state =>
+      val project = getProject(projectName, state)
+      val mainClasses = Tasks.findMainClasses(state, project).sorted
+      assertEquals(2, mainClasses.length.toLong)
+      assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
+      assertEquals(s"$packageName.$mainClassName1", mainClasses(1))
     }
   }
 
@@ -122,23 +124,32 @@ class RunTasksSpec {
   @Test
   def canRunInheritedMainWithForking() = canRunInheritedMain(fork = true)
 
-  private def runAndCheck(sources: Seq[String], fork: Boolean, cmd: Commands.Command)(
-      check: List[(String, String)] => Unit): Unit = {
-    val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
-    val projectsStructure = Map(projectName -> namedSources)
-    val javaEnv = JavaEnv.default(fork)
-    checkAfterCleanCompilation(projectsStructure, noDependencies, javaEnv = javaEnv, quiet = true) {
-      state =>
-        val recordingLogger = new RecordingLogger
-        val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)
-        val recordingState = state.copy(logger = recordingLogger)
-        val project = getProject(projectName, recordingState)
-        val _ = Interpreter.execute(Run(cmd), recordingState)
-        check(recordingLogger.getMessages)
+  @Test
+  def runCanSeeCompileResourcesWithoutForking() = runCanSeeCompileResources(fork = false)
+
+  @Test
+  def runCanSeeCompileResourcesWithForking() = runCanSeeCompileResources(fork = true)
+
+  private def runCanSeeCompileResources(fork: Boolean): Unit = {
+    val projectName = "with-resources"
+    val mainClassName = "Main"
+    val state0 = loadTestProject(projectName)
+    val state =
+      if (fork) {
+        val newProjects = state0.build.projects.map(_.copy(javaEnv = JavaEnv.default(fork = true)))
+        state0.copy(build = state0.build.copy(projects = newProjects))
+      } else {
+        state0
+      }
+
+    val command = Commands.Run(projectName, Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "OK")))
     }
   }
 
   private def canRunInheritedMain(fork: Boolean) = {
+    val projectName = "test-project"
     val sources = ArtificialSources.InheritedRunnable :: Nil
     val mainClass = s"$packageName.$mainClassName2"
     val command = Commands.Run(projectName, Some(mainClass), args = args)
@@ -148,6 +159,7 @@ class RunTasksSpec {
   }
 
   private def canRunSpecifiedMainSingleChoice(fork: Boolean): Unit = {
+    val projectName = "test-project"
     val sources = ArtificialSources.RunnableClass0 :: Nil
     val mainClass = s"$packageName.$mainClassName0"
     val command = Commands.Run(projectName, Some(mainClass), args = args)
@@ -157,6 +169,7 @@ class RunTasksSpec {
   }
 
   private def canRunSpecifiedMainMultipleChoices(fork: Boolean) = {
+    val projectName = "test-project"
     val sources = ArtificialSources.RunnableClass0 :: ArtificialSources.RunnableClass1 :: Nil
     val mainClass = s"$packageName.$mainClassName1"
     val command = Commands.Run(projectName, Some(mainClass), args = args)
