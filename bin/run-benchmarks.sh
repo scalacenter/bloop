@@ -62,7 +62,7 @@ main() {
                           "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
                           "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
                           "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
-                          "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=main"
+                          "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
                           "$BLOOP_LARGE_JMH_OPTIONS -p project=spark -p projectName=examples")
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"
     do
