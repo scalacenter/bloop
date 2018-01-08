@@ -24,7 +24,6 @@ val root = project
       "org.apache.maven" % "maven-core" % mvnVersion,
       "org.apache.maven" % "maven-plugin-api" % mvnVersion,
       "org.apache.maven" % "maven-model-builder" % mvnVersion,
-      "org.apache.maven" % "maven-plugin-descriptor" % "2.2.1",
     ),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
     dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)
