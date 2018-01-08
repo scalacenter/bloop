@@ -250,6 +250,31 @@ object BuildImplementation {
       """.stripMargin
     }
 
+    import sbt.librarymanagement.Artifact
+    import ch.epfl.scala.sbt.maven.MavenPluginKeys
+    val mavenPluginBuildSettings: Seq[Def.Setting[_]] = List(
+      MavenPluginKeys.mavenPlugin := true,
+      Keys.publishLocal := Keys.publishM2.value,
+      Keys.classpathTypes += "maven-plugin",
+      // This is a bug in sbt, so we fix it here.
+      Keys.makePomConfiguration :=
+        Keys.makePomConfiguration.value.withIncludeTypes(Keys.classpathTypes.value),
+      Keys.libraryDependencies ++= List(
+        Dependencies.mavenCore,
+        Dependencies.mavenPluginApi,
+        Dependencies.mavenPluginAnnotations,
+        // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
+        Dependencies.mavenScalaPlugin
+          .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
+      ),
+    )
+
+    val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
+      val orig = Keys.scalaVersion.value
+      val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
+      if (is013) "2.10.6" else orig
+    }
+
     private val NewLine = System.lineSeparator
     import sbt.io.syntax.{fileToRichFile, singleFileFinder}
     val scriptedSettings: Seq[Def.Setting[_]] = List(

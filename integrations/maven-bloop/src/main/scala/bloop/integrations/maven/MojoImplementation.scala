@@ -80,7 +80,7 @@ object MojoImplementation {
       val javaHome = mojo.getJavaHome()
 
       // FORMAT: OFF
-      val compileConfig = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
+      val config = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
         mojo.getScalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
         mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmpDir
       )
@@ -89,7 +89,7 @@ object MojoImplementation {
       val suffix = if (configuration == "compile") "" else s"-$configuration"
       val configTarget = new File(mojo.getBloopConfigDir, s"$name$suffix")
       log.info(s"Writing bloop configuration file to ${configTarget.getAbsolutePath()}")
-      compileConfig.writeTo(configTarget)
+      config.writeTo(configTarget)
     }
 
     writeConfig(mojo.getCompileSourceDirectories.asScala,

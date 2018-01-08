@@ -1,3 +1,5 @@
+import build.BuildImplementation.BuildDefaults
+
 /***************************************************************************************************/
 /*                      This is the build definition of the zinc integration                       */
 /***************************************************************************************************/
@@ -103,47 +105,32 @@ val benchmarks = project
   .settings(benchmarksSettings(frontend))
 
 lazy val integrationsCore = project
-  .in(file("integrations/core"))
+  .in(file("integrations") / "core")
   .disablePlugins(sbt.ScriptedPlugin)
   .settings(
     crossScalaVersions := List("2.12.4", "2.10.7"),
-    publishLocal := {
-      publishLocal.value
-      publishM2.value
-    }
+    // We compile in both so that the maven integration can be tested locally
+    publishLocal := publishLocal.dependsOn(publishM2).value
   )
 
-import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project
-  .in(file("integrations/sbt-bloop"))
+  .in(file("integrations") / "sbt-bloop")
   .dependsOn(integrationsCore)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
-    scalaVersion := {
-      val orig = scalaVersion.value
-      if ((sbtVersion in pluginCrossBuild).value.startsWith("0.13")) "2.10.6" else orig
-    },
-    BuildDefaults.scriptedSettings,
+    scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
+    // The scripted projects to setup are in the test resources of frontend
+    BuildDefaults.scriptedSettings(resourceDirectory in Test in frontend),
   )
 
 val mavenBloop = project
-  .in(file("integrations/maven-bloop"))
+  .in(file("integrations") / "maven-bloop")
   .dependsOn(integrationsCore)
+  .settings(BuildDefaults.mavenPluginBuildSettings)
   .settings(
     name := "maven-bloop",
-    mavenPlugin := true,
-    publishLocal := publishM2.dependsOn(publishLocal in integrationsCore).value,
-    classpathTypes += "maven-plugin",
-    makePomConfiguration :=
-      makePomConfiguration.value.withIncludeTypes(classpathTypes.value),
-    libraryDependencies ++= List(
-      Dependencies.mavenCore,
-      Dependencies.mavenPluginApi,
-      Dependencies.mavenPluginAnnotations,
-      Dependencies.mavenScalaPlugin
-        .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
-    ),
+    publishLocal := publishLocal.dependsOn(publishLocal in integrationsCore).value,
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
