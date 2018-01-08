@@ -71,9 +71,9 @@ object MavenPluginImplementation {
       new MavenProject(model) {
         def fs(f: File): String = f.getAbsolutePath()
         import scala.collection.JavaConverters._
-        this.setBasedir(baseDir.toFile())
         this.setCompileSourceRoots(Keys.sourceDirectories.in(Compile).value.map(fs).asJava)
         this.setTestCompileSourceRoots(Keys.sourceDirectories.in(Test).value.map(fs).asJava)
+        override def getBasedir: File = baseDir.toFile()
       }
     }
 
