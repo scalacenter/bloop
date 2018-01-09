@@ -204,35 +204,12 @@ object BuildImplementation {
     }
 
     import java.io.File
-    import sbt.Project
     import sbt.io.{AllPassFilter, IO}
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
-    /**
-      * Set up all the integrations and publish them.
-      *
-      * @param ps A list of tuples of project and a boolean value that indicates whether
-      *           a given project should or should not be set up for all its scala versions.
-      */
-    def setupIntegrations(ps: (Project, Boolean)*) = Command.command("setupIntegrations") { state =>
-      ps.reverse.foldLeft(state) {
-        case (state, (p, requiresCross)) =>
-          val toExecute =
-            if (requiresCross) s"+${p.id}/${Keys.publishLocal.key.label}"
-            else s"${p.id}/${Keys.publishLocal.key.label}"
-          toExecute :: state
-      }
-    }
-
-    /** Run scripted, so that the configuration files are generated. */
-    def runTests(sbtBloop: Project) = Command.command("runTests") { state =>
-      s"${sbtBloop.id}/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
-        s"${sbtBloop.id}/${ScriptedKeys.scripted.key.label}" ::
-        state
-    }
-
     private def createScriptedSetup(testDir: File) = {
       s"""
+         |import bloop.integrations.sbt.SbtBloop.autoImport.bloopConfigDir
          |bloopConfigDir in Global := file("$testDir/bloop-config")
          |TaskKey[Unit]("registerDirectory") := {
          |  val dir = (baseDirectory in ThisBuild).value

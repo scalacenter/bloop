@@ -46,19 +46,6 @@ val benchmarkBridge = project
 /***************************************************************************************************/
 import build.Dependencies
 
-// This alias performs all the steps necessary to publish Bloop locally
-addCommandAlias(
-  "install",
-  Seq(
-    "+bridgeIntegration/publishLocal",
-    "+zincIntegration/publishLocal",
-    "^sbtBloop/publishLocal",
-    "nailgun/publishLocal",
-    "backend/publishLocal",
-    s"frontend/publishLocal"
-  ).mkString(";", ";", "")
-)
-
 val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(testSettings)
@@ -127,11 +114,8 @@ lazy val sbtBloop = project
 val mavenBloop = project
   .in(file("integrations") / "maven-bloop")
   .dependsOn(integrationsCore)
+  .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
-  .settings(
-    name := "maven-bloop",
-    publishLocal := publishLocal.dependsOn(publishLocal in integrationsCore).value,
-  )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -143,15 +127,31 @@ val bloop = project
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
 
-// Add commands that reference projects globally
-inScope(Global)(List(
-  commands ++= List(
-    BuildDefaults.runTests(sbtBloop),
-    BuildDefaults.setupIntegrations(
-      (integrationsCore, true),
-      (sbtBloop, false),
-      (mavenBloop, false)
-    ),
-  )
-))
+/***************************************************************************************************/
+/*                      This is the corner for all the command definitions                         */
+/***************************************************************************************************/
+
+val publishLocalCmd = Keys.publishLocal.key.label
+addCommandAlias("setupIntegrations", List(
+  s"+${integrationsCore.id}/$publishLocalCmd",
+  s"^${sbtBloop.id}/$publishLocalCmd",
+  s"${mavenBloop.id}/$publishLocalCmd"
+).mkString(";", ";", ""))
+
+addCommandAlias("runTests", List(
+  s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
+  s"${sbtBloop.id}/${scripted.key.label}"
+).mkString(";", ";", ""))
+
+addCommandAlias(
+  "install",
+  Seq(
+    s"+${bridgeIntegration.id}/$publishLocalCmd",
+    s"+${zincIntegration.id}/$publishLocalCmd",
+    "setupIntegrations", // Reusing the previously defined command
+    s"${nailgun.id}/$publishLocalCmd",
+    s"${backend.id}/$publishLocalCmd",
+    s"${frontend.id}/$publishLocalCmd"
+  ).mkString(";", ";", "")
+)
 
