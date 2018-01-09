@@ -1,8 +1,3 @@
-package bloop.integrations.sbt
-
-import sbt.{Compile, Def, PluginDiscovery, Setting}
-import sbt.Keys.{compile, discoveredSbtPlugins, sbtPlugin}
-
 object DiscoveredSbtPlugins {
   // Replace the implementation of `discoveredSbtPlugins` in sbt 0.13 by an implementation
   // that uses a dynamic task. This way, we don't need to compile to generate the resources,

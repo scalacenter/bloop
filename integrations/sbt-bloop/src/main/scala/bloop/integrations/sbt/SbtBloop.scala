@@ -1,7 +1,7 @@
 package bloop.integrations.sbt
 
 import bloop.integrations.BloopConfig
-import sbt.{Keys, AutoPlugin, Def, ScopeFilter, ThisBuild, Compile, Test, Configuration, File}
+import sbt.{AutoPlugin, Compile, Configuration, Def, File, Keys, ScopeFilter, Test, ThisBuild}
 
 object SbtBloop extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -14,7 +14,7 @@ object SbtBloop extends AutoPlugin {
 }
 
 object AutoImportedKeys {
-  import sbt.{TaskKey, taskKey, settingKey, SettingKey}
+  import sbt.{SettingKey, TaskKey, settingKey, taskKey}
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
   val installBloop: TaskKey[Unit] =
@@ -38,8 +38,8 @@ object PluginImplementation {
   }
 
   object PluginDefaults {
+    import Compat._
     import sbt.Task
-    import bloop.Compat._
 
     lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
       def makeName(name: String, configuration: Configuration): String =
@@ -143,7 +143,7 @@ object PluginImplementation {
      * Extract the information that we need to configure forking for run or test.
      */
     val javaConfiguration: Def.Initialize[Task[JavaConfiguration]] = Def.taskDyn {
-      import sbt.{ScopedKey, Scoped, SettingKey, TaskKey}
+      import sbt.Scoped
       val configuration = Keys.configuration.value
       lazy val defaultJavaHome = new File(sys.props("java.home"))
       def scoped[T, K[T]](key: Scoped.ScopingSetting[K[T]]): K[T] =

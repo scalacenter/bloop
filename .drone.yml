@@ -3,7 +3,6 @@ matrix:
   SBT_RUN:
     - sbt "+bridgeIntegration/cachedPublishLocal" \
           "benchmarks/compile" \
-          "sbtBloop/compile" \
           "setupIntegrations" \
           "git status" \
           "runTests" \
