@@ -126,9 +126,9 @@ object PluginImplementation {
       val bloopConfigDir = AutoImportedKeys.bloopConfigDir.value
       val outFile = bloopConfigDir / s"$projectName.config"
 
-      // Force source and resource generators on this task manually
-      // We cannot depend on `managedSources` and `managedResources` because they trigger compilation
-      (Keys.sourceGenerators.value ++ Keys.resourceGenerators.value).join.map(_.flatten)
+      // Force source generators on this task manually
+      // We cannot depend on `managedSources` because it triggers compilation
+      Keys.sourceGenerators.value.join.map(_.flatten)
 
       // Copy the resources, so that they're available when running and testing
       val _ = Keys.copyResources.value

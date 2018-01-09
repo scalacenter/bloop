@@ -20,13 +20,13 @@ class TestResourcesSpec {
   private def testsCanSeeResources(fork: Boolean): Unit = {
     val projectName = "with-resources"
     val state0 = loadTestProject(projectName)
-    val state =
-      if (fork) {
+    val state = {
+      if (!fork) state0
+      else {
         val newProjects = state0.build.projects.map(_.copy(javaEnv = JavaEnv.default(fork = true)))
         state0.copy(build = state0.build.copy(projects = newProjects))
-      } else {
-        state0
       }
+    }
 
     val command = Commands.Test(projectName)
     runAndCheck(state, command) { messages =>

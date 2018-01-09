@@ -134,13 +134,14 @@ class RunTasksSpec {
     val projectName = "with-resources"
     val mainClassName = "Main"
     val state0 = loadTestProject(projectName)
-    val state =
+    val state = {
       if (fork) {
         val newProjects = state0.build.projects.map(_.copy(javaEnv = JavaEnv.default(fork = true)))
         state0.copy(build = state0.build.copy(projects = newProjects))
       } else {
         state0
       }
+    }
 
     val command = Commands.Run(projectName, Some(mainClassName), args = List.empty)
     runAndCheck(state, command) { messages =>
