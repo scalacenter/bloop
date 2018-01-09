@@ -53,7 +53,7 @@ addCommandAlias(
     "^sbtBloop/publishLocal",
     "nailgun/publishLocal",
     "backend/publishLocal",
-    s"$frontendProjectId/publishLocal"
+    s"frontend/publishLocal"
   ).mkString(";", ";", "")
 )
 
@@ -85,7 +85,7 @@ val frontend = project
   .settings(testSettings)
   .settings(assemblySettings)
   .settings(
-    name := s"bloop-$frontendProjectId",
+    name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopInfoKeys,
@@ -100,7 +100,7 @@ val frontend = project
 val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
-  .settings(benchmarksSettings)
+  .settings(benchmarksSettings(frontend))
 
 import build.BuildImplementation.BuildDefaults
 lazy val sbtBloop = project

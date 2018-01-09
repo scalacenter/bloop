@@ -52,9 +52,6 @@ object BuildKeys {
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
-  final val frontendProjectId = "frontend"
-  final val FrontendProject = LocalProject(frontendProjectId)
-
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
     val zincVersion = Keys.version in ZincRoot
@@ -83,10 +80,9 @@ object BuildKeys {
   )
 
   import sbtbuildinfo.BuildInfoKeys
-  val benchmarksSettings: Seq[Def.Setting[_]] = List(
+  def benchmarksSettings(project: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
-    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](
-      Keys.resourceDirectory in sbt.Test in FrontendProject),
+    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in project),
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
@@ -102,9 +98,9 @@ object BuildKeys {
           .split(java.io.File.pathSeparatorChar)
           .find(_.contains("sbt-launch"))
           .getOrElse("")),
-        "-DbloopVersion=" + Keys.version.in(FrontendProject).value,
-        "-DbloopRef=" + refOf(Keys.version.in(FrontendProject).value),
-        "-Dbloop.jar=" + AssemblyKeys.assembly.in(FrontendProject).value,
+        "-DbloopVersion=" + Keys.version.in(project).value,
+        "-DbloopRef=" + refOf(Keys.version.in(project).value),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(project).value,
         "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
       )
     }
