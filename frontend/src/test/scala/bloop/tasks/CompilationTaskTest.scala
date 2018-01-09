@@ -105,6 +105,9 @@ object CompilationTaskTest extends TestSuite {
     val dependencies = Map.empty[String, Set[String]]
     val structures = Map(RootProject -> Map("A.scala" -> "object A"))
     // Scala bug to report: removing `(_ => ())` fails to compile.
-    checkAfterCleanCompilation(structures, dependencies, scalaInstance, quiet = true)(_ => ())
+    checkAfterCleanCompilation(structures,
+                               dependencies,
+                               scalaInstance = scalaInstance,
+                               quiet = true)(_ => ())
   }
 }

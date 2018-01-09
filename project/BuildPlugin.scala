@@ -231,9 +231,13 @@ object BuildImplementation {
 
     private val scriptedTestContents = {
       """> show bloopConfigDir
+        |# Some projects need to compile to generate resources. We do it now so that the configuration
+        |# that we generate doesn't appear too old.
+        |> resources
         |> registerDirectory
         |> installBloop
         |> checkInstall
+        |> copyContentOutOfScripted
       """.stripMargin
     }
 
@@ -245,8 +249,12 @@ object BuildImplementation {
         import sbt.io.syntax.{fileToRichFile, singleFileFinder}
         val addSbtPlugin =
           s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
+        val testPluginSrc = Keys.baseDirectory
+          .in(sbt.ThisBuild)
+          .value / "project" / "TestPlugin.scala"
         val tests = (ScriptedKeys.sbtTestDirectory.value / "projects").*(AllPassFilter).get
         tests.foreach { testDir =>
+          IO.copyFile(testPluginSrc, testDir / "project" / "TestPlugin.scala")
           IO.createDirectory(testDir / "bloop-config")
           IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
           IO.write(testDir / "test-config.sbt", createScriptedSetup(testDir))
