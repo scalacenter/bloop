@@ -4,9 +4,9 @@ matrix:
     - sbt "+bridgeIntegration/cachedPublishLocal" \
           "benchmarks/compile" \
           "sbtBloop/compile" \
-          "mavenBloop/publishLocal" \
+          "setupIntegrations" \
           "git status" \
-          "setupTests" \
+          "runTests" \
           "git status" \
           "backend/test" \
           "frontend/test"

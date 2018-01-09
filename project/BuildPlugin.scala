@@ -143,7 +143,6 @@ object BuildImplementation {
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.commands ~= BuildDefaults.fixPluginCross _,
-    Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
   )
@@ -205,18 +204,30 @@ object BuildImplementation {
     }
 
     import java.io.File
+    import sbt.Project
     import sbt.io.{AllPassFilter, IO}
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
     /**
-     * Helps with setting up the tests:
-     * - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
-     * - Runs scripted, so that the configuration files are generated.
-     */
-    val setupTests = Command.command("setupTests") { state =>
-      s"^sbtBloop/${Keys.publishLocal.key.label}" ::
-        s"sbtBloop/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
-        s"sbtBloop/${ScriptedKeys.scripted.key.label}" ::
+      * Set up all the integrations and publish them.
+      *
+      * @param ps A list of tuples of project and a boolean value that indicates whether
+      *           a given project should or should not be set up for all its scala versions.
+      */
+    def setupIntegrations(ps: (Project, Boolean)*) = Command.command("setupIntegrations") { state =>
+      ps.reverse.foldLeft(state) {
+        case (state, (p, requiresCross)) =>
+          val toExecute =
+            if (requiresCross) s"+${p.id}/${Keys.publishLocal.key.label}"
+            else s"${p.id}/${Keys.publishLocal.key.label}"
+          toExecute :: state
+      }
+    }
+
+    /** Run scripted, so that the configuration files are generated. */
+    def runTests(sbtBloop: Project) = Command.command("runTests") { state =>
+      s"${sbtBloop.id}/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
+        s"${sbtBloop.id}/${ScriptedKeys.scripted.key.label}" ::
         state
     }
 

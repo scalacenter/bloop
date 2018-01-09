@@ -142,3 +142,16 @@ val bloop = project
     skip in publish := true,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
+
+// Add commands that reference projects globally
+inScope(Global)(List(
+  commands ++= List(
+    BuildDefaults.runTests(sbtBloop),
+    BuildDefaults.setupIntegrations(
+      (integrationsCore, true),
+      (sbtBloop, false),
+      (mavenBloop, false)
+    ),
+  )
+))
+
