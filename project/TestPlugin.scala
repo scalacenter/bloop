@@ -1,9 +1,10 @@
 import sbt._
 import Keys._
-import bloop.SbtBloop.autoImport.bloopConfigDir
+import bloop.integrations.sbt.SbtBloop
+import SbtBloop.{autoImport => BloopKeys}
 
 object TestPlugin extends AutoPlugin {
-  override def requires = bloop.SbtBloop
+  override def requires = SbtBloop
   override def trigger = allRequirements
 
   object autoImport {
@@ -23,7 +24,7 @@ object TestPlugin extends AutoPlugin {
 
   override def projectSettings: Seq[Setting[_]] = Seq(
     copyContentOutOfScriptedIndividual := {
-      val outOfScriptedRoot = bloopConfigDir.value.getParentFile
+      val outOfScriptedRoot = BloopKeys.bloopConfigDir.value.getParentFile
       val inScriptedRoot = baseDirectory.in(ThisBuild).value
       def copy(toCopy: Seq[File]): Unit = {
         for {
