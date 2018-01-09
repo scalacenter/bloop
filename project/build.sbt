@@ -11,8 +11,13 @@ val root = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.0.1+3-5257935d"),
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
-      val mainDir = baseDirectory.value.getParentFile /  "sbt-bloop" / "src" / "main"
-      List(mainDir / "scala", mainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}")
+      val integrationsMainDir = baseDirectory.value.getParentFile / "integrations"
+      val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
+      List(
+        integrationsMainDir / "core" / "src" / "main" / "scala",
+        pluginMainDir / "scala",
+        pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
+      )
     },
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
