@@ -46,9 +46,15 @@ object MavenPluginImplementation {
     MavenPluginKeys.mavenPlugin := false,
     MavenPluginKeys.mavenLogger := MavenPluginDefaults.mavenLogger.value,
     MavenPluginKeys.mavenProject := MavenPluginDefaults.mavenProject.value,
-    Keys.artifact in Keys.packageBin ~= { _.withType("maven-plugin") },
-    Keys.resourceGenerators in Compile +=
-      MavenPluginDefaults.resourceGenerators.taskValue
+    Keys.artifact in Keys.packageBin := {
+      val artifact = (Keys.artifact in Keys.packageBin).value
+      if (!MavenPluginKeys.mavenPlugin.value) artifact
+      else artifact.withType("maven-plugin")
+    },
+    Keys.resourceGenerators in Compile ++= {
+      if (!MavenPluginKeys.mavenPlugin.value) Nil
+      else List(MavenPluginDefaults.resourceGenerators.taskValue)
+    }
   )
 
   object MavenPluginDefaults {
