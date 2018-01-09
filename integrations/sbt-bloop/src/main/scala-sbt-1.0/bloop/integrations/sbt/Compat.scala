@@ -1,6 +1,8 @@
 package bloop.integrations.sbt
 
-import bloop.integrations.sbt
+import sbt.io.syntax.File
+import sbt.{Keys, SettingKey}
+import sbt.librarymanagement.ScalaModuleInfo
 
 object Compat {
   implicit class WithIvyScala(keys: Keys.type) {
