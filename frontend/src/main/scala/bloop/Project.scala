@@ -61,7 +61,7 @@ object Project {
     }
   }
 
-  private def fromFile(config: AbsolutePath, logger: Logger): Project = {
+  private[bloop] def fromFile(config: AbsolutePath, logger: Logger): Project = {
     logger.debug(s"Loading project from '$config'")
     val configFilepath = config.underlying
     val properties = new Properties()

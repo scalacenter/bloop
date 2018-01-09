@@ -10,6 +10,8 @@ import bloop.logging.BloopLogger
 import jline.console.ConsoleReader
 import caseapp.{CaseApp, RemainingArgs}
 
+import jline.console.ConsoleReader
+
 import scala.annotation.tailrec
 
 object Bloop extends CaseApp[CliOptions] {

@@ -26,3 +26,19 @@
 	url = https://github.com/scalacenter/compiler-benchmark
 	branch = bloop
   ignore = dirty
+[submodule "frontend/src/test/resources/projects/scala"]
+	path = frontend/src/test/resources/projects/scala
+	url = https://github.com/scalacenter/scala.git
+	branch = bloop
+[submodule "frontend/src/test/resources/projects/mini-better-files"]
+	path = frontend/src/test/resources/projects/mini-better-files
+	url = https://github.com/scalacenter/mini-better-files.git
+	branch = master
+[submodule "frontend/src/test/resources/projects/frontend"]
+	path = frontend/src/test/resources/projects/frontend
+	url = https://github.com/scalacenter/frontend.git
+	branch = bloop
+[submodule "frontend/src/test/resources/projects/spark"]
+	path = frontend/src/test/resources/projects/spark
+	url = https://github.com/scalacenter/spark.git
+	branch = bloop

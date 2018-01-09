@@ -7,7 +7,6 @@ import bloop.engine.{Dag, Exit, Interpreter, Run}
 import bloop.exec.JavaEnv
 import bloop.{DynTest, Project}
 import bloop.io.AbsolutePath
-import bloop.logging.{BloopLogger, Logger}
 
 object IntegrationTestSuite extends DynTest {
   val projects = Files.list(getClass.getClassLoader.getResources("projects") match {
@@ -28,37 +27,55 @@ object IntegrationTestSuite extends DynTest {
     }
   }
 
+  private def getModuleToCompile(testDirectory: Path): Option[String] = {
+    import scala.collection.JavaConverters._
+    val toCompile = testDirectory.resolve("module-to-compile.txt")
+
+    if (Files.exists(toCompile)) Files.readAllLines(toCompile).asScala.headOption
+    else None
+  }
+
   private def testProject(testDirectory: Path): Unit = {
-    val rootProjectName = "bloop-test-root"
-    val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"rootProjectName"))
-    val logger = BloopLogger.default(fakeConfigDir.toString)
-    val classesDir = AbsolutePath(testDirectory)
+
     val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
-    val previousProjects = state0.build.projects
-    val javaEnv = JavaEnv.default(fork = false)
+    val (state, projectToCompile) = getModuleToCompile(testDirectory) match {
+      case Some(projectName) =>
+        (state0, state0.build.getProjectFor(projectName).get)
 
-    val rootProject = Project(
-      name = rootProjectName,
-      baseDirectory = AbsolutePath(testDirectory),
-      dependencies = previousProjects.map(_.name).toArray,
-      scalaInstance = previousProjects.head.scalaInstance,
-      rawClasspath = Array.empty,
-      classesDir = classesDir,
-      scalacOptions = Array.empty,
-      javacOptions = Array.empty,
-      sourceDirectories = Array.empty,
-      tmp = classesDir,
-      testFrameworks = Array.empty,
-      javaEnv = javaEnv,
-      bloopConfigDir = classesDir
-    )
+      case None =>
+        val rootProjectName = "bloop-test-root"
+        val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"$rootProjectName"))
+        val classesDir = AbsolutePath(testDirectory)
+        val previousProjects = state0.build.projects
+        val javaEnv = JavaEnv.default(fork = false)
 
-    val state = state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
-    val reachable = Dag.dfs(state.build.getDagFor(rootProject)).filter(_ != rootProject)
+        val rootProject = Project(
+          name = rootProjectName,
+          baseDirectory = AbsolutePath(testDirectory),
+          dependencies = previousProjects.map(_.name).toArray,
+          scalaInstance = previousProjects.head.scalaInstance,
+          rawClasspath = Array.empty,
+          classesDir = classesDir,
+          scalacOptions = Array.empty,
+          javacOptions = Array.empty,
+          sourceDirectories = Array.empty,
+          tmp = classesDir,
+          testFrameworks = Array.empty,
+          javaEnv = javaEnv,
+          bloopConfigDir = classesDir
+        )
+        val state =
+          state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
+
+        (state, rootProject)
+    }
+
+    val reachable = Dag.dfs(state.build.getDagFor(projectToCompile)).filter(_ != projectToCompile)
     reachable.foreach(removeClassFiles)
     assert(reachable.forall(p => ProjectHelpers.noPreviousResult(p, state)))
 
-    val action = Run(Commands.Compile(rootProjectName, incremental = true), Exit(ExitStatus.Ok))
+    val action =
+      Run(Commands.Compile(projectToCompile.name, incremental = true), Exit(ExitStatus.Ok))
     val state1 = Interpreter.execute(action, state)
     assert(reachable.forall(p => ProjectHelpers.hasPreviousResult(p, state1)))
   }

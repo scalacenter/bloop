@@ -22,7 +22,7 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{Reference, RootProject, ProjectRef, BuildRef, file}
+  import sbt.{LocalProject, Reference, RootProject, ProjectRef, BuildRef, file}
   import sbt.librarymanagement.syntax.stringToOrganization
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
@@ -79,25 +79,29 @@ object BuildKeys {
     Keys.test in AssemblyKeys.assembly := {}
   )
 
-  val benchmarksSettings: Seq[Def.Setting[_]] = List(
+  import sbtbuildinfo.BuildInfoKeys
+  def benchmarksSettings(project: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
+    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in project),
+    BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
-        val HasSha = """.*(?:bin|pre)-([0-9a-f]{7,})(?:-.*)?""".r
+        val HasSha = """([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
         version match {
           case HasSha(sha) => sha
-          case _ => "v" + version
+          case _ => version
         }
       }
       List(
-        "-DscalaVersion=" + Keys.scalaVersion.value,
-        "-DscalaRef=" + refOf(Keys.scalaVersion.value),
         "-Dsbt.launcher=" + (sys
           .props("java.class.path")
           .split(java.io.File.pathSeparatorChar)
           .find(_.contains("sbt-launch"))
           .getOrElse("")),
-        "-Dbloop.jar=" + AssemblyKeys.assembly.in(sbt.LocalProject("frontend")).value
+        "-DbloopVersion=" + Keys.version.in(project).value,
+        "-DbloopRef=" + refOf(Keys.version.in(project).value),
+        "-Dbloop.jar=" + AssemblyKeys.assembly.in(project).value,
+        "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
       )
     }
   )
@@ -223,7 +227,7 @@ object BuildImplementation {
          |  val mostRecentStamp = (bloopConfigDir.value ** "*.config").get.map(_.lastModified).min
          |  (System.currentTimeMillis() - mostRecentStamp)
          |  val diff = (System.currentTimeMillis() - mostRecentStamp) / 1000
-         |  if (diff <= 15) () // If it happened in the last 15 seconds, this is ok!
+         |  if (diff <= 5 * 60) () // If it happened in the last 5 minutes, this is ok!
          |  else sys.error("The sbt plugin didn't write any file")
          |}
     """.stripMargin
@@ -243,7 +247,7 @@ object BuildImplementation {
 
     private val NewLine = System.lineSeparator
     def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = List(
-      ScriptedKeys.scriptedBufferLog := false,
+      ScriptedKeys.scriptedBufferLog := true,
       ScriptedKeys.sbtTestDirectory := testDirectory.value,
       BuildKeys.scriptedAddSbtBloop := {
         import sbt.io.syntax.{fileToRichFile, singleFileFinder}
