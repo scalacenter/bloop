@@ -94,6 +94,7 @@ val frontend = project
     fork in run := true,
     fork in Test := true,
     parallelExecution in test := false,
+    libraryDependencies += "io.monix" %% "monix" % "2.3.2"
   )
 
 val benchmarks = project
