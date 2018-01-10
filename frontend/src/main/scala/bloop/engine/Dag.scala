@@ -49,15 +49,32 @@ object Dag {
     dags.filterNot(node => dependents.contains(node))
   }
 
-  def dagFor[T](dags: List[Dag[T]], target: T): Option[Dag[T]] = {
-    dags.foldLeft[Option[Dag[T]]](None) {
-      case (found: Some[Dag[T]], _) => found
+  def dagFor[T](dags: List[Dag[T]], target: T): Option[Dag[T]] =
+    dagFor(dags, Set(target)).flatMap(_.headOption)
+
+  /**
+    * Return a list of dags that match all the targets.
+    *
+    * The matched dags are returned in no particular order.
+    *
+    * @param dags The list of all dags.
+    * @param targets The targets for which we want to find a dag.
+    * @return An optional value of a list of dags.
+    */
+  def dagFor[T](dags: List[Dag[T]], targets: Set[T]): Option[List[Dag[T]]] = {
+    dags.foldLeft[Option[List[Dag[T]]]](None) {
+      case (found: Some[List[Dag[T]]], _) => found
       case (acc, dag) =>
+        def aggregate(dag: Dag[T]): Option[List[Dag[T]]] = acc match {
+          case Some(dags) => Some(dag :: dags)
+          case None => Some(List(dag))
+        }
+
         dag match {
-          case Leaf(value) if value == target => Some(dag)
+          case Leaf(value) if targets.contains(value) => aggregate(dag)
           case Leaf(value) => None
-          case Parent(value, children) if value == target => Some(dag)
-          case Parent(value, children) => dagFor(children, target)
+          case Parent(value, children) if targets.contains(value) => aggregate(dag)
+          case Parent(value, children) => dagFor(children, targets)
         }
     }
   }
