@@ -1,8 +1,9 @@
 import build.BuildImplementation.BuildDefaults
 
 /***************************************************************************************************/
-/*                      This is the build definition of the zinc integration                       */
+/*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
+
 // Remember, `scripted` and `cachedPublishLocal` are defined here via aggregation
 val bridgeIntegration = project
   .in(file(".bridge"))
@@ -41,6 +42,13 @@ val benchmarkBridge = project
     skip in publish := true
   )
 
+val bspIntegration = project
+  .in(file(".bsp"))
+  .aggregate(Bsp)
+  .settings(
+    skip in publish := true
+  )
+
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
@@ -70,6 +78,7 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend, backend % "test->test")
+  .dependsOn(Bsp)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
   .settings(assemblySettings)

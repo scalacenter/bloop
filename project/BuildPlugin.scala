@@ -54,6 +54,10 @@ object BuildKeys {
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
+  final val BspProject = RootProject(file(s"$AbsolutePath/bsp"))
+  final val BspBuild = BuildRef(BspProject.build)
+  final val Bsp = ProjectRef(BspProject.build, "bsp")
+
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
@@ -215,9 +219,11 @@ object BuildImplementation {
         val extracted = sbt.Project.extract(hijackedState)
         val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
+        val allBspProjects = buildStructure.allProjectRefs(BuildKeys.BspBuild.build)
         val allBenchmarkBridgeProjects =
           buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
-        val allProjects = allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects
+        val allProjects =
+          allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects ++ allBspProjects
         val projectSettings = allProjects.flatMap(genProjectSettings)
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)

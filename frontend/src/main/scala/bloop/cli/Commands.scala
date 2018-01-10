@@ -21,40 +21,12 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 
-  case class Compile(
-      @ExtraName("p")
-      @HelpMessage("The project to compile.")
-      project: String,
-      @HelpMessage("Compile the project incrementally. By default, true.")
-      incremental: Boolean = true,
-      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
-      reporter: ReporterKind = BloopReporter,
-      @ExtraName("w")
-      @HelpMessage("Run the command when projects' source files change. By default, false.")
-      watch: Boolean = false,
-      @Recurse cliOptions: CliOptions = CliOptions.default,
-  ) extends CoreCommand
-
   case class Projects(
       @ExtraName("dot")
       @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
       dotGraph: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
-
-  case class Test(
-      @ExtraName("p")
-      @HelpMessage("The project to test.")
-      project: String,
-      @HelpMessage("Do not run tests for dependencies. By default, false.")
-      isolated: Boolean = false,
-      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
-      reporter: ReporterKind = BloopReporter,
-      @ExtraName("w")
-      @HelpMessage("Run the command when projects' source files change. By default, false.")
-      watch: Boolean = false,
-      @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends CoreCommand
 
   case class Configure(
       @ExtraName("parallelism")
@@ -71,6 +43,38 @@ object Commands {
       isolated: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
+
+  case class Bsp(
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends Command
+
+  case class Compile(
+      @ExtraName("p")
+      @HelpMessage("The project to compile.")
+      project: String,
+      @HelpMessage("Compile the project incrementally. By default, true.")
+      incremental: Boolean = true,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
+      @ExtraName("w")
+      @HelpMessage("Run the command when projects' source files change. By default, false.")
+      watch: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default,
+  ) extends CoreCommand
+
+  case class Test(
+      @ExtraName("p")
+      @HelpMessage("The project to test.")
+      project: String,
+      @HelpMessage("Do not run tests for dependencies. By default, false.")
+      isolated: Boolean = false,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
+      @ExtraName("w")
+      @HelpMessage("Run the command when projects' source files change. By default, false.")
+      watch: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends CoreCommand
 
   case class Console(
       @ExtraName("p")
