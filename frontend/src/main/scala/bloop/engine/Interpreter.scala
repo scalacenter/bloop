@@ -1,13 +1,12 @@
 package bloop.engine
 
-import bloop.cli.{CliOptions, Commands, CommonOptions, ExitStatus}
+import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.engine.tasks.Tasks
-import bloop.exec.ProcessConfig
 import bloop.Project
-import bloop.logging.BloopLogger
+import bloop.bsp.BloopServices
 
 object Interpreter {
   def execute(action: Action, state: State): State = {
@@ -22,6 +21,9 @@ object Interpreter {
         execute(next, state)
       case Run(Commands.About(cliOptions), next) =>
         val status = logAndTime(state, cliOptions, printAbout(state))
+        execute(next, state.mergeStatus(status))
+      case Run(Commands.Bsp(cliOptions), next) =>
+        val status = logAndTime(state, cliOptions, runBsp(state))
         execute(next, state.mergeStatus(status))
       case Run(cmd: Commands.Clean, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, clean(cmd, state)))
@@ -66,6 +68,21 @@ object Interpreter {
     logger.info(s"${t}It is maintained by $developers.")
 
     ExitStatus.Ok
+  }
+
+  private def runBsp(state: State): ExitStatus = {
+    import org.langmeta.lsp.LanguageClient
+    import org.langmeta.lsp.LanguageServer
+    import org.langmeta.jsonrpc.BaseProtocolMessage
+    val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass)
+    val client = new LanguageClient(state.commonOptions.out, dummyLogger)
+    val services = new BloopServices(state, client).services
+    val messages = BaseProtocolMessage.fromInputStream(state.commonOptions.in)
+    val scheduler = monix.execution.Scheduler(ExecutionContext.executor)
+    val server = new LanguageServer(messages, client, services, scheduler, dummyLogger)
+    try { server.listen(); ExitStatus.Ok } catch {
+      case scala.util.control.NonFatal(t) => ExitStatus.UnexpectedError
+    }
   }
 
   private def watch(project: Project, state: State, f: State => State): State = {

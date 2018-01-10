@@ -100,6 +100,9 @@ object Cli {
                 val newCommand = v.copy(cliOptions = v.cliOptions.copy(common = commonOptions))
                 // Disabling version here if user defines it because it has the same semantics
                 run(newCommand, newCommand.cliOptions.copy(version = false))
+              case Right(c: Commands.Bsp) =>
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="FILE-AUDIT"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/tmp/debug.log</file>
+    </appender>
+
+    <logger name="ch.qos.logback" level="warn" />
+
+    <root level="error">
+        <appender-ref ref="FILE-AUDIT" />
+    </root>
+
+</configuration>

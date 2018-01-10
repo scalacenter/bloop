@@ -12,4 +12,10 @@ object ExecutionContext {
   // If you change the backing of this thread pool, please make sure you modify users of `executor`
   implicit val threadPool: scala.concurrent.ExecutionContext =
     scala.concurrent.ExecutionContext.fromExecutorService(executor)
+
+  import monix.execution.Scheduler
+  implicit lazy val bspScheduler: Scheduler = Scheduler {
+    // TODO: Revisit this.
+    java.util.concurrent.Executors.newFixedThreadPool(4)
+  }
 }
