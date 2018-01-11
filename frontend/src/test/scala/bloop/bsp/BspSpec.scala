@@ -75,12 +75,17 @@ class BspSpec {
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
         val _ = endpoints.Build.initialized.notify(InitializedBuildParams())
         buildTargets <- endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest())
-      } yield buildTargets.map(_ => throw SuccessfulBspTest)
+        val targets = buildTargets.getOrElse(sys.error("Invalid targets response.")).targets
+        val target = targets.headOption.flatMap(_.id).toList
+        val _ = println(target)
+        compilationResult <- endpoints.BuildTarget.compile.request(CompileParams(target))
+      } yield compilationResult.map(cs => throw SuccessfulBspTest)
 
       MonixTask.zip3(bspServerExecution, startLsServer, clientRequests)
     }
 
-    try Await.result(bspIntegration.runAsync(ExecutionContext.bspScheduler), FiniteDuration(5, "s"))
+    try Await.result(bspIntegration.runAsync(ExecutionContext.bspScheduler),
+                     FiniteDuration(10, "s"))
     catch {
       case SuccessfulBspTest => ()
       case t: Throwable => throw t

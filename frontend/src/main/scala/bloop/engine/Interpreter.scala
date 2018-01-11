@@ -6,7 +6,7 @@ import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.engine.tasks.Tasks
 import bloop.Project
-import bloop.bsp.BloopServices
+import bloop.bsp.BloopBspServices
 
 object Interpreter {
   def execute(action: Action, state: State): State = {
@@ -76,7 +76,7 @@ object Interpreter {
     import org.langmeta.jsonrpc.BaseProtocolMessage
     val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass)
     val client = new LanguageClient(state.commonOptions.out, dummyLogger)
-    val services = new BloopServices(state, client).services
+    val services = new BloopBspServices(state, client).services
     val messages = BaseProtocolMessage.fromInputStream(state.commonOptions.in)
     val scheduler = ExecutionContext.bspScheduler
     val server = new LanguageServer(messages, client, services, scheduler, dummyLogger)
