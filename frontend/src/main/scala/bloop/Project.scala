@@ -56,7 +56,7 @@ object Project {
     timed(logger) {
       // TODO: We're not handling projects with duplicated names here.
       val configFiles = Paths.getAll(config, "glob:**.config")
-      logger.info(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
+      logger.debug(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
       configFiles.par.map(configFile => fromFile(configFile, logger)).toList
     }
   }

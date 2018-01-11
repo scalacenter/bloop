@@ -46,7 +46,6 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
     val uriToLoad = initializeBuildParams.rootUri
     val state0 = State.loadStateFor(AbsolutePath(uriToLoad), bspLogger)
     currentState = state0.copy(logger = bspLogger)
-    System.err.println(initializeBuildParams.toString)
     Right(
       InitializeBuildResult(
         Some(
@@ -63,9 +62,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
 
   def initialized(
       initializedBuildParams: InitializedBuildParams
-  ): Unit = {
-    System.err.println("Bloop has initialized with the client.")
-  }
+  ): Unit = ()
 
   def compile(params: CompileParams): MonixTask[Either[JsonRpcResponse.Error, CompileReport]] = {
     MonixTask {
