@@ -9,19 +9,26 @@ import bloop.logging.BloopLogger
 import bloop.tasks.ProjectHelpers
 import ch.epfl.`scala`.bsp.schema.{
   BuildClientCapabilities,
+  CompileParams,
   InitializeBuildParams,
   InitializeBuildResult,
-  InitializedBuildParams
+  InitializedBuildParams,
+  WorkspaceBuildTargetsRequest
 }
+import monix.eval.{Task => MonixTask}
 import org.junit.Test
 import org.langmeta.jsonrpc.{BaseProtocolMessage, Endpoint, JsonRpcClient, Services}
 import org.langmeta.lsp.{LanguageClient, LanguageServer}
+import ch.epfl.scala.bsp.endpoints
 
 import scala.concurrent.Await
+import scala.concurrent.duration.FiniteDuration
 
 class BspSpec {
-  private final val initialState = ProjectHelpers.loadTestProject("sbt")
+  private final val initialState = ProjectHelpers.loadTestProject("utest")
   private final val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass())
+
+  private object SuccessfulBspTest extends Exception("Successful bsp test.")
 
   @Test def TestBSP(): Unit = {
     val state0 = initialState
@@ -34,57 +41,49 @@ class BspSpec {
     val newCommonOptions = state0.commonOptions.copy(out = printOut, in = bloopIn)
     val state = state0.copy(logger = newLogger, commonOptions = newCommonOptions)
 
-    val bspServer = new Thread() {
-      override def run(): Unit = {
-        val cliOptions = defaultCli.copy(common = newCommonOptions)
-        val action = Run(Commands.Bsp(cliOptions = cliOptions))
-        try Interpreter.execute(action, state)
-        catch {
-          case t: Throwable => System.err.println(t.toString())
-        }
-      }
-    }
+    val clientIn = new PipedInputStream()
+    val clientOut = new PipedOutputStream()
 
-    val bspClient = {
-      val clientIn = new PipedInputStream()
-      val clientOut = new PipedOutputStream()
+    import ExecutionContext.bspScheduler
+    val bspServerExecution = {
       bloopIn.connect(clientOut)
       clientIn.connect(bloopOut)
-      bspServer.start()
-
-      implicit val lsClient = new LanguageClient(clientOut, dummyLogger)
-      import ch.epfl.scala.bsp.endpoints.Build._
-      import monix.eval.{Task => MonixTask}
-      val emptyTask = MonixTask { () }
-      val firstClientRequest = emptyTask.flatMap { _ =>
-        initialize.request(
-          InitializeBuildParams(
-            rootUri = initialState.build.origin.syntax,
-            Some(BuildClientCapabilities(List("scala")))
-          )
-        )
-      }
-
-      val services = Services.empty
-      val serverScheduler = monix.execution.Scheduler.Implicits.global
-      val messages = BaseProtocolMessage.fromInputStream(clientIn)
-      val lsServer = new LanguageServer(messages, lsClient, services, serverScheduler, dummyLogger)
-      lsServer.startTask.executeOn(serverScheduler)
-
-      firstClientRequest.flatMap {
-        case Right(result) =>
-          System.err.println("GOT RESULT")
-          initialized.request(InitializedBuildParams())
-        case Left(error) => sys.error("Initialization failed")
+      val cliOptions = defaultCli.copy(common = newCommonOptions)
+      val action = Run(Commands.Bsp(cliOptions = cliOptions))
+      MonixTask(Interpreter.execute(action, state)).materialize.map {
+        case scala.util.Success(_) => ()
+        case f: scala.util.Failure[_] => System.err.println(f.exception.toString())
       }
     }
 
-    try Await.result(bspClient.runAsync(ExecutionContext.bspScheduler),
-                     scala.concurrent.duration.Duration("5s"))
+    val bspIntegration = {
+      implicit val lsClient = new LanguageClient(clientOut, dummyLogger)
+      val services = Services.empty
+      val messages = BaseProtocolMessage.fromInputStream(clientIn)
+      val lsServer = new LanguageServer(messages, lsClient, services, bspScheduler, dummyLogger)
+      val startLsServer = lsServer.startTask.delayExecution(FiniteDuration(1, "s"))
+
+      val initializeServer = endpoints.Build.initialize.request(
+        InitializeBuildParams(
+          rootUri = initialState.build.origin.syntax,
+          Some(BuildClientCapabilities(List("scala")))
+        )
+      )
+
+      val clientRequests = for {
+        // Delay the task to let the bloop server go live
+        initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
+        val _ = endpoints.Build.initialized.notify(InitializedBuildParams())
+        buildTargets <- endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest())
+      } yield buildTargets.map(_ => throw SuccessfulBspTest)
+
+      MonixTask.zip3(bspServerExecution, startLsServer, clientRequests)
+    }
+
+    try Await.result(bspIntegration.runAsync(ExecutionContext.bspScheduler), FiniteDuration(5, "s"))
     catch {
-      case t: Throwable =>
-        println(bloopOut.toString)
-        println(t.getMessage)
+      case SuccessfulBspTest => ()
+      case t: Throwable => throw t
     }
   }
 }

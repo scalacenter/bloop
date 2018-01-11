@@ -3,20 +3,36 @@ package bloop.bsp
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, State}
 import bloop.io.AbsolutePath
-import ch.epfl.`scala`.bsp.schema.{BuildServerCapabilities, CompileParams, CompileReport, InitializeBuildParams, InitializeBuildResult, InitializedBuildParams}
+import ch.epfl.`scala`.bsp.schema._
 import monix.eval.{Task => MonixTask}
 import ch.epfl.scala.bsp.endpoints
-import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import org.langmeta.jsonrpc.{
+  JsonRpcClient,
+  Response => JsonRpcResponse,
+  Services => JsonRpcServices
+}
 import org.langmeta.lsp.Window
 
 class BloopServices(state: State, client: JsonRpcClient) {
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
+    .request(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
-  var uriToLoad: String = null
-  var currentState: State = null
+  private final val bspLogger = new bloop.logging.AbstractLogger() {
+    override def name: String = "bsp-logger"
+    override def verbose[T](op: => T): T = op
+    override def debug(msg: String): Unit = Window.showMessage.info(msg)(client)
+    override def error(msg: String): Unit = Window.showMessage.error(msg)(client)
+    override def ansiCodesSupported(): Boolean = true
+    override def warn(msg: String): Unit = Window.showMessage.warn(msg)(client)
+    override def trace(t: Throwable): Unit = Window.showMessage.info(t.toString)(client)
+    override def info(msg: String): Unit = Window.showMessage.info(msg)(client)
+  }
+
+  // Internal state, think how to make this more elegant.
+  @volatile private final var currentState: State = null
 
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
@@ -27,7 +43,9 @@ class BloopServices(state: State, client: JsonRpcClient) {
   def initialize(
       initializeBuildParams: InitializeBuildParams
   ): MonixTask[Either[JsonRpcResponse.Error, InitializeBuildResult]] = MonixTask {
-    uriToLoad = initializeBuildParams.rootUri
+    val uriToLoad = initializeBuildParams.rootUri
+    val state0 = State.loadStateFor(AbsolutePath(uriToLoad), bspLogger)
+    currentState = state0.copy(logger = bspLogger)
     System.err.println(initializeBuildParams.toString)
     Right(
       InitializeBuildResult(
@@ -46,26 +64,13 @@ class BloopServices(state: State, client: JsonRpcClient) {
   def initialized(
       initializedBuildParams: InitializedBuildParams
   ): Unit = {
-    currentState = State.loadStateFor(AbsolutePath(uriToLoad), bspLogger)
     System.err.println("Bloop has initialized with the client.")
   }
 
-  val bspLogger = new bloop.logging.AbstractLogger() {
-    override def name: String = "bsp-logger"
-    override def verbose[T](op: => T): T = op
-    override def debug(msg: String): Unit = Window.showMessage.info(msg)(client)
-    override def error(msg: String): Unit = Window.showMessage.error(msg)(client)
-    override def ansiCodesSupported(): Boolean = true
-    override def warn(msg: String): Unit = Window.showMessage.warn(msg)(client)
-    override def trace(t: Throwable): Unit = Window.showMessage.info(t.toString)(client)
-    override def info(msg: String): Unit = Window.showMessage.info(msg)(client)
-  }
-
-  def compile(
-      compileParams: CompileParams): MonixTask[Either[JsonRpcResponse.Error, CompileReport]] = {
+  def compile(params: CompileParams): MonixTask[Either[JsonRpcResponse.Error, CompileReport]] = {
     MonixTask {
       // TODO(jvican): Naive approach, we need to implement batching here.
-      val projectsToCompile = compileParams.targets.map { target =>
+      val projectsToCompile = params.targets.map { target =>
         ProjectUris.getProjectDagFromUri(target.uri, state) match {
           case Some(project) => project
           // TODO: Error handling here has to be rethought.
@@ -79,9 +84,17 @@ class BloopServices(state: State, client: JsonRpcClient) {
         case (action, project) => Run(Commands.Compile(project.name), action)
       }
 
-      val modifiedState = state.copy(logger = bspLogger)
-      Interpreter.execute(action, modifiedState)
+      Interpreter.execute(action, currentState)
       Right(CompileReport(List()))
     }
+  }
+
+  def buildTargets(request: WorkspaceBuildTargetsRequest): WorkspaceBuildTargets = {
+    val targets = currentState.build.projects.map { p =>
+      val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
+      // Returning scala and java for now.
+      BuildTarget(Some(id), p.name, List("scala", "java"))
+    }
+    WorkspaceBuildTargets(targets)
   }
 }

@@ -81,7 +81,9 @@ object Interpreter {
     val scheduler = ExecutionContext.bspScheduler
     val server = new LanguageServer(messages, client, services, scheduler, dummyLogger)
     try { server.listen(); ExitStatus.Ok } catch {
-      case scala.util.control.NonFatal(t) => ExitStatus.UnexpectedError
+      case scala.util.control.NonFatal(t) =>
+        state.logger.trace(t)
+        ExitStatus.UnexpectedError
     }
   }
 
