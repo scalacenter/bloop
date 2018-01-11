@@ -19,7 +19,7 @@ import scala.concurrent.duration.FiniteDuration
 
 class BspSpec {
   private final val initialState = ProjectHelpers.loadTestProject("utest")
-  private final val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass())
+  private final val dummyLogger = com.typesafe.scalalogging.Logger("test")
 
   private object SuccessfulBspTest extends Exception("Successful bsp test.")
 
