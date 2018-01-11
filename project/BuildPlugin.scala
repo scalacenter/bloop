@@ -52,15 +52,14 @@ object BuildKeys {
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
-  import sbt.Test
+  import sbt.{Test, TestFrameworks, Tests}
   import sbt.io.syntax.fileToRichFile
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
   val testSettings: Seq[Def.Setting[_]] = List(
     integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
-    Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+    Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v"),
     Keys.libraryDependencies ++= List(
-      Dependencies.utest % Test,
       Dependencies.junit % Test
     ),
   )
