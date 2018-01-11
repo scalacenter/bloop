@@ -7,8 +7,10 @@ import bloop.cli.{CliOptions, Commands}
 import bloop.logging.BloopLogger
 import bloop.tasks.ProjectHelpers
 import org.junit.Test
+import org.junit.experimental.categories.Category
 import guru.nidi.graphviz.parse.Parser
 
+@Category(Array(classOf[bloop.FastTests]))
 class InterpreterSpec {
   private final val initialState = ProjectHelpers.loadTestProject("sbt")
   import InterpreterSpec.changeOut

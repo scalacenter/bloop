@@ -4,7 +4,9 @@ import bloop.logging.{Logger, RecordingLogger}
 
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.experimental.categories.Category
 
+@Category(Array(classOf[bloop.FastTests]))
 class MultiplexedStreamsSpec {
 
   private val EOL = System.lineSeparator

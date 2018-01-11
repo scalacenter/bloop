@@ -2,6 +2,7 @@ package bloop.tasks
 
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue, fail}
+import org.junit.experimental.categories.Category
 
 import bloop.engine.ExecutionContext.threadPool
 import bloop.engine.tasks.{Mergeable, Task}
@@ -10,6 +11,7 @@ import scala.collection.mutable.Buffer
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
+@Category(Array(classOf[bloop.FastTests]))
 class TaskTest {
 
   private implicit val mergeableUnit: Mergeable[Unit] =

@@ -4,6 +4,7 @@ import java.util.{Arrays, Collection}
 
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
+import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
@@ -27,6 +28,7 @@ object TestTaskTest {
   }
 }
 
+@Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
 class TestTaskTest(framework: String) {
   private val TestProjectName = "with-tests"

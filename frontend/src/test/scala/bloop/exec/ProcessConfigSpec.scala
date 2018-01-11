@@ -2,10 +2,12 @@ package bloop.exec
 
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertNotEquals}
+import org.junit.experimental.categories.Category
 
 import bloop.logging.RecordingLogger
 import bloop.tasks.ProjectHelpers
 
+@Category(Array(classOf[bloop.FastTests]))
 class ProcessConfigSpec {
 
   val packageName = "foo.bar"

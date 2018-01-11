@@ -80,7 +80,7 @@ val backend = project
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
-  .dependsOn(backend)
+  .dependsOn(backend, backend % "test->test")
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
   .settings(assemblySettings)

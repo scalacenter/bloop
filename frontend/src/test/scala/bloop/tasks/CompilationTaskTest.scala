@@ -2,6 +2,7 @@ package bloop.tasks
 
 import org.junit.Test
 import org.junit.Assert.assertTrue
+import org.junit.experimental.categories.Category
 
 import bloop.{ScalaInstance}
 import bloop.engine.State
@@ -14,6 +15,7 @@ import bloop.tasks.ProjectHelpers.{
   RootProject
 }
 
+@Category(Array(classOf[bloop.FastTests]))
 class CompilationTaskTest {
   object ArtificialSources {
     val `A.scala` = "package p0\nclass A"

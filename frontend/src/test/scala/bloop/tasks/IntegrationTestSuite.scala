@@ -5,6 +5,7 @@ import java.util.{Arrays, Collection}
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
@@ -26,6 +27,7 @@ object IntegrationTestSuite {
   }
 }
 
+@Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
 class IntegrationTestSuite(testDirectory: Path) {
   val integrationTestName = testDirectory.getFileName.toString

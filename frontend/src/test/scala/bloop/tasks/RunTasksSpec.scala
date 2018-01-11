@@ -2,6 +2,7 @@ package bloop.tasks
 
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.experimental.categories.Category
 
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, Run, State}
@@ -15,6 +16,7 @@ import bloop.tasks.ProjectHelpers.{
   runAndCheck
 }
 
+@Category(Array(classOf[bloop.FastTests]))
 class RunTasksSpec {
 
   private val packageName = "foo.bar"

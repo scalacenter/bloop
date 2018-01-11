@@ -5,6 +5,7 @@ import java.util.{Arrays, Collection}
 import bloop.logging.BloopLogger
 import org.junit.Assert.{assertSame, assertTrue}
 import org.junit.Test
+import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
@@ -16,6 +17,7 @@ object ScalaInstanceCachingSpec {
   val logger = BloopLogger.default("test-logger")
 }
 
+@Category(Array(classOf[FastTests]))
 @RunWith(classOf[Parameterized])
 class SameScalaVersions(version: String) {
   @Test
