@@ -78,7 +78,7 @@ object Interpreter {
     val client = new LanguageClient(state.commonOptions.out, dummyLogger)
     val services = new BloopServices(state, client).services
     val messages = BaseProtocolMessage.fromInputStream(state.commonOptions.in)
-    val scheduler = monix.execution.Scheduler(ExecutionContext.executor)
+    val scheduler = ExecutionContext.bspScheduler
     val server = new LanguageServer(messages, client, services, scheduler, dummyLogger)
     try { server.listen(); ExitStatus.Ok } catch {
       case scala.util.control.NonFatal(t) => ExitStatus.UnexpectedError

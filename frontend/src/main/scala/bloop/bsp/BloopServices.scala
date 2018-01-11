@@ -1,10 +1,8 @@
 package bloop.bsp
 
-import java.util.function.Supplier
-
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, State}
-import bloop.logging.BufferedLogger
+import bloop.io.AbsolutePath
 import ch.epfl.`scala`.bsp.schema.{BuildServerCapabilities, CompileParams, CompileReport, InitializeBuildParams, InitializeBuildResult, InitializedBuildParams}
 import monix.eval.{Task => MonixTask}
 import ch.epfl.scala.bsp.endpoints
@@ -17,6 +15,9 @@ class BloopServices(state: State, client: JsonRpcClient) {
     .notification(endpoints.Build.initialized)(initialized(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
+  var uriToLoad: String = null
+  var currentState: State = null
+
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
    *
@@ -26,7 +27,8 @@ class BloopServices(state: State, client: JsonRpcClient) {
   def initialize(
       initializeBuildParams: InitializeBuildParams
   ): MonixTask[Either[JsonRpcResponse.Error, InitializeBuildResult]] = MonixTask {
-    pprint.log(initializeBuildParams)
+    uriToLoad = initializeBuildParams.rootUri
+    System.err.println(initializeBuildParams.toString)
     Right(
       InitializeBuildResult(
         Some(
@@ -44,7 +46,8 @@ class BloopServices(state: State, client: JsonRpcClient) {
   def initialized(
       initializedBuildParams: InitializedBuildParams
   ): Unit = {
-    state.logger.info("Bloop has initialized with the client.")
+    currentState = State.loadStateFor(AbsolutePath(uriToLoad), bspLogger)
+    System.err.println("Bloop has initialized with the client.")
   }
 
   val bspLogger = new bloop.logging.AbstractLogger() {

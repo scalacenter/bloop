@@ -1,25 +1,14 @@
 package bloop.engine
 
-import java.io.{
-  ByteArrayInputStream,
-  ByteArrayOutputStream,
-  PipedInputStream,
-  PipedOutputStream,
-  PrintStream,
-  PrintWriter
-}
+import java.io.{ByteArrayOutputStream, PrintStream}
 import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
 import bloop.logging.BloopLogger
 import bloop.tasks.ProjectHelpers
-import ch.epfl.`scala`.bsp.schema.{InitializeBuildParams, InitializedBuildParams}
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import guru.nidi.graphviz.parse.Parser
-import org.langmeta.lsp.LanguageClient
-
-import scala.concurrent.Await
 
 @Category(Array(classOf[bloop.FastTests]))
 class InterpreterSpec {
@@ -35,47 +24,6 @@ class InterpreterSpec {
     val graph = Parser.read(dotGraph)
     assert(graph.isDirected, "Dot graph for sbt is not directed")
     ()
-  }
-
-  @Test def TestBSP(): Unit = {
-    val state0 = initialState
-    val testOut = new ByteArrayOutputStream()
-    val newOut = new PrintStream(testOut)
-
-    val inputStream = new PipedInputStream()
-
-    import ExecutionContext.bspScheduler
-    val bspClient = {
-      val out = new PipedOutputStream(inputStream)
-      val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass())
-      implicit val languageServer = new LanguageClient(out, dummyLogger)
-      import ch.epfl.scala.bsp.endpoints.Build._
-      val params = InitializeBuildParams()
-      initialize.request(params)
-    }
-
-    val loggerName = UUID.randomUUID().toString
-    val newLogger = BloopLogger.at(loggerName, newOut, newOut)
-    val defaultCli = CliOptions.default
-    val newCommonOptions = state0.commonOptions.copy(out = newOut, in = inputStream)
-    val state = state0.copy(logger = newLogger, commonOptions = newCommonOptions)
-    val cliOptions = defaultCli.copy(common = newCommonOptions)
-
-    val bspServer = monix.eval.Task {
-      val action = Run(Commands.Bsp(cliOptions = cliOptions))
-      val state1 = Interpreter.execute(action, state)
-      println(testOut.toString)
-    }
-
-    val test = for {
-      _ <- bspServer
-      client <- bspClient
-    } yield {
-      pprint.log(client)
-      pprint.log(testOut.toString())
-    }
-
-    Await.result(test.runAsync, scala.concurrent.duration.Duration("5s"))
   }
 
   @Test def ShowProjectsInCustomCommonOptions(): Unit = {

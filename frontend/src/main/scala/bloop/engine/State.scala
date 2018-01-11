@@ -97,4 +97,18 @@ object State {
     ExecutionContext.executor.setCorePoolSize(threads)
     state
   }
+
+  import bloop.Project
+  import bloop.io.AbsolutePath
+  def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
+    State.stateCache.getStateFor(configDirectory) match {
+      case Some(state) => state
+      case None =>
+        State.stateCache.addIfMissing(configDirectory, path => {
+          val projects = Project.fromDir(configDirectory, logger)
+          val build: Build = Build(configDirectory, projects)
+          State(build, logger)
+        })
+    }
+  }
 }

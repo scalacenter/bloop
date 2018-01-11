@@ -149,19 +149,6 @@ object Cli {
         .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
     }
 
-    import bloop.engine.{State, Build}
-    def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
-      State.stateCache.getStateFor(configDirectory) match {
-        case Some(state) => state
-        case None =>
-          State.stateCache.addIfMissing(configDirectory, path => {
-            val projects = Project.fromDir(configDirectory, logger)
-            val build: Build = Build(configDirectory, projects)
-            State(build, logger)
-          })
-      }
-    }
-
     val cliOptions = action match {
       case e: Exit => CliOptions.default
       case p: Print => CliOptions.default
@@ -171,7 +158,7 @@ object Cli {
     val configDirectory = getConfigDir(cliOptions)
     val logger =
       BloopLogger.at(configDirectory.toString, cliOptions.common.out, cliOptions.common.err)
-    val state = loadStateFor(configDirectory, logger)
+    val state = State.loadStateFor(configDirectory, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)
     newState.status
