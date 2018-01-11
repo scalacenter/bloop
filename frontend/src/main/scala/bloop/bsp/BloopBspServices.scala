@@ -13,7 +13,7 @@ import org.langmeta.jsonrpc.{
 }
 import org.langmeta.lsp.Window
 
-class BloopBspServices(state: State, client: JsonRpcClient) {
+class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
@@ -71,7 +71,7 @@ class BloopBspServices(state: State, client: JsonRpcClient) {
     MonixTask {
       // TODO(jvican): Naive approach, we need to implement batching here.
       val projectsToCompile = params.targets.map { target =>
-        ProjectUris.getProjectDagFromUri(target.uri, state) match {
+        ProjectUris.getProjectDagFromUri(target.uri, currentState) match {
           case Some(project) => (target, project)
           // TODO: Error handling here has to be rethought.
           case None => sys.error(s"The project for ${target.uri} is missing!")

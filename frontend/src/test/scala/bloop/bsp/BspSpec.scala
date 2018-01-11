@@ -1,23 +1,16 @@
 package bloop.bsp
 
-import java.io.{ByteArrayOutputStream, PipedInputStream, PipedOutputStream, PrintStream}
+import java.io.{PipedInputStream, PipedOutputStream, PrintStream}
 import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
-import bloop.engine.{ExecutionContext, Interpreter, Run, State}
+import bloop.engine.{ExecutionContext, Interpreter, Run}
 import bloop.logging.BloopLogger
 import bloop.tasks.ProjectHelpers
-import ch.epfl.`scala`.bsp.schema.{
-  BuildClientCapabilities,
-  CompileParams,
-  InitializeBuildParams,
-  InitializeBuildResult,
-  InitializedBuildParams,
-  WorkspaceBuildTargetsRequest
-}
+import ch.epfl.`scala`.bsp.schema.{BuildClientCapabilities, CompileParams, InitializeBuildParams, InitializedBuildParams, WorkspaceBuildTargetsRequest}
 import monix.eval.{Task => MonixTask}
 import org.junit.Test
-import org.langmeta.jsonrpc.{BaseProtocolMessage, Endpoint, JsonRpcClient, Services}
+import org.langmeta.jsonrpc.{BaseProtocolMessage, Services}
 import org.langmeta.lsp.{LanguageClient, LanguageServer}
 import ch.epfl.scala.bsp.endpoints
 
@@ -77,7 +70,6 @@ class BspSpec {
         buildTargets <- endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest())
         val targets = buildTargets.getOrElse(sys.error("Invalid targets response.")).targets
         val target = targets.headOption.flatMap(_.id).toList
-        val _ = println(target)
         compilationResult <- endpoints.BuildTarget.compile.request(CompileParams(target))
       } yield compilationResult.map(cs => throw SuccessfulBspTest)
 
