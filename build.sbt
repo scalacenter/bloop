@@ -163,6 +163,7 @@ addCommandAlias(
   Seq(
     s"+${bridgeIntegration.id}/$publishLocalCmd",
     s"+${zincIntegration.id}/$publishLocalCmd",
+    s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
     s"${nailgun.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
