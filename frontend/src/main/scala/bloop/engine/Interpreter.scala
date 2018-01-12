@@ -83,7 +83,7 @@ object Interpreter {
     val blockingListen = scala.util.Try(server.listen())
 
     // It gives a state that can be the latest state used by bsp or the call site state.
-    val latestState = servicesProvider.getLatestState
+    val latestState = servicesProvider.latestState
     blockingListen match {
       case scala.util.Success(_) => latestState
       case scala.util.Failure(t) =>

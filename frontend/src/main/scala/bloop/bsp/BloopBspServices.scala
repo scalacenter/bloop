@@ -7,7 +7,11 @@ import ch.epfl.`scala`.bsp.schema._
 import monix.eval.{Task => MonixTask}
 import ch.epfl.scala.bsp.endpoints
 import com.typesafe.scalalogging.Logger
-import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import org.langmeta.jsonrpc.{
+  JsonRpcClient,
+  Response => JsonRpcResponse,
+  Services => JsonRpcServices
+}
 import org.langmeta.lsp.Window
 
 class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
@@ -18,9 +22,9 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
   /**
-    * Creates a logger that will forward all the messages to the underlying bsp client.
-    * It does so via the replication of the `window/showMessage` LSP functionality.
-    */
+   * Creates a logger that will forward all the messages to the underlying bsp client.
+   * It does so via the replication of the `window/showMessage` LSP functionality.
+   */
   private final val bspForwarderLogger = new bloop.logging.AbstractLogger() {
     override def name: String = "bsp-logger"
     override def verbose[T](op: => T): T = op
@@ -36,14 +40,20 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
   @volatile private final var currentState: State = null
 
   /**
-    * Get the latest state that can be reused and cached by bloop so that the next client
-    * can have access to it.
-    *
-    * @return
-    */
-  def getLatestState: State = {
+   * Get the latest state that can be reused and cached by bloop so that the next client
+   * can have access to it.
+   *
+   * @return
+   */
+  def latestState: State = {
     val state0 = if (currentState == null) callSiteState else currentState
     state0.copy(logger = callSiteState.logger)
+  }
+
+  private final val defaultOpts = callSiteState.commonOptions
+  def reloadState(uri: String): State = {
+    val state0 = State.loadStateFor(AbsolutePath(uri), defaultOpts, bspForwarderLogger)
+    state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
   }
 
   /**
@@ -56,10 +66,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
       initializeBuildParams: InitializeBuildParams
   ): MonixTask[Either[JsonRpcResponse.Error, InitializeBuildResult]] = MonixTask {
     bspLogger.info("request received: build/initialize")
-    val uriToLoad = initializeBuildParams.rootUri
-    val opts = callSiteState.commonOptions
-    val state0 = State.loadStateFor(AbsolutePath(uriToLoad), opts, bspForwarderLogger)
-    currentState = state0.copy(logger = bspForwarderLogger)
+    currentState = reloadState(initializeBuildParams.rootUri)
     Right(
       InitializeBuildResult(
         Some(
@@ -94,7 +101,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
       import bloop.cli.ExitStatus
       val action = projectsToCompile.foldLeft(Exit(ExitStatus.Ok): Action) {
         case (action, (_, project)) =>
-         Run(Commands.Compile(project.name), action)
+          Run(Commands.Compile(project.name), action)
       }
 
       currentState = Interpreter.execute(action, currentState)
