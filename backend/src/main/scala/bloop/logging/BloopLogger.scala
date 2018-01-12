@@ -1,7 +1,8 @@
 package bloop.logging
 
-import java.io.{OutputStream, PrintStream}
+import java.io.{FileOutputStream, OutputStream, PrintStream}
 
+import bloop.io.AbsolutePath
 import org.apache.logging.log4j
 import org.apache.logging.log4j.{Level, LogManager}
 import org.apache.logging.log4j.core.{Filter, LoggerContext}
@@ -97,6 +98,11 @@ object BloopLogger {
    */
   def at(name: String, out: PrintStream, err: PrintStream): BloopLogger =
     new BloopLogger(name, out, err)
+
+  def atFile(name: String, logFile: AbsolutePath): BloopLogger = {
+    val outputForFile = new PrintStream(new FileOutputStream(logFile.toFile))
+    BloopLogger.at(name, outputForFile, outputForFile)
+  }
 
   /**
    * Instantiates a new `BloopLogger` that writes to stdout and stderr.

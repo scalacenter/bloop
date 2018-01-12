@@ -22,6 +22,7 @@ object Paths {
 
   final val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.projectCacheDir)
   final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.projectDataDir)
+  final val bloopLogsDir: AbsolutePath = createDirFor(bloopDataDir.resolve("logs").syntax)
   final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.projectConfigDir)
 
   def getCacheDirectory(dirName: String): AbsolutePath = {

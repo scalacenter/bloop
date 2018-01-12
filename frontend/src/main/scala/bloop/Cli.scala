@@ -4,7 +4,7 @@ import java.io.{FileOutputStream, PrintStream}
 
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
-import bloop.io.Paths
+import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -153,12 +153,9 @@ object Cli {
     }
 
     def createLogger(configDir: AbsolutePath, options: CliOptions, logToFile: Boolean): Logger = {
-      if (logToFile) BloopLogger.at(configDir.syntax, options.common.out, options.common.err)
-      else {
-        val logFile = Paths.bloopDataDir.resolve("bsp.log")
-        val outputForFile = new PrintStream(new FileOutputStream(logFile.toFile))
-        BloopLogger.at(configDir.syntax, outputForFile, outputForFile)
-      }
+      val loggerId = configDir.syntax
+      if (logToFile) BloopLogger.at(loggerId, options.common.out, options.common.err)
+      else BloopLogger.atFile(loggerId, Paths.bloopLogsDir.resolve("bsp.log"))
     }
 
     val (cliOptions, logToFile) = action match {
@@ -170,7 +167,7 @@ object Cli {
 
     val configDirectory = getConfigDir(cliOptions)
     val logger = createLogger(configDirectory, cliOptions, logToFile)
-    val state = State.loadStateFor(configDirectory, logger)
+    val state = State.loadStateFor(configDirectory, cliOptions.common, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)
     newState.status

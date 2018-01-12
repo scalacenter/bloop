@@ -69,17 +69,17 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private final val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass)
+  private final val bspLogger = com.typesafe.scalalogging.Logger(this.getClass)
   private def runBsp(state: State): State = {
     import org.langmeta.lsp.LanguageClient
     import org.langmeta.lsp.LanguageServer
     import org.langmeta.jsonrpc.BaseProtocolMessage
-    val client = new LanguageClient(state.commonOptions.out, dummyLogger)
-    val servicesProvider = new BloopBspServices(state, client)
+    val client = new LanguageClient(state.commonOptions.out, bspLogger)
+    val servicesProvider = new BloopBspServices(state, client, bspLogger)
     val bloopServices = servicesProvider.services
     val messages = BaseProtocolMessage.fromInputStream(state.commonOptions.in)
     val scheduler = ExecutionContext.bspScheduler
-    val server = new LanguageServer(messages, client, bloopServices, scheduler, dummyLogger)
+    val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
     val blockingListen = scala.util.Try(server.listen())
 
     // It gives a state that can be the latest state used by bsp or the call site state.

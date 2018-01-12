@@ -65,10 +65,8 @@ object ProjectHelpers {
   }
 
   val testProjectsBase: Path = BuildInfo.integrationTestsLocation.toPath
-
-  def loadTestProject(name: String): State = {
-    loadTestProject(testProjectsBase, name)
-  }
+  def getTestProjectDir(name: String): Path = testProjectsBase.resolve(name)
+  def loadTestProject(name: String): State = loadTestProject(testProjectsBase, name)
 
   def loadTestProject(projectsBase: Path, name: String): State = {
     val base = projectsBase.resolve(name)

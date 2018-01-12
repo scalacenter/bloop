@@ -57,12 +57,11 @@ object State {
   }
 
   // Improve the caching by using file metadata
-  def apply(build: Build, logger: Logger): State = {
+  def apply(build: Build, options: CommonOptions, logger: Logger): State = {
     val results = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
       case (results, project) => results.initializeResult(project)
     }
 
-    val options = CommonOptions.default
     val compilerCache = getCompilerCache(logger)
     State(build, results, compilerCache, options, ExitStatus.Ok, logger)
   }
@@ -100,14 +99,18 @@ object State {
 
   import bloop.Project
   import bloop.io.AbsolutePath
-  def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
+  def loadStateFor(
+      configDirectory: AbsolutePath,
+      commonOptions: CommonOptions,
+      logger: Logger
+  ): State = {
     State.stateCache.getStateFor(configDirectory) match {
       case Some(state) => state
       case None =>
         State.stateCache.addIfMissing(configDirectory, path => {
           val projects = Project.fromDir(configDirectory, logger)
           val build: Build = Build(configDirectory, projects)
-          State(build, logger)
+          State(build, commonOptions, logger)
         })
     }
   }

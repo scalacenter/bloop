@@ -3,8 +3,9 @@ package bloop.bsp
 import java.io.{PipedInputStream, PipedOutputStream, PrintStream}
 import java.util.UUID
 
-import bloop.cli.{CliOptions, Commands}
-import bloop.engine.{ExecutionContext, Interpreter, Run}
+import bloop.cli.{CliOptions, Commands, CommonOptions}
+import bloop.engine.{ExecutionContext, Interpreter, Run, State}
+import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import bloop.tasks.ProjectHelpers
 import ch.epfl.`scala`.bsp.schema.{BuildClientCapabilities, CompileParams, InitializeBuildParams, InitializedBuildParams, WorkspaceBuildTargetsRequest}
@@ -18,21 +19,20 @@ import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
 
 class BspSpec {
-  private final val initialState = ProjectHelpers.loadTestProject("utest")
-  private final val dummyLogger = com.typesafe.scalalogging.Logger("test")
+  private final val cwd = AbsolutePath(ProjectHelpers.getTestProjectDir("utest"))
+  private final val slf4jLogger = com.typesafe.scalalogging.Logger("test")
 
   private object SuccessfulBspTest extends Exception("Successful bsp test.")
 
   @Test def TestBSP(): Unit = {
-    val state0 = initialState
     val bloopIn = new PipedInputStream()
     val bloopOut = new PipedOutputStream()
     val printOut = new PrintStream(bloopOut)
     val loggerName = UUID.randomUUID().toString
-    val newLogger = BloopLogger.at(loggerName, printOut, printOut)
-    val defaultCli = CliOptions.default
-    val newCommonOptions = state0.commonOptions.copy(out = printOut, in = bloopIn)
-    val state = state0.copy(logger = newLogger, commonOptions = newCommonOptions)
+    val bspFileLogs = bloop.io.Paths.bloopLogsDir.resolve("bsp.log")
+    val bspLogger = BloopLogger.atFile(loggerName, bspFileLogs)
+    val defaultCli = CliOptions.default.copy(configDir = Some(cwd.underlying))
+    val newCommonOptions = CommonOptions.default.copy(out = printOut, in = bloopIn)
 
     val clientIn = new PipedInputStream()
     val clientOut = new PipedOutputStream()
@@ -43,6 +43,7 @@ class BspSpec {
       clientIn.connect(bloopOut)
       val cliOptions = defaultCli.copy(common = newCommonOptions)
       val action = Run(Commands.Bsp(cliOptions = cliOptions))
+      val state = State.loadStateFor(cwd.resolve(".bloop-config"), newCommonOptions, bspLogger)
       MonixTask(Interpreter.execute(action, state)).materialize.map {
         case scala.util.Success(_) => ()
         case f: scala.util.Failure[_] => System.err.println(f.exception.toString())
@@ -50,22 +51,22 @@ class BspSpec {
     }
 
     val bspIntegration = {
-      implicit val lsClient = new LanguageClient(clientOut, dummyLogger)
+      implicit val lsClient = new LanguageClient(clientOut, slf4jLogger)
       val services = Services.empty
       val messages = BaseProtocolMessage.fromInputStream(clientIn)
-      val lsServer = new LanguageServer(messages, lsClient, services, bspScheduler, dummyLogger)
-      val startLsServer = lsServer.startTask.delayExecution(FiniteDuration(1, "s"))
+      val lsServer = new LanguageServer(messages, lsClient, services, bspScheduler, slf4jLogger)
+      val startLsServer = lsServer.startTask.delayExecution(FiniteDuration(500, "ms"))
 
       val initializeServer = endpoints.Build.initialize.request(
         InitializeBuildParams(
-          rootUri = initialState.build.origin.syntax,
+          rootUri = cwd.syntax,
           Some(BuildClientCapabilities(List("scala")))
         )
       )
 
       val clientRequests = for {
         // Delay the task to let the bloop server go live
-        initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
+        initializeResult <- initializeServer.delayExecution(FiniteDuration(500, "ms"))
         val _ = endpoints.Build.initialized.notify(InitializedBuildParams())
         buildTargets <- endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest())
         val targets = buildTargets.getOrElse(sys.error("Invalid targets response.")).targets

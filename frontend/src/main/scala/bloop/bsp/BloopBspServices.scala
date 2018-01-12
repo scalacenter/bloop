@@ -6,14 +6,11 @@ import bloop.io.AbsolutePath
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.{Task => MonixTask}
 import ch.epfl.scala.bsp.endpoints
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
+import com.typesafe.scalalogging.Logger
+import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import org.langmeta.lsp.Window
 
-class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
+class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
@@ -24,7 +21,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
     * Creates a logger that will forward all the messages to the underlying bsp client.
     * It does so via the replication of the `window/showMessage` LSP functionality.
     */
-  private final val bspLogger = new bloop.logging.AbstractLogger() {
+  private final val bspForwarderLogger = new bloop.logging.AbstractLogger() {
     override def name: String = "bsp-logger"
     override def verbose[T](op: => T): T = op
     override def ansiCodesSupported(): Boolean = true
@@ -58,9 +55,11 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
   def initialize(
       initializeBuildParams: InitializeBuildParams
   ): MonixTask[Either[JsonRpcResponse.Error, InitializeBuildResult]] = MonixTask {
+    bspLogger.info("request received: build/initialize")
     val uriToLoad = initializeBuildParams.rootUri
-    val state0 = State.loadStateFor(AbsolutePath(uriToLoad), bspLogger)
-    currentState = state0.copy(logger = bspLogger)
+    val opts = callSiteState.commonOptions
+    val state0 = State.loadStateFor(AbsolutePath(uriToLoad), opts, bspForwarderLogger)
+    currentState = state0.copy(logger = bspForwarderLogger)
     Right(
       InitializeBuildResult(
         Some(
@@ -77,7 +76,9 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
 
   def initialized(
       initializedBuildParams: InitializedBuildParams
-  ): Unit = ()
+  ): Unit = {
+    bspLogger.info("BSP initialization handshake complete.")
+  }
 
   def compile(params: CompileParams): MonixTask[Either[JsonRpcResponse.Error, CompileReport]] = {
     MonixTask {
