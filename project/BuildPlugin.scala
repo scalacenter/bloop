@@ -57,7 +57,7 @@ object BuildKeys {
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
   val testSettings: Seq[Def.Setting[_]] = List(
-    integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "scripted-tests" / "integration-projects",
+    integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
     Keys.libraryDependencies ++= List(
       Dependencies.utest % Test,
@@ -256,7 +256,7 @@ object BuildImplementation {
     import sbt.io.syntax.{fileToRichFile, singleFileFinder}
     val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := true,
-      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "scripted-tests",
+      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests",
       BuildKeys.scriptedAddSbtBloop := {
         val addSbtPlugin =
           s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
