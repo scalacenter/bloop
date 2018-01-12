@@ -1,7 +1,10 @@
 package bloop
 
+import java.io.{FileOutputStream, PrintStream}
+
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
+import bloop.io.Paths
 import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -149,15 +152,24 @@ object Cli {
         .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
     }
 
-    val cliOptions = action match {
-      case e: Exit => CliOptions.default
-      case p: Print => CliOptions.default
-      case r: Run => r.command.cliOptions
+    def createLogger(configDir: AbsolutePath, options: CliOptions, logToFile: Boolean): Logger = {
+      if (logToFile) BloopLogger.at(configDir.syntax, options.common.out, options.common.err)
+      else {
+        val logFile = Paths.bloopDataDir.resolve("bsp.log")
+        val outputForFile = new PrintStream(new FileOutputStream(logFile.toFile))
+        BloopLogger.at(configDir.syntax, outputForFile, outputForFile)
+      }
+    }
+
+    val (cliOptions, logToFile) = action match {
+      case e: Exit => (CliOptions.default, false)
+      case p: Print => (CliOptions.default, false)
+      case Run(cmd: Commands.Bsp, _) => (cmd.cliOptions, true)
+      case r: Run => (r.command.cliOptions, false)
     }
 
     val configDirectory = getConfigDir(cliOptions)
-    val logger =
-      BloopLogger.at(configDirectory.toString, cliOptions.common.out, cliOptions.common.err)
+    val logger = createLogger(configDirectory, cliOptions, logToFile)
     val state = State.loadStateFor(configDirectory, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)

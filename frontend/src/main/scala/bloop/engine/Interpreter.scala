@@ -69,11 +69,11 @@ object Interpreter {
     ExitStatus.Ok
   }
 
+  private final val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass)
   private def runBsp(state: State): State = {
     import org.langmeta.lsp.LanguageClient
     import org.langmeta.lsp.LanguageServer
     import org.langmeta.jsonrpc.BaseProtocolMessage
-    val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass)
     val client = new LanguageClient(state.commonOptions.out, dummyLogger)
     val servicesProvider = new BloopBspServices(state, client)
     val bloopServices = servicesProvider.services
