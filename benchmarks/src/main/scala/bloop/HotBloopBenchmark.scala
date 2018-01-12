@@ -38,7 +38,7 @@ class HotBloopBenchmark {
     tempDir = Files.createTempDirectory("bloop-")
     val configDir = Files.createDirectory(tempDir.resolve(".bloop-config"))
 
-    val path = Paths.get(s"../frontend/src/test/resources/projects")
+    val path = ProjectHelpers.testProjectsBase
     val state = ProjectHelpers.loadTestProject(path, project)
     state.build.projects.foreach { project =>
       val outPath = configDir.resolve(s"${project.name}.config")

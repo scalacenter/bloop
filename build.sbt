@@ -112,8 +112,7 @@ lazy val sbtBloop = project
       val orig = scalaVersion.value
       if ((sbtVersion in pluginCrossBuild).value.startsWith("0.13")) "2.10.6" else orig
     },
-    // The scripted projects to setup are in the test resources of frontend
-    BuildDefaults.scriptedSettings(resourceDirectory in Test in frontend),
+    BuildDefaults.scriptedSettings,
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, sbtBloop)

@@ -7,17 +7,17 @@
 	url = https://github.com/scalacenter/nailgun.git
 	branch = zinc-nailgun
 [submodule "frontend/src/test/resources/projects/sbt"]
-	path = frontend/src/test/resources/projects/sbt
+	path = scripted-tests/integration-projects/sbt
 	url = https://github.com/scalacenter/sbt.git
 	branch = hardcoded-stuff
 	ignore = dirty
 [submodule "frontend/src/test/resources/projects/utest"]
-	path = frontend/src/test/resources/projects/utest
+	path = scripted-tests/integration-projects/utest
 	url = https://github.com/scalacenter/utest.git
 	branch = bloop
 	ignore = dirty
 [submodule "frontend/src/test/resources/projects/versions"]
-	path = frontend/src/test/resources/projects/versions
+	path = scripted-tests/integration-projects/versions
 	url = https://github.com/scalacenter/versions.git
 	branch = bloop
 	ignore = dirty
@@ -27,18 +27,18 @@
 	branch = bloop
   ignore = dirty
 [submodule "frontend/src/test/resources/projects/scala"]
-	path = frontend/src/test/resources/projects/scala
+	path = scripted-tests/integration-projects/scala
 	url = https://github.com/scalacenter/scala.git
 	branch = bloop
 [submodule "frontend/src/test/resources/projects/mini-better-files"]
-	path = frontend/src/test/resources/projects/mini-better-files
+	path = scripted-tests/integration-projects/mini-better-files
 	url = https://github.com/scalacenter/mini-better-files.git
 	branch = master
 [submodule "frontend/src/test/resources/projects/frontend"]
-	path = frontend/src/test/resources/projects/frontend
+	path = scripted-tests/integration-projects/frontend
 	url = https://github.com/scalacenter/frontend.git
 	branch = bloop
 [submodule "frontend/src/test/resources/projects/spark"]
-	path = frontend/src/test/resources/projects/spark
+	path = scripted-tests/integration-projects/spark
 	url = https://github.com/scalacenter/spark.git
 	branch = bloop

@@ -9,10 +9,7 @@ import bloop.{DynTest, Project}
 import bloop.io.AbsolutePath
 
 object IntegrationTestSuite extends DynTest {
-  val projects = Files.list(getClass.getClassLoader.getResources("projects") match {
-    case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
-    case _ => throw new Exception("No projects to test?")
-  })
+  val projects = Files.list(ProjectHelpers.testProjectsBase)
 
   projects.forEach { testDirectory =>
     test(testDirectory.getFileName.toString) {
