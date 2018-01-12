@@ -20,12 +20,16 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
     .request(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
+  /**
+    * Creates a logger that will forward all the messages to the underlying bsp client.
+    * It does so via the replication of the `window/showMessage` LSP functionality.
+    */
   private final val bspLogger = new bloop.logging.AbstractLogger() {
     override def name: String = "bsp-logger"
     override def verbose[T](op: => T): T = op
+    override def ansiCodesSupported(): Boolean = true
     override def debug(msg: String): Unit = Window.showMessage.info(msg)(client)
     override def error(msg: String): Unit = Window.showMessage.error(msg)(client)
-    override def ansiCodesSupported(): Boolean = true
     override def warn(msg: String): Unit = Window.showMessage.warn(msg)(client)
     override def trace(t: Throwable): Unit = Window.showMessage.info(t.toString)(client)
     override def info(msg: String): Unit = Window.showMessage.info(msg)(client)
@@ -33,6 +37,17 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
 
   // Internal state, think how to make this more elegant.
   @volatile private final var currentState: State = null
+
+  /**
+    * Get the latest state that can be reused and cached by bloop so that the next client
+    * can have access to it.
+    *
+    * @return
+    */
+  def getLatestState: State = {
+    val state0 = if (currentState == null) callSiteState else currentState
+    state0.copy(logger = callSiteState.logger)
+  }
 
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
@@ -50,10 +65,10 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
       InitializeBuildResult(
         Some(
           BuildServerCapabilities(
-            compileProvider = false,
-            textDocumentBuildTargetsProvider = false,
+            compileProvider = true,
+            textDocumentBuildTargetsProvider = true,
             dependencySourcesProvider = false,
-            buildTargetChangedProvider = false
+            buildTargetChangedProvider = true
           )
         )
       )
@@ -70,7 +85,6 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient) {
       val projectsToCompile = params.targets.map { target =>
         ProjectUris.getProjectDagFromUri(target.uri, currentState) match {
           case Some(project) => (target, project)
-          // TODO: Error handling here has to be rethought.
           case None => sys.error(s"The project for ${target.uri} is missing!")
         }
       }

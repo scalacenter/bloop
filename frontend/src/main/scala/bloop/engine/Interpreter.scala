@@ -23,8 +23,7 @@ object Interpreter {
         val status = logAndTime(state, cliOptions, printAbout(state))
         execute(next, state.mergeStatus(status))
       case Run(Commands.Bsp(cliOptions), next) =>
-        val status = logAndTime(state, cliOptions, runBsp(state))
-        execute(next, state.mergeStatus(status))
+        execute(next, logAndTime(state, cliOptions, runBsp(state)))
       case Run(cmd: Commands.Clean, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, clean(cmd, state)))
       case Run(cmd: Commands.Compile, next) =>
@@ -70,20 +69,26 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private def runBsp(state: State): ExitStatus = {
+  private def runBsp(state: State): State = {
     import org.langmeta.lsp.LanguageClient
     import org.langmeta.lsp.LanguageServer
     import org.langmeta.jsonrpc.BaseProtocolMessage
     val dummyLogger = com.typesafe.scalalogging.Logger(this.getClass)
     val client = new LanguageClient(state.commonOptions.out, dummyLogger)
-    val services = new BloopBspServices(state, client).services
+    val servicesProvider = new BloopBspServices(state, client)
+    val bloopServices = servicesProvider.services
     val messages = BaseProtocolMessage.fromInputStream(state.commonOptions.in)
     val scheduler = ExecutionContext.bspScheduler
-    val server = new LanguageServer(messages, client, services, scheduler, dummyLogger)
-    try { server.listen(); ExitStatus.Ok } catch {
-      case scala.util.control.NonFatal(t) =>
-        state.logger.trace(t)
-        ExitStatus.UnexpectedError
+    val server = new LanguageServer(messages, client, bloopServices, scheduler, dummyLogger)
+    val blockingListen = scala.util.Try(server.listen())
+
+    // It gives a state that can be the latest state used by bsp or the call site state.
+    val latestState = servicesProvider.getLatestState
+    blockingListen match {
+      case scala.util.Success(_) => latestState
+      case scala.util.Failure(t) =>
+        latestState.logger.trace(t)
+        latestState
     }
   }
 
