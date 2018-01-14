@@ -10,6 +10,7 @@ import bloop.engine.{Build, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
+import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, ProcessLogger, RecordingLogger}
 
 object ProjectHelpers {
@@ -63,12 +64,10 @@ object ProjectHelpers {
     }
   }
 
+  val testProjectsBase: Path = BuildInfo.integrationTestsLocation.toPath
+
   def loadTestProject(name: String): State = {
-    val projectsBase = getClass.getClassLoader.getResources("projects") match {
-      case res if res.hasMoreElements => Paths.get(res.nextElement.getFile)
-      case _ => throw new Exception("No projects to test?")
-    }
-    loadTestProject(projectsBase, name)
+    loadTestProject(testProjectsBase, name)
   }
 
   def loadTestProject(projectsBase: Path, name: String): State = {

@@ -52,6 +52,19 @@ object BuildKeys {
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
+  import sbt.Test
+  import sbt.io.syntax.fileToRichFile
+  val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
+  val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val testSettings: Seq[Def.Setting[_]] = List(
+    integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
+    Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+    Keys.libraryDependencies ++= List(
+      Dependencies.utest % Test,
+      Dependencies.junit % Test
+    ),
+  )
+
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
     val zincVersion = Keys.version in ZincRoot
@@ -59,19 +72,13 @@ object BuildKeys {
     val developersKey = BuildInfoKey.map(Keys.developers) {
       case (k, devs) => k -> devs.map(_.name)
     }
-    val commonKeys = List[BuildInfoKey](Keys.name, Keys.version, Keys.scalaVersion, Keys.sbtVersion)
+    val commonKeys = List[BuildInfoKey](Keys.name,
+                                        Keys.version,
+                                        Keys.scalaVersion,
+                                        Keys.sbtVersion,
+                                        integrationTestsLocation)
     commonKeys ++ List(zincKey, developersKey)
   }
-
-  import sbt.Test
-  val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
-  val testSettings: Seq[Def.Setting[_]] = List(
-    Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
-    Keys.libraryDependencies ++= List(
-      Dependencies.utest % Test,
-      Dependencies.junit % Test
-    ),
-  )
 
   import sbtassembly.AssemblyKeys
   val assemblySettings: Seq[Def.Setting[_]] = List(
@@ -246,17 +253,18 @@ object BuildImplementation {
     }
 
     private val NewLine = System.lineSeparator
-    def scriptedSettings(testDirectory: sbt.SettingKey[File]): Seq[Def.Setting[_]] = List(
+    import sbt.io.syntax.{fileToRichFile, singleFileFinder}
+    val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := true,
-      ScriptedKeys.sbtTestDirectory := testDirectory.value,
+      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests",
       BuildKeys.scriptedAddSbtBloop := {
-        import sbt.io.syntax.{fileToRichFile, singleFileFinder}
         val addSbtPlugin =
           s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
         val testPluginSrc = Keys.baseDirectory
           .in(sbt.ThisBuild)
           .value / "project" / "TestPlugin.scala"
-        val tests = (ScriptedKeys.sbtTestDirectory.value / "projects").*(AllPassFilter).get
+        val tests =
+          (ScriptedKeys.sbtTestDirectory.value / "integration-projects").*(AllPassFilter).get
         tests.foreach { testDir =>
           IO.copyFile(testPluginSrc, testDir / "project" / "TestPlugin.scala")
           IO.createDirectory(testDir / "bloop-config")

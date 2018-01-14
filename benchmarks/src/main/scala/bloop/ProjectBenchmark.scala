@@ -4,10 +4,11 @@ import java.nio.file.Files
 
 import bloop.io.AbsolutePath
 import bloop.logging.NoopLogger
+import bloop.tasks.ProjectHelpers
 import org.openjdk.jmh.annotations.Benchmark
 
 object ProjectBenchmark {
-  val projects = bloop.benchmarks.BuildInfo.test_resourceDirectory.toPath.resolve("projects")
+  val projects = ProjectHelpers.testProjectsBase
   def getProjectBase(name: String) = AbsolutePath(projects.resolve(name))
   def existing(path: AbsolutePath): AbsolutePath = {
     assert(Files.exists(path.underlying))

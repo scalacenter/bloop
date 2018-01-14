@@ -15,3 +15,4 @@ target/
 test-config.sbt
 test
 base-directory
+TestPlugin.scala
