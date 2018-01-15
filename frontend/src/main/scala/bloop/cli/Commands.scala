@@ -67,6 +67,8 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The projects to clean.")
       projects: List[String],
+      @HelpMessage("Do not run clean for dependencies. By default, false.")
+      isolated: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 

@@ -109,10 +109,13 @@ object Tasks {
    *
    * @param state   The current state of Bloop.
    * @param targets The projects to clean.
+   * @param isolated Do not run clean for dependencies.
    * @return The new state of Bloop after cleaning.
    */
-  def clean(state: State, targets: List[Project]): State = {
-    val allTargetsToClean = targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
+  def clean(state: State, targets: List[Project], isolated: Boolean): State = {
+    val allTargetsToClean =
+      if (isolated) targets
+      else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
     val results = state.results
     val newResults = results.reset(allTargetsToClean)
     state.copy(results = newResults)

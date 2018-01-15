@@ -85,7 +85,8 @@ object Interpreter {
         if (!cmd.watch) doCompile(state)
         else watch(project, state, doCompile _)
       } else {
-        val newState = Tasks.clean(state, state.build.projects)
+        // Clean is isolated because we pass in all the build projects
+        val newState = Tasks.clean(state, state.build.projects, true)
         if (!cmd.watch) doCompile(newState)
         else watch(project, newState, doCompile _)
       }
@@ -166,7 +167,7 @@ object Interpreter {
 
   private def clean(cmd: Commands.Clean, state: State): State = {
     val (projects, missing) = lookupProjects(cmd.projects, state)
-    if (missing.isEmpty) Tasks.clean(state, projects).mergeStatus(ExitStatus.Ok)
+    if (missing.isEmpty) Tasks.clean(state, projects, cmd.isolated).mergeStatus(ExitStatus.Ok)
     else reportMissing(missing, state)
   }
 
