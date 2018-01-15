@@ -15,6 +15,10 @@ object ScalaInstanceCachingSpec {
   val unsharedVersionPairs =
     Array("2.10.6" -> "2.10.4", "2.11.11" -> "2.11.6", "2.12.4" -> "2.12.1")
   val logger = BloopLogger.default("test-logger")
+
+  def getForVersion(version: String): ScalaInstance = {
+    ScalaInstance.resolve("org.scala-lang", "scala-compiler", version, logger)
+  }
 }
 
 @Category(Array(classOf[FastTests]))
@@ -22,14 +26,8 @@ object ScalaInstanceCachingSpec {
 class SameScalaVersions(version: String) {
   @Test
   def sameScalaVersionsShareClassLoaders = {
-    val instance1 = ScalaInstance.resolve("org.scala-lang",
-                                          "scala-compiler",
-                                          version.toString,
-                                          ScalaInstanceCachingSpec.logger)
-    val instance2 = ScalaInstance.resolve("org.scala-lang",
-                                          "scala-compiler",
-                                          version.toString,
-                                          ScalaInstanceCachingSpec.logger)
+    val instance1 = ScalaInstanceCachingSpec.getForVersion(version)
+    val instance2 = ScalaInstanceCachingSpec.getForVersion(version)
     assertSame(s"Failed with version = $version", instance1.loader, instance2.loader)
   }
 }
@@ -44,10 +42,8 @@ object SameScalaVersions {
 class DifferentScalaVersions(v1: String, v2: String) {
   @Test
   def differentVersionSameMajorNumberDontShareClassLoaders = {
-    val instance1 =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", v1, ScalaInstanceCachingSpec.logger)
-    val instance2 =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", v2, ScalaInstanceCachingSpec.logger)
+    val instance1 = ScalaInstanceCachingSpec.getForVersion(v1)
+    val instance2 = ScalaInstanceCachingSpec.getForVersion(v2)
     assertTrue(s"Failed with v1 = $v1, v2 = $v2", instance1.loader != instance2.loader)
   }
 }

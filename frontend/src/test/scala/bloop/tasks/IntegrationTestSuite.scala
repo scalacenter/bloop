@@ -17,7 +17,8 @@ import bloop.Project
 import bloop.io.AbsolutePath
 
 object IntegrationTestSuite {
-  val projects = Files.list(ProjectHelpers.testProjectsBase)
+  val projects = Files
+    .list(ProjectHelpers.testProjectsBase)
     .toArray
     .map(Array.apply(_))
 
