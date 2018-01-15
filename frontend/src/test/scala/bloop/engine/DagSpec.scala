@@ -1,11 +1,14 @@
 package bloop.engine
 
 import org.junit.Test
+import org.junit.experimental.categories.Category
+
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
 import bloop.Project
 import guru.nidi.graphviz.parse.Parser
 
+@Category(Array(classOf[bloop.FastTests]))
 class DagSpec {
   private object TestProjects {
     private val logger = new RecordingLogger

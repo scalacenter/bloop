@@ -1,12 +1,18 @@
 package bloop.tasks
 
+import org.junit.Test
+import org.junit.Assert.{assertEquals, assertTrue, fail}
+import org.junit.experimental.categories.Category
+
 import bloop.engine.ExecutionContext.threadPool
 import bloop.engine.tasks.{Mergeable, Task}
 
 import scala.collection.mutable.Buffer
-import utest._
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
-object TaskTest extends TestSuite {
+@Category(Array(classOf[bloop.FastTests]))
+class TaskTest {
 
   private implicit val mergeableUnit: Mergeable[Unit] =
     _ => ()
@@ -14,108 +20,108 @@ object TaskTest extends TestSuite {
   private implicit def mergeableSet[T]: Mergeable[Set[T]] =
     sets => sets.foldLeft(Set.empty[T])(_ ++ _)
 
-  val tests = Tests {
-    "Simple dependency chain" - {
-      val buf = Buffer.empty[Int]
-      def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
+  private def run[T](task: Task[T]): Task.Result[T] =
+    Await.result(task.run(), 5.seconds)
 
-      val addOne = add(1)
-      val addTwo = add(2)
-      val addThree = add(3)
-      addTwo.dependsOn(addOne)
-      addThree.dependsOn(addTwo)
+  @Test
+  def simpleDependencyChain = {
+    val buf = Buffer.empty[Int]
+    def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
 
-      addThree.run().map { _ =>
-        assert(buf == Buffer(1, 2, 3))
-      }
-    }
+    val addOne = add(1)
+    val addTwo = add(2)
+    val addThree = add(3)
+    addTwo.dependsOn(addOne)
+    addThree.dependsOn(addTwo)
 
-    "Two roots, one dependent" - {
-      val buf = Buffer.empty[Int]
-      def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
+    val _ = run(addThree)
+    assertEquals(Buffer(1, 2, 3), buf)
+  }
 
-      val addOne = add(1)
-      val addTwo = add(2)
-      val addThree = add(3)
-      addThree.dependsOn(addOne)
-      addThree.dependsOn(addTwo)
+  @Test
+  def twoRootsOneDependent = {
+    val buf = Buffer.empty[Int]
+    def add(x: Int): Task[Unit] = new Task(_ => buf.synchronized { buf += x; () }, () => ())
 
-      addThree.run().map { _ =>
-        assert(buf == Buffer(1, 2, 3) || buf == Buffer(2, 1, 3))
-      }
-    }
+    val addOne = add(1)
+    val addTwo = add(2)
+    val addThree = add(3)
+    addThree.dependsOn(addOne)
+    addThree.dependsOn(addTwo)
 
-    "Un-necessary tasks are not run" - {
-      val buf = Buffer.empty[Int]
-      def add(x: Int): Task[Unit] = new Task(_ => buf += x, () => ())
+    val _ = run(addThree)
+    assertTrue(s"buf = $buf", buf == Buffer(1, 2, 3) || buf == Buffer(2, 1, 3))
+  }
 
-      val addOne = add(1)
-      val addTwo = add(2)
-      val addThree = add(3)
-      val addFour = add(4)
+  @Test
+  def unnecessaryTasksAreNotRun = {
+    val buf = Buffer.empty[Int]
+    def add(x: Int): Task[Unit] = new Task(_ => buf.synchronized { buf += x; () }, () => ())
 
-      addTwo.dependsOn(addOne)
-      addThree.dependsOn(addTwo)
-      addFour.dependsOn(addThree)
+    val addOne = add(1)
+    val addTwo = add(2)
+    val addThree = add(3)
+    val addFour = add(4)
 
-      addThree.run().map { case _ => assert(buf == Buffer(1, 2, 3)) }
-    }
+    addTwo.dependsOn(addOne)
+    addThree.dependsOn(addTwo)
+    addFour.dependsOn(addThree)
 
-    "Results are combined" - {
-      def add(x: Int): Task[Set[Int]] = new Task(_ + x, () => ())
+    val _ = run(addThree)
+    assertEquals(Buffer(1, 2, 3), buf)
+  }
 
-      val addOne = add(1)
-      val addTwo = add(2)
-      val addThree = add(3)
-      val addFour = add(4)
-      val addFive = add(5)
+  @Test
+  def resultsAreCombined = {
+    def add(x: Int): Task[Set[Int]] = new Task(_ + x, () => ())
 
-      addTwo.dependsOn(addOne)
-      addThree.dependsOn(addTwo)
-      addFive.dependsOn(addThree)
-      addFive.dependsOn(addFour)
+    val addOne = add(1)
+    val addTwo = add(2)
+    val addThree = add(3)
+    val addFour = add(4)
+    val addFive = add(5)
 
-      addFive.run.map {
-        case Task.Success(numbers) =>
-          assert(numbers == Set(1, 2, 3, 4, 5))
-        case _ =>
-          assert(false)
-      }
-    }
+    addTwo.dependsOn(addOne)
+    addThree.dependsOn(addTwo)
+    addFive.dependsOn(addThree)
+    addFive.dependsOn(addFour)
 
-    "Task failure reports partial results" - {
-      implicit val mergeable: Mergeable[Set[Int]] =
-        sets => sets.foldLeft(Set.empty[Int])(_ ++ _)
-
-      def add(x: Int): Task[Set[Int]] =
-        new Task(nbs => {
-          if (x == 3) throw new Exception("Boom!")
-          else nbs + x
-        }, () => ())
-
-      val addOne = add(1)
-      val addTwo = add(2)
-      val addThree = add(3)
-      val addFour = add(4)
-      val addFive = add(5)
-
-      addThree.dependsOn(addTwo)
-      addFour.dependsOn(addOne)
-      addFour.dependsOn(addThree)
-      addFive.dependsOn(addFour)
-
-      addFive.run().map {
-        case Task.Failure(partial, reasons) =>
-          assert(partial == Set(1, 2))
-          assert(reasons.map(_.getMessage) == List("Boom!"))
-        case Task.Success(_) => sys.error("The task failure did not report partial results!")
-      }
+    run(addFive) match {
+      case Task.Success(numbers) =>
+        assertEquals(Set(1, 2, 3, 4, 5), numbers)
+      case Task.Failure(_, reasons) =>
+        fail("Task execution failed: " + reasons.map(_.getMessage))
     }
   }
 
-  TestRunner.runAsync(tests).map { results =>
-    val leafResults = results.leaves.toSeq
-    leafResults.foreach(result => assert(result.value.isSuccess))
+  @Test
+  def taskFailureReportsPartialResults = {
+    implicit val mergeable: Mergeable[Set[Int]] =
+      sets => sets.foldLeft(Set.empty[Int])(_ ++ _)
+
+    def add(x: Int): Task[Set[Int]] =
+      new Task(nbs => {
+        if (x == 3) throw new Exception("Boom!")
+        else nbs + x
+      }, () => ())
+
+    val addOne = add(1)
+    val addTwo = add(2)
+    val addThree = add(3)
+    val addFour = add(4)
+    val addFive = add(5)
+
+    addThree.dependsOn(addTwo)
+    addFour.dependsOn(addOne)
+    addFour.dependsOn(addThree)
+    addFive.dependsOn(addFour)
+
+    run(addFive) match {
+      case Task.Failure(partial, reasons) =>
+        assertEquals(Set(1, 2), partial)
+        assertEquals(List("Boom!"), reasons.map(_.getMessage))
+      case Task.Success(_) => fail("The task failure did not report partial results!")
+    }
   }
 
 }

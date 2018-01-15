@@ -2,7 +2,9 @@ package bloop.logging
 
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.experimental.categories.Category
 
+@Category(Array(classOf[bloop.FastTests]))
 class ProcessLoggerSpec {
 
   @Test

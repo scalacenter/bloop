@@ -11,7 +11,9 @@ import bloop.exec.JavaEnv
 import bloop.tasks.{CompilationHelpers, ProjectHelpers}
 import bloop.tasks.ProjectHelpers.{RootProject, noPreviousResult, withState}
 import org.junit.Test
+import org.junit.experimental.categories.Category
 
+@Category(Array(classOf[bloop.FastTests]))
 class FileWatchingSpec {
   @scala.annotation.tailrec
   final def readCompilingLines(target: Int, msg: String, out: ByteArrayOutputStream): Int = {

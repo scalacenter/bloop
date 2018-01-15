@@ -1,38 +1,40 @@
 package bloop.tasks
 
 import java.nio.file.{Files, Path, Paths}
+import java.util.{Arrays, Collection}
+
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.experimental.categories.Category
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Dag, Exit, Interpreter, Run}
 import bloop.exec.JavaEnv
-import bloop.{DynTest, Project}
+import bloop.Project
 import bloop.io.AbsolutePath
 
-object IntegrationTestSuite extends DynTest {
-  val projects = Files.list(ProjectHelpers.testProjectsBase)
+object IntegrationTestSuite {
+  val projects = Files
+    .list(ProjectHelpers.testProjectsBase)
+    .toArray
+    .map(Array.apply(_))
 
-  projects.forEach { testDirectory =>
-    test(testDirectory.getFileName.toString) {
-      testProject(testDirectory)
-    }
+  @Parameters
+  def data() = {
+    Arrays.asList(projects: _*)
   }
+}
 
-  private def removeClassFiles(p: Project): Unit = {
-    val classesDirPath = p.classesDir.underlying
-    if (Files.exists(classesDirPath)) {
-      Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
-    }
-  }
+@Category(Array(classOf[bloop.SlowTests]))
+@RunWith(classOf[Parameterized])
+class IntegrationTestSuite(testDirectory: Path) {
+  val integrationTestName = testDirectory.getFileName.toString
 
-  private def getModuleToCompile(testDirectory: Path): Option[String] = {
-    import scala.collection.JavaConverters._
-    val toCompile = testDirectory.resolve("module-to-compile.txt")
-
-    if (Files.exists(toCompile)) Files.readAllLines(toCompile).asScala.headOption
-    else None
-  }
-
-  private def testProject(testDirectory: Path): Unit = {
+  @Test
+  def compileProject: Unit = {
 
     val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
     val (state, projectToCompile) = getModuleToCompile(testDirectory) match {
@@ -69,11 +71,32 @@ object IntegrationTestSuite extends DynTest {
 
     val reachable = Dag.dfs(state.build.getDagFor(projectToCompile)).filter(_ != projectToCompile)
     reachable.foreach(removeClassFiles)
-    assert(reachable.forall(p => ProjectHelpers.noPreviousResult(p, state)))
+    reachable.foreach { p =>
+      assertTrue(s"Project `$integrationTestName/${p.name}` is already compiled.",
+                 ProjectHelpers.noPreviousResult(p, state))
+    }
 
     val action =
       Run(Commands.Compile(projectToCompile.name, incremental = true), Exit(ExitStatus.Ok))
     val state1 = Interpreter.execute(action, state)
-    assert(reachable.forall(p => ProjectHelpers.hasPreviousResult(p, state1)))
+    reachable.foreach { p =>
+      assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",
+                 ProjectHelpers.hasPreviousResult(p, state1))
+    }
+  }
+
+  private def removeClassFiles(p: Project): Unit = {
+    val classesDirPath = p.classesDir.underlying
+    if (Files.exists(classesDirPath)) {
+      Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
+    }
+  }
+
+  private def getModuleToCompile(testDirectory: Path): Option[String] = {
+    import scala.collection.JavaConverters._
+    val toCompile = testDirectory.resolve("module-to-compile.txt")
+
+    if (Files.exists(toCompile)) Files.readAllLines(toCompile).asScala.headOption
+    else None
   }
 }

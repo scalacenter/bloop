@@ -1,6 +1,15 @@
 package bloop.tasks
 
-import bloop.{DynTest, Project}
+import java.util.{Arrays, Collection}
+
+import org.junit.Assert.{assertEquals, assertTrue}
+import org.junit.Test
+import org.junit.experimental.categories.Category
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
+
+import bloop.Project
 import bloop.engine.State
 import bloop.exec.{InProcess, JavaEnv, ProcessConfig}
 import bloop.reporter.ReporterConfig
@@ -9,7 +18,19 @@ import bloop.engine.tasks.Tasks
 import bloop.testing.{DiscoveredTests, TestInternals}
 import xsbti.compile.CompileAnalysis
 
-object TestTaskTest extends DynTest {
+object TestTaskTest {
+  // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
+  val frameworkNames = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest")
+
+  @Parameters
+  def data(): Collection[Array[String]] = {
+    Arrays.asList(frameworkNames.map(Array.apply(_)): _*)
+  }
+}
+
+@Category(Array(classOf[bloop.SlowTests]))
+@RunWith(classOf[Parameterized])
+class TestTaskTest(framework: String) {
   private val TestProjectName = "with-tests"
   private val (testState: State, testProject: Project, testAnalysis: CompileAnalysis) = {
     import bloop.util.JavaCompat.EnrichOptional
@@ -22,13 +43,15 @@ object TestTaskTest extends DynTest {
     (state, project, analysis)
   }
 
-  test("Test project can be selected with or without `-test` suffix") {
+  @Test
+  def testSuffixCanBeOmitted = {
+    val expectedName = TestProjectName + "-test"
     val withoutSuffix = Tasks.pickTestProject(TestProjectName, testState)
-    val withSuffix = Tasks.pickTestProject(s"$TestProjectName-test", testState)
-    assert(withoutSuffix.isDefined)
-    assert(withoutSuffix.get.name == "with-tests-test")
-    assert(withSuffix.isDefined)
-    assert(withSuffix.get.name == "with-tests-test")
+    val withSuffix = Tasks.pickTestProject(expectedName, testState)
+    assertTrue("Couldn't find the project without suffix", withoutSuffix.isDefined)
+    assertEquals(expectedName, withoutSuffix.get.name)
+    assertTrue("Couldn't find the project with suffix", withSuffix.isDefined)
+    assertEquals(expectedName, withSuffix.get.name)
   }
 
   private def processRunnerConfig(fork: Boolean): ProcessConfig = {
@@ -45,14 +68,14 @@ object TestTaskTest extends DynTest {
       TestInternals.getFramework(classLoader, n.toList, testState.logger))
   }
 
-  private def runTestFramework(frameworkName: String, fork: Boolean): Unit = {
+  private def runTestFramework(fork: Boolean): Unit = {
     testState.logger.quietIfSuccess { logger =>
       val config = processRunnerConfig(fork)
       val classLoader = testLoader(config)
       val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader)).toList
       val tests = discovered.flatMap {
         case (framework, taskDefs) =>
-          val testName = s"${frameworkName}Test"
+          val testName = s"${framework}Test"
           val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
           Seq(framework -> filteredDefs)
       }.toMap
@@ -61,25 +84,21 @@ object TestTaskTest extends DynTest {
     }
   }
 
-  // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
-  val frameworkNames = List("ScalaTest", "ScalaCheck", "Specs2", "UTest")
-  frameworkNames.foreach { framework =>
-    test(s"$framework's tests are detected") {
-      testState.logger.quietIfSuccess { logger =>
-        val config = processRunnerConfig(fork = false)
-        val classLoader = testLoader(config)
-        val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader))
-        val testNames = discovered.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName()))
-        assert(testNames.exists(_.contains(s"${framework}Test")))
-      }
-    }
-
-    test(s"$framework's tests can be run in process") {
-      runTestFramework(framework, fork = false)
-    }
-
-    test(s"$framework's tests can be run in a forked JVM") {
-      runTestFramework(framework, fork = true)
+  @Test
+  def testsAreDetected = {
+    testState.logger.quietIfSuccess { logger =>
+      val config = processRunnerConfig(fork = false)
+      val classLoader = testLoader(config)
+      val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader))
+      val testNames = discovered.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName()))
+      assertTrue(s"Test not detected for $framework.",
+                 testNames.exists(_.contains(s"${framework}Test")))
     }
   }
+
+  @Test
+  def testsCanRunInProcess = runTestFramework(fork = false)
+
+  @Test
+  def testsCanRunInForkedJVM = runTestFramework(fork = true)
 }
