@@ -58,7 +58,7 @@ object BuildKeys {
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
   val testSettings: Seq[Def.Setting[_]] = List(
     integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
-    Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v"),
+    Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test
     ),
