@@ -106,9 +106,8 @@ lazy val sbtBloop = project
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
+    BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
-    // The scripted projects to setup are in the test resources of frontend
-    BuildDefaults.scriptedSettings(resourceDirectory in Test in frontend),
   )
 
 val mavenBloop = project
