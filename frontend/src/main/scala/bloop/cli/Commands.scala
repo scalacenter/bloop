@@ -46,7 +46,6 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project to test.")
       project: String,
-      @ExtraName("all")
       @HelpMessage("Do not run tests for dependencies. By default, false.")
       isolated: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
