@@ -60,12 +60,12 @@ object Bloop extends CaseApp[CliOptions] {
         run(Interpreter.execute(action, state))
 
       case Array("runMain", projectName, mainClass, args @ _*) =>
-        val command = Commands.Run(projectName, Some(mainClass), scalacstyle = false, args.toList)
+        val command = Commands.Run(projectName, Some(mainClass), args = args.toList)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
       case Array("run", projectName, args @ _*) =>
-        val command = Commands.Run(projectName, None, scalacstyle = false, args.toList)
+        val command = Commands.Run(projectName, None, args = args.toList)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
