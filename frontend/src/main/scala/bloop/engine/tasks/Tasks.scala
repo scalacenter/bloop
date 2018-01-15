@@ -112,8 +112,9 @@ object Tasks {
    * @return The new state of Bloop after cleaning.
    */
   def clean(state: State, targets: List[Project]): State = {
+    val allTargetsToClean = targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
     val results = state.results
-    val newResults = results.reset(state.build.projects)
+    val newResults = results.reset(allTargetsToClean)
     state.copy(results = newResults)
   }
 
