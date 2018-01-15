@@ -131,7 +131,7 @@ object Interpreter {
         // Note that we always compile incrementally for test execution
         val reporter = ReporterConfig.toFormat(cmd.reporter)
         val state1 = Tasks.compile(state, project, reporter)
-        Tasks.test(state1, project, cmd.aggregate)
+        Tasks.test(state1, project, cmd.isolated)
       }
 
       if (!cmd.watch) run(state)

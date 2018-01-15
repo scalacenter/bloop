@@ -47,8 +47,8 @@ object Commands {
       @HelpMessage("The project to test.")
       project: String,
       @ExtraName("all")
-      @HelpMessage("Run the tests in dependencies. Defaults to true.")
-      aggregate: Boolean = false,
+      @HelpMessage("Do not run tests for dependencies. By default, false.")
+      isolated: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")

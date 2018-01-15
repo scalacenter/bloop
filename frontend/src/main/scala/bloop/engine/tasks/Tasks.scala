@@ -177,20 +177,19 @@ object Tasks {
   }
 
   /**
-   * Run the tests for `project`, and its dependencies if `aggregate` is set.
+   * Run the tests for `project` and its dependencies (optional).
    *
    * @param state The current state of Bloop.
    * @param project The project for which to run the tests.
-   * @param aggregate If set, also run the tests for the dependencies of `project`. Otherwise,
-   *                  run the tests only for `project` otherwise.
+   * @param isolated Do not run the tests for the dependencies of `project`.
    * @return The new state of Bloop.
    */
-  def test(state: State, project: Project, aggregate: Boolean): State = {
+  def test(state: State, project: Project, isolated: Boolean): State = {
     // TODO(jvican): This method should cache the test loader always.
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
 
-    val projectsToTest = if (aggregate) Dag.dfs(state.build.getDagFor(project)) else List(project)
+    val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
     projectsToTest.foreach { project =>
       val projectName = project.name
       val processConfig = ProcessConfig(project.javaEnv, project.classpath)

@@ -55,7 +55,7 @@ object Bloop extends CaseApp[CliOptions] {
         run(Interpreter.execute(action, state))
 
       case Array("test", projectName) =>
-        val command = Commands.Test(projectName, aggregate = true)
+        val command = Commands.Test(projectName)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(Interpreter.execute(action, state))
 
