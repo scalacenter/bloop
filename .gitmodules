@@ -44,5 +44,5 @@
 	branch = bloop
 [submodule "bsp"]
 	path = bsp
-	url = git@github.com:scalacenter/bsp.git
+	url = https://github.com/scalacenter/bsp.git
 	branch = master
