@@ -75,7 +75,7 @@ object MojoImplementation {
       val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toList
       val allScalaJars = mojo.getAllScalaJars()
       val tmpDir = new File(classesDir, "tmp-bloop")
-      val fork = mojo.getFork()
+      val fork = mojo.getRunFork()
       val javaOptions = launcher.getJvmArgs()
       val javaHome = mojo.getJavaHome()
 

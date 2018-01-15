@@ -209,7 +209,6 @@ object BuildImplementation {
 
     private def createScriptedSetup(testDir: File) = {
       s"""
-         |import bloop.integrations.sbt.SbtBloop.autoImport.bloopConfigDir
          |bloopConfigDir in Global := file("$testDir/bloop-config")
          |TaskKey[Unit]("registerDirectory") := {
          |  val dir = (baseDirectory in ThisBuild).value
