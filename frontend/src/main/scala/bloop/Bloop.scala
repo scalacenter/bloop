@@ -4,6 +4,7 @@ import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.cli.CliParsers.{inputStreamRead, printStreamRead, OptionsParser, pathParser}
 import bloop.engine.{Build, Exit, Interpreter, Run, State}
 import bloop.engine.tasks.Tasks
+import bloop.exec.MultiplexedStreams
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
