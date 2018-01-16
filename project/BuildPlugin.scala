@@ -142,7 +142,6 @@ object BuildImplementation {
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
-    Keys.commands += Semanticdb.command(Keys.crossScalaVersions.value),
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
@@ -173,7 +172,7 @@ object BuildImplementation {
     import sbt.State
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
-    val hijacked = sbt.AttributeKey[Boolean]("The hijacked option.")
+    val hijacked = sbt.AttributeKey[Boolean]("bloopHijackedOption")
     val onLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
