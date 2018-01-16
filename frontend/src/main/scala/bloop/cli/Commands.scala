@@ -46,9 +46,8 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project to test.")
       project: String,
-      @ExtraName("all")
-      @HelpMessage("Run the tests in dependencies. Defaults to true.")
-      aggregate: Boolean = false,
+      @HelpMessage("Do not run tests for dependencies. By default, false.")
+      isolated: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
@@ -68,6 +67,8 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The projects to clean.")
       projects: List[String],
+      @HelpMessage("Do not run clean for dependencies. By default, false.")
+      isolated: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
