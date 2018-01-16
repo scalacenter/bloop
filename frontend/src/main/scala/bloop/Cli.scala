@@ -154,8 +154,8 @@ object Cli {
 
     def createLogger(configDir: AbsolutePath, options: CliOptions, logToFile: Boolean): Logger = {
       val loggerId = configDir.syntax
-      if (logToFile) BloopLogger.at(loggerId, options.common.out, options.common.err)
-      else BloopLogger.atFile(loggerId, Paths.bloopLogsDir.resolve("bsp.log"))
+      if (logToFile) BloopLogger.atFile(loggerId, Paths.bloopLogsDir.resolve("bsp.log"))
+      else BloopLogger.at(loggerId, options.common.out, options.common.err)
     }
 
     val (cliOptions, logToFile) = action match {
