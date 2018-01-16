@@ -65,6 +65,10 @@ object ReporterConfig {
       ScalacFormat
     )
 
-  def getDefault(value: Boolean): ReporterConfig =
-    if (value) scalacFormat else defaultFormat
+
+  import bloop.cli.{ReporterKind, ScalacReporter, BloopReporter}
+  def toFormat(kind: ReporterKind): ReporterConfig = kind match {
+    case ScalacReporter => scalacFormat
+    case BloopReporter => defaultFormat
+  }
 }

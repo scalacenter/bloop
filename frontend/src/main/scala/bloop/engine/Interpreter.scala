@@ -77,7 +77,7 @@ object Interpreter {
   }
 
   private def compile(cmd: Commands.Compile, state: State): State = {
-    val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
+    val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
     def runCompile(project: Project): State = {
       def doCompile(state: State): State =
         Tasks.compile(state, project, reporterConfig).mergeStatus(ExitStatus.Ok)
@@ -115,7 +115,7 @@ object Interpreter {
   }
 
   private def console(cmd: Commands.Console, state: State): State = {
-    val reporterConfig = ReporterConfig.getDefault(cmd.scalacstyle)
+    val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
     def runConsole(project: Project) =
       Tasks.console(state, project, reporterConfig, cmd.excludeRoot)
 
@@ -129,7 +129,7 @@ object Interpreter {
     def compileAndTest(state: State, project: Project): State = {
       def run(state: State) = {
         // Note that we always compile incrementally for test execution
-        val reporter = ReporterConfig.getDefault(cmd.scalacstyle)
+        val reporter = ReporterConfig.toFormat(cmd.reporter)
         val state1 = Tasks.compile(state, project, reporter)
         Tasks.test(state1, project, cmd.aggregate)
       }
@@ -171,7 +171,7 @@ object Interpreter {
   }
 
   private def run(cmd: Commands.Run, state: State): State = {
-    val reporter = ReporterConfig.getDefault(cmd.scalacstyle)
+    val reporter = ReporterConfig.toFormat(cmd.reporter)
     def getMainClass(state: State, project: Project): Option[String] = {
       Tasks.findMainClasses(state, project) match {
         case Array() =>

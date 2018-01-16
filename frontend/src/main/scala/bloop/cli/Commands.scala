@@ -10,7 +10,7 @@ object Commands {
 
   sealed trait CoreCommand extends Command {
     def project: String
-    def scalacstyle: Boolean
+    def reporter: ReporterKind
   }
 
   case class Help(
@@ -27,8 +27,8 @@ object Commands {
       project: String,
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
-      @HelpMessage("Disable improved error message format. By default, false.")
-      scalacstyle: Boolean = false,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
@@ -49,8 +49,8 @@ object Commands {
       @ExtraName("all")
       @HelpMessage("Run the tests in dependencies. Defaults to true.")
       aggregate: Boolean = false,
-      @HelpMessage("Disable improved error message format. By default, false.")
-      scalacstyle: Boolean = false,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
@@ -75,8 +75,8 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project for which to start the console.")
       project: String,
-      @HelpMessage("Disable improved error message format. By default, false.")
-      scalacstyle: Boolean = false,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
@@ -89,8 +89,8 @@ object Commands {
       @ExtraName("m")
       @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
       main: Option[String] = None,
-      @HelpMessage("If set, disable improved error message format. By default, false.")
-      scalacstyle: Boolean = false,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
       @HelpMessage("The arguments to pass to the application")
       args: List[String] = Nil,
       @ExtraName("w")
