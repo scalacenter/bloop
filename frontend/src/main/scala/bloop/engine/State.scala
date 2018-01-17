@@ -6,6 +6,8 @@ import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
 import bloop.logging.{BloopLogger, Logger}
 
+import monix.execution.Scheduler
+
 /**
  * Represents the state for a given build.
  *
@@ -28,8 +30,8 @@ final case class State private (
     status: ExitStatus,
     logger: Logger
 ) {
-  private[bloop] val executionContext: scala.concurrent.ExecutionContext =
-    ExecutionContext.threadPool
+  private[bloop] val scheduler: Scheduler =
+    ExecutionContext.scheduler
   /* TODO: Improve the handling and merging of different status. Use the status to report errors. */
   def mergeStatus(newStatus: ExitStatus): State =
     this.copy(status = ExitStatus.merge(status, newStatus))

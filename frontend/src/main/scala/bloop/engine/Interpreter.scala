@@ -1,17 +1,26 @@
 package bloop.engine
 
+import bloop.bsp.BspServer
+import scala.annotation.tailrec
+
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{Task, Tasks}
 import bloop.Project
-import bloop.bsp.BspServer
+import bloop.logging.Logger
 
 object Interpreter {
+  @tailrec
   def execute(action: Action, state: State): State = {
-    def logAndTime[T](state: State, cliOptions: CliOptions, action: => T): T =
-      state.logger.verboseIf(cliOptions.verbose) { timed(state.logger) { action } }
+    def logAndTime(cliOptions: CliOptions, action: => Task[State]): State = {
+      state.logger.verboseIf(cliOptions.verbose) {
+        timed(state.logger) {
+          action.await()(state.scheduler).recover(logAndContinue(state.logger)(state))
+        }
+      }
+    }
 
     action match {
       case Exit(exitStatus) if state.status.isOk => state.mergeStatus(exitStatus)
@@ -20,24 +29,23 @@ object Interpreter {
         state.logger.info(msg)
         execute(next, state)
       case Run(Commands.About(cliOptions), next) =>
-        val status = logAndTime(state, cliOptions, printAbout(state))
-        execute(next, state.mergeStatus(status))
+        execute(next, logAndTime(cliOptions, printAbout(state)))
       case Run(cmd: Commands.ValidatedBsp, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, runBsp(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, runBsp(cmd, state)))
       case Run(cmd: Commands.Clean, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, clean(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, clean(cmd, state)))
       case Run(cmd: Commands.Compile, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, compile(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, compile(cmd, state)))
       case Run(cmd: Commands.Console, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, console(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, console(cmd, state)))
       case Run(cmd: Commands.Projects, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, showProjects(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, showProjects(cmd, state)))
       case Run(cmd: Commands.Test, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, test(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, test(cmd, state)))
       case Run(cmd: Commands.Run, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, run(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
-        execute(next, logAndTime(state, cmd.cliOptions, configure(cmd, state)))
+        execute(next, logAndTime(cmd.cliOptions, configure(cmd, state)))
       case Run(cmd: Commands.Bsp, next) =>
         val msg = "Internal error: command bsp must be validated before use."
         execute(Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError)), state)
@@ -46,7 +54,7 @@ object Interpreter {
 
   private final val t = "    "
   private final val line = System.lineSeparator()
-  private def printAbout(state: State): ExitStatus = {
+  private def printAbout(state: State): Task[State] = Task {
     import state.logger
     val bloopName = bloop.internal.build.BuildInfo.name
     val bloopVersion = bloop.internal.build.BuildInfo.version
@@ -69,48 +77,56 @@ object Interpreter {
     logger.info(s"$versions$line$line") // I have no idea why two are required, one is not enough
     logger.info(s"${t}It is maintained by $developers.")
 
-    ExitStatus.Ok
+    state.mergeStatus(ExitStatus.Ok)
   }
 
-  private def runBsp(cmd: Commands.ValidatedBsp, state: State): State = {
-    import scala.concurrent.Await
-    import scala.concurrent.duration.Duration
+  private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
     val scheduler = ExecutionContext.bspScheduler
-    val runningBsp = BspServer.run(cmd, state, scheduler)
-    Await.result(runningBsp.runAsync(scheduler), Duration.Inf)
+    new Task(BspServer.run(cmd, state, scheduler), Nil)
   }
 
-  private def watch(project: Project, state: State, f: State => State): State = {
+  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = Task {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
     val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
+    val watchFn: State => State = { state =>
+      val result = f(state).await()(state.scheduler)
+      result.recover(logAndContinue(state.logger)(state))
+    }
+
     // Force the first operation and then allow the watcher to execute it in next steps
-    watcher.watch(f(state), f)
+    val forced = watchFn(state)
+
+    watcher.watch(forced, watchFn)
   }
 
-  private def compile(cmd: Commands.Compile, state: State): State = {
+  private def compile(cmd: Commands.Compile, state: State): Task[State] = {
     val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
-    def runCompile(project: Project): State = {
-      def doCompile(state: State): State =
-        Tasks.compile(state, project, reporterConfig).mergeStatus(ExitStatus.Ok)
-      if (cmd.incremental) {
-        if (!cmd.watch) doCompile(state)
-        else watch(project, state, doCompile _)
-      } else {
-        // Clean is isolated because we pass in all the build projects
-        val newState = Tasks.clean(state, state.build.projects, true)
-        if (!cmd.watch) doCompile(newState)
-        else watch(project, newState, doCompile _)
-      }
-    }
 
     state.build.getProjectFor(cmd.project) match {
-      case Some(project) => runCompile(project)
-      case None => reportMissing(cmd.project :: Nil, state)
+      case Some(project) =>
+        def doCompile(state: State): Task[State] = {
+          Tasks.compile(state, project, reporterConfig).map(_.mergeStatus(ExitStatus.Ok))
+        }
+
+        val initialState = {
+          if (cmd.incremental) Task(state)
+          else {
+            // Clean is isolated because we pass in all the build projects
+            Tasks.clean(state, state.build.projects, true)
+          }
+        }
+        initialState.flatMap { state =>
+          if (!cmd.watch) doCompile(state)
+          else watch(project, state, doCompile _)
+        }
+
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
     }
   }
 
-  private def showProjects(cmd: Commands.Projects, state: State): State = {
+  private def showProjects(cmd: Commands.Projects, state: State): Task[State] = Task {
     import state.logger
     if (cmd.dotGraph) {
       val contents = Dag.toDotGraph(state.build.dags)
@@ -127,34 +143,36 @@ object Interpreter {
     state.mergeStatus(ExitStatus.Ok)
   }
 
-  private def console(cmd: Commands.Console, state: State): State = {
+  private def console(cmd: Commands.Console, state: State): Task[State] = {
     val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
-    def runConsole(project: Project) =
-      Tasks.console(state, project, reporterConfig, cmd.excludeRoot)
 
     state.build.getProjectFor(cmd.project) match {
-      case Some(project) => runConsole(project).mergeStatus(ExitStatus.Ok)
-      case None => reportMissing(cmd.project :: Nil, state)
+      case Some(project) =>
+        for {
+          compiled <- Tasks.compile(state, project, reporterConfig, cmd.excludeRoot)
+          result <- Tasks.console(compiled, project, reporterConfig, cmd.excludeRoot)
+        } yield result.mergeStatus(ExitStatus.Ok)
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
     }
   }
 
-  private def test(cmd: Commands.Test, state: State): State = {
-    def compileAndTest(state: State, project: Project): State = {
-      def run(state: State) = {
-        // Note that we always compile incrementally for test execution
-        val reporter = ReporterConfig.toFormat(cmd.reporter)
-        val state1 = Tasks.compile(state, project, reporter)
-        Tasks.test(state1, project, cmd.isolated)
-      }
+  private def test(cmd: Commands.Test, state: State): Task[State] = {
+    val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
 
-      if (!cmd.watch) run(state)
-      else watch(project, state, run _)
-    }
+    Tasks.pickTestProject(cmd.project, state) match {
+      case Some(project) =>
+        def doTest(state: State): Task[State] = {
+          for {
+            compiled <- Tasks.compile(state, project, reporterConfig, excludeRoot = false)
+            result <- Tasks.test(compiled, project, cmd.isolated)
+          } yield result
+        }
+        if (cmd.watch) watch(project, state, doTest _)
+        else doTest(state)
 
-    val projectToTest = Tasks.pickTestProject(cmd.project, state)
-    projectToTest match {
-      case Some(project) => compileAndTest(state, project)
-      case None => reportMissing(cmd.project :: Nil, state)
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -171,54 +189,58 @@ object Interpreter {
     }
   }
 
-  private def configure(cmd: Commands.Configure, state: State): State = {
+  private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
     if (cmd.threads != ExecutionContext.executor.getCorePoolSize)
       State.setCores(state, cmd.threads)
     else state
   }
 
-  private def clean(cmd: Commands.Clean, state: State): State = {
+  private def clean(cmd: Commands.Clean, state: State): Task[State] = {
     val (projects, missing) = lookupProjects(cmd.projects, state)
-    if (missing.isEmpty) Tasks.clean(state, projects, cmd.isolated).mergeStatus(ExitStatus.Ok)
-    else reportMissing(missing, state)
+    if (missing.isEmpty)
+      Tasks.clean(state, projects, cmd.isolated).map(_.mergeStatus(ExitStatus.Ok))
+    else Task(reportMissing(missing, state))
   }
 
-  private def run(cmd: Commands.Run, state: State): State = {
+  private def run(cmd: Commands.Run, state: State): Task[State] = {
     val reporter = ReporterConfig.toFormat(cmd.reporter)
-    def getMainClass(state: State, project: Project): Option[String] = {
-      Tasks.findMainClasses(state, project) match {
-        case Array() =>
-          state.logger.error(s"No main classes found in project '${project.name}'")
-          None
-        case Array(main) =>
-          Some(main)
-        case mainClasses =>
-          val eol = System.lineSeparator
-          val message = s"""Several main classes were found, specify which one:
-                           |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
-          state.logger.error(message)
-          None
-      }
-    }
-    def run(project: Project): State = {
-      def doRun(state: State): State = {
-        val compiledState = Tasks.compile(state, project, reporter)
-        val selectedMainClass = cmd.main.orElse(getMainClass(compiledState, project))
-        selectedMainClass
-          .map { main =>
-            val args = cmd.args.toArray
-            Tasks.run(compiledState, project, main, args)
-          }
-          .getOrElse(compiledState.mergeStatus(ExitStatus.UnexpectedError))
-      }
-
-      if (!cmd.watch) doRun(state)
-      else watch(project, state, doRun _)
-    }
 
     state.build.getProjectFor(cmd.project) match {
-      case Some(project) => run(project)
-      case None => reportMissing(cmd.project :: Nil, state)
+      case Some(project) =>
+        def getMainClass(state: State): Option[String] = {
+          cmd.main.orElse {
+            Tasks.findMainClasses(state, project) match {
+              case Array() =>
+                state.logger.error(s"No main classes found in project '${project.name}'")
+                None
+              case Array(main) =>
+                Some(main)
+              case mainClasses =>
+                val eol = System.lineSeparator
+                val message = s"""Several main classes were found, specify which one:
+                                 |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+                state.logger.error(message)
+                None
+            }
+          }
+        }
+        def doRun(state: State): Task[State] = {
+          Tasks.compile(state, project, reporter, excludeRoot = false).flatMap { compiled =>
+            getMainClass(compiled) match {
+              case None =>
+                Task(compiled.mergeStatus(ExitStatus.UnexpectedError))
+              case Some(main) =>
+                val args = cmd.args.toArray
+                Tasks.run(compiled, project, main, args)
+            }
+          }
+        }
+
+        if (cmd.watch) watch(project, state, doRun _)
+        else doRun(state)
+
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -228,5 +250,12 @@ object Interpreter {
     state.logger.error(s"No projects named $projects found in '$configDirectory'.")
     state.logger.error(s"Use the `projects` command to list existing projects.")
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
+  }
+
+  private def logAndContinue[T](logger: Logger)(result: T): PartialFunction[Throwable, T] = {
+    case error =>
+      logger.error(error.getMessage)
+      logger.trace(error)
+      result
   }
 }

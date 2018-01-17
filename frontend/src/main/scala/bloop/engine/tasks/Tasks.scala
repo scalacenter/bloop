@@ -3,15 +3,13 @@ package bloop.engine.tasks
 import bloop.cli.ExitStatus
 import bloop.engine.{Dag, State}
 import bloop.exec.ProcessConfig
-import bloop.io.AbsolutePath
 import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 
-import java.net.URLClassLoader
+import java.util.concurrent.ConcurrentHashMap
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.Await
+import scala.util.control.NonFatal
 
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
@@ -21,7 +19,7 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
   private type Results = Map[Project, PreviousResult]
-  private val EmptyTask = new Task[Results](identity, () => ())
+  private val EmptyTask = Task[Results](Map.empty)
 
   /**
    * Performs incremental compilation of the dependencies of `project`, including `project` if
@@ -39,7 +37,7 @@ object Tasks {
       project: Project,
       reporterConfig: ReporterConfig,
       excludeRoot: Boolean = false
-  ): State = {
+  ): Task[State] = {
     import state.{logger, compilerCache}
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
       val instance = project.scalaInstance
@@ -56,52 +54,37 @@ object Tasks {
       // FORMAT: ON
     }
 
-    def runCompilation(project: Project, rs: Results): Results = {
-      val previousResult = state.results.getResult(project)
-      val inputs = toInputs(project, reporterConfig, previousResult)
-      val result = Compiler.compile(inputs)
-      rs + (project -> result)
-    }
+    val resultsBuffer = new ConcurrentHashMap[Project, PreviousResult]
 
-    import bloop.engine.{Leaf, Parent}
-    val visitedTasks = scala.collection.mutable.HashMap[Dag[Project], Task[Results]]()
-    def compileTask(project: Project) =
-      new Task((rs: Results) => runCompilation(project, rs), () => ())
-    def constructTaskGraph(dag: Dag[Project], root: Boolean): Task[Results] = {
-      def createTask: Task[Results] = {
-        dag match {
-          case Leaf(project) if root && excludeRoot => EmptyTask
-          case Leaf(project) => compileTask(project)
-          case Parent(project, children) =>
-            val childrenCompilations = children.map(constructTaskGraph(_, false))
-            val parentCompilation = if (root && excludeRoot) EmptyTask else compileTask(project)
-            childrenCompilations.foldLeft(parentCompilation) {
-              case (task, childrenTask) => task.dependsOn(childrenTask); task
-            }
+    def getDependencies(project: Project): Array[Project] = {
+      project.dependencies.flatMap(state.build.getProjectFor)
+    }
+    def runCompilation(project: Project): Task[Unit] = Task {
+      val dependencies = getDependencies(project)
+      if (dependencies.forall(resultsBuffer.containsKey)) {
+        val previousResult = state.results.getResult(project)
+        val inputs = toInputs(project, reporterConfig, previousResult)
+        try {
+          val result = Compiler.compile(inputs)
+          resultsBuffer.put(project, result)
+          ()
+        } catch {
+          case NonFatal(ex) =>
+            logger.error(s"Compilation failed for project ${project.name}")
+            logger.trace(ex)
         }
-      }
-
-      visitedTasks.get(dag) match {
-        case Some(task) => task
-        case None =>
-          val task = createTask
-          visitedTasks.put(dag, task)
-          task
+      } else {
+        logger.debug(
+          s"Compilation skipped for project ${project.name} because a dependency failed to compile.")
       }
     }
 
-    def updateState(state: State, results: Results): State = {
-      val cache = results.foldLeft(state.results) { case (rs, (p, r)) => rs.updateCache(p, r) }
+    Task.makeTaskGraph(getDependencies, runCompilation)(project).map { _ =>
+      var cache = state.results
+      resultsBuffer.forEach { (project, result) =>
+        cache = cache.updateCache(project, result)
+      }
       state.copy(results = cache)
-    }
-
-    val taskGraph = constructTaskGraph(state.build.getDagFor(project), true)
-    Await.result(taskGraph.run()(state.executionContext), Duration.Inf) match {
-      case Task.Success(results) => updateState(state, results)
-      case Task.Failure(partial, reasons) =>
-        logger.error("Compilation failed because of the following reasons:")
-        reasons.foreach(throwable => logger.trace(() => throwable))
-        updateState(state, partial)
     }
   }
 
@@ -113,7 +96,7 @@ object Tasks {
    * @param isolated Do not run clean for dependencies.
    * @return The new state of Bloop after cleaning.
    */
-  def clean(state: State, targets: List[Project], isolated: Boolean): State = {
+  def clean(state: State, targets: List[Project], isolated: Boolean): Task[State] = Task {
     val allTargetsToClean =
       if (isolated) targets
       else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
@@ -132,21 +115,18 @@ object Tasks {
    * @param noRoot  If false, include `project` on the classpath. Do not include it otherwise.
    * @return The new state of Bloop.
    */
-  def console(state: State, project: Project, config: ReporterConfig, noRoot: Boolean): State = {
-    def runConsole(state: State, project: Project, classpath: Array[AbsolutePath]): Unit = {
-      val scalaInstance = project.scalaInstance
-      val classpathFiles = classpath.map(_.underlying.toFile).toSeq
-      state.logger.debug(s"Setting up the console classpath with ${classpathFiles.mkString(", ")}")
-      val loader = ClasspathUtilities.makeLoader(classpathFiles, scalaInstance)
-      val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
-      val ctxLoader = Thread.currentThread().getContextClassLoader()
-      compiler.console(classpathFiles, project.scalacOptions, "", "", state.logger)(Some(loader))
-    }
-
-    val newState = compile(state, project, config, excludeRoot = noRoot)
+  def console(state: State,
+              project: Project,
+              config: ReporterConfig,
+              noRoot: Boolean): Task[State] = Task {
+    val scalaInstance = project.scalaInstance
     val classpath = project.classpath
-    runConsole(newState, project, classpath)
-    newState
+    val classpathFiles = classpath.map(_.underlying.toFile).toSeq
+    state.logger.debug(s"Setting up the console classpath with ${classpathFiles.mkString(", ")}")
+    val loader = ClasspathUtilities.makeLoader(classpathFiles, scalaInstance)
+    val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
+    compiler.console(classpathFiles, project.scalacOptions, "", "", state.logger)(Some(loader))
+    state
   }
 
   /**
@@ -189,38 +169,41 @@ object Tasks {
    * @param isolated Do not run the tests for the dependencies of `project`.
    * @return The new state of Bloop.
    */
-  def test(state: State, project: Project, isolated: Boolean): State = {
+  def test(state: State, project: Project, isolated: Boolean): Task[State] = {
     // TODO(jvican): This method should cache the test loader always.
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
 
-    val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
-    projectsToTest.foreach { project =>
-      val projectName = project.name
-      val processConfig = ProcessConfig(project.javaEnv, project.classpath)
-      val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
-      val frameworks = project.testFrameworks
-        .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
-      logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
-      val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
-        logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
-        sbt.internal.inc.Analysis.empty
+    Task {
+      val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
+      projectsToTest.foreach { project =>
+        val projectName = project.name
+        val processConfig = ProcessConfig(project.javaEnv, project.classpath)
+        val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+        val frameworks = project.testFrameworks
+          .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
+        logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
+        val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
+          logger.warn(
+            s"Test execution is triggered but no compilation detected for ${projectName}.")
+          Analysis.empty
+        }
+
+        val discoveredTests = {
+          val tests = discoverTests(analysis, frameworks)
+          DiscoveredTests(testLoader, tests)
+        }
+        val allTestNames: List[String] =
+          discoveredTests.tests.valuesIterator
+            .flatMap(defs => defs.map(_.fullyQualifiedName()))
+            .toList
+        logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
+        TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
       }
 
-      val discoveredTests = {
-        val tests = discoverTests(analysis, frameworks)
-        DiscoveredTests(testLoader, tests)
-      }
-      val allTestNames: List[String] =
-        discoveredTests.tests.valuesIterator
-          .flatMap(defs => defs.map(_.fullyQualifiedName()))
-          .toList
-      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
-      TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
+      // Return the previous state, test execution doesn't modify it.
+      state.mergeStatus(ExitStatus.Ok)
     }
-
-    // Return the previous state, test execution doesn't modify it.
-    state.mergeStatus(ExitStatus.Ok)
   }
 
   /**
@@ -231,17 +214,18 @@ object Tasks {
    * @param className The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    */
-  def run(state: State, project: Project, className: String, args: Array[String]): State = {
-    val classpath = project.classpath
-    val processConfig = ProcessConfig(project.javaEnv, classpath)
-    val exitCode = processConfig.runMain(className, args, state.logger)
-    val exitStatus = {
-      if (exitCode == ProcessConfig.EXIT_OK) ExitStatus.Ok
-      else ExitStatus.UnexpectedError
-    }
+  def run(state: State, project: Project, className: String, args: Array[String]): Task[State] =
+    Task {
+      val classpath = project.classpath
+      val processConfig = ProcessConfig(project.javaEnv, classpath)
+      val exitCode = processConfig.runMain(className, args, state.logger)
+      val exitStatus = {
+        if (exitCode == ProcessConfig.EXIT_OK) ExitStatus.Ok
+        else ExitStatus.UnexpectedError
+      }
 
-    state.mergeStatus(exitStatus)
-  }
+      state.mergeStatus(exitStatus)
+    }
 
   /**
    * Finds the main classes in `project`.
@@ -257,7 +241,7 @@ object Tasks {
       case Some(analysis: Analysis) => analysis
       case _ =>
         logger.warn(s"`Run` is triggered but no compilation detected from '${project.name}'.")
-        sbt.internal.inc.Analysis.empty
+        Analysis.empty
     }
 
     val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses)

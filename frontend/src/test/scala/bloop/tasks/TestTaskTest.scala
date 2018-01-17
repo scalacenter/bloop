@@ -14,7 +14,7 @@ import bloop.engine.State
 import bloop.exec.{InProcess, JavaEnv, ProcessConfig}
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{Task, Tasks}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import xsbti.compile.CompileAnalysis
 
@@ -37,7 +37,8 @@ class TestTaskTest(framework: String) {
     val target = s"$TestProjectName-test"
     val state0 = ProjectHelpers.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
-    val state = Tasks.compile(state0, project, ReporterConfig.defaultFormat)
+    val state =
+      Tasks.compile(state0, project, ReporterConfig.defaultFormat).await()(state0.scheduler).get
     val result = state.results.getResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)

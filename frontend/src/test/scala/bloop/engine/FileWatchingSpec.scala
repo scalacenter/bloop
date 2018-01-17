@@ -48,7 +48,7 @@ class FileWatchingSpec {
     val bloopOut = new ByteArrayOutputStream()
     val ctx: FileWatchingContext = (state, rootProject, bloopOut)
     val workerThread = new Thread { override def run(): Unit = workerAction(ctx) }
-    implicit val context = state.executionContext
+    implicit val scheduler = state.scheduler
     val testFuture = scala.concurrent.Future { testAction(ctx, workerThread) }
     try Await.ready(testFuture, duration.Duration(15, duration.SECONDS))
     catch { case t: Throwable => println(s"LOGS WERE ${bloopOut.toString("UTF-8")}"); throw t }
