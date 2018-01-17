@@ -9,6 +9,7 @@ import bloop.engine.ExecutionContext.scheduler
 import scala.collection.mutable.Buffer
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.{Duration, DurationInt}
+import scala.util.{Success, Failure}
 
 @Category(Array(classOf[bloop.FastTests]))
 class TaskTest {

@@ -17,7 +17,7 @@ object Interpreter {
     def logAndTime(cliOptions: CliOptions, action: => Task[State]): State = {
       state.logger.verboseIf(cliOptions.verbose) {
         timed(state.logger) {
-          action.await()(state.scheduler).recover(logAndContinue(state.logger)(state))
+          action.await()(state.scheduler).fold(logAndContinue(state.logger)(state), identity)
         }
       }
     }
@@ -91,7 +91,7 @@ object Interpreter {
     val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
     val watchFn: State => State = { state =>
       val result = f(state).await()(state.scheduler)
-      result.recover(logAndContinue(state.logger)(state))
+      result.fold(logAndContinue(state.logger)(state), identity)
     }
 
     // Force the first operation and then allow the watcher to execute it in next steps
