@@ -32,8 +32,8 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(property = "addRunArgs", name = "addRunArgs")
     private String addRunArgs;
 
-    @Parameter(property = "bloop.runFork", defaultValue = "false")
-    private boolean bloopRunFork;
+    @Parameter(property = "bloop.executionFork", defaultValue = "false")
+    private boolean bloopExecutionFork;
 
     @Parameter
     private AppLauncher[] launchers;
@@ -59,8 +59,8 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         return bloopConfigDir;
     }
 
-    public boolean getRunFork() {
-        return bloopRunFork;
+    public boolean getExecutionFork() {
+        return bloopExecutionFork;
     }
 
     public String getScalaArtifactID() {
