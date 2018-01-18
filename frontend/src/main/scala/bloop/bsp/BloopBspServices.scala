@@ -29,11 +29,31 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     override def name: String = "bsp-logger"
     override def verbose[T](op: => T): T = op
     override def ansiCodesSupported(): Boolean = true
-    override def debug(msg: String): Unit = Window.showMessage.info(msg)(client)
-    override def error(msg: String): Unit = Window.showMessage.error(msg)(client)
-    override def warn(msg: String): Unit = Window.showMessage.warn(msg)(client)
-    override def trace(t: Throwable): Unit = Window.showMessage.info(t.toString)(client)
-    override def info(msg: String): Unit = Window.showMessage.info(msg)(client)
+
+    override def debug(msg: String): Unit = {
+      callSiteState.logger.debug(msg)
+      //Window.showMessage.info(msg)(client)
+    }
+
+    override def error(msg: String): Unit = {
+      callSiteState.logger.error(msg)
+      Window.showMessage.error(msg)(client)
+    }
+
+    override def warn(msg: String): Unit = {
+      callSiteState.logger.warn(msg)
+      Window.showMessage.warn(msg)(client)
+    }
+
+    override def trace(t: Throwable): Unit = {
+      callSiteState.logger.trace(t)
+      Window.showMessage.info(t.toString)(client)
+    }
+
+    override def info(msg: String): Unit = {
+      callSiteState.logger.info(msg)
+      //Window.showMessage.info(msg)(client)
+    }
   }
 
   // Internal state, think how to make this more elegant.
@@ -65,6 +85,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
   def initialize(
       initializeBuildParams: InitializeBuildParams
   ): MonixTask[Either[JsonRpcResponse.Error, InitializeBuildResult]] = MonixTask {
+    callSiteState.logger.info("request received: build/initialize")
     bspLogger.info("request received: build/initialize")
     currentState = reloadState(initializeBuildParams.rootUri)
     Right(

@@ -81,6 +81,7 @@ object Interpreter {
     val scheduler = ExecutionContext.bspScheduler
     val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
     val blockingListen = scala.util.Try(server.listen())
+    state.logger.debug(s"Bloop bsp server is no longer listening ${blockingListen}")
 
     // It gives a state that can be the latest state used by bsp or the call site state.
     val latestState = servicesProvider.latestState
