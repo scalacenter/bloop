@@ -191,4 +191,18 @@ class TaskTest {
     await(future)
   }
 
+  @Test
+  def dependenciesOfFlatMappedTaskAreNotLost = {
+    val buf = Buffer.empty[Int]
+    val t1: Task[String] = Task { buf.synchronized { buf += 1; "hello" } }
+    val t2: Task[Int] = Task { buf.synchronized { buf += 2; 42 } }.dependsOn(t1)
+    val t3: Task[Int] = Task { true }.flatMap(_ => t2)
+    val future = t3.runAsync.map { x =>
+      assertEquals(Success(42), x)
+      assertEquals(List(1, 2), buf.sorted.toList)
+    }
+    await(future)
+
+  }
+
 }
