@@ -1,4 +1,5 @@
 val mvnVersion = "3.5.2"
+val mvnPluginToolsVersion = "3.5"
 val root = project
   .in(file("."))
   .settings(
@@ -21,10 +22,10 @@ val root = project
     },
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % "3.5",
-      "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % "3.5",
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % "3.5",
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-annotations" % "3.5",
+      "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
+      "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mvnPluginToolsVersion,
+      "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % mvnPluginToolsVersion,
+      "org.apache.maven.plugin-tools" % "maven-plugin-tools-annotations" % mvnPluginToolsVersion,
 
       "org.apache.maven" % "maven-core" % mvnVersion,
       "org.apache.maven" % "maven-plugin-api" % mvnVersion,

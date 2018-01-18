@@ -36,7 +36,7 @@ object MavenPluginKeys {
     "If true, enables adding maven as a dependency and auto-generation of the plugin descriptor file.")
   val mavenLogger = settingKey[Logger]("The Plexus logger used for Maven APIs.")
   val mavenProject =
-    taskKey[MavenProject]("Return the corresponding maven project.")
+    taskKey[MavenProject]("Return the maven project corresponding to this sbt project.")
 }
 
 object MavenPluginImplementation {
@@ -76,7 +76,6 @@ object MavenPluginImplementation {
 
       new MavenProject(model) {
         def fs(f: File): String = f.getAbsolutePath()
-        import scala.collection.JavaConverters._
         this.setCompileSourceRoots(Keys.sourceDirectories.in(Compile).value.map(fs).asJava)
         this.setTestCompileSourceRoots(Keys.sourceDirectories.in(Test).value.map(fs).asJava)
         override def getBasedir: File = baseDir.toFile()
