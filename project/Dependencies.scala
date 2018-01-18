@@ -13,6 +13,9 @@ object Dependencies {
   val junitVersion = "0.11"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.4.0"
+  val mavenApiVersion = "3.5.2"
+  val mavenAnnotationsVersion = "3.5"
+  val mavenScalaPluginVersion = "3.2.2"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
@@ -30,4 +33,10 @@ object Dependencies {
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "io.methvin" %% "directory-watcher-better-files" % directoryWatcherVersion
+
+  import sbt.Provided
+  val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
+  val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
+  val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
+  val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 }

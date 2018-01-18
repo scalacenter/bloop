@@ -1,3 +1,5 @@
+import build.BuildImplementation.BuildDefaults
+
 /***************************************************************************************************/
 /*                      This is the build definition of the zinc integration                       */
 /***************************************************************************************************/
@@ -44,19 +46,6 @@ val benchmarkBridge = project
 /***************************************************************************************************/
 import build.Dependencies
 
-// This alias performs all the steps necessary to publish Bloop locally
-addCommandAlias(
-  "install",
-  Seq(
-    "+bridgeIntegration/publishLocal",
-    "+zincIntegration/publishLocal",
-    "^sbtBloop/publishLocal",
-    "nailgun/publishLocal",
-    "backend/publishLocal",
-    s"frontend/publishLocal"
-  ).mkString(";", ";", "")
-)
-
 val backend = project
   .dependsOn(Zinc, NailgunServer)
   .settings(testSettings)
@@ -102,20 +91,32 @@ val benchmarks = project
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
 
-import build.BuildImplementation.BuildDefaults
+lazy val integrationsCore = project
+  .in(file("integrations") / "core")
+  .disablePlugins(sbt.ScriptedPlugin)
+  .settings(
+    crossScalaVersions := List("2.12.4", "2.10.7"),
+    // We compile in both so that the maven integration can be tested locally
+    publishLocal := publishLocal.dependsOn(publishM2).value
+  )
+
 lazy val sbtBloop = project
-  .in(file("sbt-bloop"))
+  .in(file("integrations") / "sbt-bloop")
+  .dependsOn(integrationsCore)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
-    scalaVersion := {
-      val orig = scalaVersion.value
-      if ((sbtVersion in pluginCrossBuild).value.startsWith("0.13")) "2.10.6" else orig
-    },
     BuildDefaults.scriptedSettings,
+    scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, sbtBloop)
+val mavenBloop = project
+  .in(file("integrations") / "maven-bloop")
+  .dependsOn(integrationsCore)
+  .settings(name := "maven-bloop")
+  .settings(BuildDefaults.mavenPluginBuildSettings)
+
+val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -124,3 +125,32 @@ val bloop = project
     skip in publish := true,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
+
+/***************************************************************************************************/
+/*                      This is the corner for all the command definitions                         */
+/***************************************************************************************************/
+
+val publishLocalCmd = Keys.publishLocal.key.label
+addCommandAlias("setupIntegrations", List(
+  s"+${integrationsCore.id}/$publishLocalCmd",
+  s"^${sbtBloop.id}/$publishLocalCmd",
+  s"${mavenBloop.id}/$publishLocalCmd"
+).mkString(";", ";", ""))
+
+addCommandAlias("runTests", List(
+  s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
+  s"${sbtBloop.id}/${scripted.key.label}"
+).mkString(";", ";", ""))
+
+addCommandAlias(
+  "install",
+  Seq(
+    s"+${bridgeIntegration.id}/$publishLocalCmd",
+    s"+${zincIntegration.id}/$publishLocalCmd",
+    "setupIntegrations", // Reusing the previously defined command
+    s"${nailgun.id}/$publishLocalCmd",
+    s"${backend.id}/$publishLocalCmd",
+    s"${frontend.id}/$publishLocalCmd"
+  ).mkString(";", ";", "")
+)
+

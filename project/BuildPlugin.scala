@@ -142,9 +142,7 @@ object BuildImplementation {
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
-    Keys.commands += Semanticdb.command(Keys.crossScalaVersions.value),
     Keys.commands ~= BuildDefaults.fixPluginCross _,
-    Keys.commands += BuildDefaults.setupTests,
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
   )
@@ -209,18 +207,6 @@ object BuildImplementation {
     import sbt.io.{AllPassFilter, IO}
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
-    /**
-     * Helps with setting up the tests:
-     * - Adds sbt-bloop to all the projects in `frontend/src/test/resources/projects`
-     * - Runs scripted, so that the configuration files are generated.
-     */
-    val setupTests = Command.command("setupTests") { state =>
-      s"^sbtBloop/${Keys.publishLocal.key.label}" ::
-        s"sbtBloop/${BuildKeys.scriptedAddSbtBloop.key.label}" ::
-        s"sbtBloop/${ScriptedKeys.scripted.key.label}" ::
-        state
-    }
-
     private def createScriptedSetup(testDir: File) = {
       s"""
          |bloopConfigDir in Global := file("$testDir/bloop-config")
@@ -249,6 +235,31 @@ object BuildImplementation {
         |> checkInstall
         |> copyContentOutOfScripted
       """.stripMargin
+    }
+
+    import sbt.librarymanagement.Artifact
+    import ch.epfl.scala.sbt.maven.MavenPluginKeys
+    val mavenPluginBuildSettings: Seq[Def.Setting[_]] = List(
+      MavenPluginKeys.mavenPlugin := true,
+      Keys.publishLocal := Keys.publishM2.value,
+      Keys.classpathTypes += "maven-plugin",
+      // This is a bug in sbt, so we fix it here.
+      Keys.makePomConfiguration :=
+        Keys.makePomConfiguration.value.withIncludeTypes(Keys.classpathTypes.value),
+      Keys.libraryDependencies ++= List(
+        Dependencies.mavenCore,
+        Dependencies.mavenPluginApi,
+        Dependencies.mavenPluginAnnotations,
+        // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
+        Dependencies.mavenScalaPlugin
+          .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
+      ),
+    )
+
+    val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
+      val orig = Keys.scalaVersion.value
+      val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
+      if (is013) "2.10.6" else orig
     }
 
     private val NewLine = System.lineSeparator

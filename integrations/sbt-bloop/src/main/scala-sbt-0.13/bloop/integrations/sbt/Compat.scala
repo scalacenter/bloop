@@ -1,4 +1,4 @@
-package bloop
+package bloop.integrations.sbt
 
 import java.io.File
 

@@ -1,4 +1,4 @@
-package bloop
+package bloop.integrations.sbt
 
 import sbt.io.syntax.File
 import sbt.{Keys, SettingKey}
