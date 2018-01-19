@@ -8,7 +8,7 @@ import scala.util.Try
 
 class Server
 object Server {
-  private val defaultPort: Int = 2113
+  private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
     val port = Try(args(0).toInt).getOrElse(Server.defaultPort)
     val addr = InetAddress.getLoopbackAddress
