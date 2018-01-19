@@ -1,6 +1,6 @@
 package bloop.integrations.sbt
 
-import bloop.integrations.BloopConfig
+import bloop.integrations.{BloopConfig, ClasspathOptions}
 import sbt.{AutoPlugin, Compile, Configuration, Def, File, Keys, Global, Test, ThisBuild}
 
 object SbtBloop extends AutoPlugin {
@@ -135,6 +135,10 @@ object PluginImplementation {
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
       val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
       val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
+      val classpathOptions = {
+        val cpo = Keys.classpathOptions.value
+        ClasspathOptions(cpo.bootLibrary, cpo.compiler, cpo.extra, cpo.autoBoot, cpo.filterLibrary)
+      }
       val classesDir = AutoImported.bloopProductDirectories.value.head
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
@@ -174,8 +178,9 @@ object PluginImplementation {
 
       // format: OFF
       val config = BloopConfig(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg,
-        scalaName, scalaVersion, classpath, classesDir, scalacOptions, javacOptions, sourceDirs,
-        testFrameworks, javaHome, javaOptions, allScalaJars, tmp)
+        scalaName, scalaVersion, classpath, classpathOptions,
+        classesDir, scalacOptions, javacOptions, sourceDirs,  testFrameworks, javaHome, javaOptions,
+        allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
       logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")

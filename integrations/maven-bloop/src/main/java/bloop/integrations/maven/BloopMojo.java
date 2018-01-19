@@ -1,5 +1,7 @@
 package bloop.integrations.maven;
 
+import bloop.integrations.ClasspathOptions;
+
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.maven.plugin.MavenPluginManager;
 import org.apache.maven.plugin.MojoExecution;
@@ -35,6 +37,21 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(property = "bloop.executionFork", defaultValue = "false")
     private boolean bloopExecutionFork;
 
+    @Parameter(property = "bloop.classpathOptions.bootLibrary", defaultValue = "true")
+    private boolean classpathOptionsBootLibrary;
+
+    @Parameter(property = "bloop.classpathOptions.compiler", defaultValue = "false")
+    private boolean classpathOptionsCompiler;
+
+    @Parameter(property = "bloop.classpathOptions.extra", defaultValue = "false")
+    private boolean classpathOptionsExtra;
+
+    @Parameter(property = "bloop.classpathOptions.autoBoot", defaultValue = "true")
+    private boolean classpathOptionsAutoBoot;
+
+    @Parameter(property = "bloop.classpathOptions.filterLibrary", defaultValue = "true")
+    private boolean classpathOptionsFilterLibrary;
+
     @Parameter
     private AppLauncher[] launchers;
 
@@ -57,6 +74,14 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
 
     public File getBloopConfigDir() {
         return bloopConfigDir;
+    }
+
+    public ClasspathOptions getClasspathOptions() {
+        return new ClasspathOptions(classpathOptionsBootLibrary,
+                                    classpathOptionsCompiler,
+                                    classpathOptionsExtra,
+                                    classpathOptionsAutoBoot,
+                                    classpathOptionsFilterLibrary);
     }
 
     public String getScalaArtifactID() {

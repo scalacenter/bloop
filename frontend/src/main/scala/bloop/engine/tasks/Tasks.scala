@@ -70,7 +70,7 @@ object Tasks {
       val target = project.tmp
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
-      val classpathOptions = ClasspathOptionsUtil.boot()
+      val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
       val reporter = new Reporter(logger, cwd, identity, config)
       // FORMAT: OFF

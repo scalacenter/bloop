@@ -8,17 +8,20 @@ import bloop.logging.RecordingLogger
 import bloop.Project
 import guru.nidi.graphviz.parse.Parser
 
+import xsbti.compile.ClasspathOptionsUtil
+
 @Category(Array(classOf[bloop.FastTests]))
 class DagSpec {
   private object TestProjects {
     private val logger = new RecordingLogger
+    private val classpathOptions = ClasspathOptionsUtil.boot()
     private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array(), logger)
     private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
     private val javaEnv = JavaEnv.default
 
     // format: OFF
     def dummyProject(name: String, dependencies: List[String]): Project =
-      Project(name, dummyPath, dependencies.toArray, dummyInstance, Array(), dummyPath, Array(),
+      Project(name, dummyPath, dependencies.toArray, dummyInstance, Array(), classpathOptions,  dummyPath, Array(),
               Array(), Array(), Array(), javaEnv, dummyPath, dummyPath)
     // format: ON
 

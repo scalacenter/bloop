@@ -15,6 +15,8 @@ import bloop.exec.JavaEnv
 import bloop.Project
 import bloop.io.AbsolutePath
 
+import xsbti.compile.ClasspathOptionsUtil
+
 object IntegrationTestSuite {
   val projects = ProjectHelpers.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
 
@@ -68,6 +70,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           dependencies = previousProjects.map(_.name).toArray,
           scalaInstance = previousProjects.head.scalaInstance,
           rawClasspath = Array.empty,
+          classpathOptions = ClasspathOptionsUtil.boot(),
           classesDir = classesDir,
           scalacOptions = Array.empty,
           javacOptions = Array.empty,
