@@ -38,6 +38,11 @@ object Server {
     aliasManager.addAlias(new Alias("configure", "Configure the bloop server.", classOf[Cli]))
     aliasManager.addAlias(new Alias("help", "Show bloop help message.", classOf[Cli]))
     aliasManager.addAlias(new Alias("exit", "Kill the bloop server.", classOf[Server]))
+
+    // Register the default entrypoint in case the user doesn't use the right alias
+    server.setDefaultNailClass(classOf[Cli])
+    // Disable nails by class name so that we prevent classloading incorrect aliases
+    server.setAllowNailsByClassName(false)
   }
 
   private def shutDown(server: NGServer): Unit = {
