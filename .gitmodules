@@ -5,7 +5,7 @@
 [submodule "nailgun"]
 	path = nailgun
 	url = https://github.com/scalacenter/nailgun.git
-	branch = bloop-nailgun-coursier
+	branch = sync-19-01-2018
 [submodule "frontend/src/test/resources/projects/sbt"]
 	path = integration-tests/integration-projects/sbt
 	url = https://github.com/scalacenter/sbt.git
