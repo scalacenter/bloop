@@ -297,7 +297,7 @@ object Header {
       |
       |   ***********************************************************
       |   ***       Welcome to the build of `loooooooooop`        ***
-      |   *** An effort funded by the Scala Center Advisory Board ***
+      |   ***        An effort funded by the Scala Center         ***
       |   ***********************************************************
     """.stripMargin
 }
