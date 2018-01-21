@@ -30,7 +30,7 @@ test -e ~/.bloop/bloop-shell || ( \
 
 test -e ~/.bloop/bloop-ng.py || ( \
   mkdir -p ~/.bloop && \
-  curl -Ls https://raw.githubusercontent.com/scalacenter/nailgun/zinc-nailgun/pynailgun/ng.py \
+  curl -Ls https://raw.githubusercontent.com/scalacenter/nailgun/sync-19-01-2018/pynailgun/ng.py \
   -o ~/.bloop/bloop-ng.py && \
   chmod +x ~/.bloop/bloop-ng.py && \
   echo "Installed bloop client in '~/.bloop/bloop-ng.py'"
