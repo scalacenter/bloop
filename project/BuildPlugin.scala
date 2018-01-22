@@ -54,10 +54,14 @@ object BuildKeys {
 
   import sbt.{Test, TestFrameworks, Tests}
   import sbt.io.syntax.fileToRichFile
+  val buildBase = Keys.baseDirectory in sbt.ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val bloopShellCmdName = Def.settingKey[String]("Name of the `bloop-shell` command")
+  val bloopServerCmdName = Def.settingKey[String]("Name of the `bloop-server` command")
+  val bloopNgClientCmdName = Def.settingKey[String]("Name of bloop's NG client command")
   val testSettings: Seq[Def.Setting[_]] = List(
-    integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
+    integrationTestsLocation := buildBase.value / "integration-tests" / "integration-projects",
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test
@@ -75,7 +79,8 @@ object BuildKeys {
                                         Keys.version,
                                         Keys.scalaVersion,
                                         Keys.sbtVersion,
-                                        integrationTestsLocation)
+                                        integrationTestsLocation,
+                                        bloopNgClientCmdName)
     commonKeys ++ List(zincKey, developersKey)
   }
 
@@ -107,10 +112,43 @@ object BuildKeys {
         "-DbloopVersion=" + Keys.version.in(project).value,
         "-DbloopRef=" + refOf(Keys.version.in(project).value),
         "-Dbloop.jar=" + AssemblyKeys.assembly.in(project).value,
-        "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
+        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
     }
   )
+
+  final val templatesSettings: Seq[Def.Setting[_]] = Seq(
+    TemplatePlugin.variableMappings := Map(
+      "NAILGUN_COMMIT" -> commitIn(submoduleDir("nailgun").value),
+      "BLOOP_LATEST_RELEASE" -> latestTagIn(buildBase.value).getOrElse("no-tag-yet"),
+      "BLOOP_SERVER_CMD" -> bloopServerCmdName.value,
+      "BLOOP_SHELL_CMD" -> bloopShellCmdName.value,
+      "BLOOP_CLIENT_CMD" -> bloopNgClientCmdName.value
+    ),
+    TemplatePlugin.templateMappings := Map(
+      buildBase.value / "bin" / "install-template.sh" -> buildBase.value / "bin" / "install.sh"
+    )
+  )
+
+  import org.eclipse.jgit.api.Git
+  import org.eclipse.jgit.storage.file.FileRepositoryBuilder
+  import org.eclipse.jgit.lib.ObjectId
+  private def commitIn(dir: sbt.File): String = {
+    val repository =
+      new FileRepositoryBuilder().setGitDir(dir).readEnvironment().findGitDir().build()
+    val head = repository.resolve("HEAD")
+    ObjectId.toString(head)
+  }
+
+  private def latestTagIn(dir: sbt.File): Option[String] = {
+    val git = Git.open(dir)
+    Option(git.describe().call())
+  }
+
+  private def submoduleDir(name: String) = Def.setting {
+    buildBase.value / ".git" / "modules" / name
+  }
+
 }
 
 object BuildImplementation {
@@ -145,6 +183,9 @@ object BuildImplementation {
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
+    BuildKeys.bloopShellCmdName := "bloop-shell",
+    BuildKeys.bloopServerCmdName := "bloop-server",
+    BuildKeys.bloopNgClientCmdName := "bloop-ng.py"
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(

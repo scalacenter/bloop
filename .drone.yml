@@ -1,7 +1,8 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
 matrix:
   SBT_RUN:
-    - sbt "+bridgeIntegration/cachedPublishLocal" \
+    - sbt "frontend/makeTemplates" \ # Ensure the templates are up-to-date
+          "+bridgeIntegration/cachedPublishLocal" \
           "benchmarks/compile" \
           "setupIntegrations" \
           "git status" \
