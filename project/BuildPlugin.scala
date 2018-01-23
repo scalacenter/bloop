@@ -126,7 +126,7 @@ object BuildKeys {
       "BLOOP_CLIENT_CMD" -> bloopNgClientCmdName.value
     ),
     TemplatePlugin.templateMappings := Map(
-      buildBase.value / "bin" / "install-template.sh" -> buildBase.value / "bin" / "install.sh"
+      buildBase.value / "templates" / "install.py" -> buildBase.value / "bin" / "install.py"
     )
   )
 

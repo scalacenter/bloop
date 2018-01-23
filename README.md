@@ -38,7 +38,7 @@ $ cd bloop
 $ sbt
 > install
 > frontend/version # copy this version number
-$ bin/install.sh <version> # paste here the version number obtained above
+$ bin/install.py <version> # paste here the version number obtained above
 ```
 
 The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell` and 
