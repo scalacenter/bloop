@@ -194,7 +194,7 @@ object BuildImplementation {
     BuildKeys.latestTag := GitUtils.latestTagIn(BuildKeys.buildBase.value),
     BuildKeys.bloopShellCmdName := "bloop-shell",
     BuildKeys.bloopServerCmdName := "bloop-server",
-    BuildKeys.bloopNgClientCmdName := "bloop-ng.py"
+    BuildKeys.bloopNgClientCmdName := "bloop"
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
