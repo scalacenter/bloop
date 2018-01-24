@@ -134,7 +134,8 @@ object BuildKeys {
     ),
     TemplatePlugin.templateMappings := Map(
       buildBase.value / "templates" / "install.py" -> buildBase.value / "bin" / "install.py",
-      buildBase.value / "templates" / "bloop.rb" -> buildBase.value / "homebrew" / "bloop.rb"
+      buildBase.value / "templates" / "bloop.rb" -> buildBase.value / "homebrew" / "bloop.rb",
+      buildBase.value / "templates" / "README.md" -> buildBase.value / "README.md"
     )
   )
 

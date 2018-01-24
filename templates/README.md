@@ -41,12 +41,12 @@ $ sbt
 $ bin/install.py --version <version> # paste here the version number obtained above
 ```
 
-The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell`
-and  `~/.bloop/bloop`:
+The script will create the executables `~/.bloop/#BLOOP_SERVER_CMD#`, `~/.bloop/#BLOOP_SHELL_CMD#`
+and  `~/.bloop/#BLOOP_CLIENT_CMD#`:
 
- - `bloop-server` is the Bloop server
- - `bloop` is the Bloop client
- - `bloop-shell` is a shell that you can use while the Nailgun integration is experimental
+ - `#BLOOP_SERVER_CMD#` is the Bloop server
+ - `#BLOOP_CLIENT_CMD#` is the Bloop client
+ - `#BLOOP_SHELL_CMD#` is a shell that you can use while the Nailgun integration is experimental
 
 We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
 the next versions of Bloop: don't rely on it.
@@ -84,15 +84,15 @@ $ brew services start bloop
 You can also use our installation script to install Bloop:
 
 ```sh
-$ curl https://raw.githubusercontent.com/scalacenter/bloop/no-tag-yet/bin/install.py | python2
+$ curl https://raw.githubusercontent.com/scalacenter/bloop/#BLOOP_LATEST_TAG#/bin/install.py | python2
 ```
 
-The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/BLOOP_SHELL_CMD#`
-and  `~/.bloop/bloop`:
+The script will create the executables `~/.bloop/#BLOOP_SERVER_CMD#`, `~/.bloop/BLOOP_SHELL_CMD#`
+and  `~/.bloop/#BLOOP_CLIENT_CMD#`:
 
- - `bloop-server` is the Bloop server
- - `bloop` is the Bloop client
- - `bloop-shell` is a shell that you can use while the Nailgun integration is experimental
+ - `#BLOOP_SERVER_CMD#` is the Bloop server
+ - `#BLOOP_CLIENT_CMD#` is the Bloop client
+ - `#BLOOP_SHELL_CMD#` is a shell that you can use while the Nailgun integration is experimental
 
 We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
 the next versions of Bloop: don't rely on it.
@@ -112,11 +112,11 @@ The next sections assume that you've added that line to your profile, and reload
 
 First, we'll need to generate Bloop's configuration files for your project. To
 do this, add the following sbt plugin in `project/plugins.sbt` in your project:
-(While Bloop isn't released, you'll need to replace `no-tag-yet` with the version you
+(While Bloop isn't released, you'll need to replace `#BLOOP_LATEST_RELEASE#` with the version you
 copy-pasted earlier)
 
 ```scala
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "no-tag-yet")
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "#BLOOP_LATEST_RELEASE#")
 ```
 
 You can then use sbt to generate the configuration:
