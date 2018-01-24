@@ -42,7 +42,7 @@ def download_and_install(url, target):
 
 def coursier_bootstrap(target, main):
     try:
-        check_call(["coursier", "bootstrap", BLOOP_ARTIFACT, "-o", target, "--standalone", "--main", main])
+        check_call([BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT, "-o", target, "--standalone", "--main", main])
     except CalledProcessError as e:
         print "Coursier couldn't create %s. Please report an issue." % target
         print "Command: %s" % e.cmd
