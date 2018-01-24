@@ -57,6 +57,7 @@ object BuildKeys {
   val buildBase = Keys.baseDirectory in sbt.ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val latestTag = Def.settingKey[String]("Latest tag of Bloop")
   val bloopShellCmdName = Def.settingKey[String]("Name of the `bloop-shell` command")
   val bloopServerCmdName = Def.settingKey[String]("Name of the `bloop-server` command")
   val bloopNgClientCmdName = Def.settingKey[String]("Name of bloop's NG client command")
@@ -119,34 +120,41 @@ object BuildKeys {
 
   final val templatesSettings: Seq[Def.Setting[_]] = Seq(
     TemplatePlugin.variableMappings := Map(
-      "NAILGUN_COMMIT" -> commitIn(submoduleDir("nailgun").value),
-      "BLOOP_LATEST_RELEASE" -> latestTagIn(buildBase.value).getOrElse("no-tag-yet"),
+      "NAILGUN_COMMIT" -> GitUtils.commitIn(GitUtils.submoduleDir("nailgun").value),
+      "BLOOP_LATEST_TAG" -> BuildKeys.latestTag.value,
+      "BLOOP_LATEST_RELEASE" -> (BuildKeys.latestTag.value match {
+        case tag if tag.startsWith("v") => tag.tail
+        case tag => tag
+      }),
       "BLOOP_SERVER_CMD" -> bloopServerCmdName.value,
       "BLOOP_SHELL_CMD" -> bloopShellCmdName.value,
-      "BLOOP_CLIENT_CMD" -> bloopNgClientCmdName.value
+      "BLOOP_CLIENT_CMD" -> bloopNgClientCmdName.value,
+      "BLOOP_INSTALL_PY_SHA256" -> TemplatePlugin.Lazy(
+        sha256(buildBase.value / "bin" / "install.py").getOrElse("file-doesnt-exist"))
     ),
     TemplatePlugin.templateMappings := Map(
-      buildBase.value / "templates" / "install.py" -> buildBase.value / "bin" / "install.py"
+      buildBase.value / "templates" / "install.py" -> buildBase.value / "bin" / "install.py",
+      buildBase.value / "templates" / "bloop.rb" -> buildBase.value / "homebrew" / "bloop.rb"
     )
   )
 
-  import org.eclipse.jgit.api.Git
-  import org.eclipse.jgit.storage.file.FileRepositoryBuilder
-  import org.eclipse.jgit.lib.ObjectId
-  private def commitIn(dir: sbt.File): String = {
-    val repository =
-      new FileRepositoryBuilder().setGitDir(dir).readEnvironment().findGitDir().build()
-    val head = repository.resolve("HEAD")
-    ObjectId.toString(head)
-  }
+  private def sha256(file: sbt.File): Option[String] = {
+    import java.nio.file.Files
+    import java.security.MessageDigest
+    scala.util.Try {
+      val digest = MessageDigest.getInstance("SHA-256")
+      val bytes = Files.readAllBytes(file.toPath)
+      val hash = digest.digest(bytes)
+      val hexString = new StringBuilder()
+      hash.foreach { byte =>
+        val hex = Integer.toHexString(0xff & byte)
+        if (hex.length == 1) hexString.append('0')
+        else hexString.append(hex)
+      }
 
-  private def latestTagIn(dir: sbt.File): Option[String] = {
-    val git = Git.open(dir)
-    Option(git.describe().call())
-  }
+      hexString.toString
+    }.toOption
 
-  private def submoduleDir(name: String) = Def.setting {
-    buildBase.value / ".git" / "modules" / name
   }
 
 }
@@ -183,6 +191,7 @@ object BuildImplementation {
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
+    BuildKeys.latestTag := GitUtils.latestTagIn(BuildKeys.buildBase.value),
     BuildKeys.bloopShellCmdName := "bloop-shell",
     BuildKeys.bloopServerCmdName := "bloop-server",
     BuildKeys.bloopNgClientCmdName := "bloop-ng.py"
@@ -341,4 +350,29 @@ object Header {
       |   ***        An effort funded by the Scala Center         ***
       |   ***********************************************************
     """.stripMargin
+}
+
+private object GitUtils {
+
+  import org.eclipse.jgit.api.Git
+  import org.eclipse.jgit.storage.file.FileRepositoryBuilder
+  import org.eclipse.jgit.lib.ObjectId
+  import sbt.io.syntax.fileToRichFile
+
+  def commitIn(dir: sbt.File): String = {
+    val repository =
+      new FileRepositoryBuilder().setGitDir(dir).readEnvironment().findGitDir().build()
+    val head = repository.resolve("HEAD")
+    ObjectId.toString(head)
+  }
+
+  def latestTagIn(dir: sbt.File): String = {
+    val git = Git.open(dir)
+    Option(git.describe().call()).getOrElse("no-tag-yet")
+  }
+
+  def submoduleDir(name: String) = Def.setting {
+    BuildKeys.buildBase.value / ".git" / "modules" / name
+  }
+
 }

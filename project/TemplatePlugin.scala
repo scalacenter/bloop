@@ -10,7 +10,7 @@ object TemplatePlugin extends sbt.AutoPlugin {
 
   override def requires: Plugins = JvmPlugin
 
-  final val variableMappings = settingKey[Map[String, String]]("Mappings")
+  final val variableMappings = settingKey[Map[String, Lazy]]("Mappings")
   final val templateMappings = settingKey[Map[File, File]]("scripts")
   final val makeTemplates = taskKey[Unit]("...")
 
@@ -31,14 +31,18 @@ object TemplatePlugin extends sbt.AutoPlugin {
 
   override def projectSettings: Seq[Setting[_]] = templateSettings
 
-  private def replaceAll(mappings: Map[String, String]): String => String =
+  implicit class Lazy(value: => String) {
+    def get(): String = value
+  }
+
+  private def replaceAll(mappings: Map[String, Lazy]): String => String =
     mappings.foldLeft(identity[String] _) {
       case (fn, (variable, value)) =>
         in =>
-          fn(in).replaceAll(s"#$variable#", value)
+          fn(in).replaceAll(s"#$variable#", value.get())
     }
 
-  private def make(mappings: Map[String, String], source: File, target: File): Unit = {
+  private def make(mappings: Map[String, Lazy], source: File, target: File): Unit = {
     val replaceFn = replaceAll(mappings)
     val originalContent = IO.read(source)
     val newContent = replaceFn(originalContent)
