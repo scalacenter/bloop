@@ -1,37 +1,53 @@
 #!/usr/bin/env python2
 
+import argparse
 import urllib
 import os
 from os.path import expanduser, isdir, isfile, join
-from subprocess import call
+from subprocess import CalledProcessError, check_call
 import sys
 
-BLOOP_LATEST_RELEASE      = "no-tag-yet"
-BLOOP_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
+BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
+BLOOP_LATEST_RELEASE              = "no-tag-yet"
+COURSIER_URL                      = "https://git.io/vgvpD"
+NAILGUN_COMMIT                    = "0927946db663927151a53fe3b365b2655613db86"
+NAILGUN_CLIENT_URL                = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
+
+parser = argparse.ArgumentParser(description="Installation script for Bloop.")
+parser.add_argument('-d', '--dest',
+        default = BLOOP_DEFAULT_INSTALLATION_TARGET,
+        help = "Where to install Bloop, defaults to %s" % BLOOP_DEFAULT_INSTALLATION_TARGET)
+parser.add_argument('-v', '--version',
+        default = BLOOP_LATEST_RELEASE,
+        help = "Version of Bloop to install, defaults to %s" % BLOOP_LATEST_RELEASE)
+args = parser.parse_args()
+
+BLOOP_INSTALLATION_TARGET = args.dest
+BLOOP_VERSION             = args.version
+
 BLOOP_COURSIER_TARGET     = join(BLOOP_INSTALLATION_TARGET, "coursier")
 BLOOP_SERVER_TARGET       = join(BLOOP_INSTALLATION_TARGET, "bloop-server")
 BLOOP_SHELL_TARGET        = join(BLOOP_INSTALLATION_TARGET, "bloop-shell")
 BLOOP_CLIENT_TARGET       = join(BLOOP_INSTALLATION_TARGET, "bloop-ng.py")
 
-COURSIER_URL = "https://git.io/vgvpD"
-
-NAILGUN_COMMIT     = "0927946db663927151a53fe3b365b2655613db86"
-NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
-
-BLOOP_VERSION = ""
-if len(sys.argv) >= 2:
-    BLOOP_VERSION = sys.argv[1]
-else:
-    BLOOP_VERSION = BLOOP_LATEST_RELEASE
-
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 def download_and_install(url, target):
-    urllib.urlretrieve(url, target)
-    os.chmod(target, 0755)
+    try:
+        urllib.urlretrieve(url, target)
+        os.chmod(target, 0755)
+    except IOError:
+        print "Couldn't download %s, please try again." %url
+        sys.exit(1)
 
 def coursier_bootstrap(target, main):
-    call(["java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT, "-o", target, "--standalone", "--main", main])
+    try:
+        check_call(["coursier", "bootstrap", BLOOP_ARTIFACT, "-o", target, "--standalone", "--main", main])
+    except CalledProcessError as e:
+        print "Coursier couldn't create %s. Please report an issue." % target
+        print "Command: %s" % e.cmd
+        print "Return code: %d" % e.returncode
+        sys.exit(e.returncode)
 
 if not isdir(BLOOP_INSTALLATION_TARGET):
     os.makedirs(BLOOP_INSTALLATION_TARGET)
