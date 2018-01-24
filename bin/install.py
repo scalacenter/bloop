@@ -10,7 +10,7 @@ import sys
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
 BLOOP_LATEST_RELEASE = "no-tag-yet"
 COURSIER_URL = "https://git.io/vgvpD"
-NAILGUN_COMMIT = "0927946db663927151a53fe3b365b2655613db86"
+NAILGUN_COMMIT = "cb9846daaea13eba068c812376f6c90478fcea79"
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
 
 parser = argparse.ArgumentParser(description="Installation script for Bloop.")
