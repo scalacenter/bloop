@@ -1,6 +1,7 @@
 package bloop.bsp
 
 import java.io.{PipedInputStream, PipedOutputStream, PrintStream}
+import java.nio.file.Files
 import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands, CommonOptions}
@@ -33,6 +34,7 @@ class BspSpec {
     val bspLogger = BloopLogger.atFile(loggerName, bspFileLogs)
     val defaultCli = CliOptions.default.copy(configDir = Some(cwd.underlying))
     val newCommonOptions = CommonOptions.default.copy(out = printOut, in = bloopIn)
+    val cliOptions = defaultCli.copy(common = newCommonOptions)
 
     val clientIn = new PipedInputStream()
     val clientOut = new PipedOutputStream()
@@ -41,9 +43,12 @@ class BspSpec {
     val bspServerExecution = {
       bloopIn.connect(clientOut)
       clientIn.connect(bloopOut)
-      val cliOptions = defaultCli.copy(common = newCommonOptions)
       val action = Run(Commands.Bsp(cliOptions = cliOptions))
-      val state = State.loadStateFor(cwd.resolve(".bloop-config"), newCommonOptions, bspLogger)
+      val configDir = cwd.resolve(".bloop-config")
+      if (!Files.exists(configDir.underlying))
+        sys.error("To run this test you need to run `setupTests` first!")
+
+      val state = State.loadStateFor(configDir, newCommonOptions, bspLogger)
       MonixTask(Interpreter.execute(action, state)).materialize.map {
         case scala.util.Success(_) => ()
         case f: scala.util.Failure[_] => System.err.println(f.exception.toString())
@@ -81,7 +86,11 @@ class BspSpec {
                      FiniteDuration(10, "s"))
     catch {
       case SuccessfulBspTest => ()
-      case t: Throwable => throw t
+      case t: Throwable =>
+        val bspFileLogs = bloop.io.Paths.bloopLogsDir.resolve("bsp.log")
+        val logs = new String(Files.readAllBytes(bspFileLogs.underlying), "UTF-8")
+        println(s"BSP logs at ${bspFileLogs.syntax}: \n${logs}")
+        throw t
     }
   }
 }

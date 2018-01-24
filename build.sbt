@@ -38,16 +38,12 @@ val nailgun = project
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
-  .settings(
-    skip in publish := true
-  )
+  .settings(skip in publish := true)
 
 val bspIntegration = project
   .in(file(".bsp"))
   .aggregate(Bsp)
-  .settings(
-    skip in publish := true
-  )
+  .settings(skip in publish := true)
 
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */

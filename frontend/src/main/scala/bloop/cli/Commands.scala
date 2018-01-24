@@ -45,6 +45,22 @@ object Commands {
   ) extends Command
 
   case class Bsp(
+      @ExtraName("h")
+      @HelpMessage("The connection protocol for the bsp server.")
+      protocol: BspProtocol = BspProtocol.Local,
+      @ExtraName("p")
+      @HelpMessage("The server host for the bsp server (TCP only).")
+      host: String = "127.0.0.1",
+      @HelpMessage("The port for the bsp server (TCP only).")
+      port: Int = 5101,
+      @ExtraName("s")
+      @HelpMessage(
+        "A path to a new existing socket file to communicate through Unix sockets (local only).")
+      socket: Option[java.nio.file.Path] = None,
+      @ExtraName("np")
+      @HelpMessage(
+        "A path to a new existing socket file to communicate through Unix sockets (local only).")
+      namedPipe: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

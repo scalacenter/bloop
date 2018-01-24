@@ -52,7 +52,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
 
     override def info(msg: String): Unit = {
       callSiteState.logger.info(msg)
-      //Window.showMessage.info(msg)(client)
+      Window.showMessage.info(msg)(client)
     }
   }
 

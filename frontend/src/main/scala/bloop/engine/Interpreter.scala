@@ -6,7 +6,8 @@ import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.engine.tasks.Tasks
 import bloop.Project
-import bloop.bsp.BloopBspServices
+import bloop.bsp.BspServer
+import bloop.cli.Commands.Bsp
 
 object Interpreter {
   def execute(action: Action, state: State): State = {
@@ -22,8 +23,8 @@ object Interpreter {
       case Run(Commands.About(cliOptions), next) =>
         val status = logAndTime(state, cliOptions, printAbout(state))
         execute(next, state.mergeStatus(status))
-      case Run(Commands.Bsp(cliOptions), next) =>
-        execute(next, logAndTime(state, cliOptions, runBsp(state)))
+      case Run(cmd: Commands.Bsp, next) =>
+        execute(next, logAndTime(state, cmd.cliOptions, runBsp(cmd, state)))
       case Run(cmd: Commands.Clean, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, clean(cmd, state)))
       case Run(cmd: Commands.Compile, next) =>
@@ -69,29 +70,7 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private final val bspLogger = com.typesafe.scalalogging.Logger(this.getClass)
-  private def runBsp(state: State): State = {
-    import org.langmeta.lsp.LanguageClient
-    import org.langmeta.lsp.LanguageServer
-    import org.langmeta.jsonrpc.BaseProtocolMessage
-    val client = new LanguageClient(state.commonOptions.out, bspLogger)
-    val servicesProvider = new BloopBspServices(state, client, bspLogger)
-    val bloopServices = servicesProvider.services
-    val messages = BaseProtocolMessage.fromInputStream(state.commonOptions.in)
-    val scheduler = ExecutionContext.bspScheduler
-    val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
-    val blockingListen = scala.util.Try(server.listen())
-    state.logger.debug(s"Bloop bsp server is no longer listening ${blockingListen}")
-
-    // It gives a state that can be the latest state used by bsp or the call site state.
-    val latestState = servicesProvider.latestState
-    blockingListen match {
-      case scala.util.Success(_) => latestState
-      case scala.util.Failure(t) =>
-        latestState.logger.trace(t)
-        latestState
-    }
-  }
+  private def runBsp(cmd: Bsp, state: State): State = BspServer.run(cmd, state)
 
   private def watch(project: Project, state: State, f: State => State): State = {
     val reachable = Dag.dfs(state.build.getDagFor(project))
