@@ -42,3 +42,6 @@
 	path = integration-tests/integration-projects/spark
 	url = https://github.com/scalacenter/spark.git
 	branch = bloop
+[submodule "homebrew"]
+	path = homebrew
+	url = https://github.com/scalacenter/homebrew-bloop.git
