@@ -29,7 +29,7 @@ object Cli {
     }
     val cmd = {
       // If no command is given to bloop, we'll receive the script's name.
-      if (command == bloop.internal.build.BuildInfo.bloopNgClientCmdName)
+      if (command == "bloop")
         printErrorAndExit(helpAsked, nailgunOptions)
       else parse(args, nailgunOptions)
     }

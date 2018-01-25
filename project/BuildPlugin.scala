@@ -1,6 +1,8 @@
 package build
 
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
+import sbt.io.{AllPassFilter, IO}
+import sbt.io.syntax.fileToRichFile
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -53,20 +55,24 @@ object BuildKeys {
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
   import sbt.{Test, TestFrameworks, Tests}
-  import sbt.io.syntax.fileToRichFile
   val buildBase = Keys.baseDirectory in sbt.ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
-  val latestTag = Def.settingKey[String]("Latest tag of Bloop")
-  val bloopShellCmdName = Def.settingKey[String]("Name of the `bloop-shell` command")
-  val bloopServerCmdName = Def.settingKey[String]("Name of the `bloop-server` command")
-  val bloopNgClientCmdName = Def.settingKey[String]("Name of bloop's NG client command")
+  val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val testSettings: Seq[Def.Setting[_]] = List(
     integrationTestsLocation := buildBase.value / "integration-tests" / "integration-projects",
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test
     ),
+  )
+
+  import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
+  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
+  val releaseSettings = Seq(
+    GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
+    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
+    ReleaseEarlyKeys.releaseEarlyProcess += updateHomebrewFormula
   )
 
   import sbtbuildinfo.BuildInfoKey
@@ -80,8 +86,7 @@ object BuildKeys {
                                         Keys.version,
                                         Keys.scalaVersion,
                                         Keys.sbtVersion,
-                                        integrationTestsLocation,
-                                        bloopNgClientCmdName)
+                                        integrationTestsLocation)
     commonKeys ++ List(zincKey, developersKey)
   }
 
@@ -117,47 +122,6 @@ object BuildKeys {
       )
     }
   )
-
-  final val templatesSettings: Seq[Def.Setting[_]] = Seq(
-    TemplatePlugin.variableMappings := Map(
-      "NAILGUN_COMMIT" -> GitUtils.commitIn(GitUtils.submoduleDir("nailgun").value),
-      "BLOOP_LATEST_TAG" -> BuildKeys.latestTag.value,
-      "BLOOP_LATEST_RELEASE" -> (BuildKeys.latestTag.value match {
-        case tag if tag.startsWith("v") => tag.tail
-        case tag => tag
-      }),
-      "BLOOP_SERVER_CMD" -> bloopServerCmdName.value,
-      "BLOOP_SHELL_CMD" -> bloopShellCmdName.value,
-      "BLOOP_CLIENT_CMD" -> bloopNgClientCmdName.value,
-      "BLOOP_INSTALL_PY_SHA256" -> TemplatePlugin.Lazy(
-        sha256(buildBase.value / "bin" / "install.py").getOrElse("file-doesnt-exist"))
-    ),
-    TemplatePlugin.templateMappings := Map(
-      buildBase.value / "templates" / "install.py" -> buildBase.value / "bin" / "install.py",
-      buildBase.value / "templates" / "bloop.rb" -> buildBase.value / "homebrew" / "bloop.rb",
-      buildBase.value / "templates" / "README.md" -> buildBase.value / "README.md"
-    )
-  )
-
-  private def sha256(file: sbt.File): Option[String] = {
-    import java.nio.file.Files
-    import java.security.MessageDigest
-    scala.util.Try {
-      val digest = MessageDigest.getInstance("SHA-256")
-      val bytes = Files.readAllBytes(file.toPath)
-      val hash = digest.digest(bytes)
-      val hexString = new StringBuilder()
-      hash.foreach { byte =>
-        val hex = Integer.toHexString(0xff & byte)
-        if (hex.length == 1) hexString.append('0')
-        else hexString.append(hex)
-      }
-
-      hexString.toString
-    }.toOption
-
-  }
-
 }
 
 object BuildImplementation {
@@ -191,11 +155,7 @@ object BuildImplementation {
     Keys.onLoadMessage := Header.intro,
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
-    Keys.publishArtifact in Test := false,
-    BuildKeys.latestTag := GitUtils.latestTagIn(BuildKeys.buildBase.value),
-    BuildKeys.bloopShellCmdName := "bloop-shell",
-    BuildKeys.bloopServerCmdName := "bloop-server",
-    BuildKeys.bloopNgClientCmdName := "bloop"
+    Keys.publishArtifact in Test := false
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -255,7 +215,6 @@ object BuildImplementation {
     }
 
     import java.io.File
-    import sbt.io.{AllPassFilter, IO}
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
     private def createScriptedSetup(testDir: File) = {
@@ -314,7 +273,7 @@ object BuildImplementation {
     }
 
     private val NewLine = System.lineSeparator
-    import sbt.io.syntax.{fileToRichFile, singleFileFinder}
+    import sbt.io.syntax.singleFileFinder
     val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := true,
       ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests",
@@ -358,13 +317,22 @@ private object GitUtils {
   import org.eclipse.jgit.api.Git
   import org.eclipse.jgit.storage.file.FileRepositoryBuilder
   import org.eclipse.jgit.lib.ObjectId
-  import sbt.io.syntax.fileToRichFile
 
-  def commitIn(dir: sbt.File): String = {
+  def latestCommitIn(dir: sbt.File): String = {
     val repository =
       new FileRepositoryBuilder().setGitDir(dir).readEnvironment().findGitDir().build()
     val head = repository.resolve("HEAD")
     ObjectId.toString(head)
+  }
+
+  def commitChangesIn(dir: sbt.File, changes: Seq[String], message: String): Unit = {
+    val git = Git.open(dir)
+    val add = git.add()
+    val cmd = changes.foldLeft(git.add) {
+      case (cmd, path) => cmd.addFilepattern(path)
+    }
+    cmd.call()
+    git.commit.setMessage(message).call()
   }
 
   def latestTagIn(dir: sbt.File): String = {
@@ -376,4 +344,100 @@ private object GitUtils {
     BuildKeys.buildBase.value / ".git" / "modules" / name
   }
 
+}
+
+private object ReleaseUtils {
+  val installScript = Def.setting { BuildKeys.buildBase.value / "bin" / "install.py" }
+  val nailgunCommit = Def.setting {
+    GitUtils.latestCommitIn(GitUtils.submoduleDir("nailgun").value)
+  }
+  val versionedInstallScript = Def.task {
+    IO.readLines(installScript.value) match {
+      case shebang :: rest =>
+        val scriptTarget = Keys.target.value / "install.py"
+        val customizedVariables =
+          List(s"""NAILGUN_COMMIT = "${nailgunCommit.value}"""",
+               s"""BLOOP_VERSION = "${Keys.version.value}"""")
+        val newContent = shebang :: customizedVariables ++ rest
+        IO.writeLines(scriptTarget, newContent)
+        scriptTarget
+      case _ =>
+        sys.error(installScript.value.getAbsolutePath + " was empty?")
+    }
+  }
+  val writeHomebrewFormula = Def.task {
+    val base = BuildKeys.buildBase.value
+    val formulaTarget = base / "homebrew" / "bloop.rb"
+    val tagName = GitUtils.latestTagIn(base)
+    val installSha = sha256(versionedInstallScript.value)
+    val content =
+      s"""class Bloop < Formula
+         |  desc "Bloop gives you fast edit/compile/test workflows for Scala."
+         |  homepage "https://github.com/scalacenter/bloop"
+         |  version "${Keys.version.value}"
+         |  url "https://github.com/scalacenter/bloop/releases/download/${tagName}/install.py"
+         |  sha256 "${installSha}"
+         |  bottle :unneeded
+         |
+         |  depends_on "python"
+         |  depends_on :java => "1.8+"
+         |
+         |  def install
+         |      mkdir "bin"
+         |      system "python2", "install.py", "--dest", "bin", "--version", version
+         |      prefix.install "bin"
+         |  end
+         |
+         |  def plist; <<~EOS
+         |<?xml version="1.0" encoding="UTF-8"?>
+         |<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+         |<plist version="1.0">
+         |<dict>
+         |    <key>Label</key>
+         |    <string>#{plist_name}</string>
+         |    <key>ProgramArguments</key>
+         |    <array>
+         |        <string>#{bin}/bloop-server</string>
+         |    </array>
+         |    <key>KeepAlive</key>
+         |    <true/>
+         |</dict>
+         |</plist>
+         |          EOS
+         |      end
+         |
+         |  test do
+         |  end
+         |end""".stripMargin
+    IO.write(formulaTarget, content)
+  }
+  val updateHomebrewFormula = Def.task {
+    writeHomebrewFormula.value
+    val buildBase = BuildKeys.buildBase.value
+    val homebrewGitDir = GitUtils.submoduleDir("homebrew").value
+    val homebrewBase = buildBase / "homebrew"
+    val changed = "bloop.rb" :: Nil
+    GitUtils.commitChangesIn(homebrewGitDir,
+                             changed,
+                             "Update formula to Bloop " + Keys.version.value)
+  }
+
+  private def sha256(file: sbt.File): Option[String] = {
+    import java.nio.file.Files
+    import java.security.MessageDigest
+    scala.util.Try {
+      val digest = MessageDigest.getInstance("SHA-256")
+      val bytes = Files.readAllBytes(file.toPath)
+      val hash = digest.digest(bytes)
+      val hexString = new StringBuilder()
+      hash.foreach { byte =>
+        val hex = Integer.toHexString(0xff & byte)
+        if (hex.length == 1) hexString.append('0')
+        else hexString.append(hex)
+      }
+
+      hexString.toString
+    }.toOption
+
+  }
 }

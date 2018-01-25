@@ -8,10 +8,19 @@ from subprocess import CalledProcessError, check_call
 import sys
 
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
-BLOOP_LATEST_RELEASE = "no-tag-yet"
 COURSIER_URL = "https://git.io/vgvpD"
-NAILGUN_COMMIT = "cb9846daaea13eba068c812376f6c90478fcea79"
-NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
+
+# Check whether this script has been customized to allow installation without passing args
+# `BLOOP_VERSION` and `NAILGUN_COMMIT` will be defined at the beginning of this script
+# in our release process.
+CUSTOMIZED_SCRIPT = False
+try:
+    BLOOP_VERSION
+    NAILGUN_COMMIT
+    CUSTOMIZED_SCRIPT = True
+except NameError:
+    BLOOP_VERSION = None
+    NAILGUN_COMMIT = None
 
 parser = argparse.ArgumentParser(description="Installation script for Bloop.")
 parser.add_argument(
@@ -23,13 +32,22 @@ parser.add_argument(
 parser.add_argument(
     '-v',
     '--version',
-    default=BLOOP_LATEST_RELEASE,
-    help="Version of Bloop to install, defaults to %s" % BLOOP_LATEST_RELEASE)
+    required = not CUSTOMIZED_SCRIPT,
+    default = BLOOP_VERSION,
+    help="Version of Bloop to install")
+parser.add_argument(
+    '-n',
+    '--nailgun',
+    required = not CUSTOMIZED_SCRIPT,
+    default = NAILGUN_COMMIT,
+    help="Commit hash of the Nailgun client ot use")
 args = parser.parse_args()
 
 BLOOP_INSTALLATION_TARGET = args.dest
 BLOOP_VERSION = args.version
+NAILGUN_COMMIT = args.nailgun
 
+NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
 BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "coursier")
 BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop-server")
 BLOOP_SHELL_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop-shell")
