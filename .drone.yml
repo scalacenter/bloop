@@ -2,7 +2,6 @@
 matrix:
   SBT_RUN:
     - sbt "+bridgeIntegration/cachedPublishLocal" \
-          "frontend/makeTemplates" \
           "benchmarks/compile" \
           "setupIntegrations" \
           "git status" \
