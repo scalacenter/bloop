@@ -1,39 +1,55 @@
 package bloop.cli
 
+import java.net.InetAddress
+import java.nio.file.Path
+
 import bloop.engine.ExecutionContext
 import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
 
 object Commands {
-  sealed trait Command {
+
+  /** Represents the most generic command that exists.  */
+  trait Command {
     def cliOptions: CliOptions
   }
 
-  sealed trait CoreCommand extends Command {
+  /** Represents a command that has gone through an initial layer of validation. */
+  sealed trait ValidatedCommand extends Command
+
+  sealed trait ValidatedBsp extends ValidatedCommand
+  case class WindowsLocalBsp(pipeName: String, cliOptions: CliOptions) extends ValidatedBsp
+  case class UnixLocalBsp(socket: Path, cliOptions: CliOptions) extends ValidatedBsp
+  case class TcpBsp(host: InetAddress, port: Int, cliOptions: CliOptions) extends ValidatedBsp
+
+  /** Represents a command that is used by the cli and has no user input validation. */
+  sealed trait RawCommand extends Command
+
+  sealed trait CompilingCommand extends RawCommand {
     def project: String
     def reporter: ReporterKind
   }
 
   case class Help(
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends Command
+  ) extends RawCommand
 
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends Command
+  ) extends RawCommand
 
   case class Projects(
       @ExtraName("dot")
       @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
       dotGraph: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends Command
+  ) extends RawCommand
 
   case class Configure(
       @ExtraName("parallelism")
       @HelpMessage("Set the number of threads used for parallel compilation and test execution.")
       threads: Int = ExecutionContext.executor.getCorePoolSize,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends Command
+  ) extends RawCommand
 
   case class Clean(
       @ExtraName("p")
@@ -42,9 +58,8 @@ object Commands {
       @HelpMessage("Do not run clean for dependencies. By default, false.")
       isolated: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
-  ) extends Command
+  ) extends RawCommand
 
-  import java.nio.file.Path
   @CommandName("bsp")
   case class Bsp(
       @ExtraName("h")
@@ -63,7 +78,7 @@ object Commands {
         "A path to a new existing socket file to communicate through Unix sockets (local only).")
       pipeName: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends Command
+  ) extends RawCommand
 
   case class Compile(
       @ExtraName("p")
@@ -77,7 +92,7 @@ object Commands {
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
-  ) extends CoreCommand
+  ) extends CompilingCommand
 
   case class Test(
       @ExtraName("p")
@@ -91,7 +106,7 @@ object Commands {
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends CoreCommand
+  ) extends CompilingCommand
 
   case class Console(
       @ExtraName("p")
@@ -102,7 +117,7 @@ object Commands {
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends CoreCommand
+  ) extends CompilingCommand
 
   case class Run(
       @ExtraName("p")
@@ -119,5 +134,5 @@ object Commands {
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends CoreCommand
+  ) extends CompilingCommand
 }

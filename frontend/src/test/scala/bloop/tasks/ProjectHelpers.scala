@@ -110,7 +110,7 @@ object ProjectHelpers {
    * @param cmd     The command to execute after compiling.
    * @param check   A function that'll receive the resulting log messages.
    */
-  def runAndCheck(sources: Seq[String], fork: Boolean, cmd: Commands.CoreCommand)(
+  def runAndCheck(sources: Seq[String], fork: Boolean, cmd: Commands.CompilingCommand)(
       check: List[(String, String)] => Unit): Unit = {
     val noDependencies = Map.empty[String, Set[String]]
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
@@ -132,7 +132,7 @@ object ProjectHelpers {
    * @param cmd   The command to execute.
    * @param check A function that'll receive the resulting log messages.
    */
-  def runAndCheck(state: State, cmd: Commands.CoreCommand)(
+  def runAndCheck(state: State, cmd: Commands.CompilingCommand)(
       check: List[(String, String)] => Unit): Unit = {
     val recordingLogger = new RecordingLogger
     val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)

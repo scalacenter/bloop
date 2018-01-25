@@ -13,29 +13,27 @@ object BspServer {
   private[bloop] val isWindows: Boolean =
     System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
 
-  import java.net.{InetAddress, InetSocketAddress}
+  import java.net.InetSocketAddress
   private sealed trait ConnectionHandle { def socket: ServerSocket }
   private case class WindowsLocal(pipeName: String, socket: ServerSocket) extends ConnectionHandle
   private case class UnixLocal(path: Path, socket: ServerSocket) extends ConnectionHandle
   private case class Tcp(address: InetSocketAddress, socket: ServerSocket) extends ConnectionHandle
 
+  import Commands.ValidatedBsp
   import monix.{eval => me}
-  private def initServer(cmd: Commands.Bsp, state: State): me.Task[ConnectionHandle] = me.Task {
-    cmd.protocol match {
-      case BspProtocol.Local if isWindows =>
-        val pipeName = cmd.pipeName.getOrElse(sys.error("There is no pipe name!"))
+  private def initServer(cmd: ValidatedBsp, state: State): me.Task[ConnectionHandle] = me.Task {
+    cmd match {
+      case Commands.WindowsLocalBsp(pipeName, _) =>
         state.logger.debug(s"Establishing server connection at pipe $pipeName")
-        WindowsLocal(pipeName, new NGWin32NamedPipeServerSocket(cmd.pipeName.get))
-      case BspProtocol.Local =>
-        val socketFile = cmd.socket.getOrElse(sys.error(""))
+        WindowsLocal(pipeName, new NGWin32NamedPipeServerSocket(pipeName))
+      case Commands.UnixLocalBsp(socketFile, _) =>
         state.logger.debug(s"Establishing server connection at $socketFile")
         UnixLocal(socketFile, new NGUnixDomainServerSocket(socketFile.toString))
-      case BspProtocol.Tcp =>
-        val onlyHost = InetAddress.getByName(cmd.host)
-        val socketAddress = new InetSocketAddress(onlyHost, cmd.port)
+      case Commands.TcpBsp(address, portNumber, name) =>
+        val socketAddress = new InetSocketAddress(address, portNumber)
         state.logger.debug(s"Establishing server connection via TCP at ${socketAddress}")
         // Use 0 instead of a concrete number to have an infinite timeout
-        Tcp(socketAddress, new java.net.ServerSocket(cmd.port, 0, onlyHost))
+        Tcp(socketAddress, new java.net.ServerSocket(portNumber, 0, address))
     }
   }
 
@@ -47,7 +45,7 @@ object BspServer {
   }
 
   private final val bspLogger = com.typesafe.scalalogging.Logger(this.getClass)
-  def run(cmd: Commands.Bsp, state: State, scheduler: Scheduler): me.Task[State] = {
+  def run(cmd: ValidatedBsp, state: State, scheduler: Scheduler): me.Task[State] = {
     import org.langmeta.lsp.LanguageClient
     import org.langmeta.lsp.LanguageServer
     import org.langmeta.jsonrpc.BaseProtocolMessage

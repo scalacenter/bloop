@@ -89,7 +89,7 @@ object Cli {
             Print(commandUsageAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(_, _, command), _, _)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
-            def run(command: Commands.Command, cliOptions: CliOptions): Run = {
+            def run(command: Commands.RawCommand, cliOptions: CliOptions): Run = {
               if (!cliOptions.version) Run(command, Exit(ExitStatus.Ok))
               else Run(Commands.About(cliOptions), Run(command, Exit(ExitStatus.Ok)))
             }

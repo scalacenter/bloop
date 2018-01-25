@@ -7,7 +7,6 @@ import bloop.reporter.ReporterConfig
 import bloop.engine.tasks.Tasks
 import bloop.Project
 import bloop.bsp.BspServer
-import bloop.cli.Commands.Bsp
 
 object Interpreter {
   def execute(action: Action, state: State): State = {
@@ -23,7 +22,7 @@ object Interpreter {
       case Run(Commands.About(cliOptions), next) =>
         val status = logAndTime(state, cliOptions, printAbout(state))
         execute(next, state.mergeStatus(status))
-      case Run(cmd: Commands.Bsp, next) =>
+      case Run(cmd: Commands.ValidatedBsp, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, runBsp(cmd, state)))
       case Run(cmd: Commands.Clean, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, clean(cmd, state)))
@@ -39,6 +38,9 @@ object Interpreter {
         execute(next, logAndTime(state, cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
         execute(next, logAndTime(state, cmd.cliOptions, configure(cmd, state)))
+      case Run(cmd: Commands.Bsp, next) =>
+        val msg = "Internal error: command bsp must be validated before use."
+        execute(Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError)), state)
     }
   }
 
@@ -70,7 +72,7 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private def runBsp(cmd: Bsp, state: State): State = {
+  private def runBsp(cmd: Commands.ValidatedBsp, state: State): State = {
     import scala.concurrent.Await
     import scala.concurrent.duration.Duration
     val scheduler = ExecutionContext.bspScheduler
