@@ -1,7 +1,7 @@
 package bloop.cli
 
 import bloop.engine.ExecutionContext
-import caseapp.{ExtraName, HelpMessage, Recurse}
+import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
 
 object Commands {
   sealed trait Command {
@@ -44,9 +44,11 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends Command
 
+  import java.nio.file.Path
+  @CommandName("bsp")
   case class Bsp(
       @ExtraName("h")
-      @HelpMessage("The connection protocol for the bsp server.")
+      @HelpMessage("The connection protocol for the bsp server. By default, local.")
       protocol: BspProtocol = BspProtocol.Local,
       @ExtraName("p")
       @HelpMessage("The server host for the bsp server (TCP only).")
@@ -54,13 +56,12 @@ object Commands {
       @HelpMessage("The port for the bsp server (TCP only).")
       port: Int = 5101,
       @ExtraName("s")
-      @HelpMessage(
-        "A path to a new existing socket file to communicate through Unix sockets (local only).")
-      socket: Option[java.nio.file.Path] = None,
+      @HelpMessage("A path to a socket file to communicate through Unix sockets (local only).")
+      socket: Option[Path] = None,
       @ExtraName("np")
       @HelpMessage(
         "A path to a new existing socket file to communicate through Unix sockets (local only).")
-      namedPipe: Option[String] = None,
+      pipeName: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends Command
 

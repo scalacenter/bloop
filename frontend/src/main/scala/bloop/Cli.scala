@@ -1,10 +1,9 @@
 package bloop
 
-import java.io.{FileOutputStream, PrintStream}
-
+import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
-import bloop.io.{AbsolutePath, Paths}
+import bloop.io.Paths
 import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -105,7 +104,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                run(newCommand, newCommand.cliOptions)
+                Validate.bsp(newCommand)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
@@ -161,7 +160,7 @@ object Cli {
     val (cliOptions, logToFile) = action match {
       case e: Exit => (CliOptions.default, false)
       case p: Print => (CliOptions.default, false)
-      case Run(cmd: Commands.Bsp, _) => (cmd.cliOptions, true)
+      case Run(cmd: Commands.Bsp, _) => (cmd.cliOptions, false)
       case r: Run => (r.command.cliOptions, false)
     }
 

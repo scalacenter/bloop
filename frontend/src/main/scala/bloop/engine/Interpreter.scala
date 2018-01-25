@@ -70,7 +70,13 @@ object Interpreter {
     ExitStatus.Ok
   }
 
-  private def runBsp(cmd: Bsp, state: State): State = BspServer.run(cmd, state)
+  private def runBsp(cmd: Bsp, state: State): State = {
+    import scala.concurrent.Await
+    import scala.concurrent.duration.Duration
+    val scheduler = ExecutionContext.bspScheduler
+    val runningBsp = BspServer.run(cmd, state, scheduler)
+    Await.result(runningBsp.runAsync(scheduler), Duration.Inf)
+  }
 
   private def watch(project: Project, state: State, f: State => State): State = {
     val reachable = Dag.dfs(state.build.getDagFor(project))

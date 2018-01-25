@@ -90,7 +90,11 @@ val frontend = project
     fork in run := true,
     fork in Test := true,
     parallelExecution in test := false,
-    libraryDependencies += "io.monix" %% "monix" % "2.3.2"
+    libraryDependencies ++= List(
+      "io.monix" %% "monix" % "2.3.2",
+      // Depend on ipcsocket only for testing since it has special changes to use clients
+      "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.0.0" % Test
+    )
   )
 
 val benchmarks = project
