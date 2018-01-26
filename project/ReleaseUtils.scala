@@ -5,6 +5,7 @@ import java.io.File
 import sbt.{Def, Keys, MessageOnlyException}
 import sbt.io.syntax.fileToRichFile
 import sbt.io.IO
+import sbt.util.FileFunction
 
 /** Utilities that are useful for releasing Bloop */
 object ReleaseUtils {
@@ -26,19 +27,34 @@ object ReleaseUtils {
    * This lets us create an installation script that doesn't need any additional input to install
    * the version of Bloop that we're releasing.
    */
-  val versionedInstallScript = Def.setting {
-    IO.readLines(installScript.value) match {
-      case shebang :: rest =>
-        val scriptTarget = Keys.target.value / "install.py"
-        val customizedVariables =
-          List(s"""NAILGUN_COMMIT = "${nailgunCommit.value}"""",
-               s"""BLOOP_VERSION = "${Keys.version.value}"""")
-        val newContent = shebang :: customizedVariables ++ rest
-        IO.writeLines(scriptTarget, newContent)
-        scriptTarget
-      case _ =>
-        sys.error(installScript.value.getAbsolutePath + " was empty?")
-    }
+  val versionedInstallScript = Def.task {
+    val nailgun = nailgunCommit.value
+    val version = Keys.version.value
+    val target = Keys.target.value
+    val log = Keys.streams.value.log
+    val cacheDirectory = Keys.streams.value.cacheDirectory
+    val cachedWrite =
+      FileFunction.cached(cacheDirectory) { scripts =>
+        scripts.map { script =>
+          IO.readLines(script) match {
+
+            case shebang :: rest =>
+              val customizedVariables =
+                List(
+                  s"""NAILGUN_COMMIT = "$nailgun"""",
+                  s"""BLOOP_VERSION = "$version""""
+                )
+              val newContent = shebang :: customizedVariables ++ rest
+              val scriptTarget = target / script.getName
+              IO.writeLines(scriptTarget, newContent)
+              scriptTarget
+
+            case _ =>
+              sys.error(script.getAbsolutePath + " was empty?")
+          }
+        }
+      }
+    cachedWrite(Set(installScript.value)).head
   }
 
   /**
