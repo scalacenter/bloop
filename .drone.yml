@@ -15,6 +15,10 @@ matrix:
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           ";backend/releaseEarly;frontend/releaseEarly;^sbtBloop/releaseEarly"
 
+  SBT_RELEASE:
+    - sbt "frontend/updateHomebrewFormula" \
+          "frontend/githubRelease"
+
 clone:
   git:
     image: plugins/git
@@ -57,6 +61,19 @@ pipeline:
       - /usr/local/bin/setup_keys.sh
       - ${SBT_PUBLISH}
       - ./bin/ci-clean-cache.sh
+
+  release:
+    image: scalaplatform/scala:2.1
+    secrets: [ bloopoid_github_token ]
+    volumes:
+      - /scalacenter:/keys
+    when:
+      branch: master
+      event: [ tag ]
+      status: success
+    commands:
+      - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
+      - ${SBT_RELEASE}
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache

@@ -1,6 +1,8 @@
 package build
 
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
+import sbt.io.{AllPassFilter, IO}
+import sbt.io.syntax.fileToRichFile
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -53,15 +55,25 @@ object BuildKeys {
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
   import sbt.{Test, TestFrameworks, Tests}
-  import sbt.io.syntax.fileToRichFile
+  val buildBase = Keys.baseDirectory in sbt.ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val testSettings: Seq[Def.Setting[_]] = List(
-    integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
+    integrationTestsLocation := buildBase.value / "integration-tests" / "integration-projects",
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test
     ),
+  )
+
+  import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
+  val releaseSettings = Seq(
+    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md") },
+    GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
+    GHReleaseKeys.ghreleaseRepoName := "bloop",
+    GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
+    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
   )
 
   import sbtbuildinfo.BuildInfoKey
@@ -107,7 +119,7 @@ object BuildKeys {
         "-DbloopVersion=" + Keys.version.in(project).value,
         "-DbloopRef=" + refOf(Keys.version.in(project).value),
         "-Dbloop.jar=" + AssemblyKeys.assembly.in(project).value,
-        "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
+        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
     }
   )
@@ -144,7 +156,7 @@ object BuildImplementation {
     Keys.onLoadMessage := Header.intro,
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
-    Keys.publishArtifact in Test := false,
+    Keys.publishArtifact in Test := false
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -204,7 +216,6 @@ object BuildImplementation {
     }
 
     import java.io.File
-    import sbt.io.{AllPassFilter, IO}
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
     private def createScriptedSetup(testDir: File) = {
@@ -263,7 +274,7 @@ object BuildImplementation {
     }
 
     private val NewLine = System.lineSeparator
-    import sbt.io.syntax.{fileToRichFile, singleFileFinder}
+    import sbt.io.syntax.singleFileFinder
     val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := true,
       ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests",
