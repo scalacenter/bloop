@@ -2,6 +2,7 @@ package bloop.cli.validation
 
 import java.nio.file.Files
 
+import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, ExitStatus}
 import bloop.engine.{Action, Exit, Print, Run}
 import org.junit.Test
@@ -55,8 +56,27 @@ class ValidateSuite {
     )
   }
 
+  @Test def FailAtLengthySocket(): Unit = {
+    // See http://www.cs.utah.edu/plt/popl16/doc/unix-socket/index.html
+    val tempBytes = Validate.bytesOf(tempDir.toString)
+    val limit = if (BspServer.isMac) 104 else 108
+    val missing = limit - tempBytes
+    val lengthyName = "a" * missing
+
+    val socketPath = tempDir.resolve(s"$lengthyName")
+    val bspCommand = Commands.Bsp(
+      protocol = BspProtocol.Local,
+      socket = Some(socketPath),
+      pipeName = None
+    )
+
+    val msg =
+      if (BspServer.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
+      else Feedback.excessiveSocketLength(socketPath)
+    checkIsCliError(Validate.bsp(bspCommand, isWindows = false), msg)
+  }
+
   @Test def FailAtMissingSocket(): Unit = {
-    val socketPath = tempDir.resolve("test.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
       socket = None,
@@ -70,7 +90,6 @@ class ValidateSuite {
   }
 
   @Test def FailAtMissingPipeName(): Unit = {
-    val pipeName = s"\\\\.\\pipe\\test-$uniqueId"
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
       socket = None,

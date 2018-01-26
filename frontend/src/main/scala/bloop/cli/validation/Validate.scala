@@ -1,5 +1,6 @@
 package bloop.cli.validation
 
+import java.nio.charset.Charset
 import java.nio.file.{Files, Path}
 
 import bloop.bsp.BspServer
@@ -10,6 +11,9 @@ object Validate {
   private def cliError(msg: String, commonOptions: CommonOptions): Action =
     Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
+  // https://github.com/scalacenter/bloop/issues/196
+  private final val DefaultCharset = Charset.defaultCharset()
+  private[bloop] def bytesOf(s: String): Int = s.getBytes(DefaultCharset).length
   private final val PipeName = "^\\Q\\\\.\\pipe\\\\E(.*)".r
   def bsp(cmd: Commands.Bsp, isWindows: Boolean): Action = {
     val cliOptions = cmd.cliOptions
@@ -20,6 +24,10 @@ object Validate {
         cliError(Feedback.existingSocketFile(socket), commonOptions)
       case Some(socket) if !Files.exists(socket.getParent) =>
         cliError(Feedback.missingParentOfSocket(socket), commonOptions)
+      case Some(socket) if BspServer.isMac && bytesOf(socket.toString) > 104 =>
+        cliError(Feedback.excessiveSocketLengthInMac(socket), commonOptions)
+      case Some(socket) if bytesOf(socket.toString) > 108 =>
+        cliError(Feedback.excessiveSocketLength(socket), commonOptions)
       case Some(socket) => Run(Commands.UnixLocalBsp(socket, cliOptions))
       case None => cliError(Feedback.MissingSocket, commonOptions)
     }
@@ -58,6 +66,10 @@ object Feedback {
   val MissingPipeName = "Missing pipe name to establish a local connection in Windows."
   val MissingSocket =
     "A socket file is required to establish a local connection through Unix sockets."
+  def excessiveSocketLengthInMac(socket: Path): String =
+    s"The length of the socket path '${socket.toString}' exceeds 104 bytes in Mac."
+  def excessiveSocketLength(socket: Path): String =
+    s"The length of the socket path '${socket.toString}' exceeds 108 bytes."
   def existingSocketFile(socket: Path): String =
     s"Bloop bsp server cannot establish a connection with an existing socket file '${socket.toAbsolutePath}'."
   def missingParentOfSocket(socket: Path): String =
