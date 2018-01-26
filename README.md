@@ -55,7 +55,7 @@ We suggest that you add the following to your shell configuration:
 
 ```sh
 export PATH="$PATH:~/.bloop"
-alias bloop="bloop-ng.py"
+alias bloop="bloop-ng.py bloop.Cli --"
 ```
 
 The next sections assume that you've added those lines to your profile, and reloaded your shell.
