@@ -54,6 +54,7 @@ object BspClientTest {
       val messages = BaseProtocolMessage.fromInputStream(socket.getInputStream)
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
+      Thread.sleep(200)
 
       val cwd = configDirectory.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -96,6 +97,6 @@ object BspClientTest {
     }
 
     // We delay the start of the client to wait for the bsp server to go live.
-    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(1500, "ms"))
+    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(1000, "ms"))
   }
 }
