@@ -110,25 +110,30 @@ object ReleaseUtils {
     val buildBase = BuildKeys.buildBase.value
     val installSha = sha256(versionedInstallScript.value)
     val version = Keys.version.value
+    val bloopoidName = "Bloopoid"
+    val bloopoidEmail = "bloop@trashmail.ws"
+    val token = sys.env.get("BLOOPOID_GITHUB_TOKEN").getOrElse {
+      throw new MessageOnlyException("Couldn't find Github oauth token in `BLOOPOID_GITHUB_TOKEN`")
+    }
     val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {
       throw new MessageOnlyException("No tag found in this repository.")
     }
 
     IO.withTemporaryDirectory { homebrewBase =>
-      GitUtils.clone("git@github.com:scalacenter/homebrew-bloop.git",
-                     homebrewBase,
-                     Some(GitUtils.defaultSshSessionFactory)) { homebrewRepo =>
-        val formulaFileName = "bloop.rb"
-        val commitMessage = s"Updating to Bloop $tagName"
-        val content = formulaContent(version, tagName, installSha)
-        IO.write(homebrewBase / formulaFileName, content)
-        val changed = formulaFileName :: Nil
-        GitUtils.commitChangesIn(homebrewRepo, changed, commitMessage)
-        GitUtils.tag(homebrewRepo, tagName, commitMessage)
-        GitUtils.push(homebrewRepo,
-                      "origin",
-                      Seq("master", tagName),
-                      Some(GitUtils.defaultSshSessionFactory))
+      GitUtils.clone("https://github.com/scalacenter/homebrew-bloop.git", homebrewBase, token) {
+        homebrewRepo =>
+          val formulaFileName = "bloop.rb"
+          val commitMessage = s"Updating to Bloop $tagName"
+          val content = formulaContent(version, tagName, installSha)
+          IO.write(homebrewBase / formulaFileName, content)
+          val changed = formulaFileName :: Nil
+          GitUtils.commitChangesIn(homebrewRepo,
+                                   changed,
+                                   commitMessage,
+                                   bloopoidName,
+                                   bloopoidEmail)
+          GitUtils.tag(homebrewRepo, tagName, commitMessage)
+          GitUtils.push(homebrewRepo, "origin", Seq("master", tagName), token)
       }
     }
   }
