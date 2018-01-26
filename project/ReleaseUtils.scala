@@ -26,7 +26,7 @@ object ReleaseUtils {
    * This lets us create an installation script that doesn't need any additional input to install
    * the version of Bloop that we're releasing.
    */
-  val versionedInstallScript = Def.task {
+  val versionedInstallScript = Def.setting {
     IO.readLines(installScript.value) match {
       case shebang :: rest =>
         val scriptTarget = Keys.target.value / "install.py"
