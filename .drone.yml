@@ -39,7 +39,7 @@ pipeline:
   build:
     image: scalaplatform/scala:2.1
     when:
-      branch: master
+      ref: [ refs/heads/master, refs/tags/* ]
     commands:
       - git log | head -n 20
       - ${SBT_RUN}
@@ -51,7 +51,7 @@ pipeline:
     volumes:
       - /scalacenter:/keys
     when:
-      branch: master
+      ref: [ refs/heads/master, refs/tags/* ]
       event: [ push, tag, deployment ]
       status: success
     commands:
@@ -68,7 +68,7 @@ pipeline:
     volumes:
       - /scalacenter:/keys
     when:
-      branch: master
+      ref: [ refs/heads/master, refs/tags/* ]
       event: [ tag ]
       status: success
     commands:
