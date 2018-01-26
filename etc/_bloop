@@ -20,7 +20,7 @@ _bloop() {
   case $words[1] in
     about)
       _arguments -C \
-        {-c,--config-dir}'[File path to the bloop config directory]:directory:_files -/' \
+        {-c --config-dir}'[File path to the bloop config directory]:directory:_files -/' \
         {-v,--version}'[if set, print the about section at the beginning of the execution]' \
         '--verbose[if set, print out debugging information to stderr]' \
         '--threads[number of threads to use]:threads:_thread_count'
@@ -79,7 +79,7 @@ _bloop() {
     run)
       _arguments \
         {-p,--project}'[the project to compile]:project:_projects' \
-        {-m,--main}'[the main class to run. Leave unset to let bloop select automatically]:class:' \
+        {-m,--main}'[the main class to run. Leave unset to let bloop select automatically]:class:_main_classes' \
         '--reporter[pick reporter to show compilation messages]:reporter:' \
         '--args[the arguments to pass to the application]:arguments:' \
         {-w,--watch}'[if set, run the command when project source files change; by default, false]' \
@@ -103,9 +103,6 @@ _bloop() {
 
     *)
       ;;
-    
-    
-    
 
   esac
 
@@ -127,6 +124,15 @@ _thread_count() {
 _projects() {
   local projects; projects=( $(ls .bloop-config 2> /dev/null | sed 's/.config$//g') )
   _describe 'values' projects
+}
+
+_main_classes() {
+  local bin; bin=( $(cat .bloop-config/*.config | grep 'classesDir=' | cut -d'=' -f2 | sort | uniq) )
+  local classes; classes=()
+  for F in $bin; do
+    classes+=( $(cd $F && find . -name '*.class' | grep -v '\$' | sed 's/.class$//' | sed 's/^..//' | sed 's/\//./g') )
+  done
+  _describe 'values' classes
 }
 
 _bloop
