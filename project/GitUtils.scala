@@ -63,8 +63,13 @@ object GitUtils {
   }
 
   /** Clone the repository at `uri` to `destination` and perform some operations. */
-  def clone[T](uri: String, destination: File)(op: Git => T) = {
-    val cmd = Git.cloneRepository().setDirectory(destination).setURI(uri)
+  def clone[T](uri: String, destination: File, sshSessionFactory: Option[SshSessionFactory] = None)(
+      op: Git => T) = {
+    val cmd =
+      Git.cloneRepository().setDirectory(destination).setURI(uri).setTransportConfigCallback {
+        case transport: SshTransport => sshSessionFactory.foreach(transport.setSshSessionFactory)
+        case _ => ()
+      }
     val git = cmd.call()
     try op(git)
     finally git.close()
@@ -76,9 +81,31 @@ object GitUtils {
   }
 
   /** Push the references in `refs` to `remote`. */
-  def push(git: Git, remote: String, refs: String*): Unit = {
-    val cmd = refs.foldLeft(git.push().setRemote(remote))(_ add _)
+  def push(git: Git,
+           remote: String,
+           refs: Seq[String],
+           sshSessionFactory: Option[SshSessionFactory] = None): Unit = {
+    val cmdBase = git.push().setRemote(remote).setTransportConfigCallback {
+      case transport: SshTransport => sshSessionFactory.foreach(transport.setSshSessionFactory)
+      case _ => ()
+    }
+    val cmd = refs.foldLeft(cmdBase)(_ add _)
     cmd.call()
+  }
+
+  def defaultSshSessionFactory: SshSessionFactory = new JschConfigSessionFactory {
+    override protected def configure(host: OpenSshConfig.Host, session: Session): Unit = {
+      val userInfo = new UserInfo {
+        override def getPassphrase(): String = null
+        override def getPassword(): String = null
+        override def promptPassword(message: String): Boolean = false
+        override def promptPassphrase(message: String): Boolean = false
+        override def promptYesNo(message: String): Boolean = false
+        override def showMessage(message: String): Unit = ()
+      }
+      session.setUserInfo(userInfo)
+      session.setConfig("StrictHostKeyChecking", "no")
+    }
   }
 
 }
