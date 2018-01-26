@@ -115,15 +115,20 @@ object ReleaseUtils {
     }
 
     IO.withTemporaryDirectory { homebrewBase =>
-      GitUtils.clone("git@github.com:scalacenter/homebrew-bloop.git", homebrewBase) {
-        homebrewRepo =>
-          val formulaFileName = "bloop.rb"
-          val commitMessage = s"Updating to Bloop $tagName"
-          val content = formulaContent(version, tagName, installSha)
-          IO.write(homebrewBase / formulaFileName, content)
-          val changed = formulaFileName :: Nil
-          GitUtils.commitChangesIn(homebrewRepo, changed, commitMessage)
-          GitUtils.push(homebrewRepo, "origin", "master", tagName)
+      GitUtils.clone("git@github.com:scalacenter/homebrew-bloop.git",
+                     homebrewBase,
+                     Some(GitUtils.defaultSshSessionFactory)) { homebrewRepo =>
+        val formulaFileName = "bloop.rb"
+        val commitMessage = s"Updating to Bloop $tagName"
+        val content = formulaContent(version, tagName, installSha)
+        IO.write(homebrewBase / formulaFileName, content)
+        val changed = formulaFileName :: Nil
+        GitUtils.commitChangesIn(homebrewRepo, changed, commitMessage)
+        GitUtils.tag(homebrewRepo, tagName, commitMessage)
+        GitUtils.push(homebrewRepo,
+                      "origin",
+                      Seq("master", tagName),
+                      Some(GitUtils.defaultSshSessionFactory))
       }
     }
   }
