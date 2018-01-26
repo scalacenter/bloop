@@ -26,20 +26,19 @@ parser = argparse.ArgumentParser(description="Installation script for Bloop.")
 parser.add_argument(
     '-d',
     '--dest',
-    default=BLOOP_DEFAULT_INSTALLATION_TARGET,
-    help="Where to install Bloop, defaults to %s" %
-    BLOOP_DEFAULT_INSTALLATION_TARGET)
+    default=os.getcwd(),
+    help="Where to install Bloop, defaults to %s" % os.getcwd())
 parser.add_argument(
     '-v',
     '--version',
-    required = not CUSTOMIZED_SCRIPT,
-    default = BLOOP_VERSION,
+    required=not CUSTOMIZED_SCRIPT,
+    default=BLOOP_VERSION,
     help="Version of Bloop to install")
 parser.add_argument(
     '-n',
     '--nailgun',
-    required = not CUSTOMIZED_SCRIPT,
-    default = NAILGUN_COMMIT,
+    required=not CUSTOMIZED_SCRIPT,
+    default=NAILGUN_COMMIT,
     help="Commit hash of the Nailgun client ot use")
 args = parser.parse_args()
 

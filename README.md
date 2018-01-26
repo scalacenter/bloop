@@ -38,7 +38,11 @@ $ cd bloop
 $ sbt
 > install
 > frontend/version # copy this version number
-$ bin/install.py --version <version> # paste here the version number obtained above
+> cd nailgun
+> git rev-parse HEAD # copy this commit SHA
+> cd ..
+# paste the version number and SHA obtained above in the following command:
+$ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
 ```
 
 The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell`
