@@ -91,7 +91,7 @@ object ReleaseUtils {
        |    <string>#{plist_name}</string>
        |    <key>ProgramArguments</key>
        |    <array>
-       |        <string>#{bin}/bloop-server</string>
+       |        <string>#{bin}/blp-server</string>
        |    </array>
        |    <key>KeepAlive</key>
        |    <true/>
