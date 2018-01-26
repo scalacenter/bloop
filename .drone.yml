@@ -72,7 +72,7 @@ pipeline:
       event: [ tag ]
       status: success
     commands:
-      - echo "oauth = $bloopoid_github_token" > ~/.github
+      - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${SBT_RELEASE}
 
   rebuild_cache:
