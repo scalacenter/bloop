@@ -26,13 +26,6 @@ object GitUtils {
     finally git.close()
   }
 
-  /** The latest commit SHA in this repository. */
-  def latestCommitIn(git: Git): String = {
-    val repository = git.getRepository()
-    val head = repository.resolve("HEAD")
-    ObjectId.toString(head)
-  }
-
   /**
    * Commit all the specified changes
    *
@@ -51,16 +44,6 @@ object GitUtils {
 
   /** The latest tag in this repository. */
   def latestTagIn(git: Git): Option[String] = Option(git.describe().call())
-
-  /**
-   * The git directory for this submodule.
-   *
-   * This is different from the submodule's root: those don't have a `.git` directory
-   * directly. It is in the `.git` directory of the root repository.
-   */
-  def submoduleGitDir(name: String) = Def.setting {
-    BuildKeys.buildBase.value / ".git" / "modules" / name
-  }
 
   /** Clone the repository at `uri` to `destination` and perform some operations. */
   def clone[T](uri: String, destination: File)(op: Git => T) = {
