@@ -35,14 +35,10 @@ sbt:
 ```sh
 $ git clone --recursive https://github.com/scalacenter/bloop.git
 $ cd bloop
-$ sbt
-> install
-> frontend/version # copy this version number
-> cd nailgun
-> git rev-parse HEAD # copy this commit SHA
-> cd ..
-# paste the version number and SHA obtained above in the following command:
-$ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
+$ sbt install
+$ VERSION=$(sbt frontend/version | tail -n1 | cut -d' ' -f2)
+$ NAILGUN=$(git --git-dir=nailgun/.git rev-parse HEAD)
+$ bin/install.py --dest $HOME/.bloop --nailgun $NAILGUN --version $VERSION
 ```
 
 The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell`
