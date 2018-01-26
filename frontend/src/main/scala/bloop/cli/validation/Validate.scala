@@ -10,8 +10,8 @@ object Validate {
   private def cliError(msg: String, commonOptions: CommonOptions): Action =
     Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
-  private final val PipeName = "^\\Q\\\\.\\pipe\\\\E.*".r
-  def bsp(cmd: Commands.Bsp): Action = {
+  private final val PipeName = "^\\Q\\\\.\\pipe\\\\E(.*)".r
+  def bsp(cmd: Commands.Bsp, isWindows: Boolean): Action = {
     val cliOptions = cmd.cliOptions
     val commonOptions = cliOptions.common
 
@@ -19,7 +19,7 @@ object Validate {
       case Some(socket) if Files.exists(socket) =>
         cliError(Feedback.existingSocketFile(socket), commonOptions)
       case Some(socket) if !Files.exists(socket.getParent) =>
-        cliError(Feedback.missingParentOf(socket), commonOptions)
+        cliError(Feedback.missingParentOfSocket(socket), commonOptions)
       case Some(socket) => Run(Commands.UnixLocalBsp(socket, cliOptions))
       case None => cliError(Feedback.MissingSocket, commonOptions)
     }
@@ -42,12 +42,12 @@ object Validate {
         .catching(classOf[UnknownHostException])
         .either { continueValidation(InetAddress.getByName(cmd.host)) } match {
         case Right(action) => action
-        case Left(_) => cliError(cmd.host, commonOptions)
+        case Left(_) => cliError(Feedback.unknownHostName(cmd.host), commonOptions)
       }
     }
 
     cmd.protocol match {
-      case BspProtocol.Local if BspServer.isWindows => validatePipeName
+      case BspProtocol.Local if isWindows => validatePipeName
       case BspProtocol.Local => validateSocket
       case BspProtocol.Tcp => validateTcp
     }
@@ -60,7 +60,7 @@ object Feedback {
     "A socket file is required to establish a local connection through Unix sockets."
   def existingSocketFile(socket: Path): String =
     s"Bloop bsp server cannot establish a connection with an existing socket file '${socket.toAbsolutePath}'."
-  def missingParentOf(socket: Path): String =
+  def missingParentOfSocket(socket: Path): String =
     s"'${socket.toAbsolutePath}' cannot be created because its parent doesn't exist."
   def unexpectedPipeFormat(pipeName: String): String =
     s"Pipe name '${pipeName}' does not start with '\\\\.\\pipe\\'."

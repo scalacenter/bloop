@@ -1,5 +1,6 @@
 package bloop
 
+import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
@@ -104,7 +105,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand)
+                Validate.bsp(newCommand, BspServer.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
