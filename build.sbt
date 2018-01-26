@@ -140,11 +140,13 @@ addCommandAlias(
   ).mkString(";", ";", "")
 )
 
-addCommandAlias("runTests",
-                List(
-                  s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
-                  s"${sbtBloop.id}/${scripted.key.label}"
-                ).mkString(";", ";", ""))
+addCommandAlias(
+  "runTests",
+  List(
+    s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
+    s"${sbtBloop.id}/${scripted.key.label}"
+  ).mkString(";", ";", "")
+)
 
 addCommandAlias(
   "install",
