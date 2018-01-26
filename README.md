@@ -36,7 +36,7 @@ sbt:
 $ git clone --recursive https://github.com/scalacenter/bloop.git
 $ cd bloop
 $ sbt install
-$ VERSION=$(sbt frontend/version | tail -n1 | cut -d' ' -f2)
+$ VERSION=$(sbt -no-colors frontend/version | tail -n1 | cut -d' ' -f2)
 $ NAILGUN=$(git --git-dir=nailgun/.git rev-parse HEAD)
 $ bin/install.py --dest $HOME/.bloop --nailgun $NAILGUN --version $VERSION
 ```
