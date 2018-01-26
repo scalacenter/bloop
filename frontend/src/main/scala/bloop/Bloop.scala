@@ -24,7 +24,7 @@ object Bloop extends CaseApp[CliOptions] {
     logger.verboseIf(options.verbose) {
       val projects = Project.fromDir(configDirectory, logger)
       val build = Build(configDirectory, projects)
-      val state = State(build, logger)
+      val state = State(build, options.common, logger)
       run(state)
     }
   }
