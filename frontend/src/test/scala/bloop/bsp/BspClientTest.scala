@@ -42,6 +42,8 @@ object BspClientTest {
 
   def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath)(
       runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
+    // Let's sleep to give time to bspScheduler to cancel tasks while running several tests sequentially
+    Thread.sleep(200)
 
     val scheduler = ExecutionContext.bspScheduler
     val projectName = cmd.cliOptions.common.workingPath.underlying.getFileName().toString()
@@ -54,7 +56,7 @@ object BspClientTest {
       val messages = BaseProtocolMessage.fromInputStream(socket.getInputStream)
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
-      Thread.sleep(200)
+      Thread.sleep(400)
 
       val cwd = configDirectory.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -97,6 +99,6 @@ object BspClientTest {
     }
 
     // We delay the start of the client to wait for the bsp server to go live.
-    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(1000, "ms"))
+    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(500, "ms"))
   }
 }
