@@ -68,11 +68,11 @@ object BuildKeys {
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
-  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
   val releaseSettings = Seq(
+    GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
+    GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
-    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
-    ReleaseEarlyKeys.releaseEarlyProcess += updateHomebrewFormula
+    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
   )
 
   import sbtbuildinfo.BuildInfoKey
