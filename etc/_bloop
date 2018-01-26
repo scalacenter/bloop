@@ -40,7 +40,7 @@ _bloop() {
       _arguments \
         {-p,--project}'[the project to compile]:project:_projects' \
         '--incremental[compile the project incrementally; by default, true]' \
-        '--reporter[pick reporter to show compilation messages]:reporter:' \
+        '--reporter[pick reporter to show compilation messages]:reporter:_reporter' \
         {-w,--watch}'[run the command when project source files change; by default, false]' \
         {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
         {-v,--version}'[if set, print the about section at the beginning of the execution]' \
@@ -80,7 +80,7 @@ _bloop() {
       _arguments \
         {-p,--project}'[the project to compile]:project:_projects' \
         {-m,--main}'[the main class to run. Leave unset to let bloop select automatically]:class:_main_classes' \
-        '--reporter[pick reporter to show compilation messages]:reporter:' \
+        '--reporter[pick reporter to show compilation messages]:reporter:_reporter' \
         '--args[the arguments to pass to the application]:arguments:' \
         {-w,--watch}'[if set, run the command when project source files change; by default, false]' \
         {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
@@ -124,6 +124,11 @@ _thread_count() {
 _projects() {
   local projects; projects=( $(ls .bloop-config 2> /dev/null | sed 's/.config$//g') )
   _describe 'values' projects
+}
+
+_reporter() {
+  local reporters; reporters=( 'scalac:use the Scalac reporter' 'bloop:use the Bloop reporter (default)' )
+  _describe 'values' reporters
 }
 
 _main_classes() {
