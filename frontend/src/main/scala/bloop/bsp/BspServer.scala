@@ -76,6 +76,12 @@ object BspServer {
         server.startTask
           .onErrorRecover { case t: Throwable => logger.trace(t) }
           .map(_ => servicesProvider.latestState)
+          .doOnCancel(me.Task {
+            socket.close()
+            socket.shutdownInput()
+            socket.shutdownOutput()
+            handle.socket.close()
+          })
     }
   }
 }

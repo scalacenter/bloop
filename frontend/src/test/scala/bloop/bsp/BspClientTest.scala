@@ -2,8 +2,7 @@ package bloop.bsp
 
 import java.nio.file.Files
 
-import bloop.cli.{BspProtocol, Commands}
-import bloop.engine.ExecutionContext
+import bloop.cli.Commands
 import bloop.io.AbsolutePath
 import bloop.tasks.ProjectHelpers
 import ch.epfl.`scala`.bsp.schema.{
@@ -12,10 +11,12 @@ import ch.epfl.`scala`.bsp.schema.{
   InitializedBuildParams
 }
 import ch.epfl.scala.bsp.endpoints
-import monix.execution.Cancelable
+import monix.execution.{Cancelable, Scheduler}
 import monix.{eval => me}
 import org.langmeta.jsonrpc.{BaseProtocolMessage, Response, Services}
 import org.langmeta.lsp.{LanguageClient, LanguageServer}
+
+import scala.concurrent.duration.FiniteDuration
 
 object BspClientTest {
   private final val slf4jLogger = com.typesafe.scalalogging.Logger("test")
@@ -40,12 +41,11 @@ object BspClientTest {
     }
   }
 
+  val scheduler: Scheduler = Scheduler { java.util.concurrent.Executors.newFixedThreadPool(4) }
   def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath)(
       runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
     // Let's sleep to give time to bspScheduler to cancel tasks while running several tests sequentially
-    Thread.sleep(200)
 
-    val scheduler = ExecutionContext.bspScheduler
     val projectName = cmd.cliOptions.common.workingPath.underlying.getFileName().toString()
     val state = ProjectHelpers.loadTestProject(projectName)
     val runningBspServer = BspServer.run(cmd, state, scheduler).runAsync(scheduler)
@@ -56,7 +56,6 @@ object BspClientTest {
       val messages = BaseProtocolMessage.fromInputStream(socket.getInputStream)
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
-      Thread.sleep(400)
 
       val cwd = configDirectory.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -68,15 +67,21 @@ object BspClientTest {
 
       val clientRequests = for {
         // Delay the task to let the bloop server go live
-        initializeResult <- initializeServer
+        initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
         val _ = endpoints.Build.initialized.notify(InitializedBuildParams())
         otherCalls <- runEndpoints(lsClient)
-      } yield otherCalls
+      } yield {
+        // After the last request, close everything.
+        otherCalls.map { _ =>
+          socket.close()
+          socket.shutdownInput()
+          socket.shutdownOutput()
+        }
+      }
 
       // We cancel the server when we are done with the requests!
       clientRequests.doOnFinish(_ =>
-        me.Task.eval {
-          socket.close()
+        me.Task {
           Cancelable.cancelAll(List(runningClientServer, runningBspServer, cleanUpResources(cmd)))
       })
     }
@@ -84,8 +89,7 @@ object BspClientTest {
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
     val f = bspClientExecution.runAsync(scheduler)
-    val d = Await.result(f, FiniteDuration(15, "s"))
-    ()
+    Await.result(f, FiniteDuration(10, "s"))
   }
 
   private def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
@@ -99,6 +103,6 @@ object BspClientTest {
     }
 
     // We delay the start of the client to wait for the bsp server to go live.
-    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(500, "ms"))
+    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(400, "ms"))
   }
 }

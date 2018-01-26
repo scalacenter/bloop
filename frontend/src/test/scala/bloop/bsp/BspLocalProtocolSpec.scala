@@ -1,11 +1,13 @@
 package bloop.bsp
 
+import java.nio.file.Files
+
 import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.tasks.ProjectHelpers
-import ch.epfl.`scala`.bsp.schema.{CompileParams, WorkspaceBuildTargetsRequest}
+import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
 import org.langmeta.lsp.LanguageClient
@@ -13,10 +15,12 @@ import org.langmeta.lsp.LanguageClient
 class BspLocalProtocolSpec {
   private final val cwd = AbsolutePath(ProjectHelpers.getTestProjectDir("utest"))
   private final val configDir = cwd.resolve("bloop-config")
+  private final val tempDir = Files.createTempDirectory("temp-sockets")
+  tempDir.toFile.deleteOnExit()
 
   def createBspLocalCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
-    val uniqueId = java.util.UUID.randomUUID().toString.take(8)
-    val socketFile = configDir.resolve(s"test-$uniqueId.socket").underlying
+    val uniqueId = java.util.UUID.randomUUID().toString.take(4)
+    val socketFile = tempDir.resolve(s"test-$uniqueId.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
       socket = Some(socketFile),
@@ -30,8 +34,17 @@ class BspLocalProtocolSpec {
   }
 
   @Test def TestInitialization(): Unit = {
-    val bspCommand = createBspLocalCommand(configDir)
-    BspClientTest.runTest(bspCommand, configDir)(c => monix.eval.Task.eval(Right(())))
+    // We test the initialization several times to make sure the scheduler doesn't get blocked.
+    def test(counter: Int): Unit = {
+      if (counter == 0) ()
+      else {
+        val bspCommand = createBspLocalCommand(configDir)
+        BspClientTest.runTest(bspCommand, configDir)(c => monix.eval.Task.eval(Right(())))
+        test(counter - 1)
+      }
+    }
+
+    test(5)
   }
 
   @Test def TestBuildTargets(): Unit = {
