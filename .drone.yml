@@ -39,7 +39,7 @@ pipeline:
   build:
     image: scalaplatform/scala:2.1
     when:
-      ref: [ refs/heads/master, refs/tags/* ]
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/* ]
     commands:
       - git log | head -n 20
       - ${SBT_RUN}

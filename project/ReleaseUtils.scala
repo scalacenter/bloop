@@ -13,13 +13,6 @@ object ReleaseUtils {
   /** The path to our installation script */
   private val installScript = Def.setting { BuildKeys.buildBase.value / "bin" / "install.py" }
 
-  /** The latest commit in the `nailgun` submodule. */
-  private val nailgunCommit = Def.setting {
-    GitUtils.withGit(GitUtils.submoduleGitDir("nailgun").value) { git =>
-      GitUtils.latestCommitIn(git)
-    }
-  }
-
   /**
    * Creates a new installation script (based on the normal installation script) that has default
    * values for the nailgun commit and version of Bloop to install.
@@ -28,7 +21,7 @@ object ReleaseUtils {
    * the version of Bloop that we're releasing.
    */
   val versionedInstallScript = Def.task {
-    val nailgun = nailgunCommit.value
+    val nailgun = Keys.version.in(BuildKeys.NailgunServer).value
     val version = Keys.version.value
     val target = Keys.target.value
     val log = Keys.streams.value.log

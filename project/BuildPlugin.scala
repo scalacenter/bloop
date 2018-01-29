@@ -1,6 +1,6 @@
 package build
 
-import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
+import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
 
@@ -55,7 +55,7 @@ object BuildKeys {
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
   import sbt.{Test, TestFrameworks, Tests}
-  val buildBase = Keys.baseDirectory in sbt.ThisBuild
+  val buildBase = Keys.baseDirectory in ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
@@ -188,7 +188,26 @@ object BuildImplementation {
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(List(Keys.organization := "ch.epfl.scala"))
+        BuildKeys.inProject(ref)(List(
+          Keys.organization := "ch.epfl.scala",
+          Keys.homepage := {
+            val previousHomepage = Keys.homepage.value
+            if (previousHomepage.nonEmpty) previousHomepage
+            else (Keys.homepage in ThisBuild).value
+          },
+          Keys.developers := {
+            val previousDevelopers = Keys.developers.value
+            if (previousDevelopers.nonEmpty) previousDevelopers
+            else (Keys.developers in ThisBuild).value
+          },
+          Keys.licenses := {
+            val previousLicenses = Keys.licenses.value
+            if (previousLicenses.nonEmpty) previousLicenses
+            else (Keys.licenses in ThisBuild).value
+          },
+          ReleaseEarlyKeys.releaseEarlyWith :=
+            ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
+        ))
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
@@ -277,12 +296,12 @@ object BuildImplementation {
     import sbt.io.syntax.singleFileFinder
     val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := true,
-      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests",
+      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in ThisBuild).value / "integration-tests",
       BuildKeys.scriptedAddSbtBloop := {
         val addSbtPlugin =
           s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
         val testPluginSrc = Keys.baseDirectory
-          .in(sbt.ThisBuild)
+          .in(ThisBuild)
           .value / "project" / "TestPlugin.scala"
         val tests =
           (ScriptedKeys.sbtTestDirectory.value / "integration-projects").*(AllPassFilter).get
