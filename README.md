@@ -45,12 +45,12 @@ $ sbt
 $ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
 ```
 
-The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell`
+The script will create the executables `~/.bloop/blp-server`, `~/.bloop/blp-shell`
 and  `~/.bloop/bloop`:
 
- - `bloop-server` is the Bloop server
+ - `blp-server` is the Bloop server
  - `bloop` is the Bloop client
- - `bloop-shell` is a shell that you can use while the Nailgun integration is experimental
+ - `blp-shell` is a shell that you can use while the Nailgun integration is experimental
 
 We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
 the next versions of Bloop: don't rely on it.
@@ -91,12 +91,12 @@ You can also use our installation script to install Bloop:
 $ curl https://raw.githubusercontent.com/scalacenter/bloop/no-tag-yet/bin/install.py | python2
 ```
 
-The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/BLOOP_SHELL_CMD#`
+The script will create the executables `~/.bloop/blp-server`, `~/.bloop/BLOOP_SHELL_CMD#`
 and  `~/.bloop/bloop`:
 
- - `bloop-server` is the Bloop server
+ - `blp-server` is the Bloop server
  - `bloop` is the Bloop client
- - `bloop-shell` is a shell that you can use while the Nailgun integration is experimental
+ - `blp-shell` is a shell that you can use while the Nailgun integration is experimental
 
 We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
 the next versions of Bloop: don't rely on it.
@@ -140,7 +140,7 @@ $ brew services start bloop
 Otherwise, you can start it with:
 
 ```sh
-$ bloop-server &
+$ blp-server &
 ```
 
 Note that you only need to start the server once on your machine, and you can use it with as many
@@ -166,5 +166,23 @@ Available commands: about, clean, compile, help, projects, test
 Type `bloop 'command' --help` for help on an individual command
 ```
 
+## Tab-completion
+
+Bloop supports tab-completion on ZSH. To install command completion on ZSH,
+copy the [completions][zsh-completions] file to an existing completions
+directory, if it exists.
+
+If not, you can create it, and update your `.zshrc` script as follows:
+
+```sh
+$ mkdir -p ~/.zsh/completion
+$ cp etc/_bloop ~/.zsh/completion/
+$ echo 'fpath=(~/.zsh/completion $fpath)' >> ~/.zshrc
+$ echo 'autoload -Uz compinit ; compinit' >> ~/.zshrc
+```
+
+Closing and reopening your shell should make bloop tab-completions available.
+
 [installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
+[zsh-completions]: https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop
 [bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html

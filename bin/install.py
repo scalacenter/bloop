@@ -48,8 +48,8 @@ NAILGUN_COMMIT = args.nailgun
 
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
 BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "coursier")
-BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop-server")
-BLOOP_SHELL_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop-shell")
+BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
+BLOOP_SHELL_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-shell")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
