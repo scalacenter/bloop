@@ -5,16 +5,9 @@ import java.io.File
 import sbt.Def
 import sbt.io.syntax.fileToRichFile
 
-import org.eclipse.jgit.api.{CloneCommand, Git}
+import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.ObjectId
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder
-import org.eclipse.jgit.transport.{
-  JschConfigSessionFactory,
-  OpenSshConfig,
-  SshSessionFactory,
-  SshTransport
-}
-import com.jcraft.jsch.{UserInfo, Session}
+import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 
 /** Utility functions that help manipulate git repos */
 object GitUtils {
@@ -33,26 +26,30 @@ object GitUtils {
    * @param changes The paths of the files that must be committed, relative to the repo's root.
    * @param message The commit message.
    */
-  def commitChangesIn(git: Git, changes: Seq[String], message: String): Unit = {
+  def commitChangesIn(git: Git,
+                      changes: Seq[String],
+                      message: String,
+                      committerName: String,
+                      committerEmail: String): Unit = {
     val add = git.add()
     val cmd = changes.foldLeft(git.add) {
       case (cmd, path) => cmd.addFilepattern(path)
     }
     cmd.call()
-    git.commit.setMessage(message).call()
+    git.commit.setMessage(message).setCommitter(committerName, committerEmail).call()
   }
 
   /** The latest tag in this repository. */
   def latestTagIn(git: Git): Option[String] = Option(git.describe().call())
 
   /** Clone the repository at `uri` to `destination` and perform some operations. */
-  def clone[T](uri: String, destination: File, sshSessionFactory: Option[SshSessionFactory] = None)(
-      op: Git => T) = {
+  def clone[T](uri: String, destination: File, token: String)(op: Git => T) = {
     val cmd =
-      Git.cloneRepository().setDirectory(destination).setURI(uri).setTransportConfigCallback {
-        case transport: SshTransport => sshSessionFactory.foreach(transport.setSshSessionFactory)
-        case _ => ()
-      }
+      Git
+        .cloneRepository()
+        .setDirectory(destination)
+        .setURI(uri)
+        .setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
     val git = cmd.call()
     try op(git)
     finally git.close()
@@ -64,31 +61,13 @@ object GitUtils {
   }
 
   /** Push the references in `refs` to `remote`. */
-  def push(git: Git,
-           remote: String,
-           refs: Seq[String],
-           sshSessionFactory: Option[SshSessionFactory] = None): Unit = {
-    val cmdBase = git.push().setRemote(remote).setTransportConfigCallback {
-      case transport: SshTransport => sshSessionFactory.foreach(transport.setSshSessionFactory)
-      case _ => ()
-    }
+  def push(git: Git, remote: String, refs: Seq[String], token: String): Unit = {
+    val cmdBase = git
+      .push()
+      .setRemote(remote)
+      .setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
     val cmd = refs.foldLeft(cmdBase)(_ add _)
     cmd.call()
-  }
-
-  def defaultSshSessionFactory: SshSessionFactory = new JschConfigSessionFactory {
-    override protected def configure(host: OpenSshConfig.Host, session: Session): Unit = {
-      val userInfo = new UserInfo {
-        override def getPassphrase(): String = null
-        override def getPassword(): String = null
-        override def promptPassword(message: String): Boolean = false
-        override def promptPassphrase(message: String): Boolean = false
-        override def promptYesNo(message: String): Boolean = false
-        override def showMessage(message: String): Unit = ()
-      }
-      session.setUserInfo(userInfo)
-      session.setConfig("StrictHostKeyChecking", "no")
-    }
   }
 
 }
