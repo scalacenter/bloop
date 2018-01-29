@@ -168,3 +168,4 @@ Type `bloop 'command' --help` for help on an individual command
 
 [installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
 [bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
+
