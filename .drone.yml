@@ -23,10 +23,15 @@ clone:
   git:
     image: plugins/git
     tags: true
-    recursive: true
+    # We clone the submodules ourselves
+    recursive: false
     depth: 50
 
 pipeline:
+  clone:
+    image: plugins/git
+    commands:
+      - ./bin/ci-clone.sh
   restore_cache:
     image: appleboy/drone-sftp-cache
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
