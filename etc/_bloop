@@ -1,0 +1,143 @@
+#compdef bloop
+
+_bloop() {
+  local -a cmds
+  
+  cmds=(
+    'about:about Bloop'
+    'clean:remove output files'
+    'compile:compile Scala source code'
+    'configure:set Bloop configuration options'
+    'console:launch the Scala REPL'
+    'help:show a help message'
+    'projects:list available projects'
+    'run:execute a Scala program'
+    'test:run tests for the Scala program'
+  )
+
+  _arguments "1: :{_describe 'command' cmds}" '*:: :->args'
+
+  case $words[1] in
+    about)
+      _arguments -C \
+        {-c --config-dir}'[File path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+
+    clean)
+      _arguments \
+        {-p,--projects}'[the projects to clean]:project:_projects' \
+        '--isolated[do not run clean for dependencies. By default, false]' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+    
+    compile)
+      _arguments \
+        {-p,--project}'[the project to compile]:project:_projects' \
+        '--incremental[compile the project incrementally; by default, true]' \
+        '--reporter[pick reporter to show compilation messages]:reporter:_reporter' \
+        {-w,--watch}'[run the command when project source files change; by default, false]' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+    
+    configure)
+      _arguments \
+        {--threads,--parallelism}'[number of threads to use for parallel compilation and test execution]:threads:_thread_count' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]'
+      ;;
+    
+    console)
+      _arguments \
+        {-p,--project}'[the project to compile]:project:_projects' \
+        '--reporter[pick reporter to show compilation messages]:reporter:' \
+        '--exclude-root[Start up the console compiling only the target project dependencies]' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+    
+    projects)
+      _arguments \
+        {--dot-graph,--dot}'[print out a dot graph you can pipe into `dot`; by default, false]' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+    
+    run)
+      _arguments \
+        {-p,--project}'[the project to compile]:project:_projects' \
+        {-m,--main}'[the main class to run. Leave unset to let bloop select automatically]:class:_main_classes' \
+        '--reporter[pick reporter to show compilation messages]:reporter:_reporter' \
+        '--args[the arguments to pass to the application]:arguments:' \
+        {-w,--watch}'[if set, run the command when project source files change; by default, false]' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+    
+    test)
+      _arguments \
+        {-p,--project}'[the project to compile]:project:_projects' \
+        '--isolated[do not run tests for dependencies. By default, false]' \
+        '--reporter[pick reporter to show compilation messages]:reporter:' \
+        {-w,--watch}'[if set, run the command when project source files change; by default, false]' \
+        {-c,--config-dir}'[file path to the bloop config directory]:directory:_files -/' \
+        {-v,--version}'[if set, print the about section at the beginning of the execution]' \
+        '--verbose[if set, print out debugging information to stderr]' \
+        '--threads[number of threads to use]:threads:_thread_count'
+      ;;
+
+    *)
+      ;;
+
+  esac
+
+}
+
+_thread_count() {
+  local thread_count; thread_count=(
+    '1:use 1 thread'
+    '2:use 2 threads'
+    '4:use 4 threads'
+    '6:use 6 threads'
+    '8:use 8 threads'
+    '12:use 12 threads'
+    '16:use 16 threads'
+  )
+  _describe -t thread-count 'thread count' thread_count
+}
+
+_projects() {
+  local projects; projects=( $(ls .bloop-config 2> /dev/null | sed 's/.config$//g') )
+  _describe 'values' projects
+}
+
+_reporter() {
+  local reporters; reporters=( 'scalac:use the Scalac reporter' 'bloop:use the Bloop reporter (default)' )
+  _describe 'values' reporters
+}
+
+_main_classes() {
+  local bin; bin=( $(cat .bloop-config/*.config | grep 'classesDir=' | cut -d'=' -f2 | sort | uniq) )
+  local classes; classes=()
+  for F in $bin; do
+    classes+=( $(cd $F && find . -name '*.class' | grep -v '\$' | sed 's/.class$//' | sed 's/^..//' | sed 's/\//./g') )
+  done
+  _describe 'values' classes
+}
+
+_bloop

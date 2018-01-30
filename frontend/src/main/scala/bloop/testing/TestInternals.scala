@@ -1,7 +1,7 @@
 package bloop.testing
 
 import bloop.DependencyResolution
-import bloop.exec.{Fork, InProcess, JavaEnv, ProcessConfig}
+import bloop.exec.{Fork, InProcess, JavaEnv, MultiplexedStreams, ProcessConfig}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import sbt.testing.{
@@ -107,13 +107,15 @@ object TestInternals {
       }
     }
 
-    discoveredTests.tests.iterator.foreach {
-      case (framework, taskDefs) =>
-        val runner = getRunner(framework, discoveredTests.classLoader)
-        val tasks = runner.tasks(taskDefs.toArray).toList
-        loop(tasks)
-        val summary = runner.done()
-        if (summary.nonEmpty) logger.info(summary)
+    MultiplexedStreams.withLoggerAsStreams(logger) {
+      discoveredTests.tests.iterator.foreach {
+        case (framework, taskDefs) =>
+          val runner = getRunner(framework, discoveredTests.classLoader)
+          val tasks = runner.tasks(taskDefs.toArray).toList
+          loop(tasks)
+          val summary = runner.done()
+          if (summary.nonEmpty) logger.info(summary)
+      }
     }
   }
 

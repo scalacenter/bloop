@@ -73,6 +73,7 @@ val frontend = project
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
   .settings(assemblySettings)
+  .settings(releaseSettings)
   .settings(
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
@@ -129,18 +130,23 @@ val bloop = project
 /***************************************************************************************************/
 /*                      This is the corner for all the command definitions                         */
 /***************************************************************************************************/
-
 val publishLocalCmd = Keys.publishLocal.key.label
-addCommandAlias("setupIntegrations", List(
-  s"+${integrationsCore.id}/$publishLocalCmd",
-  s"^${sbtBloop.id}/$publishLocalCmd",
-  s"${mavenBloop.id}/$publishLocalCmd"
-).mkString(";", ";", ""))
+addCommandAlias(
+  "setupIntegrations",
+  List(
+    s"+${integrationsCore.id}/$publishLocalCmd",
+    s"^${sbtBloop.id}/$publishLocalCmd",
+    s"${mavenBloop.id}/$publishLocalCmd"
+  ).mkString(";", ";", "")
+)
 
-addCommandAlias("runTests", List(
-  s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
-  s"${sbtBloop.id}/${scripted.key.label}"
-).mkString(";", ";", ""))
+addCommandAlias(
+  "runTests",
+  List(
+    s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
+    s"${sbtBloop.id}/${scripted.key.label}"
+  ).mkString(";", ";", "")
+)
 
 addCommandAlias(
   "install",
@@ -153,4 +159,3 @@ addCommandAlias(
     s"${frontend.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
-

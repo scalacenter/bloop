@@ -1,6 +1,8 @@
 package build
 
-import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins}
+import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, ThisBuild}
+import sbt.io.{AllPassFilter, IO}
+import sbt.io.syntax.fileToRichFile
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -53,15 +55,25 @@ object BuildKeys {
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
   import sbt.{Test, TestFrameworks, Tests}
-  import sbt.io.syntax.fileToRichFile
+  val buildBase = Keys.baseDirectory in ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
   val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val testSettings: Seq[Def.Setting[_]] = List(
-    integrationTestsLocation := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests" / "integration-projects",
+    integrationTestsLocation := buildBase.value / "integration-tests" / "integration-projects",
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test
     ),
+  )
+
+  import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
+  val releaseSettings = Seq(
+    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md") },
+    GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
+    GHReleaseKeys.ghreleaseRepoName := "bloop",
+    GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
+    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
   )
 
   import sbtbuildinfo.BuildInfoKey
@@ -107,7 +119,7 @@ object BuildKeys {
         "-DbloopVersion=" + Keys.version.in(project).value,
         "-DbloopRef=" + refOf(Keys.version.in(project).value),
         "-Dbloop.jar=" + AssemblyKeys.assembly.in(project).value,
-        "-Dgit.localdir=" + Keys.baseDirectory.in(sbt.ThisBuild).value.getAbsolutePath
+        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
     }
   )
@@ -144,7 +156,7 @@ object BuildImplementation {
     Keys.onLoadMessage := Header.intro,
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
-    Keys.publishArtifact in Test := false,
+    Keys.publishArtifact in Test := false
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -176,7 +188,26 @@ object BuildImplementation {
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(List(Keys.organization := "ch.epfl.scala"))
+        BuildKeys.inProject(ref)(List(
+          Keys.organization := "ch.epfl.scala",
+          Keys.homepage := {
+            val previousHomepage = Keys.homepage.value
+            if (previousHomepage.nonEmpty) previousHomepage
+            else (Keys.homepage in ThisBuild).value
+          },
+          Keys.developers := {
+            val previousDevelopers = Keys.developers.value
+            if (previousDevelopers.nonEmpty) previousDevelopers
+            else (Keys.developers in ThisBuild).value
+          },
+          Keys.licenses := {
+            val previousLicenses = Keys.licenses.value
+            if (previousLicenses.nonEmpty) previousLicenses
+            else (Keys.licenses in ThisBuild).value
+          },
+          ReleaseEarlyKeys.releaseEarlyWith :=
+            ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
+        ))
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
@@ -204,15 +235,14 @@ object BuildImplementation {
     }
 
     import java.io.File
-    import sbt.io.{AllPassFilter, IO}
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 
     private def createScriptedSetup(testDir: File) = {
       s"""
-         |bloopConfigDir in Global := file("$testDir/bloop-config")
+         |bloopConfigDir in Global := file("$testDir/.bloop-config")
          |TaskKey[Unit]("registerDirectory") := {
          |  val dir = (baseDirectory in ThisBuild).value
-         |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
+         |  IO.write(file("$testDir/.bloop-config/base-directory"), dir.getAbsolutePath)
          |}
          |TaskKey[Unit]("checkInstall") := {
          |  Thread.sleep(1000) // Let's wait a little bit because of OS's IO latency
@@ -263,21 +293,21 @@ object BuildImplementation {
     }
 
     private val NewLine = System.lineSeparator
-    import sbt.io.syntax.{fileToRichFile, singleFileFinder}
+    import sbt.io.syntax.singleFileFinder
     val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := true,
-      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in sbt.ThisBuild).value / "integration-tests",
+      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in ThisBuild).value / "integration-tests",
       BuildKeys.scriptedAddSbtBloop := {
         val addSbtPlugin =
           s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
         val testPluginSrc = Keys.baseDirectory
-          .in(sbt.ThisBuild)
+          .in(ThisBuild)
           .value / "project" / "TestPlugin.scala"
         val tests =
           (ScriptedKeys.sbtTestDirectory.value / "integration-projects").*(AllPassFilter).get
         tests.foreach { testDir =>
           IO.copyFile(testPluginSrc, testDir / "project" / "TestPlugin.scala")
-          IO.createDirectory(testDir / "bloop-config")
+          IO.createDirectory(testDir / ".bloop-config")
           IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
           IO.write(testDir / "test-config.sbt", createScriptedSetup(testDir))
           IO.write(testDir / "test", scriptedTestContents)
@@ -297,7 +327,7 @@ object Header {
       |
       |   ***********************************************************
       |   ***       Welcome to the build of `loooooooooop`        ***
-      |   *** An effort funded by the Scala Center Advisory Board ***
+      |   ***        An effort funded by the Scala Center         ***
       |   ***********************************************************
     """.stripMargin
 }

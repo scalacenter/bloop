@@ -23,10 +23,16 @@ object Cli {
       workingDirectory = ngContext.getWorkingDirectory,
     )
     val command = ngContext.getCommand
-    val args =
+    val args = {
       if (command == "bloop.Cli") ngContext.getArgs
       else command +: ngContext.getArgs
-    val cmd = parse(args, nailgunOptions)
+    }
+    val cmd = {
+      // If no command is given to bloop, we'll receive the script's name.
+      if (command == "bloop")
+        printErrorAndExit(helpAsked, nailgunOptions)
+      else parse(args, nailgunOptions)
+    }
     val exitStatus = run(cmd)
     ngContext.exit(exitStatus.code)
   }
@@ -60,20 +66,21 @@ object Cli {
   private def commandUsageAsked(command: String): String =
     CommandsMessages.messagesMap(command).usageMessage(beforeCommandMessages.progName, command)
 
+  private def printErrorAndExit(msg: String, commonOptions: CommonOptions): Print =
+    Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
+
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
     import caseapp.core.WithHelp
-    def printErrorAndExit(msg: String): Print =
-      Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
     CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
-      case Left(err) => printErrorAndExit(err)
+      case Left(err) => printErrorAndExit(err, commonOptions)
       case Right((WithHelp(_, help @ true, _), _, _)) =>
         Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
       case Right((WithHelp(usage @ true, _, _), _, _)) =>
         Print(usageAsked, commonOptions, Exit(ExitStatus.Ok))
       case Right((WithHelp(_, _, userOptions), _, commandOpt)) =>
         val newAction = commandOpt map {
-          case Left(err) => printErrorAndExit(err)
+          case Left(err) => printErrorAndExit(err, commonOptions)
           case Right((commandName, WithHelp(_, help @ true, _), _, _)) =>
             Print(commandHelpAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(usage @ true, _, _), _, _)) =>
@@ -86,7 +93,7 @@ object Cli {
             }
 
             command match {
-              case Left(err) => printErrorAndExit(err)
+              case Left(err) => printErrorAndExit(err, commonOptions)
               case Right(v: Commands.Help) =>
                 Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(v: Commands.About) =>
@@ -118,7 +125,7 @@ object Cli {
         }
         newAction.getOrElse {
           userOptions match {
-            case Left(err) => printErrorAndExit(err)
+            case Left(err) => printErrorAndExit(err, commonOptions)
             case Right(cliOptions0) =>
               val cliOptions = cliOptions0.copy(common = commonOptions)
               if (cliOptions.version) Run(Commands.About(cliOptions), Exit(ExitStatus.Ok))

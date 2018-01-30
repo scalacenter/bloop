@@ -38,59 +38,89 @@ $ cd bloop
 $ sbt
 > install
 > frontend/version # copy this version number
-$ bin/install.sh <version> # paste here the version number obtained above
+> cd nailgun
+> git rev-parse HEAD # copy this commit SHA
+> cd ..
+# paste the version number and SHA obtained above in the following command:
+$ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
 ```
 
-The script will create the executables `~/.bloop/bloop-server`, `~/.bloop/bloop-shell` and 
-`~/.bloop/bloop-ng.py`:
+The script will create the executables `~/.bloop/blp-server`, `~/.bloop/blp-shell`
+and  `~/.bloop/bloop`:
 
- - `bloop-server` is the Bloop server
- - `bloop-ng.py` is the Bloop client
- - `bloop-shell` is a shell that you can use while the Nailgun integration is experimental
+ - `blp-server` is the Bloop server
+ - `bloop` is the Bloop client
+ - `blp-shell` is a shell that you can use while the Nailgun integration is experimental
 
-We describe how to use Bloop with the experimental Nailgun integration. To see how to use the Bloop
-shell, please see the [end of this guide][bloop-shell]
+We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
+the next versions of Bloop: don't rely on it.
 
-We suggest that you add the following to your shell configuration:
+To be able to start the Bloop server and client without specifying the full path to the commands,
+we suggest that you add the following to your shell configuration:
 
 ```sh
 export PATH="$PATH:~/.bloop"
-alias bloop="bloop-ng.py"
 ```
 
-The next sections assume that you've added those lines to your profile, and reloaded your shell.
+The next sections assume that you've added that line to your profile, and reloaded your shell.
 
 ### Installing a released version of Bloop
 
 **Bloop hasn't been released yet, so these instructions won't work!**
 
-Our [installation script][installation-script] lets you install those two components:
+#### On Mac OS
+
+##### With Homebrew
+The easiest solution is to install Bloop using Homebrew:
 
 ```sh
-$ curl https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh | sh
+$ brew install scalacenter/bloop/bloop
 ```
 
-The script will create the executables `~/.bloop/bloop-server` and `~/.bloop/bloop-ng.py`.
+Homebrew can take care of starting Bloop automatically when you log into your machine. This is
+optional, but we recommend it:
 
-We suggest that you add the following to your shell configuration:
+```sh
+$ brew services start bloop
+```
+
+##### Manually
+You can also use our installation script to install Bloop:
+
+```sh
+$ curl https://raw.githubusercontent.com/scalacenter/bloop/no-tag-yet/bin/install.py | python2
+```
+
+The script will create the executables `~/.bloop/blp-server`, `~/.bloop/BLOOP_SHELL_CMD#`
+and  `~/.bloop/bloop`:
+
+ - `blp-server` is the Bloop server
+ - `bloop` is the Bloop client
+ - `blp-shell` is a shell that you can use while the Nailgun integration is experimental
+
+We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
+the next versions of Bloop: don't rely on it.
+
+To be able to start the Bloop server and client without specifying the full path to the commands,
+we suggest that you add the following to your shell configuration:
 
 ```sh
 export PATH="$PATH:~/.bloop"
-alias bloop="bloop-ng.py"
 ```
 
-The next sections assume that you've added those lines to your profile, and reloaded your shell.
+The next sections assume that you've added that line to your profile, and reloaded your shell.
 
 ## How to use
 
 ### Generate the configuration files
 
 First, we'll need to generate Bloop's configuration files for your project. To
-do this, add the following sbt plugin in `project/plugins.sbt` in your project,
-where `VERSION_NUMBER` is replaced by the commit your bloop repository is at:
+do this, add the following sbt plugin in `project/plugins.sbt` in your project:
+(While Bloop isn't released, you'll need to replace `no-tag-yet` with the version you
+copy-pasted earlier)
 
 ```scala
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "VERSION_NUMBER")
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "no-tag-yet")
 ```
 
 You can then use sbt to generate the configuration:
@@ -101,10 +131,16 @@ $ sbt installBloop
 
 ### Start the server
 
-Using the server that you previously installed, run:
+If you have installed Bloop using Homebrew, you can start the server with:
 
 ```sh
-$ bloop-server &
+$ brew services start bloop
+```
+
+Otherwise, you can start it with:
+
+```sh
+$ blp-server &
 ```
 
 Note that you only need to start the server once on your machine, and you can use it with as many
@@ -130,18 +166,23 @@ Available commands: about, clean, compile, help, projects, test
 Type `bloop 'command' --help` for help on an individual command
 ```
 
-## Using the Bloop shell
+## Tab-completion
 
-The Bloop shell is an alternative way to use Bloop while the Nailgun integration is still
-experimental. It is built along with `bloop-server` and `bloop-ng.py` using out installation script.
+Bloop supports tab-completion on ZSH. To install command completion on ZSH,
+copy the [completions][zsh-completions] file to an existing completions
+directory, if it exists.
 
-To start the Bloop shell, run:
+If not, you can create it, and update your `.zshrc` script as follows:
 
 ```sh
-$ ~/.bloop/bloop-shell <path to your project>
+$ mkdir -p ~/.zsh/completion
+$ cp etc/_bloop ~/.zsh/completion/
+$ echo 'fpath=(~/.zsh/completion $fpath)' >> ~/.zshrc
+$ echo 'autoload -Uz compinit ; compinit' >> ~/.zshrc
 ```
 
-[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
-[bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
-[bloop-shell]: #using-the-bloop-shell
+Closing and reopening your shell should make bloop tab-completions available.
 
+[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
+[zsh-completions]: https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop
+[bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
