@@ -126,6 +126,14 @@ val mavenBloop = project
   .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
+val docs = project
+  .in(file("website"))
+  .enablePlugins(HugoPlugin)
+  .settings(
+    sourceDirectory in Hugo := sourceDirectory.value / "docs",
+    // baseURL in Hugo := uri("https://scala.epfl.ch"),
+  )
+
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
