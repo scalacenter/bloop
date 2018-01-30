@@ -16,7 +16,7 @@ object ProjectBenchmark {
   }
   val sbtLocation = existing(getProjectBase("sbt"))
   val sbtRootProjectLocation = existing(
-    sbtLocation.resolve("bloop-config").resolve("sbtRoot.config"))
+    sbtLocation.resolve(".bloop-config").resolve("sbtRoot.config"))
   val uTestLocation = existing(getProjectBase("utest"))
 }
 

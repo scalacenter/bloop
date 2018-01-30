@@ -135,7 +135,7 @@ class FileWatchingSpec {
 
         // Wait for #1 compilation to finish
         readCompilingLines(1, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 4 Scala sources to", bloopOut)
+        readCompilingLines(1, "Compiling 5 Scala sources to", bloopOut)
         readCompilingLines(1, "+ is very personal", bloopOut)
         readCompilingLines(1, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(1, "- should be very personal", bloopOut)
@@ -146,7 +146,7 @@ class FileWatchingSpec {
 
         // Wait for #2 compilation to finish
         readCompilingLines(2, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 4 Scala sources to", bloopOut)
+        readCompilingLines(1, "Compiling 5 Scala sources to", bloopOut)
         readCompilingLines(2, "+ is very personal", bloopOut)
         readCompilingLines(2, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(2, "- should be very personal", bloopOut)
