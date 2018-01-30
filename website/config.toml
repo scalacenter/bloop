@@ -12,15 +12,12 @@ Paginate = 4
   twitter = "scala_lang"
   email = "jorgevc@fastmail.es"
   githubURL = "https://github.com/scalacenter/bloop"
+  license = "Apache2"
 
 [[menu.main]]
     name = "Docs"
     weight = -100
     url = "/docs/"
-[[menu.main]]
-    name = "Blog"
-    weight = -100
-    url = "/blog/"
 [[menu.main]]
     name = "Faq"
     weight = -100
