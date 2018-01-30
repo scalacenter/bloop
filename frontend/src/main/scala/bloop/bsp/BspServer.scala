@@ -16,34 +16,43 @@ object BspServer {
     System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("mac")
 
   import java.net.InetSocketAddress
-  private sealed trait ConnectionHandle { def socket: ServerSocket }
-  private case class WindowsLocal(pipeName: String, socket: ServerSocket) extends ConnectionHandle
-  private case class UnixLocal(path: Path, socket: ServerSocket) extends ConnectionHandle
-  private case class Tcp(address: InetSocketAddress, socket: ServerSocket) extends ConnectionHandle
+  private sealed trait ConnectionHandle { def serverSocket: ServerSocket }
+  private case class WindowsLocal(pipeName: String, serverSocket: ServerSocket) extends ConnectionHandle
+  private case class UnixLocal(path: Path, serverSocket: ServerSocket) extends ConnectionHandle
+  private case class Tcp(address: InetSocketAddress, serverSocket: ServerSocket) extends ConnectionHandle
 
   import Commands.ValidatedBsp
   import monix.{eval => me}
-  private def initServer(cmd: ValidatedBsp, state: State): me.Task[ConnectionHandle] = me.Task {
+  private def initServer(cmd: ValidatedBsp, state: State): me.Task[ConnectionHandle] = {
     cmd match {
       case Commands.WindowsLocalBsp(pipeName, _) =>
         state.logger.debug(s"Establishing server connection at pipe $pipeName")
-        WindowsLocal(pipeName, new NGWin32NamedPipeServerSocket(pipeName))
+        val server = new NGWin32NamedPipeServerSocket(pipeName)
+        me.Task(WindowsLocal(pipeName, server)).doOnCancel(me.Task(server.close()))
       case Commands.UnixLocalBsp(socketFile, _) =>
         state.logger.debug(s"Establishing server connection at $socketFile")
-        UnixLocal(socketFile, new NGUnixDomainServerSocket(socketFile.toString))
+        val server = new NGUnixDomainServerSocket(socketFile.toString)
+        me.Task(UnixLocal(socketFile, server)).doOnCancel(me.Task(server.close()))
       case Commands.TcpBsp(address, portNumber, name) =>
         val socketAddress = new InetSocketAddress(address, portNumber)
         state.logger.debug(s"Establishing server connection via TCP at ${socketAddress}")
-        // Use 0 instead of a concrete number to have an infinite timeout
-        Tcp(socketAddress, new java.net.ServerSocket(portNumber, 0, address))
+        val server = new java.net.ServerSocket(portNumber, 10, address)
+        me.Task(Tcp(socketAddress, server)).doOnCancel(me.Task(server.close()))
     }
   }
 
-  import java.net.Socket
-  private case class Established(s: Socket, h: ConnectionHandle)
-  private def establishConnection(server: me.Task[ConnectionHandle]): me.Task[Established] = {
-    // We only accept one client per server (bsp)
-    server.map(h => Established(h.socket.accept(), h))
+  private[bloop] def closeSocket(cmd: Commands.ValidatedBsp, socket: java.net.Socket): Unit = {
+    println("Closing socket")
+    cmd match {
+      case _: Commands.TcpBsp if !socket.isClosed() =>
+        socket.close()
+      case _: Commands.WindowsLocalBsp if !socket.isClosed() => socket.close()
+      case _: Commands.UnixLocalBsp if !socket.isClosed() =>
+        if (!socket.isInputShutdown) socket.shutdownInput()
+        if (!socket.isOutputShutdown) socket.shutdownOutput()
+        socket.close()
+      case _ => ()
+    }
   }
 
   private final val bspLogger = com.typesafe.scalalogging.Logger(this.getClass)
@@ -56,32 +65,51 @@ object BspServer {
       handle match {
         case w: WindowsLocal => s"local:${w.pipeName}"
         case u: UnixLocal => s"local://${u.path.toString}"
-        case t: Tcp => s"tcp://${t.address.getHostString}"
+        case t: Tcp => s"tcp://${t.address.getHostString}:${t.address.getPort}"
       }
     }
 
-    establishConnection(initServer(cmd, state)).flatMap {
-      case Established(socket, handle) =>
-        import state.logger
-        logger.verbose("Bloop has established connection with a client.")
-        val client = new LanguageClient(socket.getOutputStream, bspLogger)
-        val servicesProvider = new BloopBspServices(state, client, bspLogger)
-        val bloopServices = servicesProvider.services
-        val messages = BaseProtocolMessage.fromInputStream(socket.getInputStream)
-        val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
+    import state.logger
+    def startServer(handle: ConnectionHandle): me.Task[State] = {
+      val connectionURI = uri(handle)
+      logger.debug(s"The server is starting to listen at ${connectionURI}")
+      val socket = handle.serverSocket.accept()
+      logger.info(s"Accepted incoming BSP client connection at ${connectionURI}.")
 
-        val connectionURI = uri(handle)
-        logger.verbose(s"Bloop bsp server started at '$connectionURI'.")
+      val in = socket.getInputStream
+      val out = socket.getOutputStream
+      val client = new LanguageClient(out, bspLogger)
+      val servicesProvider = new BloopBspServices(state, client, bspLogger)
+      val bloopServices = servicesProvider.services
+      val messages = BaseProtocolMessage.fromInputStream(in)
+      val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
-        server.startTask
-          .onErrorRecover { case t: Throwable => logger.trace(t) }
-          .map(_ => servicesProvider.latestState)
-          .doOnCancel(me.Task {
-            socket.close()
-            socket.shutdownInput()
-            socket.shutdownOutput()
-            handle.socket.close()
-          })
+      server.startTask
+        .map(_ => servicesProvider.latestState)
+        .doOnCancel(me.Task {
+          //closeSocket(cmd, socket)
+          handle.serverSocket.close()
+        })
     }
+
+    initServer(cmd, state)
+      .flatMap(handle => startServer(handle))
+      .executeWithOptions(_.enableAutoCancelableRunLoops)
+/*
+    initServer(cmd, state).materialize.flatMap {
+      case scala.util.Success(handle: ConnectionHandle) =>
+        startServer(handle).onErrorRecover {
+          case t: Throwable =>
+            logger.error(t.getMessage)
+            logger.trace(t)
+            state
+        }
+      case scala.util.Failure(t: Throwable) =>
+        me.Task {
+          logger.error(s"The bsp server could not open a socket because of '${t.getMessage}'.")
+          logger.trace(t)
+          state
+        }
+    }*/
   }
 }
