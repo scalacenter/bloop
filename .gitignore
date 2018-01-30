@@ -13,6 +13,6 @@ bin/.scalafmt*
 target/
 *.config
 test-config.sbt
-test
 base-directory
+integration-tests/integration-projects/**/test
 TestPlugin.scala
