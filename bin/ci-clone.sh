@@ -10,4 +10,4 @@ if [ "$DRONE_BUILD_EVENT" = "pull_request" ]; then
 fi
 
 # clone submodules in parallel
-git submodule update --init --recursive --jobs 4 --depth 50
+git submodule update --init --recursive --jobs 4 --recommend-shallow
