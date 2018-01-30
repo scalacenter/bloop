@@ -6,6 +6,7 @@ import java.nio.file.{Files, Path}
 import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Print, Run}
+import bloop.io.AbsolutePath
 
 object Validate {
   private def cliError(msg: String, commonOptions: CommonOptions): Action =
@@ -28,7 +29,7 @@ object Validate {
         cliError(Feedback.excessiveSocketLengthInMac(socket), commonOptions)
       case Some(socket) if bytesOf(socket.toString) > 108 =>
         cliError(Feedback.excessiveSocketLength(socket), commonOptions)
-      case Some(socket) => Run(Commands.UnixLocalBsp(socket, cliOptions))
+      case Some(socket) => Run(Commands.UnixLocalBsp(AbsolutePath(socket), cliOptions))
       case None => cliError(Feedback.MissingSocket, commonOptions)
     }
 

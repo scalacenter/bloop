@@ -27,8 +27,8 @@ object BspClientTest {
       case cmd: Commands.WindowsLocalBsp => ()
       case cmd: Commands.UnixLocalBsp =>
         // We delete the socket file created by the BSP communication
-        if (!Files.exists(cmd.socket)) ()
-        else Files.delete(cmd.socket)
+        if (!Files.exists(cmd.socket.underlying)) ()
+        else Files.delete(cmd.socket.underlying)
       case cmd: Commands.TcpBsp => ()
     }
   }
@@ -92,7 +92,7 @@ object BspClientTest {
     val connectToServer = me.Task {
       cmd match {
         case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
-        case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.toAbsolutePath.toString)
+        case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.syntax)
         case cmd: Commands.TcpBsp => new java.net.Socket(cmd.host, cmd.port)
       }
     }

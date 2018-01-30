@@ -11,7 +11,7 @@ object ProjectUris {
     if (projectUri.isEmpty) None
     else {
       val uri = new URI(projectUri)
-      val query = uri.getQuery().split("&").map(_.split("="))
+      val query = uri.getRawQuery().split("&").map(_.split("="))
       query.headOption.flatMap {
         case Array("id", projectName) => state.build.getProjectFor(projectName)
         case _ => None
@@ -20,6 +20,6 @@ object ProjectUris {
   }
 
   def toUri(projectBaseDir: AbsolutePath, id: String): URI = {
-    new URI(s"file:///${projectBaseDir.syntax}?id=${id}")
+    new URI(s"file://${projectBaseDir.syntax}?id=${id}")
   }
 }

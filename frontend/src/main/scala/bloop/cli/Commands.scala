@@ -4,6 +4,7 @@ import java.net.InetAddress
 import java.nio.file.Path
 
 import bloop.engine.ExecutionContext
+import bloop.io.AbsolutePath
 import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
 
 object Commands {
@@ -18,7 +19,7 @@ object Commands {
 
   sealed trait ValidatedBsp extends ValidatedCommand
   case class WindowsLocalBsp(pipeName: String, cliOptions: CliOptions) extends ValidatedBsp
-  case class UnixLocalBsp(socket: Path, cliOptions: CliOptions) extends ValidatedBsp
+  case class UnixLocalBsp(socket: AbsolutePath, cliOptions: CliOptions) extends ValidatedBsp
   case class TcpBsp(host: InetAddress, port: Int, cliOptions: CliOptions) extends ValidatedBsp
 
   /** Represents a command that is used by the cli and has no user input validation. */

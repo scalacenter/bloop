@@ -1,17 +1,15 @@
 package bloop.bsp
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, State}
 import bloop.io.AbsolutePath
 import ch.epfl.`scala`.bsp.schema._
-import monix.eval.{Task => MonixTask}
+import monix.{eval => me}
 import ch.epfl.scala.bsp.endpoints
 import com.typesafe.scalalogging.Logger
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
+import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import org.langmeta.lsp.Window
 
 class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
@@ -26,13 +24,12 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
    * It does so via the replication of the `window/showMessage` LSP functionality.
    */
   private final val bspForwarderLogger = new bloop.logging.AbstractLogger() {
-    override def name: String = "bsp-logger"
-    override def verbose[T](op: => T): T = op
+    override def name: String = s"bsp-logger-${BloopBspServices.counter.incrementAndGet()}"
+    override def verbose[T](op: => T): T = callSiteState.logger.verbose(op)
     override def ansiCodesSupported(): Boolean = true
 
     override def debug(msg: String): Unit = {
       callSiteState.logger.debug(msg)
-      //Window.showMessage.info(msg)(client)
     }
 
     override def error(msg: String): Unit = {
@@ -46,7 +43,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     }
 
     override def trace(t: Throwable): Unit = {
-      Window.showMessage.info(t.toString)(client)
+      callSiteState.logger.trace(t)
     }
 
     override def info(msg: String): Unit = {
@@ -61,8 +58,6 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
   /**
    * Get the latest state that can be reused and cached by bloop so that the next client
    * can have access to it.
-   *
-   * @return
    */
   def latestState: State = {
     val state0 = if (currentState == null) callSiteState else currentState
@@ -71,7 +66,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
 
   private final val defaultOpts = callSiteState.commonOptions
   def reloadState(uri: String): State = {
-    val state0 = State.loadStateFor(AbsolutePath(uri), defaultOpts, bspForwarderLogger)
+    val state0 = State.loadActiveStateFor(AbsolutePath(uri), defaultOpts, bspForwarderLogger)
     state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
   }
 
@@ -83,7 +78,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
    */
   def initialize(
       initializeBuildParams: InitializeBuildParams
-  ): MonixTask[Either[JsonRpcResponse.Error, InitializeBuildResult]] = MonixTask {
+  ): me.Task[Either[JsonRpcResponse.Error, InitializeBuildResult]] = me.Task {
     callSiteState.logger.info("request received: build/initialize")
     bspLogger.info("request received: build/initialize")
     currentState = reloadState(initializeBuildParams.rootUri)
@@ -107,8 +102,8 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     bspLogger.info("BSP initialization handshake complete.")
   }
 
-  def compile(params: CompileParams): MonixTask[Either[JsonRpcResponse.Error, CompileReport]] = {
-    MonixTask {
+  def compile(params: CompileParams): me.Task[Either[JsonRpcResponse.Error, CompileReport]] = {
+    me.Task {
       // TODO(jvican): Naive approach, we need to implement batching here.
       val projectsToCompile = params.targets.map { target =>
         ProjectUris.getProjectDagFromUri(target.uri, currentState) match {
@@ -138,4 +133,8 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     }
     WorkspaceBuildTargets(targets)
   }
+}
+
+object BloopBspServices {
+  private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
 }
