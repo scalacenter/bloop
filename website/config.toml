@@ -3,13 +3,15 @@ languageCode = "en-us"
 title = "Bloop"
 theme = "kube"
 description = ""
+enableEmoji = true
 Paginate = 4
 [Params]
   RSSLink = "/index.xml"
-  author = "newpixcom" # add your company name
-  github = "" # add your github profile name
-  twitter = "" # add your twitter profile
-  email = "myemail@myaddress.xxx"
+  author = "Scala Center"
+  github = "scalacenter" # add your github profile name
+  twitter = "scala_lang"
+  email = "jorgevc@fastmail.es"
+  githubURL = "https://github.com/scalacenter/bloop"
 
 [[menu.main]]
     name = "Docs"
