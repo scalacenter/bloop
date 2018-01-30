@@ -72,7 +72,7 @@ object ProjectHelpers {
 
   def loadTestProject(projectsBase: Path, name: String): State = {
     val base = projectsBase.resolve(name)
-    val configDir = base.resolve("bloop-config")
+    val configDir = base.resolve(".bloop-config")
     val logger = BloopLogger.default(configDir.toString())
     val baseDirectoryFile = configDir.resolve("base-directory")
     assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
