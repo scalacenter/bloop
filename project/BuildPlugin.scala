@@ -239,10 +239,10 @@ object BuildImplementation {
 
     private def createScriptedSetup(testDir: File) = {
       s"""
-         |bloopConfigDir in Global := file("$testDir/bloop-config")
+         |bloopConfigDir in Global := file("$testDir/.bloop-config")
          |TaskKey[Unit]("registerDirectory") := {
          |  val dir = (baseDirectory in ThisBuild).value
-         |  IO.write(file("$testDir/bloop-config/base-directory"), dir.getAbsolutePath)
+         |  IO.write(file("$testDir/.bloop-config/base-directory"), dir.getAbsolutePath)
          |}
          |TaskKey[Unit]("checkInstall") := {
          |  Thread.sleep(1000) // Let's wait a little bit because of OS's IO latency
@@ -307,7 +307,7 @@ object BuildImplementation {
           (ScriptedKeys.sbtTestDirectory.value / "integration-projects").*(AllPassFilter).get
         tests.foreach { testDir =>
           IO.copyFile(testPluginSrc, testDir / "project" / "TestPlugin.scala")
-          IO.createDirectory(testDir / "bloop-config")
+          IO.createDirectory(testDir / ".bloop-config")
           IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
           IO.write(testDir / "test-config.sbt", createScriptedSetup(testDir))
           IO.write(testDir / "test", scriptedTestContents)
