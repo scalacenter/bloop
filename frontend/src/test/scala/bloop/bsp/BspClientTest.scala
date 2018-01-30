@@ -25,8 +25,8 @@ object BspClientTest {
   def cleanUpLastResources(cmd: Commands.ValidatedBsp) = {
     cmd match {
       case cmd: Commands.WindowsLocalBsp => ()
-      // We delete the socket file created by the BSP communication
       case cmd: Commands.UnixLocalBsp =>
+        // We delete the socket file created by the BSP communication
         if (!Files.exists(cmd.socket)) ()
         else Files.delete(cmd.socket)
       case cmd: Commands.TcpBsp => ()
@@ -52,7 +52,7 @@ object BspClientTest {
 
     val projectName = cmd.cliOptions.common.workingPath.underlying.getFileName().toString()
     val state = ProjectHelpers.loadTestProject(projectName)
-    val runningBspServer = BspServer.run(cmd, state, scheduler).runAsync(scheduler)
+    val bspServer = BspServer.run(cmd, state, scheduler).runAsync(scheduler)
 
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
@@ -60,7 +60,6 @@ object BspClientTest {
       val services = Services.empty
       implicit val lsClient = new LanguageClient(out, slf4jLogger)
       val messages = BaseProtocolMessage.fromInputStream(in)
-      messages.doOnSubscriptionCancel(() => "I am being cancelled!")
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
@@ -72,44 +71,45 @@ object BspClientTest {
         )
       )
 
-      val requests = for {
+      for {
         // Delay the task to let the bloop server go live
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
         val _ = endpoints.Build.initialized.notify(InitializedBuildParams())
         otherCalls <- runEndpoints(lsClient)
-      } yield runningClientServer
-
-      requests.doOnFinish { _ =>
-        me.Task {
-          // `Cancelable.cancelAll` doesn't trigger cancellation!
-          runningBspServer.cancel()
-          runningClientServer.cancel()
-          BspServer.closeSocket(cmd, socket)
-        }
-      }
+      } yield BspServer.closeSocket(cmd, socket)
     }
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val sendClientRequests = bspClientExecution.runAsync(scheduler)
-    val runningClientServer = Await.result(sendClientRequests, FiniteDuration(10, "s"))
-    Await.result(runningBspServer, FiniteDuration(10, "s")) // blocks here?????
-    Await.result(runningClientServer, FiniteDuration(10, "s"))
+    val bspClient = bspClientExecution.runAsync(scheduler)
+    Await.result(bspClient, FiniteDuration(10, "s"))
+    Await.result(bspServer, FiniteDuration(10, "s"))
     cleanUpLastResources(cmd)
   }
 
   private def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
     import org.scalasbt.ipcsocket.UnixDomainSocket
     val connectToServer = me.Task {
-      println(s"Starting client connection ${System.currentTimeMillis()}")
       cmd match {
         case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
         case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.toAbsolutePath.toString)
         case cmd: Commands.TcpBsp => new java.net.Socket(cmd.host, cmd.port)
       }
     }
+    retryBackoff(connectToServer, 3, FiniteDuration(1, "s"))
+  }
 
-    // We delay the start of the client to wait for the bsp server to go live.
-    connectToServer.delayExecution(scala.concurrent.duration.FiniteDuration(400, "ms"))
+  // Courtesy of @olafurpg
+  def retryBackoff[A](source: me.Task[A],
+                      maxRetries: Int,
+                      firstDelay: FiniteDuration): me.Task[A] = {
+    source.onErrorHandleWith {
+      case ex: Exception =>
+        if (maxRetries > 0)
+          // Recursive call, it's OK as Monix is stack-safe
+          retryBackoff(source, maxRetries - 1, firstDelay * 2)
+            .delayExecution(firstDelay)
+        else me.Task.raiseError(ex)
+    }
   }
 }

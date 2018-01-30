@@ -17,9 +17,11 @@ object BspServer {
 
   import java.net.InetSocketAddress
   private sealed trait ConnectionHandle { def serverSocket: ServerSocket }
-  private case class WindowsLocal(pipeName: String, serverSocket: ServerSocket) extends ConnectionHandle
+  private case class WindowsLocal(pipeName: String, serverSocket: ServerSocket)
+      extends ConnectionHandle
   private case class UnixLocal(path: Path, serverSocket: ServerSocket) extends ConnectionHandle
-  private case class Tcp(address: InetSocketAddress, serverSocket: ServerSocket) extends ConnectionHandle
+  private case class Tcp(address: InetSocketAddress, serverSocket: ServerSocket)
+      extends ConnectionHandle
 
   import Commands.ValidatedBsp
   import monix.{eval => me}
@@ -42,10 +44,8 @@ object BspServer {
   }
 
   private[bloop] def closeSocket(cmd: Commands.ValidatedBsp, socket: java.net.Socket): Unit = {
-    println("Closing socket")
     cmd match {
-      case _: Commands.TcpBsp if !socket.isClosed() =>
-        socket.close()
+      case _: Commands.TcpBsp if !socket.isClosed() => socket.close()
       case _: Commands.WindowsLocalBsp if !socket.isClosed() => socket.close()
       case _: Commands.UnixLocalBsp if !socket.isClosed() =>
         if (!socket.isInputShutdown) socket.shutdownInput()
@@ -86,17 +86,10 @@ object BspServer {
 
       server.startTask
         .map(_ => servicesProvider.latestState)
-        .doOnCancel(me.Task {
-          //closeSocket(cmd, socket)
-          handle.serverSocket.close()
-        })
+        .doOnFinish(_ => me.Task { handle.serverSocket.close() })
     }
 
-    initServer(cmd, state)
-      .flatMap(handle => startServer(handle))
-      .executeWithOptions(_.enableAutoCancelableRunLoops)
-/*
-    initServer(cmd, state).materialize.flatMap {
+    val runTask = initServer(cmd, state).materialize.flatMap {
       case scala.util.Success(handle: ConnectionHandle) =>
         startServer(handle).onErrorRecover {
           case t: Throwable =>
@@ -106,10 +99,12 @@ object BspServer {
         }
       case scala.util.Failure(t: Throwable) =>
         me.Task {
-          logger.error(s"The bsp server could not open a socket because of '${t.getMessage}'.")
+          logger.error(s"BSP server failed to open a socket: '${t.getMessage}'")
           logger.trace(t)
           state
         }
-    }*/
+    }
+
+    runTask.executeWithOptions(_.enableAutoCancelableRunLoops)
   }
 }
