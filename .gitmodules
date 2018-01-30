@@ -42,3 +42,7 @@
 	path = integration-tests/integration-projects/spark
 	url = https://github.com/scalacenter/spark.git
 	branch = bloop
+[submodule "bsp"]
+	path = bsp
+	url = https://github.com/scalacenter/bsp.git
+	branch = master

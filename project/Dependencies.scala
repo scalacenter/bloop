@@ -16,6 +16,8 @@ object Dependencies {
   val mavenApiVersion = "3.5.2"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
+  val ipcsocketVersion = "1.0.0"
+  val monixVersion = "2.3.3"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
@@ -39,4 +41,7 @@ object Dependencies {
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
+
+  val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
+  val monix = "io.monix" %% "monix" % monixVersion
 }

@@ -57,12 +57,11 @@ object State {
   }
 
   // Improve the caching by using file metadata
-  def apply(build: Build, logger: Logger): State = {
+  def apply(build: Build, options: CommonOptions, logger: Logger): State = {
     val results = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
       case (results, project) => results.initializeResult(project)
     }
 
-    val options = CommonOptions.default
     val compilerCache = getCompilerCache(logger)
     State(build, results, compilerCache, options, ExitStatus.Ok, logger)
   }
@@ -96,5 +95,15 @@ object State {
     state.logger.info(s"Reconfiguring the number of bloop threads to $threads.")
     ExecutionContext.executor.setCorePoolSize(threads)
     state
+  }
+
+  import bloop.Project
+  import bloop.io.AbsolutePath
+  def loadActiveStateFor(configDir: AbsolutePath, opts: CommonOptions, logger: Logger): State = {
+    State.stateCache.addIfMissing(configDir, path => {
+      val projects = Project.fromDir(configDir, logger)
+      val build: Build = Build(configDir, projects)
+      State(build, opts, logger)
+    })
   }
 }

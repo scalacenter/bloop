@@ -3,6 +3,7 @@ package build
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
+import sbt.librarymanagement.syntax.stringToOrganization
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -25,7 +26,6 @@ object BuildPlugin extends AutoPlugin {
 
 object BuildKeys {
   import sbt.{LocalProject, Reference, RootProject, ProjectRef, BuildRef, file}
-  import sbt.librarymanagement.syntax.stringToOrganization
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -53,6 +53,10 @@ object BuildKeys {
   final val BenchmarkBridgeProject = RootProject(file(s"$AbsolutePath/benchmark-bridge"))
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
+
+  final val BspProject = RootProject(file(s"$AbsolutePath/bsp"))
+  final val BspBuild = BuildRef(BspProject.build)
+  final val Bsp = ProjectRef(BspProject.build, "bsp")
 
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
@@ -167,8 +171,19 @@ object BuildImplementation {
     Keys.triggeredMessage := Watched.clearWhenTriggered,
   ) ++ buildPublishSettings
 
+  import sbt.{CrossVersion, compilerPlugin}
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.scalacOptions in Compile := reasonableCompileOptions,
+    Keys.scalacOptions := reasonableCompileOptions,
+    Keys.scalacOptions ++= {
+      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
+      else List("-Yrangepos")
+    },
+    Keys.libraryDependencies ++= {
+      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
+      else List(
+        compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
+      )
+    }
   )
 
   final val reasonableCompileOptions = (
@@ -183,7 +198,7 @@ object BuildImplementation {
     import sbt.State
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
-    val hijacked = sbt.AttributeKey[Boolean]("The hijacked option.")
+    val hijacked = sbt.AttributeKey[Boolean]("TheHijackedOptionOfBloop.")
     val onLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
@@ -215,9 +230,11 @@ object BuildImplementation {
         val extracted = sbt.Project.extract(hijackedState)
         val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
+        val allBspProjects = buildStructure.allProjectRefs(BuildKeys.BspBuild.build)
         val allBenchmarkBridgeProjects =
           buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
-        val allProjects = allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects
+        val allProjects =
+          allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects ++ allBspProjects
         val projectSettings = allProjects.flatMap(genProjectSettings)
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)

@@ -27,13 +27,21 @@ object CliParsers {
     }
   }
 
+  implicit val bspProtocolRead: ArgParser[BspProtocol] = {
+    ArgParser.instance[BspProtocol]("protocol") {
+      case "local" => Right(BspProtocol.Local)
+      case "tcp" => Right(BspProtocol.Tcp)
+      case w00t => Left(s"Unrecognized protocol: $w00t")
+    }
+  }
+
   val BaseMessages: caseapp.core.Messages[DefaultBaseCommand] =
     caseapp.core.Messages[DefaultBaseCommand]
   val OptionsParser: caseapp.core.Parser[CliOptions] =
     caseapp.core.Parser.apply[CliOptions]
 
-  val CommandsMessages: caseapp.core.CommandsMessages[Commands.Command] =
-    caseapp.core.CommandsMessages[Commands.Command]
-  val CommandsParser: CommandParser[Commands.Command] =
-    caseapp.core.CommandParser.apply[Commands.Command]
+  val CommandsMessages: caseapp.core.CommandsMessages[Commands.RawCommand] =
+    caseapp.core.CommandsMessages[Commands.RawCommand]
+  val CommandsParser: CommandParser[Commands.RawCommand] =
+    caseapp.core.CommandParser.apply[Commands.RawCommand]
 }

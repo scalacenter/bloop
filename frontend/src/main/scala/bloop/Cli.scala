@@ -1,7 +1,10 @@
 package bloop
 
+import bloop.bsp.BspServer
+import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
+import bloop.io.Paths
 import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun
@@ -87,7 +90,7 @@ object Cli {
             Print(commandUsageAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(_, _, command), _, _)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
-            def run(command: Commands.Command, cliOptions: CliOptions): Run = {
+            def run(command: Commands.RawCommand, cliOptions: CliOptions): Run = {
               if (!cliOptions.version) Run(command, Exit(ExitStatus.Ok))
               else Run(Commands.About(cliOptions), Run(command, Exit(ExitStatus.Ok)))
             }
@@ -100,6 +103,9 @@ object Cli {
                 val newCommand = v.copy(cliOptions = v.cliOptions.copy(common = commonOptions))
                 // Disabling version here if user defines it because it has the same semantics
                 run(newCommand, newCommand.cliOptions.copy(version = false))
+              case Right(c: Commands.Bsp) =>
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                Validate.bsp(newCommand, BspServer.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
@@ -146,29 +152,16 @@ object Cli {
         .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
     }
 
-    import bloop.engine.{State, Build}
-    def loadStateFor(configDirectory: AbsolutePath, logger: Logger): State = {
-      State.stateCache.getStateFor(configDirectory) match {
-        case Some(state) => state
-        case None =>
-          State.stateCache.addIfMissing(configDirectory, path => {
-            val projects = Project.fromDir(configDirectory, logger)
-            val build: Build = Build(configDirectory, projects)
-            State(build, logger)
-          })
-      }
-    }
-
     val cliOptions = action match {
+      case r: Run => r.command.cliOptions
       case e: Exit => CliOptions.default
       case p: Print => CliOptions.default
-      case r: Run => r.command.cliOptions
     }
 
+    val common = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
-    val logger =
-      BloopLogger.at(configDirectory.toString, cliOptions.common.out, cliOptions.common.err)
-    val state = loadStateFor(configDirectory, logger)
+    val logger = BloopLogger.at(configDirectory.syntax, common.out, common.err)
+    val state = State.loadActiveStateFor(configDirectory, cliOptions.common, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)
     newState.status

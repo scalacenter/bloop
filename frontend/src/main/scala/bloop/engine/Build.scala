@@ -10,5 +10,4 @@ final case class Build(origin: AbsolutePath, projects: List[Project]) {
   def getProjectFor(name: String): Option[Project] = stringToProjects.get(name)
   def getDagFor(project: Project): Dag[Project] =
     Dag.dagFor(dags, project).getOrElse(sys.error(s"Project $project does not have a DAG!"))
-  def reachableFrom(from: Project): List[Project] = Dag.dfs(getDagFor(from))
 }

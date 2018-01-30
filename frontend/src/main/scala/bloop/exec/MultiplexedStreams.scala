@@ -10,7 +10,6 @@ import com.martiansoftware.nailgun.ThreadLocalPrintStream
  * Helper object to redirect bytes written to `System.out` and `System.err` to a given logger.
  */
 object MultiplexedStreams {
-
   private lazy val multiplexedOut = System.out.asInstanceOf[ThreadLocalPrintStream]
   private lazy val multiplexedErr = System.err.asInstanceOf[ThreadLocalPrintStream]
 
@@ -56,7 +55,6 @@ object MultiplexedStreams {
   private def registerStreams(logger: Logger): Unit = {
     val out = ProcessLogger.toPrintStream(logger.info)
     val err = ProcessLogger.toPrintStream(logger.error)
-
     multiplexedOut.init(out)
     multiplexedErr.init(err)
   }
@@ -83,5 +81,4 @@ object MultiplexedStreams {
       case _ => System.setErr(new ThreadLocalPrintStream(System.err))
     }
   }
-
 }

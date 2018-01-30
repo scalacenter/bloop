@@ -1,8 +1,9 @@
 import build.BuildImplementation.BuildDefaults
 
 /***************************************************************************************************/
-/*                      This is the build definition of the zinc integration                       */
+/*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
+
 // Remember, `scripted` and `cachedPublishLocal` are defined here via aggregation
 val bridgeIntegration = project
   .in(file(".bridge"))
@@ -37,9 +38,12 @@ val nailgun = project
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
-  .settings(
-    skip in publish := true
-  )
+  .settings(skip in publish := true)
+
+val bspIntegration = project
+  .in(file(".bsp"))
+  .aggregate(Bsp)
+  .settings(skip in publish := true)
 
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
@@ -70,6 +74,7 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend, backend % "test->test")
+  .dependsOn(Bsp)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
   .settings(assemblySettings)
@@ -85,6 +90,10 @@ val frontend = project
     fork in run := true,
     fork in Test := true,
     parallelExecution in test := false,
+    libraryDependencies ++= List(
+      Dependencies.monix,
+      Dependencies.ipcsocket % Test
+    )
   )
 
 val benchmarks = project
@@ -153,6 +162,7 @@ addCommandAlias(
   Seq(
     s"+${bridgeIntegration.id}/$publishLocalCmd",
     s"+${zincIntegration.id}/$publishLocalCmd",
+    s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
     s"${nailgun.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",

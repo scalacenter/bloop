@@ -1,7 +1,8 @@
 package bloop.logging
 
-import java.io.{OutputStream, PrintStream}
+import java.io.{FileOutputStream, OutputStream, PrintStream}
 
+import bloop.io.AbsolutePath
 import org.apache.logging.log4j
 import org.apache.logging.log4j.{Level, LogManager}
 import org.apache.logging.log4j.core.{Filter, LoggerContext}
