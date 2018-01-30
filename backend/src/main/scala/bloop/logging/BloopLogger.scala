@@ -99,6 +99,15 @@ object BloopLogger {
   def at(name: String, out: PrintStream, err: PrintStream): BloopLogger =
     new BloopLogger(name, out, err)
 
+  /**
+    * Instantiates a new `BloopLogger` that redirects everything to the file.
+    *
+    * Unused now, but we'll need it in the future.
+    *
+    * @param name The name of the logger.
+    * @param logFile The file where logs are written.
+    * @return A `BloopLogger` backed up by a file.
+    */
   def atFile(name: String, logFile: AbsolutePath): BloopLogger = {
     val outputForFile = new PrintStream(new FileOutputStream(logFile.toFile))
     BloopLogger.at(name, outputForFile, outputForFile)

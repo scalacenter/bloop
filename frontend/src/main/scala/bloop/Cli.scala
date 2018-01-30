@@ -152,21 +152,15 @@ object Cli {
         .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
     }
 
-    def createLogger(configDir: AbsolutePath, options: CliOptions, logToFile: Boolean): Logger = {
-      val loggerId = configDir.syntax
-      if (logToFile) BloopLogger.atFile(loggerId, Paths.bloopLogsDir.resolve("bsp.log"))
-      else BloopLogger.at(loggerId, options.common.out, options.common.err)
+    val cliOptions = action match {
+      case r: Run => r.command.cliOptions
+      case e: Exit => CliOptions.default
+      case p: Print => CliOptions.default
     }
 
-    val (cliOptions, logToFile) = action match {
-      case e: Exit => (CliOptions.default, false)
-      case p: Print => (CliOptions.default, false)
-      case Run(cmd: Commands.Bsp, _) => (cmd.cliOptions, false)
-      case r: Run => (r.command.cliOptions, false)
-    }
-
+    val common = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
-    val logger = createLogger(configDirectory, cliOptions, logToFile)
+    val logger = BloopLogger.at(configDirectory.syntax, common.out, common.err)
     val state = State.loadStateFor(configDirectory, cliOptions.common, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState)

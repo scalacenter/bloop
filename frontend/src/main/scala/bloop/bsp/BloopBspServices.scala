@@ -46,7 +46,6 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     }
 
     override def trace(t: Throwable): Unit = {
-      callSiteState.logger.trace(t)
       Window.showMessage.info(t.toString)(client)
     }
 
