@@ -48,4 +48,4 @@
 	branch = master
 [submodule "website/themes/kube"]
 	path = website/themes/kube
-	url = https://github.com/jeblister/kube.git
+	url = https://github.com/scalacenter/kube.git
