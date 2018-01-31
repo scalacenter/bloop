@@ -172,41 +172,38 @@ object Tasks {
    * @param isolated Do not run the tests for the dependencies of `project`.
    * @return The new state of Bloop.
    */
-  def test(state: State, project: Project, isolated: Boolean): Task[State] = {
+  def test(state: State, project: Project, isolated: Boolean): Task[State] = Task {
     // TODO(jvican): This method should cache the test loader always.
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
 
-    Task {
-      val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
-      projectsToTest.foreach { project =>
-        val projectName = project.name
-        val processConfig = ProcessConfig(project.javaEnv, project.classpath)
-        val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
-        val frameworks = project.testFrameworks
-          .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
-        logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
-        val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
-          logger.warn(
-            s"Test execution is triggered but no compilation detected for ${projectName}.")
-          Analysis.empty
-        }
-
-        val discoveredTests = {
-          val tests = discoverTests(analysis, frameworks)
-          DiscoveredTests(testLoader, tests)
-        }
-        val allTestNames: List[String] =
-          discoveredTests.tests.valuesIterator
-            .flatMap(defs => defs.map(_.fullyQualifiedName()))
-            .toList
-        logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
-        TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
+    val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
+    projectsToTest.foreach { project =>
+      val projectName = project.name
+      val processConfig = ProcessConfig(project.javaEnv, project.classpath)
+      val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+      val frameworks = project.testFrameworks
+        .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
+      logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
+      val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
+        logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
+        Analysis.empty
       }
 
-      // Return the previous state, test execution doesn't modify it.
-      state.mergeStatus(ExitStatus.Ok)
+      val discoveredTests = {
+        val tests = discoverTests(analysis, frameworks)
+        DiscoveredTests(testLoader, tests)
+      }
+      val allTestNames: List[String] =
+        discoveredTests.tests.valuesIterator
+          .flatMap(defs => defs.map(_.fullyQualifiedName()))
+          .toList
+      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
+      TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
     }
+
+    // Return the previous state, test execution doesn't modify it.
+    state.mergeStatus(ExitStatus.Ok)
   }
 
   /**
@@ -214,21 +211,20 @@ object Tasks {
    *
    * @param state     The current state of Bloop.
    * @param project   The project to run.
-   * @param className The fully qualified name of the main class.
+   * @param fqn The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    */
-  def run(state: State, project: Project, className: String, args: Array[String]): Task[State] =
-    Task {
-      val classpath = project.classpath
-      val processConfig = ProcessConfig(project.javaEnv, classpath)
-      val exitCode = processConfig.runMain(className, args, state.logger)
-      val exitStatus = {
-        if (exitCode == ProcessConfig.EXIT_OK) ExitStatus.Ok
-        else ExitStatus.UnexpectedError
-      }
-
-      state.mergeStatus(exitStatus)
+  def run(state: State, project: Project, fqn: String, args: Array[String]): Task[State] = Task {
+    val classpath = project.classpath
+    val processConfig = ProcessConfig(project.javaEnv, classpath)
+    val exitCode = processConfig.runMain(fqn, args, state.logger)
+    val exitStatus = {
+      if (exitCode == ProcessConfig.EXIT_OK) ExitStatus.Ok
+      else ExitStatus.UnexpectedError
     }
+
+    state.mergeStatus(exitStatus)
+  }
 
   /**
    * Finds the main classes in `project`.
