@@ -22,8 +22,6 @@ matrix:
 clone:
   git:
     image: plugins/git
-    when:
-      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     tags: true
     # We clone the submodules ourselves
     recursive: false
@@ -32,8 +30,11 @@ clone:
 pipeline:
   clone:
     image: plugins/git
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
       - ./bin/ci-clone.sh
+
   restore_cache:
     image: appleboy/drone-sftp-cache
     when:
