@@ -30,10 +30,15 @@ clone:
 pipeline:
   clone:
     image: plugins/git
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
       - ./bin/ci-clone.sh
+
   restore_cache:
     image: appleboy/drone-sftp-cache
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
     restore: true
     mount:
@@ -82,6 +87,8 @@ pipeline:
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
     rebuild: true
     mount:
