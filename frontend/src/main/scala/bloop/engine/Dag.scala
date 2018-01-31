@@ -53,14 +53,14 @@ object Dag {
     dagFor(dags, Set(target)).flatMap(_.headOption)
 
   /**
-    * Return a list of dags that match all the targets.
-    *
-    * The matched dags are returned in no particular order.
-    *
-    * @param dags The list of all dags.
-    * @param targets The targets for which we want to find a dag.
-    * @return An optional value of a list of dags.
-    */
+   * Return a list of dags that match all the targets.
+   *
+   * The matched dags are returned in no particular order.
+   *
+   * @param dags The list of all dags.
+   * @param targets The targets for which we want to find a dag.
+   * @return An optional value of a list of dags.
+   */
   def dagFor[T](dags: List[Dag[T]], targets: Set[T]): Option[List[Dag[T]]] = {
     dags.foldLeft[Option[List[Dag[T]]]](None) {
       case (found: Some[List[Dag[T]]], _) => found

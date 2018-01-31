@@ -1,25 +1,26 @@
 package bloop.engine.tasks
 
+import java.util.Optional
+
 import bloop.cli.ExitStatus
-import bloop.engine.{Dag, State}
+import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ProcessConfig
 import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 
-import java.util.concurrent.ConcurrentHashMap
-
+import monix.eval.Task
 import scala.util.control.NonFatal
-
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
-import sbt.testing.{Event, EventHandler, Framework, TaskDef, SuiteSelector}
+import sbt.testing.{Event, EventHandler, Framework, SuiteSelector, TaskDef}
 import xsbt.api.Discovery
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
-  private type Results = Map[Project, PreviousResult]
-  private val EmptyTask = Task[Results](Map.empty)
+  // Represents a failed result because compilation cannot return an "empty" result
+  private val FailedResult =
+    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   /**
    * Performs incremental compilation of the dependencies of `project`, including `project` if
@@ -54,37 +55,40 @@ object Tasks {
       // FORMAT: ON
     }
 
-    val resultsBuffer = new ConcurrentHashMap[Project, PreviousResult]
-
-    def getDependencies(project: Project): Array[Project] = {
-      project.dependencies.flatMap(state.build.getProjectFor)
+    type CompileResult = (Project, PreviousResult)
+    def compile(project: Project): CompileResult = {
+      println(s"Compiling ${project.name}")
+      val previous = state.results.getResult(project)
+      val inputs = toInputs(project, reporterConfig, previous)
+      project -> (
+        try Compiler.compile(inputs)
+        catch { case NonFatal(t) => logger.trace(t); FailedResult }
+      )
     }
-    def runCompilation(project: Project): Task[Unit] = Task {
-      val dependencies = getDependencies(project)
-      if (dependencies.forall(resultsBuffer.containsKey)) {
-        val previousResult = state.results.getResult(project)
-        val inputs = toInputs(project, reporterConfig, previousResult)
-        try {
-          val result = Compiler.compile(inputs)
-          resultsBuffer.put(project, result)
-          ()
-        } catch {
-          case NonFatal(ex) =>
-            logger.error(s"Compilation failed for project ${project.name}")
-            logger.trace(ex)
+
+    val visited = scala.collection.mutable.HashSet.empty[Dag[Project]]
+    def compileTree(dag: Dag[Project]): Task[List[CompileResult]] = {
+      if (visited.contains(dag)) Task.now(Nil)
+      else {
+        visited.add(dag)
+        dag match {
+          case Leaf(project) => Task(List(compile(project)))
+          case Parent(project, dependencies) =>
+            val downstream = Task.traverse(dependencies)(compileTree).map(_.flatten)
+            downstream.flatMap { results =>
+              if (results.exists(_._2 == FailedResult)) Task.now(results)
+              else Task(compile(project)).map(r => r :: results)
+            }
         }
-      } else {
-        logger.debug(
-          s"Compilation skipped for project ${project.name} because a dependency failed to compile.")
       }
     }
 
-    Task.makeTaskGraph(getDependencies, runCompilation)(project).map { _ =>
-      var cache = state.results
-      resultsBuffer.forEach { (project, result) =>
-        cache = cache.updateCache(project, result)
-      }
-      state.copy(results = cache)
+    val dag = state.build.getDagFor(project)
+    compileTree(dag).map { results =>
+      val (newResults, failures) = results.span(_._2 != FailedResult)
+      val newCache = state.results.addResults(newResults)
+      failures.foreach(f => logger.error(s"Unexpected compilation errors in '${f._1}'."))
+      state.copy(results = newCache)
     }
   }
 

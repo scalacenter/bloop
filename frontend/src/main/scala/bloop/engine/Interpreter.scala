@@ -1,25 +1,25 @@
 package bloop.engine
 
 import bloop.bsp.BspServer
-import scala.annotation.tailrec
 
+import scala.annotation.tailrec
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
-import bloop.engine.tasks.{Task, Tasks}
+import bloop.engine.tasks.Tasks
 import bloop.Project
-import bloop.logging.Logger
+import monix.eval.Task
+import monix.execution.misc.NonFatal
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 object Interpreter {
   @tailrec
   def execute(action: Action, state: State): State = {
-    def logAndTime(cliOptions: CliOptions, action: => Task[State]): State = {
-      state.logger.verboseIf(cliOptions.verbose) {
-        timed(state.logger) {
-          action.await()(state.scheduler).fold(logAndContinue(state.logger)(state), identity)
-        }
-      }
+    def logAndTime(cliOptions: CliOptions, action: Task[State]): State = {
+      state.logger.verboseIf(cliOptions.verbose)(timed(state.logger)(waitAndLog(state, action)))
     }
 
     action match {
@@ -82,22 +82,18 @@ object Interpreter {
 
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
     val scheduler = ExecutionContext.bspScheduler
-    new Task(BspServer.run(cmd, state, scheduler), Nil)
+    BspServer.run(cmd, state, scheduler)
   }
 
   private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = Task {
+    // TODO(jvican): The implementation here could be improved, do so.
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
     val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
-    val watchFn: State => State = { state =>
-      val result = f(state).await()(state.scheduler)
-      result.fold(logAndContinue(state.logger)(state), identity)
-    }
-
-    // Force the first operation and then allow the watcher to execute it in next steps
-    val forced = watchFn(state)
-
-    watcher.watch(forced, watchFn)
+    // Make file watching cancel tasks if lots of different changes happen in less than 100ms
+    val watchFn: State => State = { state => waitAndLog(state, f(state)) }
+    val firstOp = watchFn(state)
+    watcher.watch(firstOp, watchFn)
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -252,10 +248,15 @@ object Interpreter {
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 
-  private def logAndContinue[T](logger: Logger)(result: T): PartialFunction[Throwable, T] = {
-    case error =>
-      logger.error(error.getMessage)
-      logger.trace(error)
-      result
+  private def waitAndLog(previousState: State, newState: Task[State]): State = {
+    try {
+      // Duration has to be infinity, we cannot predict how much time compilation takes
+      Await.result(newState.runAsync(previousState.scheduler), Duration.Inf)
+    } catch {
+      case NonFatal(t) =>
+        previousState.logger.error(t.getMessage)
+        previousState.logger.trace(t)
+        previousState
+    }
   }
 }

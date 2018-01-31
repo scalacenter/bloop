@@ -30,8 +30,7 @@ final case class State private (
     status: ExitStatus,
     logger: Logger
 ) {
-  private[bloop] val scheduler: Scheduler =
-    ExecutionContext.scheduler
+  private[bloop] val scheduler: Scheduler = ExecutionContext.scheduler
   /* TODO: Improve the handling and merging of different status. Use the status to report errors. */
   def mergeStatus(newStatus: ExitStatus): State =
     this.copy(status = ExitStatus.merge(status, newStatus))

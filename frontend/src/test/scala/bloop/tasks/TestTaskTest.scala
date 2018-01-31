@@ -8,15 +8,17 @@ import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-
 import bloop.Project
 import bloop.engine.State
-import bloop.exec.{InProcess, JavaEnv, ProcessConfig}
+import bloop.exec.{JavaEnv, ProcessConfig}
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
-import bloop.engine.tasks.{Task, Tasks}
+import bloop.engine.tasks.Tasks
 import bloop.testing.{DiscoveredTests, TestInternals}
 import xsbti.compile.CompileAnalysis
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 object TestTaskTest {
   // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
@@ -37,8 +39,8 @@ class TestTaskTest(framework: String) {
     val target = s"$TestProjectName-test"
     val state0 = ProjectHelpers.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
-    val state =
-      Tasks.compile(state0, project, ReporterConfig.defaultFormat).await()(state0.scheduler).get
+    val compileTask = Tasks.compile(state0, project, ReporterConfig.defaultFormat)
+    val state = Await.result(compileTask.runAsync(state0.scheduler), Duration.Inf)
     val result = state.results.getResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
