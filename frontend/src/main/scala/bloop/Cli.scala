@@ -163,7 +163,7 @@ object Cli {
     val logger = BloopLogger.at(configDirectory.syntax, common.out, common.err)
     val state = State.loadActiveStateFor(configDirectory, cliOptions.common, logger)
     val newState = Interpreter.execute(action, state)
-    State.stateCache.updateBuild(newState)
+    State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
     newState.status
   }
 }

@@ -20,7 +20,6 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  @Ignore("Failing at the moment")
   def helpCommandTest(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       client.success("help")
