@@ -51,6 +51,6 @@ object Server {
     import bloop.engine.State
     import bloop.engine.tasks.Tasks
     State.stateCache.allStates.foreach(s => Tasks.persist(s))
-    server.shutdown(true)
+    server.shutdown( /* exitVM = */ false)
   }
 }
