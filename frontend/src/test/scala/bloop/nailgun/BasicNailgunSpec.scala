@@ -22,6 +22,24 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
+  def aboutCommandTest(): Unit = {
+    val logger = new RecordingLogger
+    val base = ProjectHelpers.getTestProjectDir("with-resources")
+    withServer(logger, base) { client =>
+      client.success("about")
+      val messages = logger.getMessages()
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
+      }
+      contains("Bloop-frontend version")
+      contains("Zinc version")
+      contains("Scala version")
+      contains("maintained by")
+      contains("Scala Center")
+    }
+  }
+
+  @Test
   def projectsCommandTest(): Unit = {
     val logger = new RecordingLogger
     val base = ProjectHelpers.getTestProjectDir("with-resources")
