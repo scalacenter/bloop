@@ -10,9 +10,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def unknownCommandTest(): Unit = {
-    val logger = new RecordingLogger
-    val base = ProjectHelpers.getTestProjectDir("with-resources")
-    withServer(logger, base) { client =>
+    withServerInProject("with-resources") { (logger, client) =>
       val command = "thatcommanddoesntexist"
       client.fail("thatcommanddoesntexist")
       val messages = logger.getMessages()
@@ -23,9 +21,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def aboutCommandTest(): Unit = {
-    val logger = new RecordingLogger
-    val base = ProjectHelpers.getTestProjectDir("with-resources")
-    withServer(logger, base) { client =>
+    withServerInProject("with-resources") { (logger, client) =>
       client.success("about")
       val messages = logger.getMessages()
       def contains(needle: String): Unit = {
@@ -41,9 +37,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def projectsCommandTest(): Unit = {
-    val logger = new RecordingLogger
-    val base = ProjectHelpers.getTestProjectDir("with-resources")
-    withServer(logger, base) { client =>
+    withServerInProject("with-resources") { (logger, client) =>
       client.success("projects")
       val messages = logger.getMessages()
       val expectedProjects = "with-resources" :: "with-resources-test" :: Nil
