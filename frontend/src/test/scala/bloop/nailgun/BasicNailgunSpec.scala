@@ -3,7 +3,7 @@ package bloop.nailgun
 import bloop.logging.RecordingLogger
 import bloop.tasks.ProjectHelpers
 
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.Assert.{assertEquals, assertTrue}
 
 class BasicNailgunSpec extends NailgunTest {
@@ -16,6 +16,20 @@ class BasicNailgunSpec extends NailgunTest {
       val messages = logger.getMessages()
       assertTrue("Error was not reported in $messages",
                  messages.contains(("info", s"Command not found: $command")))
+    }
+  }
+
+  @Test
+  @Ignore("Failing at the moment")
+  def helpCommandTest(): Unit = {
+    withServerInProject("with-resources") { (logger, client) =>
+      client.success("help")
+      val messages = logger.getMessages()
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
+      }
+      contains("Usage:")
+      contains("Available commands:")
     }
   }
 
