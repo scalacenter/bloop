@@ -57,7 +57,6 @@ object Tasks {
 
     type CompileResult = (Project, PreviousResult)
     def compile(project: Project): CompileResult = {
-      println(s"Compiling ${project.name}")
       val previous = state.results.getResult(project)
       val inputs = toInputs(project, reporterConfig, previous)
       project -> (
