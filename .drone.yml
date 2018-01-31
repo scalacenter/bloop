@@ -29,9 +29,12 @@ clone:
 
 pipeline:
   clone:
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     image: plugins/git
     commands:
       - ./bin/ci-clone.sh
+
   restore_cache:
     image: appleboy/drone-sftp-cache
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
