@@ -29,6 +29,8 @@ clone:
 
 pipeline:
   clone:
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     image: plugins/git
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
