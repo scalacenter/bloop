@@ -130,7 +130,7 @@ val docs = project
   .in(file("website"))
   .enablePlugins(HugoPlugin)
   .settings(
-    sourceDirectory in Hugo := sourceDirectory.value / "docs",
+    sourceDirectory in Hugo := baseDirectory.value
     // baseURL in Hugo := uri("https://scala.epfl.ch"),
   )
 
