@@ -23,8 +23,7 @@ object AutoImportedKeys {
 
 object PluginImplementation {
   val globalSettings: Seq[Def.Setting[_]] = List(
-    AutoImportedKeys.installBloop := PluginDefaults.installBloop.value,
-    AutoImportedKeys.bloopConfigDir := PluginDefaults.bloopConfigDir.value
+    AutoImportedKeys.installBloop := PluginDefaults.installBloop.value
   )
 
   import sbt.inConfig
@@ -32,8 +31,19 @@ object PluginImplementation {
     sbt.taskKey[Unit]("Generate bloop configuration files for this project")
   val projectSettings: Seq[Def.Setting[_]] = List(Compile, Test).flatMap { conf =>
     inConfig(conf) {
-      List(bloopGenerate := PluginDefaults.bloopGenerate.value) ++
-        DiscoveredSbtPlugins.settings // discoveredSbtPlugins triggers compilation in 0.13, we replace it.
+      List(
+        bloopGenerate := PluginDefaults.bloopGenerate.value,
+        AutoImportedKeys.bloopConfigDir := Def.settingDyn {
+          val ref = Keys.thisProjectRef.value
+          (AutoImportedKeys.bloopConfigDir in sbt.Global).?.value.map(Def.setting(_)).getOrElse {
+            Def.setting {
+              import Compat._
+              (Keys.baseDirectory in ThisBuild).value / ".bloop-config"
+            }
+          }
+        }.value
+      ) ++ DiscoveredSbtPlugins.settings // discoveredSbtPlugins triggers compilation in 0.13, we replace it.
+
     }
   }
 
@@ -100,10 +110,7 @@ object PluginImplementation {
       PluginImplementation.bloopGenerate.all(filter).map(_ => ())
     }
 
-    lazy val bloopConfigDir: Def.Initialize[File] = Def.setting {
-      (Keys.baseDirectory in ThisBuild).value / ".bloop-config"
-    }
-
+    lazy val bloopConfigDir: Def.Initialize[Option[File]] = Def.setting { None }
     import sbt.Classpaths
 
     /**

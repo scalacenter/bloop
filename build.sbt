@@ -84,7 +84,6 @@ val benchmarks = project
 
 lazy val integrationsCore = project
   .in(file("integrations") / "core")
-  .disablePlugins(sbt.ScriptedPlugin)
   .settings(
     name := "bloop-integrations-core",
     crossScalaVersions := List("2.12.4", "2.10.7"),
@@ -98,7 +97,6 @@ lazy val sbtBloop = project
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
-    BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
     bintrayPackage := "sbt-bloop",
     bintrayOrganization := Some("sbt"),
@@ -147,16 +145,6 @@ addCommandAlias(
 
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
-addCommandAlias(
-  "runTests",
-  List(
-    s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
-    s"${sbtBloop.id}/${scripted.key.label} integration-projects/*"
-  ).mkString(";", ";", "")
-)
-
-// Publishes locally all the components of Bloop
-// ! This is used by the benchmars too !
 addCommandAlias(
   "install",
   Seq(
