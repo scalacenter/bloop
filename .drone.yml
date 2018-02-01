@@ -51,6 +51,8 @@ pipeline:
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
+      - export DRONE_DIR="/drone"
+      - ./bin/add-coursier.sh
       - git log | head -n 20
       - ${SBT_RUN}
       - ./bin/ci-clean-cache.sh
@@ -68,6 +70,7 @@ pipeline:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
+      - ./bin/add-coursier.sh
       - /usr/local/bin/setup_keys.sh
       - ${SBT_PUBLISH}
       - ./bin/ci-clean-cache.sh
@@ -82,6 +85,8 @@ pipeline:
       event: [ tag ]
       status: success
     commands:
+      - export DRONE_DIR="/drone"
+      - ./bin/add-coursier.sh
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${SBT_RELEASE}
 
