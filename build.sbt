@@ -163,7 +163,9 @@ val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
   .settings(
+    releaseEarly := {()},
     skip in publish := true,
+    libraryDependencies := Nil,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
 
@@ -192,7 +194,7 @@ addCommandAlias(
   "install",
   Seq(
     s"+${bridgeIntegration.id}/$publishLocalCmd",
-    s"+${zincIntegration.id}/$publishLocalCmd",
+    s"${zincIntegration.id}/$publishLocalCmd",
     s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
     s"${nailgunIntegration.id}/$publishLocalCmd",
@@ -202,12 +204,21 @@ addCommandAlias(
 )
 
 val releaseEarlyCmd = releaseEarly.key.label
-val bloopModules = allProjectReferences
-  .filterNot(_ == LocalProject(sbtBloop.id))
-  .filterNot(_ == LocalProject(benchmarks.id))
-val sourceProjects = List(bridgeIntegration, bspIntegration, nailgunIntegration)
-val sourceModules = sourceProjects.map(m => LocalProject(m.id)) 
-val actions = (bloopModules ++ sourceModules).map(m => s"+${m.project}/$releaseEarlyCmd")
-// We don't need the zinc integration to be cross-published, Bloop is only 2.12.x
-val extra = Seq(s"${zincIntegration.id}/$releaseEarlyCmd", s"^${sbtBloop.id}/$releaseEarlyCmd")
-addCommandAlias("releaseBloop", (actions ++ extra).mkString(";", ";", ""))
+
+val allSourceDepsReleases = List(
+  s"+${bridgeIntegration.id}/$releaseEarlyCmd",
+  s"${zincIntegration.id}/$releaseEarlyCmd",
+  s"${bspIntegration.id}/$releaseEarlyCmd",
+  s"${nailgunIntegration.id}/$releaseEarlyCmd",
+)
+
+val allBloopReleases = List(
+  s"${backend.id}/$releaseEarlyCmd",
+  s"${frontend.id}/$releaseEarlyCmd",
+  s"+${integrationsCore.id}/$releaseEarlyCmd",
+  s"^${sbtBloop.id}/$releaseEarlyCmd",
+  s"${mavenBloop.id}/$releaseEarlyCmd",
+)
+
+val allReleaseActions = allSourceDepsReleases ++ allBloopReleases
+addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
