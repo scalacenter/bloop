@@ -116,11 +116,15 @@ val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
+  .settings(
+    skip in publish := true,
+  )
 
 lazy val integrationsCore = project
   .in(file("integrations") / "core")
   .disablePlugins(sbt.ScriptedPlugin)
   .settings(
+    name := "bloop-integrations-core",
     crossScalaVersions := List("2.12.4", "2.10.7"),
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value
@@ -134,6 +138,7 @@ lazy val sbtBloop = project
     sbtPlugin := true,
     BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
+    releaseEarlyWith := SonatypePublisher
   )
 
 val mavenBloop = project
@@ -146,6 +151,8 @@ val docs = project
   .in(file("website"))
   .enablePlugins(HugoPlugin)
   .settings(
+    name := "bloop-website",
+    skip in publish := true,
     sourceDirectory in Hugo := baseDirectory.value
     // baseURL in Hugo := uri("https://scala.epfl.ch"),
   )
@@ -156,7 +163,9 @@ val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
   .settings(
+    releaseEarly := {()},
     skip in publish := true,
+    libraryDependencies := Nil,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
 
@@ -185,7 +194,7 @@ addCommandAlias(
   "install",
   Seq(
     s"+${bridgeIntegration.id}/$publishLocalCmd",
-    s"+${zincIntegration.id}/$publishLocalCmd",
+    s"${zincIntegration.id}/$publishLocalCmd",
     s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
     s"${nailgunIntegration.id}/$publishLocalCmd",
@@ -195,11 +204,21 @@ addCommandAlias(
 )
 
 val releaseEarlyCmd = releaseEarly.key.label
-val bloopModules = allProjectReferences
-  .filterNot(_ == LocalProject(sbtBloop.id))
-  .filterNot(_ == LocalProject(benchmarks.id))
-val sourceProjects = List(bridgeIntegration, zincIntegration, bspIntegration, nailgunIntegration)
-val sourceModules = sourceProjects.map(m => LocalProject(m.id)) 
-val actions = (bloopModules ++ sourceModules).map(m => s"+${m.project}/$releaseEarlyCmd")
-val extra = Seq(s"^${sbtBloop.id}/releaseEarly")
-addCommandAlias("releaseBloop", (actions ++ extra).mkString(";", ";", ""))
+
+val allSourceDepsReleases = List(
+  s"+${bridgeIntegration.id}/$releaseEarlyCmd",
+  s"${zincIntegration.id}/$releaseEarlyCmd",
+  s"${bspIntegration.id}/$releaseEarlyCmd",
+  s"${nailgunIntegration.id}/$releaseEarlyCmd",
+)
+
+val allBloopReleases = List(
+  s"${backend.id}/$releaseEarlyCmd",
+  s"${frontend.id}/$releaseEarlyCmd",
+  s"+${integrationsCore.id}/$releaseEarlyCmd",
+  s"^${sbtBloop.id}/$releaseEarlyCmd",
+  s"${mavenBloop.id}/$releaseEarlyCmd",
+)
+
+val allReleaseActions = allSourceDepsReleases ++ allBloopReleases
+addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
