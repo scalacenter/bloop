@@ -2,7 +2,7 @@ val mvnVersion = "3.5.2"
 val mvnPluginToolsVersion = "3.5"
 val root = project
   .in(file("."))
-  .dependsOn(RootProject(uri("git://github.com/scalacenter/sbt-release-early#7143fef953e479e9c51db968970967269a65cfd3")))
+  .dependsOn(RootProject(uri("git://github.com/scalacenter/sbt-release-early#d5a820af6c678e6961c7d77f7cecfbb972d4d97a")))
   .settings(
     scalaVersion := "2.12.4",
     resolvers += Resolver.sonatypeRepo("staging"),

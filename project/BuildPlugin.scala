@@ -183,12 +183,15 @@ object BuildImplementation {
     BintrayKeys.bintrayRepository := "releases",
   )
 
+  import ch.epfl.scala.sbt.release.ReleaseEarly
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
-    Keys.publishArtifact in Test := false
+    Keys.publishArtifact in Test := false,
+    Keys.concurrentRestrictions -= ReleaseEarly.ExclusiveReleaseTag,
+    Keys.resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
