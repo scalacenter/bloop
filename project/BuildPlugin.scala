@@ -191,7 +191,10 @@ object BuildImplementation {
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
     // Add resolver so that we can lazy publish modules that are only in bintray
-    Keys.resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
+    Keys.resolvers := {
+      val previous = Keys.resolvers.value
+      (previous :+ Resolver.bintrayRepo("scalacenter", "releases")).distinct
+    },
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
