@@ -190,7 +190,6 @@ object BuildImplementation {
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
-    Keys.concurrentRestrictions -= ReleaseEarly.ExclusiveReleaseTag,
     // Add resolver so that we can lazy publish modules that are only in bintray
     Keys.resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
   )
