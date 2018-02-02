@@ -10,6 +10,8 @@ val bridgeIntegration = project
   .aggregate(ZincBridge)
   .settings(
     skip in publish := true,
+    // What the hell is going on here sbt? Why do you add scripted as a dep and you cannot resolve it?
+    libraryDependencies := Nil,
     scalaVersion := (scalaVersion in ZincBridge).value,
     crossScalaVersions := (crossScalaVersions in ZincBridge).value,
   )
@@ -19,6 +21,8 @@ val zincIntegration = project
   .aggregate(ZincRoot)
   .settings(
     skip in publish := true,
+    // What the hell is going on here sbt? Why do you add scripted as a dep and you cannot resolve it?
+    libraryDependencies := Nil,
     scalaVersion := (scalaVersion in ZincRoot).value,
     // This only covers 2.12 and 2.11, but this is enough.
     crossScalaVersions := (crossScalaVersions in ZincRoot).value,
@@ -32,18 +36,25 @@ val nailgunIntegration = project
   .aggregate(NailgunServer)
   .settings(
     skip in publish := true,
+    libraryDependencies := Nil,
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
-  .settings(skip in publish := true)
+  .settings(
+    skip in publish := true,
+    libraryDependencies := Nil,
+  )
 
 val bspIntegration = project
   .in(file(".bsp"))
   .aggregate(Bsp)
-  .settings(skip in publish := true)
+  .settings(
+    skip in publish := true,
+    libraryDependencies := Nil,
+  )
 
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
