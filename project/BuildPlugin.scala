@@ -88,7 +88,9 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md") },
+    GHReleaseKeys.ghreleaseNotes := { tagName =>
+      IO.read(buildBase.value / "notes" / s"$tagName.md")
+    },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
@@ -147,6 +149,8 @@ object BuildKeys {
 object BuildImplementation {
   import sbt.{url, file}
   import sbt.{Developer, Resolver, Watched, Compile, Test}
+  import sbtdynver.GitDescribeOutput
+  import sbtdynver.DynVerPlugin.{autoImport => DynVerKeys}
 
   // This should be added to upstream sbt.
   def GitHub(org: String, project: String): java.net.URL =
@@ -195,12 +199,23 @@ object BuildImplementation {
     },
     Keys.libraryDependencies ++= {
       if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else List(
-        compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
-      )
+      else
+        List(
+          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
+        )
     },
     // Legal requirement: license and notice files must be in the published jar
-    Keys.resources in Compile ++= BuildDefaults.getLicense.value
+    Keys.resources in Compile ++= BuildDefaults.getLicense.value,
+    Keys.publishArtifact in (Compile, Keys.packageDoc) := {
+      val output = DynVerKeys.dynverGitDescribeOutput.value
+      val version = Keys.version.value
+      BuildDefaults.publishDocAndSourceArtifact(output, version)
+    },
+    Keys.publishArtifact in (Compile, Keys.packageSrc) := {
+      val output = DynVerKeys.dynverGitDescribeOutput.value
+      val version = Keys.version.value
+      BuildDefaults.publishDocAndSourceArtifact(output, version)
+    },
   )
 
   final val reasonableCompileOptions = (
@@ -220,26 +235,37 @@ object BuildImplementation {
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
       def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(List(
-          Keys.organization := "ch.epfl.scala",
-          Keys.homepage := {
-            val previousHomepage = Keys.homepage.value
-            if (previousHomepage.nonEmpty) previousHomepage
-            else (Keys.homepage in ThisBuild).value
-          },
-          Keys.developers := {
-            val previousDevelopers = Keys.developers.value
-            if (previousDevelopers.nonEmpty) previousDevelopers
-            else (Keys.developers in ThisBuild).value
-          },
-          Keys.licenses := {
-            val previousLicenses = Keys.licenses.value
-            if (previousLicenses.nonEmpty) previousLicenses
-            else (Keys.licenses in ThisBuild).value
-          },
-          ReleaseEarlyKeys.releaseEarlyWith :=
-            ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
-        ))
+        BuildKeys.inProject(ref)(
+          List(
+            Keys.organization := "ch.epfl.scala",
+            Keys.homepage := {
+              val previousHomepage = Keys.homepage.value
+              if (previousHomepage.nonEmpty) previousHomepage
+              else (Keys.homepage in ThisBuild).value
+            },
+            Keys.developers := {
+              val previousDevelopers = Keys.developers.value
+              if (previousDevelopers.nonEmpty) previousDevelopers
+              else (Keys.developers in ThisBuild).value
+            },
+            Keys.licenses := {
+              val previousLicenses = Keys.licenses.value
+              if (previousLicenses.nonEmpty) previousLicenses
+              else (Keys.licenses in ThisBuild).value
+            },
+            ReleaseEarlyKeys.releaseEarlyWith :=
+              ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
+            Keys.publishArtifact in (Compile, Keys.packageDoc) := {
+              val output = DynVerKeys.dynverGitDescribeOutput.in(ref).in(ThisBuild).value
+              val version = Keys.version.in(ref).value
+              BuildDefaults.publishDocAndSourceArtifact(output, version)
+            },
+            Keys.publishArtifact in (Compile, Keys.packageSrc) := {
+              val output = DynVerKeys.dynverGitDescribeOutput.in(ref).in(ThisBuild).value
+              val version = Keys.version.in(ref).value
+              BuildDefaults.publishDocAndSourceArtifact(output, version)
+            }
+          ))
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
@@ -361,6 +387,19 @@ object BuildImplementation {
         else throw new IllegalArgumentException(s"legal file $name must exist")
 
       Seq(fileWithFallback("LICENSE.md"), fileWithFallback("NOTICE.md"))
+    }
+
+    /**
+     * This setting figures out whether the version is a snapshot or not and configures
+     * the source and doc artifacts that are published by the build.
+     *
+     * Snapshot is a term with no clear definition. In this code, a snapshot is a revision
+     * that is dirty, e.g. has time metadata in its representation. In those cases, the
+     * build will not publish doc and source artifacts by any of the publishing actions.
+     */
+    def publishDocAndSourceArtifact(info: Option[GitDescribeOutput], version: String ): Boolean = {
+      val isStable = info.map(_.dirtySuffix.value.isEmpty)
+      isStable.map(stable => !stable || version.endsWith("-SNAPSHOT")).getOrElse(false)
     }
   }
 }
