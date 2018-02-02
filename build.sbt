@@ -198,8 +198,9 @@ val releaseEarlyCmd = releaseEarly.key.label
 val bloopModules = allProjectReferences
   .filterNot(_ == LocalProject(sbtBloop.id))
   .filterNot(_ == LocalProject(benchmarks.id))
-val sourceProjects = List(bridgeIntegration, zincIntegration, bspIntegration, nailgunIntegration)
+val sourceProjects = List(bridgeIntegration, bspIntegration, nailgunIntegration)
 val sourceModules = sourceProjects.map(m => LocalProject(m.id)) 
 val actions = (bloopModules ++ sourceModules).map(m => s"+${m.project}/$releaseEarlyCmd")
-val extra = Seq(s"^${sbtBloop.id}/releaseEarly")
+// We don't need the zinc integration to be cross-published, Bloop is only 2.12.x
+val extra = Seq(s"${zincIntegration.id}/$releaseEarlyCmd", s"^${sbtBloop.id}/$releaseEarlyCmd")
 addCommandAlias("releaseBloop", (actions ++ extra).mkString(";", ";", ""))
