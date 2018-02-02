@@ -1,5 +1,7 @@
 package build
 
+import java.io.File
+
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
@@ -25,7 +27,7 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{LocalProject, Reference, RootProject, ProjectRef, BuildRef, file}
+  import sbt.{Reference, RootProject, ProjectRef, BuildRef, file, uri}
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -38,23 +40,36 @@ object BuildKeys {
   // Use absolute paths so that references work even if `ThisBuild` changes
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
 
-  final val ZincProject = RootProject(file(s"$AbsolutePath/zinc"))
+  private val isCiDisabled = sys.env.get("CI").isEmpty
+  def createScalaCenterProject(name: String, f: File): RootProject = {
+    if (isCiDisabled) RootProject(f)
+    else {
+      val headSha = new com.typesafe.sbt.git.DefaultReadableGit(f).withGit(_.headCommitSha)
+      headSha match {
+        case Some(commit) => RootProject(uri(s"git://github.com/scalacenter/${name}.git#$commit"))
+        case None => sys.error(s"The 'HEAD' sha of '${f}' could not be retrieved.")
+      }
+    }
+  }
+
+  final val ZincProject = createScalaCenterProject("zinc", file(s"$AbsolutePath/zinc"))
   final val ZincBuild = BuildRef(ZincProject.build)
   final val Zinc = ProjectRef(ZincProject.build, "zinc")
   final val ZincRoot = ProjectRef(ZincProject.build, "zincRoot")
   final val ZincBridge = ProjectRef(ZincProject.build, "compilerBridge")
 
-  final val NailgunProject = RootProject(file(s"$AbsolutePath/nailgun"))
+  final val NailgunProject = createScalaCenterProject("nailgun", file(s"$AbsolutePath/nailgun"))
   final val NailgunBuild = BuildRef(NailgunProject.build)
   final val Nailgun = ProjectRef(NailgunProject.build, "nailgun")
   final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
   final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
 
-  final val BenchmarkBridgeProject = RootProject(file(s"$AbsolutePath/benchmark-bridge"))
+  final val BenchmarkBridgeProject =
+    createScalaCenterProject("compiler-benchmark", file(s"$AbsolutePath/benchmark-bridge"))
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
-  final val BspProject = RootProject(file(s"$AbsolutePath/bsp"))
+  final val BspProject = createScalaCenterProject("bsp", file(s"$AbsolutePath/bsp"))
   final val BspBuild = BuildRef(BspProject.build)
   final val Bsp = ProjectRef(BspProject.build, "bsp")
 

@@ -69,5 +69,4 @@ object GitUtils {
     val cmd = refs.foldLeft(cmdBase)(_ add _)
     cmd.call()
   }
-
 }
