@@ -9,7 +9,7 @@ val bridgeIntegration = project
   .in(file(".bridge"))
   .aggregate(ZincBridge)
   .settings(
-    releaseEarly := (),
+    releaseEarly := {()},
     skip in publish := true,
     // What the hell is going on here sbt? Why do you add scripted as a dep and you cannot resolve it?
     libraryDependencies := Nil,
@@ -21,7 +21,7 @@ val zincIntegration = project
   .in(file(".zinc"))
   .aggregate(ZincRoot)
   .settings(
-    releaseEarly := (),
+    releaseEarly := {()},
     skip in publish := true,
     // What the hell is going on here sbt? Why do you add scripted as a dep and you cannot resolve it?
     libraryDependencies := Nil,
@@ -37,7 +37,7 @@ val nailgunIntegration = project
   .in(file(".nailgun"))
   .aggregate(NailgunServer)
   .settings(
-    releaseEarly := (),
+    releaseEarly := {()},
     skip in publish := true,
     libraryDependencies := Nil,
     hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
@@ -47,7 +47,7 @@ val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
   .settings(
-    releaseEarly := (),
+    releaseEarly := {()},
     skip in publish := true,
     libraryDependencies := Nil,
   )
@@ -56,7 +56,7 @@ val bspIntegration = project
   .in(file(".bsp"))
   .aggregate(Bsp)
   .settings(
-    releaseEarly := (),
+    releaseEarly := {()},
     skip in publish := true,
     libraryDependencies := Nil,
   )
