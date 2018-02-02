@@ -2,6 +2,7 @@ val mvnVersion = "3.5.2"
 val mvnPluginToolsVersion = "3.5"
 val root = project
   .in(file("."))
+  .dependsOn(RootProject(uri("git://github.com/scalacenter/sbt-release-early#b17b16370af9e161337e4c79d2ffb3152d9a9a45")))
   .settings(
     scalaVersion := "2.12.4",
     resolvers += Resolver.sonatypeRepo("staging"),
@@ -11,7 +12,7 @@ val root = project
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.2.27"),
     addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.6"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3"),
-    addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.0"),
+    //addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.0"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
