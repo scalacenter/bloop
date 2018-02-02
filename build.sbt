@@ -180,7 +180,8 @@ addCommandAlias(
 
 val releaseEarlyCmd = releaseEarly.key.label
 val bloopModules = allProjectReferences.filterNot(_ == LocalProject(sbtBloop.id))
-val sourceModules = List(zincIntegration, bspIntegration, nailgunIntegration).map(m => LocalProject(m.id))
+val sourceProjects = List(bridgeIntegration, zincIntegration, bspIntegration, nailgunIntegration)
+val sourceModules = sourceProjects.map(m => LocalProject(m.id)) 
 val actions = (bloopModules ++ sourceModules).map(m => s"+${m.project}/$releaseEarlyCmd")
 val extra = Seq(s"^${sbtBloop.id}/releaseEarly")
 addCommandAlias("releaseBloop", (actions ++ extra).mkString(";", ";", ""))
