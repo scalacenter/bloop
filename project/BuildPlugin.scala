@@ -2,7 +2,7 @@ package build
 
 import java.io.File
 
-import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, ThisBuild}
+import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -162,7 +162,7 @@ object BuildImplementation {
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
     Keys.homepage := Some(ThisRepo),
-    Keys.licenses := Seq("BSD" -> url("http://opensource.org/licenses/BSD-3-Clause")),
+    Keys.licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
@@ -198,7 +198,9 @@ object BuildImplementation {
       else List(
         compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
       )
-    }
+    },
+    // Legal requirement: license and notice files must be in the published jar
+    Keys.resources in Compile ++= BuildDefaults.getLicense.value
   )
 
   final val reasonableCompileOptions = (
@@ -235,7 +237,6 @@ object BuildImplementation {
             if (previousLicenses.nonEmpty) previousLicenses
             else (Keys.licenses in ThisBuild).value
           },
-          ReleaseEarlyKeys.releaseEarlyIgnoreLocalRepository := false,
           ReleaseEarlyKeys.releaseEarlyWith :=
             ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
         ))
@@ -347,6 +348,20 @@ object BuildImplementation {
         }
       },
     )
+
+    // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
+    val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
+      val orig = (Keys.resources in Compile).value
+      val base = Keys.baseDirectory.value
+      val root = (Keys.baseDirectory in ThisBuild).value
+
+      def fileWithFallback(name: String): File =
+        if ((base / name).exists) base / name
+        else if ((root / name).exists) root / name
+        else throw new IllegalArgumentException(s"legal file $name must exist")
+
+      Seq(fileWithFallback("LICENSE.md"), fileWithFallback("NOTICE.md"))
+    }
   }
 }
 
