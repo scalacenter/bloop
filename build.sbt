@@ -116,11 +116,15 @@ val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
+  .settings(
+    skip in publish := true,
+  )
 
 lazy val integrationsCore = project
   .in(file("integrations") / "core")
   .disablePlugins(sbt.ScriptedPlugin)
   .settings(
+    name := "bloop-integrations-core",
     crossScalaVersions := List("2.12.4", "2.10.7"),
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value
@@ -146,6 +150,8 @@ val docs = project
   .in(file("website"))
   .enablePlugins(HugoPlugin)
   .settings(
+    name := "bloop-website",
+    skip in publish := true,
     sourceDirectory in Hugo := baseDirectory.value
     // baseURL in Hugo := uri("https://scala.epfl.ch"),
   )

@@ -220,6 +220,7 @@ object BuildImplementation {
     },
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
+    Keys.publishArtifact in Test := false,
     Keys.publishArtifact in (Compile, Keys.packageDoc) := {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
@@ -276,6 +277,7 @@ object BuildImplementation {
               if (previousLicenses.nonEmpty) previousLicenses
               else (Keys.licenses in ThisBuild).value
             },
+            Keys.publishArtifact in Test := false,
             Keys.publishArtifact in (Compile, Keys.packageDoc) := {
               val output = DynVerKeys.dynverGitDescribeOutput.in(ref).in(ThisBuild).value
               val version = Keys.version.in(ref).value
