@@ -151,6 +151,7 @@ object BuildImplementation {
   import sbt.{Developer, Resolver, Watched, Compile, Test}
   import sbtdynver.GitDescribeOutput
   import sbtdynver.DynVerPlugin.{autoImport => DynVerKeys}
+  import bintray.BintrayKeys
 
   // This should be added to upstream sbt.
   def GitHub(org: String, project: String): java.net.URL =
@@ -171,7 +172,15 @@ object BuildImplementation {
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
     ),
-    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
+  ) ++ sharedBuildPublishSettings
+
+  final lazy val sharedBuildPublishSettings: Seq[Def.Setting[_]] = Seq(
+    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.BintrayPublisher,
+    BintrayKeys.bintrayOrganization := Some("scalacenter"),
+  )
+
+  final lazy val sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
+    BintrayKeys.bintrayRepository := "releases",
   )
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
@@ -216,7 +225,16 @@ object BuildImplementation {
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-  )
+    // Add some metadata that is useful to see in every bintray release
+    BintrayKeys.bintrayPackageLabels := List("productivity", "build", "server", "cli", "tooling"),
+    BintrayKeys.bintrayVersionAttributes ++= {
+      import bintry.Attr
+      Map(
+        "zinc" -> Seq(Attr.String(Keys.version.in(BuildKeys.ZincBridge).value)),
+        "nailgun" -> Seq(Attr.String(Keys.version.in(BuildKeys.NailgunServer).value))
+      )
+    }
+  ) ++ sharedProjectPublishSettings
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
@@ -253,8 +271,6 @@ object BuildImplementation {
               if (previousLicenses.nonEmpty) previousLicenses
               else (Keys.licenses in ThisBuild).value
             },
-            ReleaseEarlyKeys.releaseEarlyWith :=
-              ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
             Keys.publishArtifact in (Compile, Keys.packageDoc) := {
               val output = DynVerKeys.dynverGitDescribeOutput.in(ref).in(ThisBuild).value
               val version = Keys.version.in(ref).value
@@ -265,7 +281,7 @@ object BuildImplementation {
               val version = Keys.version.in(ref).value
               BuildDefaults.publishDocAndSourceArtifact(output, version)
             }
-          ))
+          ) ++ sharedBuildPublishSettings ++ sharedProjectPublishSettings)
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
