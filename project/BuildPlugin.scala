@@ -397,9 +397,9 @@ object BuildImplementation {
      * that is dirty, e.g. has time metadata in its representation. In those cases, the
      * build will not publish doc and source artifacts by any of the publishing actions.
      */
-    def publishDocAndSourceArtifact(info: Option[GitDescribeOutput], version: String ): Boolean = {
+    def publishDocAndSourceArtifact(info: Option[GitDescribeOutput], version: String): Boolean = {
       val isStable = info.map(_.dirtySuffix.value.isEmpty)
-      isStable.map(stable => !stable || version.endsWith("-SNAPSHOT")).getOrElse(false)
+      !isStable.map(stable => !stable || version.endsWith("-SNAPSHOT")).getOrElse(false)
     }
   }
 }
