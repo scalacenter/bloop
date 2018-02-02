@@ -180,7 +180,6 @@ object BuildImplementation {
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
-    Keys.resolvers += Resolver.sonatypeRepo("staging"),
     Keys.resolvers += Resolver.jcenterRepo,
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
