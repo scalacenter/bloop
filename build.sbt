@@ -27,7 +27,7 @@ val zincIntegration = project
 // Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
 val SbtConfig = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
 val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just having fun.")
-val nailgun = project
+val nailgunIntegration = project
   .in(file(".nailgun"))
   .aggregate(NailgunServer)
   .settings(
@@ -172,8 +172,15 @@ addCommandAlias(
     s"+${zincIntegration.id}/$publishLocalCmd",
     s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
-    s"${nailgun.id}/$publishLocalCmd",
+    s"${nailgunIntegration.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
+
+val releaseEarlyCmd = releaseEarly.key.label
+val bloopModules = allProjectReferences.filterNot(_ == LocalProject(sbtBloop.id))
+val sourceModules = List(zincIntegration, bspIntegration, nailgunIntegration).map(m => LocalProject(m.id))
+val actions = (bloopModules ++ sourceModules).map(m => s"+${m.project}/$releaseEarlyCmd")
+val extra = Seq(s"^${sbtBloop.id}/releaseEarly")
+addCommandAlias("releaseBloop", (actions ++ extra).mkString(";", ";", ""))

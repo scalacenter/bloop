@@ -235,7 +235,6 @@ object BuildImplementation {
             if (previousLicenses.nonEmpty) previousLicenses
             else (Keys.licenses in ThisBuild).value
           },
-          ReleaseEarlyKeys.releaseEarlyIgnoreLocalRepository := false,
           ReleaseEarlyKeys.releaseEarlyWith :=
             ReleaseEarlyKeys.releaseEarlyWith.in(ThisBuild).value,
         ))
