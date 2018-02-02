@@ -191,12 +191,12 @@ object BuildImplementation {
     Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false,
     Keys.concurrentRestrictions -= ReleaseEarly.ExclusiveReleaseTag,
+    // Add resolver so that we can lazy publish modules that are only in bintray
     Keys.resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
-    Keys.resolvers += Resolver.jcenterRepo,
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
