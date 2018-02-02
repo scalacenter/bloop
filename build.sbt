@@ -138,6 +138,7 @@ lazy val sbtBloop = project
     sbtPlugin := true,
     BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
+    releaseEarlyWith := SonatypePublisher
   )
 
 val mavenBloop = project
