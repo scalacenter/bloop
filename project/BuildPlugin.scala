@@ -180,10 +180,15 @@ object BuildImplementation {
   )
 
   final lazy val sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
-    BintrayKeys.bintrayRepository := "releases",
+    BintrayKeys.bintrayRepository := {
+      val ref = Keys.thisProjectRef.value
+      if (ref.project == "sbtBloop") "sbt-releases"
+      else "releases"
+    },
     BintrayKeys.bintrayPackage := {
       val ref = Keys.thisProjectRef.value
-      if (ref.build == BuildKeys.ZincProject.build) "zinc"
+      if (ref.project == "sbtBloop") "sbt-bloop"
+      else if (ref.build == BuildKeys.ZincProject.build) "zinc"
       else if (ref.build == BuildKeys.NailgunProject.build) "nailgun"
       else if (ref.build == BuildKeys.BspProject.build) "bsp"
       else "bloop" // As a fallback, we release to bloop.
