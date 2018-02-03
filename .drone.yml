@@ -60,7 +60,7 @@ pipeline:
 
   publish:
     image: scalaplatform/scala:2.1
-    secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_password ]
+    secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass ]
     volumes:
       - /scalacenter:/keys
     when:
