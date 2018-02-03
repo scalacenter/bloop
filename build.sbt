@@ -188,7 +188,7 @@ addCommandAlias(
   "runTests",
   List(
     s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
-    s"${sbtBloop.id}/${scripted.key.label}"
+    s"${sbtBloop.id}/${scripted.key.label} integration-projects/*"
   ).mkString(";", ";", "")
 )
 
