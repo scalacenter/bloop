@@ -138,6 +138,9 @@ lazy val sbtBloop = project
     sbtPlugin := true,
     BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
+    bintrayPackage := "sbt-bloop",
+    bintrayOrganization := Some("sbt"),
+    bintrayRepository := "sbt-plugin-releases"
   )
 
 val mavenBloop = project
