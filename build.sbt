@@ -10,7 +10,6 @@ val nailgunIntegration = project
   .settings(
     releaseEarly := {()},
     skip in publish := true,
-    libraryDependencies := Nil,
   )
 
 val benchmarkBridge = project
@@ -18,8 +17,7 @@ val benchmarkBridge = project
   .aggregate(BenchmarkBridgeCompilation)
   .settings(
     releaseEarly := {()},
-    skip in publish := true,
-    libraryDependencies := Nil,
+    skip in publish := true
   )
 
 /***************************************************************************************************/
@@ -126,7 +124,6 @@ val bloop = project
   .settings(
     releaseEarly := {()},
     skip in publish := true,
-    libraryDependencies := Nil,
     crossSbtVersions := Seq("1.0.3", "0.13.16")
   )
 
