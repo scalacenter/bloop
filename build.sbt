@@ -138,7 +138,9 @@ lazy val sbtBloop = project
     sbtPlugin := true,
     BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
-    releaseEarlyWith := SonatypePublisher
+    bintrayPackage := "sbt-bloop",
+    bintrayOrganization := Some("sbt"),
+    bintrayRepository := "sbt-plugin-releases"
   )
 
 val mavenBloop = project
@@ -186,7 +188,7 @@ addCommandAlias(
   "runTests",
   List(
     s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
-    s"${sbtBloop.id}/${scripted.key.label}"
+    s"${sbtBloop.id}/${scripted.key.label} integration-projects/*"
   ).mkString(";", ";", "")
 )
 

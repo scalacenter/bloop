@@ -261,7 +261,7 @@ object BuildImplementation {
     import sbt.State
     /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
      * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
-    val hijacked = sbt.AttributeKey[Boolean]("TheHijackedOptionOfBloop.")
+    val hijacked = sbt.AttributeKey[Boolean]("theHijackedOptionOfBloop.")
     val onLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
       val globalSettings =
         List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
