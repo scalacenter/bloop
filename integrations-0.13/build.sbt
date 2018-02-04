@@ -9,6 +9,8 @@ val ScalaCenterVersions = RootProject(
 
 val allIntegrationProjects = List(ApacheSpark, LihaoyiUtest, ScalaScala, ScalaCenterVersions)
 
+// No changes should be needed below this point
+
 val bloopConfigDir = settingKey[File]("...")
 val installBloop = taskKey[Unit]("...")
 val bloopGenerate = taskKey[Unit]("...")

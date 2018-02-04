@@ -13,6 +13,8 @@ val WithTests = RootProject(
 val allIntegrationProjects =
   List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests)
 
+// No changes should be needed below this point
+
 val scalafmtOnCompile = settingKey[Boolean]("...")
 
 scalafmtOnCompile in Global := false
