@@ -16,7 +16,7 @@ It includes minor modifications to the core algorithms and Nailgun protocol to s
 ## Zinc
 
 [Repository website](https://github.com/scalacenter/zinc/). Fork from
-[facebook/nailgun](https://github.com/sbt/nailgun).
+[sbt/zinc](https://github.com/sbt/zinc).
 
 Copyright 2017 - 2018, Scala Center (EPFL)
 Copyright 2011 - 2017, Lightbend, Inc.
