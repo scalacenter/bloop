@@ -156,7 +156,8 @@ val docs = project
     name := "bloop-website",
     skip in publish := true,
     sourceDirectory in Hugo := baseDirectory.value,
-    target in makeSite := file("docs")
+    target in makeSite := file("docs"),
+    includeFilter in Hugo := (includeFilter in makeSite).value || "*.svg",
     // baseURL in Hugo := uri("https://scala.epfl.ch"),
   )
 
