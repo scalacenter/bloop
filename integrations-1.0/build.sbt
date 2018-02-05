@@ -47,6 +47,12 @@ def copyTask(proj: RootProject) = Def.task {
   val dest = target / name / ".bloop-config"
   val config = (bloopConfigDir in Compile in proj).value
 
+  // We need to write where to find the sources of this project for benchmarking with scalac
+  // and sbt.
+  val base = config.getParentFile
+  val baseConfig = target / name / "base-directory"
+  IO.write(baseConfig, base.getAbsolutePath)
+
   streams.value.log.info(s"Copying $config to $dest")
   IO.copyDirectory(config, dest, overwrite = true)
 }
