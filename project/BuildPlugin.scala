@@ -321,8 +321,9 @@ object BuildImplementation {
     import sbt.MessageOnlyException
 
     val target = BuildKeys.integrationTestsTarget.value
-    val integrations013 = BuildKeys.buildBase.value / "integrations-0.13"
-    val integrations10 = BuildKeys.buildBase.value / "integrations-1.0"
+    val buildIntegrationsBase = BuildKeys.buildBase.value / "build-integrations"
+    val integrations013 = buildIntegrationsBase / "sbt-0.13"
+    val integrations10 = buildIntegrationsBase / "sbt-1.0"
     val env = Seq("bloop_version" -> Keys.version.value, "bloop_target" -> target.getAbsolutePath)
     val cmd = "sbt" :: "installBloop" :: "copyConfigs" :: Nil
 
