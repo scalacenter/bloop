@@ -29,24 +29,12 @@ class HotBloopBenchmark {
   var bloopProcess: Process = _
   var inputRedirect: ProcessBuilder.Redirect = _
   var outputRedirect: ProcessBuilder.Redirect = _
-  var tempDir: Path = _
   var processOutputReader: BufferedReader = _
   var processInputReader: BufferedWriter = _
   var output = new java.lang.StringBuilder()
 
   @Setup(Level.Trial) def spawn(): Unit = {
-    tempDir = Files.createTempDirectory("bloop-")
-    val configDir = Files.createDirectory(tempDir.resolve(".bloop-config"))
-
-    val path = ProjectHelpers.testProjectsBase
-    val state = ProjectHelpers.loadTestProject(path, project)
-    state.build.projects.foreach { project =>
-      val outPath = configDir.resolve(s"${project.name}.config")
-      val stream = new FileOutputStream(outPath.toFile)
-      try project.toProperties.store(stream, null)
-      finally stream.close()
-    }
-
+    val base = ProjectHelpers.testProjectsBase.resolve(project)
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 
@@ -56,7 +44,7 @@ class HotBloopBenchmark {
                                      "-jar",
                                      bloopJarPath,
                                      ".")
-    builder.directory(tempDir.toFile)
+    builder.directory(base.toFile)
     inputRedirect = builder.redirectInput()
     outputRedirect = builder.redirectOutput()
     bloopProcess = builder.start()
@@ -100,6 +88,5 @@ class HotBloopBenchmark {
   @TearDown(Level.Trial) def terminate(): Unit = {
     processOutputReader.close()
     bloopProcess.destroyForcibly()
-    BenchmarkUtils.deleteRecursive(tempDir)
   }
 }
