@@ -155,7 +155,8 @@ val docs = project
   .settings(
     name := "bloop-website",
     skip in publish := true,
-    sourceDirectory in Hugo := baseDirectory.value
+    sourceDirectory in Hugo := baseDirectory.value,
+    target in makeSite := file("docs")
     // baseURL in Hugo := uri("https://scala.epfl.ch"),
   )
 
