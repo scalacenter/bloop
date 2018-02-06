@@ -1,4 +1,4 @@
 -Dfile.encoding=UTF-8
--Dsbt.organization=ch.epfl.scala
--Dsbt.version=1.1.0-sourcedeps
+#-Dsbt.organization=ch.epfl.scala
+#-Dsbt.version=1.1.0-sourcedeps
 # -Dsbt.user.plugins=../global
