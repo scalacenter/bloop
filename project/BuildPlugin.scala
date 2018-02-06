@@ -218,6 +218,20 @@ object BuildImplementation {
     }
   ) ++ buildPublishSettings
 
+  final val metalsSettings: Seq[Def.Setting[_]] = Seq(
+    Keys.scalacOptions ++= {
+      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
+      else List("-Yrangepos")
+    },
+    Keys.libraryDependencies ++= {
+      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
+      else
+        List(
+          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
+        )
+    },
+  )
+
   import sbt.{CrossVersion, compilerPlugin}
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Pgp.PgpKeys.pgpPublicRing := {
@@ -234,17 +248,6 @@ object BuildImplementation {
       Pgp.PgpKeys.publishSigned.value
     },
     Keys.scalacOptions := reasonableCompileOptions,
-    Keys.scalacOptions ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else List("-Yrangepos")
-    },
-    Keys.libraryDependencies ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else
-        List(
-          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
-        )
-    },
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
     Keys.publishArtifact in Test := false,
