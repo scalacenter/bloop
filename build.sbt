@@ -151,14 +151,16 @@ val mavenBloop = project
 
 val docs = project
   .in(file("website"))
-  .enablePlugins(HugoPlugin)
+  .enablePlugins(HugoPlugin, GhpagesPlugin)
   .settings(
     name := "bloop-website",
     skip in publish := true,
     sourceDirectory in Hugo := baseDirectory.value,
     target in makeSite := file("docs"),
     includeFilter in Hugo := (includeFilter in makeSite).value || "*.svg",
-    // baseURL in Hugo := uri("https://scala.epfl.ch"),
+    git.remoteRepo := "git@github.com:scalacenter/bloop.git",
+    ghpagesNoJekyll := true,
+    baseURL in Hugo := uri("https://scalacenter.github.com/bloop"),
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
