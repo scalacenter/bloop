@@ -116,6 +116,14 @@ val docs = project
     websiteSettings
   )
 
+val buildIntegrations = project
+  .in(file("build-integrations") / "global")
+  .settings(
+    sbtPlugin := true,
+    skip in publish := true,
+    crossSbtVersions := Seq("1.0.3", "0.13.16")
+  )
+
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project

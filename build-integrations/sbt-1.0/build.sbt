@@ -10,63 +10,8 @@ val WithResources = RootProject(
 val WithTests = RootProject(
   uri("git://github.com/scalacenter/with-tests.git#7a0c7f7d38efd53ca9ec3a347df3638932bd619e"))
 
-val allIntegrationProjects =
-  List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests)
+val integrations = List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests)
 
-// No changes should be needed below this point
-
-val scalafmtOnCompile = settingKey[Boolean]("...")
-
-scalafmtOnCompile in Global := false
-
-val bloopConfigDir = settingKey[File]("...")
-val installBloop = taskKey[Unit]("...")
-val bloopGenerate = taskKey[Unit]("...")
-val copyConfigs = taskKey[Unit]("Copy bloop configurations")
-
-val integrations = project
+val dummy = project
   .in(file("."))
-  .aggregate(allIntegrationProjects: _*)
-  .settings(
-    bloopGenerate in Compile := (),
-    bloopGenerate in Test := (),
-    copyConfigs := Def.taskDyn {
-      val tasks = allIntegrationProjects.map(p => copyTask(p))
-      join(tasks)
-    }.value
-  )
-
-installBloop in Global := {
-  (installBloop in allIntegrationProjects.head in Compile in Global).value
-}
-
-def copyTask(proj: RootProject) = Def.task {
-  val name = proj.build.getPath.split("/").last.dropRight(4)
-  val target = file(
-    sys.env.get("bloop_target").getOrElse(sys.error("Missing environment variable: bloop_target")))
-  val dest = target / name / ".bloop-config"
-  val config = (bloopConfigDir in Compile in proj).value
-
-  // We need to write where to find the sources of this project for benchmarking with scalac
-  // and sbt.
-  val base = config.getParentFile
-  val baseConfig = target / name / "base-directory"
-  IO.write(baseConfig, base.getAbsolutePath)
-
-  streams.value.log.info(s"Copying $config to $dest")
-  IO.copyDirectory(config, dest, overwrite = true)
-}
-
-import Def.Initialize
-def join[T](tasks: Seq[Initialize[Task[T]]]): Initialize[Task[Seq[T]]] =
-  Def.settingDyn {
-    // First we join all the setting intializations into a single one with all the raw tasks.
-    val zero: Initialize[Seq[Task[T]]] = Def.setting(Nil)
-    val folded: Initialize[Seq[Task[T]]] = tasks.foldLeft(zero) { (acc, current) =>
-      acc.zipWith(current) { case (taskSeq, task) => task +: taskSeq }
-    }
-    // Now we call the appropraite join task method.
-    folded.apply { tasks: Seq[Task[T]] =>
-      tasks.join
-    }
-  }
+  .aggregate(integrations: _*)

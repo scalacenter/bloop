@@ -1,0 +1,3 @@
+-Dsbt.organization=ch.epfl.scala
+-Dsbt.version=0.13.17-sourcedeps
+-Dsbt.user.plugins=../global

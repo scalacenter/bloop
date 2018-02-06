@@ -72,11 +72,17 @@ object BuildKeys {
     Def.taskKey[Unit]("Generate the bloop config for integration tests")
   val integrationTestsCleanBloopConfig =
     Def.taskKey[Unit]("Clean bloop config for integration tests")
-  val integrationTestsTarget =
-    Def.settingKey[sbt.File]("Where to write configuration for integration tests")
+  val buildIntegrationsTarget =
+    Def.settingKey[File]("The place where we write the bloop configuration for our integrations.")
+  val buildIntegrationsDir =
+    Def.settingKey[File]("The directory where we store the meta integrations builds.")
+  val buildIntegrationsGlobal =
+    Def.settingKey[File]("The global plugins directory for all the integration tests.")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val testSettings: Seq[Def.Setting[_]] = List(
-    integrationTestsTarget := Keys.target.value / "integrations",
+    buildIntegrationsTarget := Keys.target.value / "integrations",
+    buildIntegrationsDir := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
+    buildIntegrationsGlobal := buildIntegrationsDir.value / "global",
     integrationTestsGenBloopConfig := BuildImplementation.integrationTestsGenBloopConfig.value,
     integrationTestsCleanBloopConfig := BuildImplementation.integrationTestsCleanBloopConfig.value,
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
@@ -106,7 +112,7 @@ object BuildKeys {
                                         Keys.version,
                                         Keys.scalaVersion,
                                         Keys.sbtVersion,
-                                        integrationTestsTarget)
+                                        buildIntegrationsTarget)
     commonKeys ++ List(zincKey, developersKey)
   }
 
@@ -320,8 +326,8 @@ object BuildImplementation {
   val integrationTestsGenBloopConfig = Def.task {
     import sbt.MessageOnlyException
 
-    val target = BuildKeys.integrationTestsTarget.value
-    val buildIntegrationsBase = BuildKeys.buildBase.value / "build-integrations"
+    val target = BuildKeys.buildIntegrationsTarget.value
+    val buildIntegrationsBase = BuildKeys.buildIntegrationsDir.value
     val integrations013 = buildIntegrationsBase / "sbt-0.13"
     val integrations10 = buildIntegrationsBase / "sbt-1.0"
     val env = Seq("bloop_version" -> Keys.version.value, "bloop_target" -> target.getAbsolutePath)
@@ -343,7 +349,7 @@ object BuildImplementation {
     val sbtHome = file(sys.props("user.home")) / ".sbt"
     val staging013 = PathFinder(sbtHome / "0.13" / "staging")
     val staging10 = PathFinder(sbtHome / "1.0" / "staging")
-    val integrationsTarget = PathFinder(BuildKeys.integrationTestsTarget.value)
+    val integrationsTarget = PathFinder(BuildKeys.buildIntegrationsTarget.value)
 
     val testSetups013 = (staging013 ** "bloop-test-settings.sbt").get
     val testSetups10 = (staging10 ** "bloop-test-settings.sbt").get
