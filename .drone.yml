@@ -14,6 +14,7 @@ matrix:
     # There is a bug in sbt that ignores these settings when defined in `.sbt` files and plugins :(
     - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
+          "docs/ghpagesPushSite" \
           "releaseBloop"
 
   SBT_RELEASE:
