@@ -1,0 +1,3 @@
+img.desaturate {
+	filter: grayscale(100%);
+}
