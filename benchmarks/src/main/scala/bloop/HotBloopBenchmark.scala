@@ -34,7 +34,7 @@ class HotBloopBenchmark {
   var output = new java.lang.StringBuilder()
 
   @Setup(Level.Trial) def spawn(): Unit = {
-    val base = ProjectHelpers.testProjectsBase.resolve(project)
+    val base = ProjectHelpers.getBloopConfigDir(project).getParent
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 

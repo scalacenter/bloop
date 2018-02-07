@@ -8,16 +8,15 @@ import bloop.tasks.ProjectHelpers
 import org.openjdk.jmh.annotations.Benchmark
 
 object ProjectBenchmark {
-  val projects = ProjectHelpers.testProjectsBase
-  def getProjectBase(name: String) = AbsolutePath(projects.resolve(name))
+  val sbtLocation = existing(ProjectHelpers.getBloopConfigDir("sbt").getParent)
+  val sbtRootProjectLocation = existing(
+    ProjectHelpers.getBloopConfigDir("sbt").resolve("sbtRoot.config"))
+  val uTestLocation = existing(ProjectHelpers.getBloopConfigDir("utest").getParent)
+
   def existing(path: AbsolutePath): AbsolutePath = {
     assert(Files.exists(path.underlying))
     path
   }
-  val sbtLocation = existing(getProjectBase("sbt"))
-  val sbtRootProjectLocation = existing(
-    sbtLocation.resolve(".bloop-config").resolve("sbtRoot.config"))
-  val uTestLocation = existing(getProjectBase("utest"))
 }
 
 class ProjectBenchmark {

@@ -62,17 +62,15 @@ object ProjectHelpers {
     } else sys.error(s"Missing integration index at ${integrationsIndexPath}!")
   }
 
-  def getTestProjectDir(name: String): Path = {
+  def getBloopConfigDir(name: String): Path = {
     testProjectsIndex
       .get(name)
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-  def loadTestProject(name: String): State = loadTestProject(getTestProjectDir(name), name)
+  def loadTestProject(name: String): State = loadTestProject(getBloopConfigDir(name), name)
 
-  def loadTestProject(projectsBase: Path, name: String): State = {
-    val base = projectsBase.resolve(name)
-    val configDir = base.resolve(".bloop-config")
+  def loadTestProject(configDir: Path, name: String): State = {
     val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
