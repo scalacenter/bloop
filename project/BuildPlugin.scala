@@ -95,7 +95,7 @@ object BuildKeys {
     },
     buildIntegrationsIndex := {
       val staging = integrationStagingBase.value
-      staging / s"bloop=integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
+      staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
     },
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,

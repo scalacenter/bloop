@@ -39,8 +39,8 @@ object PluginImplementation {
         val targetFile = sbt.file(target)
         val newContents = PluginKeys.integrationIndex.value
           .map { case (key, path) => s"$key,${path.getCanonicalFile.getAbsolutePath}" }
-          .mkString(System.lineSeparator)
-        sbt.IO.append(targetFile, s"${System.lineSeparator}${newContents}")
+          .mkString("", System.lineSeparator, System.lineSeparator)
+        sbt.IO.append(targetFile, newContents)
       } else ()
     }
   )
