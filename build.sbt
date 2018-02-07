@@ -138,21 +138,15 @@ val bloop = project
 /*                      This is the corner for all the command definitions                         */
 /***************************************************************************************************/
 val publishLocalCmd = Keys.publishLocal.key.label
-addCommandAlias(
-  "setupIntegrations",
-  List(
-    s"+${integrationsCore.id}/$publishLocalCmd",
-    s"^${sbtBloop.id}/$publishLocalCmd",
-    s"${mavenBloop.id}/$publishLocalCmd"
-  ).mkString(";", ";", "")
-)
 
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
 addCommandAlias(
   "install",
   Seq(
-    "setupIntegrations", // Reusing the previously defined command
+    s"+${integrationsCore.id}/$publishLocalCmd",
+    s"^${sbtBloop.id}/$publishLocalCmd",
+    s"${mavenBloop.id}/$publishLocalCmd",
     s"${nailgunIntegration.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd"

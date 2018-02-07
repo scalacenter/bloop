@@ -2,8 +2,6 @@
 matrix:
   SBT_RUN:
     - sbt "benchmarks/compile" \
-          "setupIntegrations" \
-          "frontend/integrationCleanUpBloop" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
           "frontend/test" \
