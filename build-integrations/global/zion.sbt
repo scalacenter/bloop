@@ -1,6 +1,6 @@
 unmanagedSourceDirectories in Compile ++= {
   val sbtVersion = Keys.sbtVersion.value
-  if (sbtVersion.endsWith("-sourcedeps")) {
+  if (sbtVersion.contains("-sourcedeps")) {
     val root = Option(System.getProperty("sbt.user.plugins"))
       .map(file(_).getAbsoluteFile)
       .getOrElse(sys.error("Missing `sbt.user.plugins`"))
@@ -9,7 +9,7 @@ unmanagedSourceDirectories in Compile ++= {
     val integrationsMainDir = bloopBaseDir / "integrations"
     val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
     List(
-      root/ "src" / "main" / "scala",
+      root / "src" / "main" / "scala",
       integrationsMainDir / "core" / "src" / "main" / "scala",
       pluginMainDir / "scala",
       pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"

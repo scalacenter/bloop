@@ -1,3 +1,4 @@
 -Dsbt.organization=ch.epfl.scala
--Dsbt.version=0.13.17-sourcedeps
+-Dsbt.version=0.13.17-sourcedeps-2
+-Dsbt.boot.properties=boot.properties
 -Dsbt.user.plugins=../global
