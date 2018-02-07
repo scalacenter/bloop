@@ -51,9 +51,7 @@ import build.BuildImplementation.jvmOptions
 val frontend = project
   .dependsOn(backend, backend % "test->test")
   .enablePlugins(BuildInfoPlugin)
-  .settings(testSettings)
-  .settings(assemblySettings)
-  .settings(releaseSettings)
+  .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),

@@ -6,20 +6,21 @@ val ScalaScala = RootProject(
   uri("git://github.com/scala/scala.git#d1b745c2e97cc89e5d26b8f5a5696a2611c01af7"))
 val ScalaCenterVersions = RootProject(
   uri("git://github.com/scalacenter/versions.git#c296028a33b06ba3a41d399d77c21f6b7100c001"))
-val integrations = List(ApacheSpark, LihaoyiUtest, ScalaScala)//ScalaCenterVersions)
+val integrations = List(ApacheSpark, LihaoyiUtest, ScalaScala, ScalaCenterVersions)
 
 val dummy = project
   .in(file("."))
   .aggregate(integrations: _*)
-
-/*onLoad in Global := {
-  val injectBloop = (state: State) => {
-    "set every "
-    ???
-  }
-
-  val previous = (onLoad in Global).value
-  val isBloopInjected = (bloopGenerate in ApacheSpark).?.value.isDefined
-  if (isBloopInjected) previous
-  else injectBloop.compose(previous)
-}*/
+  .enablePlugins(IntegrationPlugin)
+  .settings(
+    name := "bloop-integrations-build",
+    enableIndexCreation := true,
+    integrationIndex := {
+      Map(
+        "spark" -> bloopConfigDir.in(ApacheSpark).value,
+        "utest" -> bloopConfigDir.in(LihaoyiUtest).value,
+        "scala" -> bloopConfigDir.in(ScalaScala).value,
+        "versions" -> bloopConfigDir.in(ScalaCenterVersions).value
+      )
+    }
+  )

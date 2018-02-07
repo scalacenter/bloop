@@ -9,7 +9,7 @@ unmanagedSourceDirectories in Compile ++= {
     val integrationsMainDir = bloopBaseDir / "integrations"
     val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
     List(
-      root,
+      root/ "src" / "main" / "scala",
       integrationsMainDir / "core" / "src" / "main" / "scala",
       pluginMainDir / "scala",
       pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"

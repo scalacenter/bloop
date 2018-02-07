@@ -3,8 +3,8 @@ matrix:
   SBT_RUN:
     - sbt "benchmarks/compile" \
           "setupIntegrations" \
-          "frontend/integrationTestsCleanBloopConfig" \
-          "frontend/integrationTestsGenBloopConfig" \
+          "frontend/integrationCleanUpBloop" \
+          "frontend/integrationSetUpBloop" \
           "backend/test" \
           "frontend/test" \
           "docs/makeSite"

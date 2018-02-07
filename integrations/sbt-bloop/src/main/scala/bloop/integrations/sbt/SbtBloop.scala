@@ -29,23 +29,24 @@ object PluginImplementation {
     BloopKeys.installBloop := PluginDefaults.installBloop.value
   )
 
-  val projectSettings: Seq[Def.Setting[_]] = List(Compile, Test).flatMap { conf =>
-    sbt.inConfig(conf) {
-      List(
-        BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value,
-        BloopKeys.bloopConfigDir := Def.settingDyn {
-          val ref = Keys.thisProjectRef.value
-          (BloopKeys.bloopConfigDir in sbt.Global).?.value.map(Def.setting(_)).getOrElse {
-            Def.setting {
-              import Compat._
-              (Keys.baseDirectory in ref in ThisBuild).value / ".bloop-config"
-            }
-          }
-        }.value
-      ) ++ DiscoveredSbtPlugins.settings // discoveredSbtPlugins triggers compilation in 0.13, we replace it.
-
-    }
+  val configSettings: Seq[Def.Setting[_]] = {
+    val rawSettingsInConfigs = List(BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value)
+    val all = rawSettingsInConfigs ++ DiscoveredSbtPlugins.settings
+    all.flatMap(ss => sbt.inConfig(Compile)(ss) ++ sbt.inConfig(Test)(ss))
   }
+
+  import Compat._
+  val projectSettings: Seq[Def.Setting[_]] = configSettings ++ List(
+    BloopKeys.bloopConfigDir := Def.settingDyn {
+      val ref = Keys.thisProjectRef.value
+      Def.setting {
+        (BloopKeys.bloopConfigDir in sbt.Global).?.value.getOrElse {
+          // We do this so that it works nicely with source dependencies.
+          (Keys.baseDirectory in ref in ThisBuild).value / ".bloop-config"
+        }
+      }
+    }.value
+  )
 
   object PluginDefaults {
     import Compat._

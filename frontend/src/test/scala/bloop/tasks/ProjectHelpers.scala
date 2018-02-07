@@ -1,7 +1,7 @@
 package bloop.tasks
 
 import java.io.IOException
-import java.nio.charset.Charset
+import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
@@ -49,9 +49,26 @@ object ProjectHelpers {
     }
   }
 
-  val testProjectsBase: Path = BuildInfo.integrationTestsTarget.toPath
-  def getTestProjectDir(name: String): Path = testProjectsBase.resolve(name)
-  def loadTestProject(name: String): State = loadTestProject(testProjectsBase, name)
+  private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
+  private[bloop] lazy val testProjectsIndex: Map[String, Path] = {
+    if (Files.exists(integrationsIndexPath)) {
+      import scala.collection.JavaConverters._
+      val lines = Files.readAllLines(integrationsIndexPath).asScala
+      val entries = lines.map(line => line.split(",").toList)
+      entries.map {
+        case List(key, value) => key -> Paths.get(value)
+        case _ => sys.error(s"Malformed index file: ${lines.mkString(System.lineSeparator)}")
+      }.toMap
+    } else sys.error(s"Missing integration index at ${integrationsIndexPath}!")
+  }
+
+  def getTestProjectDir(name: String): Path = {
+    testProjectsIndex
+      .get(name)
+      .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
+  }
+
+  def loadTestProject(name: String): State = loadTestProject(getTestProjectDir(name), name)
 
   def loadTestProject(projectsBase: Path, name: String): State = {
     val base = projectsBase.resolve(name)
