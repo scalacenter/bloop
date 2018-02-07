@@ -217,6 +217,7 @@ val allSourceDepsReleases = List(
 val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
+  s"+${integrationsCore.id}/$publishLocalCmd", // Necessary because of a coursier bug?
   s"+${integrationsCore.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
