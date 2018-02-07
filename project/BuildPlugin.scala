@@ -183,6 +183,10 @@ object BuildImplementation {
   )
 
   final lazy val sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
+    Keys.isSnapshot := {
+      val output = DynVerKeys.dynverGitDescribeOutput.in(ThisBuild).value
+      output.map(_.dirtySuffix.value.nonEmpty).getOrElse(false)
+    },
     BintrayKeys.bintrayRepository := "releases",
     BintrayKeys.bintrayPackage := {
       val ref = Keys.thisProjectRef.value
