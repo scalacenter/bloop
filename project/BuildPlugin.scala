@@ -1,6 +1,7 @@
 package build
 
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
