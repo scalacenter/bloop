@@ -73,12 +73,13 @@ object BuildKeys {
     Def.taskKey[File]("The base directory for sbt staging in all versions.")
   val integrationSetUpBloop =
     Def.taskKey[Unit]("Generate the bloop config for integration tests.")
-  val integrationCleanUpBloop =
-    Def.taskKey[Unit]("Clean bloop config for integration tests.")
   val buildIntegrationsIndex =
-    Def.settingKey[File]("A csv index with complete information about our integrations.")
+    Def.taskKey[File]("A csv index with complete information about our integrations.")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
+
+  // This has to be change every time the bloop config files format changes.
+  val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
 
   val testSettings: Seq[Def.Setting[_]] = List(
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
@@ -92,10 +93,12 @@ object BuildKeys {
       val globalBase = sbt.BuildPaths.getGlobalBase(state)
       sbt.BuildPaths.getStagingDirectory(state, globalBase)
     },
-    buildIntegrationsIndex := Keys.target.value / "integrations.csv",
+    buildIntegrationsIndex := {
+      val staging = integrationStagingBase.value
+      staging / s"bloop=integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
+    },
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,
-    integrationCleanUpBloop := BuildImplementation.integrationCleanUpBloop.value,
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
@@ -209,6 +212,7 @@ object BuildImplementation {
 
   import ch.epfl.scala.sbt.release.ReleaseEarly
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
+    BuildKeys.schemaVersion := "1",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false
@@ -339,38 +343,22 @@ object BuildImplementation {
     import sbt.MessageOnlyException
 
     val buildIndexFile = BuildKeys.buildIntegrationsIndex.value
-    val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
-    val stagingProperty = s"-D${sbt.BuildPaths.StagingProperty}=${stagingBase}"
-    val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
-    val cmd = "sbt" :: stagingProperty :: indexProperty :: "installBloop" :: "buildIndex" :: Nil
+    if (buildIndexFile.exists()) ()
+    else {
+      val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
+      val stagingProperty = s"-D${sbt.BuildPaths.StagingProperty}=${stagingBase}"
+      val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
+      val cmd = "sbt" :: stagingProperty :: indexProperty :: "installBloop" :: "buildIndex" :: Nil
 
-    val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
-    if (exitGenerate013 != 0)
-      throw new MessageOnlyException("Filed to generate bloop config with sbt 0.13.")
+      val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
+      if (exitGenerate013 != 0)
+        throw new MessageOnlyException("Filed to generate bloop config with sbt 0.13.")
 
-    val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
-    if (exitGenerate10 != 0)
-      throw new MessageOnlyException("Filed to generate bloop config with sbt 1.0.")
-  }
-
-  val integrationCleanUpBloop = Def.task {
-    import sbt.io.FileFilter.globFilter
-    import sbt.io.PathFinder
-    val logger = Keys.streams.value.log
-
-    val sbtHome = file(sys.props("user.home")) / ".sbt"
-    val staging013 = PathFinder(sbtHome / "0.13" / "staging")
-    val staging10 = PathFinder(sbtHome / "1.0" / "staging")
-
-    val index = BuildKeys.buildIntegrationsIndex.value
-    IO.delete(index)
-    logger.info(s"Deleted integrations index at '${index.getAbsolutePath}'.")
-
-    val stagingBase = BuildKeys.integrationStagingBase.value
-    val bloopConfigs = (PathFinder(stagingBase) ** ".bloop-config").get.filter(_.isDirectory)
-    bloopConfigs.foreach(IO.delete)
-    logger.info(s"Deleted all '.bloop-config' files  at '${stagingBase.getAbsolutePath}'.")
+      val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
+      if (exitGenerate10 != 0)
+        throw new MessageOnlyException("Filed to generate bloop config with sbt 1.0.")
+    }
   }
 }
 

@@ -116,6 +116,7 @@ val docs = project
 
 val buildIntegrations = project
   .in(file("build-integrations") / "global")
+  .dependsOn(sbtBloop)
   .settings(
     sbtPlugin := true,
     skip in publish := true,

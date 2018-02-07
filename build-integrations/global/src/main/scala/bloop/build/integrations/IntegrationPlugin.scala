@@ -4,7 +4,7 @@ import java.io.File
 
 import bloop.integrations.sbt.{AutoImported => BloopKeys}
 import bloop.integrations.{sbt => sbtbloop}
-import sbt.{AutoPlugin, Def, PluginTrigger, Plugins}
+import sbt.{AutoPlugin, Def, PluginTrigger, Plugins, Keys}
 
 object IntegrationPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
