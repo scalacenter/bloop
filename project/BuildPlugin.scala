@@ -2,6 +2,7 @@ package build
 
 import java.io.File
 
+import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
@@ -177,12 +178,17 @@ object BuildImplementation {
     ),
   ) ++ sharedBuildPublishSettings
 
+  import ch.epfl.scala.sbt.release.Feedback
   final lazy val sharedBuildPublishSettings: Seq[Def.Setting[_]] = Seq(
-    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.BintrayPublisher,
+    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
     BintrayKeys.bintrayOrganization := Some("scalacenter"),
   )
 
   final lazy val sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
+    ReleaseEarlyKeys.releaseEarlyPublish := {
+      Keys.streams.value.log.info(Feedback.logReleaseSonatype(Keys.name.value))
+      Pgp.PgpKeys.publishSigned.value
+    },
     Keys.isSnapshot := {
       val output = DynVerKeys.dynverGitDescribeOutput.in(ThisBuild).value
       output.map(_.dirtySuffix.value.nonEmpty).getOrElse(false)
@@ -304,7 +310,11 @@ object BuildImplementation {
               val version = Keys.version.in(ref).value
               BuildDefaults.publishDocAndSourceArtifact(output, version)
             }
-          ) ++ sharedBuildPublishSettings ++ sharedProjectPublishSettings)
+          ))
+
+      def genProjectPublishSettings(ref: sbt.ProjectRef) =
+        BuildKeys.inProject(ref)(sharedProjectPublishSettings)
+
       val buildStructure = sbt.Project.structure(state)
       if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
       else {
@@ -317,14 +327,19 @@ object BuildImplementation {
           buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
         val allProjects =
           allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects ++ allBspProjects
-        val projectSettings = allProjects.flatMap(genProjectSettings)
+        val allProjectSettings = allProjects.flatMap(genProjectSettings)
+        val projectsToRelease = allZincProjects ++ allNailgunProjects ++ allBspProjects
+        val buildProjectSettings = allBspProjects.flatMap(genProjectPublishSettings)
+        val projectSettings = allProjectSettings ++ buildProjectSettings
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)
         val currentProject = currentSession.current
         val currentSessionSettings =
           currentSession.append.get(currentProject).toList.flatten.map(_._1)
         val allSessionSettings = currentSessionSettings ++ currentSession.rawAppend
-        extracted.append(globalSettings ++ projectSettings ++ allSessionSettings, hijackedState)
+        extracted.append(
+          globalSettings ++ sharedBuildPublishSettings ++ projectSettings ++ allSessionSettings,
+          hijackedState)
       }
     }
 

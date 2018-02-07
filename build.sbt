@@ -222,5 +222,5 @@ val allBloopReleases = List(
   s"${mavenBloop.id}/$releaseEarlyCmd",
 )
 
-val allReleaseActions = allSourceDepsReleases ++ allBloopReleases
+val allReleaseActions = allSourceDepsReleases ++ allBloopReleases ++ List("sonatypeReleaseAll")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
