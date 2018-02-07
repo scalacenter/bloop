@@ -179,13 +179,13 @@ object BuildImplementation {
   ) ++ sharedBuildPublishSettings
 
   import ch.epfl.scala.sbt.release.Feedback
-  final lazy val sharedBuildPublishSettings: Seq[Def.Setting[_]] = Seq(
+  final def sharedBuildPublishSettings: Seq[Def.Setting[_]] = Seq(
     ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
     BintrayKeys.bintrayOrganization := Some("scalacenter"),
   )
 
   import ch.epfl.scala.sbt.release.ReleaseEarly
-  final lazy val sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
+  def sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
     Keys.publishTo := ReleaseEarly.Defaults.releaseEarlyPublishTo.value,
     ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
     ReleaseEarlyKeys.releaseEarlyPublish := {
