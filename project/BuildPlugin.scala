@@ -187,6 +187,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarly
   final lazy val sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
     Keys.publishTo := ReleaseEarly.Defaults.releaseEarlyPublishTo.value,
+    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
     ReleaseEarlyKeys.releaseEarlyPublish := {
       Keys.streams.value.log.info(Feedback.logReleaseSonatype(Keys.name.value))
       Pgp.PgpKeys.publishSigned.value
@@ -322,8 +323,7 @@ object BuildImplementation {
       else {
         val hijackedState = state.put(hijacked, true)
         val extracted = sbt.Project.extract(hijackedState)
-        val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build) ++ List(
-          BuildKeys.Zinc)
+        val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
         val allBspProjects = buildStructure.allProjectRefs(BuildKeys.BspBuild.build)
         val allBenchmarkBridgeProjects =
