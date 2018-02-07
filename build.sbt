@@ -119,7 +119,7 @@ val buildIntegrations = project
   .settings(
     sbtPlugin := true,
     skip in publish := true,
-    crossSbtVersions := Seq("1.0.3", "0.13.16")
+    crossSbtVersions := Seq("1.1.0", "0.13.16")
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
@@ -130,7 +130,7 @@ val bloop = project
   .settings(
     releaseEarly := {()},
     skip in publish := true,
-    crossSbtVersions := Seq("1.0.3", "0.13.16")
+    crossSbtVersions := Seq("1.1.0", "0.13.16")
   )
 
 /***************************************************************************************************/
