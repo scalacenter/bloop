@@ -8,10 +8,10 @@ import bloop.tasks.ProjectHelpers
 import org.openjdk.jmh.annotations.Benchmark
 
 object ProjectBenchmark {
-  val sbtLocation = existing(ProjectHelpers.getBloopConfigDir("sbt").getParent)
+  val sbtLocation = existing(AbsolutePath(ProjectHelpers.getBloopConfigDir("sbt").getParent))
   val sbtRootProjectLocation = existing(
-    ProjectHelpers.getBloopConfigDir("sbt").resolve("sbtRoot.config"))
-  val uTestLocation = existing(ProjectHelpers.getBloopConfigDir("utest").getParent)
+    AbsolutePath(ProjectHelpers.getBloopConfigDir("sbt").resolve("sbtRoot.config")))
+  val uTestLocation = existing(AbsolutePath(ProjectHelpers.getBloopConfigDir("utest").getParent))
 
   def existing(path: AbsolutePath): AbsolutePath = {
     assert(Files.exists(path.underlying))
