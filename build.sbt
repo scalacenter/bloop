@@ -155,11 +155,7 @@ val docs = project
   .settings(
     name := "bloop-website",
     skip in publish := true,
-    sourceDirectory in Hugo := baseDirectory.value,
-    includeFilter in Hugo := (includeFilter in makeSite).value || "*.svg",
-    git.remoteRepo := "git@github.com:scalacenter/bloop.git",
-    ghpagesNoJekyll := true,
-    baseURL in Hugo := uri("https://scalacenter.github.com/bloop"),
+    websiteSettings
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
