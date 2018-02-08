@@ -132,7 +132,7 @@ object BuildKeys {
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
-        val HasSha = """([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
+        val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
         version match {
           case HasSha(sha) => sha
           case _ => version
