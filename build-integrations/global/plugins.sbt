@@ -6,17 +6,14 @@ val root = Option(System.getProperty("sbt.global.plugins"))
 
 unmanagedSourceDirectories in Compile ++= {
   val bloopBaseDir = root.getParentFile.getParentFile.getAbsoluteFile
-  println(bloopBaseDir)
   val integrationsMainDir = bloopBaseDir / "integrations"
   val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
-  val a = List(
+  List(
     root / "src" / "main" / "scala",
     integrationsMainDir / "core" / "src" / "main" / "scala",
     pluginMainDir / "scala",
     pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
   )
-  println(a)
-  a
 }
 
 libraryDependencies := {
@@ -32,4 +29,26 @@ libraryDependencies := {
       sbtPluginExtra("io.get-coursier" % "sbt-coursier" % "1.0.1", sbtVersion, scalaVersion)
     )
   }
+}
+
+onLoad in Global := {
+  val previous = (onLoad in Global).value
+  val nukeConfigClasses = (state: State) => {
+    val globalBase = BuildPaths.getGlobalBase(state)
+    val pluginsBase = BuildPaths.getGlobalPluginsDirectory(state, globalBase)
+    val allSbtFiles = BuildPaths.configurationSources(pluginsBase)
+    println("Changing modified times of sbt files.")
+    allSbtFiles.foreach { sbtFile =>
+      val currentTime = IO.getModifiedTimeOrZero(sbtFile)
+      IO.setModifiedTimeOrFalse(sbtFile, currentTime + 1)
+    }
+/*    val configClasses = PathFinder(pluginsBase / "target" / "config-classes")
+    println(s"Deleting $configClasses")
+    configClasses.**("*.cache").get.foreach { f =>
+      if (f.exists()) IO.delete(f)
+    }*/
+    state
+  }
+
+  nukeConfigClasses.compose(previous)
 }
