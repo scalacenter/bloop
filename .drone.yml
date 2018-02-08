@@ -12,11 +12,6 @@ matrix:
           "docs/makeSite"
 
   SBT_PUBLISH:
-    # Setup everything to be able to push to github pages
-    - mkdir ~/.ssh
-    - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
-    - echo -e "${BLOOPOID_PRIVATE_KEY}\n" > ~/.ssh/id_rsa
-    - chmod 0600 ~/.ssh/id_rsa
     # There is a bug in sbt that ignores these settings when defined in `.sbt` files and plugins :(
     - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
@@ -80,6 +75,11 @@ pipeline:
       - export DRONE_DIR="/drone"
       - ./bin/add-coursier.sh
       - /usr/local/bin/setup_keys.sh
+      # Setup everything to be able to push to github pages
+      - mkdir ~/.ssh
+      - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+      - echo -e "${BLOOPOID_PRIVATE_KEY}\n" > ~/.ssh/id_rsa
+      - chmod 0600 ~/.ssh/id_rsa
       - ${SBT_PUBLISH}
       - ./bin/ci-clean-cache.sh
 
