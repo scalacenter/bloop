@@ -1,4 +1,4 @@
-baseURL = "/"
+baseURL = "https://scalacenter.github.com/bloop"
 languageCode = "en-us"
 title = "Bloop"
 theme = "kube"

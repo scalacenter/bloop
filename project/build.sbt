@@ -13,6 +13,7 @@ val root = project
     addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3"),
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
+    addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
       val integrationsMainDir = baseDirectory.value.getParentFile / "integrations"

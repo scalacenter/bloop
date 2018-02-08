@@ -113,12 +113,11 @@ val mavenBloop = project
 
 val docs = project
   .in(file("website"))
-  .enablePlugins(HugoPlugin)
+  .enablePlugins(HugoPlugin, GhpagesPlugin)
   .settings(
     name := "bloop-website",
     skip in publish := true,
-    sourceDirectory in Hugo := baseDirectory.value
-    // baseURL in Hugo := uri("https://scala.epfl.ch"),
+    websiteSettings
   )
 
 val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
