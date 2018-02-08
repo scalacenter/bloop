@@ -1,20 +1,14 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
 matrix:
   SBT_RUN:
-    - sbt "+bridgeIntegration/cachedPublishLocal" \
-          "benchmarks/compile" \
+    - sbt "benchmarks/compile" \
           "setupIntegrations" \
-          "git status" \
           "runTests" \
-          "git status" \
           "backend/test" \
           "frontend/test"
 
   SBT_PUBLISH:
-    # There is a bug in sbt that ignores these settings when defined in `.sbt` files and plugins :(
-    - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
-          "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
-          "releaseBloop"
+    - sbt "releaseBloop"
 
   SBT_RELEASE:
     - sbt "frontend/updateHomebrewFormula" \

@@ -187,6 +187,14 @@ object BuildImplementation {
 
   import sbt.{CrossVersion, compilerPlugin}
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
+    Pgp.PgpKeys.pgpPublicRing := {
+      if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
+      else Pgp.PgpKeys.pgpPublicRing.value
+    },
+    Pgp.PgpKeys.pgpSecretRing := {
+      if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
+      else Pgp.PgpKeys.pgpPublicRing.value
+    },
     ReleaseEarlyKeys.releaseEarlyPublish := {
       // We do `sonatypeReleaseAll` when all modules have been released, it's faster.
       Keys.streams.value.log.info(Feedback.logReleaseSonatype(Keys.name.value))
