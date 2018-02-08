@@ -53,12 +53,6 @@ object BuildKeys {
     }
   }
 
-  final val ZincProject = createScalaCenterProject("zinc", file(s"$AbsolutePath/zinc"))
-  final val ZincBuild = BuildRef(ZincProject.build)
-  final val Zinc = ProjectRef(ZincProject.build, "zinc")
-  final val ZincRoot = ProjectRef(ZincProject.build, "zincRoot")
-  final val ZincBridge = ProjectRef(ZincProject.build, "compilerBridge")
-
   final val NailgunProject = createScalaCenterProject("nailgun", file(s"$AbsolutePath/nailgun"))
   final val NailgunBuild = BuildRef(NailgunProject.build)
   final val Nailgun = ProjectRef(NailgunProject.build, "nailgun")
@@ -100,8 +94,7 @@ object BuildKeys {
 
   import sbtbuildinfo.BuildInfoKey
   final val BloopInfoKeys = {
-    val zincVersion = Keys.version in ZincRoot
-    val zincKey = BuildInfoKey.map(zincVersion) { case (k, version) => "zincVersion" -> version }
+    val zincKey = BuildInfoKey.constant("zincVersion" -> Dependencies.zincVersion)
     val developersKey = BuildInfoKey.map(Keys.developers) {
       case (k, devs) => k -> devs.map(_.name)
     }
@@ -145,9 +138,6 @@ object BuildKeys {
       )
     }
   )
-
-  val publishAll = Def.taskKey[Unit]("...")
-  val cachedPublishLocal = Def.taskKey[Unit]("...")
 }
 
 object BuildImplementation {
@@ -199,8 +189,7 @@ object BuildImplementation {
     BintrayKeys.bintrayRepository := "releases",
     BintrayKeys.bintrayPackage := {
       val ref = Keys.thisProjectRef.value
-      if (ref.build == BuildKeys.ZincProject.build) "zinc"
-      else if (ref.build == BuildKeys.NailgunProject.build) "nailgun"
+      if (ref.build == BuildKeys.NailgunProject.build) "nailgun"
       else if (ref.build == BuildKeys.BspProject.build) "bsp"
       else "bloop" // As a fallback, we release to bloop.
     }
@@ -212,14 +201,7 @@ object BuildImplementation {
     Keys.onLoadMessage := Header.intro,
     Keys.commands ~= BuildDefaults.fixPluginCross _,
     Keys.onLoad := BuildDefaults.onLoad.value,
-    Keys.publishArtifact in Test := false,
-    // Add resolver so that we can lazy publish modules that are only in bintray
-    Keys.resolvers := {
-      val previous = Keys.resolvers.value
-      (previous :+ Resolver.bintrayRepo("scalacenter", "releases")).distinct
-    },
-    BuildKeys.publishAll := { () },
-    BuildKeys.cachedPublishLocal := { () }
+    Keys.publishArtifact in Test := false
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
@@ -261,7 +243,6 @@ object BuildImplementation {
     BintrayKeys.bintrayVersionAttributes ++= {
       import bintry.Attr
       Map(
-        "zinc" -> Seq(Attr.String(Keys.version.in(BuildKeys.ZincBridge).value)),
         "nailgun" -> Seq(Attr.String(Keys.version.in(BuildKeys.NailgunServer).value))
       )
     }
@@ -323,15 +304,13 @@ object BuildImplementation {
       else {
         val hijackedState = state.put(hijacked, true)
         val extracted = sbt.Project.extract(hijackedState)
-        val allZincProjects = buildStructure.allProjectRefs(BuildKeys.ZincBuild.build)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
         val allBspProjects = buildStructure.allProjectRefs(BuildKeys.BspBuild.build)
         val allBenchmarkBridgeProjects =
           buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
-        val allProjects =
-          allZincProjects ++ allNailgunProjects ++ allBenchmarkBridgeProjects ++ allBspProjects
+        val allProjects = allNailgunProjects ++ allBenchmarkBridgeProjects ++ allBspProjects
         val allProjectSettings = allProjects.flatMap(genProjectSettings)
-        val projectsToRelease = allZincProjects ++ allNailgunProjects ++ allBspProjects
+        val projectsToRelease = allNailgunProjects ++ allBspProjects
         val buildProjectSettings = allBspProjects.flatMap(genProjectPublishSettings)
         val projectSettings = allProjectSettings ++ buildProjectSettings
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
