@@ -12,6 +12,11 @@ matrix:
           "docs/makeSite"
 
   SBT_PUBLISH:
+    # Setup everything to be able to push to github pages
+    - mkdir ~/.ssh
+    - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+    - echo -e "${BLOOPOID_PRIVATE_KEY}\n" > ~/.ssh/id_rsa
+    - chmod 0600 ~/.ssh/id_rsa
     # There is a bug in sbt that ignores these settings when defined in `.sbt` files and plugins :(
     - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
@@ -62,7 +67,7 @@ pipeline:
 
   publish:
     image: scalacenter/scala-docs:1.0
-    secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass ]
+    secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass, bloopoid_private_key ]
     volumes:
       - /scalacenter:/keys
     when:
