@@ -62,7 +62,7 @@ pipeline:
 
   publish:
     image: scalacenter/scala-docs:1.0
-    secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass ]
+    secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass, bloopoid_private_key ]
     volumes:
       - /scalacenter:/keys
     when:
@@ -75,6 +75,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - ./bin/add-coursier.sh
       - /usr/local/bin/setup_keys.sh
+      - ./bin/ci-setup-bloopoid-keys.sh
       - ${SBT_PUBLISH}
       - ./bin/ci-clean-cache.sh
 
