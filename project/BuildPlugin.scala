@@ -144,6 +144,9 @@ object BuildKeys {
       )
     }
   )
+
+  val publishAll = Def.taskKey[Unit]("...")
+  val cachedPublishLocal = Def.taskKey[Unit]("...")
 }
 
 object BuildImplementation {
@@ -202,6 +205,8 @@ object BuildImplementation {
       val previous = Keys.resolvers.value
       (previous :+ Resolver.bintrayRepo("scalacenter", "releases")).distinct
     },
+    BuildKeys.publishAll := { () },
+    BuildKeys.cachedPublishLocal := { () }
   )
 
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
