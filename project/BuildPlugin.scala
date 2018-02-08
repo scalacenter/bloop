@@ -64,10 +64,6 @@ object BuildKeys {
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
-  final val BspProject = createScalaCenterProject("bsp", file(s"$AbsolutePath/bsp"))
-  final val BspBuild = BuildRef(BspProject.build)
-  final val Bsp = ProjectRef(BspProject.build, "bsp")
-
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
   val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
@@ -190,7 +186,6 @@ object BuildImplementation {
     BintrayKeys.bintrayPackage := {
       val ref = Keys.thisProjectRef.value
       if (ref.build == BuildKeys.NailgunProject.build) "nailgun"
-      else if (ref.build == BuildKeys.BspProject.build) "bsp"
       else "bloop" // As a fallback, we release to bloop.
     }
   )
@@ -209,6 +204,12 @@ object BuildImplementation {
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := "2.12.4",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
+    Keys.resolvers := {
+      val oldResolvers = Keys.resolvers.value
+      val sonatypeStaging = Resolver.sonatypeRepo("staging")
+      val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
+      (sonatypeStaging +: scalametaResolver +: oldResolvers).distinct
+    }
   ) ++ buildPublishSettings
 
   import sbt.{CrossVersion, compilerPlugin}
@@ -305,14 +306,12 @@ object BuildImplementation {
         val hijackedState = state.put(hijacked, true)
         val extracted = sbt.Project.extract(hijackedState)
         val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
-        val allBspProjects = buildStructure.allProjectRefs(BuildKeys.BspBuild.build)
         val allBenchmarkBridgeProjects =
           buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
-        val allProjects = allNailgunProjects ++ allBenchmarkBridgeProjects ++ allBspProjects
+        val allProjects = allNailgunProjects ++ allBenchmarkBridgeProjects
         val allProjectSettings = allProjects.flatMap(genProjectSettings)
-        val projectsToRelease = allNailgunProjects ++ allBspProjects
-        val buildProjectSettings = allBspProjects.flatMap(genProjectPublishSettings)
-        val projectSettings = allProjectSettings ++ buildProjectSettings
+        val projectsToRelease = allNailgunProjects
+        val projectSettings = allProjectSettings
         // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
         val currentSession = sbt.Project.session(state)
         val currentProject = currentSession.current

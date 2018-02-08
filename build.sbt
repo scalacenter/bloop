@@ -26,15 +26,6 @@ val benchmarkBridge = project
     libraryDependencies := Nil,
   )
 
-val bspIntegration = project
-  .in(file(".bsp"))
-  .aggregate(Bsp)
-  .settings(
-    releaseEarly := {()},
-    skip in publish := true,
-    libraryDependencies := Nil,
-  )
-
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
@@ -65,7 +56,6 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend, backend % "test->test")
-  .dependsOn(Bsp)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
   .settings(assemblySettings)
@@ -82,6 +72,7 @@ val frontend = project
     fork in Test := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
+      Dependencies.bsp,
       Dependencies.monix,
       Dependencies.ipcsocket % Test
     )
@@ -170,7 +161,6 @@ addCommandAlias(
 addCommandAlias(
   "install",
   Seq(
-    s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
     s"${nailgunIntegration.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
@@ -181,7 +171,6 @@ addCommandAlias(
 val releaseEarlyCmd = releaseEarly.key.label
 
 val allSourceDepsReleases = List(
-  s"${bspIntegration.id}/$releaseEarlyCmd",
   s"${nailgunIntegration.id}/$releaseEarlyCmd",
 )
 

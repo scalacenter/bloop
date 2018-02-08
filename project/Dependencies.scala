@@ -2,6 +2,7 @@ package build
 
 object Dependencies {
   val zincVersion = "1.1.0+9-57ca9e0f"
+  val bspVersion = "03e9b72d"
   val coursierVersion = "1.0.0-RC8"
   val lmVersion = "1.0.0"
   val configDirsVersion = "5"
@@ -21,6 +22,8 @@ object Dependencies {
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
+  val bsp = "ch.epfl.scala" %% "bsp" % bspVersion
+
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
