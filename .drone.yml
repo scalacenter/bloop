@@ -50,7 +50,7 @@ pipeline:
       - /drone/.sbt
 
   build:
-    image: scalaplatform/scala:2.1
+    image: duhemm/docker-scala
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
