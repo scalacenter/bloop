@@ -75,11 +75,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - ./bin/add-coursier.sh
       - /usr/local/bin/setup_keys.sh
-      # Setup everything to be able to push to github pages
-      - mkdir ~/.ssh
-      - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
-      - echo -e "${BLOOPOID_PRIVATE_KEY}\n" > ~/.ssh/id_rsa
-      - chmod 0600 ~/.ssh/id_rsa
+      - ./bin/ci-setup-bloopoid-keys.sh
       - ${SBT_PUBLISH}
       - ./bin/ci-clean-cache.sh
 
