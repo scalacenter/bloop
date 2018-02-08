@@ -8,12 +8,14 @@ matrix:
           "runTests" \
           "git status" \
           "backend/test" \
-          "frontend/test"
+          "frontend/test" \
+          "docs/makeSite"
 
   SBT_PUBLISH:
     # There is a bug in sbt that ignores these settings when defined in `.sbt` files and plugins :(
     - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
+          "docs/ghpagesPushSite" \
           "releaseBloop"
 
   SBT_RELEASE:
@@ -48,7 +50,7 @@ pipeline:
       - /drone/.sbt
 
   build:
-    image: scalaplatform/scala:2.1
+    image: scalacenter/scala-docs:1.0
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
@@ -59,7 +61,7 @@ pipeline:
       - ./bin/ci-clean-cache.sh
 
   publish:
-    image: scalaplatform/scala:2.1
+    image: scalacenter/scala-docs:1.0
     secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass ]
     volumes:
       - /scalacenter:/keys
@@ -77,7 +79,7 @@ pipeline:
       - ./bin/ci-clean-cache.sh
 
   release:
-    image: scalaplatform/scala:2.1
+    image: scalacenter/scala-docs:1.0
     secrets: [ bloopoid_github_token ]
     volumes:
       - /scalacenter:/keys
