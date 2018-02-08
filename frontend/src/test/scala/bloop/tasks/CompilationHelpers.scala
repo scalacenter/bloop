@@ -15,20 +15,12 @@ object CompilationHelpers {
   final val componentProvider =
     ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
 
-  private val ScriptedResolverId = "zinc-scripted-local"
-  // `fork in Test` changes the base directory, so we need to adapt the path to the repository.
-  private val ScriptedResolveCacheDir: File =
-    AbsolutePath(s"../.ivy2/$ScriptedResolverId").toFile
-  private val ScriptedResolver: Resolver =
-    Resolver.file(ScriptedResolverId, ScriptedResolveCacheDir)(Resolver.ivyStylePatterns)
-
   private var singleCompilerCache: CompilerCache = null
   def getCompilerCache(logger: Logger): CompilerCache = synchronized {
     if (singleCompilerCache != null) singleCompilerCache
     else {
       val jars = Paths.getCacheDirectory("scala-jars")
-      val resolvers = List(ScriptedResolver)
-      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, resolvers)
+      singleCompilerCache = new CompilerCache(componentProvider, jars, logger)
       singleCompilerCache
     }
   }
