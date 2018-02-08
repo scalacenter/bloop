@@ -30,25 +30,3 @@ libraryDependencies := {
     )
   }
 }
-
-onLoad in Global := {
-  val previous = (onLoad in Global).value
-  val nukeConfigClasses = (state: State) => {
-    val globalBase = BuildPaths.getGlobalBase(state)
-    val pluginsBase = BuildPaths.getGlobalPluginsDirectory(state, globalBase)
-    val allSbtFiles = BuildPaths.configurationSources(pluginsBase)
-    println("Changing modified times of sbt files.")
-    allSbtFiles.foreach { sbtFile =>
-      val currentTime = IO.getModifiedTimeOrZero(sbtFile)
-      IO.setModifiedTimeOrFalse(sbtFile, currentTime + 1)
-    }
-/*    val configClasses = PathFinder(pluginsBase / "target" / "config-classes")
-    println(s"Deleting $configClasses")
-    configClasses.**("*.cache").get.foreach { f =>
-      if (f.exists()) IO.delete(f)
-    }*/
-    state
-  }
-
-  nukeConfigClasses.compose(previous)
-}
