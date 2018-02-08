@@ -2,11 +2,13 @@ package build
 
 import java.io.File
 
+import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
+import sbtdynver.GitDescribeOutput
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -139,9 +141,7 @@ object BuildKeys {
 object BuildImplementation {
   import sbt.{url, file}
   import sbt.{Developer, Resolver, Watched, Compile, Test}
-  import sbtdynver.GitDescribeOutput
   import sbtdynver.DynVerPlugin.{autoImport => DynVerKeys}
-  import bintray.BintrayKeys
 
   // This should be added to upstream sbt.
   def GitHub(org: String, project: String): java.net.URL =
@@ -153,6 +153,7 @@ object BuildImplementation {
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
   final val buildPublishSettings: Seq[Def.Setting[_]] = Seq(
+    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
@@ -162,40 +163,12 @@ object BuildImplementation {
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
     ),
-  ) ++ sharedBuildPublishSettings
-
-  import ch.epfl.scala.sbt.release.Feedback
-  final def sharedBuildPublishSettings: Seq[Def.Setting[_]] = Seq(
-    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
-    BintrayKeys.bintrayOrganization := Some("scalacenter"),
-  )
-
-  import ch.epfl.scala.sbt.release.ReleaseEarly
-  def sharedProjectPublishSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.publishTo := ReleaseEarly.Defaults.releaseEarlyPublishTo.value,
-    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
-    ReleaseEarlyKeys.releaseEarlyPublish := {
-      Keys.streams.value.log.info(Feedback.logReleaseSonatype(Keys.name.value))
-      Pgp.PgpKeys.publishSigned.value
-    },
-    Keys.isSnapshot := {
-      val output = DynVerKeys.dynverGitDescribeOutput.in(ThisBuild).value
-      output.map(_.dirtySuffix.value.nonEmpty).getOrElse(false)
-    },
-    BintrayKeys.bintrayRepository := "releases",
-    BintrayKeys.bintrayPackage := {
-      val ref = Keys.thisProjectRef.value
-      if (ref.build == BuildKeys.NailgunProject.build) "nailgun"
-      else "bloop" // As a fallback, we release to bloop.
-    }
   )
 
   import ch.epfl.scala.sbt.release.ReleaseEarly
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
-    Keys.commands ~= BuildDefaults.fixPluginCross _,
-    Keys.onLoad := BuildDefaults.onLoad.value,
     Keys.publishArtifact in Test := false
   )
 
@@ -214,6 +187,11 @@ object BuildImplementation {
 
   import sbt.{CrossVersion, compilerPlugin}
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
+    ReleaseEarlyKeys.releaseEarlyPublish := {
+      // We do `sonatypeReleaseAll` when all modules have been released, it's faster.
+      Keys.streams.value.log.info(Feedback.logReleaseSonatype(Keys.name.value))
+      Pgp.PgpKeys.publishSigned.value
+    },
     Keys.scalacOptions := reasonableCompileOptions,
     Keys.scalacOptions ++= {
       if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
@@ -239,15 +217,7 @@ object BuildImplementation {
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-    // Add some metadata that is useful to see in every bintray release
-    BintrayKeys.bintrayPackageLabels := List("productivity", "build", "server", "cli", "tooling"),
-    BintrayKeys.bintrayVersionAttributes ++= {
-      import bintry.Attr
-      Map(
-        "nailgun" -> Seq(Attr.String(Keys.version.in(BuildKeys.NailgunServer).value))
-      )
-    }
-  ) ++ sharedProjectPublishSettings
+  )
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
@@ -258,77 +228,6 @@ object BuildImplementation {
   final val jvmOptions = "-Xmx4g" :: "-Xms2g" :: Nil
 
   object BuildDefaults {
-    import sbt.State
-    /* This rounds off the trickery to set up those projects whose `overridingProjectSettings` have
-     * been overriden because sbt has decided to initialize the settings from the sourcedep after. */
-    val hijacked = sbt.AttributeKey[Boolean]("theHijackedOptionOfBloop.")
-    val onLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
-      val globalSettings =
-        List(Keys.onLoadMessage in sbt.Global := s"Setting up the integration builds.")
-      def genProjectSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(
-          List(
-            Keys.organization := "ch.epfl.scala",
-            Keys.homepage := {
-              val previousHomepage = Keys.homepage.value
-              if (previousHomepage.nonEmpty) previousHomepage
-              else (Keys.homepage in ThisBuild).value
-            },
-            Keys.developers := {
-              val previousDevelopers = Keys.developers.value
-              if (previousDevelopers.nonEmpty) previousDevelopers
-              else (Keys.developers in ThisBuild).value
-            },
-            Keys.licenses := {
-              val previousLicenses = Keys.licenses.value
-              if (previousLicenses.nonEmpty) previousLicenses
-              else (Keys.licenses in ThisBuild).value
-            },
-            Keys.publishArtifact in Test := false,
-            Keys.publishArtifact in (Compile, Keys.packageDoc) := {
-              val output = DynVerKeys.dynverGitDescribeOutput.in(ref).in(ThisBuild).value
-              val version = Keys.version.in(ref).value
-              BuildDefaults.publishDocAndSourceArtifact(output, version)
-            },
-            Keys.publishArtifact in (Compile, Keys.packageSrc) := {
-              val output = DynVerKeys.dynverGitDescribeOutput.in(ref).in(ThisBuild).value
-              val version = Keys.version.in(ref).value
-              BuildDefaults.publishDocAndSourceArtifact(output, version)
-            }
-          ))
-
-      def genProjectPublishSettings(ref: sbt.ProjectRef) =
-        BuildKeys.inProject(ref)(sharedProjectPublishSettings)
-
-      val buildStructure = sbt.Project.structure(state)
-      if (state.get(hijacked).getOrElse(false)) state.remove(hijacked)
-      else {
-        val hijackedState = state.put(hijacked, true)
-        val extracted = sbt.Project.extract(hijackedState)
-        val allNailgunProjects = buildStructure.allProjectRefs(BuildKeys.NailgunBuild.build)
-        val allBenchmarkBridgeProjects =
-          buildStructure.allProjectRefs(BuildKeys.BenchmarkBridgeBuild.build)
-        val allProjects = allNailgunProjects ++ allBenchmarkBridgeProjects
-        val allProjectSettings = allProjects.flatMap(genProjectSettings)
-        val projectsToRelease = allNailgunProjects
-        val projectSettings = allProjectSettings
-        // NOTE: This is done because sbt does not handle session settings correctly. Should be reported upstream.
-        val currentSession = sbt.Project.session(state)
-        val currentProject = currentSession.current
-        val currentSessionSettings =
-          currentSession.append.get(currentProject).toList.flatten.map(_._1)
-        val allSessionSettings = currentSessionSettings ++ currentSession.rawAppend
-        extracted.append(
-          globalSettings ++ sharedBuildPublishSettings ++ projectSettings ++ allSessionSettings,
-          hijackedState)
-      }
-    }
-
-    def fixPluginCross(commands: Seq[Command]): Seq[Command] = {
-      val pruned = commands.filterNot(p => p == sbt.WorkingPluginCross.oldPluginSwitch)
-      sbt.WorkingPluginCross.pluginSwitch +: pruned
-    }
-
     import java.io.File
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
 

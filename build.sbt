@@ -4,9 +4,6 @@ import build.BuildImplementation.BuildDefaults
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
 
-// Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
-val SbtConfig = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
-val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just having fun.")
 val nailgunIntegration = project
   .in(file(".nailgun"))
   .aggregate(NailgunServer)
@@ -14,7 +11,6 @@ val nailgunIntegration = project
     releaseEarly := {()},
     skip in publish := true,
     libraryDependencies := Nil,
-    hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
 val benchmarkBridge = project
