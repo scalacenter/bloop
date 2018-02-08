@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
-import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
+import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -347,9 +347,15 @@ object BuildImplementation {
     if (buildIndexFile.exists()) ()
     else {
       val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
-      val stagingProperty = s"-D${sbt.BuildPaths.StagingProperty}=${stagingBase}"
+      val globalPluginsBase = buildIntegrationsBase / "global"
+      val globalSettingsBase = globalPluginsBase / "settings"
+      val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
+      val settingsProperty = s"-D${BuildPaths.GlobalSettingsProperty}=${globalSettingsBase}"
+      val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
       val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
-      val cmd = "sbt" :: stagingProperty :: indexProperty :: "installBloop" :: "buildIndex" :: Nil
+      val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
+      val toRun = "installBloop" :: "buildIndex" :: Nil
+      val cmd = "sbt" :: (properties ++ toRun)
 
       val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
       if (exitGenerate013 != 0)

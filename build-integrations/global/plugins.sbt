@@ -1,0 +1,35 @@
+import Defaults.sbtPluginExtra
+
+val root = Option(System.getProperty("sbt.global.plugins"))
+  .map(file(_).getAbsoluteFile)
+  .getOrElse(sys.error("Missing `sbt.global.plugins`"))
+
+unmanagedSourceDirectories in Compile ++= {
+  val bloopBaseDir = root.getParentFile.getParentFile.getAbsoluteFile
+  println(bloopBaseDir)
+  val integrationsMainDir = bloopBaseDir / "integrations"
+  val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
+  val a = List(
+    root / "src" / "main" / "scala",
+    integrationsMainDir / "core" / "src" / "main" / "scala",
+    pluginMainDir / "scala",
+    pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
+  )
+  println(a)
+  a
+}
+
+libraryDependencies := {
+  val sbtVersion = (sbtBinaryVersion in pluginCrossBuild).value
+  val scalaVersion = (scalaBinaryVersion in update).value
+  // We dont' add sbt-coursier to all because of sbt-native-packager issues, sigh
+  if (sbtVersion.startsWith("1.")) {
+    List(
+      sbtPluginExtra("com.lucidchart" % "sbt-scalafmt" % "1.15", sbtVersion, scalaVersion)
+    )
+  } else {
+    List(
+      sbtPluginExtra("io.get-coursier" % "sbt-coursier" % "1.0.1", sbtVersion, scalaVersion)
+    )
+  }
+}
