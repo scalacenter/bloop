@@ -21,6 +21,9 @@ object Bloop extends CaseApp[CliOptions] {
   override def run(options: CliOptions, remainingArgs: RemainingArgs): Unit = {
     val configDirectory = options.configDir.map(AbsolutePath.apply).getOrElse(AbsolutePath("."))
     val logger = BloopLogger.default(configDirectory.syntax)
+    logger.warn("The Nailgun integration should be preferred over the Bloop shell.")
+    logger.warn("The Bloop shell provides less features, is not supported and can be removed without notice.")
+    logger.warn("Please refer to our documentation for more information.")
     logger.verboseIf(options.verbose) {
       val projects = Project.fromDir(configDirectory, logger)
       val build = Build(configDirectory, projects)

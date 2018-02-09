@@ -48,7 +48,7 @@ main() {
     git submodule update --init --recursive
 
     echo "install" >> "$COMMANDS_FILE"
-    echo "setupTests" >> "$COMMANDS_FILE"
+    echo "runTests" >> "$COMMANDS_FILE"
 
     SCALAC_SBT_BLOOP_BENCHMARKS=("$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
                                  "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files")

@@ -112,10 +112,17 @@ object BuildKeys {
     commonKeys ++ List(zincKey, developersKey)
   }
 
-  import sbtassembly.AssemblyKeys
+  import sbtassembly.{AssemblyKeys, MergeStrategy}
   val assemblySettings: Seq[Def.Setting[_]] = List(
     Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
-    Keys.test in AssemblyKeys.assembly := {}
+    Keys.test in AssemblyKeys.assembly := {},
+    AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly := {
+      case "LICENSE.md" => MergeStrategy.first
+      case "NOTICE.md" => MergeStrategy.first
+      case x =>
+        val oldStrategy = (AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly).value
+        oldStrategy(x)
+    }
   )
 
   import sbtbuildinfo.BuildInfoKeys
@@ -125,7 +132,7 @@ object BuildKeys {
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
-        val HasSha = """([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
+        val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
         version match {
           case HasSha(sha) => sha
           case _ => version
