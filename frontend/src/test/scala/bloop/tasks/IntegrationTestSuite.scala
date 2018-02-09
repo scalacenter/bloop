@@ -33,7 +33,10 @@ class IntegrationTestSuite(testDirectory: Path) {
   @Test
   def compileProject: Unit = {
     if (sys.env.get("RUN_COMMUNITY_BUILD").isEmpty) ()
-    else compileProject0
+    else {
+      println(s"Running the community build for '$integrationTestName' at '${testDirectory}'")
+      compileProject0
+    }
   }
 
   def compileProject0: Unit = {

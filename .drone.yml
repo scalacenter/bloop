@@ -51,6 +51,7 @@ pipeline:
       - git log | head -n 20
       - ./bin/add-coursier.sh
       - ./bin/detect-community-build.sh
+      - echo "$RUN_COMMUNITY_BUILD"
       - ${SBT_RUN}
       - ./bin/ci-clean-cache.sh
 
