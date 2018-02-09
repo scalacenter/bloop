@@ -32,6 +32,11 @@ class IntegrationTestSuite(testDirectory: Path) {
 
   @Test
   def compileProject: Unit = {
+    if (sys.env.get("RUN_COMMUNITY_BUILD").isDefined) ()
+    else compileProject0
+  }
+
+  def compileProject0: Unit = {
     val name = testDirectory.getParent.getFileName.toString
     val state0 = ProjectHelpers.loadTestProject(testDirectory, name)
     val (state, projectToCompile) = getModuleToCompile(testDirectory) match {
