@@ -3,6 +3,7 @@ package build
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
+import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
@@ -190,9 +191,42 @@ object BuildImplementation {
 
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
+  final val globalSettings: Seq[Def.Setting[_]] = Seq(
+    BuildKeys.schemaVersion := "1",
+    Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
+    Keys.onLoadMessage := Header.intro,
+    Keys.publishArtifact in Test := false
+  )
+
   private final val ThisRepo = GitHub("scalacenter", "bloop")
-  final val buildPublishSettings: Seq[Def.Setting[_]] = Seq(
-    ReleaseEarlyKeys.releaseEarlyWith := ReleaseEarlyKeys.SonatypePublisher,
+  final val buildSettings: Seq[Def.Setting[_]] = Seq(
+    Keys.organization := "ch.epfl.scala",
+    Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
+    Keys.scalaVersion := "2.12.4",
+    Keys.triggeredMessage := Watched.clearWhenTriggered,
+    Keys.resolvers := {
+      val oldResolvers = Keys.resolvers.value
+      val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
+      val sonatypeStaging = Resolver.sonatypeRepo("staging")
+      val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
+      (oldResolvers :+ sonatypeStaging :+ scalametaResolver :+ scalacenterResolver).distinct
+    },
+    Pgp.PgpKeys.pgpPublicRing := {
+      if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
+      else Pgp.PgpKeys.pgpPublicRing.value
+    },
+    Pgp.PgpKeys.pgpSecretRing := {
+      if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
+      else Pgp.PgpKeys.pgpPublicRing.value
+    },
+    ReleaseEarlyKeys.releaseEarlyWith := {
+      // Only tag releases go directly to Maven Central, the rest go to bintray!
+      val isOnlyTag = DynVerKeys.dynverGitDescribeOutput.value.map(v =>
+        v.commitSuffix.isEmpty && v.dirtySuffix.value.isEmpty)
+      if (isOnlyTag.getOrElse(false)) ReleaseEarlyKeys.SonatypePublisher
+      else ReleaseEarlyKeys.BintrayPublisher
+    },
+    BintrayKeys.bintrayOrganization := Some("scalacenter"),
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
@@ -203,27 +237,6 @@ object BuildImplementation {
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
     ),
   )
-
-  import ch.epfl.scala.sbt.release.ReleaseEarly
-  final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "1",
-    Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
-    Keys.onLoadMessage := Header.intro,
-    Keys.publishArtifact in Test := false
-  )
-
-  final val buildSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.organization := "ch.epfl.scala",
-    Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := "2.12.4",
-    Keys.triggeredMessage := Watched.clearWhenTriggered,
-    Keys.resolvers := {
-      val oldResolvers = Keys.resolvers.value
-      val sonatypeStaging = Resolver.sonatypeRepo("staging")
-      val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
-      (sonatypeStaging +: scalametaResolver +: oldResolvers).distinct
-    }
-  ) ++ buildPublishSettings
 
   import sbt.{CrossVersion, compilerPlugin}
   final val metalsSettings: Seq[Def.Setting[_]] = Seq(
@@ -241,19 +254,18 @@ object BuildImplementation {
   )
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    Pgp.PgpKeys.pgpPublicRing := {
-      if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
-      else Pgp.PgpKeys.pgpPublicRing.value
+    BintrayKeys.bintrayRepository := "releases",
+    BintrayKeys.bintrayPackage := "bloop",
+    // Add some metadata that is useful to see in every on-merge bintray release
+    BintrayKeys.bintrayPackageLabels := List("productivity", "build", "server", "cli", "tooling"),
+    BintrayKeys.bintrayVersionAttributes ++= {
+      import bintry.Attr
+      Map(
+        "zinc" -> Seq(Attr.String(Dependencies.zincVersion)),
+        "nailgun" -> Seq(Attr.String(Dependencies.nailgunVersion))
+      )
     },
-    Pgp.PgpKeys.pgpSecretRing := {
-      if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
-      else Pgp.PgpKeys.pgpPublicRing.value
-    },
-    ReleaseEarlyKeys.releaseEarlyPublish := {
-      // We do `sonatypeReleaseAll` when all modules have been released, it's faster.
-      Keys.streams.value.log.info(Feedback.logReleaseSonatype(Keys.name.value))
-      Pgp.PgpKeys.publishSigned.value
-    },
+    ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
     Keys.scalacOptions := reasonableCompileOptions,
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
@@ -297,6 +309,15 @@ object BuildImplementation {
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
       ),
     )
+
+    val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.taskDyn {
+      val logger = Keys.streams.value.log
+      if (ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher) {
+        // We do `sonatypeReleaseAll` when all modules have been released, it's faster.
+        logger.info(Feedback.logReleaseSonatype(Keys.name.value))
+        Def.task(Pgp.PgpKeys.publishSigned.value)
+      } else Def.task(ReleaseEarlyKeys.releaseEarlyPublish.value)
+    }
 
     val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
       val orig = Keys.scalaVersion.value
