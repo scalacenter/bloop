@@ -32,7 +32,7 @@ class IntegrationTestSuite(testDirectory: Path) {
 
   @Test
   def compileProject: Unit = {
-    if (sys.env.get("RUN_COMMUNITY_BUILD").isDefined) ()
+    if (sys.env.get("RUN_COMMUNITY_BUILD").isEmpty) ()
     else compileProject0
   }
 
