@@ -48,8 +48,8 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
       - export DRONE_DIR="/drone"
-      - ./bin/add-coursier.sh
       - git log | head -n 20
+      - ./bin/detect-community-build.sh
       - ${SBT_RUN}
       - ./bin/ci-clean-cache.sh
 
