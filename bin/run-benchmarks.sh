@@ -47,8 +47,7 @@ main() {
     git checkout -qf FETCH_HEAD
     git submodule update --init --recursive
 
-    echo "install" >> "$COMMANDS_FILE"
-    echo "runTests" >> "$COMMANDS_FILE"
+    echo "integrationSetUpBloop" >> "$COMMANDS_FILE"
 
     SCALAC_SBT_BLOOP_BENCHMARKS=("$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
                                  "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files")

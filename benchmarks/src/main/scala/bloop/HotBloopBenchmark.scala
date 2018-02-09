@@ -88,5 +88,6 @@ class HotBloopBenchmark {
   @TearDown(Level.Trial) def terminate(): Unit = {
     processOutputReader.close()
     bloopProcess.destroyForcibly()
+    ()
   }
 }

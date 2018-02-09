@@ -28,7 +28,7 @@ object IntegrationTestSuite {
 @Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
 class IntegrationTestSuite(testDirectory: Path) {
-  val integrationTestName = testDirectory.getFileName.toString
+  val integrationTestName = testDirectory.getParent.getFileName.toString
 
   @Test
   def compileProject: Unit = {
@@ -37,8 +37,7 @@ class IntegrationTestSuite(testDirectory: Path) {
   }
 
   def compileProject0: Unit = {
-    val name = testDirectory.getParent.getFileName.toString
-    val state0 = ProjectHelpers.loadTestProject(testDirectory, name)
+    val state0 = ProjectHelpers.loadTestProject(testDirectory, integrationTestName)
     val (state, projectToCompile) = getModuleToCompile(testDirectory) match {
       case Some(projectName) =>
         (state0, state0.build.getProjectFor(projectName).get)
