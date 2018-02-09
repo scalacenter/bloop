@@ -35,6 +35,8 @@ If you want to have it start automatically again, type:
 $ launchctl enable bloop
 ```
 
+Go to [Next steps]({{< ref "#next-steps" >}}) to configure Bloop and start using it.
+
 <h3 class="section-head" id="manual"><a href="#manual">Instructions for other platforms</a></h3>
 
 We do not publish native packages for other platforms at the moment, but you can use our
@@ -56,6 +58,8 @@ a destination where the installation script should put the binaries:
 $ ./install.py --dest ~/bin/bloop
 ```
 
+Go to [Next steps]({{< ref "#next-steps" >}}) to configure Bloop and start using it.
+
 <h3 class="section-head" id="development"><a href="#development">Installing a development version</a></h3>
 
 The installation script can also be used to install a development version of Bloop. The [installation
@@ -73,3 +77,11 @@ Pass this information to the installation script:
 ```sh
 $ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
 ```
+
+<h3 class="section-head" id="next-steps"><a href="#next-steps">Next steps</a></h3>
+
+Once bloop has been successfully installed on your machine, you can move to build-tool specific part
+of the installation:
+
+ - [Getting started with sbt]({{< ref "getting-started-sbt.md" >}})
+ - [Getting started with Maven]({{< ref "getting-started-maven.md" >}})
