@@ -195,7 +195,15 @@ object BuildImplementation {
     BuildKeys.schemaVersion := "1",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
-    Keys.publishArtifact in Test := false
+    Keys.publishArtifact in Test := false,
+    Pgp.pgpPublicRing := {
+      if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
+      else Pgp.pgpPublicRing.value
+    },
+    Pgp.pgpSecretRing := {
+      if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
+      else Pgp.pgpSecretRing.value
+    },
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
@@ -210,14 +218,6 @@ object BuildImplementation {
       val sonatypeStaging = Resolver.sonatypeRepo("staging")
       val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
       (oldResolvers :+ sonatypeStaging :+ scalametaResolver :+ scalacenterResolver).distinct
-    },
-    Pgp.PgpKeys.pgpPublicRing := {
-      if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
-      else Pgp.PgpKeys.pgpPublicRing.value
-    },
-    Pgp.PgpKeys.pgpSecretRing := {
-      if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
-      else Pgp.PgpKeys.pgpPublicRing.value
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
       // Only tag releases go directly to Maven Central, the rest go to bintray!
