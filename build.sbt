@@ -145,6 +145,8 @@ addCommandAlias(
   ).mkString(";", ";", "")
 )
 
+// Runs the scripted tests to setup integration tests
+// ! This is used by the benchmarks too !
 addCommandAlias(
   "runTests",
   List(
@@ -153,6 +155,8 @@ addCommandAlias(
   ).mkString(";", ";", "")
 )
 
+// Publishes locally all the components of Bloop
+// ! This is used by the benchmars too !
 addCommandAlias(
   "install",
   Seq(
