@@ -44,18 +44,6 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
 
-  build:
-    image: scalacenter/scala-docs:1.0
-    when:
-      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
-    commands:
-      - export DRONE_DIR="/drone"
-      - git log | head -n 20
-      - ./bin/add-coursier.sh
-      - ./bin/detect-community-build.sh
-      - ${SBT_RUN}
-      - ./bin/ci-clean-cache.sh
-
   publish:
     image: scalacenter/scala-docs:1.0
     secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass, bloopoid_private_key ]
@@ -73,6 +61,18 @@ pipeline:
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
       - ${SBT_PUBLISH}
+      - ./bin/ci-clean-cache.sh
+
+  build:
+    image: scalacenter/scala-docs:1.0
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+    commands:
+      - export DRONE_DIR="/drone"
+      - git log | head -n 20
+      - ./bin/add-coursier.sh
+      - ./bin/detect-community-build.sh
+      - ${SBT_RUN}
       - ./bin/ci-clean-cache.sh
 
   release:

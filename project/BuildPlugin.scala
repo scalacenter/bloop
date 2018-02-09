@@ -310,13 +310,17 @@ object BuildImplementation {
       ),
     )
 
-    val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.task {
       val logger = Keys.streams.value.log
+      val name = Keys.name.value
+      // We force publishSigned for all of the modules, yes or yes.
       if (ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher) {
-        // We do `sonatypeReleaseAll` when all modules have been released, it's faster.
-        logger.info(Feedback.logReleaseSonatype(Keys.name.value))
-        Def.task(Pgp.PgpKeys.publishSigned.value)
-      } else Def.task(ReleaseEarlyKeys.releaseEarlyPublish.value)
+        logger.info(Feedback.logReleaseSonatype(name))
+      } else {
+        logger.info(Feedback.logReleaseBintray(name))
+      }
+
+      Pgp.PgpKeys.publishSigned.value
     }
 
     val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
