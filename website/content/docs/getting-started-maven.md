@@ -8,6 +8,6 @@ bref = "How to use our Maven plugin to generate Bloop's configuration, and how t
 toc = true
 +++
 
-<h3 class="section-head" id="setup-maven"><a href="#setup-maven">Configuring Maven</a></h3>
+### Configuring Maven
 
 TODO

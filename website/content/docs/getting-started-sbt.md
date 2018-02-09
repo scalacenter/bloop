@@ -8,7 +8,7 @@ bref = "How to use our sbt plugin to generate Bloop's configuration, and how to 
 toc = true
 +++
 
-<h3 class="section-head" id="setup-sbt"><a href="#setup-sbt">Configuring sbt</a></h3>
+### Configuring sbt
 
 The first step is to set up our sbt plugin to generate the configuration files for Bloop. This
 action needs to be performed whenever your build changes.
@@ -37,7 +37,7 @@ $ sbt installBloop
 <mark>Note</mark> This configuration contains machine-dependent information. You should not check it
 in your version control.
 
-<h3 class="section-head" id="start-bloop"><a href="#start-bloop">Start bloop</a></h3>
+### Start bloop
 
 If you haven't installed Bloop on your machine yet, please refer to [the installation
 instructions]({{< ref "installation.md" >}}).
@@ -77,8 +77,7 @@ Projects loaded from '/my-project/.bloop-config':
  * foo-test
 ```
 
-<h3 class="section-head" id="compiling-your-project"><a href="#compiling-your-project">Compiling
-your project with Bloop</a></h3>
+### Compiling your project with Bloop
 
 You can start compiling your project using the Bloop client:
 
@@ -96,8 +95,7 @@ $ bloop compile --help
 
 <mark>Note</mark> All the commands of Bloop support `--help`.
 
-<h3 class="section-head" id="testing-your-project"><a href="#testing-your-project">Testing
-your project with Bloop</a></h3>
+### Testing your project with Bloop
 
 Running the tests with Bloop is performed using the `test` command:
 ```sh
@@ -105,7 +103,7 @@ $ bloop test -p foo
 [success] A foo should bar
 ```
 
-<h3 class="section-head" id="next-steps"><a href="#next-steps">Next steps</a></h3>
+### Next steps
 
 Bloop supports more commands. To get more information about them, continue to the [Commands
 reference]({{< ref "commands-reference.md" >}}).

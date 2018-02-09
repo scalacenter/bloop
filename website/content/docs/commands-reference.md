@@ -8,7 +8,6 @@ bref = "An explanation of all the commands that Bloop provides"
 toc = true
 +++
 
-<h3 class="section-head" id="commands-reference"><a href="#commands-reference">Commands
-reference</a></h3>
+### Commands reference
 
 TODO.
