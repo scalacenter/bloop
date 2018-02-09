@@ -20,7 +20,7 @@ object CompilationHelpers {
     if (singleCompilerCache != null) singleCompilerCache
     else {
       val jars = Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(componentProvider, jars, logger)
+      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, Nil)
       singleCompilerCache
     }
   }
