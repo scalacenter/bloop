@@ -56,12 +56,6 @@ object BuildKeys {
     }
   }
 
-  final val NailgunProject = createScalaCenterProject("nailgun", file(s"$AbsolutePath/nailgun"))
-  final val NailgunBuild = BuildRef(NailgunProject.build)
-  final val Nailgun = ProjectRef(NailgunProject.build, "nailgun")
-  final val NailgunServer = ProjectRef(NailgunProject.build, "nailgun-server")
-  final val NailgunExamples = ProjectRef(NailgunProject.build, "nailgun-examples")
-
   final val BenchmarkBridgeProject =
     createScalaCenterProject("compiler-benchmark", file(s"$AbsolutePath/benchmark-bridge"))
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)

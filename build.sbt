@@ -4,14 +4,6 @@ import build.BuildImplementation.BuildDefaults
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
 
-val nailgunIntegration = project
-  .in(file(".nailgun"))
-  .aggregate(NailgunServer)
-  .settings(
-    releaseEarly := {()},
-    skip in publish := true,
-  )
-
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
@@ -26,12 +18,12 @@ val benchmarkBridge = project
 import build.Dependencies
 
 val backend = project
-  .dependsOn(NailgunServer)
   .settings(testSettings)
   .settings(
     name := "bloop-backend",
     libraryDependencies ++= List(
       Dependencies.zinc,
+      Dependencies.nailgun,
       Dependencies.coursier,
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
@@ -138,17 +130,12 @@ addCommandAlias(
     s"+${integrationsCore.id}/$publishLocalCmd",
     s"^${sbtBloop.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
-    s"${nailgunIntegration.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
 val releaseEarlyCmd = releaseEarly.key.label
-
-val allSourceDepsReleases = List(
-  s"${nailgunIntegration.id}/$releaseEarlyCmd",
-)
 
 val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
@@ -159,5 +146,5 @@ val allBloopReleases = List(
   s"${mavenBloop.id}/$releaseEarlyCmd",
 )
 
-val allReleaseActions = allSourceDepsReleases ++ allBloopReleases ++ List("sonatypeReleaseAll")
+val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))

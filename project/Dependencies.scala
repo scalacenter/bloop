@@ -1,6 +1,7 @@
 package build
 
 object Dependencies {
+  val nailgunVersion = "4ecd1a7d"
   val zincVersion = "1.1.0+9-57ca9e0f"
   val bspVersion = "03e9b72d"
   val coursierVersion = "1.0.0-RC8"
@@ -23,6 +24,7 @@ object Dependencies {
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
   val bsp = "ch.epfl.scala" %% "bsp" % bspVersion
+  val nailgun = "ch.epfl.scala" % "nailgun-server" % nailgunVersion
 
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
