@@ -1,4 +1,4 @@
 -Xms2g
--Xmx4g
+-Xmx6g
 -XX:MaxInlineLevel=20
 -XX:ReservedCodeCacheSize=512m

@@ -13,7 +13,7 @@ import xsbti.compile.{ClasspathOptions, Compilers}
 class CompilerCache(componentProvider: ComponentProvider,
                     retrieveDir: AbsolutePath,
                     logger: Logger,
-                    userResolvers: List[Resolver] = Nil) {
+                    userResolvers: List[Resolver]) {
 
   private val cache = new ConcurrentHashMap[ScalaInstance, Compilers]()
 

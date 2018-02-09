@@ -4,35 +4,6 @@ import build.BuildImplementation.BuildDefaults
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
 
-// Remember, `scripted` and `cachedPublishLocal` are defined here via aggregation
-val bridgeIntegration = project
-  .in(file(".bridge"))
-  .aggregate(ZincBridge)
-  .settings(
-    releaseEarly := {()},
-    skip in publish := true,
-    // What the hell is going on here sbt? Why do you add scripted as a dep and you cannot resolve it?
-    libraryDependencies := Nil,
-    scalaVersion := (scalaVersion in ZincBridge).value,
-    crossScalaVersions := (crossScalaVersions in ZincBridge).value,
-  )
-
-val zincIntegration = project
-  .in(file(".zinc"))
-  .aggregate(ZincRoot)
-  .settings(
-    releaseEarly := {()},
-    skip in publish := true,
-    // What the hell is going on here sbt? Why do you add scripted as a dep and you cannot resolve it?
-    libraryDependencies := Nil,
-    scalaVersion := (scalaVersion in ZincRoot).value,
-    // This only covers 2.12 and 2.11, but this is enough.
-    crossScalaVersions := (crossScalaVersions in ZincRoot).value,
-  )
-
-// Work around a sbt-scalafmt but that forces us to define `scalafmtOnCompile` in sourcedeps
-val SbtConfig = com.lucidchart.sbt.scalafmt.ScalafmtSbtPlugin.autoImport.Sbt
-val hijackScalafmtOnCompile = SettingKey[Boolean]("scalafmtOnCompile", "Just having fun.")
 val nailgunIntegration = project
   .in(file(".nailgun"))
   .aggregate(NailgunServer)
@@ -40,21 +11,11 @@ val nailgunIntegration = project
     releaseEarly := {()},
     skip in publish := true,
     libraryDependencies := Nil,
-    hijackScalafmtOnCompile in SbtConfig in NailgunBuild := false,
   )
 
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
-  .settings(
-    releaseEarly := {()},
-    skip in publish := true,
-    libraryDependencies := Nil,
-  )
-
-val bspIntegration = project
-  .in(file(".bsp"))
-  .aggregate(Bsp)
   .settings(
     releaseEarly := {()},
     skip in publish := true,
@@ -67,11 +28,12 @@ val bspIntegration = project
 import build.Dependencies
 
 val backend = project
-  .dependsOn(Zinc, NailgunServer)
+  .dependsOn(NailgunServer)
   .settings(testSettings)
   .settings(
     name := "bloop-backend",
     libraryDependencies ++= List(
+      Dependencies.zinc,
       Dependencies.coursier,
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
@@ -90,7 +52,6 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend, backend % "test->test")
-  .dependsOn(Bsp)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings)
   .settings(assemblySettings)
@@ -107,6 +68,7 @@ val frontend = project
     fork in Test := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
+      Dependencies.bsp,
       Dependencies.monix,
       Dependencies.ipcsocket % Test
     )
@@ -198,9 +160,6 @@ addCommandAlias(
 addCommandAlias(
   "install",
   Seq(
-    s"+${bridgeIntegration.id}/$publishLocalCmd",
-    s"${zincIntegration.id}/$publishLocalCmd",
-    s"${bspIntegration.id}/$publishLocalCmd",
     "setupIntegrations", // Reusing the previously defined command
     s"${nailgunIntegration.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
@@ -211,19 +170,17 @@ addCommandAlias(
 val releaseEarlyCmd = releaseEarly.key.label
 
 val allSourceDepsReleases = List(
-  s"+${bridgeIntegration.id}/$releaseEarlyCmd",
-  s"${zincIntegration.id}/$releaseEarlyCmd",
-  s"${bspIntegration.id}/$releaseEarlyCmd",
   s"${nailgunIntegration.id}/$releaseEarlyCmd",
 )
 
 val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
+  s"+${integrationsCore.id}/$publishLocalCmd", // Necessary because of a coursier bug?
   s"+${integrationsCore.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
 )
 
-val allReleaseActions = allSourceDepsReleases ++ allBloopReleases
+val allReleaseActions = allSourceDepsReleases ++ allBloopReleases ++ List("sonatypeReleaseAll")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))

@@ -44,7 +44,7 @@ object State {
       import sbt.internal.inc.bloop.ZincInternals
       val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
       val jars = Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(provider, jars, logger)
+      singleCompilerCache = new CompilerCache(provider, jars, logger, Nil)
       singleCompilerCache
     }
   }
