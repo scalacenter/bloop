@@ -17,10 +17,7 @@ import bloop.Project
 import bloop.io.AbsolutePath
 
 object IntegrationTestSuite {
-  val projects = Files
-    .list(ProjectHelpers.testProjectsBase)
-    .toArray
-    .map(Array.apply(_))
+  val projects = ProjectHelpers.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
@@ -31,12 +28,16 @@ object IntegrationTestSuite {
 @Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
 class IntegrationTestSuite(testDirectory: Path) {
-  val integrationTestName = testDirectory.getFileName.toString
+  val integrationTestName = testDirectory.getParent.getFileName.toString
 
   @Test
   def compileProject: Unit = {
+    if (sys.env.get("RUN_COMMUNITY_BUILD").isEmpty) ()
+    else compileProject0
+  }
 
-    val state0 = ProjectHelpers.loadTestProject(testDirectory.getFileName.toString)
+  def compileProject0: Unit = {
+    val state0 = ProjectHelpers.loadTestProject(testDirectory, integrationTestName)
     val (state, projectToCompile) = getModuleToCompile(testDirectory) match {
       case Some(projectName) =>
         (state0, state0.build.getProjectFor(projectName).get)

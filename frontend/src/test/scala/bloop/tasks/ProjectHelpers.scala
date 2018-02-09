@@ -1,7 +1,7 @@
 package bloop.tasks
 
 import java.io.IOException
-import java.nio.charset.Charset
+import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
@@ -17,21 +17,6 @@ object ProjectHelpers {
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
-
-  def rebase(from: Path, to: Path, project: Project): Project = {
-    def work(path: AbsolutePath): AbsolutePath = {
-      val newPath = Paths.get(path.toString.replaceFirst(from.toString, to.toString))
-      AbsolutePath(newPath)
-    }
-
-    project.copy(
-      rawClasspath = project.rawClasspath.map(work),
-      classesDir = work(project.classesDir),
-      sourceDirectories = project.sourceDirectories.map(work),
-      tmp = work(project.tmp),
-      bloopConfigDir = work(project.bloopConfigDir)
-    )
-  }
 
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
@@ -64,40 +49,33 @@ object ProjectHelpers {
     }
   }
 
-  val testProjectsBase: Path = BuildInfo.integrationTestsLocation.toPath
-  def getTestProjectDir(name: String): Path = testProjectsBase.resolve(name)
-  def loadTestProject(name: String): State = loadTestProject(testProjectsBase, name)
+  private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
+  private[bloop] lazy val testProjectsIndex: Map[String, Path] = {
+    if (Files.exists(integrationsIndexPath)) {
+      import scala.collection.JavaConverters._
+      val lines = Files.readAllLines(integrationsIndexPath).asScala
+      val entries = lines.map(line => line.split(",").toList)
+      entries.map {
+        case List(key, value) => key -> Paths.get(value)
+        case _ => sys.error(s"Malformed index file: ${lines.mkString(System.lineSeparator)}")
+      }.toMap
+    } else sys.error(s"Missing integration index at ${integrationsIndexPath}!")
+  }
 
-  def loadTestProject(projectsBase: Path, name: String): State = {
-    val base = projectsBase.resolve(name)
-    val configDir = base.resolve(".bloop-config")
+  def getBloopConfigDir(name: String): Path = {
+    testProjectsIndex
+      .get(name)
+      .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
+  }
+
+  def loadTestProject(name: String): State = loadTestProject(getBloopConfigDir(name), name)
+
+  def loadTestProject(configDir: Path, name: String): State = {
     val logger = BloopLogger.default(configDir.toString())
-    val baseDirectoryFile = configDir.resolve("base-directory")
-    assert(Files.exists(configDir) && Files.exists(baseDirectoryFile))
-    val testBaseDirectory = {
-      val contents = Files.readAllLines(baseDirectoryFile)
-      assert(!contents.isEmpty)
-      contents.get(0)
-    }
-
-    def rebase(baseDirectory: String, proj: Project) = {
-      // We need to remove the `/private` prefix that's SOMETIMES present in OSX (!??!)
-      val testBaseDirectory = Paths.get(baseDirectory.stripPrefix("/private"))
-      val proj0 = ProjectHelpers.rebase(Paths.get("/private"), Paths.get(""), proj)
-
-      // Rebase the scala instance if it comes from sbt's boot directory
-      val proj1 = ProjectHelpers.rebase(
-        testBaseDirectory.resolve("global").resolve("boot"),
-        Paths.get(sys.props("user.home")).resolve(".sbt").resolve("boot"),
-        proj0)
-
-      // Rebase the rest of the paths
-      val proj2 = ProjectHelpers.rebase(testBaseDirectory, base, proj1)
-      proj2
-    }
+    assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = Project.fromDir(configDirectory, logger).map(rebase(testBaseDirectory, _))
+    val loadedProjects = Project.fromDir(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects)
     State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
   }

@@ -1,18 +1,14 @@
-.idea
+.idea/
 bin/.coursier
 bin/.scalafmt*
 
 # Required because these are the proxies for the sourcedeps
-.bridge
-.zinc
-.nailgun
+.bridge/
+.zinc/
+.nailgun/
 
 # zinc uses this local cache for publishing stuff
 .ivy2/
 
 target/
 *.config
-test-config.sbt
-base-directory
-integration-tests/integration-projects/**/test
-TestPlugin.scala

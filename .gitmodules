@@ -6,42 +6,11 @@
 	path = nailgun
 	url = https://github.com/scalacenter/nailgun.git
 	branch = sync-19-01-2018
-[submodule "frontend/src/test/resources/projects/sbt"]
-	path = integration-tests/integration-projects/sbt
-	url = https://github.com/scalacenter/sbt.git
-	branch = hardcoded-stuff
-	ignore = dirty
-[submodule "frontend/src/test/resources/projects/utest"]
-	path = integration-tests/integration-projects/utest
-	url = https://github.com/scalacenter/utest.git
-	branch = bloop
-	ignore = dirty
-[submodule "frontend/src/test/resources/projects/versions"]
-	path = integration-tests/integration-projects/versions
-	url = https://github.com/scalacenter/versions.git
-	branch = bloop
-	ignore = dirty
 [submodule "compiler-benchmark"]
 	path = benchmark-bridge
 	url = https://github.com/scalacenter/compiler-benchmark
 	branch = bloop-updated-2
   ignore = dirty
-[submodule "frontend/src/test/resources/projects/scala"]
-	path = integration-tests/integration-projects/scala
-	url = https://github.com/scalacenter/scala.git
-	branch = bloop
-[submodule "frontend/src/test/resources/projects/mini-better-files"]
-	path = integration-tests/integration-projects/mini-better-files
-	url = https://github.com/scalacenter/mini-better-files.git
-	branch = master
-[submodule "frontend/src/test/resources/projects/frontend"]
-	path = integration-tests/integration-projects/frontend
-	url = https://github.com/scalacenter/frontend.git
-	branch = bloop
-[submodule "frontend/src/test/resources/projects/spark"]
-	path = integration-tests/integration-projects/spark
-	url = https://github.com/scalacenter/spark.git
-	branch = bloop
 [submodule "bsp"]
 	path = bsp
 	url = https://github.com/scalacenter/bsp.git

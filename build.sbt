@@ -10,7 +10,6 @@ val nailgunIntegration = project
   .settings(
     releaseEarly := {()},
     skip in publish := true,
-    libraryDependencies := Nil,
   )
 
 val benchmarkBridge = project
@@ -18,8 +17,7 @@ val benchmarkBridge = project
   .aggregate(BenchmarkBridgeCompilation)
   .settings(
     releaseEarly := {()},
-    skip in publish := true,
-    libraryDependencies := Nil,
+    skip in publish := true
   )
 
 /***************************************************************************************************/
@@ -53,9 +51,7 @@ import build.BuildImplementation.jvmOptions
 val frontend = project
   .dependsOn(backend, backend % "test->test")
   .enablePlugins(BuildInfoPlugin)
-  .settings(testSettings)
-  .settings(assemblySettings)
-  .settings(releaseSettings)
+  .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
@@ -84,7 +80,6 @@ val benchmarks = project
 
 lazy val integrationsCore = project
   .in(file("integrations") / "core")
-  .disablePlugins(sbt.ScriptedPlugin)
   .settings(
     name := "bloop-integrations-core",
     crossScalaVersions := List("2.12.4", "2.10.7"),
@@ -98,7 +93,6 @@ lazy val sbtBloop = project
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
-    BuildDefaults.scriptedSettings,
     scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
     bintrayPackage := "sbt-bloop",
     bintrayOrganization := Some("sbt"),
@@ -128,39 +122,22 @@ val bloop = project
   .settings(
     releaseEarly := {()},
     skip in publish := true,
-    libraryDependencies := Nil,
-    crossSbtVersions := Seq("1.0.3", "0.13.16")
+    crossSbtVersions := Seq("1.1.0", "0.13.16")
   )
 
 /***************************************************************************************************/
 /*                      This is the corner for all the command definitions                         */
 /***************************************************************************************************/
 val publishLocalCmd = Keys.publishLocal.key.label
-addCommandAlias(
-  "setupIntegrations",
-  List(
-    s"+${integrationsCore.id}/$publishLocalCmd",
-    s"^${sbtBloop.id}/$publishLocalCmd",
-    s"${mavenBloop.id}/$publishLocalCmd"
-  ).mkString(";", ";", "")
-)
 
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
 addCommandAlias(
-  "runTests",
-  List(
-    s"${sbtBloop.id}/${scriptedAddSbtBloop.key.label}",
-    s"${sbtBloop.id}/${scripted.key.label} integration-projects/*"
-  ).mkString(";", ";", "")
-)
-
-// Publishes locally all the components of Bloop
-// ! This is used by the benchmars too !
-addCommandAlias(
   "install",
   Seq(
-    "setupIntegrations", // Reusing the previously defined command
+    s"+${integrationsCore.id}/$publishLocalCmd",
+    s"^${sbtBloop.id}/$publishLocalCmd",
+    s"${mavenBloop.id}/$publishLocalCmd",
     s"${nailgunIntegration.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd"

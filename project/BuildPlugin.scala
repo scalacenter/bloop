@@ -1,10 +1,11 @@
 package build
 
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
-import sbt.{AutoPlugin, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
+import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -68,15 +69,36 @@ object BuildKeys {
 
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
-  val integrationTestsLocation = Def.settingKey[sbt.File]("Where to find the integration tests")
-  val scriptedAddSbtBloop = Def.taskKey[Unit]("Add sbt-bloop to the test projects")
+  val integrationStagingBase =
+    Def.taskKey[File]("The base directory for sbt staging in all versions.")
+  val integrationSetUpBloop =
+    Def.taskKey[Unit]("Generate the bloop config for integration tests.")
+  val buildIntegrationsIndex =
+    Def.taskKey[File]("A csv index with complete information about our integrations.")
+  val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
+
+  // This has to be change every time the bloop config files format changes.
+  val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
+
   val testSettings: Seq[Def.Setting[_]] = List(
-    integrationTestsLocation := buildBase.value / "integration-tests" / "integration-projects",
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
-    Keys.libraryDependencies ++= List(
-      Dependencies.junit % Test
-    ),
+    Keys.libraryDependencies ++= List(Dependencies.junit % Test),
+  )
+
+  val integrationTestSettings: Seq[Def.Setting[_]] = List(
+    integrationStagingBase := {
+      // Use the default staging directory, we don't care.
+      val state = Keys.state.value
+      val globalBase = sbt.BuildPaths.getGlobalBase(state)
+      sbt.BuildPaths.getStagingDirectory(state, globalBase)
+    },
+    buildIntegrationsIndex := {
+      val staging = integrationStagingBase.value
+      staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
+    },
+    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
+    integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
@@ -96,11 +118,13 @@ object BuildKeys {
     val developersKey = BuildInfoKey.map(Keys.developers) {
       case (k, devs) => k -> devs.map(_.name)
     }
-    val commonKeys = List[BuildInfoKey](Keys.name,
-                                        Keys.version,
-                                        Keys.scalaVersion,
-                                        Keys.sbtVersion,
-                                        integrationTestsLocation)
+    val commonKeys = List[BuildInfoKey](
+      Keys.name,
+      Keys.version,
+      Keys.scalaVersion,
+      Keys.sbtVersion,
+      buildIntegrationsIndex
+    )
     commonKeys ++ List(zincKey, developersKey)
   }
 
@@ -188,6 +212,7 @@ object BuildImplementation {
 
   import ch.epfl.scala.sbt.release.ReleaseEarly
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
+    BuildKeys.schemaVersion := "1",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false
@@ -207,6 +232,20 @@ object BuildImplementation {
   ) ++ buildPublishSettings
 
   import sbt.{CrossVersion, compilerPlugin}
+  final val metalsSettings: Seq[Def.Setting[_]] = Seq(
+    Keys.scalacOptions ++= {
+      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
+      else List("-Yrangepos")
+    },
+    Keys.libraryDependencies ++= {
+      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
+      else
+        List(
+          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
+        )
+    },
+  )
+
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Pgp.PgpKeys.pgpPublicRing := {
       if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
@@ -222,17 +261,6 @@ object BuildImplementation {
       Pgp.PgpKeys.publishSigned.value
     },
     Keys.scalacOptions := reasonableCompileOptions,
-    Keys.scalacOptions ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else List("-Yrangepos")
-    },
-    Keys.libraryDependencies ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else
-        List(
-          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
-        )
-    },
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
     Keys.publishArtifact in Test := false,
@@ -257,39 +285,6 @@ object BuildImplementation {
   final val jvmOptions = "-Xmx4g" :: "-Xms2g" :: Nil
 
   object BuildDefaults {
-    import java.io.File
-    import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
-
-    private def createScriptedSetup(testDir: File) = {
-      s"""
-         |bloopConfigDir in Global := file("$testDir/.bloop-config")
-         |TaskKey[Unit]("registerDirectory") := {
-         |  val dir = (baseDirectory in ThisBuild).value
-         |  IO.write(file("$testDir/.bloop-config/base-directory"), dir.getAbsolutePath)
-         |}
-         |TaskKey[Unit]("checkInstall") := {
-         |  Thread.sleep(1000) // Let's wait a little bit because of OS's IO latency
-         |  val mostRecentStamp = (bloopConfigDir.value ** "*.config").get.map(_.lastModified).min
-         |  (System.currentTimeMillis() - mostRecentStamp)
-         |  val diff = (System.currentTimeMillis() - mostRecentStamp) / 1000
-         |  if (diff <= 5 * 60) () // If it happened in the last 5 minutes, this is ok!
-         |  else sys.error("The sbt plugin didn't write any file")
-         |}
-    """.stripMargin
-    }
-
-    private val scriptedTestContents = {
-      """> show bloopConfigDir
-        |# Some projects need to compile to generate resources. We do it now so that the configuration
-        |# that we generate doesn't appear too old.
-        |> resources
-        |> registerDirectory
-        |> installBloop
-        |> checkInstall
-        |> copyContentOutOfScripted
-      """.stripMargin
-    }
-
     import sbt.librarymanagement.Artifact
     import ch.epfl.scala.sbt.maven.MavenPluginKeys
     val mavenPluginBuildSettings: Seq[Def.Setting[_]] = List(
@@ -314,29 +309,6 @@ object BuildImplementation {
       val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
       if (is013) "2.10.6" else orig
     }
-
-    private val NewLine = System.lineSeparator
-    import sbt.io.syntax.singleFileFinder
-    val scriptedSettings: Seq[Def.Setting[_]] = List(
-      ScriptedKeys.scriptedBufferLog := true,
-      ScriptedKeys.sbtTestDirectory := (Keys.baseDirectory in ThisBuild).value / "integration-tests",
-      BuildKeys.scriptedAddSbtBloop := {
-        val addSbtPlugin =
-          s"""addSbtPlugin("${Keys.organization.value}" % "${Keys.name.value}" % "${Keys.version.value}")$NewLine"""
-        val testPluginSrc = Keys.baseDirectory
-          .in(ThisBuild)
-          .value / "project" / "TestPlugin.scala"
-        val tests =
-          (ScriptedKeys.sbtTestDirectory.value / "integration-projects").*(AllPassFilter).get
-        tests.foreach { testDir =>
-          IO.copyFile(testPluginSrc, testDir / "project" / "TestPlugin.scala")
-          IO.createDirectory(testDir / ".bloop-config")
-          IO.write(testDir / "project" / "test-config.sbt", addSbtPlugin)
-          IO.write(testDir / "test-config.sbt", createScriptedSetup(testDir))
-          IO.write(testDir / "test", scriptedTestContents)
-        }
-      },
-    )
 
     // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
     val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
@@ -363,6 +335,35 @@ object BuildImplementation {
     def publishDocAndSourceArtifact(info: Option[GitDescribeOutput], version: String): Boolean = {
       val isStable = info.map(_.dirtySuffix.value.isEmpty)
       !isStable.map(stable => !stable || version.endsWith("-SNAPSHOT")).getOrElse(false)
+    }
+  }
+
+  import scala.sys.process.Process
+  val integrationSetUpBloop = Def.task {
+    import sbt.MessageOnlyException
+
+    val buildIndexFile = BuildKeys.buildIntegrationsIndex.value
+    val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
+    if (buildIndexFile.exists()) ()
+    else {
+      val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
+      val globalPluginsBase = buildIntegrationsBase / "global"
+      val globalSettingsBase = globalPluginsBase / "settings"
+      val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
+      val settingsProperty = s"-D${BuildPaths.GlobalSettingsProperty}=${globalSettingsBase}"
+      val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
+      val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
+      val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
+      val toRun = "installBloop" :: "buildIndex" :: Nil
+      val cmd = "sbt" :: (properties ++ toRun)
+
+      val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
+      if (exitGenerate013 != 0)
+        throw new MessageOnlyException("Filed to generate bloop config with sbt 0.13.")
+
+      val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
+      if (exitGenerate10 != 0)
+        throw new MessageOnlyException("Filed to generate bloop config with sbt 1.0.")
     }
   }
 }

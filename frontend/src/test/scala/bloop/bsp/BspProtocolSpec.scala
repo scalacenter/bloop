@@ -13,8 +13,8 @@ import ch.epfl.scala.bsp.endpoints
 import org.langmeta.lsp.LanguageClient
 
 class BspProtocolSpec {
-  private final val cwd = AbsolutePath(ProjectHelpers.getTestProjectDir("utest"))
-  private final val configDir = cwd.resolve("bloop-config")
+  private final val configDir = AbsolutePath(ProjectHelpers.getBloopConfigDir("utest"))
+  private final val cwd = configDir.getParent
   private final val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
