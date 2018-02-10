@@ -46,6 +46,8 @@ pipeline:
     image: scalacenter/scala-docs:1.0
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+    environment:
+      - RUN_COMMUNITY_BUILD=false
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
