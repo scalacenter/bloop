@@ -215,9 +215,8 @@ object BuildImplementation {
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
       val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
-      val sonatypeStaging = Resolver.sonatypeRepo("staging")
       val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
-      (oldResolvers :+ sonatypeStaging :+ scalametaResolver :+ scalacenterResolver).distinct
+      (oldResolvers :+ scalametaResolver :+ scalacenterResolver).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
       // Only tag releases go directly to Maven Central, the rest go to bintray!
