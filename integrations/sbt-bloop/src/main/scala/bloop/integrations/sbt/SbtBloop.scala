@@ -84,7 +84,7 @@ object PluginImplementation {
       val scalacOptions = Keys.scalacOptions.value
       val javacOptions = Keys.javacOptions.value
 
-      val (fork, javaHome, javaOptions) = javaConfiguration.value
+      val (javaHome, javaOptions) = javaConfiguration.value
 
       val tmp = Keys.target.value / "tmp-bloop"
       val bloopConfigDir = BloopKeys.bloopConfigDir.value
@@ -99,7 +99,7 @@ object PluginImplementation {
       // format: OFF
       val config = BloopConfig(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg,
         scalaName, scalaVersion, classpath, classesDir, scalacOptions, javacOptions, sourceDirs,
-        testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmp)
+        testFrameworks, javaHome, javaOptions, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
       logger.success(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
@@ -145,7 +145,7 @@ object PluginImplementation {
       }
     }
 
-    private type JavaConfiguration = (Boolean, File, Seq[String])
+    private type JavaConfiguration = (File, Seq[String])
 
     /**
      * Extract the information that we need to configure forking for run or test.
@@ -159,11 +159,10 @@ object PluginImplementation {
         else key.in(Keys.run)
 
       Def.task {
-        val fork = scoped(Keys.fork).value
         val javaHome = scoped(Keys.javaHome).value.getOrElse(defaultJavaHome)
         val javaOptions = scoped(Keys.javaOptions).value
 
-        (fork, javaHome, javaOptions)
+        (javaHome, javaOptions)
       }
     }
   }

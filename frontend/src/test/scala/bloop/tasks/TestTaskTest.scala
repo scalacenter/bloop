@@ -10,7 +10,7 @@ import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import bloop.Project
 import bloop.engine.State
-import bloop.exec.{JavaEnv, ProcessConfig}
+import bloop.exec.{JavaEnv, ForkProcess}
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.Tasks
@@ -57,23 +57,25 @@ class TestTaskTest(framework: String) {
     assertEquals(expectedName, withSuffix.get.name)
   }
 
-  private def processRunnerConfig(fork: Boolean): ProcessConfig = {
-    val javaEnv = JavaEnv.default(fork)
+  private val processRunnerConfig: ForkProcess = {
+    val javaEnv = JavaEnv.default
     val classpath = testProject.classpath
-    ProcessConfig(javaEnv, classpath)
+    ForkProcess(javaEnv, classpath)
   }
 
-  private def testLoader(processConfig: ProcessConfig): ClassLoader =
-    processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+  private def testLoader(fork: ForkProcess): ClassLoader = {
+    fork.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+  }
 
   private def frameworks(classLoader: ClassLoader): Array[Framework] = {
     testProject.testFrameworks.flatMap(n =>
       TestInternals.getFramework(classLoader, n.toList, testState.logger))
   }
 
-  private def runTestFramework(fork: Boolean): Unit = {
+  @Test
+  def canRunTestFramework: Unit = {
     testState.logger.quietIfSuccess { logger =>
-      val config = processRunnerConfig(fork)
+      val config = processRunnerConfig
       val classLoader = testLoader(config)
       val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader)).toList
       val tests = discovered.flatMap {
@@ -90,7 +92,7 @@ class TestTaskTest(framework: String) {
   @Test
   def testsAreDetected = {
     testState.logger.quietIfSuccess { logger =>
-      val config = processRunnerConfig(fork = false)
+      val config = processRunnerConfig
       val classLoader = testLoader(config)
       val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader))
       val testNames = discovered.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName()))
@@ -99,9 +101,4 @@ class TestTaskTest(framework: String) {
     }
   }
 
-  @Test
-  def testsCanRunInProcess = runTestFramework(fork = false)
-
-  @Test
-  def testsCanRunInForkedJVM = runTestFramework(fork = true)
 }

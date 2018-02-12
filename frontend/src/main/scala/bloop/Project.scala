@@ -39,7 +39,6 @@ case class Project(name: String,
     properties.setProperty("allScalaJars",
                            scalaInstance.allJars.map(_.getAbsolutePath).mkString(","))
     properties.setProperty("tmp", tmp.syntax)
-    properties.setProperty("fork", javaEnv.fork.toString)
     properties.setProperty("javaHome", javaEnv.javaHome.syntax)
     properties.setProperty("javaOptions", javaEnv.javaOptions.mkString(";"))
     properties
@@ -97,10 +96,9 @@ object Project {
       .map(toPath)
     val testFrameworks =
       properties.getProperty("testFrameworks").split(";").map(_.split(",").filterNot(_.isEmpty))
-    val fork = JBoolean.parseBoolean(properties.getProperty("fork"))
     val javaHome = toPath(properties.getProperty("javaHome"))
     val javaOptions = properties.getProperty("javaOptions").split(";").filterNot(_.isEmpty)
-    val javaEnv = JavaEnv(fork, javaHome, javaOptions)
+    val javaEnv = JavaEnv(javaHome, javaOptions)
     val tmp = AbsolutePath(NioPaths.get(properties.getProperty("tmp")))
     Project(
       name,

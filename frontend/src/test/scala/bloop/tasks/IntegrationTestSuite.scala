@@ -47,7 +47,7 @@ class IntegrationTestSuite(testDirectory: Path) {
         val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"$rootProjectName"))
         val classesDir = AbsolutePath(testDirectory)
         val previousProjects = state0.build.projects
-        val javaEnv = JavaEnv.default(fork = false)
+        val javaEnv = JavaEnv.default
 
         val rootProject = Project(
           name = rootProjectName,

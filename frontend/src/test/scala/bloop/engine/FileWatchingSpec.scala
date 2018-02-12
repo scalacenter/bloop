@@ -97,7 +97,7 @@ class FileWatchingSpec {
 
     val dependencies = Map(RootProject -> Set("parent0", "parent1"))
     val instance = CompilationHelpers.scalaInstance
-    val javaEnv = JavaEnv.default(fork = false)
+    val javaEnv = JavaEnv.default
     withState(structures, dependencies, scalaInstance = instance, javaEnv = javaEnv) {
       (state: State) =>
         testFileWatcher(state, RootProject)(workerAction, testAction)

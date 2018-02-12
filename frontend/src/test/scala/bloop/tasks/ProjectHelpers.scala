@@ -27,7 +27,7 @@ object ProjectHelpers {
       dependencies: Map[String, Set[String]],
       rootProjectName: String = RootProject,
       scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
-      javaEnv: JavaEnv = JavaEnv.default(fork = false),
+      javaEnv: JavaEnv = JavaEnv.default,
       quiet: Boolean = false,
       failure: Boolean = false)(afterCompile: State => Unit = (_ => ())) = {
     withState(structures, dependencies, scalaInstance = scalaInstance, javaEnv = javaEnv) {
@@ -84,16 +84,15 @@ object ProjectHelpers {
    * Compile the given sources and then run `cmd`. Log messages are then given to `check`.
    *
    * @param sources The sources to compile.
-   * @param fork    Whether the jave env should be forking.
    * @param cmd     The command to execute after compiling.
    * @param check   A function that'll receive the resulting log messages.
    */
-  def runAndCheck(sources: Seq[String], fork: Boolean, cmd: Commands.CompilingCommand)(
+  def runAndCheck(sources: Seq[String], cmd: Commands.CompilingCommand)(
       check: List[(String, String)] => Unit): Unit = {
     val noDependencies = Map.empty[String, Set[String]]
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
     val projectsStructure = Map(cmd.project -> namedSources)
-    val javaEnv = JavaEnv.default(fork)
+    val javaEnv = JavaEnv.default
     checkAfterCleanCompilation(projectsStructure,
                                noDependencies,
                                rootProjectName = cmd.project,

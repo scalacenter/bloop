@@ -75,14 +75,13 @@ object MojoImplementation {
       val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toList
       val allScalaJars = mojo.getAllScalaJars()
       val tmpDir = new File(classesDir, "tmp-bloop")
-      val fork = mojo.getExecutionFork()
       val javaOptions = launcher.getJvmArgs()
       val javaHome = mojo.getJavaHome()
 
       // FORMAT: OFF
       val config = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
         mojo.getScalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
-        mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmpDir
+        mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, javaHome, javaOptions, allScalaJars, tmpDir
       )
       // FORMAT: ON
 

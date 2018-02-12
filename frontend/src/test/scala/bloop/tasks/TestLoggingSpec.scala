@@ -11,12 +11,12 @@ import bloop.logging.RecordingLogger
 class TestLoggingSpec {
 
   @Test
-  def concurrentInProcessTestRunsHaveDifferentStreams = {
+  def concurrentTestRunsHaveDifferentStreams = {
     val projectName = "with-tests"
     val moduleName = "with-tests-test"
     val state = {
       val state = ProjectHelpers.loadTestProject(projectName)
-      val inProcessEnv = JavaEnv.default(fork = false)
+      val inProcessEnv = JavaEnv.default
       val build = state.build
       val beforeCompilation = state.copy(
         build = build.copy(projects = build.projects.map(_.copy(javaEnv = inProcessEnv))))
@@ -27,7 +27,10 @@ class TestLoggingSpec {
     val testAction = Run(Commands.Test(moduleName))
     def mkThread(state: State) = {
       new Thread {
-        override def run(): Unit = Interpreter.execute(testAction, state)
+        override def run(): Unit = {
+          Interpreter.execute(testAction, state)
+          ()
+        }
       }
     }
 

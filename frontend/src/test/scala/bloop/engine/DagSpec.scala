@@ -14,7 +14,7 @@ class DagSpec {
     private val logger = new RecordingLogger
     private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array(), logger)
     private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
-    private val javaEnv = JavaEnv.default(fork = false)
+    private val javaEnv = JavaEnv.default
 
     // format: OFF
     def dummyProject(name: String, dependencies: List[String]): Project =

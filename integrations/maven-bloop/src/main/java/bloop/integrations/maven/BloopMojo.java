@@ -59,10 +59,6 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         return bloopConfigDir;
     }
 
-    public boolean getExecutionFork() {
-        return bloopExecutionFork;
-    }
-
     public String getScalaArtifactID() {
         return scalaArtifactID;
     }
