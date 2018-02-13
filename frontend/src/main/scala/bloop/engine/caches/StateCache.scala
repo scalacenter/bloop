@@ -36,7 +36,13 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @return The state associated with `from`, or the newly computed state.
    */
   def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => State): State = {
-    cache.computeIfAbsent(from, p => computeBuild(p))
+    val state = cache.computeIfAbsent(from, p => computeBuild(p))
+    if (!state.build.changed) state
+    else {
+      val updatedState = computeBuild(from)
+      val _ = cache.put(from, updatedState)
+      updatedState
+    }
   }
 
   /** All the states contained in this cache. */

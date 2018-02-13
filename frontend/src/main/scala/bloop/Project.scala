@@ -51,10 +51,21 @@ case class Project(name: String,
 }
 
 object Project {
+
+  /** The pattern used to find configuration files */
+  final val loadPattern: String = "glob:**.config"
+
+  /**
+   * Load all the projects from `config`.
+   *
+   * @param config The base directory from which to load the projects.
+   * @param logger The logger that collects messages about project loading.
+   * @return The list of loaded projects.
+   */
   def fromDir(config: AbsolutePath, logger: Logger): List[Project] = {
     timed(logger) {
       // TODO: We're not handling projects with duplicated names here.
-      val configFiles = Paths.getAll(config, "glob:**.config")
+      val configFiles = Paths.getAll(config, loadPattern)
       logger.debug(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
       configFiles.par.map(configFile => fromFile(configFile, logger)).toList
     }
