@@ -1,5 +1,6 @@
 package bloop.reporter
 
+import bloop.io.AbsolutePath
 import bloop.logging.Logger
 
 /**
@@ -11,8 +12,8 @@ trait ConfigurableReporter {
   /** Where to log the message */
   def logger: Logger
 
-  /** The base directory of this reporter. */
-  def base: String
+  /** The current working directory of the user who started compilation. */
+  def cwd: AbsolutePath
 
   /** The configuration for this reporter. */
   def config: ReporterConfig

@@ -1,5 +1,6 @@
 package bloop.reporter
 
+import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import xsbti.{Position, Severity}
 
@@ -9,12 +10,12 @@ import xsbti.{Position, Severity}
  * etc.
  *
  * @param logger The logger that will receive the output of the reporter.
- * @param base   The base prefix to remove from paths.
+ * @param cwd    The current working directory of the user who started compilation.
  * @param sourcePositionMapper A function that transforms positions.
  * @param config The configuration for this reporter.
  */
 final class Reporter(val logger: Logger,
-                     val base: String,
+                     val cwd: AbsolutePath,
                      sourcePositionMapper: Position => Position,
                      val config: ReporterConfig)
     extends xsbti.Reporter
