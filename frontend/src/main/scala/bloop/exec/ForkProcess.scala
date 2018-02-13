@@ -2,6 +2,7 @@ package bloop.exec
 
 import java.io.File.{separator, pathSeparator}
 import java.lang.ClassLoader
+import java.nio.file.Files
 import java.net.URLClassLoader
 import java.util.concurrent.ConcurrentHashMap
 
@@ -35,13 +36,15 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
   /**
    * Run the main function in class `className`, passing it `args`.
    *
+   * @param cwd            The directory in which to start the forked JVM.
    * @param className      The fully qualified name of the class to run.
    * @param args           The arguments to pass to the main method.
    * @param logger         Where to log the messages from execution.
    * @param extraClasspath Paths to append to the classpath before running.
    * @return 0 if the execution exited successfully, a non-zero number otherwise.
    */
-  def runMain(className: String,
+  def runMain(cwd: AbsolutePath,
+              className: String,
               args: Array[String],
               logger: Logger,
               extraClasspath: Array[AbsolutePath] = Array.empty): Int = {
@@ -57,15 +60,22 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
     logger.debug(s"  javaOptions = '${javaEnv.javaOptions.mkString(" ")}'")
     logger.debug(s"  classpath   = '${fullClasspath.map(_.syntax).mkString(pathSeparator)}'")
     logger.debug(s"  command     = '${cmd.mkString(" ")}'")
+    logger.debug(s"  cwd         = '$cwd'")
 
-    val processBuilder = new ProcessBuilder(cmd: _*)
-    val process = processBuilder.start()
-    val processLogger = new ProcessLogger(logger, process)
-    processLogger.start()
-    val exitCode = process.waitFor()
-    logger.debug(s"Forked JVM exited with code: $exitCode")
+    if (!Files.exists(cwd.underlying)) {
+      logger.error(s"Couldn't start the forked JVM because '$cwd' doesn't exist.")
+      ForkProcess.EXIT_ERROR
+    } else {
+      val processBuilder = new ProcessBuilder(cmd: _*)
+      processBuilder.directory(cwd.toFile)
+      val process = processBuilder.start()
+      val processLogger = new ProcessLogger(logger, process)
+      processLogger.start()
+      val exitCode = process.waitFor()
+      logger.debug(s"Forked JVM exited with code: $exitCode")
 
-    exitCode
+      exitCode
+    }
   }
 }
 

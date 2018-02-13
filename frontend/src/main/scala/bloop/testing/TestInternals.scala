@@ -69,12 +69,14 @@ object TestInternals {
   /**
    * Execute the test tasks in a forked JVM.
    *
+   * @param cwd             The directory in which to start the forked JVM.
    * @param fork            Configuration for the forked JVM.
    * @param discoveredTests The tests that were discovered.
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    */
-  def executeTasks(fork: ForkProcess,
+  def executeTasks(cwd: AbsolutePath,
+                   fork: ForkProcess,
                    discoveredTests: DiscoveredTests,
                    eventHandler: EventHandler,
                    logger: Logger): Unit = {
@@ -89,7 +91,7 @@ object TestInternals {
     logger.debug("Test agent jars: " + testAgentFiles.mkString(", "))
 
     val exitCode = server.whileRunning {
-      fork.runMain(forkMain, arguments, logger, testAgentJars)
+      fork.runMain(cwd, forkMain, arguments, logger, testAgentJars)
     }
 
     if (exitCode != 0) logger.error(s"Forked execution terminated with non-zero code: $exitCode")

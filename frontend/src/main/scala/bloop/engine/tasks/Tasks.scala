@@ -5,6 +5,7 @@ import java.util.Optional
 import bloop.cli.ExitStatus
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
+import bloop.io.AbsolutePath
 import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
@@ -169,6 +170,7 @@ object Tasks {
    *
    * @param state The current state of Bloop.
    * @param project The project for which to run the tests.
+   * @param cwd      The directory in which to start the forked JVM.
    * @param isolated Do not run the tests for the dependencies of `project`.
    * @param testFilter A function from a fully qualified class name to a Boolean, indicating whether
    *                   a test must be included.
@@ -176,6 +178,7 @@ object Tasks {
    */
   def test(state: State,
            project: Project,
+           cwd: AbsolutePath,
            isolated: Boolean,
            testFilter: String => Boolean): Task[State] = Task {
     // TODO(jvican): This method should cache the test loader always.
@@ -216,7 +219,7 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
-      TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
+      TestInternals.executeTasks(cwd, processConfig, discoveredTests, eventHandler, logger)
     }
 
     // Return the previous state, test execution doesn't modify it.
@@ -228,13 +231,18 @@ object Tasks {
    *
    * @param state     The current state of Bloop.
    * @param project   The project to run.
+   * @param cwd       The directory in which to start the forked JVM.
    * @param fqn       The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    */
-  def run(state: State, project: Project, fqn: String, args: Array[String]): Task[State] = Task {
+  def run(state: State,
+          project: Project,
+          cwd: AbsolutePath,
+          fqn: String,
+          args: Array[String]): Task[State] = Task {
     val classpath = project.classpath
     val processConfig = ForkProcess(project.javaEnv, classpath)
-    val exitCode = processConfig.runMain(fqn, args, state.logger)
+    val exitCode = processConfig.runMain(cwd, fqn, args, state.logger)
     val exitStatus = {
       if (exitCode == ForkProcess.EXIT_OK) ExitStatus.Ok
       else ExitStatus.UnexpectedError

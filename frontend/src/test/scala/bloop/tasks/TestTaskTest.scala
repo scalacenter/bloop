@@ -11,6 +11,7 @@ import org.junit.runners.Parameterized.Parameters
 import bloop.Project
 import bloop.engine.State
 import bloop.exec.{JavaEnv, ForkProcess}
+import bloop.io.AbsolutePath
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.Tasks
@@ -74,18 +75,21 @@ class TestTaskTest(framework: String) {
 
   @Test
   def canRunTestFramework: Unit = {
-    testState.logger.quietIfSuccess { logger =>
-      val config = processRunnerConfig
-      val classLoader = testLoader(config)
-      val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader)).toList
-      val tests = discovered.flatMap {
-        case (framework, taskDefs) =>
-          val testName = s"${framework}Test"
-          val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
-          Seq(framework -> filteredDefs)
-      }.toMap
-      val discoveredTests = DiscoveredTests(classLoader, tests)
-      TestInternals.executeTasks(config, discoveredTests, Tasks.eventHandler, logger)
+    ProjectHelpers.withTemporaryDirectory { tmp =>
+      testState.logger.quietIfSuccess { logger =>
+        val cwd = AbsolutePath(tmp)
+        val config = processRunnerConfig
+        val classLoader = testLoader(config)
+        val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader)).toList
+        val tests = discovered.flatMap {
+          case (framework, taskDefs) =>
+            val testName = s"${framework}Test"
+            val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
+            Seq(framework -> filteredDefs)
+        }.toMap
+        val discoveredTests = DiscoveredTests(classLoader, tests)
+        TestInternals.executeTasks(cwd, config, discoveredTests, Tasks.eventHandler, logger)
+      }
     }
   }
 
