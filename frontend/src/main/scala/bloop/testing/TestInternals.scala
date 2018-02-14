@@ -1,5 +1,7 @@
 package bloop.testing
 
+import java.util.regex.Pattern
+
 import bloop.DependencyResolution
 import bloop.exec.{Fork, InProcess, JavaEnv, MultiplexedStreams, ProcessConfig}
 import bloop.io.AbsolutePath
@@ -35,6 +37,37 @@ object TestInternals {
     val filter = new IncludePackagesFilter(
       Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing.", "org.xml.sax."))
     new FilteredLoader(getClass.getClassLoader, filter)
+  }
+
+  /**
+   * Parses `filters` to produce a filtering function for the tests.
+   * Only the tests accepted by this filter will be run.
+   *
+   * `*` is interpreter as wildcard. Each filter can start with `-`, in which case it means
+   * that it is an exclusion filter.
+   *
+   * @param filters A list of strings, representing inclusion or exclusion patterns
+   * @return A function that determines whether a test should be run given its FQCN.
+   */
+  def parseFilters(filters: List[String]): String => Boolean = {
+    val (exclusionFilters, inclusionFilters) = filters.partition(_.startsWith("-"))
+    val inc = inclusionFilters.map(toPattern)
+    val exc = exclusionFilters.map(f => toPattern(f.tail))
+
+    (inc, exc) match {
+      case (Nil, Nil) =>
+        _ =>
+          true
+      case (inc, Nil) =>
+        s =>
+          inc.exists(_.matcher(s).matches)
+      case (Nil, exc) =>
+        s =>
+          !exc.exists(_.matcher(s).matches)
+      case (inc, exc) =>
+        s =>
+          inc.exists(_.matcher(s).matches) && !exc.exists(_.matcher(s).matches)
+    }
   }
 
   /**
@@ -212,6 +245,22 @@ object TestInternals {
         logger.trace(ex)
         None
     }
+  }
+
+  /**
+   * Converts the input string to a compiled `Pattern`.
+   *
+   * The string is split at `*` (representing wildcards).
+   *
+   * @param filter The input filter
+   * @return The compiled pattern matching the input filter.
+   */
+  private def toPattern(filter: String): Pattern = {
+    val parts = filter.split("\\*", -1).map { // Don't discard trailing empty string, if any.
+      case "" => ""
+      case str => Pattern.quote(str)
+    }
+    Pattern.compile(parts.mkString(".*"))
   }
 
 }

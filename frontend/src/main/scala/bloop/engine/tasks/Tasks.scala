@@ -170,9 +170,14 @@ object Tasks {
    * @param state The current state of Bloop.
    * @param project The project for which to run the tests.
    * @param isolated Do not run the tests for the dependencies of `project`.
+   * @param testFilter A function from a fully qualified class name to a Boolean, indicating whether
+   *                   a test must be included.
    * @return The new state of Bloop.
    */
-  def test(state: State, project: Project, isolated: Boolean): Task[State] = Task {
+  def test(state: State,
+           project: Project,
+           isolated: Boolean,
+           testFilter: String => Boolean): Task[State] = Task {
     // TODO(jvican): This method should cache the test loader always.
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
@@ -192,15 +197,25 @@ object Tasks {
 
       val discoveredTests = {
         val tests = discoverTests(analysis, frameworks)
-        DiscoveredTests(testLoader, tests)
+        val ungroupedTests = tests.toList.flatMap {
+          case (framework, tasks) => tasks.map(t => (framework, t))
+        }
+        val (includedTests, excludedTests) = ungroupedTests.partition {
+          case (framework, task) => testFilter(task.fullyQualifiedName)
+        }
+
+        if (logger.isVerbose) {
+          val allNames = ungroupedTests.map(_._2.fullyQualifiedName).mkString(", ")
+          val includedNames = includedTests.map(_._2.fullyQualifiedName).mkString(", ")
+          val excludedNames = excludedTests.map(_._2.fullyQualifiedName).mkString(", ")
+          logger.debug(s"Bloop found the following tests for $projectName: $allNames")
+          logger.debug(s"The following tests were included by the filter: $includedNames")
+          logger.debug(s"The following tests were excluded by the filter: $excludedNames")
+        }
+
+        DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
-      if (logger.isVerbose) {
-        val allTestNames: List[String] =
-          filtered.tests.valuesIterator
-            .flatMap(defs => defs.map(_.fullyQualifiedName()))
-            .toList
-        logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
-      }
+
       TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
     }
 
