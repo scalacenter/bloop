@@ -194,11 +194,13 @@ object Tasks {
         val tests = discoverTests(analysis, frameworks)
         DiscoveredTests(testLoader, tests)
       }
-      val allTestNames: List[String] =
-        discoveredTests.tests.valuesIterator
-          .flatMap(defs => defs.map(_.fullyQualifiedName()))
-          .toList
-      logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
+      if (logger.isVerbose) {
+        val allTestNames: List[String] =
+          filtered.tests.valuesIterator
+            .flatMap(defs => defs.map(_.fullyQualifiedName()))
+            .toList
+        logger.debug(s"Bloop found the following tests for ${projectName}: $allTestNames.")
+      }
       TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
     }
 
