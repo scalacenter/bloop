@@ -104,6 +104,6 @@ object State {
       val projects = Project.fromDir(configDir, logger)
       val build: Build = Build(configDir, projects)
       State(build, opts, logger)
-    })
+    }).copy(logger = logger)
   }
 }
