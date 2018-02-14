@@ -25,4 +25,6 @@ class RecordingLogger extends AbstractLogger {
       trace(cause)
     }
   }
+
+  override def isVerbose: Boolean = true
 }
