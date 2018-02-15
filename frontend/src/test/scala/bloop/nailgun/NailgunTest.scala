@@ -2,7 +2,7 @@ package bloop.nailgun
 
 import org.junit.Assert.{assertEquals, assertNotEquals}
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path, Paths}
 
 import bloop.Server
 import bloop.exec.MultiplexedStreams
@@ -76,6 +76,9 @@ abstract class NailgunTest {
   class Client(port: Int, log: Logger, base: Path) {
 
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
+
+    assert(Files.exists(base), s"Base directory doesn't exist: '$base'.")
+    assert(Files.exists(Paths.get(clientPath)), s"Couldn't find Nailgun client at '$clientPath'.")
 
     private def processBuilder(cmd: Seq[String]): ProcessBuilder = {
       new ProcessBuilder((clientPath +: s"--nailgun-port=$port" +: cmd): _*)
