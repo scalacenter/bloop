@@ -1,4 +1,0 @@
--Xms1g
--Xmx3g
--XX:MaxInlineLevel=20
--XX:ReservedCodeCacheSize=256m
