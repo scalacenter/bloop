@@ -155,12 +155,12 @@ object Cli {
     val cliOptions = action match {
       case r: Run => r.command.cliOptions
       case e: Exit => CliOptions.default
-      case p: Print => CliOptions.default
+      case p: Print => CliOptions.default.copy(common = p.commonOptions)
     }
 
-    val common = cliOptions.common
+    val commonOpts = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
-    val logger = BloopLogger.at(configDirectory.syntax, common.out, common.err)
+    val logger = BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err)
     val state = State.loadActiveStateFor(configDirectory, cliOptions.common, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))

@@ -12,7 +12,7 @@ class BasicNailgunSpec extends NailgunTest {
   def unknownCommandTest(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       val command = "thatcommanddoesntexist"
-      client.fail("thatcommanddoesntexist")
+      client.fail(command)
       val messages = logger.getMessages()
       assertTrue(s"Error was not reported in $messages",
                  messages.contains(("info", s"Command not found: $command")))
