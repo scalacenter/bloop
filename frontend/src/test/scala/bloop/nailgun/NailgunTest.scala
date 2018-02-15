@@ -6,7 +6,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import bloop.Server
 import bloop.exec.MultiplexedStreams
-import bloop.logging.{Logger, ProcessLogger, RecordingLogger}
+import bloop.logging.{ProcessLogger, RecordingLogger}
 import bloop.tasks.ProjectHelpers
 
 /**
@@ -25,7 +25,7 @@ abstract class NailgunTest {
    * @param op   A function that will receive the instantiated Client.
    * @return The result of executing `op` on the client.
    */
-  def withServer[T](log: Logger, base: Path)(op: Client => T): T = {
+  def withServer[T](log: RecordingLogger, base: Path)(op: Client => T): T = {
     val serverThread =
       new Thread {
         override def run(): Unit = {
@@ -73,7 +73,7 @@ abstract class NailgunTest {
    * @param port The port on which the client should communicate with the server.
    * @param base The base directory from which the client is running.
    */
-  class Client(port: Int, log: Logger, base: Path) {
+  class Client(port: Int, log: RecordingLogger, base: Path) {
 
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
 
@@ -105,7 +105,11 @@ abstract class NailgunTest {
      * @param cmd The command to run.
      */
     def success(cmd: String*): Unit = {
-      assertEquals(0, issue(cmd: _*).toLong)
+      val failMessage: String =
+        s"""Success expected, but command failed. Log were:
+           |${log.getMessages.mkString("\n")}
+           |""".stripMargin
+      assertEquals(failMessage, 0, issue(cmd: _*).toLong)
     }
 
     /**
@@ -114,7 +118,11 @@ abstract class NailgunTest {
      * @param cmd The command to run.
      */
     def fail(cmd: String*): Unit = {
-      assertNotEquals(0, issue(cmd: _*).toLong)
+      val failMessage: String =
+        s"""Failure expected, but command succeeded. Log were:
+           |${log.getMessages.mkString("\n")}
+           |""".stripMargin
+      assertNotEquals(failMessage, 0, issue(cmd: _*).toLong)
     }
 
   }
