@@ -64,7 +64,7 @@ abstract class NailgunTest {
    * @return The result of executing `op` on the logger and client.
    */
   def withServerInProject[T](name: String)(op: (RecordingLogger, Client) => T): T = {
-    withServerIn(ProjectHelpers.getTestProjectDir(name))(op)
+    withServerIn(ProjectHelpers.getBloopConfigDir(name).getParent)(op)
   }
 
   /**
