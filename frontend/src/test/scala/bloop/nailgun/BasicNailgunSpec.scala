@@ -77,4 +77,14 @@ class BasicNailgunSpec extends NailgunTest {
     }
   }
 
+  @Test
+  def runCommandTest(): Unit = {
+    withServerInProject("with-resources") { (logger, client) =>
+      client.success("run", "-p", "with-resources")
+      val messages = logger.getMessages()
+      val needle = ("info", "OK")
+      assertTrue(s"${messages.mkString("\n")} didn't contain '$needle'", messages.contains(needle))
+    }
+  }
+
 }
