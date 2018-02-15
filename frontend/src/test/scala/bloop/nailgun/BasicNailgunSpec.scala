@@ -14,7 +14,7 @@ class BasicNailgunSpec extends NailgunTest {
       val command = "thatcommanddoesntexist"
       client.fail("thatcommanddoesntexist")
       val messages = logger.getMessages()
-      assertTrue("Error was not reported in $messages",
+      assertTrue(s"Error was not reported in $messages",
                  messages.contains(("info", s"Command not found: $command")))
     }
   }
