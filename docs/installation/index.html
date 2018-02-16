@@ -6,15 +6,14 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> Docs </title>
+  <title> Installation </title>
 
   
+  <meta name="description" content="How to install Bloop on your machine"> 
   
   
   
   
-  
-  <meta name="robots" content="noindex">
   
 
   
@@ -22,14 +21,17 @@
   <meta name="author" content="Scala Center">
 
 
-  <meta property="og:title" content="Docs" />
-<meta property="og:description" content="" />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://scalacenter.github.com/bloop/docs/" />
+  <meta property="og:title" content="Installation" />
+<meta property="og:description" content="How to install Bloop on your machine" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://scalacenter.github.com/bloop/docs/installation/" />
 
 
 
-<meta property="og:updated_time" content="2018-02-08T16:35:00&#43;01:00"/>
+<meta property="article:published_time" content="2018-02-08T16:35:00&#43;01:00"/>
+
+<meta property="article:modified_time" content="2018-02-08T16:35:00&#43;01:00"/>
+
 
 
 
@@ -50,9 +52,8 @@
   
   
   
-  <link href="https://scalacenter.github.com/bloop/docs/index.xml" rel="alternate" type="application/rss+xml" title="Bloop" /> 
 
-  <link rel="canonical" href="https://scalacenter.github.com/bloop/docs/">  
+  <link rel="canonical" href="https://scalacenter.github.com/bloop/docs/installation/">  
 
   
 <link rel="shortcut icon" type="image/png" href="data:image/png;base64,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">
@@ -92,7 +93,7 @@
       <ul>
        
        
-    <li><a href="/bloop/docs/"  class="active">Docs</a></li>
+    <li><a href="/bloop/docs/" >Docs</a></li>
     
     <li><a href="/bloop/faq/" >Faq</a></li>
     
@@ -106,61 +107,122 @@
   </div>
  </header>
   <main>
-<div id="main">
-  <div id="hero">
-    <h1>Documentation</h1>
-  </div>
-  <div id="components">
-    <div class="row gutters">
-      
-      <div class="col col-4 item">
-        <h4><a href="https://scalacenter.github.com/bloop/docs/installation/">Installation</a></h4>
-        <p>How to install Bloop on your machine</p>
-      </div>
-      
-      <div class="col col-4 item">
-        <h4><a href="https://scalacenter.github.com/bloop/docs/understanding-bloop/">Understanding Bloop</a></h4>
-        <p>Understand how Bloop works and how to integrate it in your workflow</p>
-      </div>
-      
-      <div class="col col-4 item">
-        <h4><a href="https://scalacenter.github.com/bloop/docs/getting-started-maven/">Getting started with Bloop and Maven</a></h4>
-        <p>The first steps in using Bloop along with Maven</p>
-      </div>
-      
-      <div class="col col-4 item">
-        <h4><a href="https://scalacenter.github.com/bloop/docs/getting-started-sbt/">Getting started with Bloop and sbt</a></h4>
-        <p>The first steps in using Bloop along with sbt</p>
-      </div>
-      
-      <div class="col col-4 item">
-        <h4><a href="https://scalacenter.github.com/bloop/docs/commands-reference/">Commands reference</a></h4>
-        <p>An explanation of all the commands that Bloop provides</p>
-      </div>
-      
+  <div id="main">
+    <div id="hero">
+      <h1> Installation </h1>
+      <p class="hero-lead">
+           Here are all the instructions to install Bloop.
+      </p>
 
+    </div> 
+    <div id="kube-component" class="content">
+    
+<nav id="contents">
+    <ol class="js-toc">
+    </ol>
+</nav>
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded",
+function(){
+tocbot.init({
+
+tocSelector: '.js-toc',
+
+contentSelector: '.content',
+
+headingSelector: 'h3'
+})
+}
+);
+</script>
+
+
+
+    
+
+<h3 id="instructions-for-mac-os">Instructions for Mac OS</h3>
+
+<p>Installing Bloop with <a href="https://brew.sh">Homebrew</a> is the easiest and fastest way to install Bloop on
+Mac OS.</p>
+
+<p>We publish an updated formula along with every release of Bloop. You can install it using:</p>
+
+<pre><code class="language-sh">$ brew install scalacenter/bloop/bloop
+</code></pre>
+
+<p>The formula will also take care of installing a property list (<code>plist</code>) that will take care of
+starting the Bloop server when you log onto your machine. This way, you don&rsquo;t have to think about
+starting it yourself.</p>
+
+<p>If you don&rsquo;t want the Bloop server to start automatically, you can disable it:</p>
+
+<pre><code class="language-sh">$ launchctl disable bloop
+</code></pre>
+
+<p>If you want to have it start automatically again, type:</p>
+
+<pre><code class="language-sh">$ launchctl enable bloop
+</code></pre>
+
+<p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
+
+<h3 id="instructions-for-other-platforms">Instructions for other platforms</h3>
+
+<p>We do not publish native packages for other platforms at the moment, but you can use our
+Python installation script to install Bloop on your machine. The installation script has been
+reported to work on major Linux distributions, Mac OS and Windows.</p>
+
+<p>The installation script can be downloaded from <a href="https://github.com/scalacenter/bloop
+/releases">the Releases of Bloop</a>.
+Run it to install Bloop in your current working directory:</p>
+
+<pre><code class="language-sh">$ ./install.py
+</code></pre>
+
+<p>You can then move the generated binaries somewhere else on your disk. Optionally, you can also pass
+a destination where the installation script should put the binaries:</p>
+
+<pre><code class="language-sh">$ ./install.py --dest ~/bin/bloop
+</code></pre>
+
+<p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
+
+<h3 id="installing-a-development-version">Installing a development version</h3>
+
+<p>The installation script can also be used to install a development version of Bloop. The <a href="https://github.com/scalacenter/bloop
+">installation
+script</a> can be downloaded directly from our repository.</p>
+
+<p>This installation script requires more information to install Bloop:</p>
+
+<ul>
+<li>The exact version to install. We publish artifacts for every commit on <code>master</code>. Look at the CI
+logs to figure out the exact version number.</li>
+<li>The SHA of the commit to use to get the Nailgun client. Look at which commit points our <code>nailgun</code>
+submodule at a given point in time to find that information.</li>
+</ul>
+
+<p>Pass this information to the installation script:</p>
+
+<pre><code class="language-sh">$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
+</code></pre>
+
+<h3 id="next-steps">Next steps</h3>
+
+<p>Once bloop has been successfully installed on your machine, you can move to build-tool specific part
+of the installation:</p>
+
+<ul>
+<li><a href="https://scalacenter.github.com/bloop/docs/getting-started-sbt/">Getting started with sbt</a></li>
+<li><a href="https://scalacenter.github.com/bloop/docs/getting-started-maven/">Getting started with Maven</a></li>
+</ul>
+
+
+    
     </div>
-  </div>
-</div>
+    </div>
 </main>
-  <footer>   <footer id="footer">
-    <nav>
-      <ul>
-        <li><span>Bloop</span></li>
-        <li>
-          <a href="/company/">Scala Center</a>
-        </li>
-
-          <li>
-          <a href="/docs/">Docs</a>
-        </li>
-        <li>
-          <a href="https://twitter.com/scala_lang">Give us a shout-out on Twitter!</a>
-        </li>
-      </ul>
-    </nav>
-    <p>&copy; Licence Apache2.</p>
-  </footer> </footer>
+  <footer></footer>
 
 
   <script src="/bloop/js/kube.js" type="text/javascript">
