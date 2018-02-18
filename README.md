@@ -38,9 +38,10 @@ $ cd bloop
 $ sbt
 > install
 > frontend/version # copy this version number
-> cd nailgun
-> git rev-parse HEAD # copy this commit SHA
-> cd ..
+> exit
+$ cd nailgun
+$ git rev-parse HEAD # copy this commit SHA
+$ cd ..
 # paste the version number and SHA obtained above in the following command:
 $ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
 ```
