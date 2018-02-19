@@ -49,6 +49,6 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
         logger.error("Unexpected error happened when file watching.")
         logger.trace(t)
         result.mergeStatus(ExitStatus.UnexpectedError)
-    }
+    } finally watcher.close()
   }
 }
