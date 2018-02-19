@@ -106,7 +106,7 @@ abstract class NailgunTest {
      */
     def success(cmd: String*): Unit = {
       val failMessage: String =
-        s"""Success expected, but command failed. Log were:
+        s"""Success expected, but command failed. Logs were:
            |${log.getMessages.mkString("\n")}
            |""".stripMargin
       assertEquals(failMessage, 0, issue(cmd: _*).toLong)
@@ -119,7 +119,7 @@ abstract class NailgunTest {
      */
     def fail(cmd: String*): Unit = {
       val failMessage: String =
-        s"""Failure expected, but command succeeded. Log were:
+        s"""Failure expected, but command succeeded. Logs were:
            |${log.getMessages.mkString("\n")}
            |""".stripMargin
       assertNotEquals(failMessage, 0, issue(cmd: _*).toLong)
