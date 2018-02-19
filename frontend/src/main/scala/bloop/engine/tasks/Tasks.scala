@@ -49,7 +49,8 @@ object Tasks {
       val target = project.tmp
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
-      val reporter = new Reporter(logger, project.baseDirectory.syntax, identity, config)
+      val cwd = state.build.origin.getParent
+      val reporter = new Reporter(logger, cwd, identity, config)
       // FORMAT: OFF
       CompileInputs(instance, compilerCache, sourceDirs, classpath, classesDir, target, scalacOptions, javacOptions, result, reporter, logger)
       // FORMAT: ON
