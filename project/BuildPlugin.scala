@@ -10,6 +10,7 @@ import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, 
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
+import sbt.util.FileFunction
 import sbtdynver.GitDescribeOutput
 
 object BuildPlugin extends AutoPlugin {
@@ -360,29 +361,37 @@ object BuildImplementation {
   val integrationSetUpBloop = Def.task {
     import sbt.MessageOnlyException
 
+    val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
     val buildIndexFile = BuildKeys.buildIntegrationsIndex.value
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
-    if (buildIndexFile.exists()) ()
-    else {
-      val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
-      val globalPluginsBase = buildIntegrationsBase / "global"
-      val globalSettingsBase = globalPluginsBase / "settings"
-      val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
-      val settingsProperty = s"-D${BuildPaths.GlobalSettingsProperty}=${globalSettingsBase}"
-      val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
-      val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
-      val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
-      val toRun = "installBloop" :: "buildIndex" :: Nil
-      val cmd = "sbt" :: (properties ++ toRun)
+    val cacheDirectory = file(stagingBase) / "integrations-cache"
 
-      val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
-      if (exitGenerate013 != 0)
-        throw new MessageOnlyException("Filed to generate bloop config with sbt 0.13.")
+    val buildFiles = Set(buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
+                         buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala")
 
-      val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
-      if (exitGenerate10 != 0)
-        throw new MessageOnlyException("Filed to generate bloop config with sbt 1.0.")
-    }
+    val cachedGenerate =
+      FileFunction.cached(cacheDirectory) { builds =>
+        val globalPluginsBase = buildIntegrationsBase / "global"
+        val globalSettingsBase = globalPluginsBase / "settings"
+        val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
+        val settingsProperty = s"-D${BuildPaths.GlobalSettingsProperty}=${globalSettingsBase}"
+        val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
+        val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
+        val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
+        val toRun = "installBloop" :: "buildIndex" :: Nil
+        val cmd = "sbt" :: (properties ++ toRun)
+
+        val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
+        if (exitGenerate013 != 0)
+          throw new MessageOnlyException("Filed to generate bloop config with sbt 0.13.")
+
+        val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
+        if (exitGenerate10 != 0)
+          throw new MessageOnlyException("Filed to generate bloop config with sbt 1.0.")
+
+        builds
+      }
+    cachedGenerate(buildFiles)
   }
 }
 
