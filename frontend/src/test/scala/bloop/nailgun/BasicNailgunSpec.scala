@@ -101,4 +101,21 @@ class BasicNailgunSpec extends NailgunTest {
 
   }
 
+  @Test
+  def cleanCommandTest(): Unit = {
+    withServerInProject("with-resources") { (logger, client) =>
+      client.success("clean", "-p", "with-resources")
+      client.success("compile", "-p", "with-resources")
+      client.success("clean", "-p", "with-resources")
+      client.success("compile", "-p", "with-resources")
+      val messages = logger.getMessages()
+      val needle = "Compiling"
+      val matches = messages.count {
+        case ("info", msg) => msg.contains(needle)
+        case _ => false
+      }
+      assertEquals(s"${messages.mkString("\n")} should contain twice '$needle'", 2, matches.toLong)
+    }
+  }
+
 }
