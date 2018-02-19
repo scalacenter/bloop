@@ -1,7 +1,7 @@
 val SbtSbt = RootProject(
   uri("git://github.com/scalacenter/sbt.git#c84db3a3969e269aeed0e9d9f2f384a0b029b82c"))
 val GuardianFrontend = RootProject(
-  uri("git://github.com/guardian/frontend.git#c6611d93635133a8a0282c4ffc8d304effdca374"))
+  uri("git://github.com/scalacenter/frontend.git#fd8da1929d8a3bd39ca6027ffba6c0850e036ce3"))
 val MiniBetterFiles = RootProject(
   uri(
     "git://github.com/scalacenter/mini-better-files.git#0ed848993a2fd5a36e4366b5efb9c68dce958fc2"))
