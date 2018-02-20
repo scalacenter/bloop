@@ -173,7 +173,7 @@ object BuildKeys {
     Keys.sourceDirectory in HugoKeys.Hugo := Keys.baseDirectory.value,
     Keys.includeFilter in HugoKeys.Hugo := (Keys.includeFilter in SiteKeys.makeSite).value || GlobFilter(
       "*.svg"),
-    HugoKeys.baseURL in HugoKeys.Hugo := sbt.uri("https://scalacenter.github.com/bloop"),
+    HugoKeys.baseURL in HugoKeys.Hugo := sbt.uri("https://scalacenter.github.io/bloop"),
     GitKeys.gitRemoteRepo := "git@github.com:scalacenter/bloop.git",
     GhpagesKeys.ghpagesNoJekyll := true
   )
