@@ -370,7 +370,7 @@ object BuildImplementation {
                          buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala")
 
     val cachedGenerate =
-      FileFunction.cached(cacheDirectory) { builds =>
+      FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { builds =>
         val globalPluginsBase = buildIntegrationsBase / "global"
         val globalSettingsBase = globalPluginsBase / "settings"
         val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
