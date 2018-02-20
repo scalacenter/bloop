@@ -38,7 +38,7 @@ class IntegrationTestSuite(testDirectory: Path) {
 
   def compileProject0: Unit = {
     val state0 = ProjectHelpers.loadTestProject(testDirectory, integrationTestName)
-    val (state, projectToCompile) = getModuleToCompile(testDirectory) match {
+    val (initialState, projectToCompile) = getModuleToCompile(testDirectory) match {
       case Some(projectName) =>
         (state0, state0.build.getProjectFor(projectName).get)
 
@@ -70,7 +70,11 @@ class IntegrationTestSuite(testDirectory: Path) {
         (state, rootProject)
     }
 
-    val reachable = Dag.dfs(state.build.getDagFor(projectToCompile)).filter(_ != projectToCompile)
+    val reachable =
+      Dag.dfs(initialState.build.getDagFor(projectToCompile)).filter(_ != projectToCompile)
+    val cleanAction = Run(Commands.Clean(reachable.map(_.name)), Exit(ExitStatus.Ok))
+    val state = Interpreter.execute(cleanAction, initialState)
+
     reachable.foreach(removeClassFiles)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` is already compiled.",
