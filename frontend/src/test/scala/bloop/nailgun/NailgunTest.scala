@@ -4,8 +4,10 @@ import java.io.{File, PrintStream}
 
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import java.nio.file.{Files, Path, Paths}
+import java.util.Locale
 
 import bloop.Server
+import bloop.bsp.BspServer
 import bloop.logging.{ProcessLogger, RecordingLogger}
 import bloop.tasks.ProjectHelpers
 import com.martiansoftware.nailgun.NGServer
@@ -103,7 +105,10 @@ abstract class NailgunTest {
     assert(Files.exists(Paths.get(clientPath)), s"Couldn't find Nailgun client at '$clientPath'.")
 
     private def processBuilder(cmd: Seq[String]): ProcessBuilder = {
-      new ProcessBuilder((clientPath +: s"--nailgun-port=$port" +: cmd): _*)
+      val cmdBase =
+        if (BspServer.isWindows) "python" :: clientPath.toString :: Nil
+        else clientPath.toString :: Nil
+      new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
         .directory(base.toFile)
     }
 
