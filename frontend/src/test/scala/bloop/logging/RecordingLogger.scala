@@ -7,7 +7,10 @@ class RecordingLogger extends AbstractLogger {
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
 
   def clear(): Unit = messages.clear()
-  def getMessages(): List[(String, String)] = messages.iterator.asScala.toList
+  def getMessages(): List[(String, String)] = messages.iterator.asScala.toList.map {
+    // Remove trailing '\r' so that we don't have to special case for Windows
+    case (category, msg) => (category, msg.stripSuffix("\r"))
+  }
 
   override val name: String = "RecordingLogger"
   override val ansiCodesSupported: Boolean = true
