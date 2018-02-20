@@ -56,17 +56,13 @@ object TestInternals {
 
     (inc, exc) match {
       case (Nil, Nil) =>
-        _ =>
-          true
+        (_ => true)
       case (inc, Nil) =>
-        s =>
-          inc.exists(_.matcher(s).matches)
+        (s => inc.exists(_.matcher(s).matches))
       case (Nil, exc) =>
-        s =>
-          !exc.exists(_.matcher(s).matches)
+        (s => !exc.exists(_.matcher(s).matches))
       case (inc, exc) =>
-        s =>
-          inc.exists(_.matcher(s).matches) && !exc.exists(_.matcher(s).matches)
+        (s => inc.exists(_.matcher(s).matches) && !exc.exists(_.matcher(s).matches))
     }
   }
 
