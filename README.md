@@ -27,10 +27,16 @@ on a daily basis if you start using the tool.
 
 ## Installation
 
+Please refer to [the installation
+instructions](https://scalacenter.github.io/bloop/docs/installation/).
+
+## Documentation
+
+Documentation is available [on our website](https://scalacenter.github.io/bloop/docs/).
+
 ### Building Bloop locally
 
-Bloop is not released yet. To publish bloop locally, you'll need to clone this repository and use
-sbt:
+To publish bloop locally, you'll need to clone this repository and use sbt:
 
 ```sh
 $ git clone --recursive https://github.com/scalacenter/bloop.git
@@ -43,127 +49,6 @@ $ git rev-parse HEAD # copy this commit SHA
 $ cd ..
 # paste the version number and SHA obtained above in the following command:
 $ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
-```
-
-The script will create the executables `~/.bloop/blp-server`, `~/.bloop/blp-shell`
-and  `~/.bloop/bloop`:
-
- - `blp-server` is the Bloop server
- - `bloop` is the Bloop client
- - `blp-shell` is a shell that you can use while the Nailgun integration is experimental
-
-We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
-the next versions of Bloop: don't rely on it.
-
-To be able to start the Bloop server and client without specifying the full path to the commands,
-we suggest that you add the following to your shell configuration:
-
-```sh
-export PATH="$PATH:~/.bloop"
-```
-
-The next sections assume that you've added that line to your profile, and reloaded your shell.
-
-### Installing a released version of Bloop
-
-**Bloop hasn't been released yet, so these instructions won't work!**
-
-#### On Mac OS
-
-##### With Homebrew
-The easiest solution is to install Bloop using Homebrew:
-
-```sh
-$ brew install scalacenter/bloop/bloop
-```
-
-Homebrew can take care of starting Bloop automatically when you log into your machine. This is
-optional, but we recommend it:
-
-```sh
-$ brew services start bloop
-```
-
-##### Manually
-You can also use our installation script to install Bloop:
-
-```sh
-$ curl https://raw.githubusercontent.com/scalacenter/bloop/no-tag-yet/bin/install.py | python2
-```
-
-The script will create the executables `~/.bloop/blp-server`, `~/.bloop/BLOOP_SHELL_CMD#`
-and  `~/.bloop/bloop`:
-
- - `blp-server` is the Bloop server
- - `bloop` is the Bloop client
- - `blp-shell` is a shell that you can use while the Nailgun integration is experimental
-
-We describe how to use Bloop with the experimental Nailgun integration. The shell will be removed in
-the next versions of Bloop: don't rely on it.
-
-To be able to start the Bloop server and client without specifying the full path to the commands,
-we suggest that you add the following to your shell configuration:
-
-```sh
-export PATH="$PATH:~/.bloop"
-```
-
-The next sections assume that you've added that line to your profile, and reloaded your shell.
-
-## How to use
-
-### Generate the configuration files
-
-First, we'll need to generate Bloop's configuration files for your project. To
-do this, add the following sbt plugin in `project/plugins.sbt` in your project:
-(While Bloop isn't released, you'll need to replace `no-tag-yet` with the version you
-copy-pasted earlier)
-
-```scala
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "no-tag-yet")
-```
-
-You can then use sbt to generate the configuration:
-
-```sh
-$ sbt installBloop
-```
-
-### Start the server
-
-If you have installed Bloop using Homebrew, you can start the server with:
-
-```sh
-$ brew services start bloop
-```
-
-Otherwise, you can start it with:
-
-```sh
-$ blp-server &
-```
-
-Note that you only need to start the server once on your machine, and you can use it with as many
-projects as you want, simultaneously.
-
-### Command examples
-
-```
-$ bloop projects # show the projects that are loaded
-$ bloop compile -p my-project # compile my-project
-$ bloop test -p my-project-test # run the tests on my-project
-$ bloop exit # shuts the compilation server down
-```
-
-## Command reference
-
-```sh
-$ bloop --help
-Usage: bloop [options] [command] [command-options]
-
-
-Available commands: about, clean, compile, help, projects, test
-Type `bloop 'command' --help` for help on an individual command
 ```
 
 ## Tab-completion
