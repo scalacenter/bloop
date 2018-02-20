@@ -45,7 +45,7 @@ pipeline:
       - /drone/.sbt
 
   build:
-    image: scalacenter/scala-docs:1.0
+    image: scalacenter/scala-docs:1.1
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     commands:
@@ -57,7 +57,7 @@ pipeline:
       - ./bin/ci-clean-cache.sh
 
   publish:
-    image: scalacenter/scala-docs:1.0
+    image: scalacenter/scala-docs:1.1
     secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass, bloopoid_private_key ]
     volumes:
       - /scalacenter:/keys
@@ -76,7 +76,7 @@ pipeline:
       - ./bin/ci-clean-cache.sh
 
   release:
-    image: scalacenter/scala-docs:1.0
+    image: scalacenter/scala-docs:1.1
     secrets: [ bloopoid_github_token ]
     volumes:
       - /scalacenter:/keys

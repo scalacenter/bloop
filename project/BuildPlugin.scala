@@ -72,6 +72,7 @@ object BuildKeys {
   val buildIntegrationsIndex =
     Def.taskKey[File]("A csv index with complete information about our integrations.")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
+  val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
 
   // This has to be change every time the bloop config files format changes.
@@ -80,6 +81,7 @@ object BuildKeys {
   val testSettings: Seq[Def.Setting[_]] = List(
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(Dependencies.junit % Test),
+    nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py",
   )
 
   val integrationTestSettings: Seq[Def.Setting[_]] = List(
@@ -119,7 +121,8 @@ object BuildKeys {
       Keys.version,
       Keys.scalaVersion,
       Keys.sbtVersion,
-      buildIntegrationsIndex
+      buildIntegrationsIndex,
+      nailgunClientLocation
     )
     commonKeys ++ List(zincKey, developersKey)
   }
