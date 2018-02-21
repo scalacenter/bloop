@@ -373,7 +373,7 @@ object BuildImplementation {
                          buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala")
 
     val cachedGenerate =
-      FileFunction.cached(cacheDirectory) { builds =>
+      FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { builds =>
         val globalPluginsBase = buildIntegrationsBase / "global"
         val globalSettingsBase = globalPluginsBase / "settings"
         val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
@@ -384,15 +384,17 @@ object BuildImplementation {
         val toRun = "installBloop" :: "buildIndex" :: Nil
         val cmd = "sbt" :: (properties ++ toRun)
 
+        IO.delete(buildIndexFile)
+
         val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
         if (exitGenerate013 != 0)
-          throw new MessageOnlyException("Filed to generate bloop config with sbt 0.13.")
+          throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13.")
 
         val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
         if (exitGenerate10 != 0)
-          throw new MessageOnlyException("Filed to generate bloop config with sbt 1.0.")
+          throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0.")
 
-        builds
+        Set(buildIndexFile)
       }
     cachedGenerate(buildFiles)
   }
