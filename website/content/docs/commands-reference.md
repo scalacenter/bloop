@@ -235,7 +235,7 @@ This command is used to start the <abbr title="Build Server Protocol">BSP</abbr>
 The following options are supported:
 
 <dl>
-  <dt><code>--h</code> or <code>--protocol</code></dt>
+  <dt><code>--p</code> or <code>--protocol</code></dt>
   <dd>
     <p>
       The connection protocol that the server should use. Defaults to <code>local</code>.
@@ -249,7 +249,7 @@ The following options are supported:
     <p><em>example:</em> <samp>bloop bsp --protocol tcp</samp></p>
   </dd>
 
-  <dt><code>--p</code> or <code>--host</code></dt>
+  <dt><code>--h</code> or <code>--host</code></dt>
   <dd>
     <p>
       The hostname of the server.
