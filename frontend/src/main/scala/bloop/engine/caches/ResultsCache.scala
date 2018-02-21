@@ -10,8 +10,10 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def getResult(project: Project): PreviousResult = cache.getOrElse(project, EmptyResult)
-  def updateCache(project: Project, previousResult: PreviousResult): ResultsCache =
+  def addResult(project: Project, previousResult: PreviousResult): ResultsCache =
     new ResultsCache(cache + (project -> previousResult), logger)
+  def addResults(ps: List[(Project, PreviousResult)]): ResultsCache =
+    new ResultsCache(cache ++ ps, logger)
   def iterator: Iterator[(Project, PreviousResult)] = cache.iterator
   def reset(projects: List[Project]): ResultsCache =
     new ResultsCache(cache ++ projects.map(p => p -> EmptyResult).toMap, logger)
@@ -38,7 +40,7 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
     }
 
     if (cache.contains(project)) this
-    else updateCache(project, fetchPreviousResult(project))
+    else addResult(project, fetchPreviousResult(project))
   }
 
   override def toString: String = s"ResultsCache(${cache.mkString(", ")})"

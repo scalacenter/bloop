@@ -69,7 +69,6 @@ main() {
     done
 
     BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark"
-                      "$BLOOP_SMALL_JMH_OPTIONS bloop.engine.tasks.TaskBenchmark"
                       "$BLOOP_SMALL_JMH_OPTIONS bloop.logging.BloopLoggerBenchmark")
     for benchmark in "${BLOOP_BENCHMARKS[@]}"
     do

@@ -34,6 +34,7 @@ val backend = project
       Dependencies.log4jCore,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent,
+      Dependencies.monix,
       Dependencies.directoryWatcher
     )
   )
