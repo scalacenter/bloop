@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="website/static/img//logo.svg" alt="logo" width="30%">
+  <img src="https://github.com/scalacenter/bloop/raw/master/website/static/img/logo.svg?sanitize=true" alt="logo" width="30%">
 </p>
 
 <p align="center">
