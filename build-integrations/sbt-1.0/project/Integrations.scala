@@ -11,6 +11,6 @@ object Integrations {
   val WithResources = RootProject(
     uri("git://github.com/scalacenter/with-resources.git#7529b2c3ac455cbb1889d4791c4e0d4957e29306"))
   val WithTests = RootProject(
-    uri("git://github.com/scalacenter/with-tests.git#7a0c7f7d38efd53ca9ec3a347df3638932bd619e"))
+    uri("git://github.com/scalacenter/with-tests.git#a8169f081240627e3adb1651d1680f1df46ecd39"))
 
 }
