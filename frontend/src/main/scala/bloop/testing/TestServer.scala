@@ -5,6 +5,7 @@ import java.net.{ServerSocket, SocketException}
 
 import scala.util.control.NonFatal
 
+import bloop.integrations.Argument
 import bloop.logging.Logger
 
 import sbt.{ForkConfiguration, ForkMain, ForkTags}
@@ -22,7 +23,10 @@ import sbt.testing.{
  * A server that communicates with the test agent in a forked JVM to run the tests.
  * Heavily inspired from sbt's `ForkTests.scala`.
  */
-class TestServer(logger: Logger, eventHandler: EventHandler, discoveredTests: DiscoveredTests) {
+class TestServer(logger: Logger,
+                 eventHandler: EventHandler,
+                 discoveredTests: DiscoveredTests,
+                 testArguments: Array[Argument]) {
 
   private val server = new ServerSocket(0)
   private val listener = new Thread(() => run())
@@ -81,7 +85,9 @@ class TestServer(logger: Logger, eventHandler: EventHandler, discoveredTests: Di
 
       os.writeInt(frameworks.size)
       frameworks.foreach { framework =>
-        val runner = TestInternals.getRunner(framework, testLoader)
+        val frameworkClass = framework.getClass
+        val frameworkArguments = testArguments.filter(_.matches(frameworkClass))
+        val runner = TestInternals.getRunner(framework, frameworkArguments, testLoader)
         os.writeObject(Array(framework.getClass.getCanonicalName))
         os.writeObject(runner.args)
         os.writeObject(runner.remoteArgs)

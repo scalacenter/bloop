@@ -5,6 +5,7 @@ import java.nio.file.{Files, Paths => NioPaths}
 import java.util.Properties
 
 import bloop.exec.JavaEnv
+import bloop.integrations.{Serializable, TestOption}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
@@ -19,6 +20,7 @@ case class Project(name: String,
                    javacOptions: Array[String],
                    sourceDirectories: Array[AbsolutePath],
                    testFrameworks: Array[Array[String]],
+                   testOptions: Array[TestOption],
                    javaEnv: JavaEnv,
                    tmp: AbsolutePath,
                    bloopConfigDir: AbsolutePath) {
@@ -97,6 +99,8 @@ object Project {
       .map(toPath)
     val testFrameworks =
       properties.getProperty("testFrameworks").split(";").map(_.split(",").filterNot(_.isEmpty))
+    val testOptions =
+      Serializable.deserialize[Array[TestOption]](properties.getProperty("testOptions").toIterator)
     val fork = JBoolean.parseBoolean(properties.getProperty("fork"))
     val javaHome = toPath(properties.getProperty("javaHome"))
     val javaOptions = properties.getProperty("javaOptions").split(";").filterNot(_.isEmpty)
@@ -113,6 +117,7 @@ object Project {
       javacOptions,
       sourceDirectories,
       testFrameworks,
+      testOptions,
       javaEnv,
       tmp,
       config

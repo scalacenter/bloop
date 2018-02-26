@@ -4,6 +4,7 @@ import java.util.regex.Pattern
 
 import bloop.DependencyResolution
 import bloop.exec.{Fork, InProcess, JavaEnv, MultiplexedStreams, ProcessConfig}
+import bloop.integrations.Argument
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import sbt.testing.{
@@ -71,16 +72,19 @@ object TestInternals {
    *
    * @param processConfig   Configures whether tests should be run in a forked JVM or in process.
    * @param discoveredTests The tests that were discovered.
+   * @param testArguments   The arguments to pass to the test frameworks
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    */
   def executeTasks(processConfig: ProcessConfig,
                    discoveredTests: DiscoveredTests,
+                   testArguments: Array[Argument],
                    eventHandler: EventHandler,
                    logger: Logger): Unit = {
     processConfig match {
-      case inProcess: InProcess => executeTasks(inProcess, discoveredTests, eventHandler, logger)
-      case fork: Fork => executeTasks(fork, discoveredTests, eventHandler, logger)
+      case inProcess: InProcess =>
+        executeTasks(inProcess, discoveredTests, testArguments, eventHandler, logger)
+      case fork: Fork => executeTasks(fork, discoveredTests, testArguments, eventHandler, logger)
     }
   }
 
@@ -89,17 +93,19 @@ object TestInternals {
    *
    * @param fork            Configuration for the forked JVM.
    * @param discoveredTests The tests that were discovered.
+   * @param testArguments   The arguments to pass to the test frameworks
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    */
   private def executeTasks(fork: Fork,
                            discoveredTests: DiscoveredTests,
+                           testArguments: Array[Argument],
                            eventHandler: EventHandler,
                            logger: Logger): Unit = {
     logger.debug("Starting forked test execution.")
 
     val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
-    val server = new TestServer(logger, eventHandler, discoveredTests)
+    val server = new TestServer(logger, eventHandler, discoveredTests, testArguments)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentFiles = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
@@ -118,11 +124,13 @@ object TestInternals {
    *
    * @param inProcess       The process configuration to run the tests
    * @param discoveredTests The tests that were discovered
+   * @param testArguments   The arguments to pass to the test frameworks
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    */
   private def executeTasks(inProcess: InProcess,
                            discoveredTests: DiscoveredTests,
+                           testArguments: Array[Argument],
                            eventHandler: EventHandler,
                            logger: Logger): Unit = {
     @tailrec def loop(tasks: List[TestTask]): Unit = {
@@ -139,7 +147,9 @@ object TestInternals {
     MultiplexedStreams.withLoggerAsStreams(logger) {
       discoveredTests.tests.iterator.foreach {
         case (framework, taskDefs) =>
-          val runner = getRunner(framework, discoveredTests.classLoader)
+          val frameworkClass = framework.getClass
+          val frameworkArguments = testArguments.filter(_.matches(frameworkClass))
+          val runner = getRunner(framework, frameworkArguments, discoveredTests.classLoader)
           val tasks = runner.tasks(taskDefs.toArray).toList
           loop(tasks)
           val summary = runner.done()
@@ -182,8 +192,11 @@ object TestInternals {
       defined(annotatedPrints, d.annotations, d.isModule)
   }
 
-  def getRunner(framework: Framework, testClassLoader: ClassLoader) = {
-    framework.runner(Array.empty, Array.empty, testClassLoader)
+  def getRunner(framework: Framework,
+                frameworkArguments: Array[Argument],
+                testClassLoader: ClassLoader) = {
+    val arguments = frameworkArguments.flatMap(_.args)
+    framework.runner(arguments, Array.empty, testClassLoader)
   }
 
   /**

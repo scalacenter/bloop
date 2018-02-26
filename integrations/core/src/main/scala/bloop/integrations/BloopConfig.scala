@@ -15,6 +15,7 @@ case class BloopConfig(
     javacOptions: Seq[String],
     sourceDirectories: Seq[File],
     testFrameworks: Seq[Seq[String]],
+    testOptions: Array[TestOption],
     fork: Boolean,
     javaHome: File,
     javaOptions: Seq[String],
@@ -38,6 +39,7 @@ case class BloopConfig(
     properties.setProperty("sourceDirectories", seqToString(toPaths(sourceDirectories)))
     properties.setProperty("testFrameworks",
                            seqToString(testFrameworks.map(seqToString(_)), sep = ";"))
+    properties.setProperty("testOptions", Serializable.serialize(testOptions))
     properties.setProperty("fork", fork.toString)
     properties.setProperty("javaHome", javaHome.getAbsolutePath)
     properties.setProperty("javaOptions", seqToString(javaOptions, ";"))

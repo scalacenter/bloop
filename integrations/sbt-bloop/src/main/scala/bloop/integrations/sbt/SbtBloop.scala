@@ -1,6 +1,6 @@
 package bloop.integrations.sbt
 
-import bloop.integrations.BloopConfig
+import bloop.integrations.{BloopConfig, Serializable, TestOption}
 import sbt.{AutoPlugin, Compile, Configuration, Def, File, Keys, ScopeFilter, Test, ThisBuild}
 
 object SbtBloop extends AutoPlugin {
@@ -81,6 +81,7 @@ object PluginImplementation {
       val classesDir = Keys.classDirectory.value.getAbsoluteFile
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
+      val testOptions = toTestOptions(Keys.testOptions.value).toArray
       val scalacOptions = Keys.scalacOptions.value
       val javacOptions = Keys.javacOptions.value
 
@@ -99,7 +100,7 @@ object PluginImplementation {
       // format: OFF
       val config = BloopConfig(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg,
         scalaName, scalaVersion, classpath, classesDir, scalacOptions, javacOptions, sourceDirs,
-        testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmp)
+        testFrameworks, testOptions, fork, javaHome, javaOptions, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
       logger.success(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
@@ -167,4 +168,14 @@ object PluginImplementation {
       }
     }
   }
+
+  import bloop.integrations.{Argument, Exclude, TestFramework}
+  private def toTestOptions(in: Seq[sbt.TestOption]): Seq[TestOption] = in.collect {
+    case sbt.Tests.Argument(framework, args) =>
+      val testFramework = framework.map(f => new TestFramework(f.implClassNames.toArray))
+      Argument(testFramework, args.toArray)
+    case sbt.Tests.Exclude(tests) =>
+      Exclude(tests.toArray)
+  }
+
 }

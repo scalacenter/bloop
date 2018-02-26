@@ -63,6 +63,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           sourceDirectories = Array.empty,
           tmp = classesDir,
           testFrameworks = Array.empty,
+          testOptions = Array.empty,
           javaEnv = javaEnv,
           bloopConfigDir = classesDir
         )

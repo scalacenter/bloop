@@ -171,6 +171,7 @@ object ProjectHelpers {
       javacOptions = Array.empty,
       sourceDirectories = sourceDirectories,
       testFrameworks = Array.empty,
+      testOptions = Array.empty,
       javaEnv = javaEnv,
       tmp = AbsolutePath(tempDir),
       bloopConfigDir = AbsolutePath(baseDirectory) // This means nothing in tests
