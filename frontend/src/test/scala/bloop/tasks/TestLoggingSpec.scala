@@ -50,8 +50,15 @@ class TestLoggingSpec {
     val needle = ("info", "message")
     val messages0 = l0.getMessages()
     val messages1 = l1.getMessages()
-    assertEquals(10, messages0.count(_ == needle).toLong)
-    assertEquals(10, messages1.count(_ == needle).toLong)
+    val logs = s"""The logs were:
+                  |------------------------
+                  |l0:
+                  |${messages0.mkString(System.lineSeparator)}
+                  |------------------------
+                  |l1:
+                  |${messages1.mkString(System.lineSeparator)}""".stripMargin
+    assertEquals(logs, 10, messages0.count(_ == needle).toLong)
+    assertEquals(logs, 10, messages1.count(_ == needle).toLong)
   }
 
 }
