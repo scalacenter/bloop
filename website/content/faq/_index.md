@@ -1,15 +1,15 @@
 +++
 draft= false
 title = "FAQ"
-description = "Asked and answered"
+description = "Frequent Answered Questions for Bloop"
 +++
 
 ## What is Bloop?
 
-Bloop is a command line tool that aims at accelerating edit-compile-test workflows for Scala
-developers. Bloop doesn't replace your build tool. Instead, Bloop takes care of the tasks that you
-execute the most, performs them fast, and lets your usual build tool do the rest (such as dependency
-resolution, publishing, etc.)
+Bloop is a command line tool to speed up edit, compile and test workflows for
+Scala developers. Instead of replacing your build tool, Bloop integrates with
+it to ensure that core tasks (like compiling and testing) have the shortest
+execution time.
 
 [Read the announcement on 
 scala-lang.org](https://www.scala-lang.org/blog/2017/11/30/bloop-release.html).
