@@ -9,7 +9,11 @@ import ch.epfl.`scala`.bsp.schema._
 import monix.{eval => me}
 import ch.epfl.scala.bsp.endpoints
 import com.typesafe.scalalogging.Logger
-import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import org.langmeta.jsonrpc.{
+  JsonRpcClient,
+  Response => JsonRpcResponse,
+  Services => JsonRpcServices
+}
 import org.langmeta.lsp.Window
 
 class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
@@ -26,6 +30,7 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
   private final val bspForwarderLogger = new bloop.logging.AbstractLogger() {
     override def name: String = s"bsp-logger-${BloopBspServices.counter.incrementAndGet()}"
     override def verbose[T](op: => T): T = callSiteState.logger.verbose(op)
+    override def isVerbose: Boolean = callSiteState.logger.isVerbose
     override def ansiCodesSupported(): Boolean = true
 
     override def debug(msg: String): Unit = {

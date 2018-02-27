@@ -7,6 +7,7 @@ import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
+import bloop.testing.TestInternals
 import bloop.engine.tasks.Tasks
 import bloop.Project
 import monix.eval.Task
@@ -159,9 +160,10 @@ object Interpreter {
     Tasks.pickTestProject(cmd.project, state) match {
       case Some(project) =>
         def doTest(state: State): Task[State] = {
+          val testFilter = TestInternals.parseFilters(cmd.filter)
           for {
             compiled <- Tasks.compile(state, project, reporterConfig, excludeRoot = false)
-            result <- Tasks.test(compiled, project, cmd.isolated)
+            result <- Tasks.test(compiled, project, cmd.isolated, testFilter)
           } yield result
         }
         if (cmd.watch) watch(project, state, doTest _)

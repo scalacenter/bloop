@@ -12,7 +12,7 @@ import java.util.UUID
 import scala.collection.mutable
 
 import org.junit.Test
-import org.junit.Assert.assertEquals
+import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
@@ -136,6 +136,27 @@ class BloopLoggerSpec {
     assertEquals(1, msgs1.length.toLong)
     assertEquals("info0", msgs0.head)
     assertEquals("info1", msgs1.head)
+  }
+
+  @Test
+  def isVerbose: Unit = {
+    val expectedMessage = "this-is-logged"
+    runAndCheck { logger =>
+      logger.debug("this-is-not-logged")
+      assertFalse("The logger shouldn't report being in verbose mode.", logger.isVerbose)
+
+      logger.verbose {
+        logger.debug(expectedMessage)
+        assertTrue("The logger should report being in verbose mode.", logger.isVerbose)
+      }
+    } { (outMsgs, errMsgs) =>
+      assertTrue("Nothing should have been logged to stdout.", outMsgs.isEmpty)
+      assertEquals(1, errMsgs.length.toLong)
+      assertTrue("Logged message should have debug level.", isDebug(errMsgs(0)))
+      assertTrue(s"Logged message should contain '$expectedMessage'",
+                 errMsgs(0).contains(expectedMessage))
+    }
+
   }
 
   private def isWarn(msg: String): Boolean = msg.contains("[W]")

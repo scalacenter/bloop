@@ -21,5 +21,6 @@ class BufferedLogger(underlying: Logger) extends AbstractLogger {
   override def trace(exception: Throwable) = buffer.addLast(() => underlying.trace(exception))
   override def info(msg: String) = buffer.addLast(() => underlying.info(msg))
   override def verbose[T](op: => T) = op
+  override def isVerbose: Boolean = true
 
 }

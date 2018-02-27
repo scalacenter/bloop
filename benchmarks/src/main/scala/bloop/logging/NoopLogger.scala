@@ -10,4 +10,5 @@ object NoopLogger extends AbstractLogger {
   override def trace(exception: Throwable): Unit = ()
   override def info(msg: String): Unit = ()
   override def verbose[T](op: => T): T = op
+  override def isVerbose: Boolean = true
 }

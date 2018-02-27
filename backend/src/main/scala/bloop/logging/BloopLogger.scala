@@ -42,6 +42,8 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
     finally BloopLogger.switchFilters(errAppender, newFilter, previousFilter)
   }
 
+  override def isVerbose: Boolean = errAppender.getFilter eq BloopLogger.verboseErrFilter
+
   private[this] def initialize(): Unit = BloopLogger.synchronized {
     removeAllAppenders()
 

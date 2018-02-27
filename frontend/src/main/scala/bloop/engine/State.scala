@@ -101,10 +101,12 @@ object State {
   import bloop.Project
   import bloop.io.AbsolutePath
   def loadActiveStateFor(configDir: AbsolutePath, opts: CommonOptions, logger: Logger): State = {
-    State.stateCache.addIfMissing(configDir, path => {
-      val projects = Project.fromDir(configDir, logger)
-      val build: Build = Build(configDir, projects)
-      State(build, opts, logger)
-    }).copy(logger = logger)
+    State.stateCache
+      .addIfMissing(configDir, path => {
+        val projects = Project.fromDir(configDir, logger)
+        val build: Build = Build(configDir, projects)
+        State(build, opts, logger)
+      })
+      .copy(logger = logger)
   }
 }

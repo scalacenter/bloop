@@ -6,4 +6,7 @@ trait Logger extends xsbti.Logger with sbt.testing.Logger {
   def quietIfSuccess[T](op: BufferedLogger => T): T
   def verboseIf[T](cond: Boolean)(op: => T): T
   def verbose[T](op: => T): T
+
+  /** Is this logger in verbose mode? */
+  def isVerbose: Boolean
 }
