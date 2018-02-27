@@ -21,9 +21,7 @@ object IntegrationTestSuite {
 
   @Parameters
   def data() = {
-    println(projects.toList.map(_.toList))
-    //Arrays.asList(projects: _*)
-    Arrays.asList(Array(Paths.get("/data/rw/code/scala/loop/integration-tests/integration-projects/sbt")))
+    Arrays.asList(projects: _*)
   }
 }
 
