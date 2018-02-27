@@ -18,8 +18,11 @@ class TestLoggingSpec {
       val state = ProjectHelpers.loadTestProject(projectName)
       val inProcessEnv = JavaEnv.default(fork = false)
       val build = state.build
+      // Force projects to run in-process and remove all test options (otherwise, `WritingTest` that
+      // we use here will be excluded).
       val beforeCompilation = state.copy(
-        build = build.copy(projects = build.projects.map(_.copy(javaEnv = inProcessEnv))))
+        build = build.copy(
+          projects = build.projects.map(_.copy(javaEnv = inProcessEnv, testOptions = Array.empty))))
       val action = Run(Commands.Compile(moduleName))
       Interpreter.execute(action, beforeCompilation)
     }
