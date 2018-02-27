@@ -71,3 +71,4 @@ Closing and reopening your shell should make bloop tab-completions available.
 [installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
 [zsh-completions]: https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop
 [bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
+

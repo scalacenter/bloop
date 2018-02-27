@@ -52,7 +52,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
       - ./bin/add-coursier.sh
-      - ./bin/detect-community-build.sh
+      - ./bin/detect-community-build.sh && export RUN_COMMUNITY_BUILD=true
       - ${SBT_RUN}
       - ./bin/ci-clean-cache.sh
 
