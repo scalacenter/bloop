@@ -5,6 +5,7 @@ import java.util.Optional
 import bloop.cli.ExitStatus
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ProcessConfig
+import bloop.integrations.{Argument, Exclude}
 import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
@@ -185,10 +186,12 @@ object Tasks {
     val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
     projectsToTest.foreach { project =>
       val projectName = project.name
+      val options = project.testOptions
+      val arguments = options.collect { case arg: Argument => arg }
       val processConfig = ProcessConfig(project.javaEnv, project.classpath)
       val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
-      val frameworks = project.testFrameworks
-        .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
+      val frameworks = project.testFrameworks.flatMap(fname =>
+        TestInternals.getFramework(testLoader, fname.toList, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
       val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
@@ -197,11 +200,17 @@ object Tasks {
 
       val discoveredTests = {
         val tests = discoverTests(analysis, frameworks)
+        val excludedTestsOptions = options.flatMap {
+          case Exclude(tests) => tests
+          case _ => Seq.empty
+        }.toSet
         val ungroupedTests = tests.toList.flatMap {
           case (framework, tasks) => tasks.map(t => (framework, t))
         }
         val (includedTests, excludedTests) = ungroupedTests.partition {
-          case (framework, task) => testFilter(task.fullyQualifiedName)
+          case (_, task) =>
+            val fqcn = task.fullyQualifiedName
+            !excludedTestsOptions(fqcn) && testFilter(task.fullyQualifiedName)
         }
 
         if (logger.isVerbose) {
@@ -216,7 +225,7 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
-      TestInternals.executeTasks(processConfig, discoveredTests, eventHandler, logger)
+      TestInternals.executeTasks(processConfig, discoveredTests, arguments, eventHandler, logger)
     }
 
     // Return the previous state, test execution doesn't modify it.

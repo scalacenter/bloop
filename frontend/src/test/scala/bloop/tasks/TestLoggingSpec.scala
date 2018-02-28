@@ -18,8 +18,11 @@ class TestLoggingSpec {
       val state = ProjectHelpers.loadTestProject(projectName)
       val inProcessEnv = JavaEnv.default(fork = false)
       val build = state.build
+      // Force projects to run in-process and remove all test options (otherwise, `WritingTest` that
+      // we use here will be excluded).
       val beforeCompilation = state.copy(
-        build = build.copy(projects = build.projects.map(_.copy(javaEnv = inProcessEnv))))
+        build = build.copy(
+          projects = build.projects.map(_.copy(javaEnv = inProcessEnv, testOptions = Array.empty))))
       val action = Run(Commands.Compile(moduleName))
       Interpreter.execute(action, beforeCompilation)
     }
@@ -47,8 +50,15 @@ class TestLoggingSpec {
     val needle = ("info", "message")
     val messages0 = l0.getMessages()
     val messages1 = l1.getMessages()
-    assertEquals(10, messages0.count(_ == needle).toLong)
-    assertEquals(10, messages1.count(_ == needle).toLong)
+    val logs = s"""The logs were:
+                  |------------------------
+                  |l0:
+                  |${messages0.mkString(System.lineSeparator)}
+                  |------------------------
+                  |l1:
+                  |${messages1.mkString(System.lineSeparator)}""".stripMargin
+    assertEquals(logs, 10, messages0.count(_ == needle).toLong)
+    assertEquals(logs, 10, messages1.count(_ == needle).toLong)
   }
 
 }

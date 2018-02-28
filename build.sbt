@@ -3,12 +3,11 @@ import build.BuildImplementation.BuildDefaults
 /***************************************************************************************************/
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
-
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
   .settings(
-    releaseEarly := {()},
+    releaseEarly := { () },
     skip in publish := true
   )
 
@@ -42,7 +41,7 @@ val backend = project
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
-  .dependsOn(backend, backend % "test->test")
+  .dependsOn(backend, backend % "test->test", integrationsCore)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
@@ -114,7 +113,7 @@ val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
   .settings(
-    releaseEarly := {()},
+    releaseEarly := { () },
     skip in publish := true,
     crossSbtVersions := Seq("1.1.0", "0.13.16")
   )

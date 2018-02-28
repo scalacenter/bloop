@@ -3,7 +3,7 @@ package bloop.integrations.maven
 import java.io.File
 import java.nio.file.Files
 
-import bloop.integrations.BloopConfig
+import bloop.integrations.{BloopConfig, TestOption}
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.plugin.logging.Log
 import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
@@ -39,6 +39,8 @@ object MojoImplementation {
          "org.specs2.runner.SpecsFramework"),
     List("com.novocode.junit.JUnitFramework")
   )
+  // testOptions are not supported with Maven, they're specific to sbt.
+  private val testOptions: Array[TestOption] = Array.empty
 
   def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
     import scala.collection.JavaConverters._
@@ -82,7 +84,8 @@ object MojoImplementation {
       // FORMAT: OFF
       val config = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
         mojo.getScalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
-        mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, fork, javaHome, javaOptions, allScalaJars, tmpDir
+        mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, testOptions, fork, javaHome,
+        javaOptions, allScalaJars, tmpDir
       )
       // FORMAT: ON
 

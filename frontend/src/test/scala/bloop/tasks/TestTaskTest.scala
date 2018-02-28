@@ -22,7 +22,7 @@ import scala.concurrent.duration.Duration
 
 object TestTaskTest {
   // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
-  val frameworkNames = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest")
+  val frameworkNames = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest", "JUnit")
 
   @Parameters
   def data(): Collection[Array[String]] = {
@@ -83,7 +83,7 @@ class TestTaskTest(framework: String) {
           Seq(framework -> filteredDefs)
       }.toMap
       val discoveredTests = DiscoveredTests(classLoader, tests)
-      TestInternals.executeTasks(config, discoveredTests, Tasks.eventHandler, logger)
+      TestInternals.executeTasks(config, discoveredTests, Array.empty, Tasks.eventHandler, logger)
     }
   }
 
