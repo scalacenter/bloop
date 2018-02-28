@@ -1,6 +1,6 @@
 +++
 description = "The first steps in using Bloop along with Maven"
-title = "Getting started with Bloop and Maven"
+title = "Using bloop with Maven"
 date = "2018-02-09T10:15:00+01:00"
 draft = false
 weight = 3
