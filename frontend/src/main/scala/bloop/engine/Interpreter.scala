@@ -161,9 +161,10 @@ object Interpreter {
       case Some(project) =>
         def doTest(state: State): Task[State] = {
           val testFilter = TestInternals.parseFilters(cmd.filter)
+          val cwd = cmd.cliOptions.common.workingPath
           for {
             compiled <- Tasks.compile(state, project, reporterConfig, excludeRoot = false)
-            result <- Tasks.test(compiled, project, cmd.isolated, testFilter)
+            result <- Tasks.test(compiled, project, cwd, cmd.isolated, testFilter)
           } yield result
         }
         if (cmd.watch) watch(project, state, doTest _)
@@ -229,7 +230,8 @@ object Interpreter {
                 Task(compiled.mergeStatus(ExitStatus.UnexpectedError))
               case Some(main) =>
                 val args = cmd.args.toArray
-                Tasks.run(compiled, project, main, args)
+                val cwd = cmd.cliOptions.common.workingPath
+                Tasks.run(compiled, project, cwd, main, args)
             }
           }
         }

@@ -5,7 +5,6 @@ import org.junit.Assert.{assertEquals, assertNotEquals}
 import java.nio.file.{Files, Path, Paths}
 
 import bloop.Server
-import bloop.exec.MultiplexedStreams
 import bloop.logging.{ProcessLogger, RecordingLogger}
 import bloop.tasks.ProjectHelpers
 
@@ -29,8 +28,12 @@ abstract class NailgunTest {
     val serverThread =
       new Thread {
         override def run(): Unit = {
-          val _ = MultiplexedStreams.withLoggerAsStreams(log) {
-            Server.main(Array(TEST_PORT.toString))
+          val outStream = ProcessLogger.toOutputStream(log.info)
+          val errStream = ProcessLogger.toOutputStream(log.error)
+          Console.withOut(outStream) {
+            Console.withErr(errStream) {
+              Server.main(Array(TEST_PORT.toString))
+            }
           }
         }
       }

@@ -14,22 +14,9 @@ import bloop.tasks.ProjectHelpers.{loadTestProject, runAndCheck}
 class TestResourcesSpec {
 
   @Test
-  def testsCanSeeResourcesWithoutForking = testsCanSeeResources(fork = false)
-
-  @Test
-  def testsCanSeeResourcesWithForking = testsCanSeeResources(fork = true)
-
-  private def testsCanSeeResources(fork: Boolean): Unit = {
+  def testsCanSeeResources: Unit = {
     val projectName = "with-resources"
-    val state0 = loadTestProject(projectName)
-    val state = {
-      if (!fork) state0
-      else {
-        val newProjects = state0.build.projects.map(_.copy(javaEnv = JavaEnv.default(fork = true)))
-        state0.copy(build = state0.build.copy(projects = newProjects))
-      }
-    }
-
+    val state = loadTestProject(projectName)
     val command = Commands.Test(projectName)
     runAndCheck(state, command) { messages =>
       val cleanMessages = messages.map { case (l, m) => (l, removeEscapeSequences(m)) }

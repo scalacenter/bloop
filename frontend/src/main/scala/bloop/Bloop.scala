@@ -4,7 +4,6 @@ import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.cli.CliParsers.{inputStreamRead, printStreamRead, OptionsParser, pathParser}
 import bloop.engine.{Build, Exit, Interpreter, Run, State}
 import bloop.engine.tasks.Tasks
-import bloop.exec.MultiplexedStreams
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
@@ -22,7 +21,8 @@ object Bloop extends CaseApp[CliOptions] {
     val configDirectory = options.configDir.map(AbsolutePath.apply).getOrElse(AbsolutePath(".bloop-config"))
     val logger = BloopLogger.default(configDirectory.syntax)
     logger.warn("The Nailgun integration should be preferred over the Bloop shell.")
-    logger.warn("The Bloop shell provides less features, is not supported and can be removed without notice.")
+    logger.warn(
+      "The Bloop shell provides less features, is not supported and can be removed without notice.")
     logger.warn("Please refer to our documentation for more information.")
     logger.verboseIf(options.verbose) {
       val projects = Project.fromDir(configDirectory, logger)

@@ -3,7 +3,7 @@ package bloop.testing
 import java.util.regex.Pattern
 
 import bloop.DependencyResolution
-import bloop.exec.{Fork, InProcess, JavaEnv, MultiplexedStreams, ProcessConfig}
+import bloop.exec.{ForkProcess, JavaEnv}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import sbt.testing.{
@@ -67,35 +67,19 @@ object TestInternals {
   }
 
   /**
-   * Execute the test tasks.
-   *
-   * @param processConfig   Configures whether tests should be run in a forked JVM or in process.
-   * @param discoveredTests The tests that were discovered.
-   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
-   * @param logger          Logger receiving test output.
-   */
-  def executeTasks(processConfig: ProcessConfig,
-                   discoveredTests: DiscoveredTests,
-                   eventHandler: EventHandler,
-                   logger: Logger): Unit = {
-    processConfig match {
-      case inProcess: InProcess => executeTasks(inProcess, discoveredTests, eventHandler, logger)
-      case fork: Fork => executeTasks(fork, discoveredTests, eventHandler, logger)
-    }
-  }
-
-  /**
    * Execute the test tasks in a forked JVM.
    *
+   * @param cwd             The directory in which to start the forked JVM.
    * @param fork            Configuration for the forked JVM.
    * @param discoveredTests The tests that were discovered.
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    */
-  private def executeTasks(fork: Fork,
-                           discoveredTests: DiscoveredTests,
-                           eventHandler: EventHandler,
-                           logger: Logger): Unit = {
+  def executeTasks(cwd: AbsolutePath,
+                   fork: ForkProcess,
+                   discoveredTests: DiscoveredTests,
+                   eventHandler: EventHandler,
+                   logger: Logger): Unit = {
     logger.debug("Starting forked test execution.")
 
     val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
@@ -107,45 +91,10 @@ object TestInternals {
     logger.debug("Test agent jars: " + testAgentFiles.mkString(", "))
 
     val exitCode = server.whileRunning {
-      fork.runMain(forkMain, arguments, logger, testAgentJars)
+      fork.runMain(cwd, forkMain, arguments, logger, testAgentJars)
     }
 
     if (exitCode != 0) logger.error(s"Forked execution terminated with non-zero code: $exitCode")
-  }
-
-  /**
-   * Execute the test tasks in process.
-   *
-   * @param inProcess       The process configuration to run the tests
-   * @param discoveredTests The tests that were discovered
-   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
-   * @param logger          Logger receiving test output.
-   */
-  private def executeTasks(inProcess: InProcess,
-                           discoveredTests: DiscoveredTests,
-                           eventHandler: EventHandler,
-                           logger: Logger): Unit = {
-    @tailrec def loop(tasks: List[TestTask]): Unit = {
-      tasks match {
-        case task :: rest =>
-          val newTasks = task.execute(eventHandler, Array(logger)).toList
-          loop(rest ::: newTasks)
-
-        case Nil =>
-          ()
-      }
-    }
-
-    MultiplexedStreams.withLoggerAsStreams(logger) {
-      discoveredTests.tests.iterator.foreach {
-        case (framework, taskDefs) =>
-          val runner = getRunner(framework, discoveredTests.classLoader)
-          val tasks = runner.tasks(taskDefs.toArray).toList
-          loop(tasks)
-          val summary = runner.done()
-          if (summary.nonEmpty) logger.info(summary)
-      }
-    }
   }
 
   def getFramework(loader: ClassLoader,
