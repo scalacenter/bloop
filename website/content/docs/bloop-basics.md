@@ -2,9 +2,9 @@
 toc = true
 weight = 2
 draft = false
-title = "Understanding Bloop"
+title = "The basics of bloop"
 date = "2018-02-09T10:15:00+01:00"
-description = "Learn the ideas behind bloop, which problems solve and how it's designed"
+description = "What is bloop and which problems does it solve?"
 bref = "Learn the ideas behind bloop, which problems solve and how it's designed."
 +++
 
@@ -60,11 +60,14 @@ tooling authors to write tools in a fast and reliable way.
 There is a lot of progress and research going into the build tools field.
 Whether you use established build tools like Bazel, Pants, sbt, Maven and
 Gradle or brand-new build tools like CBT and mill, you should benefit from
-the fastest of the workflows without being tied to your build tool.
+the fastest of the workflows no matter what the internal architecture of your
+build tool is.
 
 ### Components
 
-Bloop has two main components, a client and a server.
+Bloop has two main components, a client and a server. If you're looking for
+ways to extend this model, head to the [Integration
+guide]({{< ref "integration-guide.md" >}}).
 
 #### `bloop`, the client
 
@@ -83,6 +86,8 @@ When you run `bloop compile` with the client, the server receives the request
 and spawns a thread to compile your project, logging you back everything that
 the compiler outputs. This server accepts requests in parallel except for
 those tasks that are already running.
+
+
 
 ### Other properties
 
@@ -116,7 +121,7 @@ bugfixes and other changes occurring upstream in both [scala/scala] and
 #### Concurrent
 
 Bloop supports several users by design so that concurrent executions can take
-place without stepping on each other's shoes.
+place without stepping on each other's toes.
 
 [scala/scala]: https://github.com/scala/scala
 [sbt/zinc]: https://github.com/sbt/zinc

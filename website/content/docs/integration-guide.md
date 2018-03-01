@@ -1,10 +1,10 @@
 +++
 toc = true
-weight = 2
+weight = 3
 draft = false
 title = "The integration guide"
 date = "2018-02-09T10:15:00+01:00"
-description = "Integrate your tools with bloop"
+description = "Do you want to learn how to extend or integrate with bloop?"
 bref = "Learn how to integrate your own tooling with bloop."
 +++
 

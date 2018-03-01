@@ -1,6 +1,6 @@
 +++
 description = "How to install Bloop on your machine"
-title = "Installation"
+title = "The installation process"
 date = "2018-02-08T16:35:00+01:00"
 draft = false
 weight = 1
