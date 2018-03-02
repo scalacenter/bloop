@@ -84,12 +84,12 @@ lazy val integrationsCore = project
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= List(
-      Dependencies.circeConfig,
       Dependencies.typesafeConfig,
       Dependencies.metaconfigCore,
       Dependencies.metaconfigDocs,
       Dependencies.metaconfigConfig,
-      Dependencies.scalacheck % Test
+      Dependencies.scalacheck % Test,
+      Dependencies.circeConfig % Test,
     )
   )
 
