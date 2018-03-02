@@ -27,7 +27,7 @@ final class DirChecksum(dir: AbsolutePath,
   def changed(): Boolean = {
     val newModifiedTimes = DirChecksum.getFiles(dir, pattern)
     if (newModifiedTimes == modifiedTimes) false
-    else
+    else {
       synchronized {
         val newChecksum = DirChecksum.filesChecksum(newModifiedTimes.map(_._1))
         if (newChecksum != contentsChecksum) true
@@ -36,6 +36,7 @@ final class DirChecksum(dir: AbsolutePath,
           false
         }
       }
+    }
   }
 }
 
@@ -61,13 +62,14 @@ object DirChecksum {
    * @param pattern The pattern to find the files to track.
    * @return A map associating each tracked file with its last modification time.
    */
-  private def getFiles(dir: AbsolutePath, pattern: String): List[(AbsolutePath, FileTime)] =
+  private def getFiles(dir: AbsolutePath, pattern: String): List[(AbsolutePath, FileTime)] = {
     Paths
       .getAll(dir, pattern)
       .map { path =>
         path -> Files.getLastModifiedTime(path.underlying)
       }
       .toList
+  }
 
   /**
    * Computes the checksum of `files`.
@@ -84,7 +86,6 @@ object DirChecksum {
 
     val checkedStream = new CheckedInputStream(new SequenceInputStream(streams), new Adler32)
     try {
-      val buf = new Array[Byte](4096)
       while (checkedStream.read() >= 0) {}
       checkedStream.getChecksum().getValue()
     } finally checkedStream.close()
