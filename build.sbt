@@ -90,6 +90,7 @@ lazy val integrationsCore = project
       Dependencies.metaconfigConfig,
       Dependencies.scalacheck % Test,
       Dependencies.circeConfig % Test,
+      Dependencies.circeDerivation % Test,
     )
   )
 

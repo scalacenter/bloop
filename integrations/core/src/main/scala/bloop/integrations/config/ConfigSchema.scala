@@ -4,26 +4,25 @@ import java.nio.file.{Path, Paths}
 
 object ConfigSchema {
   private final val emptyPath = Paths.get("")
-
-  case class JavaConfig(options: Seq[String])
+  case class JavaConfig(options: List[String])
   object JavaConfig { private[config] val empty = JavaConfig(Nil) }
 
-  case class JvmConfig(home: Path, options: Seq[String])
+  case class JvmConfig(home: Path, options: List[String])
   object JvmConfig { private[config] val empty = JvmConfig(emptyPath, Nil) }
 
-  case class TestFrameworkConfig(names: Seq[String])
-  case class TestArgumentConfig(args: Seq[String], framework: Option[String])
-  case class TestOptionsConfig(excludes: Seq[String], arguments: Seq[TestArgumentConfig])
+  case class TestFrameworkConfig(names: List[String])
+  case class TestArgumentConfig(args: List[String], framework: Option[String])
+  case class TestOptionsConfig(excludes: List[String], arguments: List[TestArgumentConfig])
 
-  case class TestConfig(frameworks: Seq[TestFrameworkConfig], options: TestOptionsConfig)
+  case class TestConfig(frameworks: List[TestFrameworkConfig], options: TestOptionsConfig)
   object TestConfig { private[config] val empty = TestConfig(Nil, TestOptionsConfig(Nil, Nil)) }
 
   case class ScalaConfig(
       organization: String,
       name: String,
       version: String,
-      options: Seq[String],
-      jars: Seq[Path]
+      options: List[String],
+      jars: List[Path]
   )
 
   object ScalaConfig {
@@ -33,9 +32,9 @@ object ConfigSchema {
   case class ProjectConfig(
       name: String,
       directory: Path,
-      sources: Seq[Path],
-      dependencies: Seq[String],
-      classpath: Seq[Path],
+      sources: List[Path],
+      dependencies: List[String],
+      classpath: List[Path],
       out: Path,
       `scala`: ScalaConfig,
       jvm: JvmConfig,

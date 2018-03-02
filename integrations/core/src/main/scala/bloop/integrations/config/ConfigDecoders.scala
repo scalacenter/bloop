@@ -7,8 +7,18 @@ import metaconfig.generic.Surface
 
 import scala.util.{Failure, Success, Try}
 
+import bloop.integrations.config.ConfigSchema.{
+  JavaConfig,
+  JvmConfig,
+  ProjectConfig,
+  ScalaConfig,
+  TestArgumentConfig,
+  TestConfig,
+  TestFrameworkConfig,
+  TestOptionsConfig
+}
+
 object ConfigDecoders {
-  import bloop.integrations.config.ConfigSchema._
   implicit val pathDecoder: ConfDecoder[Path] = ConfDecoder.stringConfDecoder.flatMap { str =>
     Try(Paths.get(str)) match {
       case Success(path) if Files.exists(path) => Configured.Ok(path)
