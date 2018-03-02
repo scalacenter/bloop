@@ -1,22 +1,12 @@
-package bloop.integrations.config
+package bloop.config
 
 import java.nio.file.{Files, Path, Paths}
 
-import metaconfig.{ConfDecoder, ConfError, Configured, generic}
+import ConfigSchema.{JavaConfig, JvmConfig, ProjectConfig, ScalaConfig, TestArgumentConfig, TestConfig, TestFrameworkConfig, TestOptionsConfig}
 import metaconfig.generic.Surface
+import metaconfig.{ConfDecoder, ConfError, Configured, generic}
 
 import scala.util.{Failure, Success, Try}
-
-import bloop.integrations.config.ConfigSchema.{
-  JavaConfig,
-  JvmConfig,
-  ProjectConfig,
-  ScalaConfig,
-  TestArgumentConfig,
-  TestConfig,
-  TestFrameworkConfig,
-  TestOptionsConfig
-}
 
 object ConfigDecoders {
   implicit val pathDecoder: ConfDecoder[Path] = ConfDecoder.stringConfDecoder.flatMap { str =>

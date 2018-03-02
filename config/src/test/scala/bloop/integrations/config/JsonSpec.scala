@@ -2,8 +2,8 @@ package bloop.integrations.config
 
 import java.nio.file.{Files, Paths}
 
-import bloop.integrations.config.ConfigSchema.{JavaConfig, JvmConfig, ProjectConfig, ScalaConfig, TestConfig, TestOptionsConfig}
-import ConfigDecoders.projectConfigDecoder
+import bloop.config.ConfigSchema.{JavaConfig, JvmConfig, ProjectConfig, ScalaConfig, TestConfig, TestOptionsConfig}
+import bloop.config.ConfigDecoders.projectConfigDecoder
 import CirceEncoders.projectConfigEncoder
 import metaconfig.{Conf, Configured}
 import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser

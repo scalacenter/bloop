@@ -2,7 +2,7 @@ package bloop.integrations.config
 
 import java.nio.file.Path
 
-import bloop.integrations.config.ConfigSchema.{
+import bloop.config.ConfigSchema.{
   JavaConfig,
   JvmConfig,
   ProjectConfig,

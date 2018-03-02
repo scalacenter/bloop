@@ -1,4 +1,4 @@
-package bloop.integrations.config
+package bloop.config
 
 import java.nio.file.{Path, Paths}
 
