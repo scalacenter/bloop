@@ -38,43 +38,6 @@ val backend = project
     )
   )
 
-import build.BuildImplementation.jvmOptions
-// For the moment, the dependency is fixed
-val frontend = project
-  .dependsOn(backend, backend % "test->test")
-  .enablePlugins(BuildInfoPlugin)
-  .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
-  .settings(
-    name := s"bloop-frontend",
-    mainClass in Compile in run := Some("bloop.Cli"),
-    buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopInfoKeys,
-    javaOptions in run ++= jvmOptions,
-    javaOptions in Test ++= jvmOptions,
-    libraryDependencies += Dependencies.graphviz % Test,
-    fork in run := true,
-    fork in Test := true,
-    parallelExecution in test := false,
-    libraryDependencies ++= List(
-      Dependencies.bsp,
-      Dependencies.monix,
-      Dependencies.caseApp,
-      Dependencies.typesafeConfig,
-      Dependencies.metaconfigCore,
-      Dependencies.metaconfigDocs,
-      Dependencies.metaconfigConfig,
-      Dependencies.ipcsocket % Test
-    )
-  )
-
-val benchmarks = project
-  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
-  .enablePlugins(BuildInfoPlugin, JmhPlugin)
-  .settings(benchmarksSettings(frontend))
-  .settings(
-    skip in publish := true,
-  )
-
 lazy val integrationsCore = project
   .in(file("integrations") / "core")
   .settings(testSettings)
@@ -92,6 +55,39 @@ lazy val integrationsCore = project
       Dependencies.circeConfig % Test,
       Dependencies.circeDerivation % Test,
     )
+  )
+
+import build.BuildImplementation.jvmOptions
+// For the moment, the dependency is fixed
+val frontend = project
+  .dependsOn(backend, backend % "test->test", integrationsCore)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
+  .settings(
+    name := s"bloop-frontend",
+    mainClass in Compile in run := Some("bloop.Cli"),
+    buildInfoPackage := "bloop.internal.build",
+    buildInfoKeys := BloopInfoKeys,
+    javaOptions in run ++= jvmOptions,
+    javaOptions in Test ++= jvmOptions,
+    libraryDependencies += Dependencies.graphviz % Test,
+    fork in run := true,
+    fork in Test := true,
+    parallelExecution in test := false,
+    libraryDependencies ++= List(
+      Dependencies.bsp,
+      Dependencies.monix,
+      Dependencies.caseApp,
+      Dependencies.ipcsocket % Test
+    )
+  )
+
+val benchmarks = project
+  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
+  .enablePlugins(BuildInfoPlugin, JmhPlugin)
+  .settings(benchmarksSettings(frontend))
+  .settings(
+    skip in publish := true,
   )
 
 lazy val sbtBloop = project
