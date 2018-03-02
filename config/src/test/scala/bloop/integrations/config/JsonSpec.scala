@@ -2,7 +2,7 @@ package bloop.integrations.config
 
 import java.nio.file.{Files, Paths}
 
-import bloop.config.ConfigSchema.{JavaConfig, JvmConfig, ProjectConfig, ScalaConfig, TestConfig, TestOptionsConfig}
+import bloop.config.Config.{Java, Jvm, Project, Scala, Test, TestOptions}
 import bloop.config.ConfigDecoders.projectConfigDecoder
 import CirceEncoders.projectConfigEncoder
 import metaconfig.{Conf, Configured}
@@ -11,7 +11,7 @@ import org.junit.Test
 
 class JsonSpec {
 
-  def parseConfig(config: ProjectConfig): Unit = {
+  def parseConfig(config: Project): Unit = {
     val emptyConfigJson = projectConfigEncoder(config).spaces4
     val parsedEmptyConfig = projectConfigDecoder.read(Conf.parseString(emptyConfigJson))
     projectConfigDecoder.read(Conf.parseString(emptyConfigJson)) match {
@@ -21,7 +21,7 @@ class JsonSpec {
   }
 
   @Test def testEmptyConfigJson(): Unit = {
-    parseConfig(ProjectConfig.empty)
+    parseConfig(Project.empty)
   }
 
   @Test def testSimpleConfigJson(): Unit = {
@@ -33,17 +33,17 @@ class JsonSpec {
     val classesDir = Files.createTempFile("scala-library", ".jar")
     classesDir.toFile.deleteOnExit()
 
-    val config = ProjectConfig(
+    val config = Project(
       "dummy-project",
       workingDirectory,
       List(sourceFile),
       List("dummy-2"),
       List(scalaLibraryJar),
       classesDir,
-      ScalaConfig("org.scala-lang", "scala-compiler", "2.12.4", List("-warn"), List()),
-      JvmConfig(Some(workingDirectory), Nil),
-      JavaConfig(List("-version")),
-      TestConfig(List(), TestOptionsConfig(Nil, Nil))
+      Scala("org.scala-lang", "scala-compiler", "2.12.4", List("-warn"), List()),
+      Jvm(Some(workingDirectory), Nil),
+      Java(List("-version")),
+      Test(List(), TestOptions(Nil, Nil))
     )
 
     parseConfig(config)

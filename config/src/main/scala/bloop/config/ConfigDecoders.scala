@@ -2,7 +2,7 @@ package bloop.config
 
 import java.nio.file.{Files, Path, Paths}
 
-import ConfigSchema.{JavaConfig, JvmConfig, ProjectConfig, ScalaConfig, TestArgumentConfig, TestConfig, TestFrameworkConfig, TestOptionsConfig}
+import Config.{Java, Jvm, Project, Scala, TestArgument, Test, TestFramework, TestOptions}
 import metaconfig.generic.Surface
 import metaconfig.{ConfDecoder, ConfError, Configured, generic}
 
@@ -17,43 +17,43 @@ object ConfigDecoders {
     }
   }
 
-  implicit val javaConfigSurface: Surface[JavaConfig] =
-    generic.deriveSurface[JavaConfig]
-  implicit val javaConfigDecoder: ConfDecoder[JavaConfig] =
-    generic.deriveDecoder[JavaConfig](JavaConfig.empty)
+  implicit val javaConfigSurface: Surface[Java] =
+    generic.deriveSurface[Java]
+  implicit val javaConfigDecoder: ConfDecoder[Java] =
+    generic.deriveDecoder[Java](Java.empty)
 
-  implicit val jvmConfigSurface: Surface[JvmConfig] =
-    generic.deriveSurface[JvmConfig]
-  implicit val jvmConfigDecoder: ConfDecoder[JvmConfig] =
-    generic.deriveDecoder[JvmConfig](JvmConfig.empty)
+  implicit val jvmConfigSurface: Surface[Jvm] =
+    generic.deriveSurface[Jvm]
+  implicit val jvmConfigDecoder: ConfDecoder[Jvm] =
+    generic.deriveDecoder[Jvm](Jvm.empty)
 
-  implicit val testFrameworkConfigSurface: Surface[TestFrameworkConfig] =
-    generic.deriveSurface[TestFrameworkConfig]
-  implicit val testFrameworkConfigDecoder: ConfDecoder[TestFrameworkConfig] =
-    generic.deriveDecoder[TestFrameworkConfig](TestFrameworkConfig(Nil))
+  implicit val testFrameworkConfigSurface: Surface[TestFramework] =
+    generic.deriveSurface[TestFramework]
+  implicit val testFrameworkConfigDecoder: ConfDecoder[TestFramework] =
+    generic.deriveDecoder[TestFramework](TestFramework(Nil))
 
-  implicit val testArgumentConfigSurface: Surface[TestArgumentConfig] =
-    generic.deriveSurface[TestArgumentConfig]
-  implicit val testArgumentConfigDecoder: ConfDecoder[TestArgumentConfig] =
-    generic.deriveDecoder[TestArgumentConfig](TestArgumentConfig(Nil, None))
+  implicit val testArgumentConfigSurface: Surface[TestArgument] =
+    generic.deriveSurface[TestArgument]
+  implicit val testArgumentConfigDecoder: ConfDecoder[TestArgument] =
+    generic.deriveDecoder[TestArgument](TestArgument(Nil, None))
 
-  implicit val testOptionsConfigSurface: Surface[TestOptionsConfig] =
-    generic.deriveSurface[TestOptionsConfig]
-  implicit val testOptionsConfigDecoder: ConfDecoder[TestOptionsConfig] =
-    generic.deriveDecoder[TestOptionsConfig](TestOptionsConfig(Nil, Nil))
+  implicit val testOptionsConfigSurface: Surface[TestOptions] =
+    generic.deriveSurface[TestOptions]
+  implicit val testOptionsConfigDecoder: ConfDecoder[TestOptions] =
+    generic.deriveDecoder[TestOptions](TestOptions(Nil, Nil))
 
-  implicit val testConfigSurface: Surface[TestConfig] =
-    generic.deriveSurface[TestConfig]
-  implicit val testConfigDecoder: ConfDecoder[TestConfig] =
-    generic.deriveDecoder[TestConfig](TestConfig.empty)
+  implicit val testConfigSurface: Surface[Test] =
+    generic.deriveSurface[Test]
+  implicit val testConfigDecoder: ConfDecoder[Test] =
+    generic.deriveDecoder[Test](Test.empty)
 
-  implicit val scalaConfigSurface: Surface[ScalaConfig] =
-    generic.deriveSurface[ScalaConfig]
-  implicit val scalaConfigDecoder: ConfDecoder[ScalaConfig] =
-    generic.deriveDecoder[ScalaConfig](ScalaConfig.empty)
+  implicit val scalaConfigSurface: Surface[Scala] =
+    generic.deriveSurface[Scala]
+  implicit val scalaConfigDecoder: ConfDecoder[Scala] =
+    generic.deriveDecoder[Scala](Scala.empty)
 
-  implicit val projectConfigSurface: Surface[ProjectConfig] =
-    generic.deriveSurface[ProjectConfig]
-  implicit val projectConfigDecoder: ConfDecoder[ProjectConfig] =
-    generic.deriveDecoder[ProjectConfig](ProjectConfig.empty)
+  implicit val projectConfigSurface: Surface[Project] =
+    generic.deriveSurface[Project]
+  implicit val projectConfigDecoder: ConfDecoder[Project] =
+    generic.deriveDecoder[Project](Project.empty)
 }

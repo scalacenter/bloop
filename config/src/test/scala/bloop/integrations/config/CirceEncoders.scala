@@ -2,15 +2,15 @@ package bloop.integrations.config
 
 import java.nio.file.Path
 
-import bloop.config.ConfigSchema.{
-  JavaConfig,
-  JvmConfig,
-  ProjectConfig,
-  ScalaConfig,
-  TestArgumentConfig,
-  TestConfig,
-  TestFrameworkConfig,
-  TestOptionsConfig
+import bloop.config.Config.{
+  Java,
+  Jvm,
+  Project,
+  Scala,
+  TestArgument,
+  Test,
+  TestFramework,
+  TestOptions
 }
 
 import io.circe.{Encoder, Json}
@@ -21,12 +21,12 @@ object CirceEncoders {
     override final def apply(a: Path): Json = Json.fromString(a.toString)
   }
 
-  implicit val javaConfigEncoder: Encoder[JavaConfig] = deriveEncoder
-  implicit val jvmConfigEncoder: Encoder[JvmConfig] = deriveEncoder
-  implicit val testFrameworkConfigEncoder: Encoder[TestFrameworkConfig] = deriveEncoder
-  implicit val testArgumentConfigEncoder: Encoder[TestArgumentConfig] = deriveEncoder
-  implicit val testOptionsConfigEncoder: Encoder[TestOptionsConfig] = deriveEncoder
-  implicit val testConfigEncoder: Encoder[TestConfig] = deriveEncoder
-  implicit val scalaConfigEncoder: Encoder[ScalaConfig] = deriveEncoder
-  implicit val projectConfigEncoder: Encoder[ProjectConfig] = deriveEncoder
+  implicit val javaConfigEncoder: Encoder[Java] = deriveEncoder
+  implicit val jvmConfigEncoder: Encoder[Jvm] = deriveEncoder
+  implicit val testFrameworkConfigEncoder: Encoder[TestFramework] = deriveEncoder
+  implicit val testArgumentConfigEncoder: Encoder[TestArgument] = deriveEncoder
+  implicit val testOptionsConfigEncoder: Encoder[TestOptions] = deriveEncoder
+  implicit val testConfigEncoder: Encoder[Test] = deriveEncoder
+  implicit val scalaConfigEncoder: Encoder[Scala] = deriveEncoder
+  implicit val projectConfigEncoder: Encoder[Project] = deriveEncoder
 }
