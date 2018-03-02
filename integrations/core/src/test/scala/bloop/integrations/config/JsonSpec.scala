@@ -10,14 +10,18 @@ import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser
 import org.junit.Test
 
 class JsonSpec {
-  @Test def testEmptyConfigJson(): Unit = {
-    val emptyConfig = ProjectConfig.empty
-    val emptyConfigJson = projectConfigEncoder(emptyConfig).spaces4
+
+  def parseConfig(config: ProjectConfig): Unit = {
+    val emptyConfigJson = projectConfigEncoder(config).spaces4
     val parsedEmptyConfig = projectConfigDecoder.read(Conf.parseString(emptyConfigJson))
     projectConfigDecoder.read(Conf.parseString(emptyConfigJson)) match {
-      case Configured.Ok(parsed) => assert(emptyConfig == parsed)
+      case Configured.Ok(parsed) => assert(config == parsed)
       case Configured.NotOk(error) => sys.error(s"Could not parse simple config: $error")
     }
+  }
+
+  @Test def testEmptyConfigJson(): Unit = {
+    parseConfig(ProjectConfig.empty)
   }
 
   @Test def testSimpleConfigJson(): Unit = {
@@ -42,10 +46,6 @@ class JsonSpec {
       TestConfig(List(), TestOptionsConfig(Nil, Nil))
     )
 
-    val emptyConfigJson = projectConfigEncoder(config).spaces4
-    projectConfigDecoder.read(Conf.parseString(emptyConfigJson)) match {
-      case Configured.Ok(parsed) => assert(config == parsed)
-      case Configured.NotOk(error) => sys.error(s"Could not parse simple config: $error")
-    }
+    parseConfig(config)
   }
 }
