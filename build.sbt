@@ -39,7 +39,7 @@ val backend = project
   )
 
 // Needs to be called `configModule` because of naming conflict with sbt universe...
-lazy val configModule = project
+val configModule = project
   .in(file("config"))
   .settings(testSettings)
   .settings(
