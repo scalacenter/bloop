@@ -34,7 +34,7 @@ object Dependencies {
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
 
-  val utest = "com.lihaoyi" %% "utest" % "0.6.0"
+  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "io.methvin" %% "directory-watcher-better-files" % directoryWatcherVersion
@@ -48,6 +48,7 @@ object Dependencies {
   val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
 
+  val circeConfig = "io.circe" %% "circe-config" % "0.4.1"
   val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
   val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
   val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"

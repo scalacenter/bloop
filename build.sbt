@@ -58,6 +58,7 @@ val frontend = project
     libraryDependencies ++= List(
       Dependencies.bsp,
       Dependencies.monix,
+      Dependencies.caseApp,
       Dependencies.typesafeConfig,
       Dependencies.metaconfigCore,
       Dependencies.metaconfigDocs,
@@ -76,11 +77,20 @@ val benchmarks = project
 
 lazy val integrationsCore = project
   .in(file("integrations") / "core")
+  .settings(testSettings)
   .settings(
     name := "bloop-integrations-core",
     crossScalaVersions := List("2.12.4", "2.10.7"),
     // We compile in both so that the maven integration can be tested locally
-    publishLocal := publishLocal.dependsOn(publishM2).value
+    publishLocal := publishLocal.dependsOn(publishM2).value,
+    libraryDependencies ++= List(
+      Dependencies.circeConfig,
+      Dependencies.typesafeConfig,
+      Dependencies.metaconfigCore,
+      Dependencies.metaconfigDocs,
+      Dependencies.metaconfigConfig,
+      Dependencies.scalacheck % Test
+    )
   )
 
 lazy val sbtBloop = project
