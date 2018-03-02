@@ -7,8 +7,8 @@ object ConfigSchema {
   case class JavaConfig(options: List[String])
   object JavaConfig { private[config] val empty = JavaConfig(Nil) }
 
-  case class JvmConfig(home: Path, options: List[String])
-  object JvmConfig { private[config] val empty = JvmConfig(emptyPath, Nil) }
+  case class JvmConfig(home: Option[Path], options: List[String])
+  object JvmConfig { private[config] val empty = JvmConfig(None, Nil) }
 
   case class TestFrameworkConfig(names: List[String])
   case class TestArgumentConfig(args: List[String], framework: Option[String])
