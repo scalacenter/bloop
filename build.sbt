@@ -44,7 +44,7 @@ lazy val configModule = project
   .settings(testSettings)
   .settings(
     name := "bloop-config",
-    crossScalaVersions := List("2.12.4", "2.10.7"),
+    crossScalaVersions := List(Keys.scalaVersion.in(backend).value, "2.10.7"),
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= List(
