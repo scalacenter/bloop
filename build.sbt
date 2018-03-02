@@ -30,7 +30,6 @@ val backend = project
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
       Dependencies.configDirectories,
-      Dependencies.caseApp,
       Dependencies.sourcecode,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent,
@@ -59,6 +58,10 @@ val frontend = project
     libraryDependencies ++= List(
       Dependencies.bsp,
       Dependencies.monix,
+      Dependencies.typesafeConfig,
+      Dependencies.metaconfigCore,
+      Dependencies.metaconfigDocs,
+      Dependencies.metaconfigConfig,
       Dependencies.ipcsocket % Test
     )
   )

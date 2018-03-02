@@ -47,4 +47,9 @@ object Dependencies {
 
   val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
+
+  val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
+  val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
+  val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
+  val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % "0.6.0"
 }
