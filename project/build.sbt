@@ -23,10 +23,10 @@ val root = project
     addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.1"),
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
-      val integrationsMainDir = baseDirectory.value.getParentFile / "integrations"
-      val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
+      val baseDir = baseDirectory.value.getParentFile
+      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
-        integrationsMainDir / "core" / "src" / "main" / "scala",
+        baseDir / "config" / "src" / "main" / "scala",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )
