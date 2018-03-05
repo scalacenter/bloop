@@ -4,6 +4,8 @@ title = "FAQ"
 description = "Frequent Answered Questions for Bloop"
 +++
 
+{{< partial "edit-on-github.html" >}}
+
 ## What is Bloop?
 
 Bloop is a command line tool to speed up edit, compile and test workflows for
@@ -11,7 +13,7 @@ Scala developers. Instead of replacing your build tool, Bloop integrates with
 it to ensure that core tasks (like compiling and testing) have the shortest
 execution time.
 
-[Read the announcement on 
+[Read the announcement on
 scala-lang.org](https://www.scala-lang.org/blog/2017/11/30/bloop-release.html).
 
 ## What build tools can be used with Bloop?
