@@ -34,8 +34,9 @@ $ sbt installBloop
 [success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop-config/foo-test.config'.
 ```
 
-<mark>Note</mark> This configuration contains machine-dependent information. You should not check it
-in your version control.
+<span class="label warning">Note</span>
+This configuration contains machine-dependent information. You should not check
+it in your version control.
 
 ### Start bloop
 
@@ -93,7 +94,8 @@ more information, type:
 $ bloop compile --help
 ```
 
-<mark>Note</mark> All the commands of Bloop support `--help`.
+<span class="label warning">Note</span>
+All the commands of Bloop support `--help`.
 
 ### Testing your project with Bloop
 
