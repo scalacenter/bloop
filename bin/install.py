@@ -66,6 +66,7 @@ def coursier_bootstrap(target, main):
         check_call([
             "java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
             "-r", "bintray:scalameta/maven",
+            "-r", "bintray:scalacenter/releases",
             "-o", target, "-f", "--standalone", "--main", main
         ])
     except CalledProcessError as e:
