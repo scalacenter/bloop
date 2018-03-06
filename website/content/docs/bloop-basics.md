@@ -14,7 +14,7 @@ Bloop is a Scala command-line tool and build server developed at the Scala
 Center to make the compile and test feedback loop as tight as possible. This
 means a faster and more productive developer workflow.
 
-### Tigth feedback loop
+### Tight feedback loop
 
 Edit, compile and test workflows are the bread and butter of our daily jobs.
 When our build is slow to respond, our productivity drops. Bloop is a
