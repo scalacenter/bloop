@@ -74,7 +74,7 @@ object Tasks {
         dag match {
           case Leaf(project) => Task(List(compile(project)))
           case Parent(project, dependencies) =>
-            val downstream = Task.traverse(dependencies)(compileTree).map(_.flatten)
+            val downstream = Task.wanderUnordered(dependencies)(compileTree).map(_.flatten)
             downstream.flatMap { results =>
               if (results.exists(_._2 == FailedResult)) Task.now(results)
               else Task(compile(project)).map(r => r :: results)
