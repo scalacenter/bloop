@@ -103,7 +103,7 @@
       <ul>
          
           <li>
-            <a href="https://github.com/scalacenter/bloop">View on GitHub</a>
+            <a class="button secondary outline" href="https://github.com/scalacenter/bloop">View on GitHub</a>
           </li>
           
       </ul>
@@ -117,6 +117,9 @@
       <p class="hero-lead">
            How to use our sbt plugin to generate Bloop's configuration, and how to use Bloop to compile and test your project.
       </p>
+      <div style="padding-top: 30px; text-align: center;">
+<a class="button outline" href="https://github.com/scalacenter/bloop/edit/master/website/content/docs/getting-started-sbt.md">Edit this page on GitHub</a>
+</div>
 
     </div> 
     <div id="kube-component" class="content">
@@ -139,10 +142,6 @@ headingSelector: 'h3'
 }
 );
 </script>
-
-
-
-    <a style="float: right" href="https://github.com/scalacenter/bloop/edit/master/website/content/docs/getting-started-sbt.md">Edit this page on GitHub</a>
 
 
     
@@ -172,8 +171,9 @@ list of the Bloop releases in <a href="https://github.com/scalacenter/bloop
 [success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop-config/foo-test.config'.
 </code></pre>
 
-<p><mark>Note</mark> This configuration contains machine-dependent information. You should not check it
-in your version control.</p>
+<p><span class="label warning">Note</span>
+This configuration contains machine-dependent information. You should not check
+it in your version control.</p>
 
 <h3 id="start-bloop">Start bloop</h3>
 
@@ -226,7 +226,8 @@ more information, type:</p>
 <pre><code class="language-sh">$ bloop compile --help
 </code></pre>
 
-<p><mark>Note</mark> All the commands of Bloop support <code>--help</code>.</p>
+<p><span class="label warning">Note</span>
+All the commands of Bloop support <code>--help</code>.</p>
 
 <h3 id="testing-your-project-with-bloop">Testing your project with Bloop</h3>
 

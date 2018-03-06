@@ -123,23 +123,25 @@ h1, h2, h3, h4, h5, h6 {
   #top #top-nav-extra {
     margin-left: auto;
     font-size: 14px; }
+    #top #top-nav-extra a:hover {
+      -moz-transition: all linear 0.1s;
+      transition: all linear 0.1s;
+    }
+    /*
     #top #top-nav-extra span,
     #top #top-nav-extra a {
       color: rgba(0, 0, 0, 0.7);
       display: inline-block;
-      border: 1px solid rgba(0, 0, 0, 0.5);
+      border: 2px solid rgba(0, 0, 0, 0.5);
       text-decoration: none;
       line-height: 28px;
-      border-radius: 28px;
-      padding: 0 20px; }
-    #top #top-nav-extra a:hover {
-      -moz-transition: all linear 0.2s;
-      transition: all linear 0.2s;
-      color: #000;
-      text-decoration: underline; }
+      border-radius: 3px;
+      padding: 8px 20px;
+    }
     #top #top-nav-extra span {
       color: rgba(0, 0, 0, 0.4);
       border-color: rgba(0, 0, 0, 0.2); }
+    */
 
 #subnav {
   margin-top: 24px;
@@ -216,23 +218,23 @@ h1, h2, h3, h4, h5, h6 {
         text-decoration: underline; }
 
 #hero {
-  padding-top: 48px;
-  padding-bottom: 56px;
+  padding-top: 40px;
+  padding-bottom: 40px;
   text-align: center; }
   #hero h1 {
     max-width: 880px;
     margin-left: auto;
     margin-right: auto;
     margin-bottom: 12px;
-    font-size: 64px;
-    line-height: 72px;
+    font-size: 48px;
+    line-height: 54px;
     font-weight: 900; }
   #hero p {
     max-width: 740px;
     margin: auto;
     font-size: 21px;
     line-height: 32px;
-    color: rgba(0, 0, 0, 0.5);
+    color: rgba(0, 0, 0, 0.7);
     margin-top: 28px;
     padding-top: 28px;
     margin-bottom: 0;

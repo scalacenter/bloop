@@ -1,3 +1,23 @@
 img.desaturate {
 	filter: grayscale(100%);
 }
+
+pre {
+  background-color: #f6f8fa;
+}
+
+cite, code, figcaption, kbd, mark, pre, samp, small, time, var {
+  font-size: 92.5%;
+}
+
+code {
+  color: #24292e;
+  padding: 0.2em 0.4em;
+  background-color: rgba(27,31,35,0.05);
+  margin: 0;
+  border-radius: 3px;
+}
+
+pre code {
+  color: #24292e;
+}
