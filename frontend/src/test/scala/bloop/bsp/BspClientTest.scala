@@ -74,7 +74,7 @@ object BspClientTest {
       for {
         // Delay the task to let the bloop server go live
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
-        val _ = endpoints.Build.initialized.notify(InitializedBuildParams())
+        _ = endpoints.Build.initialized.notify(InitializedBuildParams())
         otherCalls <- runEndpoints(lsClient)
       } yield BspServer.closeSocket(cmd, socket)
     }
