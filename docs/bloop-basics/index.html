@@ -6,10 +6,10 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> The installation process </title>
+  <title> Bloop basics </title>
 
   
-  <meta name="description" content="How to install Bloop on your machine"> 
+  <meta name="description" content="What is bloop and which problems does it solve?"> 
   
   
   
@@ -21,20 +21,16 @@
   <meta name="author" content="Scala Center">
 
 
-  <meta property="og:title" content="The installation process" />
-<meta property="og:description" content="How to install Bloop on your machine" />
+  <meta property="og:title" content="Bloop basics" />
+<meta property="og:description" content="What is bloop and which problems does it solve?" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://scalacenter.github.io/bloop/docs/installation/" />
+<meta property="og:url" content="https://scalacenter.github.io/bloop/docs/bloop-basics/" />
 
 
 
-<meta property="article:published_time" content="2018-02-08T16:35:00&#43;01:00"/>
+<meta property="article:published_time" content="2018-02-09T10:15:00&#43;01:00"/>
 
-<meta property="article:modified_time" content="2018-02-08T16:35:00&#43;01:00"/>
-
-
-
-
+<meta property="article:modified_time" content="2018-02-09T10:15:00&#43;01:00"/>
 
 
 
@@ -42,18 +38,22 @@
 
 
 
-  
 
 
 
 
   
+
+
+
+
+  
   
   
   
   
 
-  <link rel="canonical" href="https://scalacenter.github.io/bloop/docs/installation/">  
+  <link rel="canonical" href="https://scalacenter.github.io/bloop/docs/bloop-basics/">  
 
   
 <link rel="shortcut icon" type="image/png" href="data:image/png;base64,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">
@@ -113,12 +113,12 @@
   <main>
   <div id="main">
     <div id="hero">
-      <h1> The installation process </h1>
+      <h1> Bloop basics </h1>
       <p class="hero-lead">
-           Here are all the instructions to install Bloop.
+           Learn the ideas behind bloop, which problems it solves and how it's designed.
       </p>
       <div style="padding-top: 30px; text-align: center;">
-<a class="button outline" href="https://github.com/scalacenter/bloop/edit/master/website/content/docs/installation.md">Edit this page on GitHub</a>
+<a class="button outline" href="https://github.com/scalacenter/bloop/edit/master/website/content/docs/bloop-basics.md">Edit this page on GitHub</a>
 </div>
 
     </div> 
@@ -146,82 +146,95 @@ headingSelector: 'h3'
 
     
 
-<h3 id="instructions-for-mac-os">Instructions for Mac OS</h3>
+<h2 id="design-goals">Design goals</h2>
 
-<p>Installing Bloop with <a href="https://brew.sh">Homebrew</a> is the easiest and fastest way to install Bloop on
-Mac OS.</p>
+<p>Bloop is a Scala command-line tool and build server developed at the Scala
+Center to make the compile and test feedback loop as tight as possible. This
+means a faster and more productive developer workflow.</p>
 
-<p>We publish an updated formula along with every release of Bloop. You can install it using:</p>
+<h3 id="tigth-feedback-loop">Tigth feedback loop</h3>
 
-<pre><code class="language-sh">$ brew install scalacenter/bloop/bloop
-</code></pre>
+<p>Edit, compile and test workflows are the bread and butter of our daily jobs.
+When our build is slow to respond, our productivity drops. Bloop is a
+command-line tool and build server that brings you a tighter developer
+workflow. Slow Scala compile times can often be attributed to the slugishness
+of our build tool, and <code>bloop</code> aims to address them.</p>
 
-<p>The formula will also take care of installing a property list (<code>plist</code>) that will take care of
-starting the Bloop server when you log onto your machine. This way, you don&rsquo;t have to think about
-starting it yourself.</p>
+<p>We have created bloop to make you productive without getting in your way. We
+focus on how you can be faster at writing Scala code using your current build
+tool, whether it’s sbt, Maven or Gradle.</p>
 
-<p>If you don&rsquo;t want the Bloop server to start automatically, you can disable it:</p>
+<h3 id="run-as-fast-as-possible">Run as fast as possible</h3>
 
-<pre><code class="language-sh">$ launchctl disable bloop
-</code></pre>
+<p>The primary goal of bloop is to run core tasks as fast as possible.</p>
 
-<p>If you want to have it start automatically again, type:</p>
+<h4 id="hot-compilers">Hot compilers</h4>
 
-<pre><code class="language-sh">$ launchctl enable bloop
-</code></pre>
+<p>One of the primary ways Bloop achieves its goal is by caching hot compilers
+across all developer tools (IDEs, build tools, terminals).</p>
 
-<p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
+<p>A hot compiler is a long-running compiler that has been heavily optimized by
+JVM&rsquo;s <a href="https://en.wikipedia.org/wiki/Just-in-time_compilation">JIT</a> and
+therefore reaches peak performance when compiling code. The difference
+between a cold and hot compiler varies. This variation is usually an order of
+magnitude large — a hot compiler can be between 10x and 20x faster than a
+cold compiler.</p>
 
-<h3 id="instructions-for-other-platforms">Instructions for other platforms</h3>
+<p>Keeping hot compilers alive is crucial to be productive. However, it is a
+difficult task; compilers must outlive short- and long-running build
+processes, and there is no existing way to share them across different build
+tools and IDEs.</p>
 
-<p>We do not publish native packages for other platforms at the moment, but you can use our
-Python installation script to install Bloop on your machine. The installation script has been
-reported to work on major Linux distributions, Mac OS and Windows.</p>
+<p>Bloop is an agnostic build server that makes hot compiler accessible to all
+your toolchain — IDEs, build tools and terminals can share hot compilers and
+get peak performance at all times.</p>
 
-<p>The installation script can be downloaded from <a href="https://github.com/scalacenter/bloop
-/releases">the Releases of Bloop</a>.
-Run it to install Bloop in your current working directory:</p>
+<p>By supporting popular build tools out of the box and different scenarios,
+<code>bloop</code> enforces by design best practices to be productive.</p>
 
-<pre><code class="language-sh">$ ./install.py
-</code></pre>
+<h4 id="do-less-work">Do less work</h4>
 
-<p>You can then move the generated binaries somewhere else on your disk. Optionally, you can also pass
-a destination where the installation script should put the binaries:</p>
+<p>Another way Bloop decreases gives a snappy developer workflow is by doing
+less work. Bloop only focuses on compiling, testing and running your code.
+Everything else is left to external tools so that only the blocking tasks are
+on your way when editing code.</p>
 
-<pre><code class="language-sh">$ ./install.py --dest ~/bin/bloop
-</code></pre>
+<h3 id="not-a-build-tool">Not a build tool</h3>
 
-<p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
+<p>Bloop is not a new build tool, but rather a foundation block for Scala
+tooling. It can be used by Scala developers to be more productive and by
+tooling authors to write tools in a fast and reliable way.</p>
 
-<h3 id="installing-a-development-version">Installing a development version</h3>
+<p>There is a lot of progress and research going into the build tools field.
+Whether you use established build tools like Bazel, Pants, sbt, Maven and
+Gradle or brand-new build tools like CBT and mill, you should benefit from
+the fastest of the workflows no matter what the internal architecture of your
+build tool is.</p>
 
-<p>The installation script can also be used to install a development version of Bloop. The <a href="https://github.com/scalacenter/bloop
-">installation
-script</a> can be downloaded directly from our repository.</p>
+<h4 id="runtime-independent">Runtime independent</h4>
 
-<p>This installation script requires more information to install Bloop:</p>
+<p>Test or run your Scala application on the JVM, Scala.js and Scala Native.
+Bloop interfaces with the API of every runtime that the Scala ecosystem
+supports so that external tools don&rsquo;t have to.</p>
 
-<ul>
-<li>The exact version to install. We publish artifacts for every commit on <code>master</code>. Look at the CI
-logs to figure out the exact version number.</li>
-<li>The SHA of the commit to use to get the Nailgun client. Look at which commit points our <code>nailgun</code>
-submodule at a given point in time to find that information.</li>
-</ul>
+<h4 id="command-line-friendly">Command line friendly</h4>
 
-<p>Pass this information to the installation script:</p>
+<p>The primary way to interact with bloop is directly from the command line
+instead of through a shell or repl. This workflow is more familiar to how
+most of developer tools work (for example, Maven, Gradle or sbt) and allows
+you to reuse the same terminal for other tasks.</p>
 
-<pre><code class="language-sh">$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
-</code></pre>
+<h4 id="simplicity">Simplicity</h4>
 
-<h3 id="next-steps">Next steps</h3>
+<p>You can think of bloop as a simple, end-user application that runs Bloop&rsquo;s
+core commands. The does not require you to learn a complex DSL or
+configuration format to interact with it. <code>--help</code> takes you a long way.</p>
 
-<p>Once bloop has been successfully installed on your machine, you can move to build-tool specific part
-of the installation:</p>
+<h4 id="concurrent">Concurrent</h4>
 
-<ul>
-<li><a href="https://scalacenter.github.io/bloop/docs/getting-started-sbt/">Getting started with sbt</a></li>
-<li><a href="https://scalacenter.github.io/bloop/docs/getting-started-maven/">Getting started with Maven</a></li>
-</ul>
+<p>A single bloop server handles concurrent requests from multiple clients. This
+enables several clients to reuse the same bloop instance without blocking
+each other.</p>
 
 
     
