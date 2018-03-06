@@ -63,10 +63,10 @@ object Commands {
 
   @CommandName("bsp")
   case class Bsp(
-      @ExtraName("h")
+      @ExtraName("p")
       @HelpMessage("The connection protocol for the bsp server. By default, local.")
       protocol: BspProtocol = BspProtocol.Local,
-      @ExtraName("p")
+      @ExtraName("h")
       @HelpMessage("The server host for the bsp server (TCP only).")
       host: String = "127.0.0.1",
       @HelpMessage("The port for the bsp server (TCP only).")
