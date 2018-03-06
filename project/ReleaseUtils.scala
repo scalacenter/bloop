@@ -72,7 +72,7 @@ object ReleaseUtils {
        |  def install
        |      mkdir "bin"
        |      system "python2", "install.py", "--dest", "bin", "--version", version
-       |      File.delete("bin/coursier")
+       |      File.delete("bin/blp-coursier")
        |      prefix.install "bin"
        |  end
        |

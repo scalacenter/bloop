@@ -66,21 +66,25 @@ object Tasks {
       )
     }
 
-    val visited = scala.collection.mutable.HashSet.empty[Dag[Project]]
     def compileTree(dag: Dag[Project]): Task[List[CompileResult]] = {
-      if (visited.contains(dag)) Task.now(Nil)
-      else {
-        visited.add(dag)
-        dag match {
-          case Leaf(project) => Task(List(compile(project)))
-          case Parent(project, dependencies) =>
-            val downstream = Task.traverse(dependencies)(compileTree).map(_.flatten)
-            downstream.flatMap { results =>
-              if (results.exists(_._2 == FailedResult)) Task.now(results)
-              else Task(compile(project)).map(r => r :: results)
-            }
+      val visited = scala.collection.mutable.HashSet.empty[Dag[Project]]
+      def loop(dag: Dag[Project]): Task[List[CompileResult]] = {
+        if (visited.contains(dag)) Task.now(Nil)
+        else {
+          visited.add(dag)
+          dag match {
+            case Leaf(project) => Task(List(compile(project)))
+            case Parent(project, dependencies) =>
+              val downstream = Task.wanderUnordered(dependencies)(loop).map(_.flatten)
+              downstream.flatMap { results =>
+                if (results.exists(_._2 == FailedResult)) Task.now(results)
+                else Task(compile(project)).map(r => r :: results)
+              }
+          }
         }
       }
+
+      loop(dag)
     }
 
     val dag = state.build.getDagFor(project)

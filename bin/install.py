@@ -47,13 +47,11 @@ BLOOP_VERSION = args.version
 NAILGUN_COMMIT = args.nailgun
 
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
-BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "coursier")
+BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-coursier")
 BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
-BLOOP_SHELL_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-shell")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
-
 
 def download_and_install(url, target):
     try:
@@ -63,13 +61,12 @@ def download_and_install(url, target):
         print "Couldn't download %s, please try again." % url
         sys.exit(1)
 
-
 def coursier_bootstrap(target, main):
     try:
         check_call([
             "java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
             "-r", "bintray:scalameta/maven",
-            "-o", target, "--standalone", "--main", main
+            "-o", target, "-f", "--standalone", "--main", main
         ])
     except CalledProcessError as e:
         print "Coursier couldn't create %s. Please report an issue." % target
@@ -77,21 +74,14 @@ def coursier_bootstrap(target, main):
         print "Return code: %d" % e.returncode
         sys.exit(e.returncode)
 
-
 if not isdir(BLOOP_INSTALLATION_TARGET):
     os.makedirs(BLOOP_INSTALLATION_TARGET)
 
 if not isfile(BLOOP_COURSIER_TARGET):
     download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET)
 
-if not isfile(BLOOP_SERVER_TARGET):
-    coursier_bootstrap(BLOOP_SERVER_TARGET, "bloop.Server")
-    print "Installed bloop server in '%s'" % BLOOP_SERVER_TARGET
+coursier_bootstrap(BLOOP_SERVER_TARGET, "bloop.Server")
+print "Installed bloop server in '%s'" % BLOOP_SERVER_TARGET
 
-if not isfile(BLOOP_SHELL_TARGET):
-    coursier_bootstrap(BLOOP_SHELL_TARGET, "bloop.Bloop")
-    print "Installed bloop shell in '%s'" % BLOOP_SHELL_TARGET
-
-if not isfile(BLOOP_CLIENT_TARGET):
-    download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET)
-    print "Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET
+download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET)
+print "Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET
