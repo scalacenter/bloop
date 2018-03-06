@@ -6,68 +6,35 @@
 Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
 </p>
 
-[![GitHub tag](https://img.shields.io/github/tag/scalacenter/bloop.svg)]()
-[![Build Status](https://ci.scala-lang.org/api/badges/scalacenter/bloop/status.svg)](https://ci.scala-lang.org/scalacenter/bloop)
-[![Join the chat](https://badges.gitter.im/scalacenter/bloop.svg)](https://gitter.im/scalacenter/bloop)
+<p align="center">
+<img src="https://camo.githubusercontent.com/d04147fe2a1175f2e9b0f873d0045ee2d1aacfd9/68747470733a2f2f63692e7363616c612d6c616e672e6f72672f6170692f6261646765732f7363616c6163656e7465722f626c6f6f702f7374617475732e737667" alt="Build Status" data-canonical-src="https://ci.scala-lang.org/api/badges/scalacenter/bloop/status.svg" style="max-width:100%;">
+<img src="https://camo.githubusercontent.com/9b3d43be69818501c39dc7db170aaf0531cfa363/68747470733a2f2f6261646765732e6769747465722e696d2f7363616c6163656e7465722f626c6f6f702e737667" alt="Join the chat" data-canonical-src="https://badges.gitter.im/scalacenter/bloop.svg" style="max-width:100%;">
+</p>
 
-## Goals
 
-To understand the goals of bloop, we strongly encourage you to read [this Scala blog
-post][bloop-release-post].
+Bloop is a Scala command-line tool and build server developed at the Scala
+Center to make the compile and test feedback loop as tight as possible, with
+a focus on developer productivity.
 
-Bloop is a command-line tool for fast edit/compile/test workflows. Its primary
-goal is to compile and test your project as fast as possible, offering a snappy
-developer experience. Bloop does not aim to replace your stock build tool, but
-rather complement it.
+### Tight feedback loop
 
-*Disclaimer*: Bloop is in beta, that means that you should not expect
-everything to make sense and you should be ready to see unexpected behaviours.
-We're working hard to quickly improve it, and we encourage you to update master
-on a daily basis if you start using the tool.
+Edit, compile and test workflows are the bread and butter of our daily jobs.
+When our build is slow to respond, our productivity drops. Bloop is a
+command-line tool and build server that brings you a tighter developer
+workflow. Slow Scala compile times can often be attributed to the slugishness
+of our build tool, and `bloop` aims to address them.
 
-## Installation
+We have created bloop to make you productive without getting in your way. We
+focus on how you can be faster at writing Scala code using your current build
+tool, whether it’s sbt, Maven or Gradle.
 
-Please refer to [the installation
-instructions](https://scalacenter.github.io/bloop/docs/installation/).
+### Documentation
 
-## Documentation
+Bloop's documentation lives in [our website](https://scalacenter.github.io/bloop/).
 
-Documentation is available [on our website](https://scalacenter.github.io/bloop/docs/).
-
-### Building Bloop locally
-
-To publish bloop locally, you'll need to clone this repository and use sbt:
-
-```sh
-$ git clone --recursive https://github.com/scalacenter/bloop.git
-$ cd bloop
-$ sbt
-> install
-> frontend/version # copy this version number
-$ cd nailgun
-$ git rev-parse HEAD # copy this commit SHA
-$ cd ..
-# paste the version number and SHA obtained above in the following command:
-$ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
-```
-
-## Tab-completion
-
-Bloop supports tab-completion on ZSH. To install command completion on ZSH,
-copy the [completions][zsh-completions] file to an existing completions
-directory, if it exists.
-
-If not, you can create it, and update your `.zshrc` script as follows:
-
-```sh
-$ mkdir -p ~/.zsh/completion
-$ cp etc/_bloop ~/.zsh/completion/
-$ echo 'fpath=(~/.zsh/completion $fpath)' >> ~/.zshrc
-$ echo 'autoload -Uz compinit ; compinit' >> ~/.zshrc
-```
-
-Closing and reopening your shell should make bloop tab-completions available.
-
-[installation-script]: https://raw.githubusercontent.com/scalacenter/bloop/master/bin/install.sh
-[zsh-completions]: https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop
-[bloop-release-post]: http://www.scala-lang.org/blog/2017/11/30/bloop-release.html
+1. [User documentation](https://scalacenter.github.io/bloop/docs/) to read
+   about the project, how to install and use bloop, and similar user inquiries.
+1. [Developer
+   documentation](https://scalacenter.github.io/bloop/docs/developer-documentation/)
+   to learn how to hack on the project, run our community build, improve
+   documentation, etc.
