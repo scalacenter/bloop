@@ -2,35 +2,38 @@
 toc = true
 weight = 2
 draft = false
-title = "The basics of bloop"
+title = "Bloop basics"
 date = "2018-02-09T10:15:00+01:00"
 description = "What is bloop and which problems does it solve?"
-bref = "Learn the ideas behind bloop, which problems solve and how it's designed."
+bref = "Learn the ideas behind bloop, which problems it solves and how it's designed"
 +++
 
-## An overview of Bloop
+## Design goals
 
 Bloop is a Scala command-line tool and build server developed at the Scala
 Center to make the compile and test feedback loop as tight as possible. This
 means a faster and more productive developer workflow.
 
-### A common pain point
+### Tigth feedback loop
 
 Edit, compile and test workflows are the bread and butter of our daily jobs.
-When our build is slow to respond, our productivity drops. Can Scala get as
-tight edit/compile/test workflows as in Clojure or OCaml? Bloop is a
+When our build is slow to respond, our productivity drops. Bloop is a
 command-line tool and build server that brings you a tighter developer
 workflow. Slow Scala compile times can often be attributed to the slugishness
-of our build tool, and `bloop` finds a solution to them.
+of our build tool, and `bloop` aims to address them.
 
 We have created bloop to make you productive without getting in your way. We
 focus on how you can be faster at writing Scala code using your current build
-tool, whether it’s sbt, Maven or Gradle—without reinventing the wheel with a
-new build tool.
+tool, whether it’s sbt, Maven or Gradle.
 
-### The main goal
+### Run as fast as possible
 
-The primary goal of bloop is to keep your hot compilers around.
+The primary goal of bloop is to run core tasks as fast as possible.
+
+#### Hot compilers
+
+One of the primary ways Bloop achieves its goal is by caching hot compilers
+across all developer tools (IDEs, build tools, terminals).
 
 A hot compiler is a long-running compiler that has been heavily optimized by
 JVM's [JIT](https://en.wikipedia.org/wiki/Just-in-time_compilation) and
@@ -51,9 +54,16 @@ get peak performance at all times.
 By supporting popular build tools out of the box and different scenarios,
 `bloop` enforces by design best practices to be productive.
 
-### What bloop is not
+#### Do less work
 
-Bloop is **not** a new build tool, but rather a foundation block for Scala
+Another way Bloop decreases gives a snappy developer workflow is by doing
+less work. Bloop only focuses on compiling, testing and running your code.
+Everything else is left to external tools so that only the blocking tasks are
+on your way when editing code.
+
+### Not a build tool
+
+Bloop is not a new build tool, but rather a foundation block for Scala
 tooling. It can be used by Scala developers to be more productive and by
 tooling authors to write tools in a fast and reliable way.
 
@@ -63,65 +73,30 @@ Gradle or brand-new build tools like CBT and mill, you should benefit from
 the fastest of the workflows no matter what the internal architecture of your
 build tool is.
 
-### Components
-
-Bloop has two main components, a client and a server. If you're looking for
-ways to extend this model, head to the [Integration
-guide]({{< ref "integration-guide.md" >}}).
-
-#### `bloop`, the client
-
-The `bloop` client is the tool that you use to run any bloop command. The
-client is a python script that implements Nailgun's protocol and communicates
-with the server. It is a fast CLI tool that gives you immediate feedback from
-the server.
-
-#### `blp-server`, the server
-
-The server is called `blp-server`, and it's a long-running application that
-runs on the background and keeps the state of all your projects and compiler
-instances.
-
-When you run `bloop compile` with the client, the server receives the request
-and spawns a thread to compile your project, logging you back everything that
-the compiler outputs. This server accepts requests in parallel except for
-those tasks that are already running.
-
-
-
-### Other properties
-
 #### Runtime independent
 
 Test or run your Scala application on the JVM, Scala.js and Scala Native.
 Bloop interfaces with the API of every runtime that the Scala ecosystem
 supports so that external tools don't have to.
 
-#### Familiarity
+#### Command line friendly
 
-Bloop is not a long running application like the sbt shell. You run it, get
-the result, and you have your shell back. This is closer to the workflow that
-many developers love and are used to in other tools like Maven, Gradle and
-npm.
+The primary way to interact with bloop is directly from the command line
+instead of through a shell or repl. This workflow is more familiar to how
+most of developer tools work (for example, Maven, Gradle or sbt) and allows
+you to reuse the same terminal for other tasks.
 
 #### Simplicity
 
-You can think of bloop as a dummy end-user application that supports build
-core commands. Bloop does not require you to learn a complex DSL to interact
-with it, or a complicated configuration format. `--help` takes you a long
-way.
-
-#### Rolling release
-
-Bloop releases feature the latest of the advancements in compiler APIs. If
-you use it, you will be the first one to benefit from performance speedups,
-bugfixes and other changes occurring upstream in both [scala/scala] and
-[sbt/zinc].
+You can think of bloop as a simple, end-user application that runs Bloop's
+core commands. The does not require you to learn a complex DSL or
+configuration format to interact with it. `--help` takes you a long way.
 
 #### Concurrent
 
-Bloop supports several users by design so that concurrent executions can take
-place without stepping on each other's toes.
+A single bloop server handles concurrent requests from multiple clients. This
+enables several clients to reuse the same bloop instance without blocking
+each other.
 
 [scala/scala]: https://github.com/scala/scala
 [sbt/zinc]: https://github.com/sbt/zinc
