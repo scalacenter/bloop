@@ -22,7 +22,9 @@ final class FileTracker(dir: AbsolutePath,
   /**
    * Inspects the directory for changes.
    *
-   * @return true if the directory has changed, false otherwise.
+   * @return `FileTracker.Unchanged` if the tracked files didn't change. If the last modified
+   *         times have changed, this contains a new `FileTracker` with the updated `modifiedTimes`.
+   *         If the tracked files have changed, `FileTracker.Changed` is returned.
    */
   def changed(): FileTracker.Status = {
     val newModifiedTimes = FileTracker.getFiles(dir, pattern)
