@@ -238,6 +238,7 @@ The following options are supported:
 ### `bloop bsp`
 
 This command is used to start the <abbr title="Build Server Protocol">BSP</abbr> server.
+You can check a specification of BSP <a href="https://github.com/scalacenter/bsp">here</a>.
 
 The following options are supported:
 
@@ -284,23 +285,23 @@ The following options are supported:
   <dt><code>-s</code> or <code>--socket</code></dt>
   <dd>
     <p>
-      The path to the socket file to use to communicate throught UNIX sockets.
+      The path to the UNIX socket file. Ignored if OS is not Unix (Linux, OSX, *bsd).
     </p>
     <p>
       <span class="label warning">Note</span>
-      this option can only be set when the `--protocol` is set to `only`.
+      this option can only be set when the `--protocol` is set to `local`. You can specify the pipe name as well if you aim to support Windows too.
     </p>
     <p><em>example:</em> <samp>bloop bsp --socket /var/run/bsp</p>
   </dd>
 
-  <dt><code>--np</code> or <code>--pipename</code></dt>
+  <dt><code>--pn</code> or <code>--pipename</code></dt>
   <dd>
     <p>
-      The path to the socket file to use to communicate throught UNIX sockets.
+      The name of the Windows communication pipe. Ignored if OS is not Windows.
     </p>
     <p>
       <span class="label warning">Note</span>
-      this option can only be set when the `--protocol` is set to `only`.
+      this option can only be set when the `--protocol` is set to `local`. You can specify the UNIX socket path if you aim to support UNIX systems too.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol local --pipename /var/run/bsp</p>
   </dd>

@@ -74,7 +74,7 @@ object Commands {
       @ExtraName("s")
       @HelpMessage("A path to a socket file to communicate through Unix sockets (local only).")
       socket: Option[Path] = None,
-      @ExtraName("np")
+      @ExtraName("pn")
       @HelpMessage(
         "A path to a new existing socket file to communicate through Unix sockets (local only).")
       pipeName: Option[String] = None,
