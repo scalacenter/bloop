@@ -16,12 +16,12 @@ import bloop.logging.Logger
  * @param base          The base file or directory to track.
  * @param pattern       The pattern matching the files that must be tracked inside `base`.
  * @param modifiedTimes The last modification time of the tracked files.
- * @param contentsChecksum The checksum of all the contents of the directory.
+ * @param checksum      The checksum of all the contents of the directory.
  */
 final case class FileTracker(base: AbsolutePath,
                              pattern: String,
                              modifiedTimes: List[(AbsolutePath, FileTime)],
-                             contentsChecksum: Long) {
+                             checksum: Long) {
 
   /**
    * Inspects the directory for changes.
@@ -37,7 +37,7 @@ final case class FileTracker(base: AbsolutePath,
     else {
       try {
         val newChecksum = FileTracker.filesChecksum(newModifiedTimes.map(_._1))
-        if (newChecksum != contentsChecksum) FileTracker.Changed
+        if (newChecksum != checksum) FileTracker.Changed
         else {
           val checksum = new FileTracker(base, pattern, newModifiedTimes, newChecksum)
           FileTracker.Unchanged(Some(checksum))
