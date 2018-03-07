@@ -14,10 +14,10 @@ import java.util.zip.{Adler32, CheckedInputStream}
  * @param modifiedTimes The last modification time of the tracked files.
  * @param contentsChecksum The checksum of all the contents of the directory.
  */
-final class FileTracker(base: AbsolutePath,
-                        pattern: String,
-                        modifiedTimes: List[(AbsolutePath, FileTime)],
-                        contentsChecksum: Long) {
+final case class FileTracker(base: AbsolutePath,
+                             pattern: String,
+                             modifiedTimes: List[(AbsolutePath, FileTime)],
+                             contentsChecksum: Long) {
 
   /**
    * Inspects the directory for changes.
