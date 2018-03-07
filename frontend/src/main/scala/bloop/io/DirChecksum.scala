@@ -16,7 +16,7 @@ import java.util.zip.{Adler32, CheckedInputStream}
  */
 final class DirChecksum(dir: AbsolutePath,
                         pattern: String,
-                        private[this] var modifiedTimes: List[(AbsolutePath, FileTime)],
+                        modifiedTimes: List[(AbsolutePath, FileTime)],
                         contentsChecksum: Long) {
 
   /**
@@ -24,23 +24,36 @@ final class DirChecksum(dir: AbsolutePath,
    *
    * @return true if the directory has changed, false otherwise.
    */
-  def changed(): Boolean = {
+  def changed(): DirChecksum.DirStatus = {
     val newModifiedTimes = DirChecksum.getFiles(dir, pattern)
-    if (newModifiedTimes == modifiedTimes) false
+    if (newModifiedTimes == modifiedTimes) DirChecksum.DirUnchanged(None)
     else {
-      synchronized {
-        val newChecksum = DirChecksum.filesChecksum(newModifiedTimes.map(_._1))
-        if (newChecksum != contentsChecksum) true
-        else {
-          modifiedTimes = newModifiedTimes
-          false
-        }
+      val newChecksum = DirChecksum.filesChecksum(newModifiedTimes.map(_._1))
+      if (newChecksum != contentsChecksum) DirChecksum.DirChanged
+      else {
+        val checksum = new DirChecksum(dir, pattern, newModifiedTimes, newChecksum)
+        DirChecksum.DirUnchanged(Some(checksum))
       }
     }
   }
 }
 
 object DirChecksum {
+
+  /** Indicates the status of a tracked directory */
+  sealed trait DirStatus
+
+  /**
+   * Indicates that the content of the directory hasn't changed.
+   *
+   * @param newChecksum If set, the new `DirChecksum` with the updated
+   *                    `lastModifiedTimes` (if the files have been touched, but
+   *                    not modified).
+   */
+  case class DirUnchanged(newChecksum: Option[DirChecksum]) extends DirStatus
+
+  /** Indicates that the content of the directory has changed. */
+  case object DirChanged extends DirStatus
 
   /**
    * Creates a new `DirChecksum`.

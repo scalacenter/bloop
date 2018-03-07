@@ -1,9 +1,10 @@
 package bloop.io
 
 import java.nio.file.Files
+import java.nio.file.attribute.FileTime
 
 import org.junit.Test
-import org.junit.Assert.{assertFalse, assertTrue}
+import org.junit.Assert.{assertEquals, fail}
 
 import bloop.Project
 import bloop.tasks.ProjectHelpers.withTemporaryDirectory
@@ -15,7 +16,7 @@ class DirChecksumSpec {
     withTemporaryDirectory { tmp =>
       val path = AbsolutePath(tmp)
       val checksum = DirChecksum(path, Project.loadPattern)
-      assertFalse("The checksum shouldn't have been changed.", checksum.changed())
+      assertEquals(DirChecksum.DirUnchanged(None), checksum.changed())
     }
   }
 
@@ -26,7 +27,7 @@ class DirChecksumSpec {
       val checksum = DirChecksum(path, "glob:**.hello")
       val unmatched = tmp.resolve("test.scala")
       Files.write(unmatched, "test".getBytes)
-      assertFalse("The checksum shouldn't have been changed.", checksum.changed())
+      assertEquals(DirChecksum.DirUnchanged(None), checksum.changed())
     }
   }
 
@@ -37,7 +38,7 @@ class DirChecksumSpec {
       val checksum = DirChecksum(path, "glob:**.scala")
       val matched = tmp.resolve("test.scala")
       Files.write(matched, "test".getBytes)
-      assertTrue("The checksum should have been changed.", checksum.changed())
+      assertEquals(DirChecksum.DirChanged, checksum.changed())
     }
   }
 
@@ -49,24 +50,31 @@ class DirChecksumSpec {
       Files.write(matched, "test".getBytes)
       val checksum = DirChecksum(path, "glob:**.scala")
       Files.delete(matched)
-
-      assertTrue("The checksum should have been changed.", checksum.changed())
+      assertEquals(DirChecksum.DirChanged, checksum.changed())
     }
   }
 
   @Test
-  def shoulntReportUnchangedContent(): Unit = {
+  def shouldntReportUnchangedContent(): Unit = {
     withTemporaryDirectory { tmp =>
       val path = AbsolutePath(tmp)
       val matched = tmp.resolve("test.scala")
       Files.write(matched, "test".getBytes)
 
       val checksum = DirChecksum(path, "glob:**.scala")
-      assertFalse("The checksum shouldn't have been changed.", checksum.changed())
+      assertEquals(DirChecksum.DirUnchanged(None), checksum.changed())
 
       Files.write(matched, "foo".getBytes)
       Files.write(matched, "test".getBytes)
-      assertFalse("The checksum shouldn't have been changed.", checksum.changed())
+      val now = FileTime.fromMillis(System.currentTimeMillis() + 5000)
+      Files.setLastModifiedTime(matched, now);
+
+      checksum.changed match {
+        case DirChecksum.DirUnchanged(Some(newChecksum)) =>
+          assertEquals(DirChecksum.DirUnchanged(None), newChecksum.changed())
+        case other =>
+          fail(s"Expected `DirUnchanged(Some(newChecksum))`, found `$other`")
+      }
     }
   }
 }
