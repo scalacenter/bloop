@@ -1,7 +1,7 @@
 package bloop.engine.caches
 
 import bloop.engine.State
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, FileTracker}
 import java.util.concurrent.ConcurrentHashMap
 
 /** Cache that holds the state associated to each loaded build. */
@@ -36,7 +36,17 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @return The state associated with `from`, or the newly computed state.
    */
   def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => State): State = {
-    cache.computeIfAbsent(from, p => computeBuild(p))
+    val state = cache.computeIfAbsent(from, p => computeBuild(p))
+    state.build.changed(state.logger) match {
+      case FileTracker.Unchanged(None) =>
+        state
+      case FileTracker.Unchanged(Some(csum)) =>
+        state.copy(build = state.build.copy(originChecksum = csum))
+      case FileTracker.Changed =>
+        val updatedState = computeBuild(from)
+        val _ = cache.put(from, updatedState)
+        updatedState
+    }
   }
 
   /** All the states contained in this cache. */
