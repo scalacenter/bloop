@@ -101,7 +101,7 @@ object Cli {
             Print(commandHelpAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(usage @ true, _, _), _, _)) =>
             Print(commandUsageAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
-          case Right((commandName, WithHelp(_, _, command), remainingArgs, _)) =>
+          case Right((commandName, WithHelp(_, _, command), remainingArgs, extraArgs)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
             def run(command: Commands.RawCommand, cliOptions: CliOptions): Run = {
               if (!cliOptions.version) Run(command, Exit(ExitStatus.Ok))
@@ -157,6 +157,7 @@ object Cli {
                   val newCommand = c
                     .copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                     .copy(project = inferredProject)
+                    .copy(args = c.args ++ extraArgs) // Infer everything after '--' as args
                   run(newCommand, newCommand.cliOptions)
                 }
               case Right(c: Commands.Clean) =>
