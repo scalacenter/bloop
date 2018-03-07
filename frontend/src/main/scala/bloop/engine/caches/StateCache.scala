@@ -37,7 +37,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    */
   def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => State): State = {
     val state = cache.computeIfAbsent(from, p => computeBuild(p))
-    state.build.changed match {
+    state.build.changed(state.logger) match {
       case FileTracker.Unchanged(None) =>
         state
       case FileTracker.Unchanged(Some(csum)) =>

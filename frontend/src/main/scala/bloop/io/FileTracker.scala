@@ -6,6 +6,10 @@ import java.nio.file.attribute.FileTime
 import java.util.Enumeration
 import java.util.zip.{Adler32, CheckedInputStream}
 
+import scala.util.control.NonFatal
+
+import bloop.logging.Logger
+
 /**
  * Represents the state of a directory or file in which we track changes.
  *
@@ -22,19 +26,28 @@ final case class FileTracker(base: AbsolutePath,
   /**
    * Inspects the directory for changes.
    *
+   * @param logger A logger that receive errors, if any.
    * @return `FileTracker.Unchanged` if the tracked files didn't change. If the last modified
    *         times have changed, this contains a new `FileTracker` with the updated `modifiedTimes`.
    *         If the tracked files have changed, `FileTracker.Changed` is returned.
    */
-  def changed(): FileTracker.Status = {
+  def changed(logger: Logger): FileTracker.Status = {
     val newModifiedTimes = FileTracker.getFiles(base, pattern)
     if (newModifiedTimes == modifiedTimes) FileTracker.Unchanged(None)
     else {
-      val newChecksum = FileTracker.filesChecksum(newModifiedTimes.map(_._1))
-      if (newChecksum != contentsChecksum) FileTracker.Changed
-      else {
-        val checksum = new FileTracker(base, pattern, newModifiedTimes, newChecksum)
-        FileTracker.Unchanged(Some(checksum))
+      try {
+        val newChecksum = FileTracker.filesChecksum(newModifiedTimes.map(_._1))
+        if (newChecksum != contentsChecksum) FileTracker.Changed
+        else {
+          val checksum = new FileTracker(base, pattern, newModifiedTimes, newChecksum)
+          FileTracker.Unchanged(Some(checksum))
+        }
+      } catch {
+        case NonFatal(e) =>
+          logger.error(
+            s"An error occurred while checking the build for changes; assuming it changed.")
+          logger.trace(e)
+          FileTracker.Changed
       }
     }
   }
@@ -80,9 +93,7 @@ object FileTracker {
   private def getFiles(base: AbsolutePath, pattern: String): List[(AbsolutePath, FileTime)] = {
     Paths
       .getAll(base, pattern)
-      .map { path =>
-        path -> Files.getLastModifiedTime(path.underlying)
-      }
+      .map(path => path -> Files.getLastModifiedTime(path.underlying))
       .toList
   }
 
