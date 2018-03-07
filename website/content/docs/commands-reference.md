@@ -244,7 +244,8 @@ The following options are supported:
       The accepted values are <code>local</code> and <code>tcp</code>
     </p>
     <p>
-      <mark>Note</mark> when using the `tcp` protocol, the `--socket` option must be set, too.
+      <span class="label warning">Note</span>
+      when using the `tcp` protocol, the `--socket` option must be set, too.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol tcp</samp></p>
   </dd>
@@ -255,7 +256,8 @@ The following options are supported:
       The hostname of the server.
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `tcp`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `tcp`.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol tcp --host my-server.com</p>
   </dd>
@@ -266,7 +268,8 @@ The following options are supported:
       The port on which the server is listening. Defaults to <code>5001</code>
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `tcp`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `tcp`.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol tcp --port 65001</p>
   </dd>
@@ -277,7 +280,8 @@ The following options are supported:
       The path to the socket file to use to communicate throught UNIX sockets.
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `only`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `only`.
     </p>
     <p><em>example:</em> <samp>bloop bsp --socket /var/run/bsp</p>
   </dd>
@@ -288,7 +292,8 @@ The following options are supported:
       The path to the socket file to use to communicate throught UNIX sockets.
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `only`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `only`.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol local --pipename /var/run/bsp</p>
   </dd>
