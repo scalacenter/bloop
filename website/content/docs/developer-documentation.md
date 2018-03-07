@@ -28,6 +28,15 @@ We recommend that whenever you make changes to the docs you add `[DOCS]` to the
 commit message to tell the CI server to skip tests and speed up the merge
 process.
 
+## Opening up our sbt build
+
+Bloop builds with sbt. For now, the bloop build only works if you have coursier
+as a global sbt plugin. We plan on fixing this limitation in the future if
+there is enough contributor activity in the repository.
+
+To check how to add coursier as a global plugin, check [coursier's
+instructions](https://github.com/coursier/coursier/).
+
 ## Building Bloop locally
 
 The following sequence of commands is sufficient to build Bloop, publish it
