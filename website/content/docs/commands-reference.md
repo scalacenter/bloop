@@ -205,8 +205,8 @@ The following options are supported:
     <p>Select the project to clean. This argument is required.</p>
     <p><em>example:</em> <samp>bloop clean -p foobar</samp></p>
     <p><em>example:</em> <samp>bloop clean foobar</samp></p>
-    <p><em>example:</em> <samp>bloop clean -p baz biz</samp></p>
-    <p><em>example:</em> <samp>bloop clean baz biz</samp></p>
+    <p><em>example:</em> <samp>bloop clean -p foobar foobar-test</samp></p>
+    <p><em>example:</em> <samp>bloop clean foobar foobar-test biz</samp></p>
   </dd>
 
   <dt><code>--isolated</code></dt>
