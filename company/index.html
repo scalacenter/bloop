@@ -67,10 +67,13 @@
  <link href="/bloop/css/custom.css" rel="stylesheet" type="text/css">
   <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet">
 
+
   <script src="/bloop/js/jquery-2.1.4.min.js" type="text/javascript">
   </script>
 
   <script type="text/javascript" src="/bloop/js/tocbot.min.js"></script>
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css" />
 </head>
 
 
@@ -100,6 +103,13 @@
     </nav>
     <nav id="top-nav-extra"> 
       <ul>
+          <li>
+            <form class="form">
+              <div class="form-item">
+                <input type="text" id="bloop-search" id="bloop-search-input" placeholder="Search in docs">
+              </div>
+            </form>
+          </li>
          
           <li>
             <a class="button secondary outline" href="https://github.com/scalacenter/bloop">View on GitHub</a>
@@ -150,6 +160,16 @@
   </script>
   <script src="/bloop/js/master.js" type="text/javascript">
   </script>
+
+  
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
+  <script type="text/javascript"> docsearch({
+   apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
+   indexName: 'bloop_scala',
+   inputSelector: '#bloop-search',
+   debug: false 
+  });
+  </script> 
 </body>
 
 </html>

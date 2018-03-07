@@ -21,3 +21,18 @@ code {
 pre code {
   color: #24292e;
 }
+
+#bloop-search {
+  background-image: url("data:image/svg+xml;base64,PHN2ZyBhbHQ9IlNlYXJjaCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTYgMTYiPgogIDxwYXRoIGQ9Ik02LjAyOTQ1LDEwLjIwMzI3YTQuMTczODIsNC4xNzM4MiwwLDEsMSw0LjE3MzgyLTQuMTczODJBNC4xNTYwOSw0LjE1NjA5LAogICAgICAwLDAsMSw2LjAyOTQ1LDEwLjIwMzI3Wm05LjY5MTk1LDQuMjE5OUwxMC44OTg5LDkuNTk5NzlBNS44ODAyMSw1Ljg4MDIxLAogICAgICAwLDAsMCwxMi4wNTgsNi4wMjg1Niw2LjAwNDY3LDYuMDA0NjcsMCwxLDAsOS41OTk3OSwxMC44OTg5bDQuODIzMzgsCiAgICAgIDQuODIzMzhhLjg5NzI5Ljg5NzI5LDAsMCwwLDEuMjk5MTIsMCwuODk3NDkuODk3NDksMCwwLDAtLjAwMDg3LTEuMjk5MDlaIgogICAgZmlsbD0iIzMxMzQzOSIvPgo8L3N2Zz4=");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position-y: center;
+  background-position-x: 5px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 5px 5px 5px 29px;
+}
+
+#top #top-nav-extra .algolia-autocomplete {
+  font-size: 16px;
+}
