@@ -30,7 +30,8 @@ The supported options are:
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project to compile. This argument is required.</p>
+    <p>Select the project to compile. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop compile foobar</samp></p>
     <p><em>example:</em> <samp>bloop compile -p foobar</samp></p>
   </dd>
 
@@ -40,7 +41,7 @@ The supported options are:
       Whether to compile the project incrementally. Defaults to <code>true</code>. If this option is
       set to false, then the compiler will recompile all the sources.
     </p>
-    <p><em>example:</em> <samp>bloop compile -p foobar --incremental=false</samp></p>
+    <p><em>example:</em> <samp>bloop compile foobar --incremental=false</samp></p>
   </dd>
 
   <dt><code>--reporter</code></dt>
@@ -49,7 +50,7 @@ The supported options are:
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop compile -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop compile foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--watch</code></dt>
@@ -59,7 +60,7 @@ The supported options are:
       file of the project, or of the dependencies of the project, is modified, the
       <code>compile</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop compile -p foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop compile foobar --watch</samp></p>
   </dd>
 </dl>
 
@@ -72,7 +73,8 @@ The supported options are:
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project to test. This argument is required.</p>
+    <p>Select the project to test. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop test foobar</samp></p>
     <p><em>example:</em> <samp>bloop test -p foobar</samp></p>
   </dd>
 
@@ -82,7 +84,7 @@ The supported options are:
       Whether to run the tests only for the specified project, not including its dependencies. By
       default, the tests are run for the dependencies of the specified project and the project.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --isolated</samp></p>
+    <p><em>example:</em> <samp>bloop test foobar --isolated</samp></p>
   </dd>
 
   <dt><code>--reporter</code></dt>
@@ -91,7 +93,7 @@ The supported options are:
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop test foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--watch</code></dt>
@@ -101,7 +103,7 @@ The supported options are:
       file of the project, or of the dependencies of the project, is modified, the
       <code>test</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop test foobar --watch</samp></p>
   </dd>
 </dl>
 
@@ -115,7 +117,8 @@ The supported options are:
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project to run. This argument is required.</p>
+    <p>Select the project to run. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop run foobar</samp></p>
     <p><em>example:</em> <samp>bloop run -p foobar</samp></p>
   </dd>
 
@@ -125,7 +128,7 @@ The supported options are:
       The fully qualified class name of the class to run. Leave blank to let Bloop select
       automatically the class to run.
     </p>
-    <p><em>example:</em> <samp>bloop run -p foobar --main com.acme.Main</samp></p>
+    <p><em>example:</em> <samp>bloop run foobar --main com.acme.Main</samp></p>
   </dd>
 
   <dt><code>--reporter</code></dt>
@@ -134,7 +137,7 @@ The supported options are:
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop run -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop run foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--args</code></dt>
@@ -143,7 +146,7 @@ The supported options are:
       The arguments to pass to the <code>main()</code> function of the application. it is possible
       to specify this option more than once to pass several parameters.
     </p>
-    <p><em>example:</em> <samp>bloop run -p foobar --args hello --args world</samp>
+    <p><em>example:</em> <samp>bloop run foobar --args hello --args world</samp>
   </dd>
 
   <dt><code>--watch</code></dt>
@@ -153,7 +156,7 @@ The supported options are:
       file of the project, or of the dependencies of the project, is modified, the
       <code>test</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop test foobar --watch</samp></p>
   </dd>
 </dl>
 
@@ -166,7 +169,8 @@ The following options are supported:
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project for which to start the console. This argument is required.</p>
+    <p>Select the project for which to start the console. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop console foobar</samp></p>
     <p><em>example:</em> <samp>bloop console -p foobar</samp></p>
   </dd>
 
@@ -176,7 +180,7 @@ The following options are supported:
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop console -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop console foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--exclude-root</code></dt>
@@ -185,7 +189,7 @@ The following options are supported:
       Use this argument to start the console with all the dependencies of your project on the
       classpath, but not the project itself.
     </p>
-    <p><em>example:</em> <samp>bloop console -p foobar --exclude-root</samp>
+    <p><em>example:</em> <samp>bloop console foobar --exclude-root</samp>
   </dd>
 </dl>
 
@@ -200,6 +204,7 @@ The following options are supported:
   <dd>
     <p>Select the project to clean. This argument is required.</p>
     <p><em>example:</em> <samp>bloop clean -p foobar</samp></p>
+    <p><em>example:</em> <samp>bloop clean -p baz biz</samp></p>
   </dd>
 
   <dt><code>--isolated</code></dt>
