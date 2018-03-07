@@ -161,7 +161,9 @@ object Cli {
                   run(newCommand, newCommand.cliOptions)
                 }
               case Right(c: Commands.Clean) =>
-                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                val newCommand = c
+                  .copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                  .copy(projects = c.projects ++ remainingArgs)
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Projects) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
