@@ -7,14 +7,14 @@ import java.util.Enumeration
 import java.util.zip.{Adler32, CheckedInputStream}
 
 /**
- * Represents the state of a directory and some files in which we track changes.
+ * Represents the state of a directory or file in which we track changes.
  *
- * @param dir           The directory to track.
- * @param pattern       The pattern matching the files that must be tracked inside `dir`.
+ * @param base          The base file or directory to track.
+ * @param pattern       The pattern matching the files that must be tracked inside `base`.
  * @param modifiedTimes The last modification time of the tracked files.
  * @param contentsChecksum The checksum of all the contents of the directory.
  */
-final class FileTracker(dir: AbsolutePath,
+final class FileTracker(base: AbsolutePath,
                         pattern: String,
                         modifiedTimes: List[(AbsolutePath, FileTime)],
                         contentsChecksum: Long) {
@@ -27,13 +27,13 @@ final class FileTracker(dir: AbsolutePath,
    *         If the tracked files have changed, `FileTracker.Changed` is returned.
    */
   def changed(): FileTracker.Status = {
-    val newModifiedTimes = FileTracker.getFiles(dir, pattern)
+    val newModifiedTimes = FileTracker.getFiles(base, pattern)
     if (newModifiedTimes == modifiedTimes) FileTracker.Unchanged(None)
     else {
       val newChecksum = FileTracker.filesChecksum(newModifiedTimes.map(_._1))
       if (newChecksum != contentsChecksum) FileTracker.Changed
       else {
-        val checksum = new FileTracker(dir, pattern, newModifiedTimes, newChecksum)
+        val checksum = new FileTracker(base, pattern, newModifiedTimes, newChecksum)
         FileTracker.Unchanged(Some(checksum))
       }
     }
@@ -42,11 +42,11 @@ final class FileTracker(dir: AbsolutePath,
 
 object FileTracker {
 
-  /** Indicates the status of a tracked directory */
+  /** Indicates the status of a tracked directory or file */
   sealed trait Status
 
   /**
-   * Indicates that the content of the directory hasn't changed.
+   * Indicates that the content of the directory or file hasn't changed.
    *
    * @param newTracker If set, the new `FileTracker` with the updated
    *                   `lastModifiedTimes` (if the files have been touched, but
@@ -60,26 +60,26 @@ object FileTracker {
   /**
    * Creates a new `FileTracker`.
    *
-   * @param dir     The directory to track.
+   * @param base    The directory or file to track.
    * @param pattern The pattern that must be matched by the tracked files.
    */
-  def apply(dir: AbsolutePath, pattern: String): FileTracker = {
-    val files = getFiles(dir, pattern)
+  def apply(base: AbsolutePath, pattern: String): FileTracker = {
+    val files = getFiles(base, pattern)
     val checksum = filesChecksum(files.map(_._1))
-    new FileTracker(dir, pattern, files, checksum)
+    new FileTracker(base, pattern, files, checksum)
   }
 
   /**
    * Returns all the tracked files inside this directory, associated with their last
    * modification time.
    *
-   * @param dir     The directory to track.
+   * @param base    The base file or directory to track.
    * @param pattern The pattern to find the files to track.
    * @return A map associating each tracked file with its last modification time.
    */
-  private def getFiles(dir: AbsolutePath, pattern: String): List[(AbsolutePath, FileTime)] = {
+  private def getFiles(base: AbsolutePath, pattern: String): List[(AbsolutePath, FileTime)] = {
     Paths
-      .getAll(dir, pattern)
+      .getAll(base, pattern)
       .map { path =>
         path -> Files.getLastModifiedTime(path.underlying)
       }
