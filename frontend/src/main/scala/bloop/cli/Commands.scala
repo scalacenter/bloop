@@ -5,7 +5,7 @@ import java.nio.file.Path
 
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
-import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
+import caseapp.{ArgsName, CommandName, ExtraName, HelpMessage, Hidden, Recurse}
 
 object Commands {
 
@@ -83,8 +83,8 @@ object Commands {
 
   case class Compile(
       @ExtraName("p")
-      @HelpMessage("The project to compile.")
-      project: String,
+      @HelpMessage("The project to compile (will be inferred from remaining cli args).")
+      project: String = "",
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
@@ -97,8 +97,8 @@ object Commands {
 
   case class Test(
       @ExtraName("p")
-      @HelpMessage("The project to test.")
-      project: String,
+      @HelpMessage("The project to test (will be inferred from remaining cli args).")
+      project: String = "",
       @HelpMessage("Do not run tests for dependencies. By default, false.")
       isolated: Boolean = false,
       @ExtraName("f")
@@ -114,8 +114,8 @@ object Commands {
 
   case class Console(
       @ExtraName("p")
-      @HelpMessage("The project for which to start the console.")
-      project: String,
+      @HelpMessage("The project to run the console at (will be inferred from remaining cli args).")
+      project: String = "",
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
@@ -125,8 +125,8 @@ object Commands {
 
   case class Run(
       @ExtraName("p")
-      @HelpMessage("The project to run.")
-      project: String,
+      @HelpMessage("The project to run (will be inferred from remaining cli args).")
+      project: String = "",
       @ExtraName("m")
       @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
       main: Option[String] = None,
