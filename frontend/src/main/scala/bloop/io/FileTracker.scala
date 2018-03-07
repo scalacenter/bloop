@@ -14,7 +14,7 @@ import java.util.zip.{Adler32, CheckedInputStream}
  * @param modifiedTimes The last modification time of the tracked files.
  * @param contentsChecksum The checksum of all the contents of the directory.
  */
-final class DirChecksum(dir: AbsolutePath,
+final class FileTracker(dir: AbsolutePath,
                         pattern: String,
                         modifiedTimes: List[(AbsolutePath, FileTime)],
                         contentsChecksum: Long) {
@@ -24,47 +24,47 @@ final class DirChecksum(dir: AbsolutePath,
    *
    * @return true if the directory has changed, false otherwise.
    */
-  def changed(): DirChecksum.DirStatus = {
-    val newModifiedTimes = DirChecksum.getFiles(dir, pattern)
-    if (newModifiedTimes == modifiedTimes) DirChecksum.DirUnchanged(None)
+  def changed(): FileTracker.Status = {
+    val newModifiedTimes = FileTracker.getFiles(dir, pattern)
+    if (newModifiedTimes == modifiedTimes) FileTracker.Unchanged(None)
     else {
-      val newChecksum = DirChecksum.filesChecksum(newModifiedTimes.map(_._1))
-      if (newChecksum != contentsChecksum) DirChecksum.DirChanged
+      val newChecksum = FileTracker.filesChecksum(newModifiedTimes.map(_._1))
+      if (newChecksum != contentsChecksum) FileTracker.Changed
       else {
-        val checksum = new DirChecksum(dir, pattern, newModifiedTimes, newChecksum)
-        DirChecksum.DirUnchanged(Some(checksum))
+        val checksum = new FileTracker(dir, pattern, newModifiedTimes, newChecksum)
+        FileTracker.Unchanged(Some(checksum))
       }
     }
   }
 }
 
-object DirChecksum {
+object FileTracker {
 
   /** Indicates the status of a tracked directory */
-  sealed trait DirStatus
+  sealed trait Status
 
   /**
    * Indicates that the content of the directory hasn't changed.
    *
-   * @param newChecksum If set, the new `DirChecksum` with the updated
-   *                    `lastModifiedTimes` (if the files have been touched, but
-   *                    not modified).
+   * @param newTracker If set, the new `FileTracker` with the updated
+   *                   `lastModifiedTimes` (if the files have been touched, but
+   *                   not modified).
    */
-  case class DirUnchanged(newChecksum: Option[DirChecksum]) extends DirStatus
+  case class Unchanged(newTracker: Option[FileTracker]) extends Status
 
   /** Indicates that the content of the directory has changed. */
-  case object DirChanged extends DirStatus
+  case object Changed extends Status
 
   /**
-   * Creates a new `DirChecksum`.
+   * Creates a new `FileTracker`.
    *
    * @param dir     The directory to track.
    * @param pattern The pattern that must be matched by the tracked files.
    */
-  def apply(dir: AbsolutePath, pattern: String): DirChecksum = {
+  def apply(dir: AbsolutePath, pattern: String): FileTracker = {
     val files = getFiles(dir, pattern)
     val checksum = filesChecksum(files.map(_._1))
-    new DirChecksum(dir, pattern, files, checksum)
+    new FileTracker(dir, pattern, files, checksum)
   }
 
   /**

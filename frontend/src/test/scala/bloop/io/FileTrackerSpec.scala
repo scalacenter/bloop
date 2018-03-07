@@ -9,14 +9,14 @@ import org.junit.Assert.{assertEquals, fail}
 import bloop.Project
 import bloop.tasks.ProjectHelpers.withTemporaryDirectory
 
-class DirChecksumSpec {
+class FileTrackerSpec {
 
   @Test
   def anEmptyDirectoryShouldntChange(): Unit = {
     withTemporaryDirectory { tmp =>
       val path = AbsolutePath(tmp)
-      val checksum = DirChecksum(path, Project.loadPattern)
-      assertEquals(DirChecksum.DirUnchanged(None), checksum.changed())
+      val checksum = FileTracker(path, Project.loadPattern)
+      assertEquals(FileTracker.Unchanged(None), checksum.changed())
     }
   }
 
@@ -24,10 +24,10 @@ class DirChecksumSpec {
   def shouldOnlyTrackMatchedFiles(): Unit = {
     withTemporaryDirectory { tmp =>
       val path = AbsolutePath(tmp)
-      val checksum = DirChecksum(path, "glob:**.hello")
+      val checksum = FileTracker(path, "glob:**.hello")
       val unmatched = tmp.resolve("test.scala")
       Files.write(unmatched, "test".getBytes)
-      assertEquals(DirChecksum.DirUnchanged(None), checksum.changed())
+      assertEquals(FileTracker.Unchanged(None), checksum.changed())
     }
   }
 
@@ -35,10 +35,10 @@ class DirChecksumSpec {
   def shouldDetectNewFiles(): Unit = {
     withTemporaryDirectory { tmp =>
       val path = AbsolutePath(tmp)
-      val checksum = DirChecksum(path, "glob:**.scala")
+      val checksum = FileTracker(path, "glob:**.scala")
       val matched = tmp.resolve("test.scala")
       Files.write(matched, "test".getBytes)
-      assertEquals(DirChecksum.DirChanged, checksum.changed())
+      assertEquals(FileTracker.Changed, checksum.changed())
     }
   }
 
@@ -48,9 +48,9 @@ class DirChecksumSpec {
       val path = AbsolutePath(tmp)
       val matched = tmp.resolve("test.scala")
       Files.write(matched, "test".getBytes)
-      val checksum = DirChecksum(path, "glob:**.scala")
+      val checksum = FileTracker(path, "glob:**.scala")
       Files.delete(matched)
-      assertEquals(DirChecksum.DirChanged, checksum.changed())
+      assertEquals(FileTracker.Changed, checksum.changed())
     }
   }
 
@@ -61,8 +61,8 @@ class DirChecksumSpec {
       val matched = tmp.resolve("test.scala")
       Files.write(matched, "test".getBytes)
 
-      val checksum = DirChecksum(path, "glob:**.scala")
-      assertEquals(DirChecksum.DirUnchanged(None), checksum.changed())
+      val checksum = FileTracker(path, "glob:**.scala")
+      assertEquals(FileTracker.Unchanged(None), checksum.changed())
 
       Files.write(matched, "foo".getBytes)
       Files.write(matched, "test".getBytes)
@@ -70,10 +70,10 @@ class DirChecksumSpec {
       Files.setLastModifiedTime(matched, now);
 
       checksum.changed match {
-        case DirChecksum.DirUnchanged(Some(newChecksum)) =>
-          assertEquals(DirChecksum.DirUnchanged(None), newChecksum.changed())
+        case FileTracker.Unchanged(Some(newChecksum)) =>
+          assertEquals(FileTracker.Unchanged(None), newChecksum.changed())
         case other =>
-          fail(s"Expected `DirUnchanged(Some(newChecksum))`, found `$other`")
+          fail(s"Expected `Unchanged(Some(newChecksum))`, found `$other`")
       }
     }
   }

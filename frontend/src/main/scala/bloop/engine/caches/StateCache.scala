@@ -1,7 +1,7 @@
 package bloop.engine.caches
 
 import bloop.engine.State
-import bloop.io.{AbsolutePath, DirChecksum}
+import bloop.io.{AbsolutePath, FileTracker}
 import java.util.concurrent.ConcurrentHashMap
 
 /** Cache that holds the state associated to each loaded build. */
@@ -38,11 +38,11 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
   def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => State): State = {
     val state = cache.computeIfAbsent(from, p => computeBuild(p))
     state.build.changed match {
-      case DirChecksum.DirUnchanged(None) =>
+      case FileTracker.Unchanged(None) =>
         state
-      case DirChecksum.DirUnchanged(Some(csum)) =>
+      case FileTracker.Unchanged(Some(csum)) =>
         state.copy(build = state.build.copy(originChecksum = csum))
-      case DirChecksum.DirChanged =>
+      case FileTracker.Changed =>
         val updatedState = computeBuild(from)
         val _ = cache.put(from, updatedState)
         updatedState
