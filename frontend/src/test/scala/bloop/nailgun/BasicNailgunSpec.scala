@@ -1,8 +1,5 @@
 package bloop.nailgun
 
-import bloop.logging.RecordingLogger
-import bloop.tasks.ProjectHelpers
-
 import org.junit.{Ignore, Test}
 import org.junit.Assert.{assertEquals, assertTrue}
 
@@ -20,7 +17,7 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def helpCommandTest(): Unit = {
+  def testHelpCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       client.success("help")
       val messages = logger.getMessages()
@@ -33,7 +30,7 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def aboutCommandTest(): Unit = {
+  def testAboutCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       client.success("about")
       val messages = logger.getMessages()
@@ -49,7 +46,7 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def projectsCommandTest(): Unit = {
+  def testProjectsCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       client.success("projects")
       val messages = logger.getMessages()
@@ -63,8 +60,10 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def compileCommandTest(): Unit = {
+  def testCompileCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
+      client.success("clean", "with-resources")
+      client.success("compile", "with-resources")
       client.success("clean", "-p", "with-resources")
       client.success("compile", "-p", "with-resources")
       val messages = logger.getMessages()
@@ -78,8 +77,9 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def runCommandTest(): Unit = {
+  def testRunCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
+      client.success("run", "with-resources")
       client.success("run", "-p", "with-resources")
       val messages = logger.getMessages()
       val needle = ("info", "OK")
@@ -88,8 +88,9 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def testCommandTest(): Unit = {
+  def testTestCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
+      client.success("test", "with-resources")
       client.success("test", "-p", "with-resources")
       val messages = logger.getMessages()
       val needle = "- should be found"
@@ -102,19 +103,23 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  def cleanCommandTest(): Unit = {
+  def testCleanCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       client.success("clean", "-p", "with-resources")
       client.success("compile", "-p", "with-resources")
       client.success("clean", "-p", "with-resources")
       client.success("compile", "-p", "with-resources")
+      client.success("clean", "with-resources")
+      client.success("compile", "with-resources")
+      client.success("clean", "with-resources")
+      client.success("compile", "with-resources")
       val messages = logger.getMessages()
       val needle = "Compiling"
       val matches = messages.count {
         case ("info", msg) => msg.contains(needle)
         case _ => false
       }
-      assertEquals(s"${messages.mkString("\n")} should contain twice '$needle'", 2, matches.toLong)
+      assertEquals(s"${messages.mkString("\n")} should contain four times '$needle'", 4, matches.toLong)
     }
   }
 

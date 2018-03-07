@@ -55,7 +55,7 @@ object Commands {
   case class Clean(
       @ExtraName("p")
       @HelpMessage("The projects to clean.")
-      projects: List[String],
+      project: List[String] = Nil,
       @HelpMessage("Do not run clean for dependencies. By default, false.")
       isolated: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
