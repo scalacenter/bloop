@@ -21,8 +21,10 @@ To configure `sbt-bloop`, add the following to your `project/plugins.sbt`:
 addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<latest-release>")
 ```
 
-In the above snippet, replace `<latest-release>` by our latest released version. You can find the
-list of the Bloop releases in [Bloop's GitHub repository]({{< githubrepo >}}/releases).
+<span class="label warning">Note</span> you need to replace the
+`<latest-release>` in the previous snippet by the latest version, which is
+[![Latest
+version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
 
 Once sbt is configured, you can run `installBloop` to generate the Bloop configuration:
 

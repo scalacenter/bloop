@@ -45,9 +45,8 @@ Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 $ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/install.py | python2
 ```
 
-<span class="label warning">Note</span> that you may need to update the version
-in the URL. Check the last released version in [Bloop GitHub releases]({{<
-githubrepo >}}/releases).
+<span class="label warning">Note</span> you need to replace the version in the URL
+by the latest version, which is [![Latest version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
 
 #### Installing in a different bloop folder
 
