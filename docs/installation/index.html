@@ -184,19 +184,18 @@ starting it yourself.</p>
 
 <h3 id="instructions-for-other-platforms">Instructions for other platforms</h3>
 
-<p>We do not publish native packages for other platforms at the moment, but you can use our
-Python installation script to install Bloop on your machine. The installation script has been
-reported to work on major Linux distributions, Mac OS and Windows.</p>
+<p>Install bloop in other platforms (Windows, Unix, *bsd) via our python script:</p>
 
-<p>The installation script can be downloaded from <a href="https://github.com/scalacenter/bloop
-/releases">the Releases of Bloop</a>.
-Run it to install Bloop in your current working directory:</p>
-
-<pre><code class="language-sh">$ ./install.py
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/install.py | python2
 </code></pre>
 
-<p>You can then move the generated binaries somewhere else on your disk. Optionally, you can also pass
-a destination where the installation script should put the binaries:</p>
+<p><span class="label warning">Note</span> you need to replace the version in the URL
+by the latest version, which is <a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest version" /></a>.</p>
+
+<h4 id="installing-in-a-different-bloop-folder">Installing in a different bloop folder</h4>
+
+<p>By default, the script installs bloop binaries in a <code>.bloop</code> directory in your
+<code>$HOME</code> folder. You can change that with the <code>--dest</code> option:</p>
 
 <pre><code class="language-sh">$ ./install.py --dest ~/bin/bloop
 </code></pre>
