@@ -9,4 +9,7 @@ if [[ "$PR" ]]; then
     echo "The community build will be run for this pull request."
     export RUN_COMMUNITY_BUILD=true
   fi
+elif [[ "$DRONE_TAG" ]]; then
+  echo "The community build will be run for the $DRONE_TAG release."
+  export RUN_COMMUNITY_BUILD=true
 fi
