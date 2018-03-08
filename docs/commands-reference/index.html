@@ -177,7 +177,8 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project to compile. This argument is required.</p>
+    <p>Select the project to compile. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop compile foobar</samp></p>
     <p><em>example:</em> <samp>bloop compile -p foobar</samp></p>
   </dd>
 
@@ -187,7 +188,7 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
       Whether to compile the project incrementally. Defaults to <code>true</code>. If this option is
       set to false, then the compiler will recompile all the sources.
     </p>
-    <p><em>example:</em> <samp>bloop compile -p foobar --incremental=false</samp></p>
+    <p><em>example:</em> <samp>bloop compile foobar --incremental=false</samp></p>
   </dd>
 
   <dt><code>--reporter</code></dt>
@@ -196,7 +197,7 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop compile -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop compile foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--watch</code></dt>
@@ -206,7 +207,7 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
       file of the project, or of the dependencies of the project, is modified, the
       <code>compile</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop compile -p foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop compile foobar --watch</samp></p>
   </dd>
 </dl>
 
@@ -219,7 +220,8 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project to test. This argument is required.</p>
+    <p>Select the project to test. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop test foobar</samp></p>
     <p><em>example:</em> <samp>bloop test -p foobar</samp></p>
   </dd>
 
@@ -229,7 +231,7 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
       Whether to run the tests only for the specified project, not including its dependencies. By
       default, the tests are run for the dependencies of the specified project and the project.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --isolated</samp></p>
+    <p><em>example:</em> <samp>bloop test foobar --isolated</samp></p>
   </dd>
 
   <dt><code>--reporter</code></dt>
@@ -238,7 +240,7 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop test foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--watch</code></dt>
@@ -248,7 +250,7 @@ Projects loaded from '/Users/martin/foobar/.bloop-config':
       file of the project, or of the dependencies of the project, is modified, the
       <code>test</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop test foobar --watch</samp></p>
   </dd>
 </dl>
 
@@ -262,7 +264,8 @@ in your project.</p>
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project to run. This argument is required.</p>
+    <p>Select the project to run. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop run foobar</samp></p>
     <p><em>example:</em> <samp>bloop run -p foobar</samp></p>
   </dd>
 
@@ -272,7 +275,7 @@ in your project.</p>
       The fully qualified class name of the class to run. Leave blank to let Bloop select
       automatically the class to run.
     </p>
-    <p><em>example:</em> <samp>bloop run -p foobar --main com.acme.Main</samp></p>
+    <p><em>example:</em> <samp>bloop run foobar --main com.acme.Main</samp></p>
   </dd>
 
   <dt><code>--reporter</code></dt>
@@ -281,7 +284,7 @@ in your project.</p>
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop run -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop run foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--args</code></dt>
@@ -290,7 +293,7 @@ in your project.</p>
       The arguments to pass to the <code>main()</code> function of the application. it is possible
       to specify this option more than once to pass several parameters.
     </p>
-    <p><em>example:</em> <samp>bloop run -p foobar --args hello --args world</samp>
+    <p><em>example:</em> <samp>bloop run foobar --args hello --args world</samp>
   </dd>
 
   <dt><code>--watch</code></dt>
@@ -300,7 +303,7 @@ in your project.</p>
       file of the project, or of the dependencies of the project, is modified, the
       <code>test</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop test -p foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop test foobar --watch</samp></p>
   </dd>
 </dl>
 
@@ -313,7 +316,8 @@ in your project.</p>
 <dl>
   <dt><code>-p</code> or <code>--project</code></dt>
   <dd>
-    <p>Select the project for which to start the console. This argument is required.</p>
+    <p>Select the project for which to start the console. This argument is required, but will be inferred if it's a remaining CLI args.</p>
+    <p><em>example:</em> <samp>bloop console foobar</samp></p>
     <p><em>example:</em> <samp>bloop console -p foobar</samp></p>
   </dd>
 
@@ -323,7 +327,7 @@ in your project.</p>
       The error reporter to use. By default, Bloop's error reporter is use. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
-    <p><em>example:</em> <samp>bloop console -p foobar --reporter scalac</samp>
+    <p><em>example:</em> <samp>bloop console foobar --reporter scalac</samp>
   </dd>
 
   <dt><code>--exclude-root</code></dt>
@@ -332,7 +336,7 @@ in your project.</p>
       Use this argument to start the console with all the dependencies of your project on the
       classpath, but not the project itself.
     </p>
-    <p><em>example:</em> <samp>bloop console -p foobar --exclude-root</samp>
+    <p><em>example:</em> <samp>bloop console foobar --exclude-root</samp>
   </dd>
 </dl>
 
@@ -347,6 +351,9 @@ in your project.</p>
   <dd>
     <p>Select the project to clean. This argument is required.</p>
     <p><em>example:</em> <samp>bloop clean -p foobar</samp></p>
+    <p><em>example:</em> <samp>bloop clean foobar</samp></p>
+    <p><em>example:</em> <samp>bloop clean -p foobar foobar-test</samp></p>
+    <p><em>example:</em> <samp>bloop clean foobar foobar-test biz</samp></p>
   </dd>
 
   <dt><code>--isolated</code></dt>
@@ -377,7 +384,8 @@ in your project.</p>
 
 <h3 id="bloop-bsp"><code>bloop bsp</code></h3>
 
-<p>This command is used to start the <abbr title="Build Server Protocol">BSP</abbr> server.</p>
+<p>This command is used to start the <abbr title="Build Server Protocol">BSP</abbr> server.
+You can check a specification of BSP <a href="https://github.com/scalacenter/bsp">here</a>.</p>
 
 <p>The following options are supported:</p>
 
@@ -391,7 +399,8 @@ in your project.</p>
       The accepted values are <code>local</code> and <code>tcp</code>
     </p>
     <p>
-      <mark>Note</mark> when using the `tcp` protocol, the `--socket` option must be set, too.
+      <span class="label warning">Note</span>
+      when using the `tcp` protocol, the `--socket` option must be set, too.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol tcp</samp></p>
   </dd>
@@ -402,7 +411,8 @@ in your project.</p>
       The hostname of the server.
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `tcp`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `tcp`.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol tcp --host my-server.com</p>
   </dd>
@@ -413,7 +423,8 @@ in your project.</p>
       The port on which the server is listening. Defaults to <code>5001</code>
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `tcp`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `tcp`.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol tcp --port 65001</p>
   </dd>
@@ -421,21 +432,23 @@ in your project.</p>
   <dt><code>-s</code> or <code>--socket</code></dt>
   <dd>
     <p>
-      The path to the socket file to use to communicate throught UNIX sockets.
+      The path to the UNIX socket file. Ignored if OS is not Unix (Linux, OSX, *bsd).
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `only`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `local`. You can specify the pipe name as well if you aim to support Windows too.
     </p>
     <p><em>example:</em> <samp>bloop bsp --socket /var/run/bsp</p>
   </dd>
 
-  <dt><code>--np</code> or <code>--pipename</code></dt>
+  <dt><code>--pn</code> or <code>--pipename</code></dt>
   <dd>
     <p>
-      The path to the socket file to use to communicate throught UNIX sockets.
+      The name of the Windows communication pipe. Ignored if OS is not Windows.
     </p>
     <p>
-      <mark>Note</mark> this option can only be set when the `--protocol` is set to `only`.
+      <span class="label warning">Note</span>
+      this option can only be set when the `--protocol` is set to `local`. You can specify the UNIX socket path if you aim to support UNIX systems too.
     </p>
     <p><em>example:</em> <samp>bloop bsp --protocol local --pipename /var/run/bsp</p>
   </dd>

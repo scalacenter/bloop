@@ -317,7 +317,8 @@ h1, h2, h3, h4, h5, h6 {
   #contents ol {
     margin: 0; }
   #contents li {
-    line-height: 40px;
+    padding-top: 10px;
+    padding-bottom: 10px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     margin-right: 24px;
     counter-increment: count; }
