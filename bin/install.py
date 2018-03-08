@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description="Installation script for Bloop.")
 parser.add_argument(
     '-d',
     '--dest',
-    default=os.getcwd(),
+    default=BLOOP_DEFAULT_INSTALLATION_TARGET,
     help="Where to install Bloop, defaults to %s" % os.getcwd())
 parser.add_argument(
     '-v',
