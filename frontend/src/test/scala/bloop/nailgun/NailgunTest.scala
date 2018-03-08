@@ -28,11 +28,11 @@ abstract class NailgunTest {
     val serverThread =
       new Thread {
         override def run(): Unit = {
-          Server.main(Array(TEST_PORT.toString))
           val outStream = ProcessLogger.toOutputStream(log.info)
           val errStream = ProcessLogger.toOutputStream(log.error)
           Console.withOut(outStream) {
             Console.withErr(errStream) {
+              Server.main(Array(TEST_PORT.toString))
             }
           }
         }
