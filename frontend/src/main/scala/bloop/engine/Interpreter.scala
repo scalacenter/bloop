@@ -195,7 +195,7 @@ object Interpreter {
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
-    val (projects, missing) = lookupProjects(cmd.projects, state)
+    val (projects, missing) = lookupProjects(cmd.project, state)
     if (missing.isEmpty)
       Tasks.clean(state, projects, cmd.isolated).map(_.mergeStatus(ExitStatus.Ok))
     else Task(reportMissing(missing, state))
