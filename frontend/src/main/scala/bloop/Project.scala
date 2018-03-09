@@ -22,6 +22,8 @@ case class Project(name: String,
                    javaEnv: JavaEnv,
                    tmp: AbsolutePath,
                    bloopConfigDir: AbsolutePath) {
+  override def toString: String = s"$name"
+
   def toProperties(): Properties = {
     val properties = new Properties()
     properties.setProperty("name", name)
