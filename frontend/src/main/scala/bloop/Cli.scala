@@ -84,7 +84,7 @@ object Cli {
       if (args.isEmpty)
         Left(printErrorAndExit(s"Required project name not specified for '$cmd'.", commonOptions))
       else if (args.size >= 2)
-        Left(printErrorAndExit("Too many projects have been specified for '$cmd'.", commonOptions))
+        Left(printErrorAndExit(s"Too many projects have been specified for '$cmd'.", commonOptions))
       else Right(args.head)
     }
 
