@@ -6,7 +6,7 @@ MONITOR_REPO="scalacenter/bloop"
 PR="$DRONE_PULL_REQUEST"
 
 if [[ "$PR" ]]; then
-  if curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '.[].name | contains("community-build")' > /dev/null 2>&1 ; then
+  if curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "community-build" )) | .[].name' > /dev/null 2>&1 ; then
     echo "The community build will be run for this pull request."
     exit 0
   else
@@ -17,6 +17,6 @@ elif [[ "$DRONE_TAG" ]]; then
   echo "The community build will be run for the $DRONE_TAG release."
   exit 0
 else
-  echo "The PR environment variable was not set."
+  echo "The DRONE_PULL_REQUEST environment variable was not set."
   exit 1
 fi
