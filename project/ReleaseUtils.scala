@@ -132,20 +132,9 @@ object ReleaseUtils {
     }
   }
 
-  private def sha256(file: sbt.File): String = {
-    import java.nio.file.Files
-    import java.security.MessageDigest
-    val digest = MessageDigest.getInstance("SHA-256")
-    val bytes = Files.readAllBytes(file.toPath)
-    val hash = digest.digest(bytes)
-    val hexString = new StringBuilder()
-    hash.foreach { byte =>
-      val hex = Integer.toHexString(0xff & byte)
-      if (hex.length == 1) hexString.append('0')
-      else hexString.append(hex)
-    }
-
-    hexString.toString
-
+  def sha256(file: sbt.File): String = {
+    import org.apache.commons.codec.digest.MessageDigestAlgorithms.SHA_256
+    import org.apache.commons.codec.digest.DigestUtils
+    new DigestUtils(SHA_256).digestAsHex(file)
   }
 }
