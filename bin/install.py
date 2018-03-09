@@ -1,7 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
 import argparse
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import os
 from os.path import expanduser, isdir, isfile, join
 from subprocess import CalledProcessError, check_call
@@ -55,10 +58,10 @@ BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 def download_and_install(url, target):
     try:
-        urllib.urlretrieve(url, target)
-        os.chmod(target, 0755)
+        urllib.request.urlretrieve(url, target)
+        os.chmod(target, 0o755)
     except IOError:
-        print "Couldn't download %s, please try again." % url
+        print("Couldn't download %s, please try again." % url)
         sys.exit(1)
 
 def coursier_bootstrap(target, main):
@@ -70,9 +73,9 @@ def coursier_bootstrap(target, main):
             "-o", target, "-f", "--standalone", "--main", main
         ])
     except CalledProcessError as e:
-        print "Coursier couldn't create %s. Please report an issue." % target
-        print "Command: %s" % e.cmd
-        print "Return code: %d" % e.returncode
+        print("Coursier couldn't create %s. Please report an issue." % target)
+        print("Command: %s" % e.cmd)
+        print("Return code: %d" % e.returncode)
         sys.exit(e.returncode)
 
 if not isdir(BLOOP_INSTALLATION_TARGET):
@@ -82,7 +85,7 @@ if not isfile(BLOOP_COURSIER_TARGET):
     download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET)
 
 coursier_bootstrap(BLOOP_SERVER_TARGET, "bloop.Server")
-print "Installed bloop server in '%s'" % BLOOP_SERVER_TARGET
+print("Installed bloop server in '%s'" % BLOOP_SERVER_TARGET)
 
 download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET)
-print "Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET
+print("Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET)
