@@ -23,6 +23,9 @@ object Tasks {
   private val FailedResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
+  private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss")
+  private def currentTime: String = dateFormat.format(new java.util.Date())
+
   /**
    * Performs incremental compilation of the dependencies of `project`, including `project` if
    * `excludeRoot` is `false`, excluding it otherwise.
@@ -58,6 +61,7 @@ object Tasks {
 
     type CompileResult = (Project, PreviousResult)
     def compile(project: Project): CompileResult = {
+      logger.debug(s"Compiling '$project' at $currentTime.")
       val previous = state.results.getResult(project)
       val inputs = toInputs(project, reporterConfig, previous)
       project -> (
