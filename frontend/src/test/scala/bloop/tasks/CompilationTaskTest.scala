@@ -120,6 +120,72 @@ class CompilationTaskTest {
     }
   }
 
+  @Test
+  def compileDiamondLikeStructure = {
+    object Sources {
+      val `A.scala` = "package p0\nclass A"
+      val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
+      val `C.scala` = "package p2\nimport p0.A\nclass C extends A"
+      val `D.scala` = "package p3\ntrait D"
+      val `E.scala` = "package p3\nimport p1.B\nimport p2.C\nimport p3.D\nobject E extends B with D"
+    }
+
+    val structure = Map(
+      "A" -> Map("A.scala" -> Sources.`A.scala`),
+      "B" -> Map("B.scala" -> Sources.`B.scala`),
+      "C" -> Map("C.scala" -> Sources.`C.scala`),
+      "D" -> Map("D.scala" -> Sources.`D.scala`),
+      RootProject -> Map("E.scala" -> Sources.`E.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map(RootProject -> Set("A", "B", "C", "D"),
+                   "B" -> Set("A"),
+                   "C" -> Set("A"),
+                   "D" -> Set("B", "C"))
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      val compilingInfos =
+        logger.getMessages.filter(m => m._1 == "info" && m._2.contains("Compiling "))
+      assert(compilingInfos.size == 5, "Bloop compiled more projects than necessary!")
+      state.build.projects.foreach { p =>
+        assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
+      }
+    }
+  }
+
+  @Test
+  def compileRepeatedSubTreeInProjects = {
+    object Sources {
+      val `A.scala` = "package p0\nclass A"
+      val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
+      val `C.scala` = "package p2\nimport p1.B\nclass C extends B"
+      val `D.scala` = "package p3\nimport p1.B\nclass D extends B"
+      val `E.scala` = "package p4\nimport p2.C\nimport p3.D\nobject E extends C { println(new D) }"
+    }
+
+    val structure = Map(
+      "A" -> Map("A.scala" -> Sources.`A.scala`),
+      "B" -> Map("B.scala" -> Sources.`B.scala`),
+      "C" -> Map("C.scala" -> Sources.`C.scala`),
+      "D" -> Map("D.scala" -> Sources.`D.scala`),
+      RootProject -> Map("E.scala" -> Sources.`E.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map(RootProject -> Set("A", "B", "C", "D"),
+                   "B" -> Set("A"),
+                   "C" -> Set("B", "A"),
+                   "D" -> Set("B", "A"))
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      val compilingInfos =
+        logger.getMessages.filter(m => m._1 == "info" && m._2.contains("Compiling "))
+      assert(compilingInfos.size == 5, "Bloop compiled more projects than necessary!")
+      state.build.projects.foreach { p =>
+        assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
+      }
+    }
+  }
+
   private def simpleProject(scalaInstance: ScalaInstance): Unit = {
     val dependencies = Map.empty[String, Set[String]]
     val structures = Map(RootProject -> Map("A.scala" -> "object A"))

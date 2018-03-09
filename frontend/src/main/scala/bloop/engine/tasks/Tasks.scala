@@ -70,21 +70,25 @@ object Tasks {
       )
     }
 
-    def compileTree(dag: Dag[Project]): Task[List[CompileResult]] = {
-      val visited = scala.collection.mutable.HashSet.empty[Dag[Project]]
-      def loop(dag: Dag[Project]): Task[List[CompileResult]] = {
-        if (visited.contains(dag)) Task.now(Nil)
-        else {
-          visited.add(dag)
-          dag match {
-            case Leaf(project) => Task(List(compile(project)))
-            case Parent(project, dependencies) =>
-              val downstream = Task.wanderUnordered(dependencies)(loop).map(_.flatten)
-              downstream.flatMap { results =>
-                if (results.exists(_._2 == FailedResult)) Task.now(results)
-                else Task(compile(project)).map(r => r :: results)
-              }
-          }
+    type CompileTask = Task[List[CompileResult]]
+    def compileTree(dag: Dag[Project]): CompileTask = {
+      val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
+      def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
+
+      def loop(dag: Dag[Project]): CompileTask = {
+        tasks.get(dag) match {
+          case Some(task) => task
+          case None =>
+            dag match {
+              case Leaf(project) => register(dag, Task.fork(Task.evalOnce(List(compile(project)))))
+              case Parent(project, dependencies) =>
+                val downstream = Task.gather(dependencies.map(loop)).map(_.flatten)
+                val parentTask = downstream.flatMap { results =>
+                  if (results.exists(_._2 == FailedResult)) Task.now(results)
+                  else Task(compile(project) :: results)
+                }
+                register(dag, parentTask.memoize)
+            }
         }
       }
 
