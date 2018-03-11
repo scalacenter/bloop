@@ -99,7 +99,8 @@ object Tasks {
     compileTree(dag).map { results =>
       val (newResults, failures) = results.span(_._2 != FailedResult)
       val newCache = state.results.addResults(newResults)
-      failures.foreach(f => logger.error(s"'${f._1}' failed to compile."))
+      val failedProjects = results.map(_._1).toSet
+      failedProjects.foreach(p => logger.error(s"'$p' failed to compile."))
       state.copy(results = newCache)
     }
   }
