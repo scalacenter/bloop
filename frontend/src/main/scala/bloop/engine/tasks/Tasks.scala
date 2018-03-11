@@ -24,6 +24,15 @@ object Tasks {
     case class Success(project: Project, result: PreviousResult) extends Result
 
     object Result {
+      implicit val showResult: scalaz.Show[Result] = new scalaz.Show[Result] {
+        override def shows(r: Result): String = r match {
+          case Blocked(project) => s"${project.name} (blocked)"
+          case Cancelled(project) => s"${project.name} (cancelled)"
+          case Failed(project, _) => s"${project.name} (failed)"
+          case Success(project, _) => s"${project.name} (success)"
+        }
+      }
+
       def failedProjects(results: List[Result]): List[Project] =
         results.collect { case r: Cancelled => r.project; case r: Failed => r.project }
 
@@ -81,6 +90,7 @@ object Tasks {
 
     val dag = state.build.getDagFor(project)
     toCompileTask(dag, compile(_)).map { results0 =>
+      logger.info(Dag.toDotGraph(results0))
       val results = Dag.dfs(results0)
       val failures = Compilation.Result.failedProjects(results).distinct
       val successes = Compilation.Result.successfulProjects(results)

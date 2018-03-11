@@ -1,6 +1,7 @@
 package bloop.engine
 
 import bloop.Project
+import scalaz.Show
 
 sealed trait Dag[T]
 final case class Leaf[T](value: T) extends Dag[T]
@@ -92,6 +93,30 @@ object Dag {
 
     // Inefficient, but really who cares?
     loop(dag, Nil).distinct.reverse
+  }
+
+  def toDotGraph[T](dag: Dag[T])(implicit Show: Show[T]): String = {
+    // Inefficient implementation, but there is no need for efficiency here.
+    val all = Dag.dfs(dag).toSet
+    val nodes = all.map { node =>
+      val id = Show.shows(node)
+      s""""$id" [label="$id"];"""
+    }
+
+    val nodeDags = Dag.dagFor(List(dag), all).head
+    val edges = nodeDags.flatMap { dag =>
+      val target = dag match {
+        case Leaf(value) => Show.shows(value)
+        case Parent(value, _) => Show.shows(value)
+      }
+      Dag.dfs(dag).map(Show.shows(_)).map(dep => s""""$dep" -> "$target";""")
+    }
+
+    s"""digraph "generated-graph" {
+       | graph [ranksep=0, rankdir=LR];
+       |${nodes.mkString("  ", "\n  ", "\n  ")}
+       |${edges.mkString("  ", "\n  ", "")}
+       |}""".stripMargin
   }
 
   def toDotGraph(dags: List[Dag[Project]]): String = {
