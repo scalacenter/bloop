@@ -79,16 +79,17 @@ object Tasks {
         tasks.get(dag) match {
           case Some(task) => task
           case None =>
-            dag match {
-              case Leaf(project) => register(dag, Task.fork(Task.evalOnce(List(compile(project)))))
+            val task = dag match {
+              case Leaf(project) => Task(List(compile(project)))
               case Parent(project, dependencies) =>
-                val downstream = Task.gather(dependencies.map(loop)).map(_.flatten)
-                val parentTask = downstream.flatMap { results =>
+                val downstream = dependencies.map(loop)
+                Task.gatherUnordered(downstream).flatMap { results0 =>
+                  val results = results0.flatten
                   if (results.exists(_._2 == FailedResult)) Task.now(results)
                   else Task(compile(project) :: results)
                 }
-                register(dag, parentTask.memoize)
             }
+            register(dag, task.memoize)
         }
       }
 
@@ -100,7 +101,7 @@ object Tasks {
       val (newResults, failures) = results.span(_._2 != FailedResult)
       val newCache = state.results.addResults(newResults)
       val failedProjects = results.map(_._1).toSet
-      failedProjects.foreach(p => logger.error(s"'$p' failed to compile."))
+      failedProjects.foreach(p => logger.error(s"'${p}' failed to compile."))
       state.copy(results = newCache)
     }
   }
