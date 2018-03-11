@@ -95,7 +95,7 @@ object Dag {
   }
 
   def toDotGraph(dags: List[Dag[Project]]): String = {
-    val projects = dags.flatMap(dfs)
+    val projects = dags.flatMap(dfs).toSet
     val nodes = projects.map(node => s""""${node.name}" [label="${node.name}"];""")
     val edges = projects.flatMap(n => n.dependencies.map(p => s""""${n.name}" -> "$p";"""))
     s"""digraph "project" {
