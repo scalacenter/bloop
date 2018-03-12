@@ -23,12 +23,7 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
   override def debug(msg: String): Unit = if (isVerbose) print(msg, printDebug)
   override def error(msg: String): Unit = print(msg, printError)
   override def warn(msg: String): Unit = print(msg, printWarning)
-  override def trace(exception: Throwable): Unit = {
-    if (exception != null && isVerbose) {
-      print(exception.toString(), printTrace)
-      exception.getStackTrace.foreach(ste => print("\t" + ste.toString, printTrace))
-    }
-  }
+  override def trace(exception: Throwable): Unit = trace("", exception)
   override def info(msg: String): Unit = print(msg, printInfo)
 
   override def verbose[T](op: => T): T = {
@@ -38,6 +33,15 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
   }
 
   override def isVerbose: Boolean = verboseCount.get > 0
+
+  @scala.annotation.tailrec
+  private def trace(prefix: String, exception: Throwable): Unit = {
+    if (exception != null && isVerbose) {
+      print(prefix + exception.toString(), printTrace)
+      exception.getStackTrace.foreach(ste => print("\t" + ste.toString, printTrace))
+      trace("Caused by: ", exception.getCause)
+    }
+  }
 
   private def print(msg: String, fn: String => Unit): Unit = {
     if (msg == null) ()
