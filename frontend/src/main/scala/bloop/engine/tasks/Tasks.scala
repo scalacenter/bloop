@@ -90,7 +90,7 @@ object Tasks {
 
     val dag = state.build.getDagFor(project)
     toCompileTask(dag, compile(_)).map { results0 =>
-      logger.info(Dag.toDotGraph(results0))
+      logger.debug(Dag.toDotGraph(results0))
       val results = Dag.dfs(results0)
       val failures = Compilation.Result.failedProjects(results).distinct
       val successes = Compilation.Result.successfulProjects(results)
