@@ -9,7 +9,6 @@ object Dependencies {
   val configDirsVersion = "5"
   val caseAppVersion = "1.2.0"
   val sourcecodeVersion = "0.1.4"
-  val log4jVersion = "2.8.1"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.0.4"
   val junitVersion = "0.11"
@@ -32,8 +31,6 @@ object Dependencies {
   val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
-  val log4jApi = "org.apache.logging.log4j" % "log4j-api" % log4jVersion
-  val log4jCore = "org.apache.logging.log4j" % "log4j-core" % log4jVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
 

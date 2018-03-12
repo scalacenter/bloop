@@ -54,29 +54,44 @@ class BloopLoggerSpec {
   @Test
   def debugAndTraceMessagesGoToErrInVerboseMode =
     runAndCheck { logger =>
+      val ex0 = {
+        val ex = new Exception("trace0")
+        ex.setStackTrace(ex.getStackTrace.take(3))
+        ex
+      }
       logger.error("error0")
       logger.warn("warn0")
       logger.info("info0")
       logger.debug("debug0")
-      logger.trace(new Exception("trace0"))
+      logger.trace(ex0)
 
       logger.verbose {
+        val ex1 = {
+          val ex = new Exception("trace1")
+          ex.setStackTrace(ex.getStackTrace.take(3))
+          ex
+        }
         logger.error("error1")
         logger.warn("warn1")
         logger.info("info1")
         logger.debug("debug1")
-        logger.trace(new Exception("trace1"))
+        logger.trace(ex1)
       }
 
+      val ex2 = {
+        val ex = new Exception("trace2")
+        ex.setStackTrace(ex.getStackTrace.take(3))
+        ex
+      }
       logger.error("error2")
       logger.warn("warn2")
       logger.info("info2")
       logger.debug("debug2")
-      logger.trace(new Exception("trace2"))
+      logger.trace(ex2)
 
     } { (outMsgs, errMsgs) =>
       assertEquals(6, outMsgs.length.toLong)
-      assertEquals(5, errMsgs.length.toLong)
+      assertEquals(8, errMsgs.length.toLong)
 
       assert(isWarn(outMsgs(0)) && outMsgs(0).endsWith("warn0"))
       assert(isInfo(outMsgs(1)) && outMsgs(1).endsWith("info0"))
@@ -89,7 +104,7 @@ class BloopLoggerSpec {
       assert(isError(errMsgs(1)) && errMsgs(1).endsWith("error1"))
       assert(isDebug(errMsgs(2)) && errMsgs(2).endsWith("debug1"))
       assert(isTrace(errMsgs(3)) && errMsgs(3).endsWith("java.lang.Exception: trace1"))
-      assert(isError(errMsgs(4)) && errMsgs(4).endsWith("error2"))
+      assert(isError(errMsgs(7)) && errMsgs(7).endsWith("error2"))
     }
 
   @Test

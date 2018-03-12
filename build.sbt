@@ -3,12 +3,11 @@ import build.BuildImplementation.BuildDefaults
 /***************************************************************************************************/
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
-
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
   .settings(
-    releaseEarly := {()},
+    releaseEarly := { () },
     skip in publish := true
   )
 
@@ -30,8 +29,6 @@ val backend = project
       Dependencies.configDirectories,
       Dependencies.caseApp,
       Dependencies.sourcecode,
-      Dependencies.log4jApi,
-      Dependencies.log4jCore,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent,
       Dependencies.monix,
@@ -114,7 +111,7 @@ val bloop = project
   .in(file("."))
   .aggregate(allProjectReferences: _*)
   .settings(
-    releaseEarly := {()},
+    releaseEarly := { () },
     skip in publish := true,
     crossSbtVersions := Seq("1.1.0", "0.13.16")
   )
