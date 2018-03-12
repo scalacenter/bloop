@@ -137,7 +137,7 @@ class BasicNailgunSpec extends NailgunTest {
         override def run() = {
           (1 to 3).foreach { _ =>
             client1.success("clean", "with-resources-test")
-            client1.success("compile", "with-resources-test")
+            client1.success("compile", "with-resources-test", "--verbose")
           }
         }
       }
@@ -150,6 +150,7 @@ class BasicNailgunSpec extends NailgunTest {
       }
 
       thread1.start()
+      Thread.sleep(1000)
       thread2.start()
 
       thread1.join()
@@ -160,8 +161,12 @@ class BasicNailgunSpec extends NailgunTest {
 
       assertTrue("`logger1` received messages of `logger2`",
                  !msgs1.exists(_.startsWith("Projects loaded from")))
+      assertEquals("`logger` didn't receive verbose messages",
+                   3, msgs1.count(_.contains("Elapsed:")).toLong)
       assertTrue("`logger2` received messages of `logger1`",
                  !msgs2.exists(_.startsWith("Compiling")))
+      assertTrue("`logger2` received verbose messages of `logger1`",
+                 !msgs2.exists(_.contains("Elapsed:")))
     }
   }
 
