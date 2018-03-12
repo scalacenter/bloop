@@ -1,5 +1,7 @@
 package bloop.nailgun
 
+import scala.Console.{GREEN, RESET}
+
 import org.junit.{Ignore, Test}
 import org.junit.Assert.{assertEquals, assertTrue}
 
@@ -130,6 +132,7 @@ class BasicNailgunSpec extends NailgunTest {
   @Test
   def testSeveralConcurrentClients(): Unit = {
     withServerInProject("with-resources") { (logger1, client1) =>
+      val debugPrefix = s"${RESET}${GREEN}[D]${RESET} "
       val logger2 = new RecordingLogger
       val client2 = client1.copy(log = logger2)
 
@@ -162,11 +165,12 @@ class BasicNailgunSpec extends NailgunTest {
       assertTrue("`logger1` received messages of `logger2`",
                  !msgs1.exists(_.startsWith("Projects loaded from")))
       assertEquals("`logger` didn't receive verbose messages",
-                   3, msgs1.count(_.contains("Elapsed:")).toLong)
+                   3,
+                   msgs1.count(_.startsWith(s"${debugPrefix}Elapsed:")).toLong)
       assertTrue("`logger2` received messages of `logger1`",
                  !msgs2.exists(_.startsWith("Compiling")))
       assertTrue("`logger2` received verbose messages of `logger1`",
-                 !msgs2.exists(_.contains("Elapsed:")))
+                 !msgs2.exists(_.startsWith(debugPrefix)))
     }
   }
 
