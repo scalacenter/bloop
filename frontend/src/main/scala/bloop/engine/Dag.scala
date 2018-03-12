@@ -96,6 +96,28 @@ object Dag {
   }
 
   def toDotGraph[T](dag: Dag[T])(implicit Show: Show[T]): String = {
+    val traversed = new scala.collection.mutable.HashMap[Dag[T], List[String]]()
+    def register(k: Dag[T], v: List[String]): List[String] = { traversed.put(k, v); v }
+
+    def recordEdges(dag: Dag[T]): List[String] = {
+      traversed.get(dag) match {
+        case Some(cached) => cached
+        case None =>
+          val shows = dag match {
+            case Leaf(value) => List(Show.shows(value))
+            case Parent(value, dependencies) =>
+              val downstream = dependencies.map(recordEdges).flatten
+              val prettyPrintedDeps = dependencies.map {
+                case Leaf(value) => Show.shows(value)
+                case Parent(value, _)  => Show.shows(value)
+              }
+              val target = Show.shows(value)
+              prettyPrintedDeps.map(dep => s""""$dep" -> "$target";""") ++ downstream
+          }
+          register(dag, shows)
+      }
+    }
+
     // Inefficient implementation, but there is no need for efficiency here.
     val all = Dag.dfs(dag).toSet
     val nodes = all.map { node =>
@@ -103,15 +125,7 @@ object Dag {
       s""""$id" [label="$id"];"""
     }
 
-    val nodeDags = Dag.dagFor(List(dag), all).head
-    val edges = nodeDags.flatMap { dag =>
-      val target = dag match {
-        case Leaf(value) => Show.shows(value)
-        case Parent(value, _) => Show.shows(value)
-      }
-      Dag.dfs(dag).map(Show.shows(_)).map(dep => s""""$dep" -> "$target";""")
-    }
-
+    val edges = recordEdges(dag)
     s"""digraph "generated-graph" {
        | graph [ranksep=0, rankdir=LR];
        |${nodes.mkString("  ", "\n  ", "\n  ")}
