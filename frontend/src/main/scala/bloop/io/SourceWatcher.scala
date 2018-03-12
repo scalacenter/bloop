@@ -10,7 +10,7 @@ import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 
-final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
+final class SourceWatcher(dirs0: Seq[Path], logger: Logger, debug: Boolean) {
   private val dirs = dirs0.distinct
   private val dirsAsJava: java.util.List[Path] = dirs.asJava
 
@@ -22,7 +22,8 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
     logger.debug(s"Watching the following directories: ${dirs.mkString(", ")}")
     var result: State = initialState
     def runAction(event: DirectoryChangeEvent): Unit = {
-      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
+      val msg = s"A ${event.eventType()} in ${event.path()} has triggered an event."
+      if (debug) logger.info(msg) else logger.debug(msg)
       result = action(result)
     }
 
