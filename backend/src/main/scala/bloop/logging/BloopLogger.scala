@@ -36,19 +36,18 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
 
   @scala.annotation.tailrec
   private def trace(prefix: String, exception: Throwable): Unit = {
-    if (exception != null && isVerbose) {
+    if (isVerbose) {
       print(prefix + exception.toString(), printTrace)
       exception.getStackTrace.foreach(ste => print("\t" + ste.toString, printTrace))
-      trace("Caused by: ", exception.getCause)
+
+      val cause = exception.getCause
+      if (cause != null) trace("Caused by: ", cause)
     }
   }
 
   private def print(msg: String, fn: String => Unit): Unit = {
-    if (msg == null) ()
-    else {
-      val lines = msg.split("\\r?\\n", -1)
-      lines.foreach(fn)
-    }
+    val lines = msg.split("\\r?\\n", -1)
+    lines.foreach(fn)
   }
 
   private def printInfo(line: String): Unit = {
