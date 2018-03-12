@@ -1,7 +1,7 @@
 package bloop.tasks
 
-import java.nio.file.{Files, Path, Paths}
-import java.util.{Arrays, Collection}
+import java.nio.file.{Files, Path}
+import java.util.Arrays
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -9,7 +9,6 @@ import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Dag, Exit, Interpreter, Run}
 import bloop.exec.JavaEnv
@@ -30,10 +29,24 @@ object IntegrationTestSuite {
 class IntegrationTestSuite(testDirectory: Path) {
   val integrationTestName = testDirectory.getParent.getFileName.toString
 
+  def isCommunityBuildEnabled: Boolean = {
+    import scala.util.Try
+    def bool(v: String): Boolean = {
+      Try(java.lang.Boolean.parseBoolean(v)) match {
+        case scala.util.Success(isEnabled) => isEnabled
+        case scala.util.Failure(f) =>
+          System.err.println(s"Error happened when converting '$v' to boolean.")
+          false
+      }
+    }
+
+    bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
+    bool(sys.props.getOrElse("run.community.build", "false"))
+  }
+
   @Test
   def compileProject: Unit = {
-    if (sys.env.get("RUN_COMMUNITY_BUILD").isEmpty) ()
-    else compileProject0
+    if (!isCommunityBuildEnabled) () else compileProject0
   }
 
   def compileProject0: Unit = {

@@ -7,16 +7,14 @@ PR="$DRONE_PULL_REQUEST"
 
 if [[ "$PR" ]]; then
   if curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "community-build" )) | .[].name' > /dev/null 2>&1 ; then
-    echo "The community build will be run for this pull request."
-    exit 0
+    export RUN_COMMUNITY_BUILD=true
+    echo "The community build will run for this pull request."
   else
     echo "The community build will not run for this pull request."
-    exit 1
   fi
 elif [[ "$DRONE_TAG" ]]; then
-  echo "The community build will be run for the $DRONE_TAG release."
-  exit 0
+  export RUN_COMMUNITY_BUILD=true
+  echo "The community build will run for the $DRONE_TAG release."
 else
   echo "The DRONE_PULL_REQUEST environment variable was not set."
-  exit 1
 fi
