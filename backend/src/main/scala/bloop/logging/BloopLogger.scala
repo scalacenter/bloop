@@ -45,7 +45,10 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
 
   private def print(msg: String, fn: String => Unit): Unit = {
     if (msg == null) ()
-    else msg.lines.foreach(fn)
+    else {
+      val lines = msg.split("\\r?\\n", -1)
+      lines.foreach(fn)
+    }
   }
 
   private def printInfo(line: String): Unit = {
