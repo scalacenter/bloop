@@ -26,7 +26,7 @@ class BloopLogger(override val name: String, out: PrintStream, err: PrintStream)
   override def trace(exception: Throwable): Unit = {
     if (exception != null && isVerbose) {
       print(exception.toString(), printTrace)
-      exception.getStackTrace.foreach(ste => print(ste.toString, printTrace))
+      exception.getStackTrace.foreach(ste => print("\t" + ste.toString, printTrace))
     }
   }
   override def info(msg: String): Unit = print(msg, printInfo)
