@@ -92,6 +92,8 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
+      @HelpMessage("Show debug information from the file watcher.")
+      debugWatch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends CompilingCommand
 

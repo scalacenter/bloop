@@ -86,14 +86,20 @@ object Interpreter {
     BspServer.run(cmd, state, scheduler)
   }
 
-  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = Task {
+  private def watch(
+      project: Project,
+      state: State,
+      f: State => Task[State],
+      debugWatch: Boolean
+  ): Task[State] = Task {
     // TODO(jvican): The implementation here could be improved, do so.
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
-    val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
+    val watcher = new SourceWatcher(allSourceDirs.toList, state.logger, debugWatch)
     // Make file watching cancel tasks if lots of different changes happen in less than 100ms
-    val watchFn: State => State = { state => waitAndLog(state, f(state)) }
+    val watchFn: State => State = (state => waitAndLog(state, f(state)))
     val firstOp = watchFn(state)
+    firstOp.logger.info(s"File watching changes to ${reachable.map(s => s"'$s'").mkString(", ")}")
     watcher.watch(firstOp, watchFn)
   }
 
@@ -115,7 +121,7 @@ object Interpreter {
         }
         initialState.flatMap { state =>
           if (!cmd.watch) doCompile(state)
-          else watch(project, state, doCompile _)
+          else watch(project, state, doCompile _, cmd.debugWatch)
         }
 
       case None =>
@@ -167,7 +173,7 @@ object Interpreter {
             result <- Tasks.test(compiled, project, cwd, cmd.isolated, testFilter)
           } yield result
         }
-        if (cmd.watch) watch(project, state, doTest _)
+        if (cmd.watch) watch(project, state, doTest _, false)
         else doTest(state)
 
       case None =>
@@ -236,7 +242,7 @@ object Interpreter {
           }
         }
 
-        if (cmd.watch) watch(project, state, doRun _)
+        if (cmd.watch) watch(project, state, doRun _, false)
         else doRun(state)
 
       case None =>
