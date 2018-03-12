@@ -196,7 +196,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "1",
+    BuildKeys.schemaVersion := "1.1-refresh",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
@@ -291,7 +291,7 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
-  final val jvmOptions = "-Xmx4g" :: "-Xms2g" :: Nil
+  final val jvmOptions = "-Xmx6g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
     import sbt.librarymanagement.Artifact

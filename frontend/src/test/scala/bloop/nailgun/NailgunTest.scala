@@ -40,6 +40,7 @@ abstract class NailgunTest {
 
     serverThread.start()
 
+    Thread.sleep(500)
     val client = new Client(TEST_PORT, log, base)
     try op(client)
     finally client.success("exit")

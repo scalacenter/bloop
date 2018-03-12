@@ -11,7 +11,7 @@ import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
 import bloop.internal.build.BuildInfo
-import bloop.logging.{BloopLogger, ProcessLogger, RecordingLogger}
+import bloop.logging.{BloopLogger, Logger, ProcessLogger, RecordingLogger}
 
 object ProjectHelpers {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -29,10 +29,12 @@ object ProjectHelpers {
       scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default,
       quiet: Boolean = false,
-      failure: Boolean = false)(afterCompile: State => Unit = (_ => ())) = {
+      failure: Boolean = false,
+      useSiteLogger: Option[Logger] = None)(afterCompile: State => Unit = (_ => ())) = {
     withState(structures, dependencies, scalaInstance = scalaInstance, javaEnv = javaEnv) {
       (state: State) =>
-        def action(state: State): Unit = {
+        def action(state0: State): Unit = {
+          val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
           // Check that this is a clean compile!
           val projects = state.build.projects
           assert(projects.forall(p => noPreviousResult(p, state)))
