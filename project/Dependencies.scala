@@ -14,7 +14,7 @@ object Dependencies {
   val sbtTestAgentVersion = "1.0.4"
   val junitVersion = "0.11"
   val graphvizVersion = "0.2.2"
-  val directoryWatcherVersion = "0.4.0"
+  val directoryWatcherVersion = "0.5.0"
   val mavenApiVersion = "3.5.2"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
