@@ -77,7 +77,7 @@ abstract class NailgunTest {
    * @param port The port on which the client should communicate with the server.
    * @param base The base directory from which the client is running.
    */
-  class Client(port: Int, log: RecordingLogger, base: Path) {
+  case class Client(port: Int, log: RecordingLogger, base: Path) {
 
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
 

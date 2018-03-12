@@ -1,7 +1,11 @@
 package bloop.nailgun
 
+import scala.Console.{GREEN, RESET}
+
 import org.junit.{Ignore, Test}
 import org.junit.Assert.{assertEquals, assertTrue}
+
+import bloop.logging.RecordingLogger
 
 class BasicNailgunSpec extends NailgunTest {
 
@@ -119,7 +123,54 @@ class BasicNailgunSpec extends NailgunTest {
         case ("info", msg) => msg.contains(needle)
         case _ => false
       }
-      assertEquals(s"${messages.mkString("\n")} should contain four times '$needle'", 4, matches.toLong)
+      assertEquals(s"${messages.mkString("\n")} should contain four times '$needle'",
+                   4,
+                   matches.toLong)
+    }
+  }
+
+  @Test
+  def testSeveralConcurrentClients(): Unit = {
+    withServerInProject("with-resources") { (logger1, client1) =>
+      val debugPrefix = s"${RESET}${GREEN}[D]${RESET} "
+      val logger2 = new RecordingLogger
+      val client2 = client1.copy(log = logger2)
+
+      val thread1 = new Thread {
+        override def run() = {
+          (1 to 3).foreach { _ =>
+            client1.success("clean", "with-resources-test")
+            client1.success("compile", "with-resources-test", "--verbose")
+          }
+        }
+      }
+
+      val thread2 = new Thread {
+        override def run() = {
+          try while (true) client2.success("projects")
+          catch { case _: InterruptedException => () }
+        }
+      }
+
+      thread1.start()
+      Thread.sleep(1000)
+      thread2.start()
+
+      thread1.join()
+      thread2.interrupt()
+
+      val msgs1 = logger1.getMessages.map(_._2)
+      val msgs2 = logger2.getMessages.map(_._2)
+
+      assertTrue("`logger1` received messages of `logger2`",
+                 !msgs1.exists(_.startsWith("Projects loaded from")))
+      assertEquals("`logger` didn't receive verbose messages",
+                   3,
+                   msgs1.count(_.startsWith(s"${debugPrefix}Elapsed:")).toLong)
+      assertTrue("`logger2` received messages of `logger1`",
+                 !msgs2.exists(_.startsWith("Compiling")))
+      assertTrue("`logger2` received verbose messages of `logger1`",
+                 !msgs2.exists(_.startsWith(debugPrefix)))
     }
   }
 
