@@ -1,15 +1,14 @@
 package bloop
 
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{inputStreamRead, printStreamRead, OptionsParser, pathParser}
-import bloop.engine.{Build, Exit, Interpreter, Run, State}
+import bloop.cli.CliParsers.{OptionsParser, inputStreamRead, pathParser, printStreamRead}
+import bloop.engine.{Build, Exit, Interpreter, NoPool, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
 import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
 import jline.console.ConsoleReader
 import caseapp.{CaseApp, RemainingArgs}
-
 import jline.console.ConsoleReader
 
 import scala.annotation.tailrec
@@ -27,7 +26,7 @@ object Bloop extends CaseApp[CliOptions] {
     logger.verboseIf(options.verbose) {
       val projects = Project.fromDir(configDirectory, logger)
       val build = Build(configDirectory, projects)
-      val state = State(build, options.common, logger)
+      val state = State(build, NoPool, options.common, logger)
       run(state)
     }
   }

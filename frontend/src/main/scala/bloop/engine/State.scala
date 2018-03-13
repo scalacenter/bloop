@@ -67,9 +67,6 @@ object State {
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
 
-  def apply(build: Build, options: CommonOptions, logger: Logger): State =
-    apply(build, NoPool, options, logger)
-
   def setUpShutdownHoook(): Unit = {
     Runtime
       .getRuntime()

@@ -261,13 +261,11 @@ object Interpreter {
       val handle = newState.runAsync(previousState.scheduler)
       pool.addListener {
         case e: CloseEvent =>
-          previousState.logger.info(s"Client has disconnected with a $e event. Cancelling tasks...")
-          System.out.println(s"Client has disconnected with a $e event. Cancelling tasks...")
+          System.out.println(s"Client has disconnected with a '$e' event. Cancelling tasks...")
           handle.cancel()
-          pool.removeAllListeners()
       }
       // Duration has to be infinity, we cannot predict how much time compilation takes
-      Await.result(newState.runAsync(previousState.scheduler), Duration.Inf)
+      Await.result(handle, Duration.Inf)
     } catch {
       case NonFatal(t) =>
         previousState.logger.error(t.getMessage)
