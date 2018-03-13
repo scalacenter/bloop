@@ -208,6 +208,9 @@ object Interpreter {
       case CompletionMode.Commands =>
         val commands = CommandsMessages.messages.map(_._1)
         commands.foreach(state.logger.info)
+      case CompletionMode.Projects =>
+        val projects = state.build.projects
+        projects.foreach(p => state.logger.info(p.name))
     }
 
     state

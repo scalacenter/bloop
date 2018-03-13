@@ -38,6 +38,7 @@ object CliParsers {
   implicit val completionModeRead: ArgParser[CompletionMode] = {
     ArgParser.instance[CompletionMode]("mode") {
       case "commands" => Right(CompletionMode.Commands)
+      case "projects" => Right(CompletionMode.Projects)
       case w00t => Left(s"Unrecognized mode: $w00t")
     }
   }
