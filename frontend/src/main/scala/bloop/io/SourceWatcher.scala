@@ -10,7 +10,7 @@ import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 import monix.eval.Task
-import monix.reactive.{MulticastStrategy, Observable}
+import monix.reactive.{Consumer, MulticastStrategy, Observable}
 
 final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
   private val dirs = dirs0.distinct
@@ -20,35 +20,25 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
   import java.nio.file.Files
   dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
 
-  private final val fakePath = java.nio.file.Paths.get("$$$bloop-monix-trigger-first-event$$$")
-  private final val triggerCompilationEvent =
-    new DirectoryChangeEvent(DirectoryChangeEvent.EventType.OVERFLOW, fakePath, -1)
-
   def watch(state0: State, action: State => Task[State]): Task[State] = {
-    logger.info(s"Watching the following directories: ${dirs.mkString(", ")}")
-
-    var lastState: State = state0
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
       Task(logger.info(s"A ${event.eventType()} in ${event.path()} has triggered an event."))
-        .flatMap((_: Unit) => lastState = action(state))
-        .map(state => { lastState = state; state })
+        .flatMap(_ => action(state))
+    }
+
+    val fileEventConsumer = Consumer.foldLeftAsync[State, DirectoryChangeEvent](state0) {
+      case (state, event) =>
+        event.eventType match {
+          case EventType.CREATE => runAction(state, event)
+          case EventType.MODIFY => runAction(state, event)
+          case EventType.OVERFLOW => runAction(state, event)
+          case EventType.DELETE => Task.now(state)
+        }
     }
 
     val (observer, observable) =
       Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(
         ExecutionContext.ioScheduler)
-
-    val compilationTask = observable
-      .foldLeftL(runAction(lastState, triggerCompilationEvent)) {
-        case (state, e) =>
-          e.eventType match {
-            case EventType.CREATE => runAction(state, e)
-            case EventType.MODIFY => runAction(state, e)
-            case EventType.OVERFLOW => runAction(state, e)
-            case EventType.DELETE => stateTask
-          }
-      }
-      .flatten
 
     val watcher = DirectoryWatcher.create(
       dirsAsJava,
@@ -57,7 +47,7 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
         override def onEvent(event: DirectoryChangeEvent): Unit = {
           val targetFile = event.path()
           val targetPath = targetFile.toFile.getAbsolutePath()
-          if (Files.isRegularFile(targetFile) &&
+          if (!stop && Files.isRegularFile(targetFile) &&
               (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
             val ack = observer.onNext(event)
             stop = ack.isCompleted
@@ -66,28 +56,18 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
       }
     )
 
-    import scala.util.{Try, Success, Failure}
     val watchingTask = Task {
-      Try {
-        try watcher.watch()
-        finally watcher.close()
-      }
-    }
+      logger.info(s"Watching the following directories: ${dirs.mkString(", ")}")
+      try watcher.watch()
+      finally watcher.close()
+    }.doOnCancel(Task(watcher.close()))
 
-    val aggregated = Task.zip2(
-      watchingTask.executeOn(ExecutionContext.ioScheduler),
-      compilationTask.executeOn(state0.scheduler)
-    )
+    val watchHandle = watchingTask.materialize.runAsync(ExecutionContext.ioScheduler)
 
-    aggregated
-      .map {
-        case (Success(_), state) => state
-        case (Failure(t), state) =>
-          state.logger.error("Unexpected file watching error")
-          state.logger.trace(t)
-          state.mergeStatus(ExitStatus.UnexpectedError)
-      }
-      .doOnCancel(Task(watcher.close()))
-      .doOnFinish(Task(watcher.close()))
+    observable
+      .consumeWith(fileEventConsumer)
+      .executeOn(state0.scheduler)
+      .doOnCancel(Task(watchHandle.cancel()))
+      .doOnFinish(_ => Task(watchHandle.cancel()))
   }
 }
