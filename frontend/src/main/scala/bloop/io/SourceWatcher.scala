@@ -20,51 +20,18 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
   import java.nio.file.Files
   dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
 
-  def watch(initialState: State, action: State => State): State = {
-    logger.debug(s"Watching the following directories: ${dirs.mkString(", ")}")
-    var result: State = initialState
-    def runAction(event: DirectoryChangeEvent): Unit = {
-      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
-      result = action(result)
-    }
-
-    val watcher = DirectoryWatcher.create(
-      dirsAsJava,
-      new DirectoryChangeListener {
-        override def onEvent(event: DirectoryChangeEvent): Unit = {
-          val targetFile = event.path()
-          val targetPath = targetFile.toFile.getAbsolutePath()
-          if (Files.isRegularFile(targetFile) &&
-              (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
-            event.eventType() match {
-              case EventType.CREATE => runAction(event)
-              case EventType.MODIFY => runAction(event)
-              case EventType.OVERFLOW => runAction(event)
-              case EventType.DELETE => () // We don't do anything when a file is deleted
-            }
-          }
-        }
-      }
-    )
-    try { watcher.watch(); result } catch {
-      case t: Throwable =>
-        logger.error("Unexpected error happened when file watching.")
-        logger.trace(t)
-        result.mergeStatus(ExitStatus.UnexpectedError)
-    }
-  }
-
   private final val fakePath = java.nio.file.Paths.get("$$$bloop-monix-trigger-first-event$$$")
-  private final val triggerEventAtFirst =
+  private final val triggerCompilationEvent =
     new DirectoryChangeEvent(DirectoryChangeEvent.EventType.OVERFLOW, fakePath, -1)
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
-    logger.debug(s"Watching the following directories: ${dirs.mkString(", ")}")
+    logger.info(s"Watching the following directories: ${dirs.mkString(", ")}")
 
+    var lastState: State = state0
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
-      Task(logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event."))
-        .flatMap(_ => action(state))
-        .executeOn(state0.scheduler)
+      Task(logger.info(s"A ${event.eventType()} in ${event.path()} has triggered an event."))
+        .flatMap((_: Unit) => lastState = action(state))
+        .map(state => { lastState = state; state })
     }
 
     val (observer, observable) =
@@ -72,12 +39,12 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
         ExecutionContext.ioScheduler)
 
     val compilationTask = observable
-      .foldLeftL(action(state0)) {
-        case (stateTask, e) =>
+      .foldLeftL(runAction(lastState, triggerCompilationEvent)) {
+        case (state, e) =>
           e.eventType match {
-            case EventType.CREATE => stateTask.flatMap(s => runAction(s, e))
-            case EventType.MODIFY => stateTask.flatMap(s => runAction(s, e))
-            case EventType.OVERFLOW => stateTask.flatMap(s => runAction(s, e))
+            case EventType.CREATE => runAction(state, e)
+            case EventType.MODIFY => runAction(state, e)
+            case EventType.OVERFLOW => runAction(state, e)
             case EventType.DELETE => stateTask
           }
       }
@@ -105,21 +72,22 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
         try watcher.watch()
         finally watcher.close()
       }
-    }.doOnCancel(Task(watcher.close()))
+    }
 
-    val firstEventTriggerTask = Task(observer.onNext(triggerEventAtFirst))
-    val aggregated = Task.zip3(
-      firstEventTriggerTask.executeOn(ExecutionContext.ioScheduler),
+    val aggregated = Task.zip2(
       watchingTask.executeOn(ExecutionContext.ioScheduler),
       compilationTask.executeOn(state0.scheduler)
     )
 
-    aggregated.map {
-      case (_, Success(_), state) => state
-      case (_, Failure(t), state) =>
-        state.logger.error("Unexpected file watching error")
-        state.logger.trace(t)
-        state.mergeStatus(ExitStatus.UnexpectedError)
-    }
+    aggregated
+      .map {
+        case (Success(_), state) => state
+        case (Failure(t), state) =>
+          state.logger.error("Unexpected file watching error")
+          state.logger.trace(t)
+          state.mergeStatus(ExitStatus.UnexpectedError)
+      }
+      .doOnCancel(Task(watcher.close()))
+      .doOnFinish(Task(watcher.close()))
   }
 }
