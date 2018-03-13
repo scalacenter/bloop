@@ -17,4 +17,5 @@ object ExecutionContext {
   }
 
   implicit val scheduler: Scheduler = Scheduler(executor)
+  implicit val ioScheduler: Scheduler = Scheduler.io("bloop-io")
 }

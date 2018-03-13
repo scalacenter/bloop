@@ -87,17 +87,11 @@ object Interpreter {
     BspServer.run(cmd, state, scheduler)
   }
 
-  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = Task {
-    // TODO(jvican): The implementation here could be improved, do so.
+  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
     val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
-    // Make file watching cancel tasks if lots of different changes happen in less than 100ms
-    val watchFn: State => State = { state =>
-      waitAndLog(state, f(state))
-    }
-    val firstOp = watchFn(state)
-    watcher.watch(firstOp, watchFn)
+    watcher.watch(state, f)
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -258,12 +252,20 @@ object Interpreter {
   private def waitAndLog(previousState: State, newState: Task[State]): State = {
     val pool = previousState.pool
     try {
-      val handle = newState.runAsync(previousState.scheduler)
+      val handle = newState
+        .executeWithOptions(_.enableAutoCancelableRunLoops)
+        .runAsync(previousState.scheduler)
+
+      // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
       pool.addListener {
         case e: CloseEvent =>
-          System.out.println(s"Client has disconnected with a '$e' event. Cancelling tasks...")
-          handle.cancel()
+          if (!handle.isCompleted) {
+            System.out.println(
+              s"Client in ${previousState.build.origin.syntax} has disconnected with a '$e' event. Cancelling tasks...")
+            handle.cancel()
+          }
       }
+
       // Duration has to be infinity, we cannot predict how much time compilation takes
       Await.result(handle, Duration.Inf)
     } catch {

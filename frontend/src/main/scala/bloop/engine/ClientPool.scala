@@ -21,7 +21,7 @@ case object NoPool extends ClientPool {
 
 case class NailgunPool(context: NGContext) extends ClientPool {
   override def addListener(f: CloseEvent => Unit): Unit = {
-    val nailgunListener = new NGClientListener {
+    context.addClientListener(new NGClientListener {
       override def clientDisconnected(reason: NGClientDisconnectReason): Unit = {
         f(reason match {
           case NGClientDisconnectReason.HEARTBEAT => Heartbeat
@@ -31,9 +31,7 @@ case class NailgunPool(context: NGContext) extends ClientPool {
           case NGClientDisconnectReason.INTERNAL_ERROR => InternalError
         })
       }
-    }
-    context.addClientListener(nailgunListener)
-    nailgunListener
+    })
   }
 
   override def removeAllListeners(): Unit = context.removeAllClientListeners()
