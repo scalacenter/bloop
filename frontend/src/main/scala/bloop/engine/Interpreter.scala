@@ -262,6 +262,7 @@ object Interpreter {
       pool.addListener {
         case e: CloseEvent =>
           previousState.logger.info(s"Client has disconnected with a $e event. Cancelling tasks...")
+          System.out.println(s"Client has disconnected with a $e event. Cancelling tasks...")
           handle.cancel()
           pool.removeAllListeners()
       }
