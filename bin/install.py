@@ -10,6 +10,7 @@ from os.path import expanduser, isdir, isfile, join
 from subprocess import CalledProcessError, check_call
 import sys
 
+# INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
 COURSIER_URL = "https://git.io/vgvpD"
 

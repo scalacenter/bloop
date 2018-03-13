@@ -29,21 +29,22 @@ object ReleaseUtils {
     val cachedWrite =
       FileFunction.cached(cacheDirectory) { scripts =>
         scripts.map { script =>
-          IO.readLines(script) match {
-
-            case shebang :: rest =>
+          val lines = IO.readLines(script)
+          val marker = "# INSERT_INSTALL_VARIABLES"
+          lines.span(_ != marker) match {
+            case (before, _ :: after) =>
               val customizedVariables =
                 List(
                   s"""NAILGUN_COMMIT = "$nailgun"""",
                   s"""BLOOP_VERSION = "$version""""
                 )
-              val newContent = shebang :: customizedVariables ++ rest
+              val newContent = before ::: customizedVariables ::: after
               val scriptTarget = target / script.getName
               IO.writeLines(scriptTarget, newContent)
               scriptTarget
 
             case _ =>
-              sys.error(script.getAbsolutePath + " was empty?")
+              sys.error(s"Couldn't find '$marker' in '$script'.")
           }
         }
       }
