@@ -7,6 +7,9 @@ bin/.scalafmt*
 .zinc/
 .nailgun/
 
+# Directory in which to install locally bloop binaries to test them
+.devbloop/
+
 # zinc uses this local cache for publishing stuff
 .ivy2/
 
