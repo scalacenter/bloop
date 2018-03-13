@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-from future import standard_library
-standard_library.install_aliases()
+
 import argparse
-import urllib.request, urllib.parse, urllib.error
 import os
 from os.path import expanduser, isdir, isfile, join
 from subprocess import CalledProcessError, check_call
 import sys
+
+IS_PY2 = sys.version[0] == '2'
+if IS_PY2:
+    from urllib import urlretrieve as urlretrieve
+else:
+    from urllib.request import urlretrieve as urlretrieve
 
 # INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
@@ -59,7 +63,7 @@ BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 def download_and_install(url, target):
     try:
-        urllib.request.urlretrieve(url, target)
+        urlretrieve(url, target)
         os.chmod(target, 0o755)
     except IOError:
         print("Couldn't download %s, please try again." % url)
