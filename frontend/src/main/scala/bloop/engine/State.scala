@@ -26,6 +26,7 @@ final case class State private (
     build: Build,
     results: ResultsCache,
     compilerCache: CompilerCache,
+    pool: ClientPool,
     commonOptions: CommonOptions,
     status: ExitStatus,
     logger: Logger
@@ -51,21 +52,23 @@ object State {
   }
 
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
-    val initializedResults = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
+    val results0 = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
       case (results, project) => results.initializeResult(project)
     }
-    State(build, initializedResults, compilerCache, CommonOptions.default, ExitStatus.Ok, logger)
+    State(build, results0, compilerCache, NoPool, CommonOptions.default, ExitStatus.Ok, logger)
   }
 
-  // Improve the caching by using file metadata
-  def apply(build: Build, options: CommonOptions, logger: Logger): State = {
+  def apply(build: Build, pool: ClientPool, opts: CommonOptions, logger: Logger): State = {
     val results = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
       case (results, project) => results.initializeResult(project)
     }
 
     val compilerCache = getCompilerCache(logger)
-    State(build, results, compilerCache, options, ExitStatus.Ok, logger)
+    State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
+
+  def apply(build: Build, options: CommonOptions, logger: Logger): State =
+    apply(build, NoPool, options, logger)
 
   def setUpShutdownHoook(): Unit = {
     Runtime
@@ -100,13 +103,28 @@ object State {
 
   import bloop.Project
   import bloop.io.AbsolutePath
-  def loadActiveStateFor(configDir: AbsolutePath, opts: CommonOptions, logger: Logger): State = {
-    State.stateCache
-      .addIfMissing(configDir, path => {
-        val projects = Project.fromDir(configDir, logger)
-        val build: Build = Build(configDir, projects)
-        State(build, opts, logger)
-      })
-      .copy(logger = logger)
+
+  /**
+    * Loads an state active for the given configuration directory.
+    *
+    * @param configDir The configuration directory to load a state for.
+    * @param pool The pool of listeners that are connected to this client.
+    * @param opts The common options associated with the state.
+    * @param logger The logger to be used to instantiate the state.
+    * @return An state (cached or not) associated with the configuration directory.
+    */
+  def loadActiveStateFor(
+      configDir: AbsolutePath,
+      pool: ClientPool,
+      opts: CommonOptions,
+      logger: Logger
+  ): State = {
+    val cached = State.stateCache.addIfMissing(configDir, path => {
+      val projects = Project.fromDir(configDir, logger)
+      val build: Build = Build(configDir, projects)
+      State(build, pool, opts, logger)
+    })
+
+    cached.copy(logger = logger)
   }
 }

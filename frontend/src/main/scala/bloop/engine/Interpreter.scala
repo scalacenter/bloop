@@ -11,6 +11,7 @@ import bloop.testing.TestInternals
 import bloop.engine.tasks.Tasks
 import bloop.Project
 import monix.eval.Task
+import monix.execution.Cancelable
 import monix.execution.misc.NonFatal
 
 import scala.concurrent.Await
@@ -92,7 +93,9 @@ object Interpreter {
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
     val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
     // Make file watching cancel tasks if lots of different changes happen in less than 100ms
-    val watchFn: State => State = { state => waitAndLog(state, f(state)) }
+    val watchFn: State => State = { state =>
+      waitAndLog(state, f(state))
+    }
     val firstOp = watchFn(state)
     watcher.watch(firstOp, watchFn)
   }
@@ -253,7 +256,15 @@ object Interpreter {
   }
 
   private def waitAndLog(previousState: State, newState: Task[State]): State = {
+    val pool = previousState.pool
     try {
+      val handle = newState.runAsync(previousState.scheduler)
+      pool.addListener {
+        case e: CloseEvent =>
+          previousState.logger.info(s"Client has disconnected with a $e event. Cancelling tasks...")
+          handle.cancel()
+          pool.removeAllListeners()
+      }
       // Duration has to be infinity, we cannot predict how much time compilation takes
       Await.result(newState.runAsync(previousState.scheduler), Duration.Inf)
     } catch {
