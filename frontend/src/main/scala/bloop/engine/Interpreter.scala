@@ -3,7 +3,8 @@ package bloop.engine
 import bloop.bsp.BspServer
 
 import scala.annotation.tailrec
-import bloop.cli.{CliOptions, Commands, ExitStatus}
+import bloop.cli.{CliOptions, Commands, CompletionMode, ExitStatus}
+import bloop.cli.CliParsers.CommandsMessages
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
@@ -49,6 +50,8 @@ object Interpreter {
         execute(next, logAndTime(cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
         execute(next, logAndTime(cmd.cliOptions, configure(cmd, state)))
+      case Run(cmd: Commands.Completion, next) =>
+        execute(next, logAndTime(cmd.cliOptions, completion(cmd, state)))
       case Run(cmd: Commands.Bsp, next) =>
         val msg = "Internal error: command bsp must be validated before use."
         execute(Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError)), state)
@@ -198,6 +201,16 @@ object Interpreter {
           case None => projects -> (name :: missing)
         }
     }
+  }
+
+  private def completion(cmd: Commands.Completion, state: State): Task[State] = Task {
+    cmd.mode match {
+      case CompletionMode.Commands =>
+        val commands = CommandsMessages.messages.map(_._1)
+        commands.foreach(state.logger.info)
+    }
+
+    state
   }
 
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {

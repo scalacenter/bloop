@@ -34,6 +34,11 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 
+  case class Completion(
+      @Recurse cliOptions: CliOptions = CliOptions.default,
+      mode: CompletionMode
+  ) extends RawCommand
+
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand

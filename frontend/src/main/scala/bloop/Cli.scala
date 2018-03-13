@@ -143,6 +143,9 @@ object Cli {
                   val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
                   run(cmd, newCommand.cliOptions)
                 }
+              case Right(c: Commands.Completion) =>
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Console) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withProject(c.project) { (p: String) =>
@@ -159,7 +162,7 @@ object Cli {
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withProject(c.project) { (p: String) =>
                   val cmd0 = if (p != c.project) newCommand.copy(project = p) else newCommand
-                   // Infer everything after '--' as if they were execution args
+                  // Infer everything after '--' as if they were execution args
                   val cmd = cmd0.copy(args = c.args ++ extraArgs)
                   run(cmd, newCommand.cliOptions)
                 }

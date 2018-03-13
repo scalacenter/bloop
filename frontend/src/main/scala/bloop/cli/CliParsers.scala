@@ -35,6 +35,13 @@ object CliParsers {
     }
   }
 
+  implicit val completionModeRead: ArgParser[CompletionMode] = {
+    ArgParser.instance[CompletionMode]("mode") {
+      case "commands" => Right(CompletionMode.Commands)
+      case w00t => Left(s"Unrecognized mode: $w00t")
+    }
+  }
+
   val BaseMessages: caseapp.core.Messages[DefaultBaseCommand] =
     caseapp.core.Messages[DefaultBaseCommand]
   val OptionsParser: caseapp.core.Parser[CliOptions] =
