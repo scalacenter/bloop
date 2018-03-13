@@ -125,6 +125,6 @@ object State {
       State(build, pool, opts, logger)
     })
 
-    cached.copy(logger = logger)
+    cached.copy(pool = pool, commonOptions = opts, logger = logger)
   }
 }
