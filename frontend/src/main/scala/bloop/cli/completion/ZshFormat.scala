@@ -3,6 +3,7 @@ package bloop.cli.completion
 import caseapp.core.{Arg, CommandMessages}
 
 import bloop.Project
+import bloop.cli.{BspProtocol, ReporterKind}
 
 /** Format for autocompletion with zsh */
 object ZshFormat extends Format {
@@ -39,6 +40,14 @@ object ZshFormat extends Format {
 
   override def showMainName(fqcn: String): Some[String] = {
     Some(fqcn)
+  }
+
+  override def showReporter(reporter: ReporterKind): Some[String] = {
+    Some(reporter.name)
+  }
+
+  override def showProtocol(protocol: BspProtocol): Some[String] = {
+    Some(protocol.name)
   }
 
   private def completionFunction(cmdName: String, argName: String): String =

@@ -3,7 +3,7 @@ package bloop.engine
 import bloop.bsp.BspServer
 
 import scala.annotation.tailrec
-import bloop.cli.{CliOptions, Commands, ExitStatus}
+import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.Mode
 import bloop.io.SourceWatcher
@@ -224,6 +224,16 @@ object Interpreter {
           message <- CommandsMessages.messages.toMap.get(command)
           arg <- message.args
           completion <- cmd.format.showArg(command, arg)
+        } state.logger.info(completion)
+      case Mode.Reporters =>
+        for {
+          reporter <- ReporterKind.reporters
+          completion <- cmd.format.showReporter(reporter)
+        } state.logger.info(completion)
+      case Mode.Protocols =>
+        for {
+          protocol <- BspProtocol.protocols
+          completion <- cmd.format.showProtocol(protocol)
         } state.logger.info(completion)
       case Mode.MainsFQCN =>
         for {
