@@ -25,10 +25,10 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
   def watch(state0: State, action: State => Task[State]): Task[State] = {
     val ngout = state0.commonOptions.ngout
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
-      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
       // Someone that wants this to be supported by Windows will need to make it work for all terminals
       if (!BspServer.isWindows)
         logger.info("\u001b[H\u001b[2J") // Clean the terminal before acting on the file event action
+      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
       action(state)
     }
 
