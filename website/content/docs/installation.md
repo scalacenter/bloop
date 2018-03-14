@@ -26,13 +26,13 @@ starting it yourself.
 If you don't want the Bloop server to start automatically, you can disable it: 
 
 ```sh
-$ launchctl disable bloop
+$ brew services stop bloop
 ```
 
 If you want to have it start automatically again, type:
 
 ```sh
-$ launchctl enable bloop
+$ brew services start bloop
 ```
 
 Go to [Next steps]({{< ref "#next-steps" >}}) to configure Bloop and start using it.
