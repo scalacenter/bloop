@@ -1,0 +1,50 @@
+#compdef bloop
+
+_projects() {
+    compadd "$@" $(bloop autocomplete --format zsh --mode projects)
+}
+
+_commands() {
+    compadd "$@" $(bloop autocomplete --format zsh --mode commands)
+}
+
+_reporters() {
+    compadd "$@" $(bloop autocomplete --format zsh --mode reporters)
+}
+
+_protocols() {
+    compadd "$@" $(bloop autocomplete --format zsh --mode protocols)
+}
+
+_boolean() {
+    compadd "true" "false"
+}
+
+_testsfqcn() {
+    project="$words[2]"
+    compadd "$@" $(bloop autocomplete --format zsh --mode testsfqcn --project $project)
+}
+
+_mainsfqcn() {
+    project="$words[2]"
+    compadd "$@" $(bloop autocomplete --format zsh --mode mainsfqcn --project $project)
+}
+
+_flags() {
+    cmd="$words[1]"
+    saveIFS=$IFS
+    IFS=$'\n'
+    results=($(bloop autocomplete --format zsh --mode flags --command $cmd))
+    # Add a dummy result without completion, otherwise no completion is shown.
+    results=($results '*:dummy:')
+    IFS=$saveIFS
+
+    _arguments $results
+}
+
+_arguments \
+  ":command:_commands" \
+  ":project:_projects" \
+  "*::flags:_flags"
+
+return 0

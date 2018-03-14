@@ -3,7 +3,9 @@ package bloop.engine
 import bloop.bsp.BspServer
 
 import scala.annotation.tailrec
-import bloop.cli.{CliOptions, Commands, ExitStatus}
+import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
+import bloop.cli.CliParsers.CommandsMessages
+import bloop.cli.completion.Mode
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
@@ -49,6 +51,8 @@ object Interpreter {
         execute(next, logAndTime(cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
         execute(next, logAndTime(cmd.cliOptions, configure(cmd, state)))
+      case Run(cmd: Commands.Autocomplete, next) =>
+        execute(next, logAndTime(cmd.cliOptions, autocomplete(cmd, state)))
       case Run(cmd: Commands.Bsp, next) =>
         val msg = "Internal error: command bsp must be validated before use."
         execute(Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError)), state)
@@ -198,6 +202,56 @@ object Interpreter {
           case None => projects -> (name :: missing)
         }
     }
+  }
+
+  private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
+
+    cmd.mode match {
+      case Mode.Commands =>
+        for {
+          (name, args) <- CommandsMessages.messages
+          completion <- cmd.format.showCommand(name, args)
+        } state.logger.info(completion)
+      case Mode.Projects =>
+        val projects = state.build.projects
+        for {
+          project <- state.build.projects
+          completion <- cmd.format.showProject(project)
+        } state.logger.info(completion)
+      case Mode.Flags =>
+        for {
+          command <- cmd.command
+          message <- CommandsMessages.messages.toMap.get(command)
+          arg <- message.args
+          completion <- cmd.format.showArg(command, arg)
+        } state.logger.info(completion)
+      case Mode.Reporters =>
+        for {
+          reporter <- ReporterKind.reporters
+          completion <- cmd.format.showReporter(reporter)
+        } state.logger.info(completion)
+      case Mode.Protocols =>
+        for {
+          protocol <- BspProtocol.protocols
+          completion <- cmd.format.showProtocol(protocol)
+        } state.logger.info(completion)
+      case Mode.MainsFQCN =>
+        for {
+          projectName <- cmd.project
+          project <- state.build.getProjectFor(projectName)
+          main <- Tasks.findMainClasses(state, project)
+          completion <- cmd.format.showMainName(main)
+        } state.logger.info(completion)
+      case Mode.TestsFQCN =>
+        for {
+          projectName <- cmd.project
+          project <- state.build.getProjectFor(projectName)
+          placeholder <- List.empty[String]
+          completion <- cmd.format.showTestName(placeholder)
+        } state.logger.info(completion)
+    }
+
+    state
   }
 
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
