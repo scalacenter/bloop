@@ -1,11 +1,10 @@
 package bloop.logging
 
-import java.io.{FileOutputStream, OutputStream, PrintStream}
+import java.io.PrintStream
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
-
-import bloop.io.AbsolutePath
+import com.martiansoftware.nailgun.NGCommunicator
 
 /**
  * Creates a logger that writes to the given streams.

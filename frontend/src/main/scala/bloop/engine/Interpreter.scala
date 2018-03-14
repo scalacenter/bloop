@@ -11,7 +11,6 @@ import bloop.testing.TestInternals
 import bloop.engine.tasks.Tasks
 import bloop.Project
 import monix.eval.Task
-import monix.execution.Cancelable
 import monix.execution.misc.NonFatal
 
 import scala.concurrent.Await
@@ -20,8 +19,10 @@ import scala.concurrent.duration.Duration
 object Interpreter {
   @tailrec
   def execute(action: Action, state: State): State = {
-    def logAndTime(cliOptions: CliOptions, action: Task[State]): State = {
-      state.logger.verboseIf(cliOptions.verbose)(timed(state.logger)(waitAndLog(state, action)))
+    def logAndTime(cliOptions: CliOptions, task: Task[State]): State = {
+      state.logger.verboseIf(cliOptions.verbose)(
+        timed(state.logger)(waitAndLog(action, cliOptions, state, task))
+      )
     }
 
     action match {
@@ -250,8 +251,14 @@ object Interpreter {
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 
-  private def waitAndLog(previousState: State, newState: Task[State]): State = {
+  private def waitAndLog(
+      action: Action,
+      cliOptions: CliOptions,
+      previousState: State,
+      newState: Task[State]
+  ): State = {
     val pool = previousState.pool
+    val ngout = cliOptions.common.ngout
     try {
       val handle = newState
         .executeWithOptions(_.enableAutoCancelableRunLoops)
@@ -267,9 +274,8 @@ object Interpreter {
           }
       }
 
-      // Duration has to be infinity, we cannot predict how much time compilation takes
       val result = Await.result(handle, Duration.Inf)
-      System.out.println(s"Result is $result")
+      ngout.println(s"The task for $action finished.")
       result
     } catch {
       case NonFatal(t) =>

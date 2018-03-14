@@ -10,11 +10,11 @@ import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 import monix.eval.Task
-import monix.execution.Cancelable
 import monix.reactive.{Consumer, MulticastStrategy, Observable}
 
 final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
   private val dirs = dirs0.distinct
+  private val dirsCount = dirs.size
   private val dirsAsJava: java.util.List[Path] = dirs.asJava
 
   // Create source directories if they don't exist, otherwise the watcher fails.
@@ -22,8 +22,9 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
   dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
+    val ngout = state0.commonOptions.ngout
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
-      logger.info(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
+      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
       action(state)
     }
 
@@ -57,24 +58,21 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
     )
 
     val watchingTask = Task {
-      logger.info(s"Watching the following directories: ${dirs.mkString(", ")}")
+      logger.info(s"File watching $dirsCount directories...")
       try watcher.watch()
       finally watcher.close()
-    }.doOnCancel(Task{
-      System.out.println("Running cancellation for watch task")
+    }.doOnCancel(Task {
       observer.onComplete()
       watcher.close()
-      System.out.println(s"File watching of '${project.name}' has been successfully cancelled.")
+      ngout.println(
+        s"File watching on '${project.name}' and dependent projects has been successfully cancelled.")
     })
 
     val watchHandle = watchingTask.materialize.runAsync(ExecutionContext.ioScheduler)
 
     observable
       .consumeWith(fileEventConsumer)
-      .doOnCancel(Task{
-        System.out.println("RUnning cancellation in observable")
-        Cancelable.cancelAll(List(watchHandle))
-      })
       .doOnFinish(_ => Task(watchHandle.cancel()))
+      .doOnCancel(Task(watchHandle.cancel()))
   }
 }

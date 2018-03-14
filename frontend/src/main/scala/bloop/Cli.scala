@@ -4,8 +4,7 @@ import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, ClientPool, Exit, Interpreter, NailgunPool, NoPool, Print, Run, State}
-import bloop.io.Paths
-import bloop.logging.{BloopLogger, Logger}
+import bloop.logging.BloopLogger
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 
@@ -19,10 +18,13 @@ object Cli {
   }
 
   def nailMain(ngContext: NGContext): Unit = {
+    val server = ngContext.getNGServer
     val nailgunOptions = CommonOptions(
       in = ngContext.in,
       out = ngContext.out,
       err = ngContext.err,
+      ngout = server.out,
+      ngerr = server.err,
       workingDirectory = ngContext.getWorkingDirectory,
     )
     val command = ngContext.getCommand
