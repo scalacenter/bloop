@@ -101,9 +101,8 @@ object Interpreter {
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        def doCompile(state: State): Task[State] = {
+        def doCompile(state: State): Task[State] =
           Tasks.compile(state, project, reporterConfig).map(_.mergeStatus(ExitStatus.Ok))
-        }
 
         val initialState = {
           if (cmd.incremental) Task(state)
@@ -112,6 +111,7 @@ object Interpreter {
             Tasks.clean(state, state.build.projects, true)
           }
         }
+
         initialState.flatMap { state =>
           if (!cmd.watch) doCompile(state)
           else watch(project, state, doCompile _)
@@ -136,15 +136,31 @@ object Interpreter {
     state.mergeStatus(ExitStatus.Ok)
   }
 
+  private def compileAnd(
+      state: State,
+      project: Project,
+      reporterConfig: ReporterConfig,
+      excludeRoot: Boolean
+  )(next: State => Task[State]): Task[State] = {
+    Tasks.compile(state, project, reporterConfig, excludeRoot).flatMap { compiled =>
+      if (compiled.status != ExitStatus.CompilationError) next(compiled)
+      else {
+        Task.now {
+          compiled.logger.debug(s"Failed compilation for ${project}. Skipping tests.")
+          compiled
+        }
+      }
+    }
+  }
+
   private def console(cmd: Commands.Console, state: State): Task[State] = {
     val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        for {
-          compiled <- Tasks.compile(state, project, reporterConfig, cmd.excludeRoot)
-          result <- Tasks.console(compiled, project, reporterConfig, cmd.excludeRoot)
-        } yield result.mergeStatus(ExitStatus.Ok)
+        compileAnd(state, project, reporterConfig, cmd.excludeRoot) { state =>
+          Tasks.console(state, project, reporterConfig, cmd.excludeRoot)
+        }
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
     }
@@ -158,10 +174,10 @@ object Interpreter {
         def doTest(state: State): Task[State] = {
           val testFilter = TestInternals.parseFilters(cmd.filter)
           val cwd = cmd.cliOptions.common.workingPath
-          for {
-            compiled <- Tasks.compile(state, project, reporterConfig, excludeRoot = false)
-            result <- Tasks.test(compiled, project, cwd, cmd.isolated, testFilter)
-          } yield result
+
+          compileAnd(state, project, reporterConfig, excludeRoot = false) { state =>
+            Tasks.test(state, project, cwd, cmd.isolated, testFilter)
+          }
         }
         if (cmd.watch) watch(project, state, doTest _)
         else doTest(state)
@@ -219,15 +235,15 @@ object Interpreter {
             }
           }
         }
+
         def doRun(state: State): Task[State] = {
-          Tasks.compile(state, project, reporter, excludeRoot = false).flatMap { compiled =>
-            getMainClass(compiled) match {
-              case None =>
-                Task(compiled.mergeStatus(ExitStatus.UnexpectedError))
+          compileAnd(state, project, reporter, excludeRoot = false) { state =>
+            getMainClass(state) match {
+              case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
                 val args = cmd.args.toArray
                 val cwd = cmd.cliOptions.common.workingPath
-                Tasks.run(compiled, project, cwd, main, args)
+                Tasks.run(state, project, cwd, main, args)
             }
           }
         }
