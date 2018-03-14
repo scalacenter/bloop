@@ -129,12 +129,9 @@ object Interpreter {
       val contents = Dag.toDotGraph(state.build.dags)
       logger.info(contents)
     } else {
-      // TODO: Pretty print output of show projects, please.
       val configDirectory = state.build.origin.syntax
-      logger.info(s"Projects loaded from '$configDirectory':")
-      state.build.projects.map(_.name).sorted.foreach { projectName =>
-        logger.info(s" * $projectName")
-      }
+      logger.debug(s"Projects loaded from '$configDirectory':")
+      state.build.projects.map(_.name).sorted.foreach(logger.info)
     }
 
     state.mergeStatus(ExitStatus.Ok)

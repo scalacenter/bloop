@@ -31,7 +31,7 @@ class InterpreterSpec {
     val action = Run(Commands.Projects(cliOptions = cliOptions))
     Interpreter.execute(action, state)
     val output = outStream.toString("UTF-8")
-    assert(output.contains("Projects loaded from"), "Loaded projects were not shown on the logger.")
+    assert(output.contains("sbtRoot"), "Loaded projects were not shown on the logger.")
   }
 
   @Test def ShowAbout(): Unit = {
