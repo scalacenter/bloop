@@ -88,7 +88,7 @@ object PluginImplementation {
       )
 
       val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
-      if (!classesDir.exists()) sbt.io.IO.createDirectory(classesDir)
+      if (!classesDir.exists()) sbt.IO.createDirectory(classesDir)
 
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
