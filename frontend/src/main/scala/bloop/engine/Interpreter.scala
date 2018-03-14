@@ -218,6 +218,13 @@ object Interpreter {
           project <- state.build.projects
           completion <- cmd.format.showProject(project)
         } state.logger.info(completion)
+      case Mode.Flags =>
+        for {
+          command <- cmd.command
+          message <- CommandsMessages.messages.toMap.get(command)
+          arg <- message.args
+          completion <- cmd.format.showArg(command, arg)
+        } state.logger.info(completion)
     }
 
     state

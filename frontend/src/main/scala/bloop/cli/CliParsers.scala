@@ -39,6 +39,7 @@ object CliParsers {
     ArgParser.instance[completion.Mode]("mode") {
       case "commands" => Right(completion.Mode.Commands)
       case "projects" => Right(completion.Mode.Projects)
+      case "flags" => Right(completion.Mode.Flags)
       case w00t => Left(s"Unrecognized mode: $w00t")
     }
   }
