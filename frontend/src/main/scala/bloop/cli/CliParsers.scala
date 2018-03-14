@@ -40,6 +40,8 @@ object CliParsers {
       case "commands" => Right(completion.Mode.Commands)
       case "projects" => Right(completion.Mode.Projects)
       case "flags" => Right(completion.Mode.Flags)
+      case "testsfqcn" => Right(completion.Mode.TestsFQCN)
+      case "mainsfqcn" => Right(completion.Mode.MainsFQCN)
       case w00t => Left(s"Unrecognized mode: $w00t")
     }
   }

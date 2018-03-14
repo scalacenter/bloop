@@ -38,7 +38,8 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default,
       mode: completion.Mode,
       format: completion.Format,
-      command: Option[String]
+      command: Option[String],
+      project: Option[String]
   ) extends RawCommand
 
   case class About(

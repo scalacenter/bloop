@@ -225,6 +225,20 @@ object Interpreter {
           arg <- message.args
           completion <- cmd.format.showArg(command, arg)
         } state.logger.info(completion)
+      case Mode.MainsFQCN =>
+        for {
+          projectName <- cmd.project
+          project <- state.build.getProjectFor(projectName)
+          main <- Tasks.findMainClasses(state, project)
+          completion <- cmd.format.showMainName(main)
+        } state.logger.info(completion)
+      case Mode.TestsFQCN =>
+        for {
+          projectName <- cmd.project
+          project <- state.build.getProjectFor(projectName)
+          placeholder <- List.empty[String]
+          completion <- cmd.format.showTestName(placeholder)
+        } state.logger.info(completion)
     }
 
     state
