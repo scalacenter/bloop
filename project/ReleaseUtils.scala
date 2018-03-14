@@ -73,15 +73,9 @@ object ReleaseUtils {
        |  def install
        |      mkdir "bin"
        |      system "python", "install.py", "--dest", "bin", "--version", version
+       |      zsh_completion.install "bin/zsh/_bloop"
+       |      bash_completion.install "bin/bash/bloop"
        |      File.delete("bin/blp-coursier")
-       |
-       |      mkdir "zsh"
-       |      system "curl", "https://raw.githubusercontent.com/scalacenter/bloop/v#{version}/etc/zsh/_bloop", "-o", "zsh/_bloop"
-       |      zsh_completion.install "zsh/_bloop"
-       |
-       |      mkdir "bash"
-       |      system "curl", "https://raw.githubusercontent.com/scalacenter/bloop/v#{version}/etc/bash/bloop", "-o", "bash/bloop"
-       |      bash_completion.install "bash/bloop"
        |
        |      prefix.install "bin"
        |  end
