@@ -17,7 +17,7 @@ object AutoImported {
   import sbt.{SettingKey, TaskKey, settingKey, taskKey}
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
-  val installBloop: TaskKey[Unit] =
+  val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: sbt.TaskKey[Unit] =
     sbt.taskKey[Unit]("Generate bloop configuration files for this project")
@@ -26,7 +26,7 @@ object AutoImported {
 object PluginImplementation {
   import bloop.integrations.sbt.{AutoImported => BloopKeys}
   val globalSettings: Seq[Def.Setting[_]] = List(
-    BloopKeys.installBloop := PluginDefaults.installBloop.value
+    BloopKeys.bloopInstall := PluginDefaults.bloopInstall.value
   )
 
   val configSettings: Seq[Def.Setting[_]] = {
@@ -106,7 +106,7 @@ object PluginImplementation {
       // format: ON
     }
 
-    lazy val installBloop: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
       val filter = ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
       BloopKeys.bloopGenerate.all(filter).map(_ => ())
     }

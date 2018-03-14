@@ -381,7 +381,7 @@ object BuildImplementation {
         val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
         val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
         val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
-        val toRun = "installBloop" :: "buildIndex" :: Nil
+        val toRun = "bloopInstall" :: "buildIndex" :: Nil
         val cmd = "sbt" :: (properties ++ toRun)
 
         IO.delete(buildIndexFile)

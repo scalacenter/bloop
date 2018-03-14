@@ -26,10 +26,10 @@ addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<latest-release>")
 [![Latest
 version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
 
-Once sbt is configured, you can run `installBloop` to generate the Bloop configuration:
+Once sbt is configured, you can run `bloopInstall` to generate the Bloop configuration:
 
 ```sh
-$ sbt installBloop
+$ sbt bloopInstall
 [info] Loading global plugins from /Users/martin/.sbt/1.0/plugins
 (...)
 [success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop-config/foo.config'.
