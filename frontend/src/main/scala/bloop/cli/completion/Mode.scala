@@ -1,22 +1,35 @@
 package bloop.cli.completion
 
-sealed trait Mode
+import caseapp.core.ArgParser
+
+sealed abstract class Mode(val name: String)
 
 /** The kind of items that should be returned for autocompletion */
 object Mode {
 
   /** Query autocompletion of commands */
-  case object Commands extends Mode
+  case object Commands extends Mode("commands")
 
   /** Query autocompletion of project names */
-  case object Projects extends Mode
+  case object Projects extends Mode("projects")
 
   /** Query autocompletion of command flags */
-  case object Flags extends Mode
+  case object Flags extends Mode("flags")
 
   /** Query autocompletion of test names */
-  case object TestsFQCN extends Mode
+  case object TestsFQCN extends Mode("testsfqcn")
 
   /** Query autocompletion of main classes */
-  case object MainsFQCN extends Mode
+  case object MainsFQCN extends Mode("mainsfqcn")
+
+  val modes: List[Mode] = List(Commands, Projects, Flags, TestsFQCN, MainsFQCN)
+
+  implicit val completionModeRead: ArgParser[Mode] = {
+    ArgParser.instance[Mode]("mode") { input =>
+      modes.find(_.name == input) match {
+        case Some(mode) => Right(mode)
+        case None => Left(s"Unrecognized mode: $input")
+      }
+    }
+  }
 }

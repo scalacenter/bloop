@@ -19,17 +19,6 @@ object CliParsers {
       toPath.left.map(t => s"The provided path ${supposedPath} is not valid: '${t.getMessage()}'.")
   }
 
-  implicit val completionModeRead: ArgParser[completion.Mode] = {
-    ArgParser.instance[completion.Mode]("mode") {
-      case "commands" => Right(completion.Mode.Commands)
-      case "projects" => Right(completion.Mode.Projects)
-      case "flags" => Right(completion.Mode.Flags)
-      case "testsfqcn" => Right(completion.Mode.TestsFQCN)
-      case "mainsfqcn" => Right(completion.Mode.MainsFQCN)
-      case w00t => Left(s"Unrecognized mode: $w00t")
-    }
-  }
-
   implicit val completionFormatRead: ArgParser[completion.Format] = {
     ArgParser.instance[completion.Format]("format") {
       case "bash" => Right(completion.BashFormat)
