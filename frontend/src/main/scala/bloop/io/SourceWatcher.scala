@@ -2,7 +2,7 @@ package bloop.io
 
 import java.nio.file.Path
 
-import bloop.cli.ExitStatus
+import bloop.Project
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.Logger
 
@@ -10,9 +10,10 @@ import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 import monix.eval.Task
+import monix.execution.Cancelable
 import monix.reactive.{Consumer, MulticastStrategy, Observable}
 
-final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
+final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
   private val dirs = dirs0.distinct
   private val dirsAsJava: java.util.List[Path] = dirs.asJava
 
@@ -22,8 +23,8 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
-      Task(logger.info(s"A ${event.eventType()} in ${event.path()} has triggered an event."))
-        .flatMap(_ => action(state))
+      logger.info(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
+      action(state)
     }
 
     val fileEventConsumer = Consumer.foldLeftAsync[State, DirectoryChangeEvent](state0) {
@@ -43,14 +44,13 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
     val watcher = DirectoryWatcher.create(
       dirsAsJava,
       new DirectoryChangeListener {
-        @volatile var stop: Boolean = false
         override def onEvent(event: DirectoryChangeEvent): Unit = {
           val targetFile = event.path()
           val targetPath = targetFile.toFile.getAbsolutePath()
-          if (!stop && Files.isRegularFile(targetFile) &&
+          if (Files.isRegularFile(targetFile) &&
               (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
-            val ack = observer.onNext(event)
-            stop = ack.isCompleted
+            observer.onNext(event)
+            ()
           }
         }
       }
@@ -60,14 +60,21 @@ final class SourceWatcher(dirs0: Seq[Path], logger: Logger) {
       logger.info(s"Watching the following directories: ${dirs.mkString(", ")}")
       try watcher.watch()
       finally watcher.close()
-    }.doOnCancel(Task(watcher.close()))
+    }.doOnCancel(Task{
+      System.out.println("Running cancellation for watch task")
+      observer.onComplete()
+      watcher.close()
+      System.out.println(s"File watching of '${project.name}' has been successfully cancelled.")
+    })
 
     val watchHandle = watchingTask.materialize.runAsync(ExecutionContext.ioScheduler)
 
     observable
       .consumeWith(fileEventConsumer)
-      .executeOn(state0.scheduler)
-      .doOnCancel(Task(watchHandle.cancel()))
+      .doOnCancel(Task{
+        System.out.println("RUnning cancellation in observable")
+        Cancelable.cancelAll(List(watchHandle))
+      })
       .doOnFinish(_ => Task(watchHandle.cancel()))
   }
 }

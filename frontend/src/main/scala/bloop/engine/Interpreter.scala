@@ -90,8 +90,9 @@ object Interpreter {
   private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
-    val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
-    watcher.watch(state, f)
+    val watcher = new SourceWatcher(project, allSourceDirs.toList, state.logger)
+    // Force the first execution before relying on the file watching task
+    f(state).flatMap(newState => watcher.watch(newState, f))
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -267,7 +268,9 @@ object Interpreter {
       }
 
       // Duration has to be infinity, we cannot predict how much time compilation takes
-      Await.result(handle, Duration.Inf)
+      val result = Await.result(handle, Duration.Inf)
+      System.out.println(s"Result is $result")
+      result
     } catch {
       case NonFatal(t) =>
         previousState.logger.error(t.getMessage)
