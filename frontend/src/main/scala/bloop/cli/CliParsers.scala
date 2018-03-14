@@ -19,14 +19,6 @@ object CliParsers {
       toPath.left.map(t => s"The provided path ${supposedPath} is not valid: '${t.getMessage()}'.")
   }
 
-  implicit val reporterKindRead: ArgParser[ReporterKind] = {
-    ArgParser.instance[ReporterKind]("reporter") {
-      case "scalac" => Right(ScalacReporter)
-      case "bloop" => Right(BloopReporter)
-      case w00t => Left(s"Unrecognized reporter: $w00t")
-    }
-  }
-
   implicit val bspProtocolRead: ArgParser[BspProtocol] = {
     ArgParser.instance[BspProtocol]("protocol") {
       case "local" => Right(BspProtocol.Local)
