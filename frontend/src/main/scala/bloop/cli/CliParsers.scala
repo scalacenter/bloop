@@ -19,14 +19,6 @@ object CliParsers {
       toPath.left.map(t => s"The provided path ${supposedPath} is not valid: '${t.getMessage()}'.")
   }
 
-  implicit val bspProtocolRead: ArgParser[BspProtocol] = {
-    ArgParser.instance[BspProtocol]("protocol") {
-      case "local" => Right(BspProtocol.Local)
-      case "tcp" => Right(BspProtocol.Tcp)
-      case w00t => Left(s"Unrecognized protocol: $w00t")
-    }
-  }
-
   implicit val completionModeRead: ArgParser[completion.Mode] = {
     ArgParser.instance[completion.Mode]("mode") {
       case "commands" => Right(completion.Mode.Commands)
