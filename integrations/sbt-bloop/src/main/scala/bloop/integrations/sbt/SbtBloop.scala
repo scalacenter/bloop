@@ -87,8 +87,9 @@ object PluginImplementation {
         Keys.crossPaths.value
       )
 
-      if (!bloopTarget.exists()) sbt.io.IO.createDirectory(bloopTarget)
       val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
+      if (!classesDir.exists()) sbt.io.IO.createDirectory(classesDir)
+
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
       val scalacOptions = Keys.scalacOptions.value
