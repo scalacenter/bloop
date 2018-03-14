@@ -94,9 +94,12 @@ object Tasks {
       val results = Dag.dfs(results0)
       val failures = Compilation.Result.failedProjects(results).distinct
       val successes = Compilation.Result.successfulProjects(results)
-      val newCache = state.results.addResults(successes)
-      failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
-      state.copy(results = newCache)
+      val newState = state.copy(results = state.results.addResults(successes))
+      if (failures.isEmpty) newState
+      else {
+        failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
+        newState.copy(status = ExitStatus.CompilationError)
+      }
     }
   }
 
