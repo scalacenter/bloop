@@ -4,6 +4,7 @@ import caseapp.core.{Arg, CommandMessages}
 
 import bloop.Project
 
+/** Format for autocompletion with zsh */
 object ZshFormat extends Format {
 
   override def showProject(project: Project): Some[String] = {
