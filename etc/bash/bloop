@@ -5,46 +5,46 @@ _files() {
 }
 
 _projects() {
-    projects=$(bloop completion --mode=projects --format=bash)
+    projects=$(bloop autocomplete --mode=projects --format=bash)
     COMPREPLY=( $(compgen -W "$projects" -- $cur) )
     return 0
 }
 
 _commands() {
-    commands=$(bloop completion --mode=commands --format=bash)
+    commands=$(bloop autocomplete --mode=commands --format=bash)
     COMPREPLY=( $(compgen -W "$commands" -- $cur) )
     return 0
 }
 
 _reporters() {
-    reporters=$(bloop completion --mode=reporters --format=bash)
+    reporters=$(bloop autocomplete --mode=reporters --format=bash)
     COMPREPLY=( $(compgen -W "$reporters" -- $cur) )
     return 0
 }
 
 _protocols() {
-    protocols=$(bloop completion --mode=protocols --format=bash)
+    protocols=$(bloop autocomplete --mode=protocols --format=bash)
     COMPREPLY=( $(compgen -W "$protocols" -- $cur) )
     return 0
 }
 
 _testsfqcn() {
     project="${COMP_WORDS[2]}"
-    mains=$(bloop completion --mode=testsfqcn --project=$project --format=bash)
+    mains=$(bloop autocomplete --mode=testsfqcn --project=$project --format=bash)
     COMPREPLY=( $(compgen -W "$mains" -- $cur) )
     return 0
 }
 
 _mainsfqcn() {
     project="${COMP_WORDS[2]}"
-    mains=$(bloop completion --mode=mainsfqcn --project=$project --format=bash)
+    mains=$(bloop autocomplete --mode=mainsfqcn --project=$project --format=bash)
     COMPREPLY=( $(compgen -W "$mains" -- $cur) )
     return 0
 }
 
 _getFlagsForCommand() {
     command=$1
-    bloop completion --mode=flags --format=bash --command=$command
+    bloop autocomplete --mode=flags --format=bash --command=$command
 }
 
 _callCompletionForCommandAndFlag() {

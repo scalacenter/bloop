@@ -143,7 +143,7 @@ object Cli {
                   val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
                   run(cmd, newCommand.cliOptions)
                 }
-              case Right(c: Commands.Completion) =>
+              case Right(c: Commands.Autocomplete) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Console) =>

@@ -51,8 +51,8 @@ object Interpreter {
         execute(next, logAndTime(cmd.cliOptions, run(cmd, state)))
       case Run(cmd: Commands.Configure, next) =>
         execute(next, logAndTime(cmd.cliOptions, configure(cmd, state)))
-      case Run(cmd: Commands.Completion, next) =>
-        execute(next, logAndTime(cmd.cliOptions, completion(cmd, state)))
+      case Run(cmd: Commands.Autocomplete, next) =>
+        execute(next, logAndTime(cmd.cliOptions, autocomplete(cmd, state)))
       case Run(cmd: Commands.Bsp, next) =>
         val msg = "Internal error: command bsp must be validated before use."
         execute(Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError)), state)
@@ -204,7 +204,7 @@ object Interpreter {
     }
   }
 
-  private def completion(cmd: Commands.Completion, state: State): Task[State] = Task {
+  private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
 
     cmd.mode match {
       case Mode.Commands =>
