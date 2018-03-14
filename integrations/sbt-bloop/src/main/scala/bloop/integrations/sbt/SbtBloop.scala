@@ -80,7 +80,7 @@ object PluginImplementation {
       val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
       val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
       val bloopTarget = Defaults.makeCrossTarget(
-        bloopConfigDir,
+        bloopConfigDir / project.id,
         Keys.scalaBinaryVersion.value,
         (Keys.sbtBinaryVersion in Keys.pluginCrossBuild).value,
         Keys.sbtPlugin.value,
