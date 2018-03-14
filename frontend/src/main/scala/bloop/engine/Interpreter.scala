@@ -19,8 +19,10 @@ import scala.concurrent.duration.Duration
 object Interpreter {
   @tailrec
   def execute(action: Action, state: State): State = {
-    def logAndTime(cliOptions: CliOptions, action: Task[State]): State = {
-      state.logger.verboseIf(cliOptions.verbose)(timed(state.logger)(waitAndLog(state, action)))
+    def logAndTime(cliOptions: CliOptions, task: Task[State]): State = {
+      state.logger.verboseIf(cliOptions.verbose)(
+        timed(state.logger)(waitAndLog(action, cliOptions, state, task))
+      )
     }
 
     action match {
@@ -86,15 +88,12 @@ object Interpreter {
     BspServer.run(cmd, state, scheduler)
   }
 
-  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = Task {
-    // TODO(jvican): The implementation here could be improved, do so.
+  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
-    val watcher = new SourceWatcher(allSourceDirs.toList, state.logger)
-    // Make file watching cancel tasks if lots of different changes happen in less than 100ms
-    val watchFn: State => State = { state => waitAndLog(state, f(state)) }
-    val firstOp = watchFn(state)
-    watcher.watch(firstOp, watchFn)
+    val watcher = new SourceWatcher(project, allSourceDirs.toList, state.logger)
+    // Force the first execution before relying on the file watching task
+    f(state).flatMap(newState => watcher.watch(newState, f))
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -252,10 +251,32 @@ object Interpreter {
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 
-  private def waitAndLog(previousState: State, newState: Task[State]): State = {
+  private def waitAndLog(
+      action: Action,
+      cliOptions: CliOptions,
+      previousState: State,
+      newState: Task[State]
+  ): State = {
+    val pool = previousState.pool
+    val ngout = cliOptions.common.ngout
     try {
-      // Duration has to be infinity, we cannot predict how much time compilation takes
-      Await.result(newState.runAsync(previousState.scheduler), Duration.Inf)
+      val handle = newState
+        .executeWithOptions(_.enableAutoCancelableRunLoops)
+        .runAsync(previousState.scheduler)
+
+      // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
+      pool.addListener {
+        case e: CloseEvent =>
+          if (!handle.isCompleted) {
+            ngout.println(
+              s"Client in ${previousState.build.origin.syntax} has disconnected with a '$e' event. Cancelling tasks...")
+            handle.cancel()
+          }
+      }
+
+      val result = Await.result(handle, Duration.Inf)
+      ngout.println(s"The task for $action finished.")
+      result
     } catch {
       case NonFatal(t) =>
         previousState.logger.error(t.getMessage)

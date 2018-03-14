@@ -71,7 +71,8 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
 
   private final val defaultOpts = callSiteState.commonOptions
   def reloadState(uri: String): State = {
-    val state0 = State.loadActiveStateFor(AbsolutePath(uri), defaultOpts, bspForwarderLogger)
+    val pool = callSiteState.pool
+    val state0 = State.loadActiveStateFor(AbsolutePath(uri), pool, defaultOpts, bspForwarderLogger)
     state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
   }
 

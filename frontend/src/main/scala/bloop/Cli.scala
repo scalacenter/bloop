@@ -3,26 +3,28 @@ package bloop
 import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, Exit, Interpreter, Print, Run, State}
-import bloop.io.Paths
-import bloop.logging.{BloopLogger, Logger}
+import bloop.engine.{Action, ClientPool, Exit, Interpreter, NailgunPool, NoPool, Print, Run, State}
+import bloop.logging.BloopLogger
 import caseapp.core.{DefaultBaseCommand, Messages}
-import com.martiansoftware.nailgun
+import com.martiansoftware.nailgun.NGContext
 
 class Cli
 object Cli {
   def main(args: Array[String]): Unit = {
     State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action)
+    val exitStatus = run(action, NoPool)
     sys.exit(exitStatus.code)
   }
 
-  def nailMain(ngContext: nailgun.NGContext): Unit = {
+  def nailMain(ngContext: NGContext): Unit = {
+    val server = ngContext.getNGServer
     val nailgunOptions = CommonOptions(
       in = ngContext.in,
       out = ngContext.out,
       err = ngContext.err,
+      ngout = server.out,
+      ngerr = server.err,
       workingDirectory = ngContext.getWorkingDirectory,
     )
     val command = ngContext.getCommand
@@ -36,7 +38,8 @@ object Cli {
         printErrorAndExit(helpAsked, nailgunOptions)
       else parse(args, nailgunOptions)
     }
-    val exitStatus = run(cmd)
+
+    val exitStatus = run(cmd, NailgunPool(ngContext))
     ngContext.exit(exitStatus.code)
   }
 
@@ -188,7 +191,7 @@ object Cli {
     }
   }
 
-  def run(action: Action): ExitStatus = {
+  def run(action: Action, pool: ClientPool): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       cliOptions.configDir
@@ -205,7 +208,7 @@ object Cli {
     val commonOpts = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
     val logger = BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err)
-    val state = State.loadActiveStateFor(configDirectory, cliOptions.common, logger)
+    val state = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
     val newState = Interpreter.execute(action, state)
     State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
     newState.status
