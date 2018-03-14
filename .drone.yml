@@ -53,6 +53,7 @@ pipeline:
       - git log | head -n 20
       - ./bin/add-coursier.sh
       - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
+      - export DRONE_COMMIT_MESSAGE=$(git log -n 1 --pretty=format:'%s') # Do this because drone goes crazy...
       - case "$DRONE_COMMIT_MESSAGE" in 
         *[DOCS]*) echo "Skipping tests for commit that only changes docs." ;;
         *) ${SBT_RUN}; ./bin/ci-clean-cache.sh ;;
