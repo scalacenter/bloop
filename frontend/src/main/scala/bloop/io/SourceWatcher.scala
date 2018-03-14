@@ -28,7 +28,7 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
       logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
       // Someone that wants this to be supported by Windows will need to make it work for all terminals
       if (!BspServer.isWindows)
-        logger.info("\033[H\033[2J") // Clean the terminal before acting on the file event action
+        logger.info("\u001b[H\u001b[2J") // Clean the terminal before acting on the file event action
       action(state)
     }
 
