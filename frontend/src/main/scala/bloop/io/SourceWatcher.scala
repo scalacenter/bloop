@@ -3,6 +3,7 @@ package bloop.io
 import java.nio.file.Path
 
 import bloop.Project
+import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.Logger
 
@@ -25,6 +26,9 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
     val ngout = state0.commonOptions.ngout
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
       logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
+      // Someone that wants this to be supported by Windows will need to make it work for all terminals
+      if (!BspServer.isWindows)
+        logger.info("\033[H\033[2J") // Clean the terminal before acting on the file event action
       action(state)
     }
 
