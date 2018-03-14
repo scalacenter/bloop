@@ -50,7 +50,7 @@ object PluginImplementation {
 
   object PluginDefaults {
     import Compat._
-    import sbt.Task
+    import sbt.{Task, Defaults}
 
     lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
       def makeName(name: String, configuration: Configuration): String =
@@ -73,12 +73,23 @@ object PluginImplementation {
       val aggregates = project.aggregate.map(agg => makeName(agg.project, configuration))
       val dependenciesAndAggregates = dependencies ++ aggregates
 
+      val bloopConfigDir = BloopKeys.bloopConfigDir.value
       val scalaName = "scala-compiler"
       val scalaVersion = Keys.scalaVersion.value
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
       val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
       val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
-      val classesDir = Keys.classDirectory.value.getAbsoluteFile
+      val bloopTarget = Defaults.makeCrossTarget(
+        bloopConfigDir,
+        Keys.scalaBinaryVersion.value,
+        (Keys.sbtBinaryVersion in Keys.pluginCrossBuild).value,
+        Keys.sbtPlugin.value,
+        Keys.crossPaths.value
+      )
+
+      val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
+      if (!classesDir.exists()) sbt.io.IO.createDirectory(classesDir)
+
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
       val scalacOptions = Keys.scalacOptions.value
@@ -87,7 +98,6 @@ object PluginImplementation {
       val (javaHome, javaOptions) = javaConfiguration.value
 
       val tmp = Keys.target.value / "tmp-bloop"
-      val bloopConfigDir = BloopKeys.bloopConfigDir.value
       val outFile = bloopConfigDir / s"$projectName.config"
 
       // Force source generators on this task manually
