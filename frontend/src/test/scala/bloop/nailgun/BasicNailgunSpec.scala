@@ -60,8 +60,7 @@ class BasicNailgunSpec extends NailgunTest {
       val expectedProjects = "with-resources" :: "with-resources-test" :: Nil
 
       expectedProjects.foreach { proj =>
-        val needle = s" * $proj"
-        assertTrue(s"$messages didn't contain $needle'", messages.contains(("info", needle)))
+        assertTrue(s"$messages didn't contain $proj'", messages.contains(("info", proj)))
       }
     }
   }
