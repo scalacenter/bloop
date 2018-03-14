@@ -19,6 +19,8 @@ object AutoImported {
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Directory where to write the class files")
+  val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
+    taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: sbt.TaskKey[Unit] =
@@ -34,6 +36,7 @@ object PluginImplementation {
   val configSettings: Seq[Def.Setting[_]] = {
     val rawSettingsInConfigs = List(
       BloopKeys.bloopProductDirectories := PluginDefaults.generateBloopProductDirectories.value,
+      BloopKeys.bloopInternalClasspath := PluginDefaults.bloopInternalDependencyClasspath.value,
       BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value
     )
     val all = rawSettingsInConfigs ++ DiscoveredSbtPlugins.settings
@@ -104,7 +107,20 @@ object PluginImplementation {
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
       // TODO(jvican): Override classes directories here too (e.g. plugins are defined in the build)
-      val scalacOptions = Keys.scalacOptions.value
+
+      val scalacOptions = {
+        val scalacOptions0 = Keys.scalacOptions.value
+        val internalClasspath = AutoImported.bloopInternalClasspath.value
+        internalClasspath.foldLeft(scalacOptions0) {
+          case (scalacOptions, (oldClassesDir, newClassesDir)) =>
+            scalacOptions.map { scalacOption =>
+              scalacOption
+                .replace(oldClassesDir.toString, newClassesDir.getAbsolutePath)
+                .replace(oldClassesDir.getAbsolutePath, newClassesDir.getAbsolutePath)
+            }
+        }
+      }
+
       val javacOptions = Keys.javacOptions.value
 
       val (javaHome, javaOptions) = javaConfiguration.value
@@ -142,29 +158,41 @@ object PluginImplementation {
      * Why do we do this instead of a simple `productDirectories ++ libraryDependencies`?
      * We want the classpath to have the correct topological order of the project dependencies.
      */
-    final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
-      val currentProject = Keys.thisProjectRef.value
-      val data = Keys.settingsData.value
-      val deps = Keys.buildDependencies.value
-      val conf = Keys.classpathConfiguration.value
-      val self = Keys.configuration.value
+    final lazy val bloopInternalDependencyClasspath: Def.Initialize[Task[Seq[(File, File)]]] = {
+      Def.taskDyn {
+        val currentProject = Keys.thisProjectRef.value
+        val data = Keys.settingsData.value
+        val deps = Keys.buildDependencies.value
+        val conf = Keys.classpathConfiguration.value
+        val self = Keys.configuration.value
 
-      import scala.collection.JavaConverters._
-      val visited = Classpaths.interSort(currentProject, conf, data, deps)
-      val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
-      for ((dep, c) <- visited) {
-        if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-          val classpathKey = (AutoImported.bloopProductDirectories in (dep, sbt.ConfigKey(c)))
-          productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+        import scala.collection.JavaConverters._
+        val visited = Classpaths.interSort(currentProject, conf, data, deps)
+        val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
+        val bloopProductDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
+        for ((dep, c) <- visited) {
+          if ((dep != currentProject) || (conf.name != c && self.name != c)) {
+            val classpathKey = (Keys.productDirectories in (dep, sbt.ConfigKey(c)))
+            productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+            val bloopKey = (AutoImported.bloopProductDirectories in (dep, sbt.ConfigKey(c)))
+            bloopProductDirs += bloopKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+          }
         }
-      }
 
-      val internalClasspathTask = (productDirs.toList.join).map(_.flatten.distinct)
-      Def.task {
-        val internalClasspath = internalClasspathTask.value
-        val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
-        internalClasspath ++ externalClasspath
+        val generatedTask = (productDirs.toList.join).map(_.flatten.distinct).flatMap { a =>
+          (bloopProductDirs.toList.join).map(_.flatten.distinct).map { b =>
+            a.zip(b)
+          }
+        }
+
+        Def.task(generatedTask.value)
       }
+    }
+
+    final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
+      val internalClasspath = AutoImported.bloopInternalClasspath.value.map(_._2)
+      val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
+      internalClasspath ++ externalClasspath
     }
 
     private type JavaConfiguration = (File, Seq[String])
