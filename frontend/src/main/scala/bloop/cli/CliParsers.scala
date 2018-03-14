@@ -35,11 +35,18 @@ object CliParsers {
     }
   }
 
-  implicit val completionModeRead: ArgParser[CompletionMode] = {
-    ArgParser.instance[CompletionMode]("mode") {
-      case "commands" => Right(CompletionMode.Commands)
-      case "projects" => Right(CompletionMode.Projects)
+  implicit val completionModeRead: ArgParser[completion.Mode] = {
+    ArgParser.instance[completion.Mode]("mode") {
+      case "commands" => Right(completion.Mode.Commands)
+      case "projects" => Right(completion.Mode.Projects)
       case w00t => Left(s"Unrecognized mode: $w00t")
+    }
+  }
+
+  implicit val completionFormatRead: ArgParser[completion.Format] = {
+    ArgParser.instance[completion.Format]("format") {
+      case "zsh" => Right(completion.ZshFormat)
+      case w00t => Left(s"Unrecognized format: $w00t")
     }
   }
 

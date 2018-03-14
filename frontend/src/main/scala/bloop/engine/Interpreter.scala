@@ -3,8 +3,9 @@ package bloop.engine
 import bloop.bsp.BspServer
 
 import scala.annotation.tailrec
-import bloop.cli.{CliOptions, Commands, CompletionMode, ExitStatus}
+import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.cli.CliParsers.CommandsMessages
+import bloop.cli.completion.Mode
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
@@ -204,13 +205,19 @@ object Interpreter {
   }
 
   private def completion(cmd: Commands.Completion, state: State): Task[State] = Task {
+
     cmd.mode match {
-      case CompletionMode.Commands =>
-        val commands = CommandsMessages.messages.map(_._1)
-        commands.foreach(state.logger.info)
-      case CompletionMode.Projects =>
+      case Mode.Commands =>
+        for {
+          (name, args) <- CommandsMessages.messages
+          completion <- cmd.format.showCommand(name, args)
+        } state.logger.info(completion)
+      case Mode.Projects =>
         val projects = state.build.projects
-        projects.foreach(p => state.logger.info(p.name))
+        for {
+          project <- state.build.projects
+          completion <- cmd.format.showProject(project)
+        } state.logger.info(completion)
     }
 
     state
