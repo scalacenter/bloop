@@ -1,13 +1,16 @@
 package bloop.nailgun
 
+import java.util.concurrent.TimeUnit
+
 import scala.Console.{GREEN, RESET}
-
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
-
 import bloop.logging.RecordingLogger
 
 class BasicNailgunSpec extends NailgunTest {
+
+  val out = System.out
+  val err = System.err
 
   @Test
   def unknownCommandTest(): Unit = {
@@ -78,6 +81,38 @@ class BasicNailgunSpec extends NailgunTest {
         case _ => false
       })
     }
+  }
+
+  @Test
+  def testWatchCompileCommand(): Unit = {
+    var rlogger: RecordingLogger = null
+    withServerInProject("with-resources") { (logger, client) =>
+      client.success("clean", "with-resources")
+      val fileWatchingProcess = client.issueAsProcess("compile", "-w", "with-resources")
+      fileWatchingProcess.waitFor(4, TimeUnit.SECONDS)
+      fileWatchingProcess.destroyForcibly()
+
+      // Repeat the whole process again.
+      client.success("clean", "with-resources")
+      val fileWatchingProcess2 = client.issueAsProcess("compile", "-w", "with-resources")
+      fileWatchingProcess2.waitFor(4, TimeUnit.SECONDS)
+      fileWatchingProcess2.destroyForcibly()
+
+      // Ugly, but necessary for the sake of testing.
+      rlogger = logger
+    }
+
+    // We check here the logs because until 'exit' the server doesn't flush everything
+    val serverInfos = rlogger.getMessages().filter(_._1 == "server-info").map(_._2)
+    val cancellingTasks = serverInfos.filter(_.contains("Cancelling tasks..."))
+    val fileWatchingCancellations = serverInfos.filter(
+      _ == "File watching on 'with-resources' and dependent projects has been successfully cancelled.")
+
+    val timesHappened = fileWatchingCancellations.size
+    assertTrue(s"The file watching cancellation happened $timesHappened only!", timesHappened == 2)
+
+    val timesCancelling = cancellingTasks.size
+    assertTrue(s"Bloop registered task cancellation only $timesCancelling", timesCancelling == 2)
   }
 
   @Test

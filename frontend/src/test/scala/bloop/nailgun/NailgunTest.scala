@@ -1,12 +1,14 @@
 package bloop.nailgun
 
-import org.junit.Assert.{assertEquals, assertNotEquals}
+import java.io.{File, PrintStream}
 
+import org.junit.Assert.{assertEquals, assertNotEquals}
 import java.nio.file.{Files, Path, Paths}
 
 import bloop.Server
 import bloop.logging.{ProcessLogger, RecordingLogger}
 import bloop.tasks.ProjectHelpers
+import com.martiansoftware.nailgun.NGServer
 
 /**
  * Base class for writing test for the nailgun integration.
@@ -25,16 +27,28 @@ abstract class NailgunTest {
    * @return The result of executing `op` on the client.
    */
   def withServer[T](log: RecordingLogger, base: Path)(op: Client => T): T = {
+    val oldOut = System.out
+    val oldErr = System.err
+    val outStream = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
+    val errStream = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
+
     val serverThread =
       new Thread {
         override def run(): Unit = {
-          val outStream = ProcessLogger.toOutputStream(log.info)
-          val errStream = ProcessLogger.toOutputStream(log.error)
-          Console.withOut(outStream) {
-            Console.withErr(errStream) {
-              Server.main(Array(TEST_PORT.toString))
-            }
+          var optServer: Option[NGServer] = None
+
+          // Trick nailgun into thinking these are the real streams
+          System.setOut(outStream)
+          System.setErr(errStream)
+          try {
+            optServer = Some(Server.mainTest(Array(TEST_PORT.toString)))
+          } finally {
+            System.setOut(oldOut)
+            System.setErr(oldErr)
           }
+
+          val server = optServer.getOrElse(sys.error("The nailgun server failed to initialize!"))
+          server.run()
         }
       }
 
@@ -43,7 +57,11 @@ abstract class NailgunTest {
     Thread.sleep(500)
     val client = new Client(TEST_PORT, log, base)
     try op(client)
-    finally client.success("exit")
+    finally {
+      client.success("exit")
+      outStream.flush()
+      errStream.flush()
+    }
   }
 
   /**
@@ -90,17 +108,28 @@ abstract class NailgunTest {
     }
 
     /**
-     * Executes a command `cmd` on the server, and return the exit code.
+     * Execute a command `cmd` on the server and return the exit code.
      *
      * @param cmd The command to execute
      * @return The exit code of the operation.
      */
     def issue(cmd: String*): Int = {
+      issueAsProcess(cmd: _*).waitFor()
+    }
+
+    /**
+      * Execute a command `cmd` on the server and return the process
+      * executing the specified command.
+      *
+      * @param cmd The command to execute
+      * @return The exit code of the operation.
+      */
+    def issueAsProcess(cmd: String*): Process = {
       val builder = processBuilder(cmd)
       val process = builder.start()
       val processLogger = new ProcessLogger(log, process)
       processLogger.start()
-      process.waitFor()
+      process
     }
 
     /**

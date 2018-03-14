@@ -15,7 +15,9 @@ class RecordingLogger extends AbstractLogger {
   override def verbose[T](op: => T): T = op
   override def debug(msg: String): Unit = { messages.add(("debug", msg)); () }
   override def info(msg: String): Unit = { messages.add(("info", msg)); () }
+  def serverInfo(msg: String): Unit = { messages.add(("server-info", msg)); () }
   override def error(msg: String): Unit = { messages.add(("error", msg)); () }
+  def serverError(msg: String): Unit = { messages.add(("server-error", msg)); () }
   override def warn(msg: String): Unit = { messages.add(("warn", msg)); () }
   private def trace(msg: String): Unit = { messages.add(("trace", msg)); () }
   override def trace(ex: Throwable): Unit = {

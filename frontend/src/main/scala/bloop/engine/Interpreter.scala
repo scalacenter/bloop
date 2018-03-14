@@ -268,7 +268,7 @@ object Interpreter {
       pool.addListener {
         case e: CloseEvent =>
           if (!handle.isCompleted) {
-            System.out.println(
+            ngout.println(
               s"Client in ${previousState.build.origin.syntax} has disconnected with a '$e' event. Cancelling tasks...")
             handle.cancel()
           }
