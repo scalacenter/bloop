@@ -10,10 +10,10 @@ class Server
 object Server {
   private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
-    run(mainTest(args))
+    run(instantiateServer(args))
   }
 
-  private[bloop] def mainTest(args: Array[String]): NGServer = {
+  private[bloop] def instantiateServer(args: Array[String]): NGServer = {
     val port = Try(args(0).toInt).getOrElse(Server.defaultPort)
     val addr = InetAddress.getLoopbackAddress
     val server = new NGServer(addr, port)

@@ -41,7 +41,7 @@ abstract class NailgunTest {
           System.setOut(outStream)
           System.setErr(errStream)
           try {
-            optServer = Some(Server.mainTest(Array(TEST_PORT.toString)))
+            optServer = Some(Server.instantiateServer(Array(TEST_PORT.toString)))
           } finally {
             System.setOut(oldOut)
             System.setErr(oldErr)

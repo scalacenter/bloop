@@ -104,14 +104,11 @@ class BasicNailgunSpec extends NailgunTest {
 
     // We check here the logs because until 'exit' the server doesn't flush everything
     val serverInfos = rlogger.getMessages().filter(_._1 == "server-info").map(_._2)
-    val cancellingTasks = serverInfos.filter(_.contains("Cancelling tasks..."))
-    val fileWatchingCancellations = serverInfos.filter(
+    val timesCancelling = serverInfos.count(_.contains("Cancelling tasks..."))
+    val timesCancelled = serverInfos.count(
       _ == "File watching on 'with-resources' and dependent projects has been successfully cancelled.")
 
-    val timesHappened = fileWatchingCancellations.size
-    assertTrue(s"The file watching cancellation happened $timesHappened only!", timesHappened == 2)
-
-    val timesCancelling = cancellingTasks.size
+    assertTrue(s"File watching cancellation happened $timesCancelled only!", timesCancelled == 2)
     assertTrue(s"Bloop registered task cancellation only $timesCancelling", timesCancelling == 2)
   }
 
