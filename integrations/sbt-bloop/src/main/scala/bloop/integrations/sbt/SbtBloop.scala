@@ -17,6 +17,8 @@ object AutoImported {
   import sbt.{SettingKey, TaskKey, settingKey, taskKey}
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
+  val bloopProductDirectories: TaskKey[Seq[File]] =
+    taskKey[Seq[File]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: sbt.TaskKey[Unit] =
@@ -30,7 +32,10 @@ object PluginImplementation {
   )
 
   val configSettings: Seq[Def.Setting[_]] = {
-    val rawSettingsInConfigs = List(BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value)
+    val rawSettingsInConfigs = List(
+      BloopKeys.bloopProductDirectories := PluginDefaults.generateBloopProductDirectories.value,
+      BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value
+    )
     val all = rawSettingsInConfigs ++ DiscoveredSbtPlugins.settings
     all.flatMap(ss => sbt.inConfig(Compile)(ss) ++ sbt.inConfig(Test)(ss))
   }
@@ -51,6 +56,22 @@ object PluginImplementation {
   object PluginDefaults {
     import Compat._
     import sbt.{Task, Defaults}
+
+    lazy val generateBloopProductDirectories: Def.Initialize[Task[Seq[File]]] = Def.task {
+      val project = Keys.thisProject.value
+      val configuration = Keys.configuration.value
+      val bloopConfigDir = BloopKeys.bloopConfigDir.value
+      val bloopTarget = Defaults.makeCrossTarget(
+        bloopConfigDir / project.id,
+        Keys.scalaBinaryVersion.value,
+        (Keys.sbtBinaryVersion in Keys.pluginCrossBuild).value,
+        Keys.sbtPlugin.value,
+        Keys.crossPaths.value
+      )
+      val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
+      if (!classesDir.exists()) sbt.IO.createDirectory(classesDir)
+      List(classesDir)
+    }
 
     lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
       def makeName(name: String, configuration: Configuration): String =
@@ -79,19 +100,10 @@ object PluginImplementation {
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
       val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
       val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
-      val bloopTarget = Defaults.makeCrossTarget(
-        bloopConfigDir / project.id,
-        Keys.scalaBinaryVersion.value,
-        (Keys.sbtBinaryVersion in Keys.pluginCrossBuild).value,
-        Keys.sbtPlugin.value,
-        Keys.crossPaths.value
-      )
-
-      val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
-      if (!classesDir.exists()) sbt.IO.createDirectory(classesDir)
-
+      val classesDir = AutoImported.bloopProductDirectories.value.head
       val sourceDirs = Keys.sourceDirectories.value
       val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
+      // TODO(jvican): Override classes directories here too (e.g. plugins are defined in the build)
       val scalacOptions = Keys.scalacOptions.value
       val javacOptions = Keys.javacOptions.value
 
@@ -142,7 +154,7 @@ object PluginImplementation {
       val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       for ((dep, c) <- visited) {
         if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-          val classpathKey = (Keys.productDirectories in (dep, sbt.ConfigKey(c)))
+          val classpathKey = (AutoImported.bloopProductDirectories in (dep, sbt.ConfigKey(c)))
           productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
         }
       }
