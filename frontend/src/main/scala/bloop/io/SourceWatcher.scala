@@ -25,6 +25,7 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
     val ngout = state0.commonOptions.ngout
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
       logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event.")
+      logger.info("\033[H\033[2J") // Clean the terminal before acting on the file event action
       action(state)
     }
 
