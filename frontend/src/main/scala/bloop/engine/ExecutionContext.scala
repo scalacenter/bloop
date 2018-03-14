@@ -4,7 +4,7 @@ import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import monix.execution.Scheduler
 
 object ExecutionContext {
-  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors()
+  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors() + 1
 
   // This inlines the implementation of `Executors.newFixedThreadPool` to avoid losing the type
   private[bloop] val executor: ThreadPoolExecutor =
