@@ -112,9 +112,10 @@ same problems a build tool does! The problems that bloop aims to address are:
 * Provide the backbone so that other tools can build upon it.
 
 It can then be used by Scala developers to be more productive and by tooling
-authors to write tools in a fast and reliable way. As a result, many build
-tools, IDEs and client can reuse Bloop to have a fast developer workflow (and
-avoid manually integrating with Scala and Java incremental compilers).
+authors to write their tools faster and more reliably. As a result, many
+build tools, IDEs and client can reuse Bloop to have a fast developer
+workflow (and avoid manually integrating with Scala and Java incremental
+compilers).
 
 #### A note on the future of build tools
 
