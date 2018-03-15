@@ -27,7 +27,7 @@ final case class Build private (origin: AbsolutePath,
 
 object Build {
   def apply(origin: AbsolutePath, projects: List[Project]): Build = {
-    val checksum = FileTracker(origin, Project.loadPattern)
+    val checksum = FileTracker(origin, Project.loadPattern, maxDepth = Project.loadDepth)
     new Build(origin, projects, checksum)
   }
 }

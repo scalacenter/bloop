@@ -17,11 +17,13 @@ import bloop.logging.Logger
  * @param pattern       The pattern matching the files that must be tracked inside `base`.
  * @param modifiedTimes The last modification time of the tracked files.
  * @param checksum      The checksum of all the contents of the directory.
+ * @param maxDepth      The maximum number of directory levels to visit.
  */
 final case class FileTracker(base: AbsolutePath,
                              pattern: String,
                              modifiedTimes: List[(AbsolutePath, FileTime)],
-                             checksum: Long) {
+                             checksum: Long,
+                             maxDepth: Int) {
 
   /**
    * Inspects the directory for changes.
@@ -32,14 +34,14 @@ final case class FileTracker(base: AbsolutePath,
    *         If the tracked files have changed, `FileTracker.Changed` is returned.
    */
   def changed(logger: Logger): FileTracker.Status = {
-    val newModifiedTimes = FileTracker.getFiles(base, pattern)
+    val newModifiedTimes = FileTracker.getFiles(base, pattern, maxDepth)
     if (newModifiedTimes == modifiedTimes) FileTracker.Unchanged(None)
     else {
       try {
         val newChecksum = FileTracker.filesChecksum(newModifiedTimes.map(_._1))
         if (newChecksum != checksum) FileTracker.Changed
         else {
-          val checksum = new FileTracker(base, pattern, newModifiedTimes, newChecksum)
+          val checksum = new FileTracker(base, pattern, newModifiedTimes, newChecksum, maxDepth)
           FileTracker.Unchanged(Some(checksum))
         }
       } catch {
@@ -73,26 +75,30 @@ object FileTracker {
   /**
    * Creates a new `FileTracker`.
    *
-   * @param base    The directory or file to track.
-   * @param pattern The pattern that must be matched by the tracked files.
+   * @param base     The directory or file to track.
+   * @param pattern  The pattern that must be matched by the tracked files.
+   * @param maxDepth The maximum number of directory levels to visit.
    */
-  def apply(base: AbsolutePath, pattern: String): FileTracker = {
-    val files = getFiles(base, pattern)
+  def apply(base: AbsolutePath, pattern: String, maxDepth: Int = Int.MaxValue): FileTracker = {
+    val files = getFiles(base, pattern, maxDepth)
     val checksum = filesChecksum(files.map(_._1))
-    new FileTracker(base, pattern, files, checksum)
+    new FileTracker(base, pattern, files, checksum, maxDepth)
   }
 
   /**
    * Returns all the tracked files inside this directory, associated with their last
    * modification time.
    *
-   * @param base    The base file or directory to track.
-   * @param pattern The pattern to find the files to track.
+   * @param base     The base file or directory to track.
+   * @param pattern  The pattern to find the files to track.
+   * @param maxDepth The maximum number of directory levels to visit.
    * @return A map associating each tracked file with its last modification time.
    */
-  private def getFiles(base: AbsolutePath, pattern: String): List[(AbsolutePath, FileTime)] = {
+  private def getFiles(base: AbsolutePath,
+                       pattern: String,
+                       maxDepth: Int): List[(AbsolutePath, FileTime)] = {
     Paths
-      .getAll(base, pattern)
+      .getAll(base, pattern, maxDepth)
       .map(path => path -> Files.getLastModifiedTime(path.underlying))
       .toList
   }
