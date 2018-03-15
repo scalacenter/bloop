@@ -186,7 +186,8 @@ most developer tools work in other programming languages ecosystems like
 Java's and Javascript's (for example, Maven, Gradle, npm) and allows you to
 reuse the same terminal for other tasks.
 
-If you have ever fancied writing a [make] or [ninja] build for Scala, or a custom CI script, bloop also enables you to do it!
+If you have ever fancied writing a [make] or [ninja] build for Scala, or a
+custom CI script, bloop also enables you to do it!
 
 [scala/scala]: https://github.com/scala/scala
 [sbt/zinc]: https://github.com/sbt/zinc
