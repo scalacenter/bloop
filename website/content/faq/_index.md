@@ -18,8 +18,9 @@ scala-lang.org](https://www.scala-lang.org/blog/2017/11/30/bloop-release.html).
 
 ## What build tools can be used with Bloop?
 
-At the moment, [sbt]({{< relref "docs/getting-started-sbt.md" >}}) and
-[Maven]({{< relref "docs/getting-started-maven.md" >}}) are supported.
+At the moment, only sbt and Maven are supported, but we're aiming to support
+other popular build tools like Bazel and Gradle. We highly welcome
+integrations with other Scala build tools.
 
 ## How can I install Bloop?
 
@@ -34,7 +35,7 @@ Good question! In short, it's not. Read about it in our [Basics]({{< relref
 
 Bloop uses a different classes directory than sbt to avoid synchronization
 and cache invalidation issues. The classes directories for all projects are
-typically stored in the `.bloop-config/` directory, where every project get
+typically stored in the `.bloop-config/` directory, where every project gets
 its own folder.
 
 A classes directory is stored in a similar path as sbt: `target/classes`, and

@@ -93,7 +93,7 @@ $ sbt bloopInstall
 [success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop-config/foo-test.config'.
 ```
 
-The configuration files contain the information of the sbt build at the moment of running `bloopInstall`. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it in your version control system.
+The configuration files contain the information of the sbt build at the moment of running `bloopInstall`. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.
 
 #### Start bloop
 
