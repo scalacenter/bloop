@@ -59,7 +59,9 @@ The installation script will also install completions for zsh and Bash.
 To get the command line completions with zsh, add the following in your `~/.zshrc`:
 
 ```sh
+autoload -U compinit
 fpath=($HOME/.bloop/zsh $fpath)
+compinit
 ```
 <span class="label warning">Note</span> if you installed `bloop` in another location, you'll need to
 adapt the snippet above.
