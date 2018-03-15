@@ -113,7 +113,7 @@ of what the build tool is.
 
 Such a model is relatively general so that developers can support the vast
 array of use cases that they need to build their code in different platform
-and environments. But it has a price and build tools eventually find a
+and environments. But it has a price, and build tools eventually find a
 tradeoff between speed and other properties like correctness, usability and
 extensibility.
 
