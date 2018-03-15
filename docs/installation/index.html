@@ -172,13 +172,15 @@ starting it yourself.</p>
 
 <p>If you don&rsquo;t want the Bloop server to start automatically, you can disable it:</p>
 
-<pre><code class="language-sh">$ launchctl disable bloop
+<pre><code class="language-sh">$ brew services stop bloop
 </code></pre>
 
 <p>If you want to have it start automatically again, type:</p>
 
-<pre><code class="language-sh">$ launchctl enable bloop
+<pre><code class="language-sh">$ brew services start bloop
 </code></pre>
+
+<p>Finally, Homebrew will also take care of automatically installing completions for zsh and Bash.</p>
 
 <p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
 
@@ -191,6 +193,32 @@ starting it yourself.</p>
 
 <p><span class="label warning">Note</span> you need to replace the version in the URL
 by the latest version, which is <a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest version" /></a>.</p>
+
+<h4 id="command-line-completion">Command line completion</h4>
+
+<p>The installation script will also install completions for zsh and Bash.</p>
+
+<h5 id="completion-in-zsh">Completion in zsh</h5>
+
+<p>To get the command line completions with zsh, add the following in your <code>~/.zshrc</code>:</p>
+
+<pre><code class="language-sh">autoload -U compinit
+fpath=($HOME/.bloop/zsh $fpath)
+compinit
+</code></pre>
+
+<p><span class="label warning">Note</span> if you installed <code>bloop</code> in another location, you&rsquo;ll need to
+adapt the snippet above.</p>
+
+<h5 id="completion-in-bash">Completion in Bash</h5>
+
+<p>To get the command line completions with Bash, add the following to your <code>~/.bash_profile</code>:</p>
+
+<pre><code class="language-sh">. $HOME/.bloop/bash/bloop
+</code></pre>
+
+<p><span class="label warning">Note</span> if you installed <code>bloop</code> in another location, you&rsquo;ll need to
+adapt the snippet above.</p>
 
 <h4 id="installing-in-a-different-bloop-folder">Installing in a different bloop folder</h4>
 
