@@ -65,7 +65,7 @@ focus on when this hold true in sbt's case.
 
 1. `reload`: Every time you change a line of your `build.sbt`, you need to
    reload your shell to detect the changes in the sbt sources. In that process,
-   sbt starts afresh and throws away all the compilers in their cache.
+   sbt starts afresh and throws away all the compilers in its cache.
 
 2. `sbt`: Every time you run `sbt` on your terminal, sbt starts a new
     compiler. This happens when:
@@ -126,9 +126,9 @@ people are working on how to make build tools in the Scala ecosystem faster,
 easier to use and more correct.
 
 Among these efforts we find organizations like Stripe or Wix working on
-[better Scala support for Bazel](scala-bazel) or Twitter getting excellent
-Scala support in [Pants](pants), and individuals like [Jan Christopher
-Vogt](@cvogt) or [Li Haoyi](lihaoyi) working on [cbt] and [mill]
+[better Scala support for Bazel][scala-bazel] or Twitter getting excellent
+Scala support in [Pants][pants], and individuals like [Jan Christopher
+Vogt][cvogt] or [Li Haoyi][lihaoyi] working on [cbt] and [mill]
 respectively.
 
 All of these are exciting projects. In the future, we expect some of them to
@@ -160,17 +160,18 @@ Test or run your Scala application on the JVM, Scala.js and Scala Native.
 Bloop will with the API of every runtime that the Scala ecosystem supports so
 that external tools don't have to.
 
-[There is ongoing effort in the Scala Native build API](), contributed by
+[There is ongoing effort in the Scala Native build API](https://github.com/scala-native/scala-native/pull/1143), contributed by
 Martin, that will unlock this feature soon.
 
 #### Script-friendly
 
 The primary way to interact with bloop is directly from the command line
 instead of through a shell or repl. This workflow is more familiar to how
-most of developer tools work (for example, Maven, Gradle or sbt) and allows
-you to reuse the same terminal for other tasks.
+most of developer tools work in other programming languages ecosystems like
+Java's and Javascript's (for example, Maven, Gradle, npm) and allows you to
+reuse the same terminal for other tasks.
 
-If you have ever fancied writing a [make] or [ninja] build for Scala, or a custom CI script, bloop enables you to do it!
+If you have ever fancied writing a [make] or [ninja] build for Scala, or a custom CI script, bloop also enables to do it!
 
 [scala/scala]: https://github.com/scala/scala
 [sbt/zinc]: https://github.com/sbt/zinc
