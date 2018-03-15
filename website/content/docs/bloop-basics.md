@@ -96,10 +96,10 @@ supported.
 
 Bloop is not a new build tool.
 
-Build tool is a concept used to refer to developer applications that offer
+Build tool is a concept used to refer to developer tools that offer
 their users a way to write the logic of their build. They usually have a task
 engine, a story for caching and incremental execution, a host DSL to
-configure the build tool, a plugin ecosystem and other functionality.
+configure the build tool, a plugin ecosystem and other related functionality.
 
 This generic model allow build tools to express any build logic a user may
 desire. This model usually comes with a trade off between speed and other
