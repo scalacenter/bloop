@@ -43,7 +43,8 @@ $ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/insta
 ```
 
 <span class="label warning">Remember</span> to replace the version in the URL
-by the latest version, which is [![Latest version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
+by the latest version, which is [![Latest
+version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
 
 The installation script will also install completions for zsh and Bash, but
 you need to set them up manually.
@@ -80,8 +81,9 @@ the following to your `project/plugins.sbt`:
 addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<latest-release>")
 ```
 
-<span class="label warning">Remember</span> to replace the version in the URL
-by the latest version, which is [![Latest version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
+<span class="label warning">Remember</span> to replace `<latest-release>` by
+[![Latest
+version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
 
 Once sbt is configured, you can run `bloopInstall` to generate the Bloop configuration:
 
@@ -130,7 +132,6 @@ $ bloop about
 
 ```sh
 $ bloop projects
-Projects loaded from '/my-project/.bloop-config':
 foo
 foo-test
 ```
@@ -139,8 +140,8 @@ Running `bloop projects` should give you a list of all the projects that
 bloop has detected in that configuration directory. If you get none, you can check which configuration directory is bloop loading the projects from with:
 
 ```sh
-$ bloop projects --debug
-Projects loaded from '/my-project/.bloop-config':
+$ bloop projects --verbose
+[D] Projects loaded from '/my-project/.bloop-config':
 foo
 foo-test
 ```
@@ -161,7 +162,7 @@ and we're working on plugin integrations for Bazel and Gradle.
 Once the installation is ready, let's try everything with a first compile.
 
 ```sh
-$ bloop compile -p foo
+$ bloop compile foo
 Compiling 2 Scala sources to '/my-project/foo/target/classes'...
 Done compiling.
 ```
@@ -175,7 +176,7 @@ $ bloop compile --help
 Now let's test your project with:
 
 ```sh
-$ bloop test -p foo
+$ bloop test foo
 [success] A foo should bar
 ```
 

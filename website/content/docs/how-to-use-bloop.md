@@ -19,29 +19,6 @@ client is a python script that implements Nailgun's protocol and communicates
 with the server. It is a fast CLI tool that gives you immediate feedback from
 the server.
 
-#### Tab-completion
-
-The client supports tab-completion on ZSH. For now, the installation process is
-manual but we plan on automating it. Any work on this area is highly welcome.
-
-To install zsh command completions, copy the [completions][zsh-completions]
-file to your existing completions zsh directory, if it exists.
-
-If it doesn't exist, you can create it and update your `.zshrc` script as
-follows:
-
-```sh
-$ mkdir -p ~/.zsh/completion
-$ cp etc/_bloop ~/.zsh/completion/
-$ echo 'fpath=(~/.zsh/completion $fpath)' >> ~/.zshrc
-$ echo 'autoload -Uz compinit ; compinit' >> ~/.zshrc
-```
-
-Now, reload your shell (or close and open it again) to make zsh pick up bloop
-completions.
-
-[zsh-completions]: https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop
-
 ### `bloop` server
 
 The server is called `blp-server`, and it's a long-running application that
