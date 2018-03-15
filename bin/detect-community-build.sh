@@ -6,11 +6,11 @@ MONITOR_REPO="scalacenter/bloop"
 PR="$DRONE_PULL_REQUEST"
 
 if [[ "$PR" ]]; then
-  if curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "community-build" )) | .[].name' > /dev/null 2>&1 ; then
+  if curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "community build" )) | .[].name' > /dev/null 2>&1 ; then
     export RUN_COMMUNITY_BUILD=true
-    echo "The community build will run for this pull request."
+    echo "The community build will run for pull request $PR."
   else
-    echo "The community build will not run for this pull request."
+    echo "The community build will not run for pull request $PR."
   fi
 elif [[ "$DRONE_TAG" ]]; then
   export RUN_COMMUNITY_BUILD=true

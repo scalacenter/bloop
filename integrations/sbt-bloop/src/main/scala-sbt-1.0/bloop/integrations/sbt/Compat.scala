@@ -10,4 +10,7 @@ object Compat {
   }
 
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
+
+  def generateCacheFile(s: Keys.TaskStreams, id: String) =
+    s.cacheStoreFactory make id
 }
