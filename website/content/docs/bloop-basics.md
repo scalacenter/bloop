@@ -153,7 +153,7 @@ open-source developers use *today*.
 We believe that it's possible for many of these new tooling efforts to use
 bloop to get a faster development workflow, but that's not our focus; 
 the community around them is vibrant but small at the moment, and we aim to
-address these problems on a large scale.
+address these problems on a larger scale.
 
 By supporting reliable and hardened JVM build tools like sbt, Maven and
 Gradle, together with IDEs (Intellij) and the ongoing tooling experiments,
