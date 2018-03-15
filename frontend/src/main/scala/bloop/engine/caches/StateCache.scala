@@ -24,7 +24,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @return The passed `State`, with a status code of `Ok`.
    */
   def updateBuild(state: State): State = {
-    cache.put(state.build.origin, state)
+    Option(cache.put(state.build.origin, state)).getOrElse(state)
   }
 
   /**
