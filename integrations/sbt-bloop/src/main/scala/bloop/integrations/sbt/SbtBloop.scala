@@ -129,10 +129,16 @@ object PluginImplementation {
         val internalClasspath = AutoImported.bloopInternalClasspath.value
         internalClasspath.foldLeft(scalacOptions0) {
           case (scalacOptions, (oldClassesDir, newClassesDir)) =>
+            val old1 = oldClassesDir.toString
+            val old2 = oldClassesDir.getAbsolutePath
+            val newClassesDirAbs = newClassesDir.getAbsolutePath
             scalacOptions.map { scalacOption =>
-              scalacOption
-                .replace(oldClassesDir.toString, newClassesDir.getAbsolutePath)
-                .replace(oldClassesDir.getAbsolutePath, newClassesDir.getAbsolutePath)
+              if (scalacOptions.contains(old1) ||
+                  scalacOptions.contains(old2)) {
+                logger.warn(
+                  s"The scalac option '$scalacOption' contains a reference to '$oldClassesDir'. Bloop will replace it by its own path optimistically, if you find misbehaviours please open a ticket at https://github.com/scalacenter/bloop.")
+                scalacOption.replace(old1, newClassesDirAbs).replace(old2, newClassesDirAbs)
+              } else scalacOption
             }
         }
       }
