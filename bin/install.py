@@ -61,7 +61,7 @@ BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
 # to know how to download the completion scripts.
 # If we can't get the SHA, just download from master.
 if CUSTOMIZED_SCRIPT:
-    COMPLETION_VERSION = BLOOP_VERSION
+    COMPLETION_VERSION = "v" + BLOOP_VERSION
 else:
     pattern = '(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?'
     matches = re.search(pattern, BLOOP_VERSION)
