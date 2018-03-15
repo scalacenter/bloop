@@ -59,7 +59,9 @@ By supporting popular build tools out of the box and different scenarios,
 addresses the limitations of many build tools in the Scala ecosystem whose
 infrastructure does not allow them to keep hot compilers alive.
 
-This is especially true for sbt, the most popular build tool in our community.
+This is especially true for sbt, the most popular build tool in our
+community, but it's also the case for other popular Scala build tools. Let's
+focus on when this hold true in sbt's case.
 
 1. `reload`: Every time you change a line of your `build.sbt`, you need to
    reload your shell to detect the changes in the sbt sources. In that process,
