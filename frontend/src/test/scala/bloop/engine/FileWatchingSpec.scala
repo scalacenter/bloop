@@ -5,7 +5,7 @@ import java.nio.file.Files
 import java.util.UUID
 
 import bloop.Project
-import bloop.cli.{CliOptions, Commands}
+import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.logging.BloopLogger
 import bloop.exec.JavaEnv
 import bloop.tasks.{CompilationHelpers, ProjectHelpers}
@@ -33,22 +33,25 @@ class FileWatchingSpec {
   }
 
   type FileWatchingContext = (State, Project, ByteArrayOutputStream)
-  def testFileWatcher(state: State, projectName: String)(
+  def testFileWatcher(state0: State, projectName: String)(
       workerAction: FileWatchingContext => Unit,
       testAction: (FileWatchingContext, Thread) => Unit): Unit = {
     import scala.concurrent.Await
     import scala.concurrent.duration
-    val projects = state.build.projects
-    val rootProject = projects
+    implicit val scheduler = state0.scheduler
+    val projects0 = state0.build.projects
+    val rootProject = projects0
       .find(_.name == projectName)
       .getOrElse(sys.error(s"Project $projectName could not be found!"))
+    val cleanAction = Run(Commands.Clean(rootProject.name :: Nil), Exit(ExitStatus.Ok))
+    val state = Interpreter.execute(cleanAction, state0)
+    val projects = state.build.projects
     assert(projects.forall(p => noPreviousResult(p, state)))
 
     // The worker thread runs the watched compilation
     val bloopOut = new ByteArrayOutputStream()
     val ctx: FileWatchingContext = (state, rootProject, bloopOut)
     val workerThread = new Thread { override def run(): Unit = workerAction(ctx) }
-    implicit val scheduler = state.scheduler
     val testFuture = scala.concurrent.Future { testAction(ctx, workerThread) }
     try Await.ready(testFuture, duration.Duration(15, duration.SECONDS))
     catch { case t: Throwable => println(s"LOGS WERE ${bloopOut.toString("UTF-8")}"); throw t }
