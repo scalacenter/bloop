@@ -173,8 +173,10 @@ Test or run your Scala application on the JVM, Scala.js and Scala Native.
 Bloop will integrate with the API of every runtime that the Scala ecosystem
 supports so that external tools don't have to.
 
-[There is ongoing effort in the Scala Native build API](https://github.com/scala-native/scala-native/pull/1143), contributed by
-Martin, that will unlock this feature soon.
+[There is ongoing effort in the Scala Native build
+API](https://github.com/scala-native/scala-native/pull/1143), contributed by
+the bloop team, that will make it possible to cross-compile to Scala Native,
+Scala.js and the JVM at once!
 
 #### Script-friendly
 
