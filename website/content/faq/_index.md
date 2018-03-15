@@ -25,6 +25,27 @@ At the moment, [sbt]({{< relref "docs/getting-started-sbt.md" >}}) and
 
 Please read the [installation instructions]({{< relref "docs/installation.md" >}}).
 
+## Is bloop a new build tool?
+
+Good question! In short, it's not. Read about it in our [Basics]({{< relref
+"docs/bloop-basics.md" >}}) guide.
+
+## Where does Bloop write my class files?
+
+Bloop uses a different classes directory than sbt to avoid synchronization
+and cache invalidation issues. The classes directories for all projects are
+typically stored in the `.bloop-config/` directory, where every project get
+its own folder.
+
+A classes directory is stored in a similar path as sbt: `target/classes`, and
+`target/test-classes` for test projects. If you want to change that, you can
+by redefining
+[`bloopTargetDir`](https://github.com/scalacenter/bloop/blob/6e1d55cc840905c475d4e97eaf443fdacfcf1e34/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L26-L27)
+in your sbt build like [here](https://github.com/scalacenter/bloop/blob/6e1d55cc840905c475d4e97eaf443fdacfcf1e34/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L59).
+
+<span class="label warning">Note</span> that you need to scope it in every
+sbt project.
+
 ## Is Bloop open source?
 
 Yes. Bloop is released under the Apache-2.0 license and is free and open source software.
