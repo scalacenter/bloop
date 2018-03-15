@@ -1,8 +1,8 @@
 +++
 toc = true
-weight = 3
+weight = 2
 draft = false
-title = "How to use bloop"
+title = "Basics"
 date = "2018-02-09T10:15:00+01:00"
 description = "Learn how to use bloop and get familiar with its components"
 bref = "Learn how to use bloop and get familiar with its client-server architecture"
@@ -18,29 +18,6 @@ The `bloop` client is the tool that you use to run any bloop command. The
 client is a python script that implements Nailgun's protocol and communicates
 with the server. It is a fast CLI tool that gives you immediate feedback from
 the server.
-
-#### Tab-completion
-
-The client supports tab-completion on ZSH. For now, the installation process is
-manual but we plan on automating it. Any work on this area is highly welcome.
-
-To install zsh command completions, copy the [completions][zsh-completions]
-file to your existing completions zsh directory, if it exists.
-
-If it doesn't exist, you can create it and update your `.zshrc` script as
-follows:
-
-```sh
-$ mkdir -p ~/.zsh/completion
-$ cp etc/_bloop ~/.zsh/completion/
-$ echo 'fpath=(~/.zsh/completion $fpath)' >> ~/.zshrc
-$ echo 'autoload -Uz compinit ; compinit' >> ~/.zshrc
-```
-
-Now, reload your shell (or close and open it again) to make zsh pick up bloop
-completions.
-
-[zsh-completions]: https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop
 
 ### `bloop` server
 
