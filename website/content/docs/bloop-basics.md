@@ -1,11 +1,11 @@
 +++
 toc = true
-weight = 2
+weight = 3
 draft = false
-title = "Bloop basics"
+title = "Design goals"
 date = "2018-02-09T10:15:00+01:00"
-description = "What is bloop and which problems does it solve?"
-bref = "Learn the ideas behind bloop, which problems it solves and how it's designed"
+description = "What is bloop and which problems does it solve? Why should I learn how to use it?"
+bref = "Learn the ideas behind bloop, which problems it solves and how it's designed. See how it compares to other tools in our ecosystem."
 +++
 
 ## Design goals

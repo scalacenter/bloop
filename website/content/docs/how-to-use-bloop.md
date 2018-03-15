@@ -1,8 +1,8 @@
 +++
 toc = true
-weight = 3
+weight = 2
 draft = false
-title = "How to use bloop"
+title = "Basics"
 date = "2018-02-09T10:15:00+01:00"
 description = "Learn how to use bloop and get familiar with its components"
 bref = "Learn how to use bloop and get familiar with its client-server architecture"
