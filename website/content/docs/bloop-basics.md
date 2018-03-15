@@ -39,7 +39,7 @@ A hot compiler is a long-running compiler that has been heavily optimized by
 JVM's [JIT](https://en.wikipedia.org/wiki/Just-in-time_compilation) and
 therefore reaches peak performance when compiling code. The difference
 between a cold and hot compiler varies. This variation is usually an order of
-magnitude large — a hot compiler can be between 10x and 20x faster than a
+magnitude large — a hot compiler can be between ~5x and 20x faster than a
 cold compiler.
 
 Keeping hot compilers alive is crucial to be productive. However, it is a
@@ -51,20 +51,56 @@ Bloop is an agnostic build server that makes hot compiler accessible to all
 your toolchain — IDEs, build tools and terminals can share hot compilers and
 get peak performance at all times.
 
+##### A better default for hot compilers
+
 By supporting popular build tools out of the box and different scenarios,
 `bloop` enforces by design best practices to be productive.
 
+It therefore addresses the limitations of many build tools in the Scala
+ecosystem whose infrastructure does not allow them to keep hot compilers
+alive.
+
+This is especially true for sbt, the standard Scala build tool, in which
+every of the following actions start with a cold compiler afresh.
+
+1. `reload`: Every time you change a line of your `build.sbt`, you need to
+    reload your shell to detect the changes in the sbt sources. In that process, sbt starts afresh and throws away all the compilers in their cache.
+2. `sbt`: Every time you run `sbt` on your terminal, you start afresh. This
+    happens in two main scenarios:
+
+    * You run sbt in different project directories, or have different
+    builds running at the same time.
+
+    * The sbt shell is killed. This can happen in several scenarios; for
+    example, you <kbd>CTRL</kbd> + <kbd>C</kbd> a misbehaving application
+    (like an http server), you type an incorrect sbt command and wants to
+    finish it, or you
+    
+The lifetime of compilers in Bloop has been thought through so that there is
+only one scenario in which hot compilers are killed: if you forcefully kill
+the Bloop server.
+
 #### Do less work
 
-Another way Bloop decreases gives a snappy developer workflow is by doing
-less work. Bloop only focuses on compiling, testing and running your code.
+The other main way bloop achieves a tight developer workflow is by doing less
+work. Bloop only focuses on compiling, testing and running your code.
 Everything else is left to external tools so that only the blocking tasks are
 on your way when editing code.
 
+As a result, you won't resolve library dependencies in the middle of an
+incremental compilation run, nor run cache invalidation to check if a task
+result changed in your build.
+
 ### Not a build tool
 
-Bloop is not a new build tool, but rather a foundation block for Scala
-tooling. It can be used by Scala developers to be more productive and by
+Bloop is not a new build tool.
+
+In the modern use of the word, build tools are developer applications that
+offer their users a way to write the logic of their build. The uses of a build tool span They usually have
+a task engine, a story for caching and incremental execution, a host DSL to
+configure the build tool, a plugin ecosystem and much more.
+
+It can be used by Scala developers to be more productive and by
 tooling authors to write tools in a fast and reliable way.
 
 There is a lot of progress and research going into the build tools field.
