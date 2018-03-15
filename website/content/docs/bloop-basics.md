@@ -86,8 +86,9 @@ your code. Everything else is left to external tools so that only the
 blocking tasks are on your way when editing code.
 
 As a result, you won't resolve library dependencies in the middle of an
-incremental compilation run, nor run a task cache invalidation check, because
-none of these are supported.
+incremental compilation run (what makes it an excellent tool for offline
+coding), nor run a task cache invalidation check, because none of these are
+supported.
 
 ### Not a build tool
 
@@ -138,33 +139,35 @@ believe that it's possible for many of these new tooling efforts to use Bloop
 to get a faster developer workflow, but that's not our focus since the
 community around them is small at the moment.
 
-By supporting reliable JVM build tools like sbt, Maven and Gradle, we want to
-make the life of any Scala developer in the world better.
+By supporting reliable and hardwearing JVM build tools like sbt, Maven and
+Gradle, altogether with the ongoing tooling experiments, we want to improve
+the life of every Scala developer.
 
-#### Runtime independent
-
-Test or run your Scala application on the JVM, Scala.js and Scala Native.
-Bloop interfaces with the API of every runtime that the Scala ecosystem
-supports so that external tools don't have to.
-
-#### Command line friendly
-
-The primary way to interact with bloop is directly from the command line
-instead of through a shell or repl. This workflow is more familiar to how
-most of developer tools work (for example, Maven, Gradle or sbt) and allows
-you to reuse the same terminal for other tasks.
-
-#### Simplicity
-
-You can think of bloop as a simple, end-user application that runs Bloop's
-core commands. The does not require you to learn a complex DSL or
-configuration format to interact with it. `--help` takes you a long way.
+### Other bloop features
 
 #### Concurrent
 
 A single bloop server handles concurrent requests from multiple clients. This
 enables several clients to reuse the same bloop instance without blocking
 each other.
+
+#### Runtime independent (on the roadmap)
+
+Test or run your Scala application on the JVM, Scala.js and Scala Native.
+Bloop will with the API of every runtime that the Scala ecosystem supports so
+that external tools don't have to.
+
+[There is ongoing effort in the Scala Native build API](), contributed by
+Martin, that will unlock this feature soon.
+
+#### Script-friendly
+
+The primary way to interact with bloop is directly from the command line
+instead of through a shell or repl. This workflow is more familiar to how
+most of developer tools work (for example, Maven, Gradle or sbt) and allows
+you to reuse the same terminal for other tasks.
+
+If you have ever fancied writing a [make] or [ninja] build for Scala, or a custom CI script, bloop enables you to do it!
 
 [scala/scala]: https://github.com/scala/scala
 [sbt/zinc]: https://github.com/sbt/zinc
@@ -174,3 +177,5 @@ each other.
 [scala-bazel]: https://github.com/bazelbuild/rules_scala
 [cbt]: https://github.com/cvogt/cbt
 [mill]: https://github.com/lihaoyi/mill
+[make]: https://www.gnu.org/software/make/
+[ninja]: https://ninja-build.org/
