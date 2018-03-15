@@ -143,8 +143,8 @@ to get a faster developer workflow, but that's not our focus since the
 community around them is small at the moment.
 
 By supporting reliable and hardwearing JVM build tools like sbt, Maven and
-Gradle, altogether with the ongoing tooling experiments, we want to improve
-the life of every Scala developer.
+Gradle, altogether with IDEs (Intellij) and the ongoing tooling experiments,
+we want to improve the life of every Scala developer.
 
 ### Other bloop features
 
