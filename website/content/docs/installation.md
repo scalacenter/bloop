@@ -26,14 +26,16 @@ starting it yourself.
 If you don't want the Bloop server to start automatically, you can disable it: 
 
 ```sh
-$ launchctl disable bloop
+$ brew services stop bloop
 ```
 
 If you want to have it start automatically again, type:
 
 ```sh
-$ launchctl enable bloop
+$ brew services start bloop
 ```
+
+Finally, Homebrew will also take care of automatically installing completions for zsh and Bash.
 
 Go to [Next steps]({{< ref "#next-steps" >}}) to configure Bloop and start using it.
 
@@ -47,6 +49,33 @@ $ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/insta
 
 <span class="label warning">Note</span> you need to replace the version in the URL
 by the latest version, which is [![Latest version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
+
+#### Command line completion
+
+The installation script will also install completions for zsh and Bash.
+
+##### Completion in zsh
+
+To get the command line completions with zsh, add the following in your `~/.zshrc`:
+
+```sh
+autoload -U compinit
+fpath=($HOME/.bloop/zsh $fpath)
+compinit
+```
+<span class="label warning">Note</span> if you installed `bloop` in another location, you'll need to
+adapt the snippet above.
+
+##### Completion in Bash
+
+To get the command line completions with Bash, add the following to your `~/.bash_profile`:
+
+```sh
+. $HOME/.bloop/bash/bloop
+```
+
+<span class="label warning">Note</span> if you installed `bloop` in another location, you'll need to
+adapt the snippet above.
 
 #### Installing in a different bloop folder
 
