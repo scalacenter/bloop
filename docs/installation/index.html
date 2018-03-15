@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> The installation process </title>
+  <title> Installation </title>
 
   
   <meta name="description" content="How to install Bloop on your machine"> 
@@ -21,7 +21,7 @@
   <meta name="author" content="Scala Center">
 
 
-  <meta property="og:title" content="The installation process" />
+  <meta property="og:title" content="Installation" />
 <meta property="og:description" content="How to install Bloop on your machine" />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://scalacenter.github.io/bloop/docs/installation/" />
@@ -123,7 +123,7 @@
   <main>
   <div id="main">
     <div id="hero">
-      <h1> The installation process </h1>
+      <h1> Installation </h1>
       <p class="hero-lead">
            Here are all the instructions to install Bloop.
       </p>
@@ -156,71 +156,171 @@ headingSelector: 'h3'
 
     
 
-<h3 id="instructions-for-mac-os">Instructions for Mac OS</h3>
+<h3 id="mac-os">Mac OS</h3>
 
-<p>Installing Bloop with <a href="https://brew.sh">Homebrew</a> is the easiest and fastest way to install Bloop on
-Mac OS.</p>
-
-<p>We publish an updated formula along with every release of Bloop. You can install it using:</p>
+<p>Install with <a href="https://brew.sh">Homebrew</a> via:</p>
 
 <pre><code class="language-sh">$ brew install scalacenter/bloop/bloop
 </code></pre>
 
-<p>The formula will also take care of installing a property list (<code>plist</code>) that will take care of
-starting the Bloop server when you log onto your machine. This way, you don&rsquo;t have to think about
-starting it yourself.</p>
+<p>The formula installs a property list (<code>plist</code>) that starts the Bloop server
+automatically when you log onto your machine. This way, you don&rsquo;t have to
+start it manually.</p>
 
 <p>If you don&rsquo;t want the Bloop server to start automatically, you can disable it:</p>
 
 <pre><code class="language-sh">$ brew services stop bloop
 </code></pre>
 
-<p>If you want to have it start automatically again, type:</p>
+<p>If you want to have it start automatically <em>again</em>, type:</p>
 
 <pre><code class="language-sh">$ brew services start bloop
 </code></pre>
 
-<p>Finally, Homebrew will also take care of automatically installing completions for zsh and Bash.</p>
+<p>Homebrew also automatically installs completions for zsh and Bash.</p>
 
-<p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
-
-<h3 id="instructions-for-other-platforms">Instructions for other platforms</h3>
+<h3 id="other-platforms">Other platforms</h3>
 
 <p>Install bloop in other platforms (Windows, Unix, *bsd) via our python script:</p>
 
 <pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/install.py | python2
 </code></pre>
 
-<p><span class="label warning">Note</span> you need to replace the version in the URL
-by the latest version, which is <a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest version" /></a>.</p>
+<p><span class="label warning">Remember</span> to replace the version in the URL
+by the latest version, which is <a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest
+version" /></a>.</p>
 
-<h4 id="command-line-completion">Command line completion</h4>
+<p>The installation script will also install completions for zsh and Bash, but
+you need to set them up manually.</p>
 
-<p>The installation script will also install completions for zsh and Bash.</p>
+<h5 id="zsh-completions">Zsh completions</h5>
 
-<h5 id="completion-in-zsh">Completion in zsh</h5>
-
-<p>To get the command line completions with zsh, add the following in your <code>~/.zshrc</code>:</p>
+<p>Add the following to your <code>~/.zshrc</code>:</p>
 
 <pre><code class="language-sh">autoload -U compinit
 fpath=($HOME/.bloop/zsh $fpath)
 compinit
 </code></pre>
 
-<p><span class="label warning">Note</span> if you installed <code>bloop</code> in another location, you&rsquo;ll need to
-adapt the snippet above.</p>
-
-<h5 id="completion-in-bash">Completion in Bash</h5>
+<h5 id="bash-completions">Bash completions</h5>
 
 <p>To get the command line completions with Bash, add the following to your <code>~/.bash_profile</code>:</p>
 
 <pre><code class="language-sh">. $HOME/.bloop/bash/bloop
 </code></pre>
 
-<p><span class="label warning">Note</span> if you installed <code>bloop</code> in another location, you&rsquo;ll need to
-adapt the snippet above.</p>
+<h3 id="use-bloop-with-sbt">Use bloop with sbt</h3>
 
-<h4 id="installing-in-a-different-bloop-folder">Installing in a different bloop folder</h4>
+<p>The first step is to generate the configuration files for Bloop with our sbt
+plugin. This action needs to be performed whenever your build changes (for
+example, if you add a library dependency or change a resource generated by
+the build).</p>
+
+<p>The sbt plugin is available for both sbt <code>0.13</code> and <code>1.x</code>. To install it, add
+the following to your <code>project/plugins.sbt</code>:</p>
+
+<pre><code class="language-scala">addSbtPlugin(&quot;ch.epfl.scala&quot; % &quot;sbt-bloop&quot; % &quot;&lt;latest-release&gt;&quot;)
+</code></pre>
+
+<p><span class="label warning">Remember</span> to replace <code>&lt;latest-release&gt;</code> by
+<a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest
+version" /></a>.</p>
+
+<p>Once sbt is configured, you can run <code>bloopInstall</code> to generate the Bloop configuration:</p>
+
+<pre><code class="language-sh">$ sbt bloopInstall
+[info] Loading global plugins from /Users/martin/.sbt/1.0/plugins
+(...)
+[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop-config/foo.config'.
+[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop-config/foo-test.config'.
+</code></pre>
+
+<p>The configuration files contain the information of the sbt build at the moment of running <code>bloopInstall</code>. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.</p>
+
+<h4 id="start-bloop">Start bloop</h4>
+
+<p>Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.</p>
+
+<p>You need to start the server manually if you installed Bloop by other means than the Homebrew formula in Mac OS. Run the server with:</p>
+
+<pre><code class="language-sh">$ $HOME/.bloop/blp-server
+</code></pre>
+
+<p>We recommend adding <code>.bloop</code> to the <code>$PATH</code> or creating an alias for it to shorten the command to <code>blp-server</code>. Note that you can also install Bloop in <a href="#install-bloop-in-a-different-bloop-folder">another installation directory</a>.</p>
+
+<p>After the server is started, run the CLI tool:</p>
+
+<pre><code class="language-sh">$ bloop about
+       _____            __         ______           __
+      / ___/_________ _/ /___ _   / ____/__  ____  / /____  _____
+      \__ \/ ___/ __ `/ / __ `/  / /   / _ \/ __ \/ __/ _ \/ ___/
+     ___/ / /__/ /_/ / / /_/ /  / /___/ /__/ / / / /_/ /__/ /
+    /____/\___/\__,_/_/\__,_/   \____/\___/_/ /_/\__/\___/_/
+
+    bloop-frontend is made with love at the Scala Center &lt;3
+
+    Bloop-frontend version    `1.0.0-M2+14-7134b34d`
+    Zinc version     `1.0.0-X8+510-660ed3cb`
+    Scala version    `2.12.4`
+
+    It is maintained by Martin Duhem, Jorge Vicente Cantero.
+</code></pre>
+
+<h4 id="verify-installation">Verify installation</h4>
+
+<pre><code class="language-sh">$ bloop projects
+foo
+foo-test
+</code></pre>
+
+<p>Running <code>bloop projects</code> should give you a list of all the projects that
+bloop has detected in that configuration directory. If you get none, you can check which configuration directory is bloop loading the projects from with:</p>
+
+<pre><code class="language-sh">$ bloop projects --verbose
+[D] Projects loaded from '/my-project/.bloop-config':
+foo
+foo-test
+</code></pre>
+
+<p>If you continue to get no projects, check the logs of the sbt plugin and use
+the configuration directory that <code>sbt-bloop</code> wrote the configuration files to
+(see the logs of <code>bloopInstall</code> in the previous section) as the argument of <code>--config-dir</code>.</p>
+
+<h3 id="use-bloop-with-other-build-tools">Use bloop with other build tools</h3>
+
+<p>We&rsquo;re currently working on the documentation and integrations to support
+other build tools. For now, bloop has <a href="https://github.com/scalacenter/bloop/tree/master/integrations/maven-bloop">a Maven plugin</a>,
+and we&rsquo;re working on plugin integrations for Bazel and Gradle.</p>
+
+<h3 id="use-the-cli">Use the CLI</h3>
+
+<p>Once the installation is ready, let&rsquo;s try everything with a first compile.</p>
+
+<pre><code class="language-sh">$ bloop compile foo
+Compiling 2 Scala sources to '/my-project/foo/target/classes'...
+Done compiling.
+</code></pre>
+
+<p>The <code>compile</code> command accepts several options that let you configure how compilation happens. To get more information, trigger the autocompletions or type:</p>
+
+<pre><code class="language-sh">$ bloop compile --help
+</code></pre>
+
+<p>Now let&rsquo;s test your project with:</p>
+
+<pre><code class="language-sh">$ bloop test foo
+[success] A foo should bar
+</code></pre>
+
+<p>If you want to start modifying the test, enable file watching with <code>bloop
+test -p foo -w</code>!</p>
+
+<p>You can learn about the rest of Bloop commands by typing <code>bloop --help</code> or
+reading the <a href="https://scalacenter.github.io/bloop/docs/commands-reference/">Command Reference</a>.</p>
+
+<h3 id="other-installation-options">Other installation options</h3>
+
+<h4 id="install-bloop-in-a-different-bloop-folder">Install bloop in a different bloop folder</h4>
 
 <p>By default, the script installs bloop binaries in a <code>.bloop</code> directory in your
 <code>$HOME</code> folder. You can change that with the <code>--dest</code> option:</p>
@@ -228,9 +328,11 @@ adapt the snippet above.</p>
 <pre><code class="language-sh">$ ./install.py --dest ~/bin/bloop
 </code></pre>
 
-<p>Go to <a href="#next-steps">Next steps</a> to configure Bloop and start using it.</p>
+<p>The current instructions use the standard <code>$HOME/.bloop</code> configuration
+directory. If you use install bloop elsewhere, take care to replace the code
+snippets in this page with your installation directory.</p>
 
-<h3 id="installing-a-development-version">Installing a development version</h3>
+<h4 id="install-a-development-version">Install a development version</h4>
 
 <p>The installation script can also be used to install a development version of Bloop. The <a href="https://github.com/scalacenter/bloop
 ">installation
@@ -249,16 +351,6 @@ submodule at a given point in time to find that information.</li>
 
 <pre><code class="language-sh">$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
 </code></pre>
-
-<h3 id="next-steps">Next steps</h3>
-
-<p>Once bloop has been successfully installed on your machine, you can move to build-tool specific part
-of the installation:</p>
-
-<ul>
-<li><a href="https://scalacenter.github.io/bloop/docs/getting-started-sbt/">Getting started with sbt</a></li>
-<li><a href="https://scalacenter.github.io/bloop/docs/getting-started-maven/">Getting started with Maven</a></li>
-</ul>
 
 
     

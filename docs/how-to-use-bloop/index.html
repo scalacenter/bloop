@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> How to use bloop </title>
+  <title> Basics </title>
 
   
   <meta name="description" content="Learn how to use bloop and get familiar with its components"> 
@@ -21,7 +21,7 @@
   <meta name="author" content="Scala Center">
 
 
-  <meta property="og:title" content="How to use bloop" />
+  <meta property="og:title" content="Basics" />
 <meta property="og:description" content="Learn how to use bloop and get familiar with its components" />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://scalacenter.github.io/bloop/docs/how-to-use-bloop/" />
@@ -123,7 +123,7 @@
   <main>
   <div id="main">
     <div id="hero">
-      <h1> How to use bloop </h1>
+      <h1> Basics </h1>
       <p class="hero-lead">
            Learn how to use bloop and get familiar with its client-server architecture.
       </p>
@@ -166,26 +166,6 @@ guide</a>.</p>
 client is a python script that implements Nailgun&rsquo;s protocol and communicates
 with the server. It is a fast CLI tool that gives you immediate feedback from
 the server.</p>
-
-<h4 id="tab-completion">Tab-completion</h4>
-
-<p>The client supports tab-completion on ZSH. For now, the installation process is
-manual but we plan on automating it. Any work on this area is highly welcome.</p>
-
-<p>To install zsh command completions, copy the <a href="https://raw.githubusercontent.com/scalacenter/bloop/master/etc/_bloop">completions</a>
-file to your existing completions zsh directory, if it exists.</p>
-
-<p>If it doesn&rsquo;t exist, you can create it and update your <code>.zshrc</code> script as
-follows:</p>
-
-<pre><code class="language-sh">$ mkdir -p ~/.zsh/completion
-$ cp etc/_bloop ~/.zsh/completion/
-$ echo 'fpath=(~/.zsh/completion $fpath)' &gt;&gt; ~/.zshrc
-$ echo 'autoload -Uz compinit ; compinit' &gt;&gt; ~/.zshrc
-</code></pre>
-
-<p>Now, reload your shell (or close and open it again) to make zsh pick up bloop
-completions.</p>
 
 <h3 id="bloop-server"><code>bloop</code> server</h3>
 

@@ -6,10 +6,10 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> Bloop basics </title>
+  <title> Design goals </title>
 
   
-  <meta name="description" content="What is bloop and which problems does it solve?"> 
+  <meta name="description" content="What is bloop and what problems does it solve? Why should I learn how to use it?"> 
   
   
   
@@ -21,8 +21,8 @@
   <meta name="author" content="Scala Center">
 
 
-  <meta property="og:title" content="Bloop basics" />
-<meta property="og:description" content="What is bloop and which problems does it solve?" />
+  <meta property="og:title" content="Design goals" />
+<meta property="og:description" content="What is bloop and what problems does it solve? Why should I learn how to use it?" />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://scalacenter.github.io/bloop/docs/bloop-basics/" />
 
@@ -123,9 +123,9 @@
   <main>
   <div id="main">
     <div id="hero">
-      <h1> Bloop basics </h1>
+      <h1> Design goals </h1>
       <p class="hero-lead">
-           Learn the ideas behind bloop, which problems it solves and how it's designed.
+           Learn the ideas behind bloop, what problems it solves and how it's designed. See how it compares to other tools in our ecosystem..
       </p>
       <div style="padding-top: 30px; text-align: center;">
 <a class="button outline" href="https://github.com/scalacenter/bloop/edit/master/website/content/docs/bloop-basics.md">Edit this page on GitHub</a>
@@ -172,79 +172,176 @@ of our build tool, and <code>bloop</code> aims to address them.</p>
 
 <p>We have created bloop to make you productive without getting in your way. We
 focus on how you can be faster at writing Scala code using your current build
-tool, whether it’s sbt, Maven or Gradle.</p>
+tool, whether it’s sbt, Maven, Gradle, Bazel, Pants, cbt or mill.</p>
 
 <h3 id="run-as-fast-as-possible">Run as fast as possible</h3>
 
-<p>The primary goal of bloop is to run core tasks as fast as possible.</p>
+<p>The main goal of bloop is to incrementally compile, test and run your code as
+fast as possible.</p>
 
 <h4 id="hot-compilers">Hot compilers</h4>
 
-<p>One of the primary ways Bloop achieves its goal is by caching hot compilers
-across all developer tools (IDEs, build tools, terminals).</p>
+<p>The primary reason why Bloop brings you a tight developer workflow is because
+it caches hot compilers across all developer tools (IDEs, build tools,
+terminals).</p>
 
 <p>A hot compiler is a long-running compiler that has been heavily optimized by
-JVM&rsquo;s <a href="https://en.wikipedia.org/wiki/Just-in-time_compilation">JIT</a> and
-therefore reaches peak performance when compiling code. The difference
-between a cold and hot compiler varies. This variation is usually an order of
-magnitude large — a hot compiler can be between 10x and 20x faster than a
-cold compiler.</p>
+the JVM&rsquo;s <a href="https://en.wikipedia.org/wiki/Just-in-time_compilation">JIT</a> and
+therefore reaches peak performance when compiling code. The performance
+difference between a cold and hot compiler varies. This variation is usually
+an order of magnitude in size — a hot compiler can be between 5x and 20x
+faster than a cold compiler.</p>
 
 <p>Keeping hot compilers alive is crucial to be productive. However, it is a
 difficult task; compilers must outlive short- and long-running build
 processes, and there is no existing way to share them across different build
 tools and IDEs.</p>
 
-<p>Bloop is an agnostic build server that makes hot compiler accessible to all
-your toolchain — IDEs, build tools and terminals can share hot compilers and
-get peak performance at all times.</p>
+<p><span class="label success upper">Take away</span> Bloop is an
+build-tool-agnostic build server that makes hot compilers accessible to all
+your toolchain — IDEs, build tools and terminals get peak performance at all
+times.</p>
+
+<h5 id="a-better-default-for-compiler-lifetime">A better default for compiler lifetime</h5>
 
 <p>By supporting popular build tools out of the box and different scenarios,
-<code>bloop</code> enforces by design best practices to be productive.</p>
+Bloop enforces by design best practices to be productive. It therefore
+addresses the limitations of many build tools in the Scala ecosystem whose
+infrastructure does not allow them to keep hot compilers alive.</p>
 
-<h4 id="do-less-work">Do less work</h4>
+<p>This is especially true for sbt, the most popular build tool in our
+community, but it&rsquo;s also the case for other popular Scala build tools. Let&rsquo;s
+focus on when this holds true in sbt&rsquo;s case.</p>
 
-<p>Another way Bloop decreases gives a snappy developer workflow is by doing
-less work. Bloop only focuses on compiling, testing and running your code.
-Everything else is left to external tools so that only the blocking tasks are
-on your way when editing code.</p>
+<ol>
+<li><p><code>reload</code>: For every change in your <code>build.sbt</code>, you need to reload your
+shell to detect the changes in the sbt sources. In that process, sbt starts
+afresh and throws away all the compilers in its cache.</p></li>
+
+<li><p><code>sbt</code>: Every time you run <code>sbt</code> on your terminal, sbt starts a new
+compiler. This happens when:</p>
+
+<ul>
+<li><p>You run sbt in different project directories, or have different
+builds running at the same time.</p></li>
+
+<li><p>The sbt shell is killed or exits. Some examples: you <kbd>CTRL</kbd> +
+<kbd>C</kbd> a misbehaving application (like an http server), you want to
+kill a command that you mistyped or sbt runs out of memory.</p></li>
+</ul></li>
+</ol>
+
+<p><span class="label success upper">Take away</span> Bloop has been designed so
+that hot compilers are thrown away only if you forcefully kill the bloop
+server.</p>
+
+<h4 id="run-only-core-tasks">Run only core tasks</h4>
+
+<p>The other main way bloop achieves a tight developer workflow is by doing less
+work. Bloop only focuses on tasks related to compiling, testing and running
+your code. Everything else is left to external tools so that only the
+blocking tasks are in your way when editing code.</p>
+
+<p>As a result, you won&rsquo;t resolve library dependencies in the middle of an
+incremental compilation run (which makes it an excellent tool for offline
+coding), nor run a task cache invalidation check, because these are orthogonal concerns.</p>
+
+<p><span class="label success upper">Take away</span> By only focusing on the
+most critical set of tasks, bloop delivers the best build performance.</p>
 
 <h3 id="not-a-build-tool">Not a build tool</h3>
 
-<p>Bloop is not a new build tool, but rather a foundation block for Scala
-tooling. It can be used by Scala developers to be more productive and by
-tooling authors to write tools in a fast and reliable way.</p>
+<p>Bloop is not a new build tool.</p>
 
-<p>There is a lot of progress and research going into the build tools field.
-Whether you use established build tools like Bazel, Pants, sbt, Maven and
-Gradle or brand-new build tools like CBT and mill, you should benefit from
-the fastest of the workflows no matter what the internal architecture of your
-build tool is.</p>
+<p>A &ldquo;Build tool&rdquo; is anything that refers to a tool that developers use to build
+and ship code. Developers communicate a series of logic steps to the tool
+that need to be executed before the end user can consume the software.
+Among these steps we usually find how a piece of software is resolved,
+compiled, packaged, distributed, post-processed and anything in between.</p>
 
-<h4 id="runtime-independent">Runtime independent</h4>
+<p>Build tools usually have a task engine, a story for caching and incremental
+execution, a configuration DSL and a plugin ecosystem. These all make a model
+of what the build tool is.</p>
 
-<p>Test or run your Scala application on the JVM, Scala.js and Scala Native.
-Bloop interfaces with the API of every runtime that the Scala ecosystem
-supports so that external tools don&rsquo;t have to.</p>
+<p>Such a model is relatively general so that developers can support the vast
+array of use cases that they need to build their code in different platform
+and environments. But it has a price, and build tools eventually find a
+tradeoff between speed and other properties like correctness, usability and
+extensibility.</p>
 
-<h4 id="command-line-friendly">Command line friendly</h4>
+<p>Bloop fundamentally lacks such a model because it doesn&rsquo;t aim to solve the
+same problems a build tool does! The problems that bloop aims to address are:</p>
 
-<p>The primary way to interact with bloop is directly from the command line
-instead of through a shell or repl. This workflow is more familiar to how
-most of developer tools work (for example, Maven, Gradle or sbt) and allows
-you to reuse the same terminal for other tasks.</p>
+<ul>
+<li>Compiling, testing and running code in the fastest way possible.</li>
+<li>Providing a backbone upon which other tools can build.</li>
+</ul>
 
-<h4 id="simplicity">Simplicity</h4>
+<p><span class="label success upper">Take away</span> Bloop can then be used by
+Scala developers to be more productive and by tooling authors to write their
+tools faster and more reliably.</p>
 
-<p>You can think of bloop as a simple, end-user application that runs Bloop&rsquo;s
-core commands. The does not require you to learn a complex DSL or
-configuration format to interact with it. <code>--help</code> takes you a long way.</p>
+<h4 id="a-note-on-the-future-of-build-tools">A note on the future of build tools</h4>
+
+<p>It&rsquo;s an exciting time for Scala tooling!</p>
+
+<p>There is a lot of activity in the build tools field; many smart
+people are working on how to make build tools in the Scala ecosystem faster,
+easier to use and more correct.</p>
+
+<p>Among these efforts we find organizations like Stripe or Wix working on
+<a href="https://github.com/bazelbuild/rules_scala">better Scala support for Bazel</a> or Twitter getting excellent
+Scala support in <a href="https://github.com/pantsbuild/pants">Pants</a>, and individuals like <a href="https://github.com/cvogt">Jan Christopher
+Vogt</a> or <a href="https://github.com/lihaoyi">Li Haoyi</a> working on <a href="https://github.com/cvogt/cbt">cbt</a> and <a href="https://github.com/lihaoyi/mill">mill</a>
+respectively.</p>
+
+<p>All of these are exciting projects. In the future, we expect some of them to
+integrate with bloop and benefit from a faster cross build-tool workflow! But
+we&rsquo;re also aware that they incidentally address the problem of compiling
+faster in different ways.</p>
+
+<p>With this in mind, it&rsquo;s important to note that we&rsquo;ve created bloop to
+primarily support all the existing build tools that companies and Scala
+open-source developers use <em>today</em>.</p>
+
+<p>We believe that it&rsquo;s possible for many of these new tooling efforts to use
+bloop to get a faster development workflow, but that&rsquo;s not our focus;
+the community around them is vibrant but small at the moment, and we aim to
+address these problems on a larger scale.</p>
+
+<p>By supporting reliable and hardened JVM build tools like sbt, Maven and
+Gradle, together with IDEs (Intellij) and the ongoing tooling experiments,
+we want to improve the life of every Scala developer.</p>
+
+<h3 id="other-bloop-features">Other bloop features</h3>
 
 <h4 id="concurrent">Concurrent</h4>
 
 <p>A single bloop server handles concurrent requests from multiple clients. This
 enables several clients to reuse the same bloop instance without blocking
 each other.</p>
+
+<h4 id="runtime-independent-on-the-roadmap">Runtime independent (on the roadmap)</h4>
+
+<p>Test or run your Scala application on the JVM, Scala.js and Scala Native.
+Bloop will integrate with the API of every runtime that the Scala ecosystem
+supports so that external tools don&rsquo;t have to.</p>
+
+<p><a href="https://github.com/scala-native/scala-native/pull/1143">There is ongoing effort in the Scala Native build
+API</a>, contributed by
+the bloop team, that will make it possible to cross-compile to Scala Native,
+Scala.js and the JVM at once!</p>
+
+<h4 id="script-friendly">Script-friendly</h4>
+
+<p>The primary way to interact with bloop is directly from the command line
+instead of through a shell or REPL. This workflow is more familiar to how
+most developer tools work in other programming languages ecosystems like
+Java&rsquo;s and Javascript&rsquo;s (for example, Maven, Gradle, npm) and allows you to
+reuse the same terminal for other tasks.</p>
+
+<p>If you have ever fancied writing a <a href="https://www.gnu.org/software/make/">make</a> or <a href="https://ninja-build.org/">ninja</a> build for Scala, or a
+custom CI script, bloop also enables you to do it!</p>
 
 
     

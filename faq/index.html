@@ -147,12 +147,33 @@ scala-lang.org</a>.</p>
 
 <h2 id="what-build-tools-can-be-used-with-bloop">What build tools can be used with Bloop?</h2>
 
-<p>At the moment, <a href="/bloop/docs/getting-started-sbt/">sbt</a> and
-<a href="/bloop/docs/getting-started-maven/">Maven</a> are supported.</p>
+<p>At the moment, only sbt and Maven are supported, but we&rsquo;re aiming to support
+other popular build tools like Bazel and Gradle. We highly welcome
+integrations with other Scala build tools.</p>
 
 <h2 id="how-can-i-install-bloop">How can I install Bloop?</h2>
 
 <p>Please read the <a href="/bloop/docs/installation/">installation instructions</a>.</p>
+
+<h2 id="is-bloop-a-new-build-tool">Is bloop a new build tool?</h2>
+
+<p>Good question! In short, it&rsquo;s not. Read about it in our <a href="/bloop/docs/bloop-basics/">Basics</a> guide.</p>
+
+<h2 id="where-does-bloop-write-my-class-files">Where does Bloop write my class files?</h2>
+
+<p>Bloop uses a different classes directory than sbt to avoid synchronization
+and cache invalidation issues. The classes directories for all projects are
+typically stored in the <code>.bloop-config/</code> directory, where every project gets
+its own folder.</p>
+
+<p>A classes directory is stored in a similar path as sbt: <code>target/classes</code>, and
+<code>target/test-classes</code> for test projects. If you want to change that, you can
+by redefining
+<a href="https://github.com/scalacenter/bloop/blob/6e1d55cc840905c475d4e97eaf443fdacfcf1e34/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L26-L27"><code>bloopTargetDir</code></a>
+in your sbt build like <a href="https://github.com/scalacenter/bloop/blob/6e1d55cc840905c475d4e97eaf443fdacfcf1e34/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L59">here</a>.</p>
+
+<p><span class="label warning">Note</span> that you need to scope it in every
+sbt project.</p>
 
 <h2 id="is-bloop-open-source">Is Bloop open source?</h2>
 
