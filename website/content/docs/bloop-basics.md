@@ -146,11 +146,14 @@ integrate with bloop and benefit from a faster cross build-tool workflow! But
 we're also aware that they incidentally address the problem of compiling
 faster in different ways.
 
-With this in mind, we've created bloop to primarly support all the existing
-build tools that companies and Scala open-source developers use *today*. We
-believe that it's possible for many of these new tooling efforts to use bloop
-to get a faster development workflow, but that's not our focus since the
-community around them is small at the moment.
+With this in mind, it's important to note that we've created bloop to
+primarily support all the existing build tools that companies and Scala
+open-source developers use *today*.
+
+We believe that it's possible for many of these new tooling efforts to use
+bloop to get a faster development workflow, but that's not our focus; 
+the community around them is vibrant but small at the moment, and we aim to
+address these problems on a large scale.
 
 By supporting reliable and hardened JVM build tools like sbt, Maven and
 Gradle, together with IDEs (Intellij) and the ongoing tooling experiments,
