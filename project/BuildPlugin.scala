@@ -196,7 +196,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "1.1-refresh2",
+    BuildKeys.schemaVersion := "1.2",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
@@ -369,8 +369,11 @@ object BuildImplementation {
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
     val cacheDirectory = file(stagingBase) / "integrations-cache"
 
-    val buildFiles = Set(buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
-                         buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala")
+    val buildFiles = Set(
+      buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
+      buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala",
+      buildIndexFile
+    )
 
     val cachedGenerate =
       FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { builds =>
