@@ -79,9 +79,9 @@ focus on when this holds true in sbt's case.
     <kbd>C</kbd> a misbehaving application (like an http server), you want to
     kill a command that you mistyped or sbt runs out of memory.
 
-<span class="label success upper">Take away</span> The design of Bloop has
-been designed so that hot compilers are thrown away only if you forcefully
-kill the bloop server.
+<span class="label success upper">Take away</span> Bloop has been designed so
+that hot compilers are thrown away only if you forcefully kill the bloop
+server.
 
 #### Run only core tasks
 
