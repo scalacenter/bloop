@@ -38,13 +38,9 @@ Homebrew also automatically installs completions for zsh and Bash.
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
-```sh
-$ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/install.py | python2
-```
-
-<span class="label warning">Remember</span> to replace the version in the URL
-by the latest version, which is [![Latest
-version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
+<pre><code class="language-sh">
+$ curl -L https://github.com/scalacenter/bloop/releases/download/<span class="latest-version">1.0.0-M7</span>/install.py | python2
+</code></pre>
 
 The installation script will also install completions for zsh and Bash, but
 you need to set them up manually.
@@ -77,13 +73,11 @@ the build).
 The sbt plugin is available for both sbt `0.13` and `1.x`. To install it, add
 the following to your `project/plugins.sbt`:
 
-```scala
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<latest-release>")
-```
 
-<span class="label warning">Remember</span> to replace `<latest-release>` by
-[![Latest
-version](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg)](https://index.scala-lang.org/scalacenter/bloop/sbt-bloop).
+<pre><code class="language-scala">
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0-M7</span>")
+</code></pre>
+
 
 Once sbt is configured, you can run `bloopInstall` to generate the Bloop configuration:
 
@@ -220,3 +214,27 @@ Pass this information to the installation script:
 ```sh
 $ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
 ```
+
+<script type="text/javascript">
+  
+  $.get("https://cors-anywhere.herokuapp.com/repo1.maven.org/maven2/ch/epfl/scala/bloop-frontend_2.12/maven-metadata.xml", function(xml) {
+  
+  var versions = 
+    xml.getElementsByTagName("metadata")[0]
+       .getElementsByTagName("versioning")[0]
+       .getElementsByTagName("versions")[0]
+       .getElementsByTagName("version")
+
+  var latest = null;
+  for (var i = versions.length - 1; i >= 0; i--) {
+    var text = versions[i].innerHTML;
+    if(text.indexOf(".") != -1 ) {
+      latest = text;
+      break
+    }
+  }
+
+  $(".latest-version").html(latest);
+
+}, "xml")
+</script>
