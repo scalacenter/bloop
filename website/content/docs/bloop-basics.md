@@ -10,26 +10,18 @@ bref = "Learn the ideas behind bloop, what problems it solves and how it's desig
 
 ## Design goals
 
-Bloop is a Scala command-line tool and build server developed at the Scala
-Center to make the compile and test feedback loop as tight as possible. This
-means a faster and more productive developer workflow.
-
-### Tight feedback loop
-
-Edit, compile and test workflows are the bread and butter of our daily jobs.
-When our build is slow to respond, our productivity drops. Bloop is a
-command-line tool and build server that brings you a tighter developer
-workflow. Slow Scala compile times can often be attributed to the slugishness
-of our build tool, and `bloop` aims to address them.
-
-We have created bloop to make you productive without getting in your way. We
-focus on how you can be faster at writing Scala code using your current build
-tool, whether it’s sbt, Maven, Gradle, Bazel, Pants, cbt or mill.
+Bloop is a Scala build server and command-line tool to make the compile and
+test developer workflows fast and productive in a build-tool-agnostic way.
 
 ### Run as fast as possible
 
 The main goal of bloop is to incrementally compile, test and run your code as
 fast as possible.
+
+Edit, compile and test workflows are the bread and butter of software
+development and a tight feedback loop helps developers be more productive.
+Slow Scala compile times can often be attributed to the slugishness of our
+build tool, and `bloop` aims to address that.
 
 #### Hot compilers
 
