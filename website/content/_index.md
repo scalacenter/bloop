@@ -1,5 +1,5 @@
 +++
-description = "Bloop is a Scala command-line tool and build server developed at the Scala Center to make the compile and test feedback loop as tight as possible."
+description = "Bloop is a Scala build server and command-line tool to make the compile and test developer workflows fast and productive in a build-tool-agnostic way."
 title = "Bloop"
 draft = false
 +++
