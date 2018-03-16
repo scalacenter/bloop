@@ -39,7 +39,7 @@ Homebrew also automatically installs completions for zsh and Bash.
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
 <pre><code class="language-sh">
-$ curl -L https://github.com/scalacenter/bloop/releases/download/<span class="latest-version">1.0.0-M7</span>/install.py | python2
+$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M7</span>/install.py | python2
 </code></pre>
 
 The installation script will also install completions for zsh and Bash, but
