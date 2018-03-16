@@ -196,7 +196,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "1.2-refresh",
+    BuildKeys.schemaVersion := "1.3",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
