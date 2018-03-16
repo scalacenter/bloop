@@ -208,6 +208,7 @@ object ProjectHelpers {
   }
 
   def delete(path: Path): Unit = {
+    import java.nio.file.DirectoryNotEmptyException
     Files.walkFileTree(
       path,
       new SimpleFileVisitor[Path] {
@@ -217,7 +218,8 @@ object ProjectHelpers {
         }
 
         override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-          Files.delete(dir)
+          try Files.delete(dir)
+          catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
           FileVisitResult.CONTINUE
         }
       }

@@ -55,7 +55,8 @@ class BspProtocolSpec {
   }
 
   @Test def TestInitializationViaLocal(): Unit = {
-    testInitialization(createLocalBspCommand(configDir))
+    // Doesn't work with Windows at the moment, see #281
+    if (!BspServer.isWindows) testInitialization(createLocalBspCommand(configDir))
   }
 
   @Test def TestInitializationViaTcp(): Unit = {
@@ -71,7 +72,8 @@ class BspProtocolSpec {
   }
 
   @Test def TestBuildTargetsViaLocal(): Unit = {
-    testBuildTargets(createLocalBspCommand(configDir))
+    // Doesn't work with Windows at the moment, see #281
+    if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir))
   }
 
   @Test def TestBuildTargetsViaTcp(): Unit = {
