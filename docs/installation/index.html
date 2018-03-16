@@ -183,12 +183,9 @@ start it manually.</p>
 
 <p>Install bloop in other platforms (Windows, Unix, *bsd) via our python script:</p>
 
-<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v1.0.0-M5/install.py | python2
+<pre><code class="language-sh">
+$ curl -L https://github.com/scalacenter/bloop/releases/download/<span class="latest-version">1.0.0-M7</span>/install.py | python2
 </code></pre>
-
-<p><span class="label warning">Remember</span> to replace the version in the URL
-by the latest version, which is <a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest
-version" /></a>.</p>
 
 <p>The installation script will also install completions for zsh and Bash, but
 you need to set them up manually.</p>
@@ -219,12 +216,9 @@ the build).</p>
 <p>The sbt plugin is available for both sbt <code>0.13</code> and <code>1.x</code>. To install it, add
 the following to your <code>project/plugins.sbt</code>:</p>
 
-<pre><code class="language-scala">addSbtPlugin(&quot;ch.epfl.scala&quot; % &quot;sbt-bloop&quot; % &quot;&lt;latest-release&gt;&quot;)
+<pre><code class="language-scala">
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0-M7</span>")
 </code></pre>
-
-<p><span class="label warning">Remember</span> to replace <code>&lt;latest-release&gt;</code> by
-<a href="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop"><img src="https://index.scala-lang.org/scalacenter/bloop/sbt-bloop/latest.svg" alt="Latest
-version" /></a>.</p>
 
 <p>Once sbt is configured, you can run <code>bloopInstall</code> to generate the Bloop configuration:</p>
 
@@ -351,6 +345,30 @@ submodule at a given point in time to find that information.</li>
 
 <pre><code class="language-sh">$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
 </code></pre>
+
+<script type="text/javascript">
+  
+  $.get("https://cors-anywhere.herokuapp.com/repo1.maven.org/maven2/ch/epfl/scala/bloop-frontend_2.12/maven-metadata.xml", function(xml) {
+  
+  var versions = 
+    xml.getElementsByTagName("metadata")[0]
+       .getElementsByTagName("versioning")[0]
+       .getElementsByTagName("versions")[0]
+       .getElementsByTagName("version")
+
+  var latest = null;
+  for (var i = versions.length - 1; i >= 0; i--) {
+    var text = versions[i].innerHTML;
+    if(text.indexOf(".") != -1 ) {
+      latest = text;
+      break
+    }
+  }
+
+  $(".latest-version").html(latest);
+
+}, "xml")
+</script>
 
 
     
