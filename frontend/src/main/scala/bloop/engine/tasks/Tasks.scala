@@ -13,7 +13,7 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing.{Event, EventHandler, Framework, SuiteSelector, TaskDef}
 import xsbt.api.Discovery
-import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
+import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
   object Compilation {
@@ -70,10 +70,11 @@ object Tasks {
       val target = project.tmp
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
+      val classpathOptions = ClasspathOptionsUtil.boot()
       val cwd = state.build.origin.getParent
       val reporter = new Reporter(logger, cwd, identity, config)
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sourceDirs, classpath, classesDir, target, scalacOptions, javacOptions, result, reporter, logger)
+      CompileInputs(instance, compilerCache, sourceDirs, classpath, classesDir, target, scalacOptions, javacOptions, classpathOptions, result, reporter, logger)
       // FORMAT: ON
     }
 
@@ -187,7 +188,9 @@ object Tasks {
     state.logger.debug(s"Setting up the console classpath with ${classpathFiles.mkString(", ")}")
     val loader = ClasspathUtilities.makeLoader(classpathFiles, scalaInstance)
     val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
-    compiler.console(classpathFiles, project.scalacOptions, "", "", state.logger)(Some(loader))
+    val classpathOptions = ClasspathOptionsUtil.repl
+    compiler.console(classpathFiles, project.scalacOptions, classpathOptions, "", "", state.logger)(
+      Some(loader))
     state
   }
 
