@@ -1,8 +1,9 @@
 package bloop.engine
 
 import java.io.{ByteArrayOutputStream, PrintStream}
-import java.nio.file.Files
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import bloop.Project
 import bloop.cli.{CliOptions, Commands, ExitStatus}
@@ -10,8 +11,13 @@ import bloop.logging.BloopLogger
 import bloop.exec.JavaEnv
 import bloop.tasks.{CompilationHelpers, ProjectHelpers}
 import bloop.tasks.ProjectHelpers.{RootProject, noPreviousResult, withState}
+import monix.eval.Task
+import monix.execution.Scheduler
 import org.junit.Test
 import org.junit.experimental.categories.Category
+
+import scala.concurrent.Await
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 @Category(Array(classOf[bloop.FastTests]))
 class FileWatchingSpec {
@@ -159,5 +165,40 @@ class FileWatchingSpec {
     }
 
     testFileWatcher(state, testProject)(workerAction, testAction)
+  }
+
+  @Test
+  def cancelFileWatching(): Unit = {
+    def simulation(state: State): Task[State] = Task {
+      println("Simulating compilation...")
+      Thread.sleep(1000)
+      println("Simulating completed.")
+      state
+    }
+
+    val javaEnv = JavaEnv.default
+    val instance = CompilationHelpers.scalaInstance
+    val structures = Map(RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
+    withState(structures, Map.empty, scalaInstance = instance, javaEnv = javaEnv) {
+      (state: State) =>
+        val rootProject = state.build.getProjectFor(RootProject).get
+        val watchTask = Interpreter.watch(rootProject, state, simulation _)
+        val s1 = Scheduler.computation(parallelism = 2)
+        val handle = watchTask
+          .executeWithOptions(_.enableAutoCancelableRunLoops)
+          .runAsync(state.scheduler)
+
+        val waitForWatching = Task(Await.result(handle, Duration.Inf))
+        val waitAndCancelWatching =
+          Task(handle.cancel()).delayExecution(FiniteDuration(2, TimeUnit.SECONDS))
+        val waitWatchingHandle = waitForWatching.runAsync(s1)
+        val waitCancelHandle = waitAndCancelWatching.runAsync(s1)
+
+        try Await.result(waitCancelHandle, FiniteDuration(3, TimeUnit.SECONDS))
+        finally println(s"Cancellation was executed ${waitCancelHandle.isCompleted}")
+        try Await.result(waitWatchingHandle, FiniteDuration(5, TimeUnit.SECONDS))
+        finally println(s"Watching task was completed ${waitWatchingHandle.isCompleted}")
+    }
+    ()
   }
 }
