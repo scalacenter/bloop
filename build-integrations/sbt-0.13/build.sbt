@@ -20,10 +20,13 @@ val dummy = project
       )
     },
     cleanAllBuilds := {
-      cleanAllBuilds.value
-      clean.in(ApacheSpark).value
-      clean.in(LihaoyiUtest).value
-      clean.in(ScalaScala).value
-      clean.in(ScalaCenterVersions).value
+      // Do it sequentially, there seems to be a race condition in windows
+      Def.sequential(
+        cleanAllBuilds,
+        clean.in(ApacheSpark),
+        clean.in(LihaoyiUtest),
+        clean.in(ScalaScala),
+        clean.in(ScalaCenterVersions)
+      ).value
     }
   )

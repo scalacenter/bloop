@@ -41,8 +41,7 @@ object PluginImplementation {
         val newContents = PluginKeys.integrationIndex.value
           .map { case (key, path) => s"$key,${path.getCanonicalFile.getAbsolutePath}" }
           .mkString("", System.lineSeparator, System.lineSeparator)
-        if (targetFile.exists()) sbt.IO.delete(targetFile)
-        sbt.IO.write(targetFile, newContents)
+        sbt.IO.append(targetFile, newContents)
       } else ()
     },
     PluginKeys.cleanAllBuilds := {

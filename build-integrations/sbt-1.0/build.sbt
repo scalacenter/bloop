@@ -23,11 +23,14 @@ val dummy = project
       )
     },
     cleanAllBuilds := {
-      cleanAllBuilds.value
-      clean.in(SbtSbt).value
-      clean.in(GuardianFrontend).value
-      clean.in(MiniBetterFiles).value
-      clean.in(WithResources).value
-      clean.in(WithTests).value
+      // Do it sequentially, there seems to be a race condition in windows
+      Def.sequential(
+        cleanAllBuilds,
+        clean.in(SbtSbt),
+        clean.in(GuardianFrontend),
+        clean.in(MiniBetterFiles),
+        clean.in(WithResources),
+        clean.in(WithTests)
+      )
     }
   )
