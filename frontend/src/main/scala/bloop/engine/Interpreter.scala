@@ -92,7 +92,7 @@ object Interpreter {
     BspServer.run(cmd, state, scheduler)
   }
 
-  private def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
+  private[bloop] def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
     val watcher = new SourceWatcher(project, allSourceDirs.toList, state.logger)

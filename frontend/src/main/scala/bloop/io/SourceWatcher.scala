@@ -6,12 +6,14 @@ import bloop.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.Logger
+import bloop.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 import monix.eval.Task
-import monix.reactive.{Consumer, MulticastStrategy, Observable}
+import monix.execution.Cancelable
+import monix.reactive.{MulticastStrategy, Observable}
 
 final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
   private val dirs = dirs0.distinct
@@ -32,23 +34,23 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
       action(state)
     }
 
-    val fileEventConsumer = Consumer.foldLeftAsync[State, DirectoryChangeEvent](state0) {
-      case (state, event) =>
-        event.eventType match {
-          case EventType.CREATE => runAction(state, event)
-          case EventType.MODIFY => runAction(state, event)
-          case EventType.OVERFLOW => runAction(state, event)
-          case EventType.DELETE => Task.now(state)
-        }
-    }
-
     val (observer, observable) =
       Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(
         ExecutionContext.ioScheduler)
 
+    var watchingEnabled: Boolean = true
     val watcher = DirectoryWatcher.create(
       dirsAsJava,
       new DirectoryChangeListener {
+        // Define `isWatching` just for correctness
+        override def isWatching: Boolean = watchingEnabled
+
+        // Make sure that errors on the file watcher are reported back
+        override def onException(e: Exception): Unit = {
+          logger.error(s"File watching threw an exception: ${e.getMessage}")
+          logger.trace(e)
+        }
+
         override def onEvent(event: DirectoryChangeEvent): Unit = {
           val targetFile = event.path()
           val targetPath = targetFile.toFile.getAbsolutePath()
@@ -61,22 +63,38 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
       }
     )
 
-    val watchingTask = Task {
+    // Use Java's completable future because we can stop/complete it from the cancelable
+    val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
+    val watchController = Task {
       logger.info(s"File watching $dirsCount directories...")
-      try watcher.watch()
+      try watcherHandle.get()
       finally watcher.close()
-    }.doOnCancel(Task {
+      logger.debug("The file watcher was successfully closed.")
+    }
+
+    val watchCancellation = Cancelable { () =>
+      watchingEnabled = false
+      watcherHandle.complete(null)
       observer.onComplete()
-      watcher.close()
       ngout.println(
         s"File watching on '${project.name}' and dependent projects has been successfully cancelled.")
-    })
+    }
 
-    val watchHandle = watchingTask.materialize.runAsync(ExecutionContext.ioScheduler)
+    val fileEventConsumer = {
+      FoldLeftAsyncConsumer.consume[State, DirectoryChangeEvent](state0) {
+        case (state, event) =>
+          event.eventType match {
+            case EventType.CREATE => runAction(state, event)
+            case EventType.MODIFY => runAction(state, event)
+            case EventType.OVERFLOW => runAction(state, event)
+            case EventType.DELETE => Task.now(state)
+          }
+      }
+    }
 
+    val watchHandle = watchController.runAsync(ExecutionContext.ioScheduler)
     observable
       .consumeWith(fileEventConsumer)
-      .doOnFinish(_ => Task(watchHandle.cancel()))
-      .doOnCancel(Task(watchHandle.cancel()))
+      .doOnCancel(Task(watchCancellation.cancel()))
   }
 }
