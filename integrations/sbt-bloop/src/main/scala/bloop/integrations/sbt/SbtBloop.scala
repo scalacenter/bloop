@@ -17,6 +17,8 @@ object AutoImported {
   import sbt.{SettingKey, TaskKey, settingKey, taskKey}
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
+  val bloopAggregateSourceDependencies: SettingKey[Boolean] =
+    settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir.")
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopManagedResourceDirectories: SettingKey[Seq[File]] =
@@ -38,7 +40,8 @@ object AutoImported {
 object PluginImplementation {
   import bloop.integrations.sbt.{AutoImported => BloopKeys}
   val globalSettings: Seq[Def.Setting[_]] = List(
-    BloopKeys.bloopInstall := PluginDefaults.bloopInstall.value
+    BloopKeys.bloopInstall := PluginDefaults.bloopInstall.value,
+    BloopKeys.bloopAggregateSourceDependencies := false
   )
 
   import Compat._
@@ -59,10 +62,15 @@ object PluginImplementation {
     BloopKeys.bloopTargetDir := PluginDefaults.bloopTargetDir.value,
     BloopKeys.bloopConfigDir := Def.settingDyn {
       val ref = Keys.thisProjectRef.value
+      val rootBuild = sbt.BuildRef(Keys.loadedBuild.value.root)
       Def.setting {
         (BloopKeys.bloopConfigDir in sbt.Global).?.value.getOrElse {
-          // We do this so that it works nicely with source dependencies.
-          (Keys.baseDirectory in ref in ThisBuild).value / ".bloop-config"
+          if (BloopKeys.bloopAggregateSourceDependencies.in(sbt.Global).value) {
+            (Keys.baseDirectory in rootBuild).value / ".bloop-config"
+          } else {
+            // We do this so that it works nicely with source dependencies.
+            (Keys.baseDirectory in ref in ThisBuild).value / ".bloop-config"
+          }
         }
       }
     }.value
