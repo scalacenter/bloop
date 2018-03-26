@@ -18,5 +18,12 @@ val dummy = project
         "scala" -> bloopConfigDir.in(ScalaScala).value,
         "versions" -> bloopConfigDir.in(ScalaCenterVersions).value
       )
+    },
+    cleanAllBuilds := {
+      cleanAllBuilds.value
+      clean.in(ApacheSpark).value
+      clean.in(LihaoyiUtest).value
+      clean.in(ScalaScala).value
+      clean.in(ScalaCenterVersions).value
     }
   )

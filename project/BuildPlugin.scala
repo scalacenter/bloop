@@ -371,9 +371,12 @@ object BuildImplementation {
     val cacheDirectory = file(stagingBase) / "integrations-cache"
 
     val buildFiles = Set(
+      buildIndexFile,
+      buildIntegrationsBase / "sbt-0.13" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
+      buildIntegrationsBase / "sbt-1.0" / "build.sbt",
       buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala",
-      buildIndexFile
+      buildIntegrationsBase / "global" / "src" / "main" / "scala" / "bloop" / "build" / "integrations" / "IntegrationPlugin.scala",
     )
 
     val cachedGenerate =
@@ -387,7 +390,7 @@ object BuildImplementation {
         val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
         val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
         val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
-        val toRun = "bloopInstall" :: "buildIndex" :: Nil
+        val toRun = "cleanAllBuilds" :: "bloopInstall" :: "buildIndex" :: Nil
         val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
         val cmd = cmdBase ::: properties ::: toRun
 

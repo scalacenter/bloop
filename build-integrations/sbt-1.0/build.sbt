@@ -12,8 +12,8 @@ val dummy = project
   .aggregate(integrations: _*)
   .settings(
     name := "bloop-integrations-build",
-    PluginKeys.enableIndexCreation := true,
-    PluginKeys.integrationIndex := {
+    enableIndexCreation := true,
+    integrationIndex := {
       Map(
         "sbt" -> bloopConfigDir.in(SbtSbt).in(Compile).value,
         "frontend" -> bloopConfigDir.in(GuardianFrontend).in(Compile).value,
@@ -21,5 +21,13 @@ val dummy = project
         "with-resources" -> bloopConfigDir.in(WithResources).in(Compile).value,
         "with-tests" -> bloopConfigDir.in(WithTests).in(Compile).value
       )
+    },
+    cleanAllBuilds := {
+      cleanAllBuilds.value
+      clean.in(SbtSbt).value
+      clean.in(GuardianFrontend).value
+      clean.in(MiniBetterFiles).value
+      clean.in(WithResources).value
+      clean.in(WithTests).value
     }
   )
