@@ -18,5 +18,15 @@ val dummy = project
         "scala" -> bloopConfigDir.in(ScalaScala).value,
         "versions" -> bloopConfigDir.in(ScalaCenterVersions).value
       )
+    },
+    cleanAllBuilds := {
+      // Do it sequentially, there seems to be a race condition in windows
+      Def.sequential(
+        cleanAllBuilds,
+        clean.in(ApacheSpark),
+        clean.in(LihaoyiUtest),
+        clean.in(ScalaScala),
+        clean.in(ScalaCenterVersions)
+      ).value
     }
   )

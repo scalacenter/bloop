@@ -24,6 +24,7 @@ object PluginKeys {
   val enableIndexCreation = Def.settingKey[Boolean]("Enable index creation")
   val integrationIndex = Def.settingKey[Map[String, File]]("Map of project names and bloop dirs.")
   val buildIndex = Def.taskKey[Unit]("Write our builds to the build index.")
+  val cleanAllBuilds = Def.taskKey[Unit]("Clean all builds.")
 }
 
 object PluginImplementation {
@@ -42,6 +43,14 @@ object PluginImplementation {
           .mkString("", System.lineSeparator, System.lineSeparator)
         sbt.IO.append(targetFile, newContents)
       } else ()
+    },
+    PluginKeys.cleanAllBuilds := {
+      val log = Keys.streams.value.log
+      PluginKeys.integrationIndex.value.iterator.foreach {
+        case (key, configDir) =>
+          log.info(s"Deleting bloop config directory ${configDir.getCanonicalFile.getAbsolutePath}")
+          sbt.IO.delete(configDir)
+      }
     }
   )
 }
