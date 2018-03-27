@@ -17,7 +17,7 @@ sleep 10
 
 POLL="yes"
 while [[ ! "$POLL" = "" ]]; do
-  BUILD_URL=$(curl --silent -X GET "${QUEUE_ENDPOINT}api/json\?pretty\=true" | jq '.executable.url')
+  BUILD_URL=$(curl --silent -X GET "${QUEUE_ENDPOINT}api/json\?pretty\=true" | jq '.executable.url' | sed -e 's/^"//' -e 's/"$//')
   echo "Querying ${QUEUE_ENDPOINT}api/json\?pretty\=true..."
   echo "Result: $BUILD_URL"
   if [[ "$BUILD_URL" && "$BUILD_URL" != "null" ]]; then
@@ -28,7 +28,7 @@ while [[ ! "$POLL" = "" ]]; do
   fi
 done
 
-echo "The build started to run in Jenkins..."
+echo "The build started to run in Jenkins... $LOG_ENDPOINT"
 
 CONTINUE="yes"
 START=0
