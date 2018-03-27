@@ -178,7 +178,7 @@ object Interpreter {
     Tasks.pickTestProject(cmd.project, state) match {
       case Some(project) =>
         def doTest(state: State): Task[State] = {
-          val testFilter = TestInternals.parseFilters(cmd.filter)
+          val testFilter = TestInternals.parseFilters(cmd.only)
           val cwd = cmd.cliOptions.common.workingPath
 
           compileAnd(state, project, reporterConfig, excludeRoot = false) { state =>

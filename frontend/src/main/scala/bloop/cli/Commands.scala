@@ -109,9 +109,9 @@ object Commands {
       project: String = "",
       @HelpMessage("Do not run tests for dependencies. By default, false.")
       isolated: Boolean = false,
-      @ExtraName("f")
-      @HelpMessage("One or more filters to run only selected test suites.")
-      filter: List[String] = Nil,
+      @ExtraName("o")
+      @HelpMessage("The list of test suite filters to test for only.")
+      only: List[String] = Nil,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
