@@ -1,5 +1,8 @@
 import build.BuildImplementation.BuildDefaults
 
+// Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
+bloopAggregateSourceDependencies in Global := true
+
 /***************************************************************************************************/
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
