@@ -4,6 +4,8 @@ import bloop.engine.State
 import bloop.io.{AbsolutePath, FileTracker}
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.cli.ExitStatus
+
 /** Cache that holds the state associated to each loaded build. */
 final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
 
@@ -24,7 +26,8 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @return The updated `State`.
    */
   def updateBuild(state: State): State = {
-    cache.put(state.build.origin, state)
+    // Make sure that we always store states with OK statuses in the cache
+    cache.put(state.build.origin, state.copy(status = ExitStatus.Ok))
     state
   }
 

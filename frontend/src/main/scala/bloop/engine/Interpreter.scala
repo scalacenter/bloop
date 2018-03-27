@@ -146,13 +146,14 @@ object Interpreter {
       state: State,
       project: Project,
       reporterConfig: ReporterConfig,
-      excludeRoot: Boolean
+      excludeRoot: Boolean,
+      nextAction: String
   )(next: State => Task[State]): Task[State] = {
     Tasks.compile(state, project, reporterConfig, excludeRoot).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         Task.now {
-          compiled.logger.debug(s"Failed compilation for ${project}. Skipping tests.")
+          compiled.logger.debug(s"Failed compilation for ${project}. Skipping $nextAction.")
           compiled
         }
       }
@@ -164,7 +165,7 @@ object Interpreter {
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        compileAnd(state, project, reporterConfig, cmd.excludeRoot) { state =>
+        compileAnd(state, project, reporterConfig, cmd.excludeRoot, "`console`") { state =>
           Tasks.console(state, project, reporterConfig, cmd.excludeRoot)
         }
       case None =>
@@ -181,7 +182,7 @@ object Interpreter {
           val testFilter = TestInternals.parseFilters(cmd.filter)
           val cwd = cmd.cliOptions.common.workingPath
 
-          compileAnd(state, project, reporterConfig, excludeRoot = false) { state =>
+          compileAnd(state, project, reporterConfig, excludeRoot = false, "`test`") { state =>
             Tasks.test(state, project, cwd, cmd.isolated, testFilter)
           }
         }
@@ -293,7 +294,7 @@ object Interpreter {
         }
 
         def doRun(state: State): Task[State] = {
-          compileAnd(state, project, reporter, excludeRoot = false) { state =>
+          compileAnd(state, project, reporter, excludeRoot = false, "`run`") { state =>
             getMainClass(state) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
