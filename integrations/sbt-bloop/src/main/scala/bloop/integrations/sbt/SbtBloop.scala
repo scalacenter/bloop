@@ -170,7 +170,9 @@ object PluginImplementation {
         testFrameworks, javaHome, javaOptions, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
-      logger.success(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+      logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+      val relativeConfigPath = outFile.relativeTo(baseDirectory).getOrElse(outFile)
+      logger.success(s"Generated $relativeConfigPath")
       // format: ON
     }
 
