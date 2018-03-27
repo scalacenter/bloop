@@ -13,6 +13,8 @@ import bloop.io.AbsolutePath
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, Logger, ProcessLogger, RecordingLogger}
 
+import xsbti.compile.ClasspathOptionsUtil
+
 object ProjectHelpers {
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
@@ -167,6 +169,7 @@ object ProjectHelpers {
       dependencies = dependencies.toArray,
       scalaInstance = scalaInstance,
       rawClasspath = classpath,
+      classpathOptions = ClasspathOptionsUtil.boot(),
       classesDir = AbsolutePath(target),
       scalacOptions = Array.empty,
       javacOptions = Array.empty,

@@ -2,6 +2,14 @@ package bloop.integrations
 
 import java.io.{File, FileOutputStream}
 
+case class ClasspathOptions(bootLibrary: Boolean,
+                            compiler: Boolean,
+                            extra: Boolean,
+                            autoBoot: Boolean,
+                            filterLibrary: Boolean) {
+  def toSeq: Seq[Boolean] = Seq(bootLibrary, compiler, extra, autoBoot, filterLibrary)
+}
+
 case class BloopConfig(
     name: String,
     baseDirectory: File,
@@ -10,6 +18,7 @@ case class BloopConfig(
     scalaName: String,
     scalaVersion: String,
     classpath: Seq[File],
+    classpathOptions: ClasspathOptions,
     classesDir: File,
     scalacOptions: Seq[String],
     javacOptions: Seq[String],
@@ -31,6 +40,7 @@ case class BloopConfig(
     properties.setProperty("scalaName", scalaName)
     properties.setProperty("scalaVersion", scalaVersion)
     properties.setProperty("classpath", seqToString(toPaths(classpath)))
+    properties.setProperty("classpathOptions", seqToString(classpathOptions.toSeq))
     properties.setProperty("classesDir", classesDir.getAbsolutePath)
     properties.setProperty("scalacOptions", seqToString(scalacOptions, ";"))
     properties.setProperty("javacOptions", seqToString(javacOptions, ";"))

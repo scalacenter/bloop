@@ -45,8 +45,7 @@ object Compiler {
         .flatMap(src => Paths.getAll(src, "glob:**.{scala,java}"))
         .distinct
       val classesDir = inputs.classesDir.toFile
-      // TODO(jvican): Figure out why `inputs.scalaInstance.allJars` is required here.
-      val classpath = inputs.classpath.map(_.toFile) ++ inputs.scalaInstance.allJars
+      val classpath = inputs.classpath.map(_.toFile)
 
       CompileOptions
         .create()
@@ -71,6 +70,7 @@ object Compiler {
     }
 
     val scalaInstance = compileInputs.scalaInstance
+    val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler

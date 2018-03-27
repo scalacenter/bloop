@@ -72,6 +72,7 @@ object MojoImplementation {
         val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(new File(_))
         if (cp.headOption.contains(classesDir)) cp.tail else cp
       }
+      val classpathOptions = mojo.getClasspathOptions()
       val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toList
       val allScalaJars = mojo.getAllScalaJars()
       val tmpDir = new File(classesDir, "tmp-bloop")
@@ -80,8 +81,9 @@ object MojoImplementation {
 
       // FORMAT: OFF
       val config = BloopConfig(name, baseDirectory, dependencies, mojo.getScalaOrganization,
-        mojo.getScalaArtifactID, mojo.getScalaVersion, classpath, classesDir, mojo.getScalacArgs.asScala,
-        mojo.getJavacArgs().asScala, sourceDirs, testFrameworks, javaHome, javaOptions, allScalaJars, tmpDir
+        mojo.getScalaArtifactID, mojo.getScalaVersion, classpath, classpathOptions, classesDir,
+        mojo.getScalacArgs.asScala,  mojo.getJavacArgs().asScala, sourceDirs, testFrameworks,
+        javaHome, javaOptions, allScalaJars, tmpDir
       )
       // FORMAT: ON
 
