@@ -1,7 +1,7 @@
 package bloop.integrations.sbt
 
 import bloop.integrations.BloopConfig
-import sbt.{AutoPlugin, Compile, Configuration, Def, File, Keys, ScopeFilter, Test, ThisBuild}
+import sbt.{AutoPlugin, Compile, Configuration, Def, File, Keys, Global, Test, ThisBuild}
 
 object SbtBloop extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -10,6 +10,7 @@ object SbtBloop extends AutoPlugin {
   final val autoImport = AutoImported
 
   override def globalSettings: Seq[Def.Setting[_]] = PluginImplementation.globalSettings
+  override def buildSettings: Seq[Def.Setting[_]] = PluginImplementation.buildSettings
   override def projectSettings: Seq[Def.Setting[_]] = PluginImplementation.projectSettings
 }
 
@@ -44,6 +45,13 @@ object PluginImplementation {
     BloopKeys.bloopAggregateSourceDependencies := false
   )
 
+  // We create build setting proxies to global settings so that we get autocompletion (sbt bug)
+  val buildSettings: Seq[Def.Setting[_]] = List(
+    BloopKeys.bloopInstall := BloopKeys.bloopInstall.in(Global).value,
+    BloopKeys.bloopAggregateSourceDependencies :=
+      BloopKeys.bloopAggregateSourceDependencies.in(Global).value
+  )
+
   import Compat._
   val configSettings: Seq[Def.Setting[_]] = {
     val rawSettingsInConfigs = List(
@@ -64,8 +72,8 @@ object PluginImplementation {
       val ref = Keys.thisProjectRef.value
       val rootBuild = sbt.BuildRef(Keys.loadedBuild.value.root)
       Def.setting {
-        (BloopKeys.bloopConfigDir in sbt.Global).?.value.getOrElse {
-          if (BloopKeys.bloopAggregateSourceDependencies.in(sbt.Global).value) {
+        (BloopKeys.bloopConfigDir in Global).?.value.getOrElse {
+          if (BloopKeys.bloopAggregateSourceDependencies.in(Global).value) {
             (Keys.baseDirectory in rootBuild).value / ".bloop-config"
           } else {
             // We do this so that it works nicely with source dependencies.
@@ -170,12 +178,14 @@ object PluginImplementation {
         testFrameworks, javaHome, javaOptions, allScalaJars, tmp)
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
-      logger.success(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+      logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+      val relativeConfigPath = outFile.relativeTo(baseDirectory).getOrElse(outFile)
+      logger.success(s"Generated $relativeConfigPath")
       // format: ON
     }
 
     lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
-      val filter = ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
+      val filter = sbt.ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
       BloopKeys.bloopGenerate.all(filter).map(_ => ())
     }
 
