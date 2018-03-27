@@ -16,6 +16,9 @@ matrix:
   SBT_RELEASE:
     - sbt "frontend/updateHomebrewFormula" \
           "frontend/githubRelease"
+  OS:
+    - windows
+    - linux
 
 clone:
   git:
@@ -30,6 +33,8 @@ pipeline:
     image: plugins/git
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
     commands:
       - ./bin/ci-clone.sh
 
@@ -37,6 +42,8 @@ pipeline:
     image: appleboy/drone-sftp-cache
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
     restore: true
     mount:
@@ -49,6 +56,8 @@ pipeline:
     group: build
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
@@ -61,10 +70,11 @@ pipeline:
     image: scalacenter/scala-docs:1.0
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: windows
     secrets: [ bloop_jenkins_token ]
     commands:
-      - ./bin/start-jenkins-job.sh "bloop:$BLOOP_JENKINS_TOKEN"
-      - ./bin/stream-jenkins-log.sh
+      - ./bin/stream-jenkins-log.sh "bloop:$BLOOP_JENKINS_TOKEN"
 
   publish:
     image: scalacenter/scala-docs:1.1
@@ -75,6 +85,8 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/* ]
       event: [ push, tag, deployment ]
       status: success
+      matrix:
+        OS: linux
     commands:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
@@ -94,6 +106,8 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/* ]
       event: [ tag ]
       status: success
+      matrix:
+        OS: linux
     commands:
       - export DRONE_DIR="/drone"
       - ./bin/add-coursier.sh
@@ -104,6 +118,8 @@ pipeline:
     image: appleboy/drone-sftp-cache
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
     rebuild: true
     mount:
