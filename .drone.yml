@@ -63,8 +63,7 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
     secrets: [ bloop_jenkins_token ]
     commands:
-      - ./bin/start-jenkins-job.sh "bloop:$BLOOP_JENKINS_TOKEN"
-      - ./bin/stream-jenkins-log.sh
+      - ./bin/stream-jenkins-log.sh "bloop:$BLOOP_JENKINS_TOKEN"
 
   publish:
     image: scalacenter/scala-docs:1.1
