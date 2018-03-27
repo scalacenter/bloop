@@ -96,7 +96,7 @@ object Tasks {
       val failures = Compilation.Result.failedProjects(results).distinct
       val successes = Compilation.Result.successfulProjects(results)
       val newState = state.copy(results = state.results.addResults(successes))
-      if (failures.isEmpty) newState
+      if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
       else {
         failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
         newState.copy(status = ExitStatus.CompilationError)
