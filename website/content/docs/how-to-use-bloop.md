@@ -40,7 +40,7 @@ in both the server and the client.
 The server is installed by default in the same directory than the `bloop`
 client, so `bloop server` will try to find the location of the server in the
 same directory where `bloop` is installed. If this is not the case, run `bloop
----server-location=/foo/my-blp-server server` instead.
+--server-location=/foo/my-blp-server server` instead.
 
 If you forget to run the server before using the bloop CLI tool, you'll get the
 following output:
@@ -56,11 +56,5 @@ Type `--nailgun-help` for help on the Nailgun CLI tool.
 ```
 
 The bloop server can serve responses of many concurrent clients.
-
-#### Example
-
-`bloop compile` tells the server to compile your project, logging back any
-output produced by the compiler. This communication happens over the Nailgun
-protocol.
 
 [nailgun]: https://github.com/facebook/nailgun/
