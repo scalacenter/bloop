@@ -158,25 +158,51 @@ headingSelector: 'h3'
 
 <p>Bloop has two main components, a client and a server. If you&rsquo;re looking for
 ways to extend this model, head to the <a href="https://scalacenter.github.io/bloop/docs/integration-guide/">Integration
-guide</a>.</p>
+guide</a>. Otherwise, keep reading.</p>
 
 <h3 id="bloop-client"><code>bloop</code> client</h3>
 
-<p>The <code>bloop</code> client is the tool that you use to run any bloop command. The
-client is a python script that implements Nailgun&rsquo;s protocol and communicates
-with the server. It is a fast CLI tool that gives you immediate feedback from
-the server.</p>
+<p>The <code>bloop</code> client is the user-facing tool to run any bloop command. The client
+is a python script that implements the Nailgun protocol to communicate with the
+server. It gives you immediate feedback from the server, usually in the order
+of milliseconds.</p>
+
+<p>This client is a fork of the python script inherited from the <a href="https://github.com/facebook/nailgun/">Nailgun
+project</a>, which has been modified to be Bloop friendly. If you ever
+want to check the nailgun options to specify the nailgun port or the way to
+connect to the bloop server, type <code>bloop --nailgun-help</code>.</p>
 
 <h3 id="bloop-server"><code>bloop</code> server</h3>
 
-<p>The server is called <code>blp-server</code>, and it&rsquo;s a long-running application that
-runs on the background and keeps the state of all your projects and compiler
-instances.</p>
+<p>The server runs bloop actions on the background and then redirects the log
+streams back to the bloop client. The server is a long-running application, so
+it keeps the state and compiler instances cached across all your builds.</p>
 
-<p>When you run <code>bloop compile</code> with the client, the server receives the request
-and spawns a thread to compile your project, logging you back everything that
-the compiler outputs. This server accepts requests in parallel except for
-those tasks that are already running.</p>
+<p>Type <code>bloop server</code>  to run the server on a terminal.</p>
+
+<p><span class="label warning">Note</span> There can only be one server running
+per user session. If you want to run more than one server (strongly not
+recommended unless you know what you&rsquo;re doing), then specify the nailgun port
+in both the server and the client.</p>
+
+<p>The server is installed by default in the same directory than the <code>bloop</code>
+client, so <code>bloop server</code> will try to find the location of the server in the
+same directory where <code>bloop</code> is installed. If this is not the case, run <code>bloop
+--server-location=/foo/my-blp-server server</code> instead.</p>
+
+<p>If you forget to run the server before using the bloop CLI tool, you&rsquo;ll get the
+following output:</p>
+
+<pre><code>&gt; $ bloop help
+Could not connect to server 127.0.0.1:8212
+
+Have you forgotten to start bloop's server? Run it with `bloop server`.
+Check our usage instructions in https://scalacenter.github.io/bloop/
+
+Type `--nailgun-help` for help on the Nailgun CLI tool.
+</code></pre>
+
+<p>The bloop server can serve responses of many concurrent clients.</p>
 
 
     

@@ -235,12 +235,15 @@ addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0
 
 <p>Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.</p>
 
-<p>You need to start the server manually if you installed Bloop by other means than the Homebrew formula in Mac OS. Run the server with:</p>
+<p>You need to start the server manually if you installed Bloop by other means
+than the Homebrew formula in Mac OS. You can run the server with the bloop CLI:</p>
 
-<pre><code class="language-sh">$ $HOME/.bloop/blp-server
+<pre><code class="language-sh">$ bloop server
 </code></pre>
 
-<p>We recommend adding <code>.bloop</code> to the <code>$PATH</code> or creating an alias for it to shorten the command to <code>blp-server</code>. Note that you can also install Bloop in <a href="#install-bloop-in-a-different-bloop-folder">another installation directory</a>.</p>
+<p>Assuming that <code>bloop</code>, located in <code>$HOME/.bloop</code>, is in your <code>$PATH</code>. Otherwise, we suggest creating an alias for the bloop CLI.</p>
+
+<p>Note that you can also install Bloop in <a href="#install-bloop-in-a-different-bloop-folder">another installation directory</a>.</p>
 
 <p>After the server is started, run the CLI tool:</p>
 
@@ -325,6 +328,10 @@ reading the <a href="https://scalacenter.github.io/bloop/docs/commands-reference
 <p>The current instructions use the standard <code>$HOME/.bloop</code> configuration
 directory. If you use install bloop elsewhere, take care to replace the code
 snippets in this page with your installation directory.</p>
+
+<p><span class="label warning">Note</span> If you want to place the bloop server
+in an independent directory than the bloop client, head to the docs of the
+<a href="https://scalacenter.github.io/bloop/docs/how-to-use-bloop/">bloop server</a>.</p>
 
 <h4 id="install-a-development-version">Install a development version</h4>
 
