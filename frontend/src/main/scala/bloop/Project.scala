@@ -1,6 +1,5 @@
 package bloop
 
-import java.lang.{Boolean => JBoolean}
 import java.nio.file.{Files, Paths => NioPaths}
 import java.util.Properties
 
@@ -27,28 +26,6 @@ case class Project(name: String,
                    tmp: AbsolutePath,
                    bloopConfigDir: AbsolutePath) {
   override def toString: String = s"$name"
-
-  def toProperties(): Properties = {
-    val properties = new Properties()
-    properties.setProperty("name", name)
-    properties.setProperty("baseDirectory", baseDirectory.syntax)
-    properties.setProperty("dependencies", dependencies.mkString(","))
-    properties.setProperty("scalaOrganization", scalaInstance.organization)
-    properties.setProperty("scalaName", scalaInstance.name)
-    properties.setProperty("scalaVersion", scalaInstance.version)
-    properties.setProperty("classpath", classpath.map(_.syntax).mkString(","))
-    properties.setProperty("classesDir", classesDir.syntax)
-    properties.setProperty("scalacOptions", scalacOptions.mkString(";"))
-    properties.setProperty("javacOptions", javacOptions.mkString(";"))
-    properties.setProperty("sourceDirectories", sourceDirectories.map(_.syntax).mkString(","))
-    properties.setProperty("testFrameworks", testFrameworks.map(_.mkString(",")).mkString(";"))
-    properties.setProperty("allScalaJars",
-                           scalaInstance.allJars.map(_.getAbsolutePath).mkString(","))
-    properties.setProperty("tmp", tmp.syntax)
-    properties.setProperty("javaHome", javaEnv.javaHome.syntax)
-    properties.setProperty("javaOptions", javaEnv.javaOptions.mkString(";"))
-    properties
-  }
 
   /** This project's full classpath (classes directory and raw classpath) */
   val classpath: Array[AbsolutePath] = {
