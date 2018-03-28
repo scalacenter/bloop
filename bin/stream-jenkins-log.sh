@@ -53,4 +53,5 @@ done
 
 rm "$HEADERS_FILE"
 
+echo "Content is $CONTENT"
 echo "$CONTENT" | tail -n1 | grep "Finished: SUCCESS" > /dev/null
