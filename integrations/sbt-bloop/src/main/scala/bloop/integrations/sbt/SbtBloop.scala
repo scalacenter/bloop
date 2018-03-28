@@ -117,6 +117,7 @@ object PluginImplementation {
       val configuration = Keys.configuration.value
       val projectName = makeName(project.id, configuration)
       val baseDirectory = Keys.baseDirectory.value.getAbsoluteFile
+      val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
 
       // In the test configuration, add a dependency on the base project
       val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
@@ -184,7 +185,7 @@ object PluginImplementation {
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
       logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
-      val relativeConfigPath = outFile.relativeTo(baseDirectory).getOrElse(outFile)
+      val relativeConfigPath = outFile.relativeTo(buildBaseDirectory).getOrElse(outFile)
       logger.success(s"Generated $relativeConfigPath")
       // format: ON
     }
