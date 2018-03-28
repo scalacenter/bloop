@@ -9,7 +9,9 @@ class RecordingLogger extends AbstractLogger {
   def clear(): Unit = messages.clear()
   def getMessages(): List[(String, String)] = messages.iterator.asScala.toList.map {
     // Remove trailing '\r' so that we don't have to special case for Windows
-    case (category, msg) => (category, msg.stripSuffix("\r"))
+    case (category, msg0) =>
+      val msg = if (msg0 == null) "<null reference>" else msg0
+      (category, msg.stripSuffix("\r"))
   }
 
   override val name: String = "RecordingLogger"
