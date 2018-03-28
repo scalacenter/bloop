@@ -95,13 +95,16 @@ The configuration files contain the information of the sbt build at the moment o
 
 Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.
 
-You need to start the server manually if you installed Bloop by other means than the Homebrew formula in Mac OS. Run the server with:
+You need to start the server manually if you installed Bloop by other means
+than the Homebrew formula in Mac OS. You can run the server with the bloop CLI:
 
 ```sh
-$ $HOME/.bloop/blp-server
+$ bloop server
 ```
 
-We recommend adding `.bloop` to the `$PATH` or creating an alias for it to shorten the command to `blp-server`. Note that you can also install Bloop in [another installation directory](#install-bloop-in-a-different-bloop-folder).
+Assuming that `bloop`, located in `$HOME/.bloop`, is in your `$PATH`. Otherwise, we suggest creating an alias for the bloop CLI.
+
+Note that you can also install Bloop in [another installation directory](#install-bloop-in-a-different-bloop-folder).
 
 After the server is started, run the CLI tool:
 
@@ -185,7 +188,6 @@ reading the [Command Reference]({{< ref "commands-reference.md" >}}).
 
 #### Install bloop in a different bloop folder
 
-
 By default, the script installs bloop binaries in a `.bloop` directory in your
 `$HOME` folder. You can change that with the `--dest` option:
 
@@ -196,6 +198,10 @@ $ ./install.py --dest ~/bin/bloop
 The current instructions use the standard `$HOME/.bloop` configuration
 directory. If you use install bloop elsewhere, take care to replace the code
 snippets in this page with your installation directory.
+
+<span class="label warning">Note</span> If you want to place the bloop server
+in an independent directory than the bloop client, head to the docs of the
+[bloop server]({{< ref "how-to-use-bloop.md" >}}).
 
 #### Install a development version
 
