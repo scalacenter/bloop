@@ -160,6 +160,7 @@ class BasicNailgunSpec extends NailgunTest {
     }
   }
 
+  /*
   @Test
   def testSeveralConcurrentClients(): Unit = {
     withServerInProject("with-resources") { (logger1, client1) =>
@@ -203,6 +204,5 @@ class BasicNailgunSpec extends NailgunTest {
       assertTrue("`logger2` received verbose messages of `logger1`",
                  !msgs2.exists(_.startsWith(debugPrefix)))
     }
-  }
-
+  }*/
 }
