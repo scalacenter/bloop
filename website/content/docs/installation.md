@@ -38,8 +38,7 @@ Homebrew also automatically installs completions for zsh and Bash.
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
-<pre><code class="language-sh">
-$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M7</span>/install.py | python
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M7</span>/install.py | python
 </code></pre>
 
 The installation script will also install completions for zsh and Bash, but
@@ -74,8 +73,7 @@ The sbt plugin is available for both sbt `0.13` and `1.x`. To install it, add
 the following to your `project/plugins.sbt`:
 
 
-<pre><code class="language-scala">
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0-M7</span>")
+<pre><code class="language-scala">addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0-M7</span>")
 </code></pre>
 
 
