@@ -39,8 +39,8 @@ in both the server and the client.
 
 The server is installed by default in the same directory than the `bloop`
 client, so `bloop server` will try to find the location of the server in the
-same directory where `bloop` is installed. If this is not the case, type `bloop
----server-location=/foo/my-blp-server` instead.
+same directory where `bloop` is installed. If this is not the case, run `bloop
+---server-location=/foo/my-blp-server server` instead.
 
 If you forget to run the server before using the bloop CLI tool, you'll get the
 following output:
