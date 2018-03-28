@@ -90,6 +90,13 @@ object Project {
     fromProperties(properties, config, logger)
   }
 
+  private class MissingFieldError(fieldName: String, config: AbsolutePath)
+      extends Exception(
+        s"""The field '$fieldName' is missing in '${config.syntax}'.
+           |Please export your project again from your build tool (e.g. `bloopInstall`).
+           |Check the installation page for further information: https://scalacenter.github.io/bloop/docs/installation""".stripMargin
+      ) with NoStackTrace
+
   def fromProperties(properties: Properties, config: AbsolutePath, logger: Logger): Project = {
     def toPaths(line: String) = line.split(",").map(toPath)
     def toPath(line: String) = AbsolutePath(NioPaths.get(line))
@@ -108,13 +115,8 @@ object Project {
     val classpathOptions = {
       val opts = properties.getProperty("classpathOptions")
       // Protecting our users from breaking changes in the configuration file format.
-      if (opts == null) {
-        throw new Exception(
-          """The field for classpath options doesn't exist.
-            |Please export your project again from your build tool (e.g. `bloopInstall`).
-            |Check the installation page for further information: https://scalacenter.github.io/bloop/docs/installation
-          """.stripMargin) with NoStackTrace
-      } else {
+      if (opts == null) throw new MissingFieldError("classpathOptions", config)
+      else {
         val values = opts.split(",")
         val Array(bootLibrary, compiler, extra, autoBoot, filterLibrary) =
           values.map(java.lang.Boolean.parseBoolean)
