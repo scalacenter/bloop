@@ -1,7 +1,19 @@
 package bloop.integrations.sbt
 
 import bloop.integrations.{BloopConfig, ClasspathOptions}
-import sbt.{AutoPlugin, Compile, Configuration, Def, File, Keys, Global, Test, ThisBuild}
+import sbt.{
+  AutoPlugin,
+  Compile,
+  Configuration,
+  Def,
+  File,
+  Global,
+  Keys,
+  ProjectRef,
+  ResolvedProject,
+  Test,
+  ThisBuild
+}
 
 object SbtBloop extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -108,14 +120,34 @@ object PluginImplementation {
       classesDir
     }
 
-    lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
-      def makeName(name: String, configuration: Configuration): String =
-        if (configuration == Compile) name else name + "-test"
+    object Feedback {
+      def unknownConfiguration(p: ResolvedProject, conf: String, from: ProjectRef): String = {
+        s"""Project ${p.id} depends on unsupported configuration $conf of ${from.project}.
+           |Bloop will assume this dependency goes to the test configuration.
+           |Report upstream if you run into trouble: https://github.com/scalacenter/bloop/issues/new
+         """.stripMargin
+      }
+    }
 
+    lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
       val logger = Keys.streams.value.log
       val project = Keys.thisProject.value
+      def nameFromString(name: String, configuration: Configuration): String =
+        if (configuration == Compile) name else name + "-test"
+
+      def nameFromRef(ref: ProjectRef, configuration: Configuration): String = {
+        ref.configuration match {
+          case Some(conf) if Compile.name == conf => ref.project
+          case Some(conf) if Test.name == conf => s"${ref.project}-test"
+          case Some(unknown) =>
+            logger.warn(Feedback.unknownConfiguration(project, unknown, ref))
+            s"${ref.project}-test"
+          case None => nameFromString(ref.project, configuration)
+        }
+      }
+
       val configuration = Keys.configuration.value
-      val projectName = makeName(project.id, configuration)
+      val projectName = nameFromString(project.id, configuration)
       val baseDirectory = Keys.baseDirectory.value.getAbsoluteFile
       val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
 
@@ -124,10 +156,10 @@ object PluginImplementation {
 
       // TODO: We should extract the right configuration for the dependency.
       val projectDependencies =
-        project.dependencies.map(dep => makeName(dep.project.project, configuration))
+        project.dependencies.map(dep => nameFromRef(dep.project, configuration))
       val dependencies = projectDependencies ++ baseProjectDependency
       // TODO: We should extract the right configuration for the aggregate.
-      val aggregates = project.aggregate.map(agg => makeName(agg.project, configuration))
+      val aggregates = project.aggregate.map(agg => nameFromString(agg.project, configuration))
       val dependenciesAndAggregates = dependencies ++ aggregates
 
       val bloopConfigDir = BloopKeys.bloopConfigDir.value
