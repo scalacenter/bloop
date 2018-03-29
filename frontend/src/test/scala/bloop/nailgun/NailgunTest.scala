@@ -109,8 +109,10 @@ abstract class NailgunTest {
       val cmdBase =
         if (BspServer.isWindows) "python" :: clientPath.toString :: Nil
         else clientPath.toString :: Nil
-      new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
-        .directory(base.toFile)
+      val builder = new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
+      val env = builder.environment()
+      env.put("BLOOP_OWNER", "owner")
+      builder.directory(base.toFile)
     }
 
     /**

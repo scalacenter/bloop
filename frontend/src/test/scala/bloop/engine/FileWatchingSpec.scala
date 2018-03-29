@@ -117,7 +117,9 @@ class FileWatchingSpec {
   def watchTest(): Unit = {
     val TestProjectName = "with-tests"
     val testProject = s"$TestProjectName-test"
-    val state = ProjectHelpers.loadTestProject(TestProjectName)
+    val state0 = ProjectHelpers.loadTestProject(TestProjectName)
+    val commonOptions = state0.commonOptions.copy(env = ProjectHelpers.runAndTestProperties)
+    val state = state0.copy(commonOptions = commonOptions)
 
     val workerAction: FileWatchingContext => Unit = {
       case (state, project, bloopOut) =>
@@ -126,8 +128,8 @@ class FileWatchingSpec {
         val loggerName = UUID.randomUUID().toString
         val newLogger = BloopLogger.at(loggerName, newOut, newOut)
         val newState = state.copy(logger = newLogger)
-        val commonOptions = cliOptions0.common.copy(out = newOut)
-        val cliOptions = cliOptions0.copy(common = commonOptions, verbose = true)
+        val commonOptions1 = commonOptions.copy(out = newOut)
+        val cliOptions = cliOptions0.copy(common = commonOptions1, verbose = true)
         val cmd = Commands.Test(project.name, watch = true, cliOptions = cliOptions)
         Interpreter.execute(Run(cmd), newState)
         ()

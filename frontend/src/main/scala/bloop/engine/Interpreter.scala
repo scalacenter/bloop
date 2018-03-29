@@ -349,7 +349,8 @@ object Interpreter {
       result
     } catch {
       case NonFatal(t) =>
-        previousState.logger.error(t.getMessage)
+        if (t.getMessage != null)
+          previousState.logger.error(t.getMessage)
         previousState.logger.trace(t)
         previousState
     }

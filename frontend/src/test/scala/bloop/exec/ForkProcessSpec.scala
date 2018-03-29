@@ -42,7 +42,8 @@ class ForkProcessSpec {
       val classpath = project.classpath
       val config = ForkProcess(env, classpath)
       val logger = new RecordingLogger
-      val exitCode = config.runMain(cwdPath, s"$packageName.$mainClassName", args, logger)
+      val userEnv = ProjectHelpers.runAndTestProperties
+      val exitCode = config.runMain(cwdPath, s"$packageName.$mainClassName", args, logger, userEnv)
       val messages = logger.getMessages
       op(exitCode, messages)
     }

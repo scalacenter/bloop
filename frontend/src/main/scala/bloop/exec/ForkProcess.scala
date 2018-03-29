@@ -1,13 +1,13 @@
 package bloop.exec
 
-import java.io.File.{separator, pathSeparator}
+import java.io.File.{pathSeparator, separator}
 import java.lang.ClassLoader
 import java.nio.file.Files
 import java.net.URLClassLoader
+import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.util.control.NonFatal
-
 import bloop.io.AbsolutePath
 import bloop.logging.{Logger, ProcessLogger}
 
@@ -47,6 +47,7 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
               className: String,
               args: Array[String],
               logger: Logger,
+              env: Properties,
               extraClasspath: Array[AbsolutePath] = Array.empty): Int = {
     val fullClasspath = classpath ++ extraClasspath
 
@@ -68,6 +69,9 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
     } else {
       val processBuilder = new ProcessBuilder(cmd: _*)
       processBuilder.directory(cwd.toFile)
+      val processEnv = processBuilder.environment()
+      processEnv.clear()
+      env.forEach { case (k: String, v: String) => processEnv.put(k, v); () }
       val process = processBuilder.start()
       val processLogger = new ProcessLogger(logger, process)
       processLogger.start()
