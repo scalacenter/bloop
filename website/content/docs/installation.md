@@ -89,6 +89,16 @@ $ sbt bloopInstall
 
 The configuration files contain the information of the sbt build at the moment of running `bloopInstall`. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.
 
+#### Support for source dependencies
+
+If you use source dependencies in sbt, add the following setting definition to your `build.sbt`:
+
+```scala
+bloopAggregateSourceDependencies in Global := true
+```
+
+<span class="label warning">Note</span> that `bloopAggregateSourceDependencies` has to be scoped globally.
+
 #### Start bloop
 
 Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.
