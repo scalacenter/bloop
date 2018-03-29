@@ -29,7 +29,7 @@ object IntegrationTestSuite {
 @Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
 class IntegrationTestSuite(testDirectory: Path) {
-  val integrationTestName = testDirectory.getParent.getFileName.toString
+  val integrationTestName = ProjectHelpers.getBaseFromConfigDir(testDirectory).getFileName.toString
 
   def isCommunityBuildEnabled: Boolean = {
     import scala.util.Try

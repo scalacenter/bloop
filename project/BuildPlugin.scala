@@ -367,6 +367,7 @@ object BuildImplementation {
 
     val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
     val buildIndexFile = BuildKeys.buildIntegrationsIndex.value
+    val schemaVersion = BuildKeys.schemaVersion.value
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
     val cacheDirectory = file(stagingBase) / "integrations-cache"
 
@@ -389,7 +390,8 @@ object BuildImplementation {
         val settingsProperty = s"-D${BuildPaths.GlobalSettingsProperty}=${globalSettingsBase}"
         val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
         val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
-        val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: Nil
+        val schemaProperty = s"-Dbloop.integrations.schemaVersion=$schemaVersion"
+        val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: schemaProperty :: Nil
         val toRun = "cleanAllBuilds" :: "bloopInstall" :: "buildIndex" :: Nil
         val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
         val cmd = cmdBase ::: properties ::: toRun

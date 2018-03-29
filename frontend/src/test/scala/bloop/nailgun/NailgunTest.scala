@@ -24,11 +24,11 @@ abstract class NailgunTest {
    * The server is shut down at the end of `op`.
    *
    * @param log  The logger that will receive all produced output.
-   * @param base The base directory in which the client will be.
+   * @param config The config directory in which the client will be.
    * @param op   A function that will receive the instantiated Client.
    * @return The result of executing `op` on the client.
    */
-  def withServer[T](log: RecordingLogger, base: Path)(op: Client => T): T = {
+  def withServer[T](log: RecordingLogger, config: Path)(op: Client => T): T = {
     val oldOut = System.out
     val oldErr = System.err
     val outStream = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
@@ -57,7 +57,7 @@ abstract class NailgunTest {
     serverThread.start()
 
     Thread.sleep(500)
-    val client = new Client(TEST_PORT, log, base)
+    val client = new Client(TEST_PORT, log, config)
     try op(client)
     finally {
       client.success("exit")
@@ -70,13 +70,13 @@ abstract class NailgunTest {
    * Starts a server and provides a client in `base`. A logger that will receive
    * all output will be created and passed to `op`.
    *
-   * @param base The base directory where the client will be.
+   * @param config The config directory where the client will be.
    * @param op   A function that accepts a logger and a client.
    * @return The result of executing `op` on the logger and client.
    */
-  def withServerIn[T](base: Path)(op: (RecordingLogger, Client) => T): T = {
+  def withServerIn[T](config: Path)(op: (RecordingLogger, Client) => T): T = {
     val logger = new RecordingLogger
-    withServer(logger, base)(op(logger, _))
+    withServer(logger, config)(op(logger, _))
   }
 
   /**
@@ -88,7 +88,7 @@ abstract class NailgunTest {
    * @return The result of executing `op` on the logger and client.
    */
   def withServerInProject[T](name: String)(op: (RecordingLogger, Client) => T): T = {
-    withServerIn(ProjectHelpers.getBloopConfigDir(name).getParent)(op)
+    withServerIn(ProjectHelpers.getBloopConfigDir(name))(op)
   }
 
   /**
@@ -97,8 +97,9 @@ abstract class NailgunTest {
    * @param port The port on which the client should communicate with the server.
    * @param base The base directory from which the client is running.
    */
-  case class Client(port: Int, log: RecordingLogger, base: Path) {
-
+  private case class Client(port: Int, log: RecordingLogger, config: Path) {
+    private val base = ProjectHelpers.getBaseFromConfigDir(config)
+    private val configPath = config.toAbsolutePath.toString
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
 
     assert(Files.exists(base), s"Base directory doesn't exist: '$base'.")
@@ -129,7 +130,8 @@ abstract class NailgunTest {
       * @param cmd The command to execute
       * @return The exit code of the operation.
       */
-    def issueAsProcess(cmd: String*): Process = {
+    def issueAsProcess(cmd0: String*): Process = {
+      val cmd = cmd0 ++ List("--config-dir", configPath)
       val builder = processBuilder(cmd)
       val process = builder.start()
       val processLogger = new ProcessLogger(log, process)
