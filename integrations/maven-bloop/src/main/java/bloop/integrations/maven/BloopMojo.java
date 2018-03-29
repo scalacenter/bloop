@@ -22,7 +22,7 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Component
     private MavenPluginManager mavenPluginManager;
 
-    @Parameter(property = "bloop.configDirectory", defaultValue = "${session.executionRootDirectory}/.bloop-config")
+    @Parameter(property = "bloop.configDirectory", defaultValue = "${session.executionRootDirectory}/.bloop")
     private File bloopConfigDir;
 
     @Parameter(property = "scala.artifactID", defaultValue = "scala-compiler")

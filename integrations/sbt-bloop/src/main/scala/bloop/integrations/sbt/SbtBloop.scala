@@ -87,10 +87,10 @@ object PluginImplementation {
       Def.setting {
         (BloopKeys.bloopConfigDir in Global).?.value.getOrElse {
           if (BloopKeys.bloopAggregateSourceDependencies.in(Global).value) {
-            (Keys.baseDirectory in rootBuild).value / ".bloop-config"
+            (Keys.baseDirectory in rootBuild).value / ".bloop"
           } else {
             // We do this so that it works nicely with source dependencies.
-            (Keys.baseDirectory in ref in ThisBuild).value / ".bloop-config"
+            (Keys.baseDirectory in ref in ThisBuild).value / ".bloop"
           }
         }
       }
