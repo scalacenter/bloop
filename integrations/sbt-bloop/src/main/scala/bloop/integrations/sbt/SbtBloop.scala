@@ -60,6 +60,7 @@ object PluginImplementation {
   // We create build setting proxies to global settings so that we get autocompletion (sbt bug)
   val buildSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopInstall := BloopKeys.bloopInstall.in(Global).value,
+    // Bloop users: Do NEVER override this setting as a user if you want it to work
     BloopKeys.bloopAggregateSourceDependencies :=
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
   )
@@ -150,6 +151,7 @@ object PluginImplementation {
       val projectName = nameFromString(project.id, configuration)
       val baseDirectory = Keys.baseDirectory.value.getAbsoluteFile
       val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
+      val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
       // In the test configuration, add a dependency on the base project
       val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
@@ -217,7 +219,15 @@ object PluginImplementation {
       sbt.IO.createDirectory(bloopConfigDir)
       config.writeTo(outFile)
       logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
-      val relativeConfigPath = outFile.relativeTo(buildBaseDirectory).getOrElse(outFile)
+
+      val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
+      // Only shorten path for configuration files written to the the root build
+      val relativeConfigPath = {
+        if (allInRoot || buildBaseDirectory == rootBaseDirectory)
+          outFile.relativeTo(rootBaseDirectory).getOrElse(outFile)
+        else outFile
+      }
+
       logger.success(s"Generated $relativeConfigPath")
       // format: ON
     }
