@@ -35,7 +35,7 @@ Good question! In short, it's not. Read about it in our [Basics]({{< relref
 
 Bloop uses a different classes directory than sbt to avoid synchronization
 and cache invalidation issues. The classes directories for all projects are
-typically stored in the `.bloop-config/` directory, where every project gets
+typically stored in the `.bloop/` directory, where every project gets
 its own folder.
 
 A classes directory is stored in a similar path as sbt: `target/classes`, and

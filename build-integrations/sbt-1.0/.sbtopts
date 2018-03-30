@@ -1,2 +1,2 @@
 # Required because of sbt bug when picking up the property from the working directory
--Dsbt.version=1.1.0
+-Dsbt.version=1.1.1

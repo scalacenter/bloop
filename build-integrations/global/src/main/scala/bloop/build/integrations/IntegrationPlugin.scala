@@ -2,14 +2,13 @@ package bloop.build.integrations
 
 import java.io.File
 
-import bloop.integrations.sbt.{AutoImported => BloopKeys}
-import bloop.integrations.{sbt => sbtbloop}
-import sbt.{AutoPlugin, Def, PluginTrigger, Plugins, Keys}
+import bloop.integrations.sbt.{AutoImported => BloopKeys, SbtBloop}
+import sbt.{AutoPlugin, Def, PluginTrigger, Plugins, Keys, ThisBuild, Global}
 
 object IntegrationPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   override def trigger: PluginTrigger = allRequirements
-  override def requires: Plugins = JvmPlugin
+  override def requires: Plugins = JvmPlugin && SbtBloop
   val autoImport = PluginKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -21,6 +20,7 @@ object IntegrationPlugin extends AutoPlugin {
 }
 
 object PluginKeys {
+  val schemaVersion = Def.settingKey[String]("The schema version")
   val enableIndexCreation = Def.settingKey[Boolean]("Enable index creation")
   val integrationIndex = Def.settingKey[Map[String, File]]("Map of project names and bloop dirs.")
   val buildIndex = Def.taskKey[Unit]("Write our builds to the build index.")
@@ -28,7 +28,13 @@ object PluginKeys {
 }
 
 object PluginImplementation {
-  def globalSettings: Seq[Def.Setting[_]] = Nil
+  def globalSettings: Seq[Def.Setting[_]] = List(
+    PluginKeys.schemaVersion := {
+      Option(System.getProperty("bloop.integrations.schemaVersion"))
+        .getOrElse(sys.error("Schema version is missing!"))
+    }
+  )
+
   def buildSettings: Seq[Def.Setting[_]] = Nil
   def projectSettings: Seq[Def.Setting[_]] = List(
     PluginKeys.integrationIndex := Map.empty,
@@ -51,6 +57,11 @@ object PluginImplementation {
           log.info(s"Deleting bloop config directory ${configDir.getCanonicalFile.getAbsolutePath}")
           sbt.IO.delete(configDir)
       }
+    },
+    BloopKeys.bloopConfigDir := {
+      val oldConfigDir = BloopKeys.bloopConfigDir.value
+      val schemaVersion = PluginKeys.schemaVersion.in(Global).value
+      new sbt.RichFile(oldConfigDir)./(schemaVersion)
     }
   )
 }

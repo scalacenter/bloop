@@ -83,11 +83,21 @@ Once sbt is configured, you can run `bloopInstall` to generate the Bloop configu
 $ sbt bloopInstall
 [info] Loading global plugins from /Users/martin/.sbt/1.0/plugins
 (...)
-[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop-config/foo.config'.
-[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop-config/foo-test.config'.
+[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop/foo.config'.
+[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop/foo-test.config'.
 ```
 
 The configuration files contain the information of the sbt build at the moment of running `bloopInstall`. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.
+
+#### Support for source dependencies
+
+If you use source dependencies in sbt, add the following setting definition to your `build.sbt`:
+
+```scala
+bloopAggregateSourceDependencies in Global := true
+```
+
+<span class="label warning">Note</span> that `bloopAggregateSourceDependencies` has to be scoped globally.
 
 #### Start bloop
 
@@ -136,7 +146,7 @@ bloop has detected in that configuration directory. If you get none, you can che
 
 ```sh
 $ bloop projects --verbose
-[D] Projects loaded from '/my-project/.bloop-config':
+[D] Projects loaded from '/my-project/.bloop':
 foo
 foo-test
 ```

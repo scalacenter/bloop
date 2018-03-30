@@ -23,6 +23,8 @@ object ProjectHelpers {
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
+  def getBaseFromConfigDir(configDir: Path): Path = configDir.getParent.getParent
+
   val RootProject = "target-project"
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],

@@ -199,7 +199,7 @@ object Cli {
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       cliOptions.configDir
         .map(AbsolutePath.apply)
-        .getOrElse(cliOptions.common.workingPath.resolve(".bloop-config"))
+        .getOrElse(cliOptions.common.workingPath.resolve(".bloop"))
     }
 
     val cliOptions = action match {

@@ -14,7 +14,7 @@ import org.langmeta.lsp.LanguageClient
 
 class BspProtocolSpec {
   private final val configDir = AbsolutePath(ProjectHelpers.getBloopConfigDir("utest"))
-  private final val cwd = configDir.getParent
+  private final val cwd = AbsolutePath(ProjectHelpers.getBaseFromConfigDir(configDir.underlying))
   private final val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 

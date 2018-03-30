@@ -22,7 +22,8 @@ libraryDependencies := {
   // We dont' add sbt-coursier to all because of sbt-native-packager issues, sigh
   if (sbtVersion.startsWith("1.")) {
     List(
-      sbtPluginExtra("com.lucidchart" % "sbt-scalafmt" % "1.15", sbtVersion, scalaVersion)
+      sbtPluginExtra("com.lucidchart" % "sbt-scalafmt" % "1.15", sbtVersion, scalaVersion),
+      sbtPluginExtra("com.eed3si9n" % "sbt-assembly" % "0.14.6", sbtVersion, scalaVersion)
     )
   } else {
     List()

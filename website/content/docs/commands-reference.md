@@ -14,7 +14,7 @@ This commands displays all the projects that have been loaded from the current w
 
 ```
 $ bloop projects
-Projects loaded from '/Users/martin/foobar/.bloop-config':
+Projects loaded from '/Users/martin/foobar/.bloop':
  * foobar
  * foobar-test
 ```

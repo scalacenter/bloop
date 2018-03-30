@@ -63,10 +63,10 @@ object BspClientTest {
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
-      val cwd = configDirectory.getParent
+      val cwd = ProjectHelpers.getBaseFromConfigDir(configDirectory.underlying)
       val initializeServer = endpoints.Build.initialize.request(
         InitializeBuildParams(
-          rootUri = cwd.syntax,
+          rootUri = cwd.toAbsolutePath.toString,
           Some(BuildClientCapabilities(List("scala")))
         )
       )
