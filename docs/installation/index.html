@@ -223,11 +223,20 @@ the following to your <code>project/plugins.sbt</code>:</p>
 <pre><code class="language-sh">$ sbt bloopInstall
 [info] Loading global plugins from /Users/martin/.sbt/1.0/plugins
 (...)
-[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop-config/foo.config'.
-[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop-config/foo-test.config'.
+[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop/foo.config'.
+[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop/foo-test.config'.
 </code></pre>
 
 <p>The configuration files contain the information of the sbt build at the moment of running <code>bloopInstall</code>. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.</p>
+
+<h4 id="support-for-source-dependencies">Support for source dependencies</h4>
+
+<p>If you use source dependencies in sbt, add the following setting definition to your <code>build.sbt</code>:</p>
+
+<pre><code class="language-scala">bloopAggregateSourceDependencies in Global := true
+</code></pre>
+
+<p><span class="label warning">Note</span> that <code>bloopAggregateSourceDependencies</code> has to be scoped globally.</p>
 
 <h4 id="start-bloop">Start bloop</h4>
 
@@ -272,7 +281,7 @@ foo-test
 bloop has detected in that configuration directory. If you get none, you can check which configuration directory is bloop loading the projects from with:</p>
 
 <pre><code class="language-sh">$ bloop projects --verbose
-[D] Projects loaded from '/my-project/.bloop-config':
+[D] Projects loaded from '/my-project/.bloop':
 foo
 foo-test
 </code></pre>
