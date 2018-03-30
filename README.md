@@ -8,7 +8,7 @@ Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
 
 <p align="center">
 <img src="https://camo.githubusercontent.com/d04147fe2a1175f2e9b0f873d0045ee2d1aacfd9/68747470733a2f2f63692e7363616c612d6c616e672e6f72672f6170692f6261646765732f7363616c6163656e7465722f626c6f6f702f7374617475732e737667" alt="Build Status" data-canonical-src="https://ci.scala-lang.org/api/badges/scalacenter/bloop/status.svg" style="max-width:100%;">
-<img src="https://camo.githubusercontent.com/9b3d43be69818501c39dc7db170aaf0531cfa363/68747470733a2f2f6261646765732e6769747465722e696d2f7363616c6163656e7465722f626c6f6f702e737667" alt="Join the chat" data-canonical-src="https://badges.gitter.im/scalacenter/bloop.svg" style="max-width:100%;">
+<a href="https://gitter.im/scalacenter/bloop"><img src="https://camo.githubusercontent.com/9b3d43be69818501c39dc7db170aaf0531cfa363/68747470733a2f2f6261646765732e6769747465722e696d2f7363616c6163656e7465722f626c6f6f702e737667" alt="Join the chat" data-canonical-src="https://badges.gitter.im/scalacenter/bloop.svg" style="max-width:100%;"></a>
 </p>
 
 Bloop is a Scala build server and command-line tool to make the compile and
