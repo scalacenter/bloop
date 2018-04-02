@@ -146,21 +146,25 @@ class FileWatchingSpec {
 
         // Wait for #1 compilation to finish
         readCompilingLines(1, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 5 Scala sources to", bloopOut)
+        readCompilingLines(1, "Compiling 6 Scala sources to", bloopOut)
         readCompilingLines(1, "+ is very personal", bloopOut)
         readCompilingLines(1, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(1, "- should be very personal", bloopOut)
-        Thread.sleep(1500)
+        readCompilingLines(1, "Total for specification Specs2Test", bloopOut)
+        readCompilingLines(2, "Terminating test server.", bloopOut)
+        readCompilingLines(1, "File watching 8 directories.", bloopOut)
 
         // Write the contents of a source back to the same source
         Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
 
         // Wait for #2 compilation to finish
         readCompilingLines(2, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 5 Scala sources to", bloopOut)
+        readCompilingLines(1, "Compiling 6 Scala sources to", bloopOut)
         readCompilingLines(2, "+ is very personal", bloopOut)
         readCompilingLines(2, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(2, "- should be very personal", bloopOut)
+        readCompilingLines(2, "Total for specification Specs2Test", bloopOut)
+        readCompilingLines(4, "Terminating test server.", bloopOut)
 
         // Finish source file watching
         workerThread.interrupt()
