@@ -1,6 +1,6 @@
 package bloop.integrations.sbt
 
-import bloop.integrations.{BloopConfig, ClasspathOptions}
+import bloop.config.Config
 import sbt.{
   AutoPlugin,
   Compile,
@@ -149,18 +149,16 @@ object PluginImplementation {
 
       val configuration = Keys.configuration.value
       val projectName = nameFromString(project.id, configuration)
-      val baseDirectory = Keys.baseDirectory.value.getAbsoluteFile
+      val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
       val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
       val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
       // In the test configuration, add a dependency on the base project
       val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
 
-      // TODO: We should extract the right configuration for the dependency.
       val projectDependencies =
-        project.dependencies.map(dep => nameFromRef(dep.project, configuration))
+        project.dependencies.map(dep => nameFromRef(dep.project, configuration)).toList
       val dependencies = projectDependencies ++ baseProjectDependency
-      // TODO: We should extract the right configuration for the aggregate.
       val aggregates = project.aggregate.map(agg => nameFromString(agg.project, configuration))
       val dependenciesAndAggregates = dependencies ++ aggregates
 
@@ -168,19 +166,41 @@ object PluginImplementation {
       val scalaName = "scala-compiler"
       val scalaVersion = Keys.scalaVersion.value
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
-      val allScalaJars = Keys.scalaInstance.value.allJars.map(_.getAbsoluteFile)
-      val classpath = PluginDefaults.emulateDependencyClasspath.value.map(_.getAbsoluteFile)
+      val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toList
+
+      val classpath =
+        PluginDefaults.emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
       val classpathOptions = {
         val cpo = Keys.classpathOptions.value
-        ClasspathOptions(cpo.bootLibrary, cpo.compiler, cpo.extra, cpo.autoBoot, cpo.filterLibrary)
+        Config.ClasspathOptions(cpo.bootLibrary,
+                                cpo.compiler,
+                                cpo.extra,
+                                cpo.autoBoot,
+                                cpo.filterLibrary)
       }
-      val classesDir = AutoImported.bloopProductDirectories.value.head
-      val sourceDirs = Keys.sourceDirectories.value
-      val testFrameworks = Keys.testFrameworks.value.map(_.implClassNames)
-      // TODO(jvican): Override classes directories here too (e.g. plugins are defined in the build)
 
+      val classesDir = AutoImported.bloopProductDirectories.value.head.toPath()
+      val sourceDirs = Keys.sourceDirectories.value.map(_.toPath).toList
+      val testOptions = {
+        val frameworks =
+          Keys.testFrameworks.value.map(f => Config.TestFramework(f.implClassNames.toList)).toList
+        val empty = (List.empty[String], List.empty[Config.TestArgument])
+        val options = Keys.testOptions.value.foldLeft(Config.TestOptions.empty) {
+          case (options, sbt.Tests.Argument(framework0, args)) =>
+            val framework = framework0.map(f => Config.TestFramework(f.implClassNames.toList))
+            options.copy(arguments = Config.TestArgument(args, framework) :: options.arguments)
+          case (options, sbt.Tests.Exclude(tests)) =>
+            options.copy(excludes = tests.toList ++ options.excludes)
+          case (options, other: sbt.TestOption) =>
+            logger.info(s"Skipped test option '${other}' as it can only be used within sbt.")
+            options
+        }
+        Config.Test(frameworks, options)
+      }
+
+      // TODO(jvican): Override classes directories here too (e.g. plugins are defined in the build)
       val scalacOptions = {
-        val scalacOptions0 = Keys.scalacOptions.value
+        val scalacOptions0 = Keys.scalacOptions.value.toList
         val internalClasspath = AutoImported.bloopInternalClasspath.value
         internalClasspath.foldLeft(scalacOptions0) {
           case (scalacOptions, (oldClassesDir, newClassesDir)) =>
@@ -198,26 +218,27 @@ object PluginImplementation {
         }
       }
 
-      val javacOptions = Keys.javacOptions.value
-
+      val javacOptions = Keys.javacOptions.value.toList
       val (javaHome, javaOptions) = javaConfiguration.value
-
-      val tmp = Keys.target.value / "tmp-bloop"
       val outFile = bloopConfigDir / s"$projectName.config"
 
       // Force source generators on this task manually
       Keys.managedSources.value
-
       // Copy the resources, so that they're available when running and testing
       bloopCopyResourcesTask.value
 
       // format: OFF
-      val config = BloopConfig(projectName, baseDirectory, dependenciesAndAggregates, scalaOrg,
-        scalaName, scalaVersion, classpath, classpathOptions,
-        classesDir, scalacOptions, javacOptions, sourceDirs,  testFrameworks, javaHome, javaOptions,
-        allScalaJars, tmp)
+      val config = {
+        val java = Config.Java(javacOptions)
+        val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
+        val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toList)
+        val project = Config.Project(projectName, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, classesDir, `scala`, jvm, java, testOptions)
+        Config.All(Config.All.LatestVersion, project)
+      }
+      // format: ON
+
       sbt.IO.createDirectory(bloopConfigDir)
-      config.writeTo(outFile)
+      Config.All.write(config, outFile.toPath())
       logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
 
       val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
@@ -229,7 +250,6 @@ object PluginImplementation {
       }
 
       logger.success(s"Generated $relativeConfigPath")
-      // format: ON
     }
 
     lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {

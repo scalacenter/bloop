@@ -2,7 +2,7 @@ package bloop.config
 
 import java.nio.file.{Files, Path, Paths}
 
-import Config.{Java, Jvm, Project, Scala, TestArgument, Test, TestFramework, TestOptions}
+import Config._
 import metaconfig.generic.Surface
 import metaconfig.{ConfDecoder, ConfError, Configured, generic}
 
@@ -52,8 +52,18 @@ object ConfigDecoders {
   implicit val scalaConfigDecoder: ConfDecoder[Scala] =
     generic.deriveDecoder[Scala](Scala.empty)
 
+  implicit val classpathOptionsConfigSurface: Surface[ClasspathOptions] =
+    generic.deriveSurface[ClasspathOptions]
+  implicit val classpathOptionsConfigDecoder: ConfDecoder[ClasspathOptions] =
+    generic.deriveDecoder[ClasspathOptions](ClasspathOptions.empty)
+
   implicit val projectConfigSurface: Surface[Project] =
     generic.deriveSurface[Project]
   implicit val projectConfigDecoder: ConfDecoder[Project] =
     generic.deriveDecoder[Project](Project.empty)
+
+  implicit val rootFileConfigSurface: Surface[All] =
+    generic.deriveSurface[All]
+  implicit val rootFileConfigDecoder: ConfDecoder[All] =
+    generic.deriveDecoder[All](All.empty)
 }

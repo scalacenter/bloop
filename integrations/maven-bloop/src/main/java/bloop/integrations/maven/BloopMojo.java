@@ -1,7 +1,6 @@
 package bloop.integrations.maven;
 
-import bloop.integrations.ClasspathOptions;
-
+import bloop.config.Config;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.maven.plugin.MavenPluginManager;
 import org.apache.maven.plugin.MojoExecution;
@@ -76,12 +75,12 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         return bloopConfigDir;
     }
 
-    public ClasspathOptions getClasspathOptions() {
-        return new ClasspathOptions(classpathOptionsBootLibrary,
-                                    classpathOptionsCompiler,
-                                    classpathOptionsExtra,
-                                    classpathOptionsAutoBoot,
-                                    classpathOptionsFilterLibrary);
+    public Config.ClasspathOptions getClasspathOptions() {
+        return new Config.ClasspathOptions(classpathOptionsBootLibrary,
+                                           classpathOptionsCompiler,
+                                           classpathOptionsExtra,
+                                           classpathOptionsAutoBoot,
+                                           classpathOptionsFilterLibrary);
     }
 
     public String getScalaArtifactID() {
