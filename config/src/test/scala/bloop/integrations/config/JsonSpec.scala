@@ -2,26 +2,36 @@ package bloop.integrations.config
 
 import java.nio.file.{Files, Paths}
 
-import bloop.config.Config.{Java, Jvm, Project, Scala, Test, TestOptions}
-import bloop.config.ConfigDecoders.projectConfigDecoder
-import CirceEncoders.projectConfigEncoder
+import bloop.config.Config.{
+  All,
+  ClasspathOptions,
+  Java,
+  Jvm,
+  Project,
+  Scala,
+  TestOptions,
+  Test => ConfigTest
+}
+
+import bloop.config.ConfigDecoders.allConfigDecoder
+import bloop.config.ConfigEncoders.allConfigEncoder
 import metaconfig.{Conf, Configured}
 import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser
 import org.junit.Test
 
 class JsonSpec {
-
-  def parseConfig(config: Project): Unit = {
-    val emptyConfigJson = projectConfigEncoder(config).spaces4
-    val parsedEmptyConfig = projectConfigDecoder.read(Conf.parseString(emptyConfigJson))
-    projectConfigDecoder.read(Conf.parseString(emptyConfigJson)) match {
+  def parseConfig(config: All): Unit = {
+    val jsonConfig = allConfigEncoder(config).spaces4
+    println(jsonConfig)
+    val parsedEmptyConfig = allConfigDecoder.read(Conf.parseString(jsonConfig))
+    allConfigDecoder.read(Conf.parseString(jsonConfig)) match {
       case Configured.Ok(parsed) => assert(config == parsed)
       case Configured.NotOk(error) => sys.error(s"Could not parse simple config: $error")
     }
   }
 
   @Test def testEmptyConfigJson(): Unit = {
-    parseConfig(Project.empty)
+    parseConfig(All.empty)
   }
 
   @Test def testSimpleConfigJson(): Unit = {
@@ -33,19 +43,20 @@ class JsonSpec {
     val classesDir = Files.createTempFile("scala-library", ".jar")
     classesDir.toFile.deleteOnExit()
 
-    val config = Project(
+    val project = Project(
       "dummy-project",
       workingDirectory,
       List(sourceFile),
       List("dummy-2"),
       List(scalaLibraryJar),
+      ClasspathOptions.empty,
       classesDir,
       Scala("org.scala-lang", "scala-compiler", "2.12.4", List("-warn"), List()),
-      Jvm(Some(workingDirectory), Nil),
+      Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil),
       Java(List("-version")),
-      Test(List(), TestOptions(Nil, Nil))
+      ConfigTest(List(), TestOptions(Nil, Nil))
     )
 
-    parseConfig(config)
+    parseConfig(All(All.LatestVersion, project))
   }
 }

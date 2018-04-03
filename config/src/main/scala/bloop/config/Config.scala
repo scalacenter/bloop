@@ -1,6 +1,7 @@
 package bloop.config
 
-import java.nio.file.{Path, Paths}
+import java.nio.charset.Charset
+import java.nio.file.{Files, Path, Paths}
 
 object Config {
   private final val emptyPath = Paths.get("")
@@ -67,10 +68,15 @@ object Config {
 
   case class All(version: String, project: Project)
   object All {
+    final val LatestVersion = "1.0.0"
+
     private[bloop] val empty = All(LatestVersion, Project.empty)
-    final val LatestVersion = "1.0"
+    private final val DefaultCharset = Charset.defaultCharset()
+
     def write(all: All, target: Path): Unit = {
-      ???
+      val contents = ConfigEncoders.allConfigEncoder(all).spaces4
+      Files.write(target, contents.getBytes(DefaultCharset))
+      ()
     }
   }
 }

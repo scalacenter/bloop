@@ -38,8 +38,8 @@ val backend = project
     )
   )
 
-// Needs to be called `configModule` because of naming conflict with sbt universe...
-val configModule = project
+// Needs to be called `jsonConfig` because of naming conflict with sbt universe...
+val jsonConfig = project
   .in(file("config"))
   .settings(testSettings)
   .settings(
@@ -52,16 +52,15 @@ val configModule = project
       Dependencies.metaconfigCore,
       Dependencies.metaconfigDocs,
       Dependencies.metaconfigConfig,
+      Dependencies.circeDerivation,
       Dependencies.scalacheck % Test,
-      Dependencies.circeConfig % Test,
-      Dependencies.circeDerivation % Test,
     )
   )
 
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
-  .dependsOn(backend, backend % "test->test", configModule)
+  .dependsOn(backend, backend % "test->test", jsonConfig)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
@@ -93,7 +92,7 @@ val benchmarks = project
 
 lazy val sbtBloop = project
   .in(file("integrations") / "sbt-bloop")
-  .dependsOn(configModule)
+  .dependsOn(jsonConfig)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
@@ -106,7 +105,7 @@ lazy val sbtBloop = project
 
 val mavenBloop = project
   .in(file("integrations") / "maven-bloop")
-  .dependsOn(configModule)
+  .dependsOn(jsonConfig)
   .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
@@ -119,7 +118,7 @@ val docs = project
     websiteSettings
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, configModule, sbtBloop, mavenBloop)
+val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -140,7 +139,7 @@ val publishLocalCmd = Keys.publishLocal.key.label
 addCommandAlias(
   "install",
   Seq(
-    s"+${configModule.id}/$publishLocalCmd",
+    s"+${jsonConfig.id}/$publishLocalCmd",
     s"^${sbtBloop.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
@@ -153,8 +152,8 @@ val releaseEarlyCmd = releaseEarly.key.label
 val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
-  s"+${configModule.id}/$publishLocalCmd", // Necessary because of a coursier bug?
-  s"+${configModule.id}/$releaseEarlyCmd",
+  s"+${jsonConfig.id}/$publishLocalCmd", // Necessary because of a coursier bug?
+  s"+${jsonConfig.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
 )

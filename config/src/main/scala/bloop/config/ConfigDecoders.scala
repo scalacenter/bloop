@@ -62,8 +62,8 @@ object ConfigDecoders {
   implicit val projectConfigDecoder: ConfDecoder[Project] =
     generic.deriveDecoder[Project](Project.empty)
 
-  implicit val rootFileConfigSurface: Surface[All] =
+  implicit val allConfigSurface: Surface[All] =
     generic.deriveSurface[All]
-  implicit val rootFileConfigDecoder: ConfDecoder[All] =
+  implicit val allConfigDecoder: ConfDecoder[All] =
     generic.deriveDecoder[All](All.empty)
 }

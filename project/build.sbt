@@ -4,6 +4,7 @@ val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
 val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
 val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
 val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % "0.6.0"
+val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 
 val root = project
   .in(file("."))
@@ -47,6 +48,7 @@ val root = project
       metaconfigCore,
       metaconfigDocs,
       metaconfigConfig,
+      circeDerivation
     ),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
     dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)

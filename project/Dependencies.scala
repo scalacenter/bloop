@@ -48,8 +48,7 @@ object Dependencies {
   val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
 
-  val circeConfig = "io.circe" %% "circe-config" % "0.4.1"
-  val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M1"
+  val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
   val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
   val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
   val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
