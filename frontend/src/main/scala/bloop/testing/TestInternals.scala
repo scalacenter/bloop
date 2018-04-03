@@ -68,6 +68,7 @@ object TestInternals {
    * @param discoveredTests The tests that were discovered.
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
+   * @param env             The environment properties to run the program with.
    */
   def executeTasks(cwd: AbsolutePath,
                    fork: ForkProcess,
