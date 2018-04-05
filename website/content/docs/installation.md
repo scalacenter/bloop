@@ -38,7 +38,7 @@ Homebrew also automatically installs completions for zsh and Bash.
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
-<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M7</span>/install.py | python
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M8</span>/install.py | python
 </code></pre>
 
 The installation script will also install completions for zsh and Bash, but
@@ -73,8 +73,7 @@ The sbt plugin is available for both sbt `0.13` and `1.x`. To install it, add
 the following to your `project/plugins.sbt`:
 
 
-<pre><code class="language-scala">addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0-M7</span>")
-</code></pre>
+<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M8</span>"</span>)</code></pre>
 
 
 Once sbt is configured, you can run `bloopInstall` to generate the Bloop configuration:
@@ -89,6 +88,9 @@ $ sbt bloopInstall
 
 Bloop has generated two configuration files, one for the main project and another one for the test project.
 The configuration files contain the information of the sbt build at the moment of running `bloopInstall`.
+
+Head to [Bloop configuration format]({{< ref "configuration-format.md" >}}) to learn more details
+about the format and how to generate it from other tools.
 
 <span class="label warning">Note</span> that the configuration file contains machine-dependent information (the path of every resolved jar), so you must not check it into your version control system.
 
