@@ -3,7 +3,7 @@ weight = 10
 title = "The configuration format"
 date = "2018-02-09T10:15:00+01:00"
 description = "What makes the bloop configuration file? Check out the schema."
-bref = "Learn what makes a bloop configuration file and how to generate it from other tools."
+bref = "Learn what makes a bloop configuration file and how to generate it from other tools"
 toc = true
 draft = false
 +++
