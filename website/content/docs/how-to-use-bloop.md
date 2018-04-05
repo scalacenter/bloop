@@ -45,7 +45,7 @@ same directory where `bloop` is installed. If this is not the case, run `bloop
 If you forget to run the server before using the bloop CLI tool, you'll get the
 following output:
 
-```
+```sh
 > $ bloop help
 Could not connect to server 127.0.0.1:8212
 

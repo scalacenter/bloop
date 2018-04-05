@@ -83,11 +83,14 @@ Once sbt is configured, you can run `bloopInstall` to generate the Bloop configu
 $ sbt bloopInstall
 [info] Loading global plugins from /Users/martin/.sbt/1.0/plugins
 (...)
-[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop/foo.config'.
-[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop/foo-test.config'.
+[success] Generated '/my-project/.bloop/foo.json'.
+[success] Generated '/my-project/.bloop/foo-test.json'.
 ```
 
-The configuration files contain the information of the sbt build at the moment of running `bloopInstall`. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.
+Bloop has generated two configuration files, one for the main project and another one for the test project.
+The configuration files contain the information of the sbt build at the moment of running `bloopInstall`.
+
+<span class="label warning">Note</span> that the configuration file contains machine-dependent information (the path of every resolved jar), so you must not check it into your version control system.
 
 #### Support for source dependencies
 
