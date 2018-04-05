@@ -1,13 +1,13 @@
 package bloop.exec
 
-import java.io.File.{separator, pathSeparator}
+import java.io.File.{pathSeparator, separator}
 import java.lang.ClassLoader
 import java.nio.file.Files
 import java.net.URLClassLoader
+import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.util.control.NonFatal
-
 import bloop.io.AbsolutePath
 import bloop.logging.{Logger, ProcessLogger}
 
@@ -40,6 +40,7 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
    * @param className      The fully qualified name of the class to run.
    * @param args           The arguments to pass to the main method.
    * @param logger         Where to log the messages from execution.
+   * @param properties     The environment properties to run the program with.
    * @param extraClasspath Paths to append to the classpath before running.
    * @return 0 if the execution exited successfully, a non-zero number otherwise.
    */
@@ -47,7 +48,9 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
               className: String,
               args: Array[String],
               logger: Logger,
+              env: Properties,
               extraClasspath: Array[AbsolutePath] = Array.empty): Int = {
+    import scala.collection.JavaConverters.{propertiesAsScalaMap, mapAsJavaMapConverter}
     val fullClasspath = classpath ++ extraClasspath
 
     val java = javaEnv.javaHome.resolve("bin").resolve("java")
@@ -68,6 +71,9 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
     } else {
       val processBuilder = new ProcessBuilder(cmd: _*)
       processBuilder.directory(cwd.toFile)
+      val processEnv = processBuilder.environment()
+      processEnv.clear()
+      processEnv.putAll(propertiesAsScalaMap(env).asJava)
       val process = processBuilder.start()
       val processLogger = new ProcessLogger(logger, process)
       processLogger.start()

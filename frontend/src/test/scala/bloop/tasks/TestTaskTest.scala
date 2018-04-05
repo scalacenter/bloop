@@ -88,7 +88,8 @@ class TestTaskTest(framework: String) {
             Seq(framework -> filteredDefs)
         }.toMap
         val discoveredTests = DiscoveredTests(classLoader, tests)
-        TestInternals.executeTasks(cwd, config, discoveredTests, Tasks.eventHandler, logger)
+        val env = ProjectHelpers.runAndTestProperties
+        TestInternals.executeTasks(cwd, config, discoveredTests, Tasks.eventHandler, logger, env)
       }
     }
   }

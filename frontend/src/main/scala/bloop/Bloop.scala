@@ -1,7 +1,13 @@
 package bloop
 
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{OptionsParser, inputStreamRead, pathParser, printStreamRead}
+import bloop.cli.CliParsers.{
+  OptionsParser,
+  inputStreamRead,
+  pathParser,
+  printStreamRead,
+  propertiesParser
+}
 import bloop.engine.{Build, Exit, Interpreter, NoPool, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
@@ -17,7 +23,8 @@ object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()
 
   override def run(options: CliOptions, remainingArgs: RemainingArgs): Unit = {
-    val configDirectory = options.configDir.map(AbsolutePath.apply).getOrElse(AbsolutePath(".bloop"))
+    val configDirectory =
+      options.configDir.map(AbsolutePath.apply).getOrElse(AbsolutePath(".bloop"))
     val logger = BloopLogger.default(configDirectory.syntax)
     logger.warn("The Nailgun integration should be preferred over the Bloop shell.")
     logger.warn(

@@ -21,7 +21,9 @@ class TestLoggingSpec {
       val beforeCompilation = state.copy(
         build = build.copy(projects = build.projects.map(_.copy(javaEnv = inProcessEnv))))
       val action = Run(Commands.Compile(moduleName))
-      Interpreter.execute(action, beforeCompilation)
+      val state0 = Interpreter.execute(action, beforeCompilation)
+      val commonOptions = state.commonOptions.copy(env = ProjectHelpers.runAndTestProperties)
+      state.copy(commonOptions = commonOptions)
     }
 
     val testAction = Run(Commands.Test(moduleName))

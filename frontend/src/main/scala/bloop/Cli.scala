@@ -26,6 +26,7 @@ object Cli {
       ngout = server.out,
       ngerr = server.err,
       workingDirectory = ngContext.getWorkingDirectory,
+      env = ngContext.getEnv()
     )
     val command = ngContext.getCommand
     val args = {

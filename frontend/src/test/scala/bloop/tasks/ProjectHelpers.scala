@@ -86,6 +86,12 @@ object ProjectHelpers {
     State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
   }
 
+  private[bloop] final val runAndTestProperties = {
+    val props = new java.util.Properties()
+    props.put("BLOOP_OWNER", "owner")
+    props
+  }
+
   /**
    * Compile the given sources and then run `cmd`. Log messages are then given to `check`.
    *
@@ -119,7 +125,8 @@ object ProjectHelpers {
       check: List[(String, String)] => Unit): Unit = {
     val recordingLogger = new RecordingLogger
     val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)
-    val recordingState = state.copy(logger = recordingLogger)
+    val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
+    val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
     val project = getProject(cmd.project, recordingState)
     val _ = Interpreter.execute(Run(cmd), recordingState)
     check(recordingLogger.getMessages)

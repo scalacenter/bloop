@@ -280,7 +280,8 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
-      TestInternals.executeTasks(cwd, processConfig, discoveredTests, eventHandler, logger)
+      val env = state.commonOptions.env
+      TestInternals.executeTasks(cwd, processConfig, discoveredTests, eventHandler, logger, env)
     }
 
     // Return the previous state, test execution doesn't modify it.
@@ -303,7 +304,7 @@ object Tasks {
           args: Array[String]): Task[State] = Task {
     val classpath = project.classpath
     val processConfig = ForkProcess(project.javaEnv, classpath)
-    val exitCode = processConfig.runMain(cwd, fqn, args, state.logger)
+    val exitCode = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions.env)
     val exitStatus = {
       if (exitCode == ForkProcess.EXIT_OK) ExitStatus.Ok
       else ExitStatus.UnexpectedError

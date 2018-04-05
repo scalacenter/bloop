@@ -117,7 +117,9 @@ class FileWatchingSpec {
   def watchTest(): Unit = {
     val TestProjectName = "with-tests"
     val testProject = s"$TestProjectName-test"
-    val state = ProjectHelpers.loadTestProject(TestProjectName)
+    val state0 = ProjectHelpers.loadTestProject(TestProjectName)
+    val commonOptions = state0.commonOptions.copy(env = ProjectHelpers.runAndTestProperties)
+    val state = state0.copy(commonOptions = commonOptions)
 
     val workerAction: FileWatchingContext => Unit = {
       case (state, project, bloopOut) =>
@@ -126,8 +128,8 @@ class FileWatchingSpec {
         val loggerName = UUID.randomUUID().toString
         val newLogger = BloopLogger.at(loggerName, newOut, newOut)
         val newState = state.copy(logger = newLogger)
-        val commonOptions = cliOptions0.common.copy(out = newOut)
-        val cliOptions = cliOptions0.copy(common = commonOptions, verbose = true)
+        val commonOptions1 = commonOptions.copy(out = newOut)
+        val cliOptions = cliOptions0.copy(common = commonOptions1, verbose = true)
         val cmd = Commands.Test(project.name, watch = true, cliOptions = cliOptions)
         Interpreter.execute(Run(cmd), newState)
         ()
@@ -144,21 +146,25 @@ class FileWatchingSpec {
 
         // Wait for #1 compilation to finish
         readCompilingLines(1, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 5 Scala sources to", bloopOut)
+        readCompilingLines(1, "Compiling 6 Scala sources to", bloopOut)
         readCompilingLines(1, "+ is very personal", bloopOut)
         readCompilingLines(1, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(1, "- should be very personal", bloopOut)
-        Thread.sleep(1500)
+        readCompilingLines(1, "Total for specification Specs2Test", bloopOut)
+        readCompilingLines(2, "Terminating test server.", bloopOut)
+        readCompilingLines(1, "File watching 8 directories.", bloopOut)
 
         // Write the contents of a source back to the same source
         Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
 
         // Wait for #2 compilation to finish
         readCompilingLines(2, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 5 Scala sources to", bloopOut)
+        readCompilingLines(1, "Compiling 6 Scala sources to", bloopOut)
         readCompilingLines(2, "+ is very personal", bloopOut)
         readCompilingLines(2, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(2, "- should be very personal", bloopOut)
+        readCompilingLines(2, "Total for specification Specs2Test", bloopOut)
+        readCompilingLines(4, "Terminating test server.", bloopOut)
 
         // Finish source file watching
         workerThread.interrupt()

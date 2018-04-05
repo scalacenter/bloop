@@ -1,6 +1,7 @@
 package bloop.cli
 
 import java.io.{InputStream, PrintStream}
+import java.util.Properties
 
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
@@ -22,6 +23,7 @@ case class CommonOptions(
     @Hidden err: PrintStream = System.err,
     @Hidden ngout: PrintStream = System.out,
     @Hidden ngerr: PrintStream = System.err,
+    @Hidden env: Properties = CommonOptions.currentProperties,
     threads: Int = ExecutionContext.nCPUs
 ) {
   def workingPath: AbsolutePath = AbsolutePath(workingDirectory)
@@ -29,4 +31,10 @@ case class CommonOptions(
 
 object CommonOptions {
   final val default = CommonOptions()
+  final val currentProperties: Properties = {
+    import scala.collection.JavaConverters._
+    System.getenv().asScala.foldLeft(new Properties()) {
+      case (props, (key, value)) => props.setProperty(key, value); props
+    }
+  }
 }

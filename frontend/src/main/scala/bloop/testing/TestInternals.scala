@@ -1,23 +1,17 @@
 package bloop.testing
 
+import java.util.Properties
 import java.util.regex.Pattern
 
 import bloop.DependencyResolution
 import bloop.exec.{ForkProcess, JavaEnv}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import sbt.testing.{
-  AnnotatedFingerprint,
-  EventHandler,
-  Fingerprint,
-  Framework,
-  SubclassFingerprint,
-  Task => TestTask
-}
+import sbt.testing.{AnnotatedFingerprint, EventHandler, Fingerprint, Framework, SubclassFingerprint, Task => TestTask}
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
-import sbt.testing.{Framework, Task => TestTask, TaskDef}
+import sbt.testing.{Framework, TaskDef, Task => TestTask}
 import xsbt.api.Discovered
 import xsbti.api.ClassLike
 import xsbti.compile.CompileAnalysis
@@ -74,12 +68,14 @@ object TestInternals {
    * @param discoveredTests The tests that were discovered.
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
+   * @param env             The environment properties to run the program with.
    */
   def executeTasks(cwd: AbsolutePath,
                    fork: ForkProcess,
                    discoveredTests: DiscoveredTests,
                    eventHandler: EventHandler,
-                   logger: Logger): Unit = {
+                   logger: Logger,
+                   env: Properties): Unit = {
     logger.debug("Starting forked test execution.")
 
     val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
@@ -91,7 +87,7 @@ object TestInternals {
     logger.debug("Test agent jars: " + testAgentFiles.mkString(", "))
 
     val exitCode = server.whileRunning {
-      fork.runMain(cwd, forkMain, arguments, logger, testAgentJars)
+      fork.runMain(cwd, forkMain, arguments, logger, env, testAgentJars)
     }
 
     if (exitCode != 0) logger.error(s"Forked execution terminated with non-zero code: $exitCode")
