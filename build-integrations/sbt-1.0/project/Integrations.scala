@@ -3,7 +3,7 @@ import sbt.{RootProject, uri}
 object Integrations {
 
   val SbtSbt = RootProject(
-    uri("git://github.com/scalacenter/sbt.git#c84db3a3969e269aeed0e9d9f2f384a0b029b82c"))
+    uri("git://github.com/scalacenter/sbt.git#fd66dfa1d40a01634f8ce65e299ce7a27cdb247c"))
   val GuardianFrontend = RootProject(
     uri("git://github.com/scalacenter/frontend.git#fd8da1929d8a3bd39ca6027ffba6c0850e036ce3"))
   val MiniBetterFiles = RootProject(uri(

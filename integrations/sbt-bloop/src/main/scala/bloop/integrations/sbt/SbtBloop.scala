@@ -158,18 +158,19 @@ object PluginImplementation {
 
       val projectDependencies =
         project.dependencies.map(dep => nameFromRef(dep.project, configuration)).toList
-      val dependencies = projectDependencies ++ baseProjectDependency
+      val dependencies = (projectDependencies ++ baseProjectDependency).toArray
       val aggregates = project.aggregate.map(agg => nameFromString(agg.project, configuration))
       val dependenciesAndAggregates = dependencies ++ aggregates
 
       val bloopConfigDir = BloopKeys.bloopConfigDir.value
+      val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
       val scalaName = "scala-compiler"
       val scalaVersion = Keys.scalaVersion.value
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
-      val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toList
+      val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toArray
 
       val classpath =
-        PluginDefaults.emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
+        PluginDefaults.emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toArray
       val classpathOptions = {
         val cpo = Keys.classpathOptions.value
         Config.ClasspathOptions(cpo.bootLibrary,
@@ -180,13 +181,14 @@ object PluginImplementation {
       }
 
       val classesDir = AutoImported.bloopProductDirectories.value.head.toPath()
-      val sourceDirs = Keys.sourceDirectories.value.map(_.toPath).toList
+      val sourceDirs = Keys.sourceDirectories.value.map(_.toPath).toArray
       val testOptions = {
         val frameworks =
-          Keys.testFrameworks.value.map(f => Config.TestFramework(f.implClassNames.toList)).toList
+          Keys.testFrameworks.value.map(f => Config.TestFramework(f.implClassNames.toList)).toArray
         val empty = (List.empty[String], List.empty[Config.TestArgument])
         val options = Keys.testOptions.value.foldLeft(Config.TestOptions.empty) {
-          case (options, sbt.Tests.Argument(framework0, args)) =>
+          case (options, sbt.Tests.Argument(framework0, args0)) =>
+            val args = args0.toArray
             val framework = framework0.map(f => Config.TestFramework(f.implClassNames.toList))
             options.copy(arguments = Config.TestArgument(args, framework) :: options.arguments)
           case (options, sbt.Tests.Exclude(tests)) =>
@@ -200,7 +202,7 @@ object PluginImplementation {
 
       // TODO(jvican): Override classes directories here too (e.g. plugins are defined in the build)
       val scalacOptions = {
-        val scalacOptions0 = Keys.scalacOptions.value.toList
+        val scalacOptions0 = Keys.scalacOptions.value.toArray
         val internalClasspath = AutoImported.bloopInternalClasspath.value
         internalClasspath.foldLeft(scalacOptions0) {
           case (scalacOptions, (oldClassesDir, newClassesDir)) =>
@@ -218,9 +220,9 @@ object PluginImplementation {
         }
       }
 
-      val javacOptions = Keys.javacOptions.value.toList
+      val javacOptions = Keys.javacOptions.value.toArray
       val (javaHome, javaOptions) = javaConfiguration.value
-      val outFile = bloopConfigDir / s"$projectName.config"
+      val outFile = bloopConfigDir / s"$projectName.json"
 
       // Force source generators on this task manually
       Keys.managedSources.value
@@ -231,14 +233,14 @@ object PluginImplementation {
       val config = {
         val java = Config.Java(javacOptions)
         val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
-        val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toList)
-        val project = Config.Project(projectName, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, classesDir, `scala`, jvm, java, testOptions)
-        Config.All(Config.All.LatestVersion, project)
+        val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
+        val project = Config.Project(projectName, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, out, classesDir, `scala`, jvm, java, testOptions)
+        Config.File(Config.File.LatestVersion, project)
       }
       // format: ON
 
       sbt.IO.createDirectory(bloopConfigDir)
-      Config.All.write(config, outFile.toPath())
+      Config.File.write(config, outFile.toPath())
       logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
 
       val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value

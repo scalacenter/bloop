@@ -8,8 +8,8 @@ import org.junit.experimental.categories.Category
 
 import bloop.logging.RecordingLogger
 import bloop.io.AbsolutePath
-import bloop.tasks.ProjectHelpers
-import bloop.tasks.ProjectHelpers.withTemporaryDirectory
+import bloop.tasks.TestUtil
+import bloop.tasks.TestUtil.withTemporaryDirectory
 
 @Category(Array(classOf[bloop.FastTests]))
 class ForkProcessSpec {
@@ -32,17 +32,17 @@ class ForkProcessSpec {
 
   val dependencies = Map.empty[String, Set[String]]
   val runnableProject = Map(
-    ProjectHelpers.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
+    TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
 
   private def run(cwd: Path, args: Array[String])(op: (Int, List[(String, String)]) => Unit): Unit =
-    ProjectHelpers.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
+    TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
       val cwdPath = AbsolutePath(cwd)
-      val project = ProjectHelpers.getProject(ProjectHelpers.RootProject, state)
+      val project = TestUtil.getProject(TestUtil.RootProject, state)
       val env = JavaEnv.default
       val classpath = project.classpath
       val config = ForkProcess(env, classpath)
       val logger = new RecordingLogger
-      val userEnv = ProjectHelpers.runAndTestProperties
+      val userEnv = TestUtil.runAndTestProperties
       val exitCode = config.runMain(cwdPath, s"$packageName.$mainClassName", args, logger, userEnv)
       val messages = logger.getMessages
       op(exitCode, messages)

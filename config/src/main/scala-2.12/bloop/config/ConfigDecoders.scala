@@ -2,7 +2,7 @@ package bloop.config
 
 import java.nio.file.{Files, Path, Paths}
 
-import Config._
+import bloop.config.Config._
 import metaconfig.generic.Surface
 import metaconfig.{ConfDecoder, ConfError, Configured, generic}
 
@@ -11,8 +11,7 @@ import scala.util.{Failure, Success, Try}
 object ConfigDecoders {
   implicit val pathDecoder: ConfDecoder[Path] = ConfDecoder.stringConfDecoder.flatMap { str =>
     Try(Paths.get(str)) match {
-      case Success(path) if Files.exists(path) => Configured.Ok(path)
-      case Success(path) => ConfError.fileDoesNotExist(path).notOk
+      case Success(path) => Configured.Ok(path)
       case Failure(t) => Configured.error(s"Invalid path '$str' failed with '${t.getMessage}'")
     }
   }
@@ -30,17 +29,17 @@ object ConfigDecoders {
   implicit val testFrameworkConfigSurface: Surface[TestFramework] =
     generic.deriveSurface[TestFramework]
   implicit val testFrameworkConfigDecoder: ConfDecoder[TestFramework] =
-    generic.deriveDecoder[TestFramework](TestFramework(Nil))
+    generic.deriveDecoder[TestFramework](TestFramework.empty)
 
   implicit val testArgumentConfigSurface: Surface[TestArgument] =
     generic.deriveSurface[TestArgument]
   implicit val testArgumentConfigDecoder: ConfDecoder[TestArgument] =
-    generic.deriveDecoder[TestArgument](TestArgument(Nil, None))
+    generic.deriveDecoder[TestArgument](TestArgument.empty)
 
   implicit val testOptionsConfigSurface: Surface[TestOptions] =
     generic.deriveSurface[TestOptions]
   implicit val testOptionsConfigDecoder: ConfDecoder[TestOptions] =
-    generic.deriveDecoder[TestOptions](TestOptions(Nil, Nil))
+    generic.deriveDecoder[TestOptions](TestOptions.empty)
 
   implicit val testConfigSurface: Surface[Test] =
     generic.deriveSurface[Test]
@@ -62,8 +61,8 @@ object ConfigDecoders {
   implicit val projectConfigDecoder: ConfDecoder[Project] =
     generic.deriveDecoder[Project](Project.empty)
 
-  implicit val allConfigSurface: Surface[All] =
-    generic.deriveSurface[All]
-  implicit val allConfigDecoder: ConfDecoder[All] =
-    generic.deriveDecoder[All](All.empty)
+  implicit val allConfigSurface: Surface[File] =
+    generic.deriveSurface[File]
+  implicit val allConfigDecoder: ConfDecoder[File] =
+    generic.deriveDecoder[File](File.empty)
 }

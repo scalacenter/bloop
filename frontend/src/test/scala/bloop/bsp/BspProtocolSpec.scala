@@ -6,15 +6,15 @@ import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.Run
 import bloop.io.AbsolutePath
-import bloop.tasks.ProjectHelpers
+import bloop.tasks.TestUtil
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
 import org.langmeta.lsp.LanguageClient
 
 class BspProtocolSpec {
-  private final val configDir = AbsolutePath(ProjectHelpers.getBloopConfigDir("utest"))
-  private final val cwd = AbsolutePath(ProjectHelpers.getBaseFromConfigDir(configDir.underlying))
+  private final val configDir = AbsolutePath(TestUtil.getBloopConfigDir("utest"))
+  private final val cwd = AbsolutePath(TestUtil.getBaseFromConfigDir(configDir.underlying))
   private final val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 

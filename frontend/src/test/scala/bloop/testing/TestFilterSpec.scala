@@ -6,7 +6,7 @@ import org.junit.Assert.{assertFalse, assertTrue}
 import bloop.engine.{Interpreter, Run}
 import bloop.cli.Commands
 import bloop.logging.RecordingLogger
-import bloop.tasks.ProjectHelpers
+import bloop.tasks.TestUtil
 
 class TestFilterSpec {
 
@@ -98,9 +98,9 @@ class TestFilterSpec {
     val logger = new RecordingLogger
     val projectName = "with-tests"
     val testName = "hello.ScalaTestTest"
-    val state = ProjectHelpers.loadTestProject(projectName).copy(logger = logger)
+    val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
     val command = Run(Commands.Test(projectName, only = testName :: Nil))
-    val newState = Interpreter.execute(command, state)
+    val newState = TestUtil.blockingExecute(command, state)
     assertTrue("Test execution failed.", newState.status.isOk)
     val messages = logger.getMessages
     assertTrue(
@@ -118,9 +118,9 @@ class TestFilterSpec {
     val projectName = "with-tests"
     val testName = "hello.ScalaTestTest"
     val exclusionFilter = s"-$testName"
-    val state = ProjectHelpers.loadTestProject(projectName).copy(logger = logger)
+    val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
     val command = Run(Commands.Test(projectName, only = exclusionFilter :: Nil))
-    val newState = Interpreter.execute(command, state)
+    val newState = TestUtil.blockingExecute(command, state)
     assertTrue("Test execution failed.", newState.status.isOk)
     val messages = logger.getMessages
     assertTrue(
@@ -138,10 +138,10 @@ class TestFilterSpec {
     val projectName = "with-tests"
     val exclusionFilter = "-hello.ScalaTest*"
     val inclusionFilter = "hello.*a*"
-    val state = ProjectHelpers.loadTestProject(projectName).copy(logger = logger)
+    val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
     val command = Run(
       Commands.Test(projectName, only = exclusionFilter :: inclusionFilter :: Nil))
-    val newState = Interpreter.execute(command, state)
+    val newState = TestUtil.blockingExecute(command, state)
     assertTrue("Test execution failed.", newState.status.isOk)
     val messages = logger.getMessages
 

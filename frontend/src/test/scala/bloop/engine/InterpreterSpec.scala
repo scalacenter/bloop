@@ -5,20 +5,20 @@ import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
 import bloop.logging.BloopLogger
-import bloop.tasks.ProjectHelpers
+import bloop.tasks.TestUtil
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import guru.nidi.graphviz.parse.Parser
 
 @Category(Array(classOf[bloop.FastTests]))
 class InterpreterSpec {
-  private final val initialState = ProjectHelpers.loadTestProject("sbt")
+  private final val initialState = TestUtil.loadTestProject("sbt")
   import InterpreterSpec.changeOut
 
   @Test def ShowDotGraphOfSbtProjects(): Unit = {
     val (state, cliOptions, outStream) = changeOut(initialState)
     val action = Run(Commands.Projects(dotGraph = true, cliOptions))
-    Interpreter.execute(action, state)
+    TestUtil.blockingExecute(action, state)
 
     val dotGraph = outStream.toString("UTF-8")
     val graph = Parser.read(dotGraph)
@@ -29,7 +29,7 @@ class InterpreterSpec {
   @Test def ShowProjectsInCustomCommonOptions(): Unit = {
     val (state, cliOptions, outStream) = changeOut(initialState)
     val action = Run(Commands.Projects(cliOptions = cliOptions))
-    Interpreter.execute(action, state)
+    TestUtil.blockingExecute(action, state)
     val output = outStream.toString("UTF-8")
     assert(output.contains("sbtRoot"), "Loaded projects were not shown on the logger.")
   }
@@ -37,7 +37,7 @@ class InterpreterSpec {
   @Test def ShowAbout(): Unit = {
     val (state, cliOptions, outStream) = changeOut(initialState)
     val action = Run(Commands.About(cliOptions = cliOptions))
-    Interpreter.execute(action, state)
+    TestUtil.blockingExecute(action, state)
     val output = outStream.toString("UTF-8")
     assert(output.contains("Bloop-frontend version"))
     assert(output.contains("Zinc version"))
@@ -49,15 +49,15 @@ class InterpreterSpec {
   @Test def SupportDynamicCoreSetup(): Unit = {
     val (state, cliOptions, outStream) = changeOut(initialState)
     val action1 = Run(Commands.Configure(cliOptions = cliOptions))
-    val state1 = Interpreter.execute(action1, state)
+    val state1 = TestUtil.blockingExecute(action1, state)
     val output1 = outStream.toString("UTF-8")
     // Make sure that threads are set to 6.
     assert(!output1.contains("Reconfiguring the number of bloop threads to 4."))
 
     val action2 = Run(Commands.Configure(threads = 6, cliOptions = cliOptions))
-    val state2 = Interpreter.execute(action2, state1)
+    val state2 = TestUtil.blockingExecute(action2, state1)
     val action3 = Run(Commands.Configure(threads = 4, cliOptions = cliOptions))
-    val _ = Interpreter.execute(action3, state2)
+    val _ = TestUtil.blockingExecute(action3, state2)
     val output23 = outStream.toString("UTF-8")
 
     // Make sure that threads are set to 6.

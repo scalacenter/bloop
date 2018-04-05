@@ -18,7 +18,7 @@ import bloop.io.AbsolutePath
 import xsbti.compile.ClasspathOptionsUtil
 
 object IntegrationTestSuite {
-  val projects = ProjectHelpers.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
+  val projects = TestUtil.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
@@ -29,7 +29,7 @@ object IntegrationTestSuite {
 @Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
 class IntegrationTestSuite(testDirectory: Path) {
-  val integrationTestName = ProjectHelpers.getBaseFromConfigDir(testDirectory).getFileName.toString
+  val integrationTestName = TestUtil.getBaseFromConfigDir(testDirectory).getFileName.toString
 
   def isCommunityBuildEnabled: Boolean = {
     import scala.util.Try
@@ -44,6 +44,7 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
     bool(sys.props.getOrElse("run.community.build", "false"))
+    true
   }
 
   @Test
@@ -52,7 +53,7 @@ class IntegrationTestSuite(testDirectory: Path) {
   }
 
   def compileProject0: Unit = {
-    val state0 = ProjectHelpers.loadTestProject(testDirectory, integrationTestName)
+    val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName)
     val (initialState, projectToCompile) = getModuleToCompile(testDirectory) match {
       case Some(projectName) =>
         (state0, state0.build.getProjectFor(projectName).get)
@@ -75,10 +76,9 @@ class IntegrationTestSuite(testDirectory: Path) {
           scalacOptions = Array.empty,
           javacOptions = Array.empty,
           sourceDirectories = Array.empty,
-          tmp = classesDir,
           testFrameworks = Array.empty,
           javaEnv = javaEnv,
-          bloopConfigDir = classesDir
+          out = classesDir
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
@@ -89,20 +89,20 @@ class IntegrationTestSuite(testDirectory: Path) {
     val reachable =
       Dag.dfs(initialState.build.getDagFor(projectToCompile)).filter(_ != projectToCompile)
     val cleanAction = Run(Commands.Clean(reachable.map(_.name)), Exit(ExitStatus.Ok))
-    val state = Interpreter.execute(cleanAction, initialState)
+    val state = TestUtil.blockingExecute(cleanAction, initialState)
 
     reachable.foreach(removeClassFiles)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` is already compiled.",
-                 ProjectHelpers.noPreviousResult(p, state))
+                 TestUtil.noPreviousResult(p, state))
     }
 
     val action =
       Run(Commands.Compile(projectToCompile.name, incremental = true), Exit(ExitStatus.Ok))
-    val state1 = Interpreter.execute(action, state)
+    val state1 = TestUtil.blockingExecute(action, state)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",
-                 ProjectHelpers.hasPreviousResult(p, state1))
+                 TestUtil.hasPreviousResult(p, state1))
     }
   }
 

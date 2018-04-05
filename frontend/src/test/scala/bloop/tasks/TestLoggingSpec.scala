@@ -15,14 +15,14 @@ class TestLoggingSpec {
     val projectName = "with-tests"
     val moduleName = "with-tests-test"
     val state = {
-      val state = ProjectHelpers.loadTestProject(projectName)
+      val state = TestUtil.loadTestProject(projectName)
       val inProcessEnv = JavaEnv.default
       val build = state.build
       val beforeCompilation = state.copy(
         build = build.copy(projects = build.projects.map(_.copy(javaEnv = inProcessEnv))))
       val action = Run(Commands.Compile(moduleName))
-      val state0 = Interpreter.execute(action, beforeCompilation)
-      val commonOptions = state.commonOptions.copy(env = ProjectHelpers.runAndTestProperties)
+      val state0 = TestUtil.blockingExecute(action, beforeCompilation)
+      val commonOptions = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
       state.copy(commonOptions = commonOptions)
     }
 
@@ -30,7 +30,7 @@ class TestLoggingSpec {
     def mkThread(state: State) = {
       new Thread {
         override def run(): Unit = {
-          Interpreter.execute(testAction, state)
+          TestUtil.blockingExecute(testAction, state)
           ()
         }
       }

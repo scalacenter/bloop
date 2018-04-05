@@ -2,9 +2,9 @@ package bloop.config
 
 import java.nio.file.Path
 
-import io.circe.{Json, ObjectEncoder, RootEncoder}
-import io.circe.derivation.deriveEncoder
 import bloop.config.Config._
+import io.circe.derivation.deriveEncoder
+import io.circe.{Json, ObjectEncoder, RootEncoder}
 
 object ConfigEncoders {
   implicit val pathEncoder: RootEncoder[Path] = new RootEncoder[Path] {
@@ -20,5 +20,5 @@ object ConfigEncoders {
   implicit val classpathOptionsEncoder: ObjectEncoder[ClasspathOptions] = deriveEncoder
   implicit val scalaConfigEncoder: ObjectEncoder[Scala] = deriveEncoder
   implicit val projectConfigEncoder: ObjectEncoder[Project] = deriveEncoder
-  implicit val allConfigEncoder: ObjectEncoder[All] = deriveEncoder
+  implicit val allConfigEncoder: ObjectEncoder[File] = deriveEncoder
 }

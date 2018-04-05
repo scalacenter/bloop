@@ -1,135 +1,127 @@
 package bloop
 
-import java.nio.file.{Files, Paths => NioPaths}
-import java.util.Properties
-
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.Timer.timed
 import bloop.logging.Logger
 import xsbti.compile.ClasspathOptions
+import _root_.monix.eval.Task
+import bloop.config.{Config, ConfigDecoders}
+import metaconfig.{Conf, Configured}
+import org.langmeta.inputs.Input
 
-import scala.util.control.NoStackTrace
-
-case class Project(name: String,
-                   baseDirectory: AbsolutePath,
-                   dependencies: Array[String],
-                   scalaInstance: ScalaInstance,
-                   rawClasspath: Array[AbsolutePath],
-                   classpathOptions: ClasspathOptions,
-                   classesDir: AbsolutePath,
-                   scalacOptions: Array[String],
-                   javacOptions: Array[String],
-                   sourceDirectories: Array[AbsolutePath],
-                   testFrameworks: Array[Array[String]],
-                   javaEnv: JavaEnv,
-                   tmp: AbsolutePath,
-                   bloopConfigDir: AbsolutePath) {
+final case class Project(
+    name: String,
+    baseDirectory: AbsolutePath,
+    dependencies: Array[String],
+    scalaInstance: ScalaInstance,
+    rawClasspath: Array[AbsolutePath],
+    classpathOptions: ClasspathOptions,
+    classesDir: AbsolutePath,
+    scalacOptions: Array[String],
+    javacOptions: Array[String],
+    sourceDirectories: Array[AbsolutePath],
+    testFrameworks: Array[Config.TestFramework],
+    javaEnv: JavaEnv,
+    out: AbsolutePath
+) {
   override def toString: String = s"$name"
 
   /** This project's full classpath (classes directory and raw classpath) */
-  val classpath: Array[AbsolutePath] = {
-    classesDir +: rawClasspath
-  }
+  val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
 }
 
 object Project {
 
   /** The pattern used to find configuration files */
-  final val loadPattern: String = "glob:**.config"
+  final val loadPattern: String = "glob:**.json"
 
   /** The maximum number of directory levels to traverse to find configuration files. */
   final val loadDepth: Int = 1
 
+  private def loadAllFiles(configRoot: AbsolutePath): Array[AbsolutePath] =
+    Paths.getAll(configRoot, loadPattern, maxDepth = loadDepth)
+
   /**
-   * Load all the projects from `config`.
+   * Load all the projects from `config` in a parallel, lazy fashion via monix Task.
    *
-   * @param config The base directory from which to load the projects.
+   * @param configRoot The base directory from which to load the projects.
    * @param logger The logger that collects messages about project loading.
    * @return The list of loaded projects.
    */
-  def fromDir(config: AbsolutePath, logger: Logger): List[Project] = {
+  def lazyLoadFromDir(configRoot: AbsolutePath, logger: Logger): Task[List[Project]] = {
     timed(logger) {
       // TODO: We're not handling projects with duplicated names here.
-      val configFiles = Paths.getAll(config, loadPattern, maxDepth = loadDepth)
-      logger.debug(s"Loading ${configFiles.length} projects from '${config.syntax}'...")
-      configFiles.par.map(configFile => fromFile(configFile, logger)).toList
+      val configFiles = loadAllFiles(configRoot)
+      logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
+      val all = configFiles.iterator.map(configFile => Task(fromFile(configFile, logger))).toList
+      Task.gatherUnordered(all)
     }
+  }
+
+  /**
+   * Load all the projects from `config` in an eager fashion.
+   *
+   * Useful only for testing purposes, it's the counterpart of [[lazyLoadFromDir()]].
+   *
+   * @param configRoot The base directory from which to load the projects.
+   * @param logger The logger that collects messages about project loading.
+   * @return The list of loaded projects.
+   */
+  def eagerLoadFromDir(configRoot: AbsolutePath, logger: Logger): List[Project] = {
+    val configFiles = loadAllFiles(configRoot)
+    logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
+    configFiles.iterator.map(configFile => fromFile(configFile, logger)).toList
+  }
+
+  def fromConfig(file: Config.File, logger: Logger): Project = {
+    val project = file.project
+    val scala = project.`scala`
+    val scalaJars = scala.jars.map(AbsolutePath.apply).toArray
+    val instance = ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
+
+    val classpathOptions = {
+      val opts = project.classpathOptions
+      ClasspathOptions.of(
+        opts.bootLibrary,
+        opts.compiler,
+        opts.extra,
+        opts.autoBoot,
+        opts.filterLibrary
+      )
+    }
+
+    // Replace `JavaEnv` by `Config.Jvm`?
+    val jvm = project.jvm
+    val jvmHome = jvm.home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
+    val javaEnv = JavaEnv(jvmHome, jvm.options)
+
+    Project(
+      project.name,
+      AbsolutePath(project.directory),
+      project.dependencies.toArray,
+      instance,
+      project.classpath.map(AbsolutePath.apply).toArray,
+      classpathOptions,
+      AbsolutePath(project.classesDir),
+      scala.options.toArray,
+      project.java.options.toArray,
+      project.sources.map(AbsolutePath.apply).toArray,
+      project.test.frameworks,
+      javaEnv,
+      AbsolutePath(project.out)
+    )
   }
 
   private[bloop] def fromFile(config: AbsolutePath, logger: Logger): Project = {
+    import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser
     logger.debug(s"Loading project from '$config'")
     val configFilepath = config.underlying
-    val properties = new Properties()
-    val inputStream = Files.newInputStream(configFilepath)
-    try properties.load(inputStream)
-    finally inputStream.close
-    fromProperties(properties, config, logger)
-  }
-
-  private class MissingFieldError(fieldName: String, config: AbsolutePath)
-      extends Exception(
-        s"""The field '$fieldName' is missing in '${config.syntax}'.
-           |Please export your project again from your build tool (e.g. `bloopInstall`).
-           |Check the installation page for further information: https://scalacenter.github.io/bloop/docs/installation""".stripMargin
-      ) with NoStackTrace
-
-  def fromProperties(properties: Properties, config: AbsolutePath, logger: Logger): Project = {
-    def toPaths(line: String) = line.split(",").map(toPath)
-    def toPath(line: String) = AbsolutePath(NioPaths.get(line))
-    val name = properties.getProperty("name")
-    val baseDirectory = toPath(properties.getProperty("baseDirectory"))
-    val dependencies =
-      properties.getProperty("dependencies").split(",").filterNot(_.isEmpty)
-    val scalaOrganization = properties.getProperty("scalaOrganization")
-    val allScalaJars = toPaths(properties.getProperty("allScalaJars"))
-    val scalaName = properties.getProperty("scalaName")
-    val scalaVersion = properties.getProperty("scalaVersion")
-    val scalaInstance =
-      ScalaInstance(scalaOrganization, scalaName, scalaVersion, allScalaJars, logger)
-    val classpath = toPaths(properties.getProperty("classpath"))
-    val classesDir = toPath(properties.getProperty("classesDir"))
-    val classpathOptions = {
-      val opts = properties.getProperty("classpathOptions")
-      // Protecting our users from breaking changes in the configuration file format.
-      if (opts == null) throw new MissingFieldError("classpathOptions", config)
-      else {
-        val values = opts.split(",")
-        val Array(bootLibrary, compiler, extra, autoBoot, filterLibrary) =
-          values.map(java.lang.Boolean.parseBoolean)
-        ClasspathOptions.of(bootLibrary, compiler, extra, autoBoot, filterLibrary)
-      }
+    val input = Input.File(configFilepath)
+    val configured = Conf.parseInput(input)(typesafeConfigMetaconfigParser)
+    ConfigDecoders.allConfigDecoder.read(configured) match {
+      case Configured.Ok(file) => Project.fromConfig(file, logger)
+      case Configured.NotOk(error) => sys.error(error.toString())
     }
-    val scalacOptions =
-      properties.getProperty("scalacOptions").split(";").filterNot(_.isEmpty)
-    val javacOptions =
-      properties.getProperty("javacOptions").split(";").filterNot(_.isEmpty)
-    val sourceDirectories = properties
-      .getProperty("sourceDirectories")
-      .split(",")
-      .filterNot(_.isEmpty)
-      .map(toPath)
-    val testFrameworks =
-      properties.getProperty("testFrameworks").split(";").map(_.split(",").filterNot(_.isEmpty))
-    val javaHome = toPath(properties.getProperty("javaHome"))
-    val javaOptions = properties.getProperty("javaOptions").split(";").filterNot(_.isEmpty)
-    val javaEnv = JavaEnv(javaHome, javaOptions)
-    val tmp = AbsolutePath(NioPaths.get(properties.getProperty("tmp")))
-    Project(
-      name,
-      baseDirectory,
-      dependencies,
-      scalaInstance,
-      classpath,
-      classpathOptions,
-      classesDir,
-      scalacOptions,
-      javacOptions,
-      sourceDirectories,
-      testFrameworks,
-      javaEnv,
-      tmp,
-      config
-    )
   }
 }

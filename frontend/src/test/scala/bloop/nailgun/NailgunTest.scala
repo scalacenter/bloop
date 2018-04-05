@@ -9,7 +9,7 @@ import java.util.Locale
 import bloop.Server
 import bloop.bsp.BspServer
 import bloop.logging.{ProcessLogger, RecordingLogger}
-import bloop.tasks.ProjectHelpers
+import bloop.tasks.TestUtil
 import com.martiansoftware.nailgun.NGServer
 
 /**
@@ -88,7 +88,7 @@ abstract class NailgunTest {
    * @return The result of executing `op` on the logger and client.
    */
   def withServerInProject[T](name: String)(op: (RecordingLogger, Client) => T): T = {
-    withServerIn(ProjectHelpers.getBloopConfigDir(name))(op)
+    withServerIn(TestUtil.getBloopConfigDir(name))(op)
   }
 
   /**
@@ -98,7 +98,7 @@ abstract class NailgunTest {
    * @param base The base directory from which the client is running.
    */
   private case class Client(port: Int, log: RecordingLogger, config: Path) {
-    private val base = ProjectHelpers.getBaseFromConfigDir(config)
+    private val base = TestUtil.getBaseFromConfigDir(config)
     private val configPath = config.toAbsolutePath.toString
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
 

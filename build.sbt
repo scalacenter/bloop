@@ -47,14 +47,26 @@ val jsonConfig = project
     crossScalaVersions := List(Keys.scalaVersion.in(backend).value, "2.10.7"),
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
-    libraryDependencies ++= List(
-      Dependencies.typesafeConfig,
-      Dependencies.metaconfigCore,
-      Dependencies.metaconfigDocs,
-      Dependencies.metaconfigConfig,
-      Dependencies.circeDerivation,
-      Dependencies.scalacheck % Test,
-    )
+    libraryDependencies ++= {
+      if (scalaBinaryVersion.value == "2.12") {
+        List(
+          Dependencies.typesafeConfig,
+          Dependencies.metaconfigCore,
+          Dependencies.metaconfigDocs,
+          Dependencies.metaconfigConfig,
+          Dependencies.circeDerivation,
+          Dependencies.scalacheck % Test,
+        )
+      } else {
+        List(
+          Dependencies.typesafeConfig,
+          Dependencies.circeCore,
+          Dependencies.circeGeneric,
+          compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+          Dependencies.scalacheck % Test,
+        )
+      }
+    }
   )
 
 import build.BuildImplementation.jvmOptions

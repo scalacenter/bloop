@@ -6,16 +6,19 @@ import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
 import bloop.cli.Commands
-import bloop.engine.{Build, Interpreter, Run, State}
+import bloop.engine.{Action, Build, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
 import bloop.internal.build.BuildInfo
-import bloop.logging.{BloopLogger, Logger, ProcessLogger, RecordingLogger}
-
+import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
+import monix.eval.Task
 import xsbti.compile.ClasspathOptionsUtil
 
-object ProjectHelpers {
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
+object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
@@ -44,15 +47,35 @@ object ProjectHelpers {
           assert(projects.forall(p => noPreviousResult(p, state)))
           val project = getProject(rootProjectName, state)
           val action = Run(Commands.Compile(rootProjectName, incremental = true))
-          val compiledState = Interpreter.execute(action, state)
+          val compiledState = TestUtil.blockingExecute(action, state)
           afterCompile(compiledState)
         }
 
         val logger = state.logger
-        if (quiet) logger.quietIfSuccess(newLogger => action(state.copy(logger = newLogger)))
-        else if (failure) logger.quietIfError(newLogger => action(state.copy(logger = newLogger)))
+        if (quiet) quietIfSuccess(logger)(newLogger => action(state.copy(logger = newLogger)))
+        else if (failure) quietIfError(logger)(newLogger => action(state.copy(logger = newLogger)))
         else action(state)
     }
+  }
+
+  def blockingExecute(a: Action, state: State): State = {
+    val handle = Interpreter
+      .execute(a, Task.now(state))
+      .executeWithOptions(_.enableAutoCancelableRunLoops)
+      .runAsync(ExecutionContext.scheduler)
+    Await.result(handle, Duration.Inf)
+  }
+
+  def quietIfError[T](logger: Logger)(op: BufferedLogger => T): T = {
+    val bufferedLogger = BufferedLogger(logger.asVerbose)
+    try op(bufferedLogger)
+    catch { case ex: Throwable => bufferedLogger.clear(); throw ex }
+  }
+
+  def quietIfSuccess[T](logger: Logger)(op: BufferedLogger => T): T = {
+    val bufferedLogger = BufferedLogger(logger.asVerbose)
+    try op(bufferedLogger)
+    catch { case ex: Throwable => bufferedLogger.flush(); throw ex }
   }
 
   private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
@@ -81,13 +104,13 @@ object ProjectHelpers {
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = Project.fromDir(configDirectory, logger)
+    val loadedProjects = Project.eagerLoadFromDir(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects)
     State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
   }
 
   private[bloop] final val runAndTestProperties = {
-    val props = new java.util.Properties()
+    val props = new bloop.cli.CommonOptions.PrettyProperties()
     props.put("BLOOP_OWNER", "owner")
     props
   }
@@ -128,7 +151,7 @@ object ProjectHelpers {
     val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
     val project = getProject(cmd.project, recordingState)
-    val _ = Interpreter.execute(Run(cmd), recordingState)
+    TestUtil.blockingExecute(Run(cmd), recordingState)
     check(recordingLogger.getMessages)
   }
 
@@ -185,8 +208,7 @@ object ProjectHelpers {
       sourceDirectories = sourceDirectories,
       testFrameworks = Array.empty,
       javaEnv = javaEnv,
-      tmp = AbsolutePath(tempDir),
-      bloopConfigDir = AbsolutePath(baseDirectory) // This means nothing in tests
+      out = AbsolutePath(baseDirectory) // This means nothing in tests
     )
   }
 

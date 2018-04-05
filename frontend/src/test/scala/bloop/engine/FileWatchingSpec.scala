@@ -9,8 +9,8 @@ import bloop.Project
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.logging.BloopLogger
 import bloop.exec.JavaEnv
-import bloop.tasks.{CompilationHelpers, ProjectHelpers}
-import bloop.tasks.ProjectHelpers.{RootProject, noPreviousResult, withState}
+import bloop.tasks.{CompilationHelpers, TestUtil}
+import bloop.tasks.TestUtil.{RootProject, noPreviousResult, withState}
 import monix.eval.Task
 import monix.execution.Scheduler
 import org.junit.Test
@@ -44,13 +44,13 @@ class FileWatchingSpec {
       testAction: (FileWatchingContext, Thread) => Unit): Unit = {
     import scala.concurrent.Await
     import scala.concurrent.duration
-    implicit val scheduler = state0.scheduler
+    implicit val scheduler = ExecutionContext.scheduler
     val projects0 = state0.build.projects
     val rootProject = projects0
       .find(_.name == projectName)
       .getOrElse(sys.error(s"Project $projectName could not be found!"))
     val cleanAction = Run(Commands.Clean(rootProject.name :: Nil), Exit(ExitStatus.Ok))
-    val state = Interpreter.execute(cleanAction, state0)
+    val state = TestUtil.blockingExecute(cleanAction, state0)
     val projects = state.build.projects
     assert(projects.forall(p => noPreviousResult(p, state)))
 
@@ -82,7 +82,7 @@ class FileWatchingSpec {
         val commonOptions = cliOptions0.common.copy(out = newOut)
         val cliOptions = cliOptions0.copy(common = commonOptions)
         val cmd = Commands.Compile(project.name, watch = true, cliOptions = cliOptions)
-        Interpreter.execute(Run(cmd), newState)
+        TestUtil.blockingExecute(Run(cmd), newState)
         ()
     }
 
@@ -117,8 +117,8 @@ class FileWatchingSpec {
   def watchTest(): Unit = {
     val TestProjectName = "with-tests"
     val testProject = s"$TestProjectName-test"
-    val state0 = ProjectHelpers.loadTestProject(TestProjectName)
-    val commonOptions = state0.commonOptions.copy(env = ProjectHelpers.runAndTestProperties)
+    val state0 = TestUtil.loadTestProject(TestProjectName)
+    val commonOptions = state0.commonOptions.copy(env = TestUtil.runAndTestProperties)
     val state = state0.copy(commonOptions = commonOptions)
 
     val workerAction: FileWatchingContext => Unit = {
@@ -126,12 +126,12 @@ class FileWatchingSpec {
         val cliOptions0 = CliOptions.default
         val newOut = new PrintStream(bloopOut)
         val loggerName = UUID.randomUUID().toString
-        val newLogger = BloopLogger.at(loggerName, newOut, newOut)
+        val newLogger = BloopLogger.at(loggerName, newOut, newOut).asVerbose
         val newState = state.copy(logger = newLogger)
         val commonOptions1 = commonOptions.copy(out = newOut)
-        val cliOptions = cliOptions0.copy(common = commonOptions1, verbose = true)
+        val cliOptions = cliOptions0.copy(common = commonOptions1)
         val cmd = Commands.Test(project.name, watch = true, cliOptions = cliOptions)
-        Interpreter.execute(Run(cmd), newState)
+        TestUtil.blockingExecute(Run(cmd), newState)
         ()
     }
 
@@ -142,7 +142,7 @@ class FileWatchingSpec {
 
         // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
         val newSource = project.sourceDirectories.head.resolve("D.scala").underlying
-        if (Files.exists(newSource)) ProjectHelpers.delete(newSource)
+        if (Files.exists(newSource)) TestUtil.delete(newSource)
 
         // Wait for #1 compilation to finish
         readCompilingLines(1, "Compiling 1 Scala source to", bloopOut)
@@ -192,7 +192,7 @@ class FileWatchingSpec {
         val s1 = Scheduler.computation(parallelism = 2)
         val handle = watchTask
           .executeWithOptions(_.enableAutoCancelableRunLoops)
-          .runAsync(state.scheduler)
+          .runAsync(ExecutionContext.scheduler)
 
         val waitForWatching = Task(Await.result(handle, Duration.Inf))
         val waitAndCancelWatching =

@@ -1,9 +1,9 @@
-package bloop.integrations.config
+package bloop.config
 
 import java.nio.file.{Files, Paths}
 
 import bloop.config.Config.{
-  All,
+  File,
   ClasspathOptions,
   Java,
   Jvm,
@@ -18,20 +18,22 @@ import bloop.config.ConfigEncoders.allConfigEncoder
 import metaconfig.{Conf, Configured}
 import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser
 import org.junit.Test
+import org.junit.Assert
 
 class JsonSpec {
-  def parseConfig(config: All): Unit = {
+  def parseConfig(config: File): Unit = {
     val jsonConfig = allConfigEncoder(config).spaces4
-    println(jsonConfig)
     val parsedEmptyConfig = allConfigDecoder.read(Conf.parseString(jsonConfig))
     allConfigDecoder.read(Conf.parseString(jsonConfig)) match {
-      case Configured.Ok(parsed) => assert(config == parsed)
+      case Configured.Ok(parsed) =>
+        // Compare stringified representation because `Array` equals uses reference equality
+        Assert.assertEquals(allConfigEncoder(parsed).spaces4, jsonConfig)
       case Configured.NotOk(error) => sys.error(s"Could not parse simple config: $error")
     }
   }
 
   @Test def testEmptyConfigJson(): Unit = {
-    parseConfig(All.empty)
+    parseConfig(File.empty)
   }
 
   @Test def testSimpleConfigJson(): Unit = {
@@ -40,23 +42,27 @@ class JsonSpec {
     sourceFile.toFile.deleteOnExit()
     val scalaLibraryJar = Files.createTempFile("scala-library", ".jar")
     scalaLibraryJar.toFile.deleteOnExit()
-    val classesDir = Files.createTempFile("scala-library", ".jar")
+    // This is like `target` in sbt.
+    val outDir = Files.createTempFile("out", "test")
+    outDir.toFile.deleteOnExit()
+    val classesDir = Files.createTempFile("classes", "test")
     classesDir.toFile.deleteOnExit()
 
     val project = Project(
       "dummy-project",
       workingDirectory,
-      List(sourceFile),
-      List("dummy-2"),
-      List(scalaLibraryJar),
+      Array(sourceFile),
+      Array("dummy-2"),
+      Array(scalaLibraryJar),
       ClasspathOptions.empty,
       classesDir,
-      Scala("org.scala-lang", "scala-compiler", "2.12.4", List("-warn"), List()),
-      Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil),
-      Java(List("-version")),
-      ConfigTest(List(), TestOptions(Nil, Nil))
+      outDir,
+      Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
+      Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
+      Java(Array("-version")),
+      ConfigTest(Array(), TestOptions(Nil, Nil))
     )
 
-    parseConfig(All(All.LatestVersion, project))
+    parseConfig(File(File.LatestVersion, project))
   }
 }

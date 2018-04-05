@@ -8,7 +8,7 @@ import org.junit.Assert.{assertEquals, fail}
 
 import bloop.Project
 import bloop.logging.RecordingLogger
-import bloop.tasks.ProjectHelpers.withTemporaryDirectory
+import bloop.tasks.TestUtil.withTemporaryDirectory
 
 class FileTrackerSpec {
 

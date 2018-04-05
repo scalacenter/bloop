@@ -67,7 +67,7 @@ object Tasks {
       val sourceDirs = project.sourceDirectories
       val classpath = project.classpath
       val classesDir = project.classesDir
-      val target = project.tmp
+      val target = project.out
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
       val classpathOptions = project.classpathOptions
@@ -205,7 +205,7 @@ object Tasks {
     import bloop.util.JavaCompat.EnrichOptional
     def persistResult(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
-        val storeFile = project.bloopConfigDir.getParent.resolve(s"${project.name}-analysis.bin")
+        val storeFile = project.out.resolve(s"${project.name}-analysis.bin")
         FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
       }
 
@@ -252,7 +252,7 @@ object Tasks {
       val processConfig = ForkProcess(project.javaEnv, project.classpath)
       val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
-        .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
+        .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
       val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
