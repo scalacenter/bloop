@@ -42,7 +42,7 @@ object Bloop extends CaseApp[CliOptions] {
     val config = origin.underlying
     def waitForState(a: Action, t: Task[State]): State = {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
-      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger) {
+      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, Array("from-shell")) {
         t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s })
       }
 

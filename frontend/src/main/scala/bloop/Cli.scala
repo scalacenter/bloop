@@ -19,7 +19,7 @@ object Cli {
   def main(args: Array[String]): Unit = {
     State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, NoPool)
+    val exitStatus = run(action, NoPool, args)
     sys.exit(exitStatus.code)
   }
 
@@ -49,7 +49,7 @@ object Cli {
       else parse(args, nailgunOptions)
     }
 
-    val exitStatus = run(cmd, NailgunPool(ngContext))
+    val exitStatus = run(cmd, NailgunPool(ngContext), args)
     ngContext.exit(exitStatus.code)
   }
 
@@ -204,7 +204,7 @@ object Cli {
     }
   }
 
-  def run(action: Action, pool: ClientPool): ExitStatus = {
+  def run(action: Action, pool: ClientPool, userArgs: Array[String]): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       cliOptions.configDir
@@ -224,7 +224,7 @@ object Cli {
       BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
-    waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger) {
+    waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger, userArgs) {
       Interpreter.execute(action, currentState).map { newState =>
         State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
         newState
@@ -239,7 +239,8 @@ object Cli {
       cliOptions: CliOptions,
       pool: ClientPool,
       configDirectory: Path,
-      logger: Logger
+      logger: Logger,
+      userArgs: Array[String]
   )(taskState: Task[State]): ExitStatus = {
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
@@ -269,7 +270,7 @@ object Cli {
       }
 
       val result: State = Await.result(handle, Duration.Inf)
-      ngout.println(s"The task for $action finished.")
+      ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
       result.status
     } catch {
       case NonFatal(t) =>
