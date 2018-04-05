@@ -8,7 +8,7 @@ bref = "Here are all the instructions to install Bloop"
 toc = true
 +++
 
-### Mac OS
+## Mac OS
 
 Install with [Homebrew](https://brew.sh) via:
 
@@ -34,7 +34,7 @@ $ brew services start bloop
 
 Homebrew also automatically installs completions for zsh and Bash.
 
-### Other platforms
+## Other platforms
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
@@ -44,7 +44,7 @@ Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 The installation script will also install completions for zsh and Bash, but
 you need to set them up manually.
 
-##### Zsh completions
+#### Zsh completions
 
 Add the following to your `~/.zshrc`:
 
@@ -54,7 +54,7 @@ fpath=($HOME/.bloop/zsh $fpath)
 compinit
 ```
 
-##### Bash completions
+#### Bash completions
 
 To get the command line completions with Bash, add the following to your `~/.bash_profile`:
 
@@ -62,7 +62,7 @@ To get the command line completions with Bash, add the following to your `~/.bas
 . $HOME/.bloop/bash/bloop
 ```
 
-### Use bloop with sbt
+## Use bloop with sbt
 
 The first step is to generate the configuration files for Bloop with our sbt
 plugin. This action needs to be performed whenever your build changes (for
@@ -94,7 +94,7 @@ about the format and how to generate it from other tools.
 
 <span class="label warning">Note</span> that the configuration file contains machine-dependent information (the path of every resolved jar), so you must not check it into your version control system.
 
-#### Support for source dependencies
+### Support for source dependencies
 
 If you use source dependencies in sbt, add the following setting definition to your `build.sbt`:
 
@@ -104,7 +104,7 @@ bloopAggregateSourceDependencies in Global := true
 
 <span class="label warning">Note</span> that `bloopAggregateSourceDependencies` has to be scoped globally.
 
-#### Start bloop
+### Start bloop
 
 Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.
 
@@ -138,7 +138,7 @@ $ bloop about
     It is maintained by Martin Duhem, Jorge Vicente Cantero.
 ```
 
-#### Verify installation
+### Verify installation
 
 ```sh
 $ bloop projects
@@ -160,14 +160,14 @@ If you continue to get no projects, check the logs of the sbt plugin and use
 the configuration directory that `sbt-bloop` wrote the configuration files to
 (see the logs of `bloopInstall` in the previous section) as the argument of `--config-dir`.
 
-### Use bloop with other build tools
+## Use bloop with other build tools
 
 We're currently working on the documentation and integrations to support
 other build tools. For now, bloop has [a Maven plugin]
 (https://github.com/scalacenter/bloop/tree/master/integrations/maven-bloop),
 and we're working on plugin integrations for Bazel and Gradle.
 
-### Use the CLI
+## Use the CLI
 
 Once the installation is ready, let's try everything with a first compile.
 
@@ -197,9 +197,9 @@ test -p foo -w`!
 You can learn about the rest of Bloop commands by typing `bloop --help` or
 reading the [Command Reference]({{< ref "commands-reference.md" >}}).
 
-### Other installation options
+## Other installation options
 
-#### Install bloop in a different bloop folder
+### Install bloop in a different bloop folder
 
 By default, the script installs bloop binaries in a `.bloop` directory in your
 `$HOME` folder. You can change that with the `--dest` option:
@@ -216,7 +216,7 @@ snippets in this page with your installation directory.
 in an independent directory than the bloop client, head to the docs of the
 [bloop server]({{< ref "how-to-use-bloop.md" >}}).
 
-#### Install a development version
+### Install a development version
 
 The installation script can also be used to install a development version of Bloop. The [installation
 script]({{< githubrepo >}}) can be downloaded directly from our repository.
