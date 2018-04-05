@@ -5,26 +5,18 @@ import java.util.regex.Pattern
 
 import bloop.DependencyResolution
 import bloop.config.Config
-import bloop.exec.{ForkProcess, JavaEnv}
+import bloop.exec.ForkProcess
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import sbt.testing.{
-  AnnotatedFingerprint,
-  EventHandler,
-  Fingerprint,
-  Framework,
-  SubclassFingerprint,
-  Task => TestTask
-}
+import sbt.testing.{AnnotatedFingerprint, EventHandler, Fingerprint, SubclassFingerprint}
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
-import sbt.testing.{Framework, TaskDef, Task => TestTask}
+import sbt.testing.Framework
 import xsbt.api.Discovered
 import xsbti.api.ClassLike
 import xsbti.compile.CompileAnalysis
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
@@ -75,6 +67,7 @@ object TestInternals {
    * @param cwd             The directory in which to start the forked JVM.
    * @param fork            Configuration for the forked JVM.
    * @param discoveredTests The tests that were discovered.
+   * @param args            The test arguments to pass to the framework.
    * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    * @param env             The environment properties to run the program with.
@@ -82,13 +75,14 @@ object TestInternals {
   def executeTasks(cwd: AbsolutePath,
                    fork: ForkProcess,
                    discoveredTests: DiscoveredTests,
+                   args: List[Config.TestArgument],
                    eventHandler: EventHandler,
                    logger: Logger,
                    env: Properties): Unit = {
     logger.debug("Starting forked test execution.")
 
     val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
-    val server = new TestServer(logger, eventHandler, discoveredTests)
+    val server = new TestServer(logger, eventHandler, discoveredTests, args)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentFiles = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
@@ -133,8 +127,13 @@ object TestInternals {
       defined(annotatedPrints, d.annotations, d.isModule)
   }
 
-  def getRunner(framework: Framework, testClassLoader: ClassLoader) = {
-    framework.runner(Array.empty, Array.empty, testClassLoader)
+  def getRunner(
+      framework: Framework,
+      args0: List[Config.TestArgument],
+      testClassLoader: ClassLoader
+  ) = {
+    val args = args0.toArray.flatMap(_.args)
+    framework.runner(args, Array.empty, testClassLoader)
   }
 
   /**

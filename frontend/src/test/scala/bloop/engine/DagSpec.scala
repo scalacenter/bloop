@@ -2,12 +2,11 @@ package bloop.engine
 
 import org.junit.Test
 import org.junit.experimental.categories.Category
-
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
 import bloop.Project
+import bloop.config.Config
 import guru.nidi.graphviz.parse.Parser
-
 import xsbti.compile.ClasspathOptionsUtil
 
 @Category(Array(classOf[bloop.FastTests]))
@@ -17,12 +16,11 @@ class DagSpec {
     private val classpathOptions = ClasspathOptionsUtil.boot()
     private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array(), logger)
     private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
-    private val javaEnv = JavaEnv.default
 
     // format: OFF
     def dummyProject(name: String, dependencies: List[String]): Project =
       Project(name, dummyPath, dependencies.toArray, dummyInstance, Array(), classpathOptions,  dummyPath, Array(),
-              Array(), Array(), Array(), javaEnv, dummyPath)
+              Array(), Array(), Array(), Config.TestOptions.empty, JavaEnv.default, dummyPath)
     // format: ON
 
     val a = dummyProject("a", List())

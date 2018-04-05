@@ -3,26 +3,23 @@ package bloop.testing
 import java.io.{ObjectInputStream, ObjectOutputStream, Serializable}
 import java.net.{ServerSocket, SocketException}
 
+import bloop.config.Config
+
 import scala.util.control.NonFatal
-
 import bloop.logging.Logger
-
-import sbt.{ForkConfiguration, ForkMain, ForkTags}
-import sbt.testing.{
-  AnnotatedFingerprint,
-  Event,
-  EventHandler,
-  Fingerprint,
-  Runner,
-  SubclassFingerprint,
-  TaskDef
-}
+import sbt.{ForkConfiguration, ForkTags}
+import sbt.testing.{AnnotatedFingerprint, Event, EventHandler, SubclassFingerprint, TaskDef}
 
 /**
  * A server that communicates with the test agent in a forked JVM to run the tests.
  * Heavily inspired from sbt's `ForkTests.scala`.
  */
-class TestServer(logger: Logger, eventHandler: EventHandler, discoveredTests: DiscoveredTests) {
+final class TestServer(
+    logger: Logger,
+    eventHandler: EventHandler,
+    discoveredTests: DiscoveredTests,
+    args: List[Config.TestArgument]
+) {
 
   private val server = new ServerSocket(0)
   private val listener = new Thread(() => run())
@@ -81,7 +78,15 @@ class TestServer(logger: Logger, eventHandler: EventHandler, discoveredTests: Di
 
       os.writeInt(frameworks.size)
       frameworks.foreach { framework =>
-        val runner = TestInternals.getRunner(framework, testLoader)
+        val frameworkClass = framework.getClass.getName()
+        val fargs = args.filter { arg =>
+          arg.framework match {
+            case Some(f) => f.names.contains(frameworkClass)
+            case None => true
+          }
+        }
+
+        val runner = TestInternals.getRunner(framework, fargs, testLoader)
         os.writeObject(Array(framework.getClass.getCanonicalName))
         os.writeObject(runner.args)
         os.writeObject(runner.remoteArgs)

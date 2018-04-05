@@ -13,8 +13,8 @@ import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Dag, Exit, Interpreter, Run}
 import bloop.exec.JavaEnv
 import bloop.Project
+import bloop.config.Config
 import bloop.io.AbsolutePath
-
 import xsbti.compile.ClasspathOptionsUtil
 
 object IntegrationTestSuite {
@@ -76,6 +76,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           javacOptions = Array.empty,
           sourceDirectories = Array.empty,
           testFrameworks = Array.empty,
+          testOptions = Config.TestOptions.empty,
           javaEnv = javaEnv,
           out = classesDir
         )

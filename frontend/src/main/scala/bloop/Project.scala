@@ -22,6 +22,7 @@ final case class Project(
     javacOptions: Array[String],
     sourceDirectories: Array[AbsolutePath],
     testFrameworks: Array[Config.TestFramework],
+    testOptions: Config.TestOptions,
     javaEnv: JavaEnv,
     out: AbsolutePath
 ) {
@@ -108,6 +109,7 @@ object Project {
       project.java.options.toArray,
       project.sources.map(AbsolutePath.apply).toArray,
       project.test.frameworks,
+      project.test.options,
       javaEnv,
       AbsolutePath(project.out)
     )

@@ -1,10 +1,11 @@
-package bloop.tasks
-
-import org.junit.Test
-import org.junit.Assert.assertEquals
+package bloop.testing
 
 import bloop.cli.Commands
-import bloop.engine.{Interpreter, Run, State}
+import bloop.tasks.TestUtil
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import bloop.config.Config.TestOptions
+import bloop.engine.{Run, State}
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
 
@@ -15,15 +16,16 @@ class TestLoggingSpec {
     val projectName = "with-tests"
     val moduleName = "with-tests-test"
     val state = {
-      val state = TestUtil.loadTestProject(projectName)
+      val state0 = TestUtil.loadTestProject(projectName)
       val inProcessEnv = JavaEnv.default
-      val build = state.build
-      val beforeCompilation = state.copy(
-        build = build.copy(projects = build.projects.map(_.copy(javaEnv = inProcessEnv))))
+      val build = state0.build
+      val beforeCompilation = state0.copy(
+        build = build.copy(projects =
+          build.projects.map(_.copy(javaEnv = inProcessEnv, testOptions = TestOptions.empty))))
       val action = Run(Commands.Compile(moduleName))
-      val state0 = TestUtil.blockingExecute(action, beforeCompilation)
-      val commonOptions = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
-      state.copy(commonOptions = commonOptions)
+      val state1 = TestUtil.blockingExecute(action, beforeCompilation)
+      val commonOptions = state1.commonOptions.copy(env = TestUtil.runAndTestProperties)
+      state1.copy(commonOptions = commonOptions)
     }
 
     val testAction = Run(Commands.Test(moduleName))

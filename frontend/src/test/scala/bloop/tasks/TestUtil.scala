@@ -6,6 +6,7 @@ import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
 import bloop.cli.Commands
+import bloop.config.Config
 import bloop.engine.{Action, Build, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
@@ -207,6 +208,7 @@ object TestUtil {
       javacOptions = Array.empty,
       sourceDirectories = sourceDirectories,
       testFrameworks = Array.empty,
+      testOptions = Config.TestOptions.empty,
       javaEnv = javaEnv,
       out = AbsolutePath(baseDirectory) // This means nothing in tests
     )
