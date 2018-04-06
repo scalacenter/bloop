@@ -9,6 +9,7 @@ bloopAggregateSourceDependencies in Global := true
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
+  .disablePlugins(ScriptedPlugin)
   .settings(
     releaseEarly := { () },
     skip in publish := true
@@ -20,6 +21,7 @@ val benchmarkBridge = project
 import build.Dependencies
 
 val backend = project
+  .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-backend",
@@ -41,6 +43,7 @@ val backend = project
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
 val jsonConfig = project
   .in(file("config"))
+  .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-config",
@@ -73,6 +76,7 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
   .dependsOn(backend, backend % "test->test", jsonConfig)
+  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
@@ -96,6 +100,7 @@ val frontend = project
 
 val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
+  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
   .settings(
@@ -117,13 +122,14 @@ lazy val sbtBloop = project
 
 val mavenBloop = project
   .in(file("integrations") / "maven-bloop")
+  .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig)
   .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
 val docs = project
   .in(file("website"))
-  .enablePlugins(HugoPlugin, GhpagesPlugin)
+  .enablePlugins(HugoPlugin, GhpagesPlugin, ScriptedPlugin)
   .settings(
     name := "bloop-website",
     skip in publish := true,
@@ -134,6 +140,7 @@ val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, maven
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
+  .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
     releaseEarly := { () },
