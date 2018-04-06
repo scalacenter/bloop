@@ -1,0 +1,280 @@
+{
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "title": "Bloop configuration file ",
+  "description": "The JSON Schema for the bloop configuration file.",
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "version": {
+      "$id": "/properties/version",
+      "type": "string",
+      "title": "The Version Schema ",
+      "default": "",
+      "examples": [
+        "1.0.0"
+      ]
+    },
+    "project": {
+      "$id": "/properties/project",
+      "type": "object",
+      "properties": {
+        "name": {
+          "$id": "/properties/project/properties/name",
+          "type": "string",
+          "title": "The Name Schema ",
+          "default": "",
+          "examples": [
+            "dummy-project"
+          ]
+        },
+        "directory": {
+          "$id": "/properties/project/properties/directory",
+          "type": "string",
+          "title": "The Directory Schema ",
+          "default": "",
+          "examples": [
+            "/code/foo"
+          ]
+        },
+        "sources": {
+          "$id": "/properties/project/properties/sources",
+          "type": "array",
+          "items": {
+            "$id": "/properties/project/properties/sources/items",
+            "type": "string",
+            "title": "An example of a source directory",
+            "default": "",
+            "examples": [
+              "/code/foo/src/main/scala"
+            ]
+          }
+        },
+        "dependencies": {
+          "$id": "/properties/project/properties/dependencies",
+          "type": "array",
+          "items": {
+            "$id": "/properties/project/properties/dependencies/items",
+            "type": "string",
+            "title": "An example of a project dependency",
+            "default": "",
+            "examples": [
+              "bar"
+            ]
+          }
+        },
+        "classpath": {
+          "$id": "/properties/project/properties/classpath",
+          "type": "array",
+          "items": {
+            "$id": "/properties/project/properties/classpath/items",
+            "type": "string",
+            "title": "An example of a classpath item",
+            "default": "",
+            "examples": [
+              "/lib/scala-library.jar",
+              "/lib/circe.jar"
+            ]
+          }
+        },
+        "classpathOptions": {
+          "$id": "/properties/project/properties/classpathOptions",
+          "type": "object",
+          "properties": {
+            "bootLibrary": {
+              "$id": "/properties/project/properties/classpathOptions/properties/bootLibrary",
+              "type": "boolean",
+              "title": "The classpath option boot Schema ",
+              "default": false,
+              "examples": [
+                true
+              ]
+            },
+            "compiler": {
+              "$id": "/properties/project/properties/classpathOptions/properties/compiler",
+              "type": "boolean",
+              "title": "The classpath option compiler Schema ",
+              "default": false,
+              "examples": [
+                false
+              ]
+            },
+            "extra": {
+              "$id": "/properties/project/properties/classpathOptions/properties/extra",
+              "type": "boolean",
+              "title": "The classpath option Extra Schema ",
+              "default": false,
+              "examples": [
+                false
+              ]
+            },
+            "autoBoot": {
+              "$id": "/properties/project/properties/classpathOptions/properties/autoBoot",
+              "type": "boolean",
+              "title": "The classpath option Autoboot Schema ",
+              "default": false,
+              "examples": [
+                true
+              ]
+            },
+            "filterLibrary": {
+              "$id": "/properties/project/properties/classpathOptions/properties/filterLibrary",
+              "type": "boolean",
+              "title": "The classpath option filter library Schema ",
+              "default": false,
+              "examples": [
+                true
+              ]
+            }
+          }
+        },
+        "out": {
+          "$id": "/properties/project/properties/out",
+          "type": "string",
+          "title": "The Out Schema ",
+          "default": "",
+          "examples": [
+            "/data/foo/target"
+          ]
+        },
+        "scala": {
+          "$id": "/properties/project/properties/scala",
+          "type": "object",
+          "properties": {
+            "organization": {
+              "$id": "/properties/project/properties/scala/properties/organization",
+              "type": "string",
+              "title": "The Organization Schema ",
+              "default": "",
+              "examples": [
+                "org.scala-lang"
+              ]
+            },
+            "name": {
+              "$id": "/properties/project/properties/scala/properties/name",
+              "type": "string",
+              "title": "The Name Schema ",
+              "default": "",
+              "examples": [
+                "scala-compiler"
+              ]
+            },
+            "version": {
+              "$id": "/properties/project/properties/scala/properties/version",
+              "type": "string",
+              "title": "The Version Schema ",
+              "default": "",
+              "examples": [
+                "2.12.4"
+              ]
+            },
+            "options": {
+              "$id": "/properties/project/properties/scala/properties/options",
+              "type": "array",
+              "items": {
+                "$id": "/properties/project/properties/scala/properties/options/items",
+                "type": "string",
+                "title": "An example of an option for the Scala compiler",
+                "default": "",
+                "examples": [
+                  "-warn"
+                ]
+              }
+            },
+            "jars": {
+              "$id": "/properties/project/properties/scala/properties/jars",
+              "type": "array"
+            }
+          }
+        },
+        "jvm": {
+          "$id": "/properties/project/properties/jvm",
+          "type": "object",
+          "properties": {
+            "home": {
+              "$id": "/properties/project/properties/jvm/properties/home",
+              "type": "string",
+              "title": "The Home Schema ",
+              "default": "",
+              "examples": [
+                "/usr/lib/jvm/java-8-jdk"
+              ]
+            },
+            "options": {
+              "$id": "/properties/project/properties/jvm/properties/options",
+              "type": "array",
+              "title": "The JVM Options Schema",
+              "default": "",
+              "examples": [
+                "-Xms2g",
+                "-Xmx6g",
+                "-XX:MaxInlineLevel=20",
+                "-XX:ReservedCodeCacheSize=512m"
+              ]
+            }
+          }
+        },
+        "java": {
+          "$id": "/properties/project/properties/java",
+          "type": "object",
+          "properties": {
+            "options": {
+              "$id": "/properties/project/properties/java/properties/options",
+              "type": "array",
+              "items": {
+                "$id": "/properties/project/properties/java/properties/options/items",
+                "type": "string",
+                "title": "An example of an option for the Java compiler",
+                "default": "",
+                "examples": [
+                  "-version"
+                ]
+              }
+            }
+          }
+        },
+        "test": {
+          "$id": "/properties/project/properties/test",
+          "type": "object",
+          "properties": {
+            "frameworks": {
+              "$id": "/properties/project/properties/test/properties/frameworks",
+              "type": "array",
+              "title": "The Test Framework Schema",
+              "description": "The test frameworks supported by this project",
+              "examples": [
+                "org.scalacheck.ScalaCheckFramework",
+                "org.scalatest.tools.Framework",
+                "org.scalatest.tools.ScalaTestFramework"
+              ]
+            },
+            "options": {
+              "$id": "/properties/project/properties/test/properties/options",
+              "type": "object",
+              "properties": {
+                "excludes": {
+                  "$id": "/properties/project/properties/test/properties/options/properties/excludes",
+                  "type": "array",
+                  "title": "The Exclude Schema",
+                  "description": "The fully qualified names of any test suite to be excluded",
+                  "examples": [
+                    "foo.bar.MyTestSuite"
+                  ]
+                },
+                "arguments": {
+                  "$id": "/properties/project/properties/test/properties/options/properties/arguments",
+                  "type": "array",
+                  "title": "The Test Argument Schema",
+                  "description": "The test arguments",
+                  "examples": [
+                    "-z"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

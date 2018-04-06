@@ -19,7 +19,7 @@ build tool, you need to regenerate the configuration file for bloop to pick up t
 
 ## JSON Schema
 
-<script src="../../docson/widget.js" data-schema="bloop-schema.json">
+<script src="../../docson/widget.js" data-schema="../bloop-schema.json">
 </script>
 
 Download the JSON schema from [this file](../../docson/bloop-schema.json).
