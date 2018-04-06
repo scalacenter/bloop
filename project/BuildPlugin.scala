@@ -174,8 +174,9 @@ object BuildKeys {
   import sbt.io.GlobFilter
   val websiteSettings: Seq[Def.Setting[_]] = Seq(
     Keys.sourceDirectory in HugoKeys.Hugo := Keys.baseDirectory.value,
-    Keys.includeFilter in HugoKeys.Hugo := (Keys.includeFilter in SiteKeys.makeSite).value || GlobFilter(
-      "*.svg"),
+    Keys.includeFilter in HugoKeys.Hugo :=
+      (Keys.includeFilter in SiteKeys.makeSite).value || GlobFilter("*.svg") || GlobFilter(
+        "bloop-schema.json"),
     HugoKeys.baseURL in HugoKeys.Hugo := sbt.uri("https://scalacenter.github.io/bloop"),
     GitKeys.gitRemoteRepo := "git@github.com:scalacenter/bloop.git",
     GhpagesKeys.ghpagesNoJekyll := true
