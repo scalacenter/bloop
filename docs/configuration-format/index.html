@@ -176,15 +176,27 @@ build tool, you need to regenerate the configuration file for bloop to pick up t
 <h2 id="generate-bloop-configuration-files">Generate bloop configuration files</h2>
 
 <p>The <code>bloop-config</code> artifact can be used as a library dependency to generate bloop configurations
-from any build tool. These are the instructions that you need to follow:</p>
+from any build tool.</p>
+
+<pre><code class="language-scala hljs scala">libraryDependencies += <span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"bloop-config"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M8</span>"</span></code></pre>
+
+<p>After adding the dependency, follow these steps:</p>
 
 <ol>
-<li><p>Add a dependency to the json configuration module in your <code>build.sbt</code>:
-<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">&ldquo;ch.epfl.scala&rdquo;</span> % <span class="hljs-string">&ldquo;bloop-config&rdquo;</span> % <span class="hljs-string">&ldquo;<span class="latest-version">1.0.0-M8</span>&ldquo;</span>)</code></pre></p></li>
+<li>Create an instance <code>config</code> of <code>bloop.config.Config.File</code>.</li>
+<li>Write the json file to a <code>target</code> with <code>bloop.config.Config.File.write(config, target)</code>.</li>
+</ol>
 
-<li><p>Create an instance <code>config</code> of <code>bloop.config.Config.File</code>.</p></li>
+<p><code>target</code> will then contain Bloop&rsquo;s JSON representation of <code>config</code>.</p>
 
-<li><p>Write the json file to a <code>target</code> with <code>bloop.config.Config.File.write(config, target)</code>.</p></li>
+<h2 id="manipulate-json-files-with-scripts">Manipulate JSON files with scripts</h2>
+
+<p>If you need to read or manipulate bloop configuration files with custom scripts, we recommend
+using the following tools:</p>
+
+<ol>
+<li><a href="https://github.com/tomnomnom/gron">gron</a> to grep JSON files.</li>
+<li><a href="https://stedolan.github.io/jq/">jq</a> to process JSON in a flexible and lightweight way.</li>
 </ol>
 
 <script type="text/javascript">
