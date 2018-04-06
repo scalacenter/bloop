@@ -59,7 +59,8 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         BloopMojo initializedMojo = MojoImplementation.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
-        MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, this.getLog());
+        String root = session.getExecutionRootDirectory();
+        MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, root, this.getLog());
     }
 
     public File[] getAllScalaJars() throws Exception {

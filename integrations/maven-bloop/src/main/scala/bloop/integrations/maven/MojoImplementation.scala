@@ -42,11 +42,11 @@ object MojoImplementation {
     JUnitFramework
   )
 
-
   private val DefaultTestOptions =
     Config.TestOptions(Nil, List(Config.TestArgument(Array("-v", "-a"), Some(JUnitFramework))))
 
-  def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
+  def writeCompileAndTestConfiguration(mojo: BloopMojo, root0: String, log: Log): Unit = {
+    val root = new File(root0)
     import scala.collection.JavaConverters._
     val project = mojo.getProject()
     val configDir = mojo.getBloopConfigDir.toPath()
@@ -102,7 +102,8 @@ object MojoImplementation {
 
       val suffix = if (configuration == "compile") "" else s"-$configuration"
       val configTarget = new File(mojo.getBloopConfigDir, s"$name$suffix.json")
-      log.info(s"Generated ${configTarget.getAbsolutePath()}")
+      val finalTarget = relativize(root, configTarget).getOrElse(configTarget.getAbsolutePath)
+      log.info(s"Generated $finalTarget")
       Config.File.write(config, configTarget.toPath)
     }
 
@@ -116,5 +117,15 @@ object MojoImplementation {
                 project.getTestClasspathElements(),
                 launcher,
                 "test")
+  }
+
+  private def relativize(base: File, file: File): Option[String] = {
+    import scala.util.control.Exception.catching
+    val basePath = (if (base.isAbsolute) base else base.getCanonicalFile).toPath
+    val filePath = (if (file.isAbsolute) file else file.getCanonicalFile).toPath
+    if ((filePath startsWith basePath) || (filePath.normalize() startsWith basePath.normalize())) {
+      val relativePath = catching(classOf[IllegalArgumentException]) opt (basePath relativize filePath)
+      relativePath map (_.toString)
+    } else None
   }
 }
