@@ -95,7 +95,7 @@ def coursier_bootstrap(target, main):
             "java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
             "-r", "bintray:scalameta/maven",
             "-r", "bintray:scalacenter/releases",
-            "-r", "https://oss.sonatype.org/content/repositories/snapshots",
+            "-r", "https://oss.sonatype.org/content/repositories/staging",
             "-o", target, "-f", "--standalone", "--main", main
         ])
     except CalledProcessError as e:
