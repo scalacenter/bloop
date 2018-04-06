@@ -27,13 +27,24 @@ Download the JSON schema from [this file](../../docson/bloop-schema.json).
 ## Generate bloop configuration files
 
 The `bloop-config` artifact can be used as a library dependency to generate bloop configurations
-from any build tool. These are the instructions that you need to follow:
+from any build tool. 
 
-1. Add a dependency to the json configuration module in your `build.sbt`:
-   <pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"bloop-config"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M8</span>"</span>)</code></pre>
+<pre><code class="language-scala hljs scala">libraryDependencies += <span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"bloop-config"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M8</span>"</span></code></pre>
 
-2. Create an instance `config` of `bloop.config.Config.File`.
-3. Write the json file to a `target` with `bloop.config.Config.File.write(config, target)`.
+After adding the dependency, follow these steps:
+
+1. Create an instance `config` of `bloop.config.Config.File`.
+2. Write the json file to a `target` with `bloop.config.Config.File.write(config, target)`.
+
+`target` will then contain Bloop's JSON representation of `config`.
+
+## Manipulate JSON files with scripts
+
+If you need to read or manipulate bloop configuration files with custom scripts, we recommend
+using the following tools:
+
+1. [gron](https://github.com/tomnomnom/gron) to grep JSON files.
+2. [jq](https://stedolan.github.io/jq/) to process JSON in a flexible and lightweight way.
 
 <script type="text/javascript">
   
