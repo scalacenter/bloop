@@ -8,7 +8,7 @@ import sbt.internal.util.EscHelpers.removeEscapeSequences
 
 import bloop.cli.Commands
 import bloop.exec.JavaEnv
-import bloop.tasks.ProjectHelpers.{loadTestProject, runAndCheck}
+import bloop.tasks.TestUtil.{loadTestProject, runAndCheck}
 
 @Category(Array(classOf[bloop.FastTests]))
 class TestResourcesSpec {

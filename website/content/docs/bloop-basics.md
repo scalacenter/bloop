@@ -4,7 +4,7 @@ weight = 3
 draft = false
 title = "Design goals"
 date = "2018-02-09T10:15:00+01:00"
-description = "What is bloop and what problems does it solve? Why should I learn how to use it?"
+description = "What is bloop and what problems does it solve?"
 bref = "Learn the ideas behind bloop, what problems it solves and how it's designed. See how it compares to other tools in our ecosystem."
 +++
 

@@ -7,7 +7,7 @@ import org.junit.experimental.categories.Category
 import bloop.{ScalaInstance}
 import bloop.engine.State
 import bloop.logging.RecordingLogger
-import bloop.tasks.ProjectHelpers.{
+import bloop.tasks.TestUtil.{
   checkAfterCleanCompilation,
   getProject,
   hasPreviousResult,

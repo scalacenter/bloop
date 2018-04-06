@@ -1,5 +1,11 @@
 val mvnVersion = "3.5.2"
 val mvnPluginToolsVersion = "3.5"
+val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
+val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
+val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
+val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % "0.6.0"
+val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
+
 val root = project
   .in(file("."))
   .settings(
@@ -18,10 +24,11 @@ val root = project
     addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.1"),
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
-      val integrationsMainDir = baseDirectory.value.getParentFile / "integrations"
-      val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
+      val baseDir = baseDirectory.value.getParentFile
+      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
-        integrationsMainDir / "core" / "src" / "main" / "scala",
+        baseDir / "config" / "src" / "main" / "scala",
+        baseDir / "config" / "src" / "main" / s"scala-${Keys.scalaBinaryVersion.value}",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )
@@ -36,6 +43,13 @@ val root = project
       "org.apache.maven" % "maven-plugin-api" % mvnVersion,
       "org.apache.maven" % "maven-model-builder" % mvnVersion,
       "commons-codec" % "commons-codec" % "1.11"
+    ),
+    libraryDependencies ++= List(
+      typesafeConfig,
+      metaconfigCore,
+      metaconfigDocs,
+      metaconfigConfig,
+      circeDerivation
     ),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
     dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)

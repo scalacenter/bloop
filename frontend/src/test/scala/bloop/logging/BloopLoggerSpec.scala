@@ -65,18 +65,17 @@ class BloopLoggerSpec {
       logger.debug("debug0")
       logger.trace(ex0)
 
-      logger.verbose {
-        val ex1 = {
-          val ex = new Exception("trace1")
-          ex.setStackTrace(ex.getStackTrace.take(3))
-          ex
-        }
-        logger.error("error1")
-        logger.warn("warn1")
-        logger.info("info1")
-        logger.debug("debug1")
-        logger.trace(ex1)
+      val verboseLogger = logger.asVerbose
+      val ex1 = {
+        val ex = new Exception("trace1")
+        ex.setStackTrace(ex.getStackTrace.take(3))
+        ex
       }
+      verboseLogger.error("error1")
+      verboseLogger.warn("warn1")
+      verboseLogger.info("info1")
+      verboseLogger.debug("debug1")
+      verboseLogger.trace(ex1)
 
       val ex2 = {
         val ex = new Exception("trace2")
@@ -160,10 +159,9 @@ class BloopLoggerSpec {
       logger.debug("this-is-not-logged")
       assertFalse("The logger shouldn't report being in verbose mode.", logger.isVerbose)
 
-      logger.verbose {
-        logger.debug(expectedMessage)
-        assertTrue("The logger should report being in verbose mode.", logger.isVerbose)
-      }
+      val verboseLogger = logger.asVerbose
+      verboseLogger.debug(expectedMessage)
+      assertTrue("The logger should report being in verbose mode.", verboseLogger.isVerbose)
     } { (outMsgs, errMsgs) =>
       assertTrue("Nothing should have been logged to stdout.", outMsgs.isEmpty)
       assertEquals(1, errMsgs.length.toLong)
@@ -198,7 +196,6 @@ class BloopLoggerSpec {
     val errMessages = convertAndReadAllFrom(errStream)
 
     check(outMessages, errMessages)
-
   }
 
   private def convertAndReadAllFrom(stream: ByteArrayOutputStream): Seq[String] = {

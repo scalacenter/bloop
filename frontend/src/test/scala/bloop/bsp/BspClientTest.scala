@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
-import bloop.tasks.ProjectHelpers
+import bloop.tasks.TestUtil
 import ch.epfl.`scala`.bsp.schema.{
   BuildClientCapabilities,
   InitializeBuildParams,
@@ -51,7 +51,7 @@ object BspClientTest {
       runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
 
     val projectName = cmd.cliOptions.common.workingPath.underlying.getFileName().toString()
-    val state = ProjectHelpers.loadTestProject(projectName)
+    val state = TestUtil.loadTestProject(projectName)
     val bspServer = BspServer.run(cmd, state, scheduler).runAsync(scheduler)
 
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
@@ -63,7 +63,7 @@ object BspClientTest {
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
-      val cwd = ProjectHelpers.getBaseFromConfigDir(configDirectory.underlying)
+      val cwd = TestUtil.getBaseFromConfigDir(configDirectory.underlying)
       val initializeServer = endpoints.Build.initialize.request(
         InitializeBuildParams(
           rootUri = cwd.toAbsolutePath.toString,

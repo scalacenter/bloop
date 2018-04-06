@@ -8,7 +8,7 @@ bref = "An explanation of all the commands that Bloop provides"
 toc = true
 +++
 
-### `bloop projects`
+## `bloop projects`
 
 This commands displays all the projects that have been loaded from the current working directory:
 
@@ -21,7 +21,7 @@ Projects loaded from '/Users/martin/foobar/.bloop':
 
 This command can also be used to generate `dot` graph: <sample>
 
-### `bloop compile`
+## `bloop compile`
 
 This command takes care of starting compilation for a project and all of its dependencies.
 
@@ -64,7 +64,7 @@ The supported options are:
   </dd>
 </dl>
 
-### `bloop test`
+## `bloop test`
 
 This command runs the tests for one or more projects.
 
@@ -107,7 +107,7 @@ The supported options are:
   </dd>
 </dl>
 
-### `bloop run`
+## `bloop run`
 
 This command is used to run the code of your project. It requires having at least one runnable class
 in your project.
@@ -160,7 +160,7 @@ The supported options are:
   </dd>
 </dl>
 
-### `bloop console`
+## `bloop console`
 
 `bloop console` starts a Scala REPL with your project and its dependencies on the classpath.
 
@@ -193,7 +193,7 @@ The following options are supported:
   </dd>
 </dl>
 
-### `bloop clean`
+## `bloop clean`
 
 This command is used to remove the results of the compilation.
 
@@ -218,7 +218,7 @@ The following options are supported:
   </dd>
 </dl>
 
-### `bloop configure`
+## `bloop configure`
 
 This command is used to configure the behavior of the Bloop server.
 
@@ -235,7 +235,7 @@ The following options are supported:
   </dd>
 </dl>
 
-### `bloop bsp`
+## `bloop bsp`
 
 This command is used to start the <abbr title="Build Server Protocol">BSP</abbr> server.
 You can check a specification of BSP <a href="https://github.com/scalacenter/bsp">here</a>.

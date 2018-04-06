@@ -5,6 +5,7 @@ import bloop.io.{AbsolutePath, FileTracker}
 import java.util.concurrent.ConcurrentHashMap
 
 import bloop.cli.ExitStatus
+import monix.eval.Task
 
 /** Cache that holds the state associated to each loaded build. */
 final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
@@ -39,17 +40,18 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @param computeBuild A function that computes the state from a location.
    * @return The state associated with `from`, or the newly computed state.
    */
-  def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => State): State = {
-    val state = cache.computeIfAbsent(from, p => computeBuild(p))
-    state.build.changed(state.logger) match {
-      case FileTracker.Unchanged(None) =>
-        state
-      case FileTracker.Unchanged(Some(csum)) =>
-        state.copy(build = state.build.copy(originChecksum = csum))
-      case FileTracker.Changed =>
-        val updatedState = computeBuild(from)
-        val _ = cache.put(from, updatedState)
-        updatedState
+  def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => Task[State]): Task[State] = {
+    def computeAndSave: Task[State] = computeBuild(from).map(s => {cache.put(from, s); s})
+
+    Option(cache.get(from)) match {
+      case Some(state) =>
+        state.build.changed(state.logger) match {
+          case FileTracker.Unchanged(None) => Task.now(state)
+          case FileTracker.Unchanged(Some(t)) =>
+            Task.now(state.copy(build = state.build.copy(tracker = t)))
+          case FileTracker.Changed => computeAndSave
+        }
+      case None => computeAndSave
     }
   }
 

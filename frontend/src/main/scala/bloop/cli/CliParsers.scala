@@ -28,8 +28,10 @@ object CliParsers {
     }
   }
 
-  implicit val propertiesParser: ArgParser[Properties] = ArgParser.instance("A properties parser") {
-    case whatever => Left("You cannot pass in properties through the command line.")
+  implicit val propertiesParser: ArgParser[CommonOptions.PrettyProperties] = {
+    ArgParser.instance("A properties parser") {
+      case whatever => Left("You cannot pass in properties through the command line.")
+    }
   }
 
   val BaseMessages: caseapp.core.Messages[DefaultBaseCommand] =

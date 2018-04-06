@@ -1,24 +1,31 @@
 package bloop
 
+import java.nio.file.Path
+
 import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, ClientPool, Exit, Interpreter, NailgunPool, NoPool, Print, Run, State}
-import bloop.logging.BloopLogger
+import bloop.engine._
+import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
+import _root_.monix.eval.Task
+import bloop.io.Timer
+
+import scala.util.control.NonFatal
 
 class Cli
 object Cli {
   def main(args: Array[String]): Unit = {
     State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, NoPool)
+    val exitStatus = run(action, NoPool, args)
     sys.exit(exitStatus.code)
   }
 
   def nailMain(ngContext: NGContext): Unit = {
     val server = ngContext.getNGServer
+    val env = CommonOptions.PrettyProperties.from(ngContext.getEnv())
     val nailgunOptions = CommonOptions(
       in = ngContext.in,
       out = ngContext.out,
@@ -26,13 +33,15 @@ object Cli {
       ngout = server.out,
       ngerr = server.err,
       workingDirectory = ngContext.getWorkingDirectory,
-      env = ngContext.getEnv()
+      env = env
     )
+
     val command = ngContext.getCommand
     val args = {
       if (command == "bloop.Cli") ngContext.getArgs
       else command +: ngContext.getArgs
     }
+
     val cmd = {
       // If no command is given to bloop, we'll receive the script's name.
       if (command == "bloop")
@@ -40,7 +49,7 @@ object Cli {
       else parse(args, nailgunOptions)
     }
 
-    val exitStatus = run(cmd, NailgunPool(ngContext))
+    val exitStatus = run(cmd, NailgunPool(ngContext), args)
     ngContext.exit(exitStatus.code)
   }
 
@@ -195,7 +204,7 @@ object Cli {
     }
   }
 
-  def run(action: Action, pool: ClientPool): ExitStatus = {
+  def run(action: Action, pool: ClientPool, userArgs: Array[String]): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       cliOptions.configDir
@@ -211,10 +220,64 @@ object Cli {
 
     val commonOpts = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
-    val logger = BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err)
-    val state = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
-    val newState = Interpreter.execute(action, state)
-    State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-    newState.status
+    val logger =
+      BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose)
+    val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
+
+    waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger, userArgs) {
+      Interpreter.execute(action, currentState).map { newState =>
+        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        newState
+      }
+    }
+  }
+
+  import scala.concurrent.Await
+  import scala.concurrent.duration.Duration
+  private[bloop] def waitUntilEndOfWorld(
+      action: Action,
+      cliOptions: CliOptions,
+      pool: ClientPool,
+      configDirectory: Path,
+      logger: Logger,
+      userArgs: Array[String]
+  )(taskState: Task[State]): ExitStatus = {
+    val ngout = cliOptions.common.ngout
+    def logElapsed(since: Long): Unit = {
+      val elapsed = (System.nanoTime() - since).toDouble / 1e6
+      logger.debug(s"Elapsed: $elapsed ms")
+    }
+
+    try {
+      // Simulate try-catch-finally with monix tasks to time the task execution
+      val handle =
+        Task
+          .now(System.nanoTime())
+          .flatMap(start => taskState.materialize.map(s => (s, start)))
+          .map { case (state, start) => logElapsed(start); state }
+          .dematerialize
+          .executeWithOptions(_.enableAutoCancelableRunLoops)
+          .runAsync(ExecutionContext.scheduler)
+
+      // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
+      pool.addListener {
+        case e: CloseEvent =>
+          if (!handle.isCompleted) {
+            ngout.println(
+              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks...")
+            handle.cancel()
+          }
+      }
+
+      val result: State = Await.result(handle, Duration.Inf)
+      ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
+      result.status
+    } catch {
+      case NonFatal(t) =>
+        if (t.getMessage != null)
+          logger.error(t.getMessage)
+        logger.trace(t)
+        ExitStatus.UnexpectedError
+    }
   }
 }

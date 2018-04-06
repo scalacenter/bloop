@@ -8,7 +8,7 @@ import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
 
 import scala.tools.nsc.BenchmarkUtils
-import bloop.tasks.ProjectHelpers
+import bloop.tasks.TestUtil
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(SampleTime))
@@ -34,7 +34,7 @@ class HotBloopBenchmark {
   var output = new java.lang.StringBuilder()
 
   @Setup(Level.Trial) def spawn(): Unit = {
-    val base = ProjectHelpers.getBloopConfigDir(project).getParent
+    val base = TestUtil.getBloopConfigDir(project).getParent
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 

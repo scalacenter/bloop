@@ -14,4 +14,4 @@ bin/.scalafmt*
 .ivy2/
 
 target/
-*.config
+.bloop/

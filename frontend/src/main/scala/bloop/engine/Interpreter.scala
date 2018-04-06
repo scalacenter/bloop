@@ -19,43 +19,44 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object Interpreter {
-  @tailrec
-  def execute(action: Action, state: State): State = {
-    def logAndTime(cliOptions: CliOptions, task: Task[State]): State = {
-      state.logger.verboseIf(cliOptions.verbose)(
-        timed(state.logger)(waitAndLog(action, cliOptions, state, task))
-      )
-    }
-
+  // This is stack safe because of monix trampolined execution.
+  def execute(action: Action, stateTask: Task[State]): Task[State] = stateTask.flatMap { state =>
     action match {
-      case Exit(exitStatus) if state.status.isOk => state.mergeStatus(exitStatus)
-      case Exit(exitStatus) => state
+      // We keep this case because there is a 'match may not be exhaustive' false positive by scalac.
+      // Looks related to existing bug report https://github.com/scala/bug/issues/10251
+      case Exit(exitStatus: ExitStatus) if exitStatus.isOk => Task.now(state.mergeStatus(exitStatus))
+      case Exit(exitStatus: ExitStatus) => Task.now(state.mergeStatus(exitStatus))
       case Print(msg, commonOptions, next) =>
         state.logger.info(msg)
-        execute(next, state)
+        execute(next, Task.now(state))
       case Run(Commands.About(cliOptions), next) =>
-        execute(next, logAndTime(cliOptions, printAbout(state)))
+        execute(next, printAbout(state))
       case Run(cmd: Commands.ValidatedBsp, next) =>
-        execute(next, logAndTime(cmd.cliOptions, runBsp(cmd, state)))
+        execute(next, runBsp(cmd, state))
       case Run(cmd: Commands.Clean, next) =>
-        execute(next, logAndTime(cmd.cliOptions, clean(cmd, state)))
+        execute(next, clean(cmd, state))
       case Run(cmd: Commands.Compile, next) =>
-        execute(next, logAndTime(cmd.cliOptions, compile(cmd, state)))
+        execute(next, compile(cmd, state))
       case Run(cmd: Commands.Console, next) =>
-        execute(next, logAndTime(cmd.cliOptions, console(cmd, state)))
+        execute(next, console(cmd, state))
       case Run(cmd: Commands.Projects, next) =>
-        execute(next, logAndTime(cmd.cliOptions, showProjects(cmd, state)))
+        execute(next, showProjects(cmd, state))
       case Run(cmd: Commands.Test, next) =>
-        execute(next, logAndTime(cmd.cliOptions, test(cmd, state)))
+        execute(next, test(cmd, state))
       case Run(cmd: Commands.Run, next) =>
-        execute(next, logAndTime(cmd.cliOptions, run(cmd, state)))
+        execute(next, run(cmd, state))
       case Run(cmd: Commands.Configure, next) =>
-        execute(next, logAndTime(cmd.cliOptions, configure(cmd, state)))
+        execute(next, configure(cmd, state))
       case Run(cmd: Commands.Autocomplete, next) =>
-        execute(next, logAndTime(cmd.cliOptions, autocomplete(cmd, state)))
+        execute(next, autocomplete(cmd, state))
+      case Run(cmd: Commands.Help, next) =>
+        val msg = "The handling of help doesn't happen in the `Interpreter`."
+        val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
+        execute(printAction, Task.now(state))
       case Run(cmd: Commands.Bsp, next) =>
         val msg = "Internal error: command bsp must be validated before use."
-        execute(Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError)), state)
+        val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
+        execute(printAction, Task.now(state))
     }
   }
 
@@ -319,40 +320,5 @@ object Interpreter {
     state.logger.error(s"No projects named $projects found in '$configDirectory'.")
     state.logger.error(s"Use the `projects` command to list existing projects.")
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
-  }
-
-  private def waitAndLog(
-      action: Action,
-      cliOptions: CliOptions,
-      previousState: State,
-      newState: Task[State]
-  ): State = {
-    val pool = previousState.pool
-    val ngout = cliOptions.common.ngout
-    try {
-      val handle = newState
-        .executeWithOptions(_.enableAutoCancelableRunLoops)
-        .runAsync(previousState.scheduler)
-
-      // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
-      pool.addListener {
-        case e: CloseEvent =>
-          if (!handle.isCompleted) {
-            ngout.println(
-              s"Client in ${previousState.build.origin.syntax} has disconnected with a '$e' event. Cancelling tasks...")
-            handle.cancel()
-          }
-      }
-
-      val result = Await.result(handle, Duration.Inf)
-      ngout.println(s"The task for $action finished.")
-      result
-    } catch {
-      case NonFatal(t) =>
-        if (t.getMessage != null)
-          previousState.logger.error(t.getMessage)
-        previousState.logger.trace(t)
-        previousState
-    }
   }
 }

@@ -67,7 +67,7 @@ object Tasks {
       val sourceDirs = project.sourceDirectories
       val classpath = project.classpath
       val classesDir = project.classesDir
-      val target = project.tmp
+      val target = project.out
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
       val classpathOptions = project.classpathOptions
@@ -205,7 +205,7 @@ object Tasks {
     import bloop.util.JavaCompat.EnrichOptional
     def persistResult(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
-        val storeFile = project.bloopConfigDir.getParent.resolve(s"${project.name}-analysis.bin")
+        val storeFile = project.out.resolve(s"${project.name}-analysis.bin")
         FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
       }
 
@@ -249,10 +249,10 @@ object Tasks {
     val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
     projectsToTest.foreach { project =>
       val projectName = project.name
-      val processConfig = ForkProcess(project.javaEnv, project.classpath)
-      val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+      val forkProcess = ForkProcess(project.javaEnv, project.classpath)
+      val testLoader = forkProcess.toExecutionClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
-        .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
+        .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
       val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
@@ -261,11 +261,14 @@ object Tasks {
 
       val discoveredTests = {
         val tests = discoverTests(analysis, frameworks)
+        val excluded = project.testOptions.excludes.toSet
         val ungroupedTests = tests.toList.flatMap {
           case (framework, tasks) => tasks.map(t => (framework, t))
         }
         val (includedTests, excludedTests) = ungroupedTests.partition {
-          case (framework, task) => testFilter(task.fullyQualifiedName)
+          case (_, task) =>
+            val fqn = task.fullyQualifiedName()
+            !excluded(fqn) && testFilter(fqn)
         }
 
         if (logger.isVerbose) {
@@ -280,8 +283,9 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
+      val args = project.testOptions.arguments
       val env = state.commonOptions.env
-      TestInternals.executeTasks(cwd, processConfig, discoveredTests, eventHandler, logger, env)
+      TestInternals.executeTasks(cwd, forkProcess, discoveredTests, args, handler, logger, env)
     }
 
     // Return the previous state, test execution doesn't modify it.
@@ -339,7 +343,7 @@ object Tasks {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
 
-  private[bloop] val eventHandler =
+  private[bloop] val handler =
     new EventHandler { override def handle(event: Event): Unit = () }
 
   private[bloop] def discoverTests(analysis: CompileAnalysis,
