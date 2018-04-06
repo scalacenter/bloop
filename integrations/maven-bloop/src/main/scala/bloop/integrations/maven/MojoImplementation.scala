@@ -30,6 +30,7 @@ object MojoImplementation {
   }
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
+  val JUnitFramework = Config.TestFramework(List("com.novocode.junit.JUnitFramework"))
   private val testFrameworks: Array[Config.TestFramework] = Array(
     Config.TestFramework(List("org.scalacheck.ScalaCheckFramework")),
     Config.TestFramework(
@@ -38,8 +39,12 @@ object MojoImplementation {
       List("org.specs.runner.SpecsFramework",
            "org.specs2.runner.Specs2Framework",
            "org.specs2.runner.SpecsFramework")),
-    Config.TestFramework(List("com.novocode.junit.JUnitFramework"))
+    JUnitFramework
   )
+
+
+  private val DefaultTestOptions =
+    Config.TestOptions(Nil, List(Config.TestArgument(Array("-v", "-a"), Some(JUnitFramework))))
 
   def writeCompileAndTestConfiguration(mojo: BloopMojo, log: Log): Unit = {
     import scala.collection.JavaConverters._
@@ -84,7 +89,7 @@ object MojoImplementation {
 
       // FORMAT: OFF
       val config = {
-        val test = Config.Test(testFrameworks, Config.TestOptions.empty)
+        val test = Config.Test(testFrameworks, DefaultTestOptions)
         val java = Config.Java(mojo.getJavacArgs().asScala.toArray)
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
