@@ -147,16 +147,17 @@ tocSelector: '.js-toc',
 
 contentSelector: '.content',
 
-headingSelector: 'h3'
+headingSelector: 'h2'
 })
 }
 );
 </script>
 
 
+
     
 
-<h3 id="mac-os">Mac OS</h3>
+<h2 id="mac-os">Mac OS</h2>
 
 <p>Install with <a href="https://brew.sh">Homebrew</a> via:</p>
 
@@ -179,17 +180,17 @@ start it manually.</p>
 
 <p>Homebrew also automatically installs completions for zsh and Bash.</p>
 
-<h3 id="other-platforms">Other platforms</h3>
+<h2 id="other-platforms">Other platforms</h2>
 
 <p>Install bloop in other platforms (Windows, Unix, *bsd) via our python script:</p>
 
-<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M7</span>/install.py | python
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M8</span>/install.py | python
 </code></pre>
 
 <p>The installation script will also install completions for zsh and Bash, but
 you need to set them up manually.</p>
 
-<h5 id="zsh-completions">Zsh completions</h5>
+<h4 id="zsh-completions">Zsh completions</h4>
 
 <p>Add the following to your <code>~/.zshrc</code>:</p>
 
@@ -198,14 +199,14 @@ fpath=($HOME/.bloop/zsh $fpath)
 compinit
 </code></pre>
 
-<h5 id="bash-completions">Bash completions</h5>
+<h4 id="bash-completions">Bash completions</h4>
 
 <p>To get the command line completions with Bash, add the following to your <code>~/.bash_profile</code>:</p>
 
 <pre><code class="language-sh">. $HOME/.bloop/bash/bloop
 </code></pre>
 
-<h3 id="use-bloop-with-sbt">Use bloop with sbt</h3>
+<h2 id="use-bloop-with-sbt">Use bloop with sbt</h2>
 
 <p>The first step is to generate the configuration files for Bloop with our sbt
 plugin. This action needs to be performed whenever your build changes (for
@@ -215,21 +216,26 @@ the build).</p>
 <p>The sbt plugin is available for both sbt <code>0.13</code> and <code>1.x</code>. To install it, add
 the following to your <code>project/plugins.sbt</code>:</p>
 
-<pre><code class="language-scala">addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "<span class="latest-version">1.0.0-M7</span>")
-</code></pre>
+<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M8</span>"</span>)</code></pre>
 
 <p>Once sbt is configured, you can run <code>bloopInstall</code> to generate the Bloop configuration:</p>
 
 <pre><code class="language-sh">$ sbt bloopInstall
 [info] Loading global plugins from /Users/martin/.sbt/1.0/plugins
 (...)
-[success] Bloop wrote the configuration of project 'foo' to '/my-project/.bloop/foo.config'.
-[success] Bloop wrote the configuration of project 'foo-test' to '/my-project/.bloop/foo-test.config'.
+[success] Generated '/my-project/.bloop/foo.json'.
+[success] Generated '/my-project/.bloop/foo-test.json'.
 </code></pre>
 
-<p>The configuration files contain the information of the sbt build at the moment of running <code>bloopInstall</code>. Note that it contains machine-dependent information (the path of every resolved jar) so you should not check it into your version control system.</p>
+<p>Bloop has generated two configuration files, one for the main project and another one for the test project.
+The configuration files contain the information of the sbt build at the moment of running <code>bloopInstall</code>.</p>
 
-<h4 id="support-for-source-dependencies">Support for source dependencies</h4>
+<p>Head to <a href="https://scalacenter.github.io/bloop/docs/configuration-format/">Bloop configuration format</a> to learn more details
+about the format and how to generate it from other tools.</p>
+
+<p><span class="label warning">Note</span> that the configuration file contains machine-dependent information (the path of every resolved jar), so you must not check it into your version control system.</p>
+
+<h3 id="support-for-source-dependencies">Support for source dependencies</h3>
 
 <p>If you use source dependencies in sbt, add the following setting definition to your <code>build.sbt</code>:</p>
 
@@ -238,7 +244,7 @@ the following to your <code>project/plugins.sbt</code>:</p>
 
 <p><span class="label warning">Note</span> that <code>bloopAggregateSourceDependencies</code> has to be scoped globally.</p>
 
-<h4 id="start-bloop">Start bloop</h4>
+<h3 id="start-bloop">Start bloop</h3>
 
 <p>Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.</p>
 
@@ -270,7 +276,7 @@ than the Homebrew formula in Mac OS. You can run the server with the bloop CLI:<
     It is maintained by Martin Duhem, Jorge Vicente Cantero.
 </code></pre>
 
-<h4 id="verify-installation">Verify installation</h4>
+<h3 id="verify-installation">Verify installation</h3>
 
 <pre><code class="language-sh">$ bloop projects
 foo
@@ -290,13 +296,13 @@ foo-test
 the configuration directory that <code>sbt-bloop</code> wrote the configuration files to
 (see the logs of <code>bloopInstall</code> in the previous section) as the argument of <code>--config-dir</code>.</p>
 
-<h3 id="use-bloop-with-other-build-tools">Use bloop with other build tools</h3>
+<h2 id="use-bloop-with-other-build-tools">Use bloop with other build tools</h2>
 
 <p>We&rsquo;re currently working on the documentation and integrations to support
 other build tools. For now, bloop has <a href="https://github.com/scalacenter/bloop/tree/master/integrations/maven-bloop">a Maven plugin</a>,
 and we&rsquo;re working on plugin integrations for Bazel and Gradle.</p>
 
-<h3 id="use-the-cli">Use the CLI</h3>
+<h2 id="use-the-cli">Use the CLI</h2>
 
 <p>Once the installation is ready, let&rsquo;s try everything with a first compile.</p>
 
@@ -322,9 +328,9 @@ test -p foo -w</code>!</p>
 <p>You can learn about the rest of Bloop commands by typing <code>bloop --help</code> or
 reading the <a href="https://scalacenter.github.io/bloop/docs/commands-reference/">Command Reference</a>.</p>
 
-<h3 id="other-installation-options">Other installation options</h3>
+<h2 id="other-installation-options">Other installation options</h2>
 
-<h4 id="install-bloop-in-a-different-bloop-folder">Install bloop in a different bloop folder</h4>
+<h3 id="install-bloop-in-a-different-bloop-folder">Install bloop in a different bloop folder</h3>
 
 <p>By default, the script installs bloop binaries in a <code>.bloop</code> directory in your
 <code>$HOME</code> folder. You can change that with the <code>--dest</code> option:</p>
@@ -340,7 +346,7 @@ snippets in this page with your installation directory.</p>
 in an independent directory than the bloop client, head to the docs of the
 <a href="https://scalacenter.github.io/bloop/docs/how-to-use-bloop/">bloop server</a>.</p>
 
-<h4 id="install-a-development-version">Install a development version</h4>
+<h3 id="install-a-development-version">Install a development version</h3>
 
 <p>The installation script can also be used to install a development version of Bloop. The <a href="https://github.com/scalacenter/bloop
 ">installation
@@ -415,6 +421,9 @@ submodule at a given point in time to find that information.</li>
   </script>
   <script src="/bloop/js/master.js" type="text/javascript">
   </script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/scala.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
 
   
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>

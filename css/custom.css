@@ -36,3 +36,8 @@ pre code {
 #top #top-nav-extra .algolia-autocomplete {
   font-size: 16px;
 }
+
+h2,
+.h2 {
+  font-size: 32px;
+  line-height: 36px; }

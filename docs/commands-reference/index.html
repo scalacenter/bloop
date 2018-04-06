@@ -147,16 +147,17 @@ tocSelector: '.js-toc',
 
 contentSelector: '.content',
 
-headingSelector: 'h3'
+headingSelector: 'h2'
 })
 }
 );
 </script>
 
 
+
     
 
-<h3 id="bloop-projects"><code>bloop projects</code></h3>
+<h2 id="bloop-projects"><code>bloop projects</code></h2>
 
 <p>This commands displays all the projects that have been loaded from the current working directory:</p>
 
@@ -168,7 +169,7 @@ Projects loaded from '/Users/martin/foobar/.bloop':
 
 <p>This command can also be used to generate <code>dot</code> graph: <sample></p>
 
-<h3 id="bloop-compile"><code>bloop compile</code></h3>
+<h2 id="bloop-compile"><code>bloop compile</code></h2>
 
 <p>This command takes care of starting compilation for a project and all of its dependencies.</p>
 
@@ -211,7 +212,7 @@ Projects loaded from '/Users/martin/foobar/.bloop':
   </dd>
 </dl>
 
-<h3 id="bloop-test"><code>bloop test</code></h3>
+<h2 id="bloop-test"><code>bloop test</code></h2>
 
 <p>This command runs the tests for one or more projects.</p>
 
@@ -254,7 +255,7 @@ Projects loaded from '/Users/martin/foobar/.bloop':
   </dd>
 </dl>
 
-<h3 id="bloop-run"><code>bloop run</code></h3>
+<h2 id="bloop-run"><code>bloop run</code></h2>
 
 <p>This command is used to run the code of your project. It requires having at least one runnable class
 in your project.</p>
@@ -307,7 +308,7 @@ in your project.</p>
   </dd>
 </dl>
 
-<h3 id="bloop-console"><code>bloop console</code></h3>
+<h2 id="bloop-console"><code>bloop console</code></h2>
 
 <p><code>bloop console</code> starts a Scala REPL with your project and its dependencies on the classpath.</p>
 
@@ -340,7 +341,7 @@ in your project.</p>
   </dd>
 </dl>
 
-<h3 id="bloop-clean"><code>bloop clean</code></h3>
+<h2 id="bloop-clean"><code>bloop clean</code></h2>
 
 <p>This command is used to remove the results of the compilation.</p>
 
@@ -365,7 +366,7 @@ in your project.</p>
   </dd>
 </dl>
 
-<h3 id="bloop-configure"><code>bloop configure</code></h3>
+<h2 id="bloop-configure"><code>bloop configure</code></h2>
 
 <p>This command is used to configure the behavior of the Bloop server.</p>
 
@@ -382,7 +383,7 @@ in your project.</p>
   </dd>
 </dl>
 
-<h3 id="bloop-bsp"><code>bloop bsp</code></h3>
+<h2 id="bloop-bsp"><code>bloop bsp</code></h2>
 
 <p>This command is used to start the <abbr title="Build Server Protocol">BSP</abbr> server.
 You can check a specification of BSP <a href="https://github.com/scalacenter/bsp">here</a>.</p>
@@ -485,6 +486,9 @@ You can check a specification of BSP <a href="https://github.com/scalacenter/bsp
   </script>
   <script src="/bloop/js/master.js" type="text/javascript">
   </script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/scala.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
 
   
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>

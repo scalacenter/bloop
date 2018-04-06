@@ -147,11 +147,12 @@ tocSelector: '.js-toc',
 
 contentSelector: '.content',
 
-headingSelector: 'h3'
+headingSelector: 'h2'
 })
 }
 );
 </script>
+
 
 
     
@@ -160,7 +161,7 @@ headingSelector: 'h3'
 ways to extend this model, head to the <a href="https://scalacenter.github.io/bloop/docs/integration-guide/">Integration
 guide</a>. Otherwise, keep reading.</p>
 
-<h3 id="bloop-client"><code>bloop</code> client</h3>
+<h2 id="bloop-client"><code>bloop</code> client</h2>
 
 <p>The <code>bloop</code> client is the user-facing tool to run any bloop command. The client
 is a python script that implements the Nailgun protocol to communicate with the
@@ -172,7 +173,7 @@ project</a>, which has been modified to be Bloop friendly. If you ever
 want to check the nailgun options to specify the nailgun port or the way to
 connect to the bloop server, type <code>bloop --nailgun-help</code>.</p>
 
-<h3 id="bloop-server"><code>bloop</code> server</h3>
+<h2 id="bloop-server"><code>bloop</code> server</h2>
 
 <p>The server runs bloop actions on the background and then redirects the log
 streams back to the bloop client. The server is a long-running application, so
@@ -193,7 +194,7 @@ same directory where <code>bloop</code> is installed. If this is not the case, r
 <p>If you forget to run the server before using the bloop CLI tool, you&rsquo;ll get the
 following output:</p>
 
-<pre><code>&gt; $ bloop help
+<pre><code class="language-sh">&gt; $ bloop help
 Could not connect to server 127.0.0.1:8212
 
 Have you forgotten to start bloop's server? Run it with `bloop server`.
@@ -235,6 +236,9 @@ Type `--nailgun-help` for help on the Nailgun CLI tool.
   </script>
   <script src="/bloop/js/master.js" type="text/javascript">
   </script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/scala.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
 
   
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
