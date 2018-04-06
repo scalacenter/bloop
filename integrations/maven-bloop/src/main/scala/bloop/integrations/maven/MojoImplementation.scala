@@ -73,7 +73,7 @@ object MojoImplementation {
       val sourceDirs = sourceDirs0.map(abs).toArray
       val classesDir = abs(classesDir0)
       val classpath1 = {
-        val cp = classpath0.asScala.asInstanceOf[List[String]].map(u => abs(new File(u)))
+        val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
         if (cp.headOption.contains(classesDir)) cp.tail else cp
       }
       val classpath = classpath1.toArray
