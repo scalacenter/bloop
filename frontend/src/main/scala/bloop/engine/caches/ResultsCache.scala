@@ -47,5 +47,8 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
 }
 
 object ResultsCache {
+  import java.util.concurrent.ConcurrentHashMap
+  // TODO: Enrich this with a guava cache that stores maximum 200 analysis file
+  private[bloop] val persisted = ConcurrentHashMap.newKeySet[PreviousResult]()
   def getEmpty(logger: Logger): ResultsCache = new ResultsCache(Map.empty, logger)
 }
