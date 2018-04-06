@@ -103,8 +103,10 @@ val benchmarks = project
   )
 
 lazy val sbtBloop = project
+  .enablePlugins(ScriptedPlugin)
   .in(file("integrations") / "sbt-bloop")
   .dependsOn(jsonConfig)
+  .settings(BuildDefaults.scriptedSettings)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
@@ -112,7 +114,8 @@ lazy val sbtBloop = project
     bintrayPackage := "sbt-bloop",
     bintrayOrganization := Some("sbt"),
     bintrayRepository := "sbt-plugin-releases",
-    publishMavenStyle := releaseEarlyWith.value == SonatypePublisher
+    publishMavenStyle := releaseEarlyWith.value == SonatypePublisher,
+    publishLocal := publishLocal.dependsOn(publishLocal in jsonConfig).value
   )
 
 val mavenBloop = project

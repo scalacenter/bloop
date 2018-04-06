@@ -1,0 +1,12 @@
+> bloopInstall
+$ exists .bloop/foo.json
+$ exists .bloop/foo-test.json
+$ exists .bloop/bar.json
+$ exists .bloop/bar-test.json
+$ copy-file changes/build.sbt build.sbt
+> reload
+> bloopInstall
+$ exists .bloop/foo.json
+$ exists .bloop/foo-test.json
+-$ exists .bloop/bar.json
+-$ exists .bloop/bar-test.json

@@ -1,8 +1,10 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
+# Only test sbt-bloop 1.x because of bug in `^`
 matrix:
   SBT_RUN:
     - sbt "benchmarks/compile" \
           "jsonConfig/test" \
+          "sbtBloop/scripted" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
           "frontend/test" \
