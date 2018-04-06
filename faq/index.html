@@ -175,6 +175,17 @@ in your sbt build like <a href="https://github.com/scalacenter/bloop/blob/6e1d55
 <p><span class="label warning">Note</span> that you need to scope it in every
 sbt project.</p>
 
+<h2 id="why-does-bloopinstall-trigger-compilation-or-a-time-consuming-task">Why does <code>bloopInstall</code> trigger compilation or a time-consuming task?</h2>
+
+<p><code>bloopInstall</code> is usually a quick task to run, but it can be slow if the classpath
+of any of your projects depends on a binary dependency from your build (requiring
+<code>compile</code> + <code>publishLocal</code>) or if you depend on expensive tasks that do source
+and resource generation.</p>
+
+<p>You can speed it up by avoiding binary dependencies on modules that your build defines
+or by making sure that all the source and resource generators are cached (if you depend
+on a plugin, the plugin should make sure of that).</p>
+
 <h2 id="is-bloop-open-source">Is Bloop open source?</h2>
 
 <p>Yes. Bloop is released under the Apache-2.0 license and is free and open source software.</p>
