@@ -1,6 +1,7 @@
 package bloop.engine.tasks
 
 import bloop.cli.ExitStatus
+import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
 import bloop.io.AbsolutePath
@@ -8,7 +9,6 @@ import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
-
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing.{Event, EventHandler, Framework, SuiteSelector, TaskDef}
@@ -195,35 +195,40 @@ object Tasks {
   }
 
   /**
-   * Persists on disk the state of the incremental compiler.
+   * Persists every analysis file (the state of the incremental compiler) on disk in parallel.
    *
    * @param state The current state of Bloop
-   * @return The same state, unchanged.
+   * @return The task that will persist all the results in parallel.
    */
-  def persist(state: State): State = {
-    import state.logger
+  def persist(state: State): Task[Unit] = {
+    val out = state.commonOptions.ngout
     import bloop.util.JavaCompat.EnrichOptional
-    def persistResult(project: Project, result: PreviousResult): Unit = {
+    def persist(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
         val storeFile = project.out.resolve(s"${project.name}-analysis.bin")
+        state.commonOptions.ngout.println(s"Writing ${storeFile.syntax}.")
         FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
+        ResultsCache.persisted.add(result)
+        ()
       }
 
       val analysis = result.analysis().toOption
       val setup = result.setup().toOption
       (analysis, setup) match {
-        case (Some(analysis), Some(setup)) => toBinaryFile(analysis, setup)
+        case (Some(analysis), Some(setup)) =>
+          if (ResultsCache.persisted.contains(result)) ()
+          else toBinaryFile(analysis, setup)
         case (Some(analysis), None) =>
-          logger.warn(s"$project has analysis but not setup after compilation. Report upstream.")
+          out.println(s"$project has analysis but not setup after compilation. Report upstream.")
         case (None, Some(analysis)) =>
-          logger.warn(s"$project has setup but not analysis after compilation. Report upstream.")
-        case (None, None) => logger.debug(s"Project $project has no analysis file.")
+          out.println(s"$project has setup but not analysis after compilation. Report upstream.")
+        case (None, None) => out.println(s"Project $project has no analysis and setup.")
       }
 
     }
 
-    state.results.iterator.foreach(kv => persistResult(kv._1, kv._2))
-    state
+    val ts = state.results.iterator.map { case (project, result) => Task(persist(project, result)) }
+    Task.gatherUnordered(ts).map(_ => ())
   }
 
   /**

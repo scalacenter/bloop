@@ -65,16 +65,6 @@ object State {
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
 
-  def setUpShutdownHoook(): Unit = {
-    Runtime
-      .getRuntime()
-      .addShutdownHook(new Thread {
-        import bloop.engine.tasks.Tasks
-        override def run(): Unit =
-          State.stateCache.allStates.foreach(s => Tasks.persist(s))
-      })
-  }
-
   /**
    * Sets up the cores for the execution context to be used for compiling and testing the project.
    *
