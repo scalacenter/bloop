@@ -46,19 +46,15 @@ object AutoImported {
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
-  val bloopGenerate: sbt.TaskKey[Unit] =
-    sbt.taskKey[Unit]("Generate bloop configuration files for this project")
+  val bloopGenerate: sbt.TaskKey[File] =
+    sbt.taskKey[File]("Generate bloop configuration files for this project")
 }
 
 object PluginImplementation {
   import bloop.integrations.sbt.{AutoImported => BloopKeys}
   val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopInstall := PluginDefaults.bloopInstall.value,
-    BloopKeys.bloopAggregateSourceDependencies := false,
-    Keys.onLoad := {
-      val previous = Keys.onLoad.value
-      PluginDefaults.bloopOnLoad.value.compose(previous)
-    }
+    BloopKeys.bloopAggregateSourceDependencies := false
   )
 
   // We create build setting proxies to global settings so that we get autocompletion (sbt bug)
@@ -105,16 +101,6 @@ object PluginImplementation {
     import Compat._
     import sbt.{Task, Defaults, State}
 
-    private type CreatedFiles = scala.collection.mutable.HashSet[File]
-    private final val createdFiles = new CreatedFiles()
-    private final val createdFilesAttr = sbt.AttributeKey[CreatedFiles]("bloopCreatedFiles")
-
-    lazy val bloopOnLoad: Def.Initialize[State => State] = Def.setting { (state: State) =>
-      if (!state.has(createdFilesAttr))
-        state.put(createdFilesAttr, createdFiles)
-      else state
-    }
-
     lazy val bloopTargetDir: Def.Initialize[File] = Def.setting {
       val project = Keys.thisProject.value
       val bloopConfigDir = BloopKeys.bloopConfigDir.value
@@ -144,7 +130,7 @@ object PluginImplementation {
       }
     }
 
-    lazy val bloopGenerate: Def.Initialize[Task[Unit]] = Def.task {
+    lazy val bloopGenerate: Def.Initialize[Task[File]] = Def.task {
       val logger = Keys.streams.value.log
       val project = Keys.thisProject.value
       def nameFromString(name: String, configuration: Configuration): String =
@@ -265,42 +251,35 @@ object PluginImplementation {
         else outFile
       }
 
-      createdFiles.+=(outFile)
       logger.success(s"Generated $relativeConfigPath")
+      outFile
     }
 
     private final val allJson = sbt.GlobFilter("*.json")
-    private final val removeStaleProjects = { (s: State, allConfigDirs: Set[File]) =>
-      val logger = s.globalLogging.full
-      s.get(createdFilesAttr) match {
-        case Some(visitedProjects) =>
-          val allConfigs =
-            allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
-          allConfigs.diff(createdFiles).foreach { configFile =>
-            sbt.IO.delete(configFile)
-            logger.warn(s"Removed stale $configFile.")
-          }
-        case None =>
-          // This can happen when a plugin that is in the sbt universe overrides `onLoad` in the wrong way
-          logger.warn("Missing map of visited projects; bloop couldn't remove stale projects!")
+    private final val removeStaleProjects = { (allConfigDirs: Set[File]) =>
+      { (s: State, generatedFiles: Set[File]) =>
+        val logger = s.globalLogging.full
+        val allConfigs =
+          allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
+        allConfigs.diff(generatedFiles).foreach { configFile =>
+          sbt.IO.delete(configFile)
+          logger.warn(s"Removed stale $configFile.")
+        }
+        s
       }
-
-      createdFiles.clear()
-      s
     }
 
     lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
-      val projectFilter = sbt.ScopeFilter(sbt.inAnyProject)
       val filter = sbt.ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
-      Def.taskDyn {
-        val allConfigDirs = BloopKeys.bloopConfigDir.all(projectFilter).map(_.toSet).value
-        BloopKeys.bloopGenerate
-          .all(filter)
-          .map(_ => allConfigDirs)
-          // Smart trick to modify state once a task has completed (who said tasks cannot alter state?)
-          .apply((t: Task[Set[File]]) => sbt.SessionVar.transform(t, removeStaleProjects))
-          .map(_ => ())
-      }
+      val allConfigDirs =
+        BloopKeys.bloopConfigDir.all(sbt.ScopeFilter(sbt.inAnyProject)).map(_.toSet).value
+      val removeProjects = removeStaleProjects(allConfigDirs)
+      BloopKeys.bloopGenerate
+        .all(filter)
+        .map(_.toSet)
+        // Smart trick to modify state once a task has completed (who said tasks cannot alter state?)
+        .apply((t: Task[Set[File]]) => sbt.SessionVar.transform(t, removeProjects))
+        .map(_ => ())
     }
 
     lazy val bloopConfigDir: Def.Initialize[Option[File]] = Def.setting { None }
