@@ -8,8 +8,6 @@ description = "What is bloop and what problems does it solve?"
 bref = "Learn the ideas behind bloop, what problems it solves and how it's designed. See how it compares to other tools in our ecosystem."
 +++
 
-## Design goals
-
 Bloop is a Scala build server and command-line tool to make the compile and
 test developer workflows fast and productive in a build-tool-agnostic way.
 
