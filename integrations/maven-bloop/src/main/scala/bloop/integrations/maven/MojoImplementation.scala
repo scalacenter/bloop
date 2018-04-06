@@ -96,7 +96,7 @@ object MojoImplementation {
       // FORMAT: ON
 
       val suffix = if (configuration == "compile") "" else s"-$configuration"
-      val configTarget = new File(mojo.getBloopConfigDir, s"$name$suffix")
+      val configTarget = new File(mojo.getBloopConfigDir, s"$name$suffix.json")
       log.info(s"Writing bloop configuration file to ${configTarget.getAbsolutePath()}")
       Config.File.write(config, configTarget.toPath)
     }
