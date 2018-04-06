@@ -53,7 +53,7 @@ object Bloop extends CaseApp[CliOptions] {
     val input = reader.readLine()
     input.split(" ") match {
       case Array("exit") =>
-        timed(state.logger) { Tasks.persist(state) }
+        waitForState(Exit(ExitStatus.Ok), Tasks.persist(state).map(_ => state))
         ()
 
       case Array("projects") =>

@@ -10,14 +10,13 @@ import bloop.logging.{BloopLogger, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
-import bloop.io.Timer
+import bloop.engine.tasks.Tasks
 
 import scala.util.control.NonFatal
 
 class Cli
 object Cli {
   def main(args: Array[String]): Unit = {
-    State.setUpShutdownHoook()
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool, args)
     sys.exit(exitStatus.code)
@@ -227,6 +226,8 @@ object Cli {
     waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger, userArgs) {
       Interpreter.execute(action, currentState).map { newState =>
         State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        // Persist successful result on the background for the new state -- it doesn't block!
+        Tasks.persist(newState).runAsync(ExecutionContext.ioScheduler)
         newState
       }
     }
