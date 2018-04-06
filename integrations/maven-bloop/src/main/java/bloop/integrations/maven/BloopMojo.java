@@ -13,7 +13,7 @@ import scala_maven.ExtendedScalaContinuousCompileMojo;
 import java.io.File;
 import java.util.List;
 
-@Mojo(name = "bloop", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.TEST)
+@Mojo(name = "bloopInstall", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.TEST)
 public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(defaultValue = "${mojoExecution}", readonly = true, required = true)
     private MojoExecution mojoExecution;
