@@ -103,8 +103,10 @@ val benchmarks = project
   )
 
 lazy val sbtBloop = project
+  .enablePlugins(ScriptedPlugin)
   .in(file("integrations") / "sbt-bloop")
   .dependsOn(jsonConfig)
+  .settings(BuildDefaults.scriptedSettings)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,

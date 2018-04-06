@@ -313,6 +313,14 @@ object BuildImplementation {
       ),
     )
 
+    import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
+    val scriptedSettings: Seq[Def.Setting[_]] = List(
+      ScriptedKeys.scriptedBufferLog := false,
+      ScriptedKeys.scriptedLaunchOpts := { ScriptedKeys.scriptedLaunchOpts.value ++
+        Seq("-Xmx1024M", "-Dplugin.version=" + Keys.version.value)
+      }
+    )
+
     val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.task {
       val logger = Keys.streams.value.log
       val name = Keys.name.value

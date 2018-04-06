@@ -22,6 +22,7 @@ val root = project
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
     addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.1"),
+    libraryDependencies += { "org.scala-sbt" %% "scripted-plugin" % sbtVersion.value },
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
       val baseDir = baseDirectory.value.getParentFile
