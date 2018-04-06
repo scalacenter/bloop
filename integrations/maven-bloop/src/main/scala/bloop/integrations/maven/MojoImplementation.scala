@@ -45,10 +45,16 @@ object MojoImplementation {
   private val DefaultTestOptions =
     Config.TestOptions(Nil, List(Config.TestArgument(Array("-v", "-a"), Some(JUnitFramework))))
 
-  def writeCompileAndTestConfiguration(mojo: BloopMojo, root0: String, log: Log): Unit = {
-    val root = new File(root0)
+  def writeCompileAndTestConfiguration(mojo: BloopMojo, session: MavenSession, log: Log): Unit = {
     import scala.collection.JavaConverters._
+    def abs(file: File): Path = file.toPath().toRealPath().toAbsolutePath()
+
+    val root = new File(session.getExecutionRootDirectory())
     val project = mojo.getProject()
+    val dependencies =
+      session.getProjectDependencyGraph.getUpstreamProjects(project, true).asScala.toList
+    val dependencyNames = dependencies.map(_.getArtifactId()).toArray
+
     val configDir = mojo.getBloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
 
@@ -64,28 +70,33 @@ object MojoImplementation {
         emptyLauncher
       }
 
+    val classpathOptions = mojo.getClasspathOptions()
+    val allScalaJars = mojo.getAllScalaJars().map(abs).toArray
+    val scalacArgs = mojo.getScalacArgs().asScala.toArray
+
     def writeConfig(sourceDirs0: Seq[File],
                     classesDir0: File,
                     classpath0: java.util.List[_],
                     launcher: AppLauncher,
                     configuration: String): Unit = {
-      def abs(file: File): Path = file.toPath().toRealPath().toAbsolutePath()
 
-      val name = project.getArtifactId()
+      val suffix = if (configuration == "compile") "" else s"-$configuration"
+      val name = project.getArtifactId() + suffix
       val build = project.getBuild()
       val baseDirectory = abs(project.getBasedir())
       val out = baseDirectory.resolve("target")
       val sourceDirs = sourceDirs0.map(abs).toArray
       val classesDir = abs(classesDir0)
-      val classpath1 = {
+      val classpath = {
+        val projectDependencies = dependencies.flatMap { d =>
+          val build = d.getBuild()
+          if (configuration == "compile") build.getOutputDirectory() :: Nil
+          else build.getTestOutputDirectory() :: build.getOutputDirectory() :: Nil
+        }
+
         val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
-        if (cp.headOption.contains(classesDir)) cp.tail else cp
+        (projectDependencies.map(u => abs(new File(u))) ++ cp).toArray
       }
-      val classpath = classpath1.toArray
-      val classpathOptions = mojo.getClasspathOptions()
-      val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toArray
-      val allScalaJars = mojo.getAllScalaJars().map(abs).toArray
-      val scalacArgs = mojo.getScalacArgs().asScala.toArray
 
       // FORMAT: OFF
       val config = {
@@ -93,15 +104,14 @@ object MojoImplementation {
         val java = Config.Java(mojo.getJavacArgs().asScala.toArray)
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
-        val jvm = Config.Jvm(Some(abs(mojo.getJavaHome())), launcher.getJvmArgs().toArray)
+        val jvm = Config.Jvm(Some(abs(mojo.getJavaHome().getParentFile.getParentFile)), launcher.getJvmArgs().toArray)
         val compileOptions = Config.CompileOptions(Config.Mixed)
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, test)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, test)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON
 
-      val suffix = if (configuration == "compile") "" else s"-$configuration"
-      val configTarget = new File(mojo.getBloopConfigDir, s"$name$suffix.json")
+      val configTarget = new File(mojo.getBloopConfigDir, s"$name.json")
       val finalTarget = relativize(root, configTarget).getOrElse(configTarget.getAbsolutePath)
       log.info(s"Generated $finalTarget")
       Config.File.write(config, configTarget.toPath)
