@@ -272,7 +272,9 @@ object PluginImplementation {
     lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
       val filter = sbt.ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
       val allConfigDirs =
-        BloopKeys.bloopConfigDir.all(sbt.ScopeFilter(sbt.inAnyProject)).map(_.toSet).value
+        BloopKeys.bloopConfigDir.?.all(sbt.ScopeFilter(sbt.inAnyProject))
+          .map(_.flatMap(_.toList).toSet)
+          .value
       val removeProjects = removeStaleProjects(allConfigDirs)
       BloopKeys.bloopGenerate
         .all(filter)
