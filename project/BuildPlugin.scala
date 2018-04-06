@@ -1,14 +1,13 @@
 package build
 
 import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
 
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import pl.project13.scala.sbt.JmhPlugin.JmhKeys
 import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
-import sbt.io.{AllPassFilter, IO}
+import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
