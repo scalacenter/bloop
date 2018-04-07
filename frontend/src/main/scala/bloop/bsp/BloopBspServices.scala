@@ -5,8 +5,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, State}
 import bloop.io.AbsolutePath
+import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
-import monix.{eval => me}
+import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
 import com.typesafe.scalalogging.Logger
 import org.langmeta.jsonrpc.{
@@ -14,51 +15,17 @@ import org.langmeta.jsonrpc.{
   Response => JsonRpcResponse,
   Services => JsonRpcServices
 }
-import org.langmeta.lsp.Window
 
-class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
+final class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
+  private val bspForwarderLogger = BspLogger(callSiteState, client)
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
     .request(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
-  /**
-   * Creates a logger that will forward all the messages to the underlying bsp client.
-   * It does so via the replication of the `window/showMessage` LSP functionality.
-   */
-  private final val bspForwarderLogger = new bloop.logging.AbstractLogger() {
-    override def name: String = s"bsp-logger-${BloopBspServices.counter.incrementAndGet()}"
-    override def verbose[T](op: => T): T = callSiteState.logger.verbose(op)
-    override def isVerbose: Boolean = callSiteState.logger.isVerbose
-    override def ansiCodesSupported(): Boolean = true
-
-    override def debug(msg: String): Unit = {
-      callSiteState.logger.debug(msg)
-    }
-
-    override def error(msg: String): Unit = {
-      callSiteState.logger.error(msg)
-      Window.showMessage.error(msg)(client)
-    }
-
-    override def warn(msg: String): Unit = {
-      callSiteState.logger.warn(msg)
-      Window.showMessage.warn(msg)(client)
-    }
-
-    override def trace(t: Throwable): Unit = {
-      callSiteState.logger.trace(t)
-    }
-
-    override def info(msg: String): Unit = {
-      callSiteState.logger.info(msg)
-      Window.showMessage.info(msg)(client)
-    }
-  }
-
   // Internal state, think how to make this more elegant.
-  @volatile private final var currentState: State = null
+  @volatile private var currentState: State = null
 
   /**
    * Get the latest state that can be reused and cached by bloop so that the next client
@@ -69,11 +36,13 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     state0.copy(logger = callSiteState.logger)
   }
 
-  private final val defaultOpts = callSiteState.commonOptions
-  def reloadState(uri: String): State = {
-    val pool = callSiteState.pool
-    val state0 = State.loadActiveStateFor(AbsolutePath(uri), pool, defaultOpts, bspForwarderLogger)
-    state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
+  private val pool = callSiteState.pool
+  private val defaultOpts = callSiteState.commonOptions
+  def reloadState(config: AbsolutePath): Task[State] = {
+    bspForwarderLogger.debug(s"Reloading bsp state for ${config.syntax}")
+    State.loadActiveStateFor(config, pool, defaultOpts, bspForwarderLogger).map { state0 =>
+      state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
+    }
   }
 
   /**
@@ -84,22 +53,24 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
    */
   def initialize(
       initializeBuildParams: InitializeBuildParams
-  ): me.Task[Either[JsonRpcResponse.Error, InitializeBuildResult]] = me.Task {
-    callSiteState.logger.info("request received: build/initialize")
-    bspLogger.info("request received: build/initialize")
-    currentState = reloadState(initializeBuildParams.rootUri)
-    Right(
-      InitializeBuildResult(
-        Some(
-          BuildServerCapabilities(
-            compileProvider = true,
-            textDocumentBuildTargetsProvider = true,
-            dependencySourcesProvider = false,
-            buildTargetChangedProvider = true
+  ): Task[Either[JsonRpcResponse.Error, InitializeBuildResult]] = {
+    reloadState(AbsolutePath(initializeBuildParams.rootUri)).map { state =>
+      callSiteState.logger.info("request received: build/initialize")
+      bspLogger.info("request received: build/initialize")
+      currentState = state
+      Right(
+        InitializeBuildResult(
+          Some(
+            BuildServerCapabilities(
+              compileProvider = true,
+              textDocumentBuildTargetsProvider = true,
+              dependencySourcesProvider = false,
+              buildTargetChangedProvider = true
+            )
           )
         )
       )
-    )
+    }
   }
 
   def initialized(
@@ -108,24 +79,24 @@ class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: L
     bspLogger.info("BSP initialization handshake complete.")
   }
 
-  def compile(params: CompileParams): me.Task[Either[JsonRpcResponse.Error, CompileReport]] = {
-    me.Task {
-      // TODO(jvican): Naive approach, we need to implement batching here.
-      val projectsToCompile = params.targets.map { target =>
-        ProjectUris.getProjectDagFromUri(target.uri, currentState) match {
-          case Some(project) => (target, project)
-          case None => sys.error(s"The project for ${target.uri} is missing!")
-        }
+  def compile(params: CompileParams): Task[Either[JsonRpcResponse.Error, CompileReport]] = {
+    // TODO(jvican): Naive approach, we need to implement batching here.
+    val projectsToCompile = params.targets.map { target =>
+      ProjectUris.getProjectDagFromUri(target.uri, currentState) match {
+        case Some(project) => (target, project)
+        case None => sys.error(s"The project for ${target.uri} is missing!")
       }
+    }
 
-      import bloop.engine.{Run, Exit, Action}
-      import bloop.cli.ExitStatus
-      val action = projectsToCompile.foldLeft(Exit(ExitStatus.Ok): Action) {
-        case (action, (_, project)) =>
-          Run(Commands.Compile(project.name), action)
-      }
+    import bloop.engine.{Run, Exit, Action}
+    import bloop.cli.ExitStatus
+    val action = projectsToCompile.foldLeft(Exit(ExitStatus.Ok): Action) {
+      case (action, (_, project)) =>
+        Run(Commands.Compile(project.name), action)
+    }
 
-      currentState = Interpreter.execute(action, currentState)
+    Interpreter.execute(action, Task.now(currentState)).map { state =>
+      currentState = state
       val items = projectsToCompile.map(p => CompileReportItem(target = Some(p._1)))
       Right(CompileReport(items))
     }

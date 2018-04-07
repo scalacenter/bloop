@@ -1,6 +1,7 @@
 package bloop.engine.tasks
 
 import bloop.cli.ExitStatus
+import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
 import bloop.io.AbsolutePath
@@ -8,7 +9,6 @@ import bloop.reporter.{Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
-
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing.{Event, EventHandler, Framework, SuiteSelector, TaskDef}
@@ -67,7 +67,7 @@ object Tasks {
       val sourceDirs = project.sourceDirectories
       val classpath = project.classpath
       val classesDir = project.classesDir
-      val target = project.tmp
+      val target = project.out
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
       val classpathOptions = project.classpathOptions
@@ -195,35 +195,40 @@ object Tasks {
   }
 
   /**
-   * Persists on disk the state of the incremental compiler.
+   * Persists every analysis file (the state of the incremental compiler) on disk in parallel.
    *
    * @param state The current state of Bloop
-   * @return The same state, unchanged.
+   * @return The task that will persist all the results in parallel.
    */
-  def persist(state: State): State = {
-    import state.logger
+  def persist(state: State): Task[Unit] = {
+    val out = state.commonOptions.ngout
     import bloop.util.JavaCompat.EnrichOptional
-    def persistResult(project: Project, result: PreviousResult): Unit = {
+    def persist(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
-        val storeFile = project.bloopConfigDir.getParent.resolve(s"${project.name}-analysis.bin")
+        val storeFile = project.out.resolve(s"${project.name}-analysis.bin")
+        state.commonOptions.ngout.println(s"Writing ${storeFile.syntax}.")
         FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
+        ResultsCache.persisted.add(result)
+        ()
       }
 
       val analysis = result.analysis().toOption
       val setup = result.setup().toOption
       (analysis, setup) match {
-        case (Some(analysis), Some(setup)) => toBinaryFile(analysis, setup)
+        case (Some(analysis), Some(setup)) =>
+          if (ResultsCache.persisted.contains(result)) ()
+          else toBinaryFile(analysis, setup)
         case (Some(analysis), None) =>
-          logger.warn(s"$project has analysis but not setup after compilation. Report upstream.")
+          out.println(s"$project has analysis but not setup after compilation. Report upstream.")
         case (None, Some(analysis)) =>
-          logger.warn(s"$project has setup but not analysis after compilation. Report upstream.")
-        case (None, None) => logger.debug(s"Project $project has no analysis file.")
+          out.println(s"$project has setup but not analysis after compilation. Report upstream.")
+        case (None, None) => out.println(s"Project $project has no analysis and setup.")
       }
 
     }
 
-    state.results.iterator.foreach(kv => persistResult(kv._1, kv._2))
-    state
+    val ts = state.results.iterator.map { case (project, result) => Task(persist(project, result)) }
+    Task.gatherUnordered(ts).map(_ => ())
   }
 
   /**
@@ -249,10 +254,10 @@ object Tasks {
     val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
     projectsToTest.foreach { project =>
       val projectName = project.name
-      val processConfig = ForkProcess(project.javaEnv, project.classpath)
-      val testLoader = processConfig.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+      val forkProcess = ForkProcess(project.javaEnv, project.classpath)
+      val testLoader = forkProcess.toExecutionClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
-        .flatMap(fname => TestInternals.getFramework(testLoader, fname.toList, logger))
+        .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
       val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
@@ -261,11 +266,14 @@ object Tasks {
 
       val discoveredTests = {
         val tests = discoverTests(analysis, frameworks)
+        val excluded = project.testOptions.excludes.toSet
         val ungroupedTests = tests.toList.flatMap {
           case (framework, tasks) => tasks.map(t => (framework, t))
         }
         val (includedTests, excludedTests) = ungroupedTests.partition {
-          case (framework, task) => testFilter(task.fullyQualifiedName)
+          case (_, task) =>
+            val fqn = task.fullyQualifiedName()
+            !excluded(fqn) && testFilter(fqn)
         }
 
         if (logger.isVerbose) {
@@ -280,7 +288,9 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
-      TestInternals.executeTasks(cwd, processConfig, discoveredTests, eventHandler, logger)
+      val args = project.testOptions.arguments
+      val env = state.commonOptions.env
+      TestInternals.executeTasks(cwd, forkProcess, discoveredTests, args, handler, logger, env)
     }
 
     // Return the previous state, test execution doesn't modify it.
@@ -303,7 +313,7 @@ object Tasks {
           args: Array[String]): Task[State] = Task {
     val classpath = project.classpath
     val processConfig = ForkProcess(project.javaEnv, classpath)
-    val exitCode = processConfig.runMain(cwd, fqn, args, state.logger)
+    val exitCode = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions.env)
     val exitStatus = {
       if (exitCode == ForkProcess.EXIT_OK) ExitStatus.Ok
       else ExitStatus.UnexpectedError
@@ -338,7 +348,7 @@ object Tasks {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
 
-  private[bloop] val eventHandler =
+  private[bloop] val handler =
     new EventHandler { override def handle(event: Event): Unit = () }
 
   private[bloop] def discoverTests(analysis: CompileAnalysis,

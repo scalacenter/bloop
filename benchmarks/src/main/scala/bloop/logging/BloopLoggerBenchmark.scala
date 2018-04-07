@@ -30,10 +30,4 @@ class BloopLoggerBenchmark {
   def logDebug(): Unit = {
     BloopLoggerBenchmark.logger.debug("message")
   }
-
-  @Benchmark
-  def logVerbose(): Unit = {
-    BloopLoggerBenchmark.logger.verbose(())
-  }
-
 }

@@ -12,7 +12,7 @@ There are two main ways you can extend bloop or integrate it with external
 tools. In this document, we dive into them and explain when you would want to
 use the first or the latter one.
 
-### Integrate via bloop's model
+## Integrate via bloop's model
 
 Bloop has a low-level configuration format that describes Scala and Java
 projects. This configuration format is the one that all bloop integrations in
@@ -27,7 +27,7 @@ wrapper around bloop or implementing your own low-level build tool, this is
 the perfect way to go; nevertheless, make sure you read up on BSP before
 finally settling on this way of extending bloop.
 
-### Integrate via BSP
+## Integrate via BSP
 
 Bloop implements [BSP], a build server protocol that any build tool, IDE or
 external tool can implement to talk to bloop's server.

@@ -9,8 +9,8 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import bloop.Project
-import bloop.engine.State
-import bloop.exec.{JavaEnv, ForkProcess}
+import bloop.engine.{ExecutionContext, State}
+import bloop.exec.{ForkProcess, JavaEnv}
 import bloop.io.AbsolutePath
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
@@ -23,7 +23,7 @@ import scala.concurrent.duration.Duration
 
 object TestTaskTest {
   // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
-  val frameworkNames = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest")
+  val frameworkNames = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest", "JUnit")
 
   @Parameters
   def data(): Collection[Array[String]] = {
@@ -38,10 +38,10 @@ class TestTaskTest(framework: String) {
   private val (testState: State, testProject: Project, testAnalysis: CompileAnalysis) = {
     import bloop.util.JavaCompat.EnrichOptional
     val target = s"$TestProjectName-test"
-    val state0 = ProjectHelpers.loadTestProject(TestProjectName)
+    val state0 = TestUtil.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
     val compileTask = Tasks.compile(state0, project, ReporterConfig.defaultFormat)
-    val state = Await.result(compileTask.runAsync(state0.scheduler), Duration.Inf)
+    val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.getResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
@@ -69,14 +69,14 @@ class TestTaskTest(framework: String) {
   }
 
   private def frameworks(classLoader: ClassLoader): Array[Framework] = {
-    testProject.testFrameworks.flatMap(n =>
-      TestInternals.getFramework(classLoader, n.toList, testState.logger))
+    testProject.testFrameworks.flatMap(f =>
+      TestInternals.loadFramework(classLoader, f.names, testState.logger))
   }
 
   @Test
   def canRunTestFramework: Unit = {
-    ProjectHelpers.withTemporaryDirectory { tmp =>
-      testState.logger.quietIfSuccess { logger =>
+    TestUtil.withTemporaryDirectory { tmp =>
+      TestUtil.quietIfSuccess(testState.logger) { logger =>
         val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
         val classLoader = testLoader(config)
@@ -88,14 +88,15 @@ class TestTaskTest(framework: String) {
             Seq(framework -> filteredDefs)
         }.toMap
         val discoveredTests = DiscoveredTests(classLoader, tests)
-        TestInternals.executeTasks(cwd, config, discoveredTests, Tasks.eventHandler, logger)
+        val env = TestUtil.runAndTestProperties
+        TestInternals.executeTasks(cwd, config, discoveredTests, Nil, Tasks.handler, logger, env)
       }
     }
   }
 
   @Test
   def testsAreDetected = {
-    testState.logger.quietIfSuccess { logger =>
+    TestUtil.quietIfSuccess(testState.logger) { logger =>
       val config = processRunnerConfig
       val classLoader = testLoader(config)
       val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader))

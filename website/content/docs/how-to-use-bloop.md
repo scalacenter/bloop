@@ -12,7 +12,7 @@ Bloop has two main components, a client and a server. If you're looking for
 ways to extend this model, head to the [Integration
 guide]({{< ref "integration-guide.md" >}}). Otherwise, keep reading.
 
-### `bloop` client
+## `bloop` client
 
 The `bloop` client is the user-facing tool to run any bloop command. The client
 is a python script that implements the Nailgun protocol to communicate with the
@@ -24,7 +24,7 @@ project][nailgun], which has been modified to be Bloop friendly. If you ever
 want to check the nailgun options to specify the nailgun port or the way to
 connect to the bloop server, type `bloop --nailgun-help`.
 
-### `bloop` server
+## `bloop` server
 
 The server runs bloop actions on the background and then redirects the log
 streams back to the bloop client. The server is a long-running application, so
@@ -45,7 +45,7 @@ same directory where `bloop` is installed. If this is not the case, run `bloop
 If you forget to run the server before using the bloop CLI tool, you'll get the
 following output:
 
-```
+```sh
 > $ bloop help
 Could not connect to server 127.0.0.1:8212
 

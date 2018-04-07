@@ -4,9 +4,8 @@ import bloop.CompilerCache
 import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
-import bloop.logging.{BloopLogger, Logger}
-
-import monix.execution.Scheduler
+import bloop.logging.Logger
+import monix.eval.Task
 
 /**
  * Represents the state for a given build.
@@ -31,7 +30,6 @@ final case class State private (
     status: ExitStatus,
     logger: Logger
 ) {
-  private[bloop] val scheduler: Scheduler = ExecutionContext.scheduler
   /* TODO: Improve the handling and merging of different status. Use the status to report errors. */
   def mergeStatus(newStatus: ExitStatus): State =
     this.copy(status = ExitStatus.merge(status, newStatus))
@@ -67,16 +65,6 @@ object State {
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
 
-  def setUpShutdownHoook(): Unit = {
-    Runtime
-      .getRuntime()
-      .addShutdownHook(new Thread {
-        import bloop.engine.tasks.Tasks
-        override def run(): Unit =
-          State.stateCache.allStates.foreach(s => Tasks.persist(s))
-      })
-  }
-
   /**
    * Sets up the cores for the execution context to be used for compiling and testing the project.
    *
@@ -102,26 +90,27 @@ object State {
   import bloop.io.AbsolutePath
 
   /**
-    * Loads an state active for the given configuration directory.
-    *
-    * @param configDir The configuration directory to load a state for.
-    * @param pool The pool of listeners that are connected to this client.
-    * @param opts The common options associated with the state.
-    * @param logger The logger to be used to instantiate the state.
-    * @return An state (cached or not) associated with the configuration directory.
-    */
+   * Loads an state active for the given configuration directory.
+   *
+   * @param configDir The configuration directory to load a state for.
+   * @param pool The pool of listeners that are connected to this client.
+   * @param opts The common options associated with the state.
+   * @param logger The logger to be used to instantiate the state.
+   * @return An state (cached or not) associated with the configuration directory.
+   */
   def loadActiveStateFor(
       configDir: AbsolutePath,
       pool: ClientPool,
       opts: CommonOptions,
       logger: Logger
-  ): State = {
+  ): Task[State] = {
     val cached = State.stateCache.addIfMissing(configDir, path => {
-      val projects = Project.fromDir(configDir, logger)
-      val build: Build = Build(configDir, projects)
-      State(build, pool, opts, logger)
+      Project.lazyLoadFromDir(configDir, logger).map { projects =>
+        val build: Build = Build(configDir, projects)
+        State(build, pool, opts, logger)
+      }
     })
 
-    cached.copy(pool = pool, commonOptions = opts, logger = logger)
+    cached.map(_.copy(pool = pool, commonOptions = opts, logger = logger))
   }
 }

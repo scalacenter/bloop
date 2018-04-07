@@ -3,7 +3,7 @@ description = "A contributors guide for Bloop."
 title = "Developer documentation"
 date = "2018-02-20T13:45:00+01:00"
 draft = false
-weight = 10
+weight = 12
 bref = "Learn how to contribute to bloop in a nutshell."
 toc = true
 +++

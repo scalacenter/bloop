@@ -2,6 +2,7 @@ package bloop.cli
 
 import java.io.{InputStream, PrintStream}
 import java.nio.file.{Path, Paths}
+import java.util.Properties
 
 import caseapp.CommandParser
 import caseapp.core.{ArgParser, DefaultBaseCommand}
@@ -24,6 +25,12 @@ object CliParsers {
       case "bash" => Right(completion.BashFormat)
       case "zsh" => Right(completion.ZshFormat)
       case w00t => Left(s"Unrecognized format: $w00t")
+    }
+  }
+
+  implicit val propertiesParser: ArgParser[CommonOptions.PrettyProperties] = {
+    ArgParser.instance("A properties parser") {
+      case whatever => Left("You cannot pass in properties through the command line.")
     }
   }
 

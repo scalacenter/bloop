@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
+import pl.project13.scala.sbt.JmhPlugin.JmhKeys
 import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
@@ -141,9 +142,9 @@ object BuildKeys {
   )
 
   import sbtbuildinfo.BuildInfoKeys
-  def benchmarksSettings(project: Reference): Seq[Def.Setting[_]] = List(
+  def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
-    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in project),
+    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in dep),
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
@@ -159,12 +160,14 @@ object BuildKeys {
           .split(java.io.File.pathSeparatorChar)
           .find(_.contains("sbt-launch"))
           .getOrElse("")),
-        "-DbloopVersion=" + Keys.version.in(project).value,
-        "-DbloopRef=" + refOf(Keys.version.in(project).value),
-        "-Dbloop.jar=" + AssemblyKeys.assembly.in(project).value,
+        "-DbloopVersion=" + Keys.version.in(dep).value,
+        "-DbloopRef=" + refOf(Keys.version.in(dep).value),
+        "-Dbloop.jar=" + AssemblyKeys.assemblyOutputPath.in(AssemblyKeys.assembly).in(dep).value,
         "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
-    }
+    },
+    Keys.runMain in JmhKeys.Jmh :=
+      (Keys.runMain in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated
   )
 
   import com.typesafe.sbt.site.SitePlugin.{autoImport => SiteKeys}
@@ -174,8 +177,9 @@ object BuildKeys {
   import sbt.io.GlobFilter
   val websiteSettings: Seq[Def.Setting[_]] = Seq(
     Keys.sourceDirectory in HugoKeys.Hugo := Keys.baseDirectory.value,
-    Keys.includeFilter in HugoKeys.Hugo := (Keys.includeFilter in SiteKeys.makeSite).value || GlobFilter(
-      "*.svg"),
+    Keys.includeFilter in HugoKeys.Hugo :=
+      (Keys.includeFilter in SiteKeys.makeSite).value || GlobFilter("*.svg") || GlobFilter(
+        "bloop-schema.json"),
     HugoKeys.baseURL in HugoKeys.Hugo := sbt.uri("https://scalacenter.github.io/bloop"),
     GitKeys.gitRemoteRepo := "git@github.com:scalacenter/bloop.git",
     GhpagesKeys.ghpagesNoJekyll := true
@@ -196,7 +200,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "1.3-refresh2",
+    BuildKeys.schemaVersion := "2.0",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
@@ -311,6 +315,15 @@ object BuildImplementation {
         Dependencies.mavenScalaPlugin
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
       ),
+    )
+
+    import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
+    val scriptedSettings: Seq[Def.Setting[_]] = List(
+      ScriptedKeys.scriptedBufferLog := false,
+      ScriptedKeys.scriptedLaunchOpts := {
+        ScriptedKeys.scriptedLaunchOpts.value ++
+          Seq("-Xmx1024M", "-Dplugin.version=" + Keys.version.value)
+      }
     )
 
     val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.task {

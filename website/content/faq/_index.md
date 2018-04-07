@@ -47,6 +47,17 @@ in your sbt build like [here](https://github.com/scalacenter/bloop/blob/6e1d55cc
 <span class="label warning">Note</span> that you need to scope it in every
 sbt project.
 
+## Why does `bloopInstall` trigger compilation or a time-consuming task?
+
+`bloopInstall` is usually a quick task to run, but it can be slow if the classpath
+of any of your projects depends on a binary dependency from your build (requiring
+`compile` + `publishLocal`) or if you depend on expensive tasks that do source
+and resource generation.
+
+You can speed it up by avoiding binary dependencies on modules that your build defines
+or by making sure that all the source and resource generators are cached (if you depend
+on a plugin, the plugin should make sure of that).
+
 ## Is Bloop open source?
 
 Yes. Bloop is released under the Apache-2.0 license and is free and open source software.

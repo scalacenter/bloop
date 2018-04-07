@@ -9,7 +9,7 @@ import bloop.engine.{Interpreter, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
 import bloop.logging.{ProcessLogger, RecordingLogger}
-import bloop.tasks.ProjectHelpers.{
+import bloop.tasks.TestUtil.{
   checkAfterCleanCompilation,
   getProject,
   loadTestProject,

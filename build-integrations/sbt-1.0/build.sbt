@@ -3,7 +3,6 @@ val GuardianFrontend = Integrations.GuardianFrontend
 val MiniBetterFiles = Integrations.MiniBetterFiles
 val WithResources = Integrations.WithResources
 val WithTests = Integrations.WithTests
-
 val integrations = List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests)
 
 import bloop.build.integrations.PluginKeys

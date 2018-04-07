@@ -9,6 +9,7 @@ bloopAggregateSourceDependencies in Global := true
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
+  .disablePlugins(ScriptedPlugin)
   .settings(
     releaseEarly := { () },
     skip in publish := true
@@ -20,6 +21,7 @@ val benchmarkBridge = project
 import build.Dependencies
 
 val backend = project
+  .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-backend",
@@ -30,7 +32,6 @@ val backend = project
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
       Dependencies.configDirectories,
-      Dependencies.caseApp,
       Dependencies.sourcecode,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent,
@@ -39,10 +40,43 @@ val backend = project
     )
   )
 
+// Needs to be called `jsonConfig` because of naming conflict with sbt universe...
+val jsonConfig = project
+  .in(file("config"))
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-config",
+    crossScalaVersions := List(Keys.scalaVersion.in(backend).value, "2.10.7"),
+    // We compile in both so that the maven integration can be tested locally
+    publishLocal := publishLocal.dependsOn(publishM2).value,
+    libraryDependencies ++= {
+      if (scalaBinaryVersion.value == "2.12") {
+        List(
+          Dependencies.typesafeConfig,
+          Dependencies.metaconfigCore,
+          Dependencies.metaconfigDocs,
+          Dependencies.metaconfigConfig,
+          Dependencies.circeDerivation,
+          Dependencies.scalacheck % Test,
+        )
+      } else {
+        List(
+          Dependencies.typesafeConfig,
+          Dependencies.circeCore,
+          Dependencies.circeGeneric,
+          compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+          Dependencies.scalacheck % Test,
+        )
+      }
+    }
+  )
+
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 val frontend = project
-  .dependsOn(backend, backend % "test->test")
+  .dependsOn(backend, backend % "test->test", jsonConfig)
+  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
@@ -59,30 +93,25 @@ val frontend = project
     libraryDependencies ++= List(
       Dependencies.bsp,
       Dependencies.monix,
+      Dependencies.caseApp,
       Dependencies.ipcsocket % Test
     )
   )
 
 val benchmarks = project
   .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
+  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
   .settings(
     skip in publish := true,
   )
 
-lazy val integrationsCore = project
-  .in(file("integrations") / "core")
-  .settings(
-    name := "bloop-integrations-core",
-    crossScalaVersions := List("2.12.4", "2.10.7"),
-    // We compile in both so that the maven integration can be tested locally
-    publishLocal := publishLocal.dependsOn(publishM2).value
-  )
-
 lazy val sbtBloop = project
+  .enablePlugins(ScriptedPlugin)
   .in(file("integrations") / "sbt-bloop")
-  .dependsOn(integrationsCore)
+  .dependsOn(jsonConfig)
+  .settings(BuildDefaults.scriptedSettings)
   .settings(
     name := "sbt-bloop",
     sbtPlugin := true,
@@ -90,28 +119,31 @@ lazy val sbtBloop = project
     bintrayPackage := "sbt-bloop",
     bintrayOrganization := Some("sbt"),
     bintrayRepository := "sbt-plugin-releases",
-    publishMavenStyle := releaseEarlyWith.value == SonatypePublisher
+    publishMavenStyle := releaseEarlyWith.value == SonatypePublisher,
+    publishLocal := publishLocal.dependsOn(publishLocal in jsonConfig).value
   )
 
 val mavenBloop = project
   .in(file("integrations") / "maven-bloop")
-  .dependsOn(integrationsCore)
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig)
   .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
 val docs = project
   .in(file("website"))
-  .enablePlugins(HugoPlugin, GhpagesPlugin)
+  .enablePlugins(HugoPlugin, GhpagesPlugin, ScriptedPlugin)
   .settings(
     name := "bloop-website",
     skip in publish := true,
     websiteSettings
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, integrationsCore, sbtBloop, mavenBloop)
+val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
+  .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
     releaseEarly := { () },
@@ -129,7 +161,7 @@ val publishLocalCmd = Keys.publishLocal.key.label
 addCommandAlias(
   "install",
   Seq(
-    s"+${integrationsCore.id}/$publishLocalCmd",
+    s"+${jsonConfig.id}/$publishLocalCmd",
     s"^${sbtBloop.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
@@ -142,8 +174,8 @@ val releaseEarlyCmd = releaseEarly.key.label
 val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
-  s"+${integrationsCore.id}/$publishLocalCmd", // Necessary because of a coursier bug?
-  s"+${integrationsCore.id}/$releaseEarlyCmd",
+  s"+${jsonConfig.id}/$publishLocalCmd", // Necessary because of a coursier bug?
+  s"+${jsonConfig.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
 )

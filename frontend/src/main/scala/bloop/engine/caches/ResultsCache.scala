@@ -24,7 +24,7 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
     import bloop.util.JavaCompat.EnrichOptional
 
     def fetchPreviousResult(p: Project): PreviousResult = {
-      val analysisFile = project.bloopConfigDir.getParent.resolve(s"${project.name}-analysis.bin")
+      val analysisFile = project.out.getParent.resolve(s"${project.name}-analysis.bin")
       if (Files.exists(analysisFile.underlying)) {
         logger.debug(s"Loading previous analysis for '${project.name}' from '$analysisFile'.")
         val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
@@ -47,5 +47,8 @@ final class ResultsCache(cache: Map[Project, PreviousResult], logger: Logger) {
 }
 
 object ResultsCache {
+  import java.util.concurrent.ConcurrentHashMap
+  // TODO: Enrich this with a guava cache that stores maximum 200 analysis file
+  private[bloop] val persisted = ConcurrentHashMap.newKeySet[PreviousResult]()
   def getEmpty(logger: Logger): ResultsCache = new ResultsCache(Map.empty, logger)
 }

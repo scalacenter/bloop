@@ -13,13 +13,14 @@ final case class JavaEnv(javaHome: AbsolutePath, javaOptions: Array[String])
 
 object JavaEnv {
 
+  private[bloop] final val DefaultJavaHome = AbsolutePath(sys.props("java.home"))
+
   /**
    * Default `JavaEnv` constructed from this JVM. Uses the same `javaHome`,
    * and specifies no arguments.
    */
   val default: JavaEnv = {
-    val javaHome = AbsolutePath(sys.props("java.home"))
     val javaOptions = Array.empty[String]
-    JavaEnv(javaHome, javaOptions)
+    JavaEnv(DefaultJavaHome, javaOptions)
   }
 }
