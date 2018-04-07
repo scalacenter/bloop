@@ -1,6 +1,6 @@
 package bloop.cli.completion
 
-import caseapp.core.{Arg}
+import caseapp.core.Arg
 import caseapp.Name
 
 object Case {
