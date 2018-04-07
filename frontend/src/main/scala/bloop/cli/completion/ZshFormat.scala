@@ -21,14 +21,22 @@ object ZshFormat extends Format {
     arg match {
       case Arg(_, name +: _, _, _, true, _, _, _) =>
         None
-      case Arg(_, name +: _, _, Some(help), _, true, _, _) =>
-        Some(s"--${name.name}=-[${help.message}]:${name.name}:(true false)")
-      case Arg(_, name +: _, _, None, _, true, _, _) =>
-        Some(s"--${name.name}=-:${name.name}:(true false)")
-      case Arg(_, name +: _, _, Some(help), _, _, _, _) =>
-        Some(s"--${name.name}[${help.message}]:${name.name}:${completionFn}")
-      case Arg(_, name +: _, _, None, _, _, _, _) =>
-        Some(s"--${name.name}:${name.name}:${completionFn}")
+      case Arg(_, name +: _, _, Some(help), _, true, _, _) => {
+        val camelName = Case.camelToKebab(name.name)
+        Some(s"--${camelName}=-[${help.message}]:${camelName}:(true false)")
+      }
+      case Arg(_, name +: _, _, None, _, true, _, _) => {
+        val camelName = Case.camelToKebab(name.name)
+        Some(s"--${camelName}=-:${camelName}:(true false)")
+      }
+      case Arg(_, name +: _, _, Some(help), _, _, _, _) =>{
+        val camelName = Case.camelToKebab(name.name)
+        Some(s"--${camelName}[${help.message}]:${camelName}:${completionFn}")
+      }
+      case Arg(_, name +: _, _, None, _, _, _, _) =>{
+        val camelName = Case.camelToKebab(name.name)
+        Some(s"--${camelName}:${camelName}:${completionFn}")
+      }
       case _ =>
         None
     }

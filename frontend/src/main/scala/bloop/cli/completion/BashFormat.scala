@@ -17,8 +17,10 @@ object BashFormat extends Format {
   override def showArg(commandName: String, arg: Arg): Option[String] = {
     val completionFn = completionFunction(commandName, arg.name).map(" " + _).getOrElse("")
     arg match {
-      case Arg(_, name +: _, _, _, false, _, _, _) =>
-        Some(s"--${name.name}${completionFn}")
+      case Arg(_, name +: _, _, _, false, _, _, _) =>{
+        val camelName = Case.camelToKebab(name.name)
+        Some(s"--${camelName}${completionFn}")
+      }
       case _ =>
         None
     }
