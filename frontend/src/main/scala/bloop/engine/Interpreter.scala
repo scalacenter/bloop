@@ -5,7 +5,7 @@ import bloop.bsp.BspServer
 import scala.annotation.tailrec
 import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
-import bloop.cli.completion.Mode
+import bloop.cli.completion.{Case, Mode}
 import bloop.io.SourceWatcher
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
@@ -231,7 +231,7 @@ object Interpreter {
           command <- cmd.command
           message <- CommandsMessages.messages.toMap.get(command)
           arg <- message.args
-          completion <- cmd.format.showArg(command, arg)
+          completion <- cmd.format.showArg(command, Case.kebabizeArg(arg))
         } state.logger.info(completion)
       case Mode.Reporters =>
         for {
