@@ -20,7 +20,7 @@ final case class Project(
     classesDir: AbsolutePath,
     scalacOptions: Array[String],
     javacOptions: Array[String],
-    sourceDirectories: Array[AbsolutePath],
+    sources: Array[AbsolutePath],
     testFrameworks: Array[Config.TestFramework],
     testOptions: Config.TestOptions,
     javaEnv: JavaEnv,

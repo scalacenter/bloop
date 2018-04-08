@@ -12,7 +12,7 @@ import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
-    sourceDirectories: Array[AbsolutePath],
+    sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
     classesDir: AbsolutePath,
     baseDirectory: AbsolutePath,
@@ -41,9 +41,9 @@ object Compiler {
     }
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      val sources = inputs.sourceDirectories.distinct
-        .flatMap(src => Paths.getAll(src, "glob:**.{scala,java}"))
-        .distinct
+      val uniqueSources = inputs.sources.distinct
+      // Get all the source files in the directories that may be present in `sources`
+      val sources = uniqueSources.flatMap(src => Paths.getAll(src, "glob:**.{scala,java}")).distinct
       val classesDir = inputs.classesDir.toFile
       val classpath = inputs.classpath.map(_.toFile)
 

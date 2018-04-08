@@ -94,12 +94,11 @@ object Interpreter {
   }
 
   private[bloop] def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
-    import state.logger
     val reachable = Dag.dfs(state.build.getDagFor(project))
-    val allSourceDirs = reachable.iterator.flatMap(_.sourceDirectories.toList).map(_.underlying)
-    val watcher = new SourceWatcher(project, allSourceDirs.toList, state.logger)
+    val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
+    val watcher = new SourceWatcher(project, allSources.toList, state.logger)
     val fg = (state: State) => f(state).map { state =>
-      logger.info("Waiting for source changes... (press C-c to interrupt)")
+      watcher.notifyWatch()
       State.stateCache.updateBuild(state)
     }
 
