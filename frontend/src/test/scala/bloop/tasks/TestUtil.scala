@@ -206,7 +206,7 @@ object TestUtil {
       classesDir = AbsolutePath(target),
       scalacOptions = Array.empty,
       javacOptions = Array.empty,
-      sourceDirectories = sourceDirectories,
+      sources = sourceDirectories,
       testFrameworks = Array.empty,
       testOptions = Config.TestOptions.empty,
       javaEnv = javaEnv,

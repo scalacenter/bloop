@@ -96,7 +96,7 @@ class FileWatchingSpec {
         Thread.sleep(1500)
 
         // Write the contents of a new file to force recompilation
-        val newSource = project.sourceDirectories.head.resolve("D.scala").underlying
+        val newSource = project.sources.head.resolve("D.scala").underlying
         Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
         // Wait for #2 compilation to finish
         readCompilingLines(4, "Compiling 1 Scala source to", bloopOut)
@@ -141,7 +141,7 @@ class FileWatchingSpec {
         workerThread.start()
 
         // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
-        val newSource = project.sourceDirectories.head.resolve("D.scala").underlying
+        val newSource = project.sources.head.resolve("D.scala").underlying
         if (Files.exists(newSource)) TestUtil.delete(newSource)
 
         // Wait for #1 compilation to finish
@@ -152,7 +152,7 @@ class FileWatchingSpec {
         readCompilingLines(1, "- should be very personal", bloopOut)
         readCompilingLines(1, "Total for specification Specs2Test", bloopOut)
         readCompilingLines(2, "Terminating test server.", bloopOut)
-        readCompilingLines(1, "File watching 8 directories.", bloopOut)
+        readCompilingLines(1, "Watching 8 directories... (press C-c to interrupt)", bloopOut)
 
         // Write the contents of a source back to the same source
         Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))

@@ -74,7 +74,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           classesDir = classesDir,
           scalacOptions = Array.empty,
           javacOptions = Array.empty,
-          sourceDirectories = Array.empty,
+          sources = Array.empty,
           testFrameworks = Array.empty,
           testOptions = Config.TestOptions.empty,
           javaEnv = javaEnv,

@@ -15,13 +15,14 @@ import monix.eval.Task
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 
-final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
-  private val dirs = dirs0.distinct
+final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
+  import java.nio.file.Files
+  private val paths = paths0.distinct
+  private val dirs = paths.filter(p => Files.isDirectory(p))
   private val dirsCount = dirs.size
-  private val dirsAsJava: java.util.List[Path] = dirs.asJava
+  private val filesCount = paths.filter(p => Files.isRegularFile(p)).size
 
   // Create source directories if they don't exist, otherwise the watcher fails.
-  import java.nio.file.Files
   dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
@@ -40,7 +41,7 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
 
     var watchingEnabled: Boolean = true
     val watcher = DirectoryWatcher.create(
-      dirsAsJava,
+      paths.asJava,
       new DirectoryChangeListener {
         // Define `isWatching` just for correctness
         override def isWatching: Boolean = watchingEnabled
@@ -66,7 +67,6 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
     // Use Java's completable future because we can stop/complete it from the cancelable
     val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
     val watchController = Task {
-      logger.info(s"File watching $dirsCount directories...")
       try watcherHandle.get()
       finally watcher.close()
       logger.debug("The file watcher was successfully closed.")
@@ -96,5 +96,10 @@ final class SourceWatcher(project: Project, dirs0: Seq[Path], logger: Logger) {
     observable
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
+  }
+
+  def notifyWatch(): Unit = {
+    val andFiles = if (filesCount == 0) "" else s" and $filesCount files"
+    logger.info(s"Watching $dirsCount directories$andFiles... (press C-c to interrupt)")
   }
 }
