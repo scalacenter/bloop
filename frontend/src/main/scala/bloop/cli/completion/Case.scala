@@ -17,6 +17,8 @@ object Case {
     sb.toString
   }
 
-  def kebabizeArg(arg: Arg): Arg = arg.copy(extraNames =
-                                              arg.extraNames.map((n: Name) => Name(camelToKebab(n.name))))
+  def kebabizeArg(arg: Arg): Arg = {
+    val kebabizedExtraNames = arg.extraNames.map((n: Name) => Name(camelToKebab(n.name)))
+    arg.copy(extraNames = kebabizedExtraNames)
+  }
 }
