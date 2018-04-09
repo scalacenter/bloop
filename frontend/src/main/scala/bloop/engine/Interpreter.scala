@@ -6,7 +6,7 @@ import scala.annotation.tailrec
 import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
-import bloop.io.SourceWatcher
+import bloop.io.{RelativePath, SourceWatcher}
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.testing.TestInternals
@@ -90,7 +90,7 @@ object Interpreter {
 
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
     val scheduler = ExecutionContext.bspScheduler
-    BspServer.run(cmd, state, scheduler)
+    BspServer.run(cmd, state, RelativePath(".bloop"), scheduler)
   }
 
   private[bloop] def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {

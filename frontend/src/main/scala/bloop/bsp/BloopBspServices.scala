@@ -1,22 +1,24 @@
 package bloop.bsp
 
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.cli.Commands
 import bloop.engine.{Interpreter, State}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
 import com.typesafe.scalalogging.Logger
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
+import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 
-final class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLogger: Logger) {
+final class BloopBspServices(
+    callSiteState: State,
+    client: JsonRpcClient,
+    relativeConfigPath: RelativePath,
+    bspLogger: Logger
+) {
   private val bspForwarderLogger = BspLogger(callSiteState, client)
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
@@ -54,7 +56,8 @@ final class BloopBspServices(callSiteState: State, client: JsonRpcClient, bspLog
   def initialize(
       initializeBuildParams: InitializeBuildParams
   ): Task[Either[JsonRpcResponse.Error, InitializeBuildResult]] = {
-    reloadState(AbsolutePath(initializeBuildParams.rootUri)).map { state =>
+    val configDir = AbsolutePath(initializeBuildParams.rootUri).resolve(relativeConfigPath)
+    reloadState(configDir).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       bspLogger.info("request received: build/initialize")
       currentState = state

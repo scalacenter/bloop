@@ -1,20 +1,16 @@
 package bloop.bsp
 
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
-import ch.epfl.`scala`.bsp.schema.{
-  BuildClientCapabilities,
-  InitializeBuildParams,
-  InitializedBuildParams
-}
+import ch.epfl.`scala`.bsp.schema.{BuildClientCapabilities, InitializeBuildParams, InitializedBuildParams}
 import ch.epfl.scala.bsp.endpoints
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.langmeta.jsonrpc.{BaseProtocolMessage, Response, Services}
-import org.langmeta.lsp.{LanguageClient, LanguageServer}
+import org.langmeta.lsp.{LanguageClient, LanguageServer, MessageType, ShowMessageParams}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 
 import scala.concurrent.duration.FiniteDuration
@@ -45,19 +41,32 @@ object BspClientTest {
     }
   }
 
+  // We limit the scheduler on purpose so that we don't have any thread leak.
   val scheduler: Scheduler = Scheduler(java.util.concurrent.Executors.newFixedThreadPool(4),
                                        ExecutionModel.AlwaysAsyncExecution)
+
+  import org.langmeta.lsp.Window
+  val services = Services.empty
+    .notification(Window.showMessage) {
+      case ShowMessageParams(MessageType.Log, msg) => slf4jLogger.debug(msg)
+      case ShowMessageParams(MessageType.Info, msg) => slf4jLogger.info(msg)
+      case ShowMessageParams(MessageType.Warning, msg) => slf4jLogger.warn(msg)
+      case ShowMessageParams(MessageType.Error, msg) => slf4jLogger.error(msg)
+    }
+
   def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath)(
       runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
 
-    val projectName = cmd.cliOptions.common.workingPath.underlying.getFileName().toString()
+    val workingPath = cmd.cliOptions.common.workingPath
+    val projectName = workingPath.underlying.getFileName().toString()
     val state = TestUtil.loadTestProject(projectName)
-    val bspServer = BspServer.run(cmd, state, scheduler).runAsync(scheduler)
+    val configPath = configDirectory.toRelative(workingPath)
+    val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
 
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
       val out = socket.getOutputStream
-      val services = Services.empty
+
       implicit val lsClient = new LanguageClient(out, slf4jLogger)
       val messages = BaseProtocolMessage.fromInputStream(in)
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
@@ -82,8 +91,9 @@ object BspClientTest {
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
     val bspClient = bspClientExecution.runAsync(scheduler)
-    Await.result(bspClient, FiniteDuration(10, "s"))
-    Await.result(bspServer, FiniteDuration(10, "s"))
+    // The timeout for all our bsp tests, no matter what operation they run, is 60s
+    Await.result(bspClient, FiniteDuration(60, "s"))
+    Await.result(bspServer, FiniteDuration(60, "s"))
     cleanUpLastResources(cmd)
   }
 

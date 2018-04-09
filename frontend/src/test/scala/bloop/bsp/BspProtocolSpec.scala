@@ -10,6 +10,8 @@ import bloop.tasks.TestUtil
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.schema.CompileParams
+import junit.framework.Assert
 import org.langmeta.lsp.LanguageClient
 
 class BspProtocolSpec {
@@ -54,6 +56,34 @@ class BspProtocolSpec {
     test(10)
   }
 
+  def testBuildTargets(bsp: Commands.ValidatedBsp): Unit = {
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).map {
+        case Right(workspaceTargets) =>
+          Right(Assert.assertEquals(workspaceTargets.targets.size, 8))
+        case Left(error) => Left(error)
+      }
+    }
+
+    BspClientTest.runTest(bsp, configDir)(c => clientWork(c))
+  }
+
+  def testCompile(bsp: Commands.ValidatedBsp): Unit = {
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap { ts =>
+        ts match {
+          case Right(workspaceTargets) =>
+            // This will fail if `testBuildTargets` fails too, so let's not handle errors.
+            val params = CompileParams(List(workspaceTargets.targets.head.id.get))
+            endpoints.BuildTarget.compile.request(params)
+          case Left(error) => sys.error(s"Target request failed with $error.")
+        }
+      }
+    }
+
+    BspClientTest.runTest(bsp, configDir)(c => clientWork(c))
+  }
+
   @Test def TestInitializationViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
     if (!BspServer.isWindows) testInitialization(createLocalBspCommand(configDir))
@@ -63,14 +93,6 @@ class BspProtocolSpec {
     testInitialization(createTcpBspCommand(configDir))
   }
 
-  def testBuildTargets(bsp: Commands.ValidatedBsp): Unit = {
-    def clientWork(implicit client: LanguageClient) = {
-      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest())
-    }
-
-    BspClientTest.runTest(bsp, configDir)(c => clientWork(c))
-  }
-
   @Test def TestBuildTargetsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
     if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir))
@@ -78,5 +100,13 @@ class BspProtocolSpec {
 
   @Test def TestBuildTargetsViaTcp(): Unit = {
     testBuildTargets(createTcpBspCommand(configDir))
+  }
+
+  @Test def TestCompileViaLocal(): Unit = {
+    if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestCompileViaTcp(): Unit = {
+    testCompile(createTcpBspCommand(configDir))
   }
 }
