@@ -67,12 +67,12 @@ object ReleaseUtils {
        |  sha256 "$installSha"
        |  bottle :unneeded
        |
-       |  depends_on "python"
+       |  depends_on "python3"
        |  depends_on :java => "1.8+"
        |
        |  def install
        |      mkdir "bin"
-       |      system "python", "install.py", "--dest", "bin", "--version", version
+       |      system "python3", "install.py", "--dest", "bin", "--version", version
        |      zsh_completion.install "bin/zsh/_bloop"
        |      bash_completion.install "bin/bash/bloop"
        |      File.delete("bin/blp-coursier")
