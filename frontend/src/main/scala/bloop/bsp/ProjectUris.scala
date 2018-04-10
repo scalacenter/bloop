@@ -12,8 +12,7 @@ object ProjectUris {
   def getProjectDagFromUri(projectUri: String, state: State): Either[String, Option[Project]] = {
     if (projectUri.isEmpty) Left("URI cannot be empty.")
     else {
-      val uri = new URI(projectUri)
-      val query = Try(uri.getRawQuery().split("&").map(_.split("="))).toEither
+      val query = Try(new URI(projectUri).getRawQuery().split("&").map(_.split("="))).toEither
       query match {
         case Left(t) =>
           Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
