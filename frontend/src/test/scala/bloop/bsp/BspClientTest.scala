@@ -1,11 +1,16 @@
 package bloop.bsp
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
+import bloop.logging.Slf4jAdapter
 import bloop.tasks.TestUtil
-import ch.epfl.`scala`.bsp.schema.{BuildClientCapabilities, InitializeBuildParams, InitializedBuildParams}
+import ch.epfl.`scala`.bsp.schema.{
+  BuildClientCapabilities,
+  InitializeBuildParams,
+  InitializedBuildParams
+}
 import ch.epfl.scala.bsp.endpoints
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
@@ -16,8 +21,6 @@ import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 import scala.concurrent.duration.FiniteDuration
 
 object BspClientTest {
-  private final val slf4jLogger = com.typesafe.scalalogging.Logger("test")
-
   def cleanUpLastResources(cmd: Commands.ValidatedBsp) = {
     cmd match {
       case cmd: Commands.WindowsLocalBsp => ()
@@ -45,18 +48,20 @@ object BspClientTest {
   val scheduler: Scheduler = Scheduler(java.util.concurrent.Executors.newFixedThreadPool(4),
                                        ExecutionModel.AlwaysAsyncExecution)
 
+  import com.typesafe.scalalogging.{Logger => ScalaLogger}
   import org.langmeta.lsp.Window
-  val services = Services.empty
-    .notification(Window.showMessage) {
-      case ShowMessageParams(MessageType.Log, msg) => slf4jLogger.debug(msg)
-      case ShowMessageParams(MessageType.Info, msg) => slf4jLogger.info(msg)
-      case ShowMessageParams(MessageType.Warning, msg) => slf4jLogger.warn(msg)
-      case ShowMessageParams(MessageType.Error, msg) => slf4jLogger.error(msg)
+  def createServices(logger: ScalaLogger): Services = {
+    Services.empty.notification(Window.showMessage) {
+      case ShowMessageParams(MessageType.Log, msg) => logger.debug(msg)
+      case ShowMessageParams(MessageType.Info, msg) => logger.info(msg)
+      case ShowMessageParams(MessageType.Warning, msg) => logger.warn(msg)
+      case ShowMessageParams(MessageType.Error, msg) => logger.error(msg)
     }
+  }
 
-  def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath)(
+  def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath, logger0: Slf4jAdapter)(
       runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
-
+    val logger = ScalaLogger(logger0)
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
     val state = TestUtil.loadTestProject(projectName)
@@ -67,9 +72,10 @@ object BspClientTest {
       val in = socket.getInputStream
       val out = socket.getOutputStream
 
-      implicit val lsClient = new LanguageClient(out, slf4jLogger)
+      implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in)
-      val lsServer = new LanguageServer(messages, lsClient, services, scheduler, slf4jLogger)
+      val services = createServices(logger)
+      val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
       val cwd = TestUtil.getBaseFromConfigDir(configDirectory.underlying)

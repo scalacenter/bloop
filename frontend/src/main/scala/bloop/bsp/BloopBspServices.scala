@@ -1,6 +1,5 @@
 package bloop.bsp
 
-import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.cli.Commands

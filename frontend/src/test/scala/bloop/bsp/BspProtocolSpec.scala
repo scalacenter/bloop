@@ -7,6 +7,7 @@ import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
+import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
@@ -44,11 +45,12 @@ class BspProtocolSpec {
   }
 
   def testInitialization(cmd: Commands.ValidatedBsp): Unit = {
+    val logger = new Slf4jAdapter(new RecordingLogger)
     // We test the initialization several times to make sure the scheduler doesn't get blocked.
     def test(counter: Int): Unit = {
       if (counter == 0) ()
       else {
-        BspClientTest.runTest(cmd, configDir)(c => monix.eval.Task.eval(Right(())))
+        BspClientTest.runTest(cmd, configDir, logger)(c => monix.eval.Task.eval(Right(())))
         test(counter - 1)
       }
     }
@@ -57,6 +59,7 @@ class BspProtocolSpec {
   }
 
   def testBuildTargets(bsp: Commands.ValidatedBsp): Unit = {
+    val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).map {
         case Right(workspaceTargets) =>
@@ -65,10 +68,11 @@ class BspProtocolSpec {
       }
     }
 
-    BspClientTest.runTest(bsp, configDir)(c => clientWork(c))
+    BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
   }
 
   def testCompile(bsp: Commands.ValidatedBsp): Unit = {
+    val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
@@ -81,7 +85,7 @@ class BspProtocolSpec {
       }
     }
 
-    BspClientTest.runTest(bsp, configDir)(c => clientWork(c))
+    BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
   }
 
   @Test def TestInitializationViaLocal(): Unit = {
