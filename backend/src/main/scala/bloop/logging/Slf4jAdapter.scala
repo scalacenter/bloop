@@ -11,8 +11,8 @@ import org.slf4j.{Marker, Logger => Slf4jLogger}
   *
   * @param logger A bloop logger.
   */
-final class Slf4jAdapter(logger: Logger) extends Slf4jLogger {
-  def underlying: Logger = logger
+final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
+  def underlying: L = logger
 
   override def getName: String = logger.name
   override def debug(msg: String): Unit = logger.debug(msg)

@@ -7,6 +7,7 @@ import java.nio.file.{Files, Path}
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.{ExecutionContext, State}
 import bloop.io.{AbsolutePath, RelativePath}
+import bloop.logging.Slf4jAdapter
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 import monix.execution.{Cancelable, Scheduler}
 
@@ -57,7 +58,6 @@ object BspServer {
     }
   }
 
-  private final val bspLogger = com.typesafe.scalalogging.Logger(this.getClass)
   def run(
       cmd: ValidatedBsp,
       state: State,
@@ -85,6 +85,7 @@ object BspServer {
 
       val in = socket.getInputStream
       val out = socket.getOutputStream
+      val bspLogger = com.typesafe.scalalogging.Logger(new Slf4jAdapter(logger))
       val client = new LanguageClient(out, bspLogger)
       val servicesProvider = new BloopBspServices(state, client, configPath, bspLogger)
       val bloopServices = servicesProvider.services

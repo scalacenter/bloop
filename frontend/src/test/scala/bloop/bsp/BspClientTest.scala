@@ -4,13 +4,9 @@ import java.nio.file.Files
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
-import bloop.logging.Slf4jAdapter
+import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
-import ch.epfl.`scala`.bsp.schema.{
-  BuildClientCapabilities,
-  InitializeBuildParams,
-  InitializedBuildParams
-}
+import ch.epfl.`scala`.bsp.schema.{BuildClientCapabilities, InitializeBuildParams, InitializedBuildParams}
 import ch.epfl.scala.bsp.endpoints
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
@@ -59,12 +55,13 @@ object BspClientTest {
     }
   }
 
-  def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath, logger0: Slf4jAdapter)(
+  type TestLogger = Slf4jAdapter[RecordingLogger]
+  def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath, logger0: TestLogger)(
       runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
-    val logger = ScalaLogger(logger0)
+    val logger = ScalaLogger.apply(logger0)
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
-    val state = TestUtil.loadTestProject(projectName)
+    val state = TestUtil.loadTestProject(projectName).copy(logger = logger0.underlying)
     val configPath = configDirectory.toRelative(workingPath)
     val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
 

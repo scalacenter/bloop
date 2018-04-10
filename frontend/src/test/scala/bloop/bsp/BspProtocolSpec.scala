@@ -15,6 +15,8 @@ import ch.epfl.scala.bsp.schema.CompileParams
 import junit.framework.Assert
 import org.langmeta.lsp.LanguageClient
 
+import scala.util.control.NonFatal
+
 class BspProtocolSpec {
   private final val configDir = AbsolutePath(TestUtil.getBloopConfigDir("utest"))
   private final val cwd = AbsolutePath(TestUtil.getBaseFromConfigDir(configDir.underlying))
@@ -44,6 +46,17 @@ class BspProtocolSpec {
     validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp))
   }
 
+  def reportIfError(logger: Slf4jAdapter[RecordingLogger])(thunk: => Unit): Unit = {
+    try thunk
+    catch {
+      case NonFatal(t) =>
+        val logs = logger.underlying.getMessages().map(t => s"${t._1}: ${t._2}")
+        val errorMsg = s"BSP test failed with the following logs:\n${logs.mkString("\n")}"
+        System.err.println(errorMsg)
+        throw t
+    }
+  }
+
   def testInitialization(cmd: Commands.ValidatedBsp): Unit = {
     val logger = new Slf4jAdapter(new RecordingLogger)
     // We test the initialization several times to make sure the scheduler doesn't get blocked.
@@ -55,7 +68,16 @@ class BspProtocolSpec {
       }
     }
 
-    test(10)
+    reportIfError(logger) {
+      test(10)
+      val CompleteHandshake = "BSP initialization handshake complete."
+      val BuildInitialize = "\"method\" : \"build/initialize\""
+      val BuildInitialized = "\"method\" : \"build/initialized\""
+      val msgs = logger.underlying.getMessages.map(_._2)
+      Assert.assertEquals(msgs.count(_.contains(BuildInitialize)), 10)
+      Assert.assertEquals(msgs.count(_.contains(BuildInitialized)), 10)
+      Assert.assertEquals(msgs.count(_.contains(CompleteHandshake)), 10)
+    }
   }
 
   def testBuildTargets(bsp: Commands.ValidatedBsp): Unit = {
@@ -69,6 +91,16 @@ class BspProtocolSpec {
     }
 
     BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+
+    reportIfError(logger) {
+      val BuildInitialize = "\"method\" : \"build/initialize\""
+      val BuildInitialized = "\"method\" : \"build/initialized\""
+      val BuildTargets = "\"method\" : \"workspace/buildTargets\""
+      val msgs = logger.underlying.getMessages.map(_._2)
+      Assert.assertEquals(msgs.count(_.contains(BuildInitialize)), 1)
+      Assert.assertEquals(msgs.count(_.contains(BuildInitialized)), 1)
+      Assert.assertEquals(msgs.count(_.contains(BuildTargets)), 1)
+    }
   }
 
   def testCompile(bsp: Commands.ValidatedBsp): Unit = {
@@ -85,7 +117,12 @@ class BspProtocolSpec {
       }
     }
 
-    BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+    reportIfError(logger) {
+      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      // Make sure that the compilation is logged back to the client via logs in stdout
+      val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
+      Assert.assertTrue("End of compilation is not reported.", msgs.contains("Done compiling."))
+    }
   }
 
   @Test def TestInitializationViaLocal(): Unit = {
@@ -97,17 +134,18 @@ class BspProtocolSpec {
     testInitialization(createTcpBspCommand(configDir))
   }
 
+
   @Test def TestBuildTargetsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
     if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir))
   }
 
-  @Test def TestBuildTargetsViaTcp(): Unit = {
-    testBuildTargets(createTcpBspCommand(configDir))
-  }
-
   @Test def TestCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestBuildTargetsViaTcp(): Unit = {
+    testBuildTargets(createTcpBspCommand(configDir))
   }
 
   @Test def TestCompileViaTcp(): Unit = {
