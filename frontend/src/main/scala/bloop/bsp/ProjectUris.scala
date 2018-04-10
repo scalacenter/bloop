@@ -29,6 +29,7 @@ object ProjectUris {
 
   private[bsp] val Example = "file://path/to/base/directory?id=projectName"
   def toUri(projectBaseDir: AbsolutePath, id: String): URI = {
-    new URI(s"file://${projectBaseDir.syntax}?id=${id}")
+    val uriSyntax = projectBaseDir.underlying.toUri
+    new URI(s"${uriSyntax}?id=${id}")
   }
 }

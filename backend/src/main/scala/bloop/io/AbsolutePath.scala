@@ -30,4 +30,8 @@ object AbsolutePath {
   def apply(path: String)(implicit cwd: AbsolutePath): AbsolutePath = apply(NioPaths.get(path))(cwd)
   def apply(path: Path)(implicit cwd: AbsolutePath): AbsolutePath =
     if (path.isAbsolute) new AbsolutePath(path) else cwd.resolve(path.toString)
+
+  // Necessary to test wrong paths in tests...
+  private[bloop] def completelyUnsafe(path: String): AbsolutePath =
+    new AbsolutePath(NioPaths.get(path))
 }
