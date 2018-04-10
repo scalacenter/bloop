@@ -77,7 +77,7 @@ final class BloopBspServices(
     }
   }
 
-  private var isInitialized: Boolean = false
+  @volatile private var isInitialized: Boolean = false
   def initialized(
       initializedBuildParams: InitializedBuildParams
   ): Unit = {
