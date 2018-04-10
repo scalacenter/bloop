@@ -11,8 +11,10 @@ import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.CompileParams
+import ch.epfl.scala.bsp.schema.{BuildTargetIdentifier, CompileParams}
 import junit.framework.Assert
+import monix.eval.Task
+import org.langmeta.jsonrpc.Response
 import org.langmeta.lsp.LanguageClient
 
 import scala.util.control.NonFatal
@@ -125,6 +127,26 @@ class BspProtocolSpec {
     }
   }
 
+  def testFailedCompile(bsp: Commands.ValidatedBsp): Unit = {
+    val logger = new Slf4jAdapter(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      val params = CompileParams(List(BuildTargetIdentifier("file://this-doesnt-exist")))
+      endpoints.BuildTarget.compile.request(params).flatMap {
+        case Right(report) =>
+          Task.now(Left(Response.parseError(s"Expecting failed compilation, received $report.")))
+        case Left(e) =>
+          val validError =
+            e.error.message.contains("URI 'file://this-doesnt-exist' has invalid format.")
+          if (validError) Task.now(Right(()))
+          else Task.now(Left(Response.parseError("Expected invalid format error!")))
+      }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+    }
+  }
+
   @Test def TestInitializationViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
     if (!BspServer.isWindows) testInitialization(createLocalBspCommand(configDir))
@@ -133,7 +155,6 @@ class BspProtocolSpec {
   @Test def TestInitializationViaTcp(): Unit = {
     testInitialization(createTcpBspCommand(configDir))
   }
-
 
   @Test def TestBuildTargetsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
@@ -144,11 +165,19 @@ class BspProtocolSpec {
     if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
   }
 
+  @Test def TestFailedCompileViaLocal(): Unit = {
+    testFailedCompile(createLocalBspCommand(configDir))
+  }
+
   @Test def TestBuildTargetsViaTcp(): Unit = {
     testBuildTargets(createTcpBspCommand(configDir))
   }
 
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir))
+  }
+
+  @Test def TestFailedCompileViaTcp(): Unit = {
+    testFailedCompile(createTcpBspCommand(configDir))
   }
 }

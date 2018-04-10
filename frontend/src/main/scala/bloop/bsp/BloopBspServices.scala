@@ -2,27 +2,32 @@ package bloop.bsp
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.cli.Commands
-import bloop.engine.{Interpreter, State}
+import bloop.Project
+import bloop.cli.{Commands, ExitStatus}
+import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import com.typesafe.scalalogging.Logger
-import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import org.langmeta.jsonrpc.{
+  JsonRpcClient,
+  Response => JsonRpcResponse,
+  Services => JsonRpcServices
+}
 
 final class BloopBspServices(
     callSiteState: State,
     client: JsonRpcClient,
-    relativeConfigPath: RelativePath,
-    bspLogger: Logger
+    relativeConfigPath: RelativePath
 ) {
+  private type ProtocolError = JsonRpcResponse.Error
+  private type BspResponse[T] = Task[Either[ProtocolError, T]]
   private val bspForwarderLogger = BspLogger(callSiteState, client)
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
-    .request(endpoints.Workspace.buildTargets)(buildTargets(_))
+    .requestAsync(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
   // Internal state, think how to make this more elegant.
@@ -49,16 +54,13 @@ final class BloopBspServices(
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
    *
-   * @param initializeBuildParams The params request that we get from the client.
+   * @param params The params request that we get from the client.
    * @return An async computation that returns the response to the client.
    */
-  def initialize(
-      initializeBuildParams: InitializeBuildParams
-  ): Task[Either[JsonRpcResponse.Error, InitializeBuildResult]] = {
-    val configDir = AbsolutePath(initializeBuildParams.rootUri).resolve(relativeConfigPath)
+  def initialize(params: InitializeBuildParams): BspResponse[InitializeBuildResult] = {
+    val configDir = AbsolutePath(params.rootUri).resolve(relativeConfigPath)
     reloadState(configDir).map { state =>
       callSiteState.logger.info("request received: build/initialize")
-      bspLogger.info("request received: build/initialize")
       currentState = state
       Right(
         InitializeBuildResult(
@@ -75,42 +77,83 @@ final class BloopBspServices(
     }
   }
 
+  private var isInitialized: Boolean = false
   def initialized(
       initializedBuildParams: InitializedBuildParams
   ): Unit = {
-    bspLogger.info("BSP initialization handshake complete.")
+    isInitialized = true
+    callSiteState.logger.info("BSP initialization handshake complete.")
   }
 
-  def compile(params: CompileParams): Task[Either[JsonRpcResponse.Error, CompileReport]] = {
-    // TODO(jvican): Naive approach, we need to implement batching here.
-    val projectsToCompile = params.targets.map { target =>
-      ProjectUris.getProjectDagFromUri(target.uri, currentState) match {
-        case Some(project) => (target, project)
-        case None => sys.error(s"The project for ${target.uri} is missing!")
+  def ifInitialized[T](t: => BspResponse[T]): BspResponse[T] = {
+    if (isInitialized) t
+    else Task.now(Left(JsonRpcResponse.invalidRequest("The session has not been initialized.")))
+  }
+
+  type ProjectMapping = (BuildTargetIdentifier, Project)
+  private def mapToProjects(
+      targets: Seq[BuildTargetIdentifier]): Either[ProtocolError, Seq[ProjectMapping]] = {
+    def getProject(target: BuildTargetIdentifier): Either[ProtocolError, ProjectMapping] = {
+      val uri = target.uri
+      ProjectUris.getProjectDagFromUri(uri, currentState) match {
+        case scala.util.Failure(e) =>
+          Left(
+            JsonRpcResponse.parseError(
+              s"URI '${uri}' has invalid format. Example: ${ProjectUris.Example}"))
+        case scala.util.Success(o) =>
+          o match {
+            case Some(project) => Right((target, project))
+            case None => Left(JsonRpcResponse.invalidRequest(s"No project associated with $uri"))
+          }
       }
     }
 
-    import bloop.engine.{Run, Exit, Action}
-    import bloop.cli.ExitStatus
-    val action = projectsToCompile.foldLeft(Exit(ExitStatus.Ok): Action) {
-      case (action, (_, project)) =>
-        Run(Commands.Compile(project.name), action)
-    }
-
-    Interpreter.execute(action, Task.now(currentState)).map { state =>
-      currentState = state
-      val items = projectsToCompile.map(p => CompileReportItem(target = Some(p._1)))
-      Right(CompileReport(items))
+    targets.headOption match {
+      case Some(head) =>
+        val init = getProject(head).map(m => m :: Nil)
+        targets.tail.foldLeft(init) {
+          case (acc, t) => acc.flatMap(ms => getProject(t).map(m => m :: ms))
+        }
+      case None =>
+        Left(
+          JsonRpcResponse.invalidParams(
+            "Empty build targets. Expected at least one build target identifier."))
     }
   }
 
-  def buildTargets(request: WorkspaceBuildTargetsRequest): WorkspaceBuildTargets = {
-    val targets = currentState.build.projects.map { p =>
-      val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
-      // Returning scala and java for now.
-      BuildTarget(Some(id), p.name, List("scala", "java"))
+  def compile(params: CompileParams): BspResponse[CompileReport] = {
+    def compile(projects: Seq[ProjectMapping]): BspResponse[CompileReport] = {
+      // TODO(jvican): Naive approach, we need to implement batching here.
+      val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
+        case (action, (_, project)) => Run(Commands.Compile(project.name), action)
+      }
+
+      Interpreter.execute(action, Task.now(currentState)).map { state =>
+        currentState = state
+        val items = projects.map(p => CompileReportItem(target = Some(p._1)))
+        Right(CompileReport(items))
+      }
     }
-    WorkspaceBuildTargets(targets)
+
+    ifInitialized {
+      mapToProjects(params.targets) match {
+        case l @ Left(error) => Task.now(Left(error))
+        case Right(mappings) => compile(mappings)
+      }
+    }
+  }
+
+  def buildTargets(request: WorkspaceBuildTargetsRequest): BspResponse[WorkspaceBuildTargets] = {
+    ifInitialized {
+      val targets = WorkspaceBuildTargets(
+        currentState.build.projects.map { p =>
+          val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
+          BuildTarget(Some(id), p.name, List("scala", "java"))
+        }
+      )
+
+      Task.now(Right(targets))
+    }
   }
 }
 

@@ -87,7 +87,7 @@ object BspServer {
       val out = socket.getOutputStream
       val bspLogger = com.typesafe.scalalogging.Logger(new Slf4jAdapter(logger))
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider = new BloopBspServices(state, client, configPath, bspLogger)
+      val servicesProvider = new BloopBspServices(state, client, configPath)
       val bloopServices = servicesProvider.services
       val messages = BaseProtocolMessage.fromInputStream(in)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
