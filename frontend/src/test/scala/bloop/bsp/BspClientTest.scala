@@ -62,6 +62,9 @@ object BspClientTest {
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
     val state = TestUtil.loadTestProject(projectName).copy(logger = logger0.underlying)
+
+    // Clean all the project results to avoid reusing previous compiles.
+    state.results.reset(state.build.projects)
     val configPath = configDirectory.toRelative(workingPath)
     val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
 
