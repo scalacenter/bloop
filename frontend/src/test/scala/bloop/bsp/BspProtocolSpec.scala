@@ -209,10 +209,12 @@ class BspProtocolSpec {
       endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
           case Right(workspaceTargets) =>
-            // This will fail if `testBuildTargets` fails too, so let's not handle errors.
-            val params = CompileParams(List(workspaceTargets.targets.head.id.get))
-            endpoints.BuildTarget.compile.request(params)
-          case Left(error) => sys.error(s"Target request failed with $error.")
+            workspaceTargets.targets.map(_.id.get).find(_.uri.endsWith("utestJVM")) match {
+              case Some(id) => endpoints.BuildTarget.compile.request(CompileParams(List(id)))
+              case None => Task.now(Left(JsonRpcResponse.internalError("Missing 'utestJVM'")))
+            }
+          case Left(error) =>
+            Task.now(Left(JsonRpcResponse.internalError("Target request failed with $error.")))
         }
       }
     }
