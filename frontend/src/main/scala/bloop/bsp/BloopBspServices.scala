@@ -29,6 +29,7 @@ final class BloopBspServices(
     .notification(endpoints.Build.initialized)(initialized(_))
     .requestAsync(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.dependencySources)(dependencySources(_))
+    .requestAsync(endpoints.BuildTarget.scalacOptions)(scalacOptions(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
 
   // Internal state, think how to make this more elegant.
@@ -156,7 +157,7 @@ final class BloopBspServices(
       val response = DependencySources(
         projects.map {
           case (target, project) =>
-            val sources = project.sources.iterator.map(_.toUri.toString).toList
+            val sources = project.sources.iterator.map(_.toBspUri).toList
             DependencySourcesItem(Some(target), sources)
         }
       )
@@ -168,6 +169,31 @@ final class BloopBspServices(
       mapToProjects(request.targets) match {
         case Left(error) => Task.now(Left(error))
         case Right(mappings) => sources(mappings)
+      }
+    }
+  }
+
+  def scalacOptions(request: ScalacOptionsParams): BspResponse[ScalacOptions] = {
+    def scalacOptions(projects: Seq[ProjectMapping]): BspResponse[ScalacOptions] = {
+      val response = ScalacOptions(
+        projects.map {
+          case (target, project) =>
+            ScalacOptionsItem(
+              target = Some(target),
+              options = project.scalacOptions,
+              classpath = project.classpath.iterator.map(_.toBspUri).toList,
+              classDirectory = project.classesDir.toBspUri
+            )
+        }
+      )
+
+      Task.now(Right(response))
+    }
+
+    ifInitialized {
+      mapToProjects(request.targets) match {
+        case Left(error) => Task.now(Left(error))
+        case Right(mappings) => scalacOptions(mappings)
       }
     }
   }

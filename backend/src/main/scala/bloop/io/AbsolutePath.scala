@@ -22,7 +22,7 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def isDirectory: Boolean = Files.isDirectory(underlying)
   def readAllBytes: Array[Byte] = Files.readAllBytes(underlying)
   def toFile: File = underlying.toFile()
-  def toUri: URI = underlying.toUri
+  def toBspUri: String = underlying.toUri.toString
 }
 
 object AbsolutePath {

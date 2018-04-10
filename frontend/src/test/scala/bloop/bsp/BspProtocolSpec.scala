@@ -12,14 +12,7 @@ import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.{
-  BuildTargetIdentifier,
-  CompileParams,
-  CompileReport,
-  DependencySources,
-  DependencySourcesItem,
-  DependencySourcesParams
-}
+import ch.epfl.scala.bsp.schema.{BuildTargetIdentifier, CompileParams, CompileReport, DependencySources, DependencySourcesItem, DependencySourcesParams, ScalacOptionsParams}
 import junit.framework.Assert
 import monix.eval.Task
 import org.langmeta.jsonrpc.{Response => JsonRpcResponse}
@@ -126,10 +119,68 @@ class BspProtocolSpec {
               val fetchedSources = sources.items.flatMap(_.uri)
               val expectedSources = Project
                 .eagerLoadFromDir(configDir, logger.underlying)
-                .flatMap(_.sources.map(_.toUri.toString))
+                .flatMap(_.sources.map(_.toBspUri))
               val msg = s"Expected != Fetched, $expectedSources != $fetchedSources"
               val same = expectedSources.sorted.sameElements(fetchedSources.sorted)
               Right(Assert.assertTrue(msg, same))
+          }
+      }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      ()
+    }
+  }
+
+  def testScalacOptions(bsp: Commands.ValidatedBsp): Unit = {
+    def stringify(xs: Seq[String]) = xs.sorted.mkString(";")
+    def stringifyOptions(
+        scalacOptions0: Seq[String],
+        classpath0: Seq[String],
+        classesDir: String
+    ): String = {
+      val scalacOptions = stringify(scalacOptions0)
+      val classpath = stringify(classpath0)
+      s"""StringifiedScalacOption($scalacOptions, $classpath, $classesDir)"""
+    }
+
+    val logger = new Slf4jAdapter(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap {
+        case Left(error) => Task.now(Left(error))
+        case Right(workspaceTargets) =>
+          val btis = workspaceTargets.targets.flatMap(_.id.toList)
+          endpoints.BuildTarget.scalacOptions.request(ScalacOptionsParams(btis)).map {
+            case Left(error) => Left(error)
+            case Right(options) =>
+              val optionItems0 = options.items
+              val optionItems = {
+                if (optionItems0.exists(_.target.isEmpty)) {
+                  Left(JsonRpcResponse.internalError(
+                    s"A scalac option item doesn't map to a target! $optionItems0"))
+                } else Right(optionItems0.map(i => (i.target.get.uri, i)).sortBy(_._1))
+              }
+
+              optionItems.map { uriOptions =>
+                val expectedUriOptions = Project
+                  .eagerLoadFromDir(configDir, logger.underlying)
+                  .map(p => (ProjectUris.toUri(p.baseDirectory, p.name).toString, p))
+                  .sortBy(_._1)
+
+                Assert
+                  .assertEquals("Size of options differ", uriOptions.size, expectedUriOptions.size)
+                uriOptions.zip(expectedUriOptions).foreach {
+                  case ((obtainedUri, opts), (expectedUri, p)) =>
+                    Assert.assertEquals(obtainedUri, expectedUri)
+                    val obtainedOptions =
+                      stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
+                    val classpath = p.classpath.iterator.map(_.toBspUri).toList
+                    val expectedOptions =
+                      stringifyOptions(p.scalacOptions.toList, classpath, p.classesDir.toBspUri)
+                    Assert.assertEquals(obtainedOptions, expectedOptions)
+                }
+              }
           }
       }
     }
@@ -236,6 +287,15 @@ class BspProtocolSpec {
 
   @Test def TestDependencySourcesViaTcp(): Unit = {
     testDependencySources(createTcpBspCommand(configDir))
+  }
+
+  @Test def TestScalacOptionsViaLocal(): Unit = {
+    // Doesn't work with Windows at the moment, see #281
+    if (!BspServer.isWindows) testScalacOptions(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestScalacOptionsViaTcp(): Unit = {
+    testScalacOptions(createTcpBspCommand(configDir))
   }
 
   @Test def TestCompileViaLocal(): Unit = {
