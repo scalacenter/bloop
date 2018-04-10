@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import bloop.Project
 import bloop.cli.validation.Validate
-import bloop.cli.{BspProtocol, Commands}
+import bloop.cli.{BspProtocol, CliOptions, Commands}
 import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
@@ -12,7 +12,15 @@ import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.{BuildTargetIdentifier, CompileParams, CompileReport, DependencySources, DependencySourcesItem, DependencySourcesParams, ScalacOptionsParams}
+import ch.epfl.scala.bsp.schema.{
+  BuildTargetIdentifier,
+  CompileParams,
+  CompileReport,
+  DependencySources,
+  DependencySourcesItem,
+  DependencySourcesParams,
+  ScalacOptionsParams
+}
 import junit.framework.Assert
 import monix.eval.Task
 import org.langmeta.jsonrpc.{Response => JsonRpcResponse}
@@ -45,8 +53,12 @@ class BspProtocolSpec {
     )
   }
 
-  def createTcpBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
-    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp))
+  def createTcpBspCommand(
+      configDir: AbsolutePath,
+      verbose: Boolean = false
+  ): Commands.ValidatedBsp = {
+    val opts = if (verbose) CliOptions.default.copy(verbose = true) else CliOptions.default
+    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts))
   }
 
   def reportIfError(logger: Slf4jAdapter[RecordingLogger])(thunk: => Unit): Unit = {
@@ -303,9 +315,8 @@ class BspProtocolSpec {
   }
 
   @Test def TestCompileViaTcp(): Unit = {
-    testCompile(createTcpBspCommand(configDir))
+    testCompile(createTcpBspCommand(configDir, verbose = true))
   }
-
   @Test def TestFailedCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
   }
