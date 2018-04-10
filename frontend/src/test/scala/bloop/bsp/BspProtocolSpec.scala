@@ -2,6 +2,7 @@ package bloop.bsp
 
 import java.nio.file.Files
 
+import bloop.Project
 import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.Run
@@ -11,7 +12,14 @@ import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.{BuildTargetIdentifier, CompileParams, CompileReport}
+import ch.epfl.scala.bsp.schema.{
+  BuildTargetIdentifier,
+  CompileParams,
+  CompileReport,
+  DependencySources,
+  DependencySourcesItem,
+  DependencySourcesParams
+}
 import junit.framework.Assert
 import monix.eval.Task
 import org.langmeta.jsonrpc.{Response => JsonRpcResponse}
@@ -105,6 +113,33 @@ class BspProtocolSpec {
     }
   }
 
+  def testDependencySources(bsp: Commands.ValidatedBsp): Unit = {
+    val logger = new Slf4jAdapter(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap {
+        case Left(error) => Task.now(Left(error))
+        case Right(workspaceTargets) =>
+          val btis = workspaceTargets.targets.flatMap(_.id.toList)
+          endpoints.BuildTarget.dependencySources.request(DependencySourcesParams(btis)).map {
+            case Left(error) => Left(error)
+            case Right(sources) =>
+              val fetchedSources = sources.items.flatMap(_.uri)
+              val expectedSources = Project
+                .eagerLoadFromDir(configDir, logger.underlying)
+                .flatMap(_.sources.map(_.toUri.toString))
+              val msg = s"Expected != Fetched, $expectedSources != $fetchedSources"
+              val same = expectedSources.sorted.sameElements(fetchedSources.sorted)
+              Right(Assert.assertTrue(msg, same))
+          }
+      }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      ()
+    }
+  }
+
   def testCompile(bsp: Commands.ValidatedBsp): Unit = {
     val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
@@ -132,8 +167,9 @@ class BspProtocolSpec {
     val logger = new Slf4jAdapter(new RecordingLogger)
     def expectError(request: BspResponse[CompileReport], expected: String, failMsg: String) = {
       request.flatMap {
-         case Right(report) =>
-          Task.now(Left(JsonRpcResponse.parseError(s"Expecting failed compilation, received $report.")))
+        case Right(report) =>
+          Task.now(
+            Left(JsonRpcResponse.parseError(s"Expecting failed compilation, received $report.")))
         case Left(e) =>
           val validError = e.error.message.contains(expected)
           if (validError) Task.now(Right(()))
@@ -164,7 +200,8 @@ class BspProtocolSpec {
         case (acc, (expected, fail, params)) =>
           acc.flatMap {
             case Left(l) => Task.now(Left(l))
-            case Right(_) => expectError(endpoints.BuildTarget.compile.request(params), expected, fail)
+            case Right(_) =>
+              expectError(endpoints.BuildTarget.compile.request(params), expected, fail)
           }
       }
     }
@@ -188,20 +225,29 @@ class BspProtocolSpec {
     if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir))
   }
 
-  @Test def TestCompileViaLocal(): Unit = {
-    if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
-  }
-
-  @Test def TestFailedCompileViaLocal(): Unit = {
-    if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
-  }
-
   @Test def TestBuildTargetsViaTcp(): Unit = {
     testBuildTargets(createTcpBspCommand(configDir))
   }
 
+  @Test def TestDependencySourcesViaLocal(): Unit = {
+    // Doesn't work with Windows at the moment, see #281
+    if (!BspServer.isWindows) testDependencySources(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestDependencySourcesViaTcp(): Unit = {
+    testDependencySources(createTcpBspCommand(configDir))
+  }
+
+  @Test def TestCompileViaLocal(): Unit = {
+    if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
+  }
+
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir))
+  }
+
+  @Test def TestFailedCompileViaLocal(): Unit = {
+    if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
   }
 
   @Test def TestFailedCompileViaTcp(): Unit = {
