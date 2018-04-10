@@ -1,11 +1,15 @@
 #compdef bloop
 
 _projects() {
-    compadd "$@" $(bloop autocomplete --format zsh --mode projects)
+    compadd "$@" $(bloop autocomplete --format zsh --mode projects 2> /dev/null)
 }
 
 _commands() {
-    compadd "$@" $(bloop autocomplete --format zsh --mode commands)
+    compadd "$@" $(bloop autocomplete --format zsh --mode commands 2> /dev/null || _notStarted)
+}
+
+_notStarted() {
+    echo "server"
 }
 
 _reporters() {
