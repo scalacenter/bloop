@@ -11,10 +11,10 @@ import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.{BuildTargetIdentifier, CompileParams}
+import ch.epfl.scala.bsp.schema.{BuildTargetIdentifier, CompileParams, CompileReport}
 import junit.framework.Assert
 import monix.eval.Task
-import org.langmeta.jsonrpc.Response
+import org.langmeta.jsonrpc.{Response => JsonRpcResponse}
 import org.langmeta.lsp.LanguageClient
 
 import scala.util.control.NonFatal
@@ -127,18 +127,45 @@ class BspProtocolSpec {
     }
   }
 
+  type BspResponse[T] = Task[Either[JsonRpcResponse.Error, T]]
   def testFailedCompile(bsp: Commands.ValidatedBsp): Unit = {
     val logger = new Slf4jAdapter(new RecordingLogger)
-    def clientWork(implicit client: LanguageClient) = {
-      val params = CompileParams(List(BuildTargetIdentifier("file://this-doesnt-exist")))
-      endpoints.BuildTarget.compile.request(params).flatMap {
-        case Right(report) =>
-          Task.now(Left(Response.parseError(s"Expecting failed compilation, received $report.")))
+    def expectError(request: BspResponse[CompileReport], expected: String, failMsg: String) = {
+      request.flatMap {
+         case Right(report) =>
+          Task.now(Left(JsonRpcResponse.parseError(s"Expecting failed compilation, received $report.")))
         case Left(e) =>
-          val validError =
-            e.error.message.contains("URI 'file://this-doesnt-exist' has invalid format.")
+          val validError = e.error.message.contains(expected)
           if (validError) Task.now(Right(()))
-          else Task.now(Left(Response.parseError("Expected invalid format error!")))
+          else Task.now(Left(JsonRpcResponse.parseError(failMsg)))
+      }
+    }
+
+    def clientWork(implicit client: LanguageClient) = {
+      val expected1 = "URI 'file://this-doesnt-exist' has invalid format."
+      val fail1 = "The invalid format error was missed in 'this-doesnt-exist'"
+      val params1 = CompileParams(List(BuildTargetIdentifier("file://this-doesnt-exist")))
+
+      val expected2 = "URI cannot be empty."
+      val fail2 = "The invalid format error was missed in empty URI."
+      val params2 = CompileParams(List(BuildTargetIdentifier("")))
+
+      val expected3 = "Empty build targets. Expected at least one build target identifier."
+      val fail3 = "No error was thrown on empty build targets."
+      val params3 = CompileParams(List())
+
+      val extraErrors = List(
+        (expected2, fail2, params2),
+        (expected3, fail3, params3)
+      )
+
+      val init = expectError(endpoints.BuildTarget.compile.request(params1), expected1, fail1)
+      extraErrors.foldLeft(init) {
+        case (acc, (expected, fail, params)) =>
+          acc.flatMap {
+            case Left(l) => Task.now(Left(l))
+            case Right(_) => expectError(endpoints.BuildTarget.compile.request(params), expected, fail)
+          }
       }
     }
 
@@ -166,7 +193,7 @@ class BspProtocolSpec {
   }
 
   @Test def TestFailedCompileViaLocal(): Unit = {
-    testFailedCompile(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
   }
 
   @Test def TestBuildTargetsViaTcp(): Unit = {

@@ -9,13 +9,20 @@ import bloop.io.AbsolutePath
 import scala.util.Try
 
 object ProjectUris {
-  def getProjectDagFromUri(projectUri: String, state: State): Try[Option[Project]] = {
-    val uri = new URI(projectUri)
-    val query = Try(uri.getRawQuery().split("&").map(_.split("=")))
-    query.map {
-      _.headOption.flatMap {
-        case Array("id", projectName) => state.build.getProjectFor(projectName)
-        case _ => None
+  def getProjectDagFromUri(projectUri: String, state: State): Either[String, Option[Project]] = {
+    if (projectUri.isEmpty) Left("URI cannot be empty.")
+    else {
+      val uri = new URI(projectUri)
+      val query = Try(uri.getRawQuery().split("&").map(_.split("="))).toEither
+      query match {
+        case Left(t) =>
+          Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
+        case Right(parsed) =>
+          parsed.headOption match {
+            case Some(Array("id", projectName)) => Right(state.build.getProjectFor(projectName))
+            case _ =>
+              Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
+          }
       }
     }
   }

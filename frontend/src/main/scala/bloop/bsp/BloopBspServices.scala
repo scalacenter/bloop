@@ -96,15 +96,9 @@ final class BloopBspServices(
     def getProject(target: BuildTargetIdentifier): Either[ProtocolError, ProjectMapping] = {
       val uri = target.uri
       ProjectUris.getProjectDagFromUri(uri, currentState) match {
-        case scala.util.Failure(e) =>
-          Left(
-            JsonRpcResponse.parseError(
-              s"URI '${uri}' has invalid format. Example: ${ProjectUris.Example}"))
-        case scala.util.Success(o) =>
-          o match {
-            case Some(project) => Right((target, project))
-            case None => Left(JsonRpcResponse.invalidRequest(s"No project associated with $uri"))
-          }
+        case Left(errorMsg) => Left(JsonRpcResponse.parseError(errorMsg))
+        case Right(Some(project)) => Right((target, project))
+        case Right(None) => Left(JsonRpcResponse.invalidRequest(s"No project associated with $uri"))
       }
     }
 
@@ -116,7 +110,7 @@ final class BloopBspServices(
         }
       case None =>
         Left(
-          JsonRpcResponse.invalidParams(
+          JsonRpcResponse.invalidRequest(
             "Empty build targets. Expected at least one build target identifier."))
     }
   }
