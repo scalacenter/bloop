@@ -13,7 +13,7 @@ object Dependencies {
   val sbtTestAgentVersion = "1.0.4"
   val junitVersion = "0.11"
   val graphvizVersion = "0.2.2"
-  val directoryWatcherVersion = "0.4.0"
+  val directoryWatcherVersion = "0.5.2-a1c0e21c"
   val mavenApiVersion = "3.5.2"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
@@ -39,7 +39,7 @@ object Dependencies {
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
-  val directoryWatcher = "io.methvin" %% "directory-watcher-better-files" % directoryWatcherVersion
+  val directoryWatcher = "me.vican.jorge" %% "directory-watcher-better-files" % directoryWatcherVersion
 
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
