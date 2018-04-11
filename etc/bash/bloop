@@ -5,13 +5,13 @@ _files() {
 }
 
 _projects() {
-    projects=$(bloop autocomplete --mode=projects --format=bash)
+    projects=$(bloop autocomplete --mode=projects --format=bash 2> /dev/null)
     COMPREPLY=( $(compgen -W "$projects" -- $cur) )
     return 0
 }
 
 _commands() {
-    commands=$(bloop autocomplete --mode=commands --format=bash)
+    commands=$(bloop autocomplete --mode=commands --format=bash 2> /dev/null || _notStarted)
     COMPREPLY=( $(compgen -W "$commands" -- $cur) )
     return 0
 }
@@ -60,6 +60,10 @@ _callCompletionForCommandAndFlag() {
 
     return 0
 
+}
+
+_notStarted() {
+    echo "server"
 }
 
 _bloop() {
