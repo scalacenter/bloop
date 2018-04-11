@@ -37,10 +37,11 @@ object Compiler {
   sealed trait Result
   object Result {
     final case object Empty extends Result
-    final case object Cancelled extends Result
     final case class Blocked(on: List[String]) extends Result
-    final case class Failed(problems: Array[xsbti.Problem]) extends Result
-    final case class Success(reporter: Reporter, previous: PreviousResult) extends Result
+    final case class Cancelled(elapsed: Long) extends Result
+    final case class Failed(problems: Array[xsbti.Problem], elapsed: Long) extends Result
+    final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
+        extends Result
   }
 
   def compile(compileInputs: CompileInputs): Result = {
@@ -79,20 +80,23 @@ object Compiler {
       Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
+    val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
 
+    // We don't want nanosecond granularity, we're happy with milliseconds
+    def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
+
     try {
-      val compilation = incrementalCompiler.compile(inputs, compileInputs.logger)
-      val incrementalResult =
-        PreviousResult.of(Optional.of(compilation.analysis()), Optional.of(compilation.setup()))
-      Result.Success(compileInputs.reporter, incrementalResult)
+      val result0 = incrementalCompiler.compile(inputs, compileInputs.logger)
+      val result = PreviousResult.of(Optional.of(result0.analysis()), Optional.of(result0.setup()))
+      Result.Success(compileInputs.reporter, result, elapsed)
     } catch {
-      case f: xsbti.CompileFailed => Result.Failed(f.problems())
-      case _: xsbti.CompileCancelled => Result.Cancelled
+      case f: xsbti.CompileFailed => Result.Failed(f.problems(), elapsed)
+      case _: xsbti.CompileCancelled => Result.Cancelled(elapsed)
     }
   }
 }

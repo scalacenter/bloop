@@ -10,7 +10,11 @@ import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import org.langmeta.jsonrpc.{
+  JsonRpcClient,
+  Response => JsonRpcResponse,
+  Services => JsonRpcServices
+}
 import xsbti.{Problem, Severity}
 
 final class BloopBspServices(
@@ -121,22 +125,14 @@ final class BloopBspServices(
         case (action, (_, project)) => Run(Commands.Compile(project.name), action)
       }
 
-      def report(p: Project, problems: Array[Problem]) = {
-        // Compute the count manually because `count` returns an `Int`, not a `Long`
-        var errors = 0L
-        var warnings = 0L
-        problems.foreach { p =>
-          val severity = p.severity()
-          if (severity == Severity.Error) errors += 1
-          if (severity == Severity.Warn) warnings += 1
-        }
-
+      def report(p: Project, problems: Array[Problem], elapsedMs: Long) = {
+        val count = bloop.reporter.Problem.count(problems)
         val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
         CompileReportItem(
           target = Some(id),
-          errors = errors,
-          warnings = warnings,
-          time = 0,
+          errors = count.errors,
+          warnings = count.warnings,
+          time = elapsedMs,
           linesOfCode = 0
         )
       }
@@ -149,10 +145,11 @@ final class BloopBspServices(
           case (p, result) =>
             result match {
               case Compiler.Result.Empty => Nil
-              case Compiler.Result.Cancelled => Nil
+              case Compiler.Result.Cancelled(_) => Nil
               case Compiler.Result.Blocked(_) => Nil
-              case Compiler.Result.Success(reporter, _) => List(report(p, reporter.problems))
-              case Compiler.Result.Failed(problems) => List(report(p, problems))
+              case Compiler.Result.Failed(problems, elapsed) => List(report(p, problems, elapsed))
+              case Compiler.Result.Success(reporter, _, elapsed) =>
+                List(report(p, reporter.problems, elapsed))
             }
         }
         Right(CompileReport(items))

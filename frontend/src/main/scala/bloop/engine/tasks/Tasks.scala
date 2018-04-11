@@ -5,7 +5,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
 import bloop.io.AbsolutePath
-import bloop.reporter.{Reporter, ReporterConfig}
+import bloop.reporter.{Problem, Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
@@ -13,7 +13,6 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing.{Event, EventHandler, Framework, SuiteSelector, TaskDef}
 import xsbt.api.Discovery
-import xsbti.Severity
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
@@ -25,15 +24,16 @@ object Tasks {
 
   import scalaz.Show
   private final implicit val showCompileTask: Show[CompileResult] = new Show[CompileResult] {
+    private def seconds(ms: Double): String = s"${ms}ms"
     override def shows(r: CompileResult): String = {
       val project = r._1
       r._2 match {
         case Compiler.Result.Empty => s"${project.name} (empty)"
-        case Compiler.Result.Cancelled => s"${project.name} (cancelled)"
-        case Compiler.Result.Success(_, _) => s"${project.name} (success)"
+        case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
+        case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
         case Compiler.Result.Blocked(on) => s"${project.name} (blocked on ${on.mkString(", ")})"
-        case Compiler.Result.Failed(problems) =>
-          s"${project.name} (failed with ${problems.count(_.severity() == Severity.Error)} errors)"
+        case Compiler.Result.Failed(problems, ms) =>
+          s"${project.name} (failed with ${Problem.count(problems)}, ${ms}ms)"
       }
     }
   }
@@ -80,7 +80,7 @@ object Tasks {
 
     def failed(results: List[CompileResult]): List[Project] = {
       results.collect {
-        case (p, Compiler.Result.Cancelled) => p
+        case (p, _: Compiler.Result.Cancelled) => p
         case (p, _: Compiler.Result.Failed) => p
       }
     }

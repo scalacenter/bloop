@@ -77,7 +77,7 @@ final class ResultsCache private (
             logger.debug(s"Loading previous analysis for '${project.name}' from '$analysisFile'.")
             val p = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
             val reporter = Reporter.fromAnalysis(res.getAnalysis, cwd, logger)
-            Result.Success(reporter, p)
+            Result.Success(reporter, p, 0L)
           case None =>
             logger.debug(s"Analysis '$analysisFile' for '${project.name}' is empty.")
             Result.Empty

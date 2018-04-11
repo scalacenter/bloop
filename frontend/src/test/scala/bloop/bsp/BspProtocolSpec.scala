@@ -208,15 +208,17 @@ class BspProtocolSpec {
         ts match {
           case Right(workspaceTargets) =>
             workspaceTargets.targets.map(_.id.get).find(_.uri.endsWith("utestJVM")) match {
-              case Some(id) => endpoints.BuildTarget.compile.request(CompileParams(List(id))).map {
-                case Left(e) => Left(e)
-                case Right(report) =>
-                  Assert.assertEquals("Bloop compiled more than one target", report.items.size, 1)
-                  val utestJvmReport = report.items.head
-                  Assert.assertEquals("Warnings in utestJVM != 4", utestJvmReport.warnings, 4)
-                  Assert.assertEquals("Error in utestJVM != 0", utestJvmReport.errors, 0)
-                  Right(report)
-              }
+              case Some(id) =>
+                endpoints.BuildTarget.compile.request(CompileParams(List(id))).map {
+                  case Left(e) => Left(e)
+                  case Right(report) =>
+                    Assert.assertEquals("Bloop compiled more than one target", report.items.size, 1)
+                    val utestJvmReport = report.items.head
+                    Assert.assertEquals("Warnings in utestJVM != 4", utestJvmReport.warnings, 4)
+                    Assert.assertEquals("Errors in utestJVM != 0", utestJvmReport.errors, 0)
+                    Assert.assertTrue("Duration in utestJVM == 0", utestJvmReport.time != 0)
+                    Right(report)
+                }
               case None => Task.now(Left(JsonRpcResponse.internalError("Missing 'utestJVM'")))
             }
           case Left(error) =>
