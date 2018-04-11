@@ -42,7 +42,7 @@ class TestTaskTest(framework: String) {
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
     val compileTask = Tasks.compile(state0, project, ReporterConfig.defaultFormat)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
-    val result = state.results.getResult(project).analysis().toOption
+    val result = state.results.lastSuccessfulResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
   }

@@ -50,17 +50,13 @@ object State {
   }
 
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
-    val results0 = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
-      case (results, project) => results.initializeResult(project)
-    }
-    State(build, results0, compilerCache, NoPool, CommonOptions.default, ExitStatus.Ok, logger)
+    val opts = CommonOptions.default
+    val results = ResultsCache.load(build, opts.workingPath, logger)
+    State(build, results, compilerCache, NoPool, opts, ExitStatus.Ok, logger)
   }
 
   def apply(build: Build, pool: ClientPool, opts: CommonOptions, logger: Logger): State = {
-    val results = build.projects.foldLeft(ResultsCache.getEmpty(logger)) {
-      case (results, project) => results.initializeResult(project)
-    }
-
+    val results = ResultsCache.load(build, opts.workingPath, logger)
     val compilerCache = getCompilerCache(logger)
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }

@@ -33,7 +33,16 @@ object Compiler {
       Locate.definesClass(classpathEntry)
   }
 
-  def compile(compileInputs: CompileInputs): PreviousResult = {
+  sealed trait Result
+  object Result {
+    final case object Empty extends Result
+    final case object Cancelled extends Result
+    final case class Blocked(on: List[String]) extends Result
+    final case class Failed(problems: Array[xsbti.Problem]) extends Result
+    final case class Success(reporter: Reporter, previous: PreviousResult) extends Result
+  }
+
+  def compile(compileInputs: CompileInputs): Result = {
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -74,7 +83,15 @@ object Compiler {
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
-    val compilation = incrementalCompiler.compile(inputs, compileInputs.logger)
-    PreviousResult.of(Optional.of(compilation.analysis()), Optional.of(compilation.setup()))
+
+    try {
+      val compilation = incrementalCompiler.compile(inputs, compileInputs.logger)
+      val incrementalResult =
+        PreviousResult.of(Optional.of(compilation.analysis()), Optional.of(compilation.setup()))
+      Result.Success(compileInputs.reporter, incrementalResult)
+    } catch {
+      case f: xsbti.CompileFailed => Result.Failed(f.problems())
+      case _: xsbti.CompileCancelled => Result.Cancelled
+    }
   }
 }
