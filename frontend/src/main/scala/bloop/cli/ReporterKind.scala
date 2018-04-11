@@ -1,5 +1,6 @@
 package bloop.cli
 
+import bloop.reporter.ReporterConfig
 import caseapp.core.ArgParser
 
 /** Represents a reporter kind that users can pick to display compiler messages. */
@@ -17,5 +18,10 @@ object ReporterKind {
         case None => Left(s"Unrecognized reporter: $input")
       }
     }
+  }
+
+  def toReporterConfig(kind: ReporterKind): ReporterConfig = kind match {
+    case ScalacReporter => ReporterConfig.scalacFormat
+    case BloopReporter => ReporterConfig.defaultFormat
   }
 }

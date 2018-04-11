@@ -1,13 +1,14 @@
 package bloop
 
 import xsbti.compile._
-import xsbti.{Reporter, T2}
+import xsbti.T2
 import java.util.Optional
 import java.io.File
 
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
+import bloop.reporter.Reporter
+import sbt.internal.inc.{FreshCompilerCache, Locate, ZincUtil}
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,

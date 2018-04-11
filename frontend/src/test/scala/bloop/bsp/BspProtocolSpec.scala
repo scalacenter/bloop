@@ -16,8 +16,6 @@ import ch.epfl.scala.bsp.schema.{
   BuildTargetIdentifier,
   CompileParams,
   CompileReport,
-  DependencySources,
-  DependencySourcesItem,
   DependencySourcesParams,
   ScalacOptionsParams
 }

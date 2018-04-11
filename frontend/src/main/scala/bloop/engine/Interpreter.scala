@@ -24,7 +24,8 @@ object Interpreter {
     action match {
       // We keep this case because there is a 'match may not be exhaustive' false positive by scalac.
       // Looks related to existing bug report https://github.com/scala/bug/issues/10251
-      case Exit(exitStatus: ExitStatus) if exitStatus.isOk => Task.now(state.mergeStatus(exitStatus))
+      case Exit(exitStatus: ExitStatus) if exitStatus.isOk =>
+        Task.now(state.mergeStatus(exitStatus))
       case Exit(exitStatus: ExitStatus) => Task.now(state.mergeStatus(exitStatus))
       case Print(msg, commonOptions, next) =>
         state.logger.info(msg)
@@ -97,9 +98,10 @@ object Interpreter {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = new SourceWatcher(project, allSources.toList, state.logger)
-    val fg = (state: State) => f(state).map { state =>
-      watcher.notifyWatch()
-      State.stateCache.updateBuild(state)
+    val fg = (state: State) =>
+      f(state).map { state =>
+        watcher.notifyWatch()
+        State.stateCache.updateBuild(state)
     }
 
     // Force the first execution before relying on the file watching task
@@ -107,7 +109,7 @@ object Interpreter {
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
-    val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
+    val reporterConfig = ReporterKind.toReporterConfig(cmd.reporter)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
@@ -165,7 +167,7 @@ object Interpreter {
   }
 
   private def console(cmd: Commands.Console, state: State): Task[State] = {
-    val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
+    val reporterConfig = ReporterKind.toReporterConfig(cmd.reporter)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
@@ -178,7 +180,7 @@ object Interpreter {
   }
 
   private def test(cmd: Commands.Test, state: State): Task[State] = {
-    val reporterConfig = ReporterConfig.toFormat(cmd.reporter)
+    val reporterConfig = ReporterKind.toReporterConfig(cmd.reporter)
 
     Tasks.pickTestProject(cmd.project, state) match {
       case Some(project) =>
@@ -275,7 +277,7 @@ object Interpreter {
   }
 
   private def run(cmd: Commands.Run, state: State): Task[State] = {
-    val reporter = ReporterConfig.toFormat(cmd.reporter)
+    val reporter = ReporterKind.toReporterConfig(cmd.reporter)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>

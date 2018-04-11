@@ -34,11 +34,8 @@ final class Reporter(
     _nextID = 1
   }
 
-  override def hasErrors(): Boolean =
-    hasErrors(_problems)
-
-  override def hasWarnings(): Boolean =
-    hasWarnings(_problems)
+  override def hasErrors(): Boolean = hasErrors(_problems)
+  override def hasWarnings(): Boolean = hasWarnings(_problems)
 
   override def printSummary(): Unit = {
     if (config.reverseOrder) {
@@ -46,7 +43,6 @@ final class Reporter(
     }
 
     format.printSummary()
-
   }
 
   override def allProblems: Seq[Problem] = _problems
