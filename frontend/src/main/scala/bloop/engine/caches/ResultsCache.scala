@@ -29,6 +29,7 @@ final class ResultsCache private (
     successful: Map[Project, PreviousResult],
     logger: Logger
 ) {
+
   /** Returns the last succesful result if present, empty otherwise. */
   def lastSuccessfulResult(project: Project): PreviousResult =
     successful.getOrElse(project, ResultsCache.EmptyResult)
@@ -37,6 +38,12 @@ final class ResultsCache private (
   def latestResult(project: Project): Compiler.Result =
     all.getOrElse(project, Result.Empty)
 
+  /** Diff the latest changed projects between `cache` and `this`. */
+  def diffLatest(cache: ResultsCache): List[(Project, Compiler.Result)] = {
+    cache.allResults.collect { case t @ (p, r) if this.latestResult(p) != r => t }.toList
+  }
+
+  def allResults: Iterator[(Project, Compiler.Result)] = all.iterator
   def allSuccessful: Iterator[(Project, PreviousResult)] = successful.iterator
   def cleanSuccessful(projects: List[Project]): ResultsCache = {
     // Remove all the successful results from the cache.

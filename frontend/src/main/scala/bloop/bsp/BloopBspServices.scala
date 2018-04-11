@@ -2,19 +2,16 @@ package bloop.bsp
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.Project
+import bloop.{Compiler, Project}
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
+import bloop.engine.{Action, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
+import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import xsbti.{Problem, Severity}
 
 final class BloopBspServices(
     callSiteState: State,
@@ -124,9 +121,40 @@ final class BloopBspServices(
         case (action, (_, project)) => Run(Commands.Compile(project.name), action)
       }
 
-      Interpreter.execute(action, Task.now(currentState)).map { state =>
+      def report(p: Project, problems: Array[Problem]) = {
+        // Compute the count manually because `count` returns an `Int`, not a `Long`
+        var errors = 0L
+        var warnings = 0L
+        problems.foreach { p =>
+          val severity = p.severity()
+          if (severity == Severity.Error) errors += 1
+          if (severity == Severity.Warn) warnings += 1
+        }
+
+        val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
+        CompileReportItem(
+          target = Some(id),
+          errors = errors,
+          warnings = warnings,
+          time = 0,
+          linesOfCode = 0
+        )
+      }
+
+      val current = currentState
+      Interpreter.execute(action, Task.now(current)).map { state =>
         currentState = state
-        val items = projects.map(p => CompileReportItem(target = Some(p._1)))
+        val compiledProjects = current.results.diffLatest(state.results)
+        val items = compiledProjects.flatMap {
+          case (p, result) =>
+            result match {
+              case Compiler.Result.Empty => Nil
+              case Compiler.Result.Cancelled => Nil
+              case Compiler.Result.Blocked(_) => Nil
+              case Compiler.Result.Success(reporter, _) => List(report(p, reporter.problems))
+              case Compiler.Result.Failed(problems) => List(report(p, problems))
+            }
+        }
         Right(CompileReport(items))
       }
     }

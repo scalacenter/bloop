@@ -22,7 +22,7 @@ final class Reporter(
     val cwd: AbsolutePath,
     sourcePositionMapper: Position => Position,
     val config: ReporterConfig,
-    private val _problems: mutable.Buffer[Problem] = mutable.ArrayBuffer.empty
+    val _problems: mutable.Buffer[Problem] = mutable.ArrayBuffer.empty
 ) extends xsbti.Reporter
     with ConfigurableReporter {
 
