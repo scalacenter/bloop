@@ -13,13 +13,17 @@ import org.langmeta.lsp.Window
 final class BspLogger private (
     override val name: String,
     underlying: Logger,
-    client: JsonRpcClient
+    client: JsonRpcClient,
+    ansiSupported: Boolean
 ) extends Logger {
 
   override def isVerbose: Boolean = underlying.isVerbose
-  override def asDiscrete: Logger = new BspLogger(name, underlying.asDiscrete, client)
-  override def asVerbose: Logger = new BspLogger(name, underlying.asVerbose, client)
-  override def ansiCodesSupported(): Boolean = underlying.ansiCodesSupported()
+  override def asDiscrete: Logger =
+    new BspLogger(name, underlying.asDiscrete, client, ansiSupported)
+  override def asVerbose: Logger =
+    new BspLogger(name, underlying.asVerbose, client, ansiSupported)
+
+  override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
   override def debug(msg: String): Unit = underlying.debug(msg)
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
@@ -42,8 +46,8 @@ final class BspLogger private (
 object BspLogger {
   private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
 
-  def apply(state: State, client: JsonRpcClient): BspLogger = {
+  def apply(state: State, client: JsonRpcClient, ansiCodesSupported: Boolean): BspLogger = {
     val name: String = s"bsp-logger-${BspLogger.counter.incrementAndGet()}"
-    new BspLogger(name, state.logger, client)
+    new BspLogger(name, state.logger, client, ansiCodesSupported)
   }
 }
