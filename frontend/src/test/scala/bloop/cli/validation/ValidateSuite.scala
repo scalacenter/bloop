@@ -42,6 +42,18 @@ class ValidateSuite {
     )
   }
 
+  @Test def SucceedAtNonExistingSocketRelativeFile(): Unit = {
+    // Don't specify the parent on purpose, simulate relative paths from CLI
+    val socketPath = java.nio.file.Paths.get("test.socket")
+    val bspCommand = Commands.Bsp(
+      protocol = BspProtocol.Local,
+      socket = Some(socketPath),
+      pipeName = None
+    )
+
+    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
+  }
+
   @Test def FailAtNonExistingSocketFolder(): Unit = {
     val socketPath = tempDir.resolve("folder").resolve("test.socket")
     val bspCommand = Commands.Bsp(
