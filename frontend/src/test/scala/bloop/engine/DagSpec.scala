@@ -160,12 +160,7 @@ class DagSpec {
     val i = dummyProject("i", List("h"))
     val dags = Dag.fromMap(List(a, b, c, d, e, f, g, h, i).map(p => p.name -> p).toMap)
 
-    def reduce(targets: Set[Project]): Set[Project] = {
-      Dag.reduce(dags, targets).map {
-        case Leaf(value) => value
-        case Parent(value, children) => value
-      }
-    }
+    def reduce(targets: Set[Project]): Set[Project] = Dag.reduce(dags, targets)
 
     Assert.assertEquals("case 1", Set(a, f), reduce(Set(a, f)))
     Assert.assertEquals("case 2", Set(b, f), reduce(Set(b, f)))

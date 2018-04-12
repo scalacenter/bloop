@@ -110,25 +110,25 @@ object Dag {
     * @param targets The targets to be deduplicated transitively.
     * @return The smallest set of disjoint DAGs including all targets.
     */
-  def reduce[T](dags: List[Dag[T]], targets: Set[T]): Set[Dag[T]] = {
-    val transitives = scala.collection.mutable.HashMap[Dag[T], List[Dag[T]]]()
-    val subsumed = scala.collection.mutable.HashSet[Dag[T]]()
-    def loop(dags: Set[Dag[T]], targets: Set[T]): Set[Dag[T]] = {
-      dags.foldLeft[Set[Dag[T]]](Set()) {
+  def reduce[T](dags: List[Dag[T]], targets: Set[T]): Set[T] = {
+    val transitives = scala.collection.mutable.HashMap[Dag[T], List[T]]()
+    val subsumed = scala.collection.mutable.HashSet[T]()
+    def loop(dags: Set[Dag[T]], targets: Set[T]): Set[T] = {
+      dags.foldLeft[Set[T]](Set()) {
         case (acc, dag) =>
           dag match {
-            case l @ Leaf(value) if targets.contains(value) =>
-              if (subsumed.contains(l)) acc else acc.+(l)
+            case Leaf(value) if targets.contains(value) =>
+              if (subsumed.contains(value)) acc else acc.+(value)
             case Leaf(_) => acc
             case p @ Parent(value, children) if targets.contains(value) =>
               val transitiveChildren = transitives.get(p).getOrElse{
-                val transitives0 = children.flatMap(transitive)
+                val transitives0 = children.flatMap(Dag.dfs(_))
                 transitives.+=(p -> transitives0)
                 transitives0
               }
 
               subsumed.++=(transitiveChildren)
-              acc.--(transitiveChildren).+(p)
+              acc.--(transitiveChildren).+(value)
             case Parent(_, children) => loop(children.toSet, targets) ++ acc
           }
       }

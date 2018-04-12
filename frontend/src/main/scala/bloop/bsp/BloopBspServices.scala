@@ -4,17 +4,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{Compiler, Project}
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Action, Exit, Interpreter, Run, State}
+import bloop.engine.{Action, Dag, Exit, Interpreter, Leaf, Parent, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
+import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import xsbti.{Problem, Severity}
 
 final class BloopBspServices(
@@ -121,10 +117,11 @@ final class BloopBspServices(
   }
 
   def compile(params: CompileParams): BspResponse[CompileReport] = {
-    def compile(projects: Seq[ProjectMapping]): BspResponse[CompileReport] = {
-      // TODO(jvican): Naive approach, we need to implement batching here.
+    def compile(projects0: Seq[ProjectMapping]): BspResponse[CompileReport] = {
+      val current = currentState
+      val projects = Dag.reduce(current.build.dags, projects0.map(_._2).toSet)
       val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
-        case (action, (_, project)) => Run(Commands.Compile(project.name), action)
+        case (action, project) => Run(Commands.Compile(project.name), action)
       }
 
       def report(p: Project, problems: Array[Problem], elapsedMs: Long) = {
@@ -139,7 +136,6 @@ final class BloopBspServices(
         )
       }
 
-      val current = currentState
       Interpreter.execute(action, Task.now(current)).map { state =>
         currentState = state
         val compiledProjects = current.results.diffLatest(state.results)
