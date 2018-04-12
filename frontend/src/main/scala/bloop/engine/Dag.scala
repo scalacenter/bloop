@@ -80,6 +80,63 @@ object Dag {
     }
   }
 
+  def transitive[T](dag: Dag[T]): List[Dag[T]] = {
+    dag match {
+      case leaf: Leaf[T] => List(leaf)
+      case p @ Parent(value, children) => p :: children.flatMap(transitive)
+    }
+  }
+
+  /**
+    * Reduce takes a list of dags and a set of targets and outputs the smallest
+    * set of disjoint DAGs that include all the targets (transitively).
+    *
+    * Therefore, all the nodes in `targets` that have a children relationship
+    * with another node in `targets` will be subsumed by the latter and removed
+    * from the returned set of DAGs nodes.
+    *
+    * This operation is necessary to remove the repetition of a transitive
+    * action over the nodes in targets. This operation has not been tweaked
+    * for performance yet because it's unlikely we stumble upon densely
+    * populated DAGs (in the magnitude of hundreds) with tons of inter-dependencies
+    * in real-world module graphs.
+    *
+    * To make this operation more efficient, we may want to do indexing of
+    * transitives and then cache them in the build so that we don't have to
+    * recompute them every time.
+
+    *
+    * @param dags The forest of disjoint DAGs from which we start from.
+    * @param targets The targets to be deduplicated transitively.
+    * @return The smallest set of disjoint DAGs including all targets.
+    */
+  def reduce[T](dags: List[Dag[T]], targets: Set[T]): Set[Dag[T]] = {
+    val transitives = scala.collection.mutable.HashMap[Dag[T], List[Dag[T]]]()
+    val subsumed = scala.collection.mutable.HashSet[Dag[T]]()
+    def loop(dags: Set[Dag[T]], targets: Set[T]): Set[Dag[T]] = {
+      dags.foldLeft[Set[Dag[T]]](Set()) {
+        case (acc, dag) =>
+          dag match {
+            case l @ Leaf(value) if targets.contains(value) =>
+              if (subsumed.contains(l)) acc else acc.+(l)
+            case Leaf(_) => acc
+            case p @ Parent(value, children) if targets.contains(value) =>
+              val transitiveChildren = transitives.get(p).getOrElse{
+                val transitives0 = children.flatMap(transitive)
+                transitives.+=(p -> transitives0)
+                transitives0
+              }
+
+              subsumed.++=(transitiveChildren)
+              acc.--(transitiveChildren).+(p)
+            case Parent(_, children) => loop(children.toSet, targets) ++ acc
+          }
+      }
+    }
+
+    loop(dags.toSet, targets)
+  }
+
   def dfs[T](dag: Dag[T]): List[T] = {
     def loop(dag: Dag[T], acc: List[T]): List[T] = {
       dag match {
@@ -109,7 +166,7 @@ object Dag {
               val downstream = dependencies.map(recordEdges).flatten
               val prettyPrintedDeps = dependencies.map {
                 case Leaf(value) => Show.shows(value)
-                case Parent(value, _)  => Show.shows(value)
+                case Parent(value, _) => Show.shows(value)
               }
               val target = Show.shows(value)
               prettyPrintedDeps.map(dep => s""""$dep" -> "$target";""") ++ downstream
