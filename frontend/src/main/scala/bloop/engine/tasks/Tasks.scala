@@ -6,7 +6,8 @@ import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
 import bloop.io.AbsolutePath
-import bloop.reporter.{Problem, Reporter, ReporterConfig}
+import bloop.logging.BspLogger
+import bloop.reporter.{BspReporter, LogReporter, Problem, Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
@@ -67,7 +68,14 @@ object Tasks {
       val javacOptions = project.javacOptions
       val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
-      val reporter = new Reporter(logger, cwd, identity, config)
+      // Set the reporter based on the kind of logger to publish diagnostics
+      val reporter = logger match {
+        case bspLogger: BspLogger =>
+          // Don't show errors in reverse order, log as they come!
+          new BspReporter(bspLogger, cwd, identity, config.copy(reverseOrder = false))
+        case _ => new LogReporter(logger, cwd, identity, config)
+      }
+
       // FORMAT: OFF
       CompileInputs(instance, compilerCache, sources, classpath, classesDir, target, scalacOptions, javacOptions, classpathOptions, result, reporter, logger)
       // FORMAT: ON

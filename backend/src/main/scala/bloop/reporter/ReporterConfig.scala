@@ -33,7 +33,7 @@ final case class ReporterConfig(
 )
 
 object ReporterConfig {
-  final val defaultFormat =
+  final val defaultFormat = {
     new ReporterConfig(
       true,
       true,
@@ -48,8 +48,9 @@ object ReporterConfig {
       scala.Console.BLUE,
       DefaultReporterFormat
     )
+  }
 
-  final val scalacFormat =
+  final val scalacFormat = {
     new ReporterConfig(
       true,
       true,
@@ -64,4 +65,5 @@ object ReporterConfig {
       scala.Console.BLUE,
       ScalacFormat
     )
+  }
 }
