@@ -64,11 +64,4 @@ object ReporterConfig {
       scala.Console.BLUE,
       ScalacFormat
     )
-
-
-  import bloop.cli.{ReporterKind, ScalacReporter, BloopReporter}
-  def toFormat(kind: ReporterKind): ReporterConfig = kind match {
-    case ScalacReporter => scalacFormat
-    case BloopReporter => defaultFormat
-  }
 }

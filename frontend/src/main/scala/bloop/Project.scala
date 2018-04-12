@@ -33,6 +33,9 @@ final case class Project(
 }
 
 object Project {
+  final implicit val ps: scalaz.Show[Project] = new scalaz.Show[Project] {
+    override def shows(f: Project): String = f.name
+  }
 
   /** The pattern used to find configuration files */
   final val loadPattern: String = "glob:**.json"

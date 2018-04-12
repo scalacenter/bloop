@@ -6,7 +6,8 @@ import java.nio.file.{Files, Path}
 
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.{ExecutionContext, State}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, RelativePath}
+import bloop.logging.Slf4jAdapter
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 import monix.execution.{Cancelable, Scheduler}
 
@@ -21,7 +22,7 @@ object BspServer {
   private case class WindowsLocal(pipeName: String, serverSocket: ServerSocket)
       extends ConnectionHandle
   private case class UnixLocal(path: AbsolutePath, serverSocket: ServerSocket)
-    extends ConnectionHandle
+      extends ConnectionHandle
   private case class Tcp(address: InetSocketAddress, serverSocket: ServerSocket)
       extends ConnectionHandle
 
@@ -57,8 +58,12 @@ object BspServer {
     }
   }
 
-  private final val bspLogger = com.typesafe.scalalogging.Logger(this.getClass)
-  def run(cmd: ValidatedBsp, state: State, scheduler: Scheduler): me.Task[State] = {
+  def run(
+      cmd: ValidatedBsp,
+      state: State,
+      configPath: RelativePath,
+      scheduler: Scheduler
+  ): me.Task[State] = {
     import org.langmeta.lsp.LanguageClient
     import org.langmeta.lsp.LanguageServer
     import org.langmeta.jsonrpc.BaseProtocolMessage
@@ -80,8 +85,9 @@ object BspServer {
 
       val in = socket.getInputStream
       val out = socket.getOutputStream
+      val bspLogger = com.typesafe.scalalogging.Logger(new Slf4jAdapter(logger))
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider = new BloopBspServices(state, client, bspLogger)
+      val servicesProvider = new BloopBspServices(state, client, configPath)
       val bloopServices = servicesProvider.services
       val messages = BaseProtocolMessage.fromInputStream(in)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)

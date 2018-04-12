@@ -5,7 +5,7 @@ import java.nio.file.Path
 import bloop.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
-import bloop.logging.Logger
+import bloop.logging.{Logger, Slf4jAdapter}
 import bloop.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
@@ -21,6 +21,7 @@ final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
   private val dirs = paths.filter(p => Files.isDirectory(p))
   private val dirsCount = dirs.size
   private val filesCount = paths.filter(p => Files.isRegularFile(p)).size
+  private val slf4jLogger = new Slf4jAdapter(logger)
 
   // Create source directories if they don't exist, otherwise the watcher fails.
   dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
@@ -47,9 +48,10 @@ final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
         override def isWatching: Boolean = watchingEnabled
 
         // Make sure that errors on the file watcher are reported back
-        override def onException(e: Exception): Unit = {
+        override def onException(e: Exception, logger: org.slf4j.Logger): Unit = {
           logger.error(s"File watching threw an exception: ${e.getMessage}")
-          logger.trace(e)
+          // Enable back when https://github.com/scalacenter/bloop/issues/433 is done
+          //logger.trace(e)
         }
 
         override def onEvent(event: DirectoryChangeEvent): Unit = {
@@ -61,7 +63,8 @@ final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
             ()
           }
         }
-      }
+      },
+      slf4jLogger
     )
 
     // Use Java's completable future because we can stop/complete it from the cancelable

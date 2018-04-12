@@ -3,23 +3,32 @@ package bloop.bsp
 import java.net.URI
 
 import bloop.Project
-import bloop.engine.{Dag, State}
+import bloop.engine.State
 import bloop.io.AbsolutePath
 
+import scala.util.Try
+
 object ProjectUris {
-  def getProjectDagFromUri(projectUri: String, state: State): Option[Project] = {
-    if (projectUri.isEmpty) None
+  def getProjectDagFromUri(projectUri: String, state: State): Either[String, Option[Project]] = {
+    if (projectUri.isEmpty) Left("URI cannot be empty.")
     else {
-      val uri = new URI(projectUri)
-      val query = uri.getRawQuery().split("&").map(_.split("="))
-      query.headOption.flatMap {
-        case Array("id", projectName) => state.build.getProjectFor(projectName)
-        case _ => None
+      val query = Try(new URI(projectUri).getRawQuery().split("&").map(_.split("="))).toEither
+      query match {
+        case Left(t) =>
+          Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
+        case Right(parsed) =>
+          parsed.headOption match {
+            case Some(Array("id", projectName)) => Right(state.build.getProjectFor(projectName))
+            case _ =>
+              Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
+          }
       }
     }
   }
 
+  private[bsp] val Example = "file://path/to/base/directory?id=projectName"
   def toUri(projectBaseDir: AbsolutePath, id: String): URI = {
-    new URI(s"file://${projectBaseDir.syntax}?id=${id}")
+    val uriSyntax = projectBaseDir.underlying.toUri
+    new URI(s"${uriSyntax}?id=${id}")
   }
 }

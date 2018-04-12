@@ -1,13 +1,14 @@
 package bloop
 
 import xsbti.compile._
-import xsbti.{Reporter, T2}
+import xsbti.T2
 import java.util.Optional
 import java.io.File
 
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import sbt.internal.inc.{FreshCompilerCache, Locate, LoggedReporter, ZincUtil}
+import bloop.reporter.Reporter
+import sbt.internal.inc.{FreshCompilerCache, Locate, ZincUtil}
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -33,7 +34,17 @@ object Compiler {
       Locate.definesClass(classpathEntry)
   }
 
-  def compile(compileInputs: CompileInputs): PreviousResult = {
+  sealed trait Result
+  object Result {
+    final case object Empty extends Result
+    final case class Blocked(on: List[String]) extends Result
+    final case class Cancelled(elapsed: Long) extends Result
+    final case class Failed(problems: Array[xsbti.Problem], elapsed: Long) extends Result
+    final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
+        extends Result
+  }
+
+  def compile(compileInputs: CompileInputs): Result = {
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -69,12 +80,23 @@ object Compiler {
       Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
+    val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
-    val compilation = incrementalCompiler.compile(inputs, compileInputs.logger)
-    PreviousResult.of(Optional.of(compilation.analysis()), Optional.of(compilation.setup()))
+
+    // We don't want nanosecond granularity, we're happy with milliseconds
+    def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
+
+    try {
+      val result0 = incrementalCompiler.compile(inputs, compileInputs.logger)
+      val result = PreviousResult.of(Optional.of(result0.analysis()), Optional.of(result0.setup()))
+      Result.Success(compileInputs.reporter, result, elapsed)
+    } catch {
+      case f: xsbti.CompileFailed => Result.Failed(f.problems(), elapsed)
+      case _: xsbti.CompileCancelled => Result.Cancelled(elapsed)
+    }
   }
 }

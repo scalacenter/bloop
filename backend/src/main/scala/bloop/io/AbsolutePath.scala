@@ -2,6 +2,7 @@
 package bloop.io
 
 import java.io.File
+import java.net.URI
 import java.nio.file.{Files, Path, Paths => NioPaths}
 
 final class AbsolutePath private (val underlying: Path) extends AnyVal {
@@ -21,6 +22,7 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def isDirectory: Boolean = Files.isDirectory(underlying)
   def readAllBytes: Array[Byte] = Files.readAllBytes(underlying)
   def toFile: File = underlying.toFile()
+  def toBspUri: String = underlying.toUri.toString
 }
 
 object AbsolutePath {
@@ -30,4 +32,8 @@ object AbsolutePath {
   def apply(path: String)(implicit cwd: AbsolutePath): AbsolutePath = apply(NioPaths.get(path))(cwd)
   def apply(path: Path)(implicit cwd: AbsolutePath): AbsolutePath =
     if (path.isAbsolute) new AbsolutePath(path) else cwd.resolve(path.toString)
+
+  // Necessary to test wrong paths in tests...
+  private[bloop] def completelyUnsafe(path: String): AbsolutePath =
+    new AbsolutePath(NioPaths.get(path))
 }

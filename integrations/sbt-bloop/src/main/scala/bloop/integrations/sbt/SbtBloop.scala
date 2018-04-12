@@ -234,7 +234,7 @@ object PluginImplementation {
         val java = Config.Java(javacOptions)
         val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
         val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
-        val project = Config.Project(projectName, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, out, classesDir, `scala`, jvm, java, testOptions)
+        val project = Config.Project(projectName, baseDirectory, sourceDirs, dependenciesAndAggregates, classpath, classpathOptions, out, classesDir, `scala`, jvm, java, testOptions)
         Config.File(Config.File.LatestVersion, project)
       }
       // format: ON

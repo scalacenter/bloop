@@ -30,6 +30,9 @@ abstract class ReporterFormat(reporter: ConfigurableReporter) {
    */
   def printSummary(): Unit
 
+  private final val enabledColor: Boolean =
+    reporter.logger.ansiCodesSupported() && reporter.config.colors
+
   /**
    * Shows `str` with color `color` if the reporter is configured with
    * `colors = true`.
@@ -39,8 +42,7 @@ abstract class ReporterFormat(reporter: ConfigurableReporter) {
    * @return The colored string if `colors = true`, `str` otherwise.
    */
   protected def colored(color: String, str: String): String =
-    if (reporter.config.colors) s"${RESET}${color}${str}${RESET}"
-    else str
+    if (enabledColor) s"${RESET}${color}${str}${RESET}" else str
 
   /**
    * Put a prefix `prefix` at the beginning of `paragraph`, indents all lines.
@@ -50,8 +52,7 @@ abstract class ReporterFormat(reporter: ConfigurableReporter) {
    * @return The prefixed and indented paragraph.
    */
   protected def prefixed(prefixColor: String, prefix: String, paragraph: String): String =
-    paragraph.lines
-      .mkString(colored(prefixColor, prefix), EOL + " " * prefix.length, "")
+    paragraph.lines.mkString(colored(prefixColor, prefix), EOL + " " * prefix.length, "")
 
   /**
    * Retrieves the right color to use for `problem` based on Severity.

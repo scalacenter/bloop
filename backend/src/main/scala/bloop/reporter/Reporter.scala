@@ -2,7 +2,10 @@ package bloop.reporter
 
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+import xsbti.compile.CompileAnalysis
 import xsbti.{Position, Severity}
+
+import scala.collection.mutable
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -14,15 +17,16 @@ import xsbti.{Position, Severity}
  * @param sourcePositionMapper A function that transforms positions.
  * @param config The configuration for this reporter.
  */
-final class Reporter(val logger: Logger,
-                     val cwd: AbsolutePath,
-                     sourcePositionMapper: Position => Position,
-                     val config: ReporterConfig)
-    extends xsbti.Reporter
+final class Reporter(
+    val logger: Logger,
+    val cwd: AbsolutePath,
+    sourcePositionMapper: Position => Position,
+    val config: ReporterConfig,
+    val _problems: mutable.Buffer[Problem] = mutable.ArrayBuffer.empty
+) extends xsbti.Reporter
     with ConfigurableReporter {
 
   private val format = config.format(this)
-  private val _problems = collection.mutable.ArrayBuffer.empty[Problem]
   private var _nextID = 1
 
   override def reset(): Unit = {
@@ -30,11 +34,8 @@ final class Reporter(val logger: Logger,
     _nextID = 1
   }
 
-  override def hasErrors(): Boolean =
-    hasErrors(_problems)
-
-  override def hasWarnings(): Boolean =
-    hasWarnings(_problems)
+  override def hasErrors(): Boolean = hasErrors(_problems)
+  override def hasWarnings(): Boolean = hasWarnings(_problems)
 
   override def printSummary(): Unit = {
     if (config.reverseOrder) {
@@ -42,14 +43,10 @@ final class Reporter(val logger: Logger,
     }
 
     format.printSummary()
-
   }
 
-  override def allProblems: Seq[Problem] =
-    _problems
-
-  override def problems(): Array[xsbti.Problem] =
-    _problems.toArray
+  override def allProblems: Seq[Problem] = _problems
+  override def problems(): Array[xsbti.Problem] = _problems.toArray
 
   override def log(prob: xsbti.Problem): Unit = {
     val mappedPos = sourcePositionMapper(prob.position)
@@ -92,5 +89,13 @@ final class Reporter(val logger: Logger,
     _nextID += 1
     id
   }
+}
 
+object Reporter {
+  def fromAnalysis(analysis: CompileAnalysis, cwd: AbsolutePath, logger: Logger): Reporter = {
+    import scala.collection.JavaConverters._
+    val sourceInfos = analysis.readSourceInfos.getAllSourceInfos.asScala.toBuffer
+    val ps = sourceInfos.flatMap(_._2.getReportedProblems).map(Problem.fromZincProblem(_))
+    new Reporter(logger, cwd, identity, ReporterConfig.defaultFormat, ps)
+  }
 }

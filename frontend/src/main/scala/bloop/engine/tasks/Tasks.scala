@@ -5,7 +5,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
 import bloop.io.AbsolutePath
-import bloop.reporter.{Reporter, ReporterConfig}
+import bloop.reporter.{Problem, Reporter, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
@@ -16,33 +16,27 @@ import xsbt.api.Discovery
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
-  object Compilation {
-    sealed trait Result
-    case class Blocked(project: Project) extends Result
-    case class Cancelled(project: Project) extends Result
-    case class Failed(project: Project, problems: List[xsbti.Problem]) extends Result
-    case class Success(project: Project, result: PreviousResult) extends Result
-
-    object Result {
-      implicit val showResult: scalaz.Show[Result] = new scalaz.Show[Result] {
-        override def shows(r: Result): String = r match {
-          case Blocked(project) => s"${project.name} (blocked)"
-          case Cancelled(project) => s"${project.name} (cancelled)"
-          case Failed(project, _) => s"${project.name} (failed)"
-          case Success(project, _) => s"${project.name} (success)"
-        }
-      }
-
-      def failedProjects(results: List[Result]): List[Project] =
-        results.collect { case r: Cancelled => r.project; case r: Failed => r.project }
-
-      def successfulProjects(results: List[Result]): List[(Project, PreviousResult)] =
-        results.collect { case Success(p, r) => (p, r) }
-    }
-  }
-
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
+
+  private type CompileResult = (Project, Compiler.Result)
+  private type CompileTask = Task[Dag[CompileResult]]
+
+  import scalaz.Show
+  private final implicit val showCompileTask: Show[CompileResult] = new Show[CompileResult] {
+    private def seconds(ms: Double): String = s"${ms}ms"
+    override def shows(r: CompileResult): String = {
+      val project = r._1
+      r._2 match {
+        case Compiler.Result.Empty => s"${project.name} (empty)"
+        case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
+        case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
+        case Compiler.Result.Blocked(on) => s"${project.name} (blocked on ${on.mkString(", ")})"
+        case Compiler.Result.Failed(problems, ms) =>
+          s"${project.name} (failed with ${Problem.count(problems)}, ${ms}ms)"
+      }
+    }
+  }
 
   /**
    * Performs incremental compilation of the dependencies of `project`, including `project` if
@@ -78,14 +72,16 @@ object Tasks {
       // FORMAT: ON
     }
 
-    def compile(project: Project): Compilation.Result = {
+    def compile(project: Project): Compiler.Result = {
       logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
-      val previous = state.results.getResult(project)
-      val inputs = toInputs(project, reporterConfig, previous)
-      try Compilation.Success(project, Compiler.compile(inputs))
-      catch {
-        case f: xsbti.CompileFailed => Compilation.Failed(project, f.problems().toList)
-        case _: xsbti.CompileCancelled => Compilation.Cancelled(project)
+      val previous = state.results.lastSuccessfulResult(project)
+      Compiler.compile(toInputs(project, reporterConfig, previous))
+    }
+
+    def failed(results: List[CompileResult]): List[Project] = {
+      results.collect {
+        case (p, _: Compiler.Result.Cancelled) => p
+        case (p, _: Compiler.Result.Failed) => p
       }
     }
 
@@ -93,9 +89,8 @@ object Tasks {
     toCompileTask(dag, compile(_)).map { results0 =>
       logger.debug(Dag.toDotGraph(results0))
       val results = Dag.dfs(results0)
-      val failures = Compilation.Result.failedProjects(results).distinct
-      val successes = Compilation.Result.successfulProjects(results)
-      val newState = state.copy(results = state.results.addResults(successes))
+      val failures = failed(results).distinct
+      val newState = state.copy(results = state.results.addResults(results))
       if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
       else {
         failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
@@ -103,8 +98,6 @@ object Tasks {
       }
     }
   }
-
-  private type CompileTask = Task[Dag[Compilation.Result]]
 
   /**
    * Turns a dag of projects into a task that returns a dag of compilation results
@@ -116,17 +109,17 @@ object Tasks {
    */
   private def toCompileTask(
       dag: Dag[Project],
-      compile: Project => Compilation.Result
+      compile: Project => Compiler.Result
   ): CompileTask = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
     def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
 
-    def propagate(dag: Dag[Compilation.Result]): Boolean = {
+    def blockedBy(dag: Dag[(Project, Compiler.Result)]): Option[Project] = {
       dag match {
-        case Leaf(_: Compilation.Success) => true
-        case Leaf(_) => false
-        case Parent(_: Compilation.Success, _) => true
-        case Parent(_, _) => false
+        case Leaf((_, _: Compiler.Result.Success)) => None
+        case Leaf((project, _)) => Some(project)
+        case Parent((_, _: Compiler.Result.Success), _) => None
+        case Parent((project, _), _) => Some(project)
       }
     }
 
@@ -135,13 +128,17 @@ object Tasks {
         case Some(task) => task
         case None =>
           val task = dag match {
-            case Leaf(project) => Task(Leaf(compile(project)))
+            case Leaf(project) => Task(Leaf(project -> compile(project)))
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { results =>
-                val stopNow = results.exists(result => !propagate(result))
-                if (stopNow) Task.now(Parent(Compilation.Blocked(project), results))
-                else Task(Parent(compile(project), results))
+                val failed = results.flatMap(dag => blockedBy(dag).toList)
+                if (failed.isEmpty) Task(Parent(project -> compile(project), results))
+                else {
+                  // Register the name of the projects we're blocked on (intransitively)
+                  val blocked = Compiler.Result.Blocked(failed.map(_.name))
+                  Task.now(Parent(project -> blocked, results))
+                }
               }
           }
           register(dag, task.memoize)
@@ -163,8 +160,7 @@ object Tasks {
     val allTargetsToClean =
       if (isolated) targets
       else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
-    val results = state.results
-    val newResults = results.reset(allTargetsToClean)
+    val newResults = state.results.cleanSuccessful(allTargetsToClean)
     state.copy(results = newResults)
   }
 
@@ -224,10 +220,9 @@ object Tasks {
           out.println(s"$project has setup but not analysis after compilation. Report upstream.")
         case (None, None) => out.println(s"Project $project has no analysis and setup.")
       }
-
     }
 
-    val ts = state.results.iterator.map { case (project, result) => Task(persist(project, result)) }
+    val ts = state.results.allSuccessful.map { case (p, result) => Task(persist(p, result)) }
     Task.gatherUnordered(ts).map(_ => ())
   }
 
@@ -259,7 +254,7 @@ object Tasks {
       val frameworks = project.testFrameworks
         .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
       logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
-      val analysis = state.results.getResult(project).analysis().toOption.getOrElse {
+      val analysis = state.results.lastSuccessfulResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
         Analysis.empty
       }
@@ -332,7 +327,7 @@ object Tasks {
   def findMainClasses(state: State, project: Project): Array[String] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
-    val analysis = state.results.getResult(project).analysis().toOption match {
+    val analysis = state.results.lastSuccessfulResult(project).analysis().toOption match {
       case Some(analysis: Analysis) => analysis
       case _ =>
         logger.warn(s"`Run` is triggered but no compilation detected from '${project.name}'.")
