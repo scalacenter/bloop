@@ -189,7 +189,7 @@ object Interpreter {
           val cwd = cmd.cliOptions.common.workingPath
 
           compileAnd(state, project, reporterConfig, excludeRoot = false, "`test`") { state =>
-            Tasks.test(state, project, cwd, cmd.isolated, testFilter)
+            Tasks.test(state, project, cwd, cmd.isolated, cmd.args, testFilter)
           }
         }
         if (cmd.watch) watch(project, state, doTest _)

@@ -114,6 +114,7 @@ class BasicNailgunSpec extends NailgunTest {
   @Test
   def testRunCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
+      client.success("clean", "with-resources")
       client.success("run", "with-resources")
       client.success("run", "-p", "with-resources")
       val messages = logger.getMessages()
@@ -125,6 +126,7 @@ class BasicNailgunSpec extends NailgunTest {
   @Test
   def testTestCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
+      client.success("clean", "with-resources")
       client.success("test", "with-resources")
       client.success("test", "-p", "with-resources")
       val messages = logger.getMessages()

@@ -165,7 +165,8 @@ object Cli {
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withProject(c.project) { (p: String) =>
                   val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
-                  run(cmd, newCommand.cliOptions)
+                  // Infer everything after '--' as if they were test framework args
+                  run(cmd.copy(args = c.args ++ extraArgs), newCommand.cliOptions)
                 }
               case Right(c: Commands.Run) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))

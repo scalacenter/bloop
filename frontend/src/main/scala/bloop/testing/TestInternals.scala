@@ -26,6 +26,9 @@ object TestInternals {
   private final val testAgentId = "test-agent"
   private final val testAgentVersion = "1.0.4"
 
+  // Cache the resolution of test agent files since it's static (cannot be lazy because depends on logger)
+  @volatile private var testAgentFiles: Option[Array[AbsolutePath]] = None
+
   private type PrintInfo[F <: Fingerprint] = (String, Boolean, Framework, F)
 
   lazy val filteredLoader = {
@@ -61,6 +64,16 @@ object TestInternals {
     }
   }
 
+  def lazyTestAgents(logger: Logger): Array[AbsolutePath] = {
+    testAgentFiles match {
+      case Some(paths) => paths
+      case None =>
+        val paths = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
+        testAgentFiles = Some(paths)
+        paths
+    }
+  }
+
   /**
    * Execute the test tasks in a forked JVM.
    *
@@ -81,13 +94,15 @@ object TestInternals {
                    env: Properties): Unit = {
     logger.debug("Starting forked test execution.")
 
+    // Make sure that we cache the resolution of the test agent jar and we don't repeat it every time
+    val agentFiles = lazyTestAgents(logger)
+
     val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
     val server = new TestServer(logger, eventHandler, discoveredTests, args)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
-    val testAgentFiles = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
-    val testAgentJars = testAgentFiles.filter(_.underlying.toString.endsWith(".jar"))
-    logger.debug("Test agent jars: " + testAgentFiles.mkString(", "))
+    val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
+    logger.debug("Test agent jars: " + agentFiles.mkString(", "))
 
     val exitCode = server.whileRunning {
       fork.runMain(cwd, forkMain, arguments, logger, env, testAgentJars)

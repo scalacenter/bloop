@@ -112,6 +112,8 @@ object Commands {
       @ExtraName("o")
       @HelpMessage("The list of test suite filters to test for only.")
       only: List[String] = Nil,
+      @HelpMessage("The arguments to pass in to the test framework.")
+      args: List[String] = Nil,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
@@ -140,7 +142,7 @@ object Commands {
       main: Option[String] = None,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
-      @HelpMessage("The arguments to pass to the application")
+      @HelpMessage("The arguments to pass in to the main class.")
       args: List[String] = Nil,
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")

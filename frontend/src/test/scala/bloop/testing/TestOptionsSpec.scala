@@ -11,7 +11,7 @@ class TestOptionsSpec {
   final val ProjectName = "with-tests"
 
   @Test
-  def exclusionsInTestOptionsAreRespected: Unit = {
+  def exclusionsInTestOptionsAreRespected(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
     val action = Run(Commands.Test(ProjectName))
@@ -24,14 +24,15 @@ class TestOptionsSpec {
 
     assertTrue(s"""Message not found: $needle
                   |Logs: $messages""".stripMargin,
-               messages.contains(needle))
+      messages.contains(needle))
   }
 
   @Test
-  def testOptionsArePassed: Unit = {
+  def testOptionsArePassed(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
-    val action = Run(Commands.Test(ProjectName, only = "hello.JUnitTest" :: Nil))
+    val junitArgs = List("-a")
+    val action = Run(Commands.Test(ProjectName, only = "hello.JUnitTest" :: Nil, args = junitArgs))
     val newState = TestUtil.blockingExecute(action, state)
 
     // The levels won't be correct, and the messages won't match
@@ -39,6 +40,7 @@ class TestOptionsSpec {
     val needle1 = ("info", "Test run started")
     val needle2 = ("info", "Test hello.JUnitTest.myTest started")
     val needle3 = ("debug", "Test hello.JUnitTest.myTest finished")
+    val missingNeedle4  = ("debug", "Framework-specific test options")
     val messages = logger.getMessages
 
     assertEquals(newState.status, ExitStatus.Ok)
@@ -56,5 +58,7 @@ class TestOptionsSpec {
         case (level, msg) => level == needle3._1 && msg.startsWith(needle3._2)
       }
     )
+
+    assertTrue("Junit test options are ignored!", !messages.contains(missingNeedle4))
   }
 }
