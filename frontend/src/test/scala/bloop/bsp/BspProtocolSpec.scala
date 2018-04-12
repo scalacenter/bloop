@@ -323,7 +323,6 @@ class BspProtocolSpec {
   @Test def TestCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
   }
-
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir, verbose = true))
   }

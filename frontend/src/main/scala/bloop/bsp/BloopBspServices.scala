@@ -4,14 +4,18 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{Compiler, Project}
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Action, Dag, Exit, Interpreter, Leaf, Parent, Run, State}
+import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import org.langmeta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-import xsbti.{Problem, Severity}
+import org.langmeta.jsonrpc.{
+  JsonRpcClient,
+  Response => JsonRpcResponse,
+  Services => JsonRpcServices
+}
+import xsbti.Problem
 
 final class BloopBspServices(
     callSiteState: State,

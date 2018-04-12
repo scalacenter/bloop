@@ -6,12 +6,24 @@ import bloop.cli.Commands
 import bloop.io.AbsolutePath
 import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
-import ch.epfl.`scala`.bsp.schema.{BuildClientCapabilities, InitializeBuildParams, InitializedBuildParams}
+import ch.epfl.`scala`.bsp.schema.{
+  BuildClientCapabilities,
+  InitializeBuildParams,
+  InitializedBuildParams
+}
 import ch.epfl.scala.bsp.endpoints
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.langmeta.jsonrpc.{BaseProtocolMessage, Response, Services}
-import org.langmeta.lsp.{LanguageClient, LanguageServer, MessageType, ShowMessageParams}
+import org.langmeta.lsp.{
+  DiagnosticSeverity,
+  LanguageClient,
+  LanguageServer,
+  MessageType,
+  PublishDiagnostics,
+  ShowMessageParams,
+  TextDocument
+}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 
 import scala.concurrent.duration.FiniteDuration
@@ -47,12 +59,25 @@ object BspClientTest {
   import com.typesafe.scalalogging.{Logger => ScalaLogger}
   import org.langmeta.lsp.Window
   def createServices(logger: ScalaLogger): Services = {
-    Services.empty.notification(Window.showMessage) {
-      case ShowMessageParams(MessageType.Log, msg) => logger.debug(msg)
-      case ShowMessageParams(MessageType.Info, msg) => logger.info(msg)
-      case ShowMessageParams(MessageType.Warning, msg) => logger.warn(msg)
-      case ShowMessageParams(MessageType.Error, msg) => logger.error(msg)
-    }
+    Services.empty
+      .notification(Window.showMessage) {
+        case ShowMessageParams(MessageType.Log, msg) => logger.debug(msg)
+        case ShowMessageParams(MessageType.Info, msg) => logger.info(msg)
+        case ShowMessageParams(MessageType.Warning, msg) => logger.warn(msg)
+        case ShowMessageParams(MessageType.Error, msg) => logger.error(msg)
+      }
+      .notification(TextDocument.publishDiagnostics) {
+        case PublishDiagnostics(uri, diagnostics) =>
+          diagnostics.foreach { d =>
+            d.severity match {
+              case Some(DiagnosticSeverity.Error) => logger.error(d.toString)
+              case Some(DiagnosticSeverity.Warning) => logger.warn(d.toString)
+              case Some(DiagnosticSeverity.Information) => logger.info(d.toString)
+              case Some(DiagnosticSeverity.Hint) => logger.debug(d.toString)
+              case None => logger.info(d.toString)
+            }
+          }
+      }
   }
 
   type TestLogger = Slf4jAdapter[RecordingLogger]
