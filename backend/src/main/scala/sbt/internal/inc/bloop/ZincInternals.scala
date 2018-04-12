@@ -4,8 +4,9 @@ import java.nio.file.Files
 
 import bloop.ScalaInstance
 import bloop.io.AbsolutePath
-import xsbti.ComponentProvider
+import xsbti.{ComponentProvider, Position}
 import sbt.internal.inc.ZincComponentCompiler
+import sbt.internal.inc.javac.DiagnosticsReporter
 import sbt.librarymanagement.{Configurations, ModuleID}
 
 object ZincInternals {
@@ -52,5 +53,15 @@ object ZincInternals {
     val id = s"${sources.organization}-${sources.name}-${sources.revision}"
     val scalaVersion = scalaInstance.actualVersion()
     s"$id$binSeparator${scalaVersion}__$javaClassVersion"
+  }
+
+  case class LineRange(start: Int, end: Int)
+  def rangeFromPosition(position: Position): Option[LineRange] = {
+    position match {
+      case impl: DiagnosticsReporter.PositionImpl =>
+        // We are forced to use int here because lsp diagnostics only take ints
+        impl.startPosition.flatMap(s => impl.endPosition.map(e => LineRange(s.toInt, e.toInt)))
+      case _ => None
+    }
   }
 }
