@@ -1,6 +1,7 @@
 package bloop.engine.tasks
 
 import bloop.cli.ExitStatus
+import bloop.config.Config
 import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.ForkProcess
@@ -237,11 +238,14 @@ object Tasks {
    *                   a test must be included.
    * @return The new state of Bloop.
    */
-  def test(state: State,
-           project: Project,
-           cwd: AbsolutePath,
-           isolated: Boolean,
-           testFilter: String => Boolean): Task[State] = Task {
+  def test(
+      state: State,
+      project: Project,
+      cwd: AbsolutePath,
+      isolated: Boolean,
+      frameworkSpecificRawArgs: List[String],
+      testFilter: String => Boolean
+  ): Task[State] = Task {
     // TODO(jvican): This method should cache the test loader always.
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
@@ -249,11 +253,33 @@ object Tasks {
     val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
     projectsToTest.foreach { project =>
       val projectName = project.name
+      val projectTestArgs = project.testOptions.arguments
       val forkProcess = ForkProcess(project.javaEnv, project.classpath)
       val testLoader = forkProcess.toExecutionClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
-      logger.debug(s"Found frameworks: ${frameworks.map(_.name).mkString(", ")}")
+      def foundFrameworks = frameworks.map(_.name).mkString(", ")
+      logger.debug(s"Found frameworks: $foundFrameworks")
+
+      // Test arguments coming after `--` can only be used if only one mapping is found
+      val frameworkArgs = {
+        if (frameworkSpecificRawArgs.isEmpty) Nil
+        else {
+          frameworks match {
+            case Array(oneFramework) =>
+              val rawArgs = frameworkSpecificRawArgs.toArray
+              val cls = oneFramework.getClass.getName()
+              logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
+              List(Config.TestArgument(rawArgs, Some(Config.TestFramework(List(cls)))))
+            case _ =>
+              val ignoredArgs = frameworkSpecificRawArgs.mkString(" ")
+              logger.warn(
+                s"Framework-specific test options '${ignoredArgs}' are ignored because several frameworks were found: $foundFrameworks")
+              Nil
+          }
+        }
+      }
+
       val analysis = state.results.lastSuccessfulResult(project).analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
         Analysis.empty
@@ -283,7 +309,7 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
-      val args = project.testOptions.arguments
+      val args = project.testOptions.arguments ++ frameworkArgs
       val env = state.commonOptions.env
       TestInternals.executeTasks(cwd, forkProcess, discoveredTests, args, handler, logger, env)
     }
