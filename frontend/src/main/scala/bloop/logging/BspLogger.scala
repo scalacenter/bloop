@@ -6,6 +6,7 @@ import bloop.engine.State
 import bloop.reporter.{DefaultReporterFormat, Problem}
 import org.langmeta.jsonrpc.JsonRpcClient
 import org.langmeta.lsp
+import sbt.internal.inc.bloop.ZincInternals
 import xsbti.Severity
 
 /**
@@ -46,12 +47,20 @@ final class BspLogger private (
     val sourceFile = DefaultReporterFormat.toOption(problem.position.sourceFile())
     val rangeAndUri = DefaultReporterFormat
       .position(problem.position)
-      .map(lc => lsp.Position(lc._1, lc._2))
-      .map(p => lsp.Range(p, p))
-      .flatMap(r => sourceFile.map(f => (r, f)))
+      .flatMap(p => sourceFile.map(f => (p, f)))
 
     rangeAndUri match {
-      case Some((range, file)) =>
+      case Some((pos0, file)) =>
+        val pos = ZincInternals.rangeFromPosition(problem.position) match {
+          case Some(lineRange) =>
+            val start = lsp.Position(pos0.line, lineRange.start)
+            val end = lsp.Position(pos0.line, lineRange.end)
+            lsp.Range(start, end)
+          case None =>
+            val pos = lsp.Position(pos0.line, pos0.line)
+            lsp.Range(pos, pos)
+        }
+
         val severity = problem.severity match {
           case Severity.Error => lsp.DiagnosticSeverity.Error
           case Severity.Warn => lsp.DiagnosticSeverity.Warning
@@ -59,7 +68,7 @@ final class BspLogger private (
         }
 
         val uri = file.toURI.toString
-        val diagnostic = lsp.Diagnostic(range, Some(severity), None, None, message)
+        val diagnostic = lsp.Diagnostic(pos, Some(severity), None, None, message)
         val diagnostics = lsp.PublishDiagnostics(uri, List(diagnostic))
         lsp.TextDocument.publishDiagnostics.notify(diagnostics)
       case None =>
