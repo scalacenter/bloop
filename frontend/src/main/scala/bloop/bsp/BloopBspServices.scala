@@ -1,5 +1,6 @@
 package bloop.bsp
 
+import java.nio.charset.{Charset, StandardCharsets}
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{Compiler, Project}
@@ -10,11 +11,14 @@ import bloop.logging.BspLogger
 import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.schema.ScalaBuildTarget.ScalaPlatform
+import com.google.protobuf.ByteString
 import org.langmeta.jsonrpc.{
   JsonRpcClient,
   Response => JsonRpcResponse,
   Services => JsonRpcServices
 }
+import scalapb_circe.JsonFormat
 import xsbti.Problem
 
 final class BloopBspServices(
@@ -130,7 +134,7 @@ final class BloopBspServices(
 
       def report(p: Project, problems: Array[Problem], elapsedMs: Long) = {
         val count = bloop.reporter.Problem.count(problems)
-        val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
+        val id = toBuildTargetId(p)
         CompileReportItem(
           target = Some(id),
           errors = count.errors,
@@ -166,12 +170,37 @@ final class BloopBspServices(
     }
   }
 
+  private def toBuildTargetId(project: Project): BuildTargetIdentifier =
+    BuildTargetIdentifier(project.bspUri)
+
+  def toScalaBuildTarget(project: Project): ScalaBuildTarget = {
+    val instance = project.scalaInstance
+    val jars = instance.allJars.iterator.map(_.toURI.toString).toList
+    ScalaBuildTarget(
+      scalaOrganization = instance.organization,
+      scalaVersion = instance.version,
+      scalaBinaryVersion = instance.version,
+      platform = ScalaPlatform.JVM,
+      jars = jars
+    )
+  }
+
   def buildTargets(request: WorkspaceBuildTargetsRequest): BspResponse[WorkspaceBuildTargets] = {
     ifInitialized {
+      val build = currentState.build
       val targets = WorkspaceBuildTargets(
-        currentState.build.projects.map { p =>
-          val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
-          BuildTarget(Some(id), p.name, List("scala", "java"))
+        build.projects.map { p =>
+          val id = toBuildTargetId(p)
+          val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
+          val scalaTarget = JsonFormat.toJsonString(toScalaBuildTarget(p))
+          val extra = ByteString.copyFrom(scalaTarget, StandardCharsets.UTF_8)
+          BuildTarget(
+            id = Some(id),
+            displayName = p.name,
+            languageIds = List("scala", "java"),
+            dependencies = deps.map(toBuildTargetId).toList,
+            data = extra
+          )
         }
       )
 

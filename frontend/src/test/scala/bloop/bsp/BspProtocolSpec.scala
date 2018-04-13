@@ -175,7 +175,7 @@ class BspProtocolSpec {
               optionItems.map { uriOptions =>
                 val expectedUriOptions = Project
                   .eagerLoadFromDir(configDir, logger.underlying)
-                  .map(p => (ProjectUris.toUri(p.baseDirectory, p.name).toString, p))
+                  .map(p => (p.bspUri, p))
                   .sortBy(_._1)
 
                 Assert
