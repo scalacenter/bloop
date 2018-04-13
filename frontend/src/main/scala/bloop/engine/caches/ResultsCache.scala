@@ -69,7 +69,7 @@ final class ResultsCache private (
     import bloop.util.JavaCompat.EnrichOptional
 
     def fetchPreviousResult(p: Project): Compiler.Result = {
-      val analysisFile = project.out.getParent.resolve(s"${project.name}-analysis.bin")
+      val analysisFile = ResultsCache.pathToAnalysis(p)
       if (Files.exists(analysisFile.underlying)) {
         val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
         contents match {
@@ -109,4 +109,7 @@ object ResultsCache {
       case (results, project) => results.initializeResult(project, cwd)
     }
   }
+
+  def pathToAnalysis(project: Project): AbsolutePath =
+    project.out.resolve(s"${project.name}-analysis.bin")
 }
