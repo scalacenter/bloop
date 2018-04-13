@@ -2,10 +2,12 @@
 
 _projects() {
     compadd "$@" $(bloop autocomplete --format zsh --mode projects 2> /dev/null)
+    return 0
 }
 
 _commands() {
     compadd "$@" $(bloop autocomplete --format zsh --mode commands 2> /dev/null || _notStarted)
+    return 0
 }
 
 _notStarted() {
@@ -25,30 +27,47 @@ _boolean() {
 }
 
 _testsfqcn() {
-    project="$words[2]"
+    local project="$words[2]"
     compadd "$@" $(bloop autocomplete --format zsh --mode testsfqcn --project $project)
 }
 
 _mainsfqcn() {
-    project="$words[2]"
+    local project="$words[2]"
     compadd "$@" $(bloop autocomplete --format zsh --mode mainsfqcn --project $project)
 }
 
 _flags() {
-    cmd="$words[1]"
-    saveIFS=$IFS
+    local cmd=$1
+    local saveIFS=$IFS
     IFS=$'\n'
-    results=($(bloop autocomplete --format zsh --mode flags --command $cmd))
-    # Add a dummy result without completion, otherwise no completion is shown.
-    results=($results '*:dummy:')
+    local flags=($(bloop autocomplete --format zsh --mode flags --command $cmd))
+    flags=($flags ':approximate-4:::' )
     IFS=$saveIFS
+    _arguments $flags
+    return 0
+}
 
-    _arguments $results
+_complete_any() {
+    local project_bound_cmd=( clean compile run test console )
+    local cmd=${words[2]}
+    # For project related commands, try to complete project. If not in a project
+    # folder, switch to flags. Otherwise, flag mode
+    if  [[ $CURRENT == 3 ]] && [[ -n "${project_bound_cmd[(r)$cmd]}" ]]; then
+        local projs=($(bloop autocomplete --format zsh --mode projects 2> /dev/null))
+        if  [[ "$projs" != " " && "$projs" != "" ]]; then
+            _projects
+        else
+            _flags $cmd
+        fi
+    else
+        cmd=${words[1]}
+        _flags $cmd
+    fi
 }
 
 _arguments \
-  ":command:_commands" \
-  ":project:_projects" \
-  "*::flags:_flags"
+    ":command:_commands" \
+    ":args:_complete_any" \
+    "*::anything:_complete_any"
 
 return 0
