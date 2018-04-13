@@ -130,7 +130,7 @@ final class BloopBspServices(
 
       def report(p: Project, problems: Array[Problem], elapsedMs: Long) = {
         val count = bloop.reporter.Problem.count(problems)
-        val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
+        val id = toBuildTargetId(p)
         CompileReportItem(
           target = Some(id),
           errors = count.errors,
@@ -166,12 +166,22 @@ final class BloopBspServices(
     }
   }
 
+  private def toBuildTargetId(project: Project): BuildTargetIdentifier =
+    BuildTargetIdentifier(project.bspUri)
+
   def buildTargets(request: WorkspaceBuildTargetsRequest): BspResponse[WorkspaceBuildTargets] = {
     ifInitialized {
+      val build = currentState.build
       val targets = WorkspaceBuildTargets(
-        currentState.build.projects.map { p =>
-          val id = BuildTargetIdentifier(ProjectUris.toUri(p.baseDirectory, p.name).toString)
-          BuildTarget(Some(id), p.name, List("scala", "java"))
+        build.projects.map { p =>
+          val id = toBuildTargetId(p)
+          val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
+          BuildTarget(
+            id = Some(id),
+            displayName = p.name,
+            languageIds = List("scala", "java"),
+            dependencies = deps.map(toBuildTargetId).toList
+          )
         }
       )
 

@@ -6,6 +6,7 @@ import bloop.io.Timer.timed
 import bloop.logging.Logger
 import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
+import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigDecoders}
 import metaconfig.{Conf, Configured}
 import org.langmeta.inputs.Input
@@ -27,6 +28,9 @@ final case class Project(
     out: AbsolutePath
 ) {
   override def toString: String = s"$name"
+
+  /** The bsp uri associated with this project. */
+  val bspUri: String = ProjectUris.toUri(baseDirectory, name).toString
 
   /** This project's full classpath (classes directory and raw classpath) */
   val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
