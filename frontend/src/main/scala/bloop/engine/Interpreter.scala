@@ -214,13 +214,14 @@ object Interpreter {
     }
   }
 
+  private val projectBound = CommandsMessages.messages.filter {
+    case (name, CommandMessages(args, _)) => args.exists(_.name == "project")
+  }.map(_._1).mkString(" ")
+
   private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
 
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
-        val projectBound = CommandsMessages.messages.filter {
-          case (name, CommandMessages(args, _)) => args.exists(_.name == "project")
-          }.map(_._1).mkString(" ")
           state.logger.info(projectBound)
       case Mode.Commands =>
         for {
