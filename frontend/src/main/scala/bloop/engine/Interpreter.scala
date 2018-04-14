@@ -214,9 +214,9 @@ object Interpreter {
     }
   }
 
-  private val projectBound = CommandsMessages.messages.filter {
-    case (name, CommandMessages(args, _)) => args.exists(_.name == "project")
-  }.map(_._1).mkString(" ")
+  private val projectBound = CommandsMessages.messages.collect {
+    case (name, CommandMessages(args, _)) if args.exists(_.name == "project") => name
+  }.mkString(" ")
 
   private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
 
