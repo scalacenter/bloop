@@ -12,6 +12,7 @@ import bloop.reporter.ReporterConfig
 import bloop.testing.TestInternals
 import bloop.engine.tasks.Tasks
 import bloop.Project
+import caseapp.core.CommandMessages
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 
@@ -216,6 +217,11 @@ object Interpreter {
   private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
 
     cmd.mode match {
+      case Mode.ProjectBoundCommands =>
+        val projectBound = CommandsMessages.messages.filter {
+          case (name, CommandMessages(args, _)) => args.exists(_.name == "project")
+          }.map(_._1).mkString(" ")
+          state.logger.info(projectBound)
       case Mode.Commands =>
         for {
           (name, args) <- CommandsMessages.messages

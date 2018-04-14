@@ -53,11 +53,11 @@ _flags_for_cmd() {
 }
 
 _project_or_flags() {
-    local project_bound_cmd=( clean compile run test console )
+    local project_cmd=($(bloop autocomplete --format zsh --mode project-commands))
     local cmd=${words[2]}
     # For project related commands, try to complete project. If not in a project
     # folder, switch to flags. Otherwise, complete flags
-    if  [[ $CURRENT == 3 ]] && [[ -n "${project_bound_cmd[(r)$cmd]}" ]]; then
+    if  [[ $CURRENT == 3 ]] && [[ -n "${project_cmd[(r)$cmd]}" ]]; then
         local projs=($(bloop autocomplete --format zsh --mode projects 2> /dev/null))
         if  [[ "$projs" != " " && "$projs" != "" ]]; then
             _projects
