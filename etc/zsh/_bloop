@@ -37,6 +37,11 @@ _mainsfqcn() {
 }
 
 _flags() {
+    local cmd="$words[1]"
+    _flags_for_cmd $cmd
+}
+
+_flags_for_cmd() {
     local cmd=$1
     local saveIFS=$IFS
     IFS=$'\n'
@@ -47,27 +52,28 @@ _flags() {
     return 0
 }
 
-_complete_any() {
+_project_or_flags() {
     local project_bound_cmd=( clean compile run test console )
     local cmd=${words[2]}
     # For project related commands, try to complete project. If not in a project
-    # folder, switch to flags. Otherwise, flag mode
+    # folder, switch to flags. Otherwise, complete flags
     if  [[ $CURRENT == 3 ]] && [[ -n "${project_bound_cmd[(r)$cmd]}" ]]; then
         local projs=($(bloop autocomplete --format zsh --mode projects 2> /dev/null))
         if  [[ "$projs" != " " && "$projs" != "" ]]; then
             _projects
         else
-            _flags $cmd
+            cmd=${words[2]}
+            _flags_for_cmd $cmd
         fi
     else
-        cmd=${words[1]}
-        _flags $cmd
+        cmd=${words[2]}
+        _flags_for_cmd $cmd
     fi
 }
 
 _arguments \
     ":command:_commands" \
-    ":args:_complete_any" \
-    "*::anything:_complete_any"
+    ":project_or_flags:_project_or_flags" \
+    "*::flags:_flags"
 
 return 0
