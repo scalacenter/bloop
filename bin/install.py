@@ -58,6 +58,7 @@ NAILGUN_COMMIT = args.nailgun
 ZSH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "zsh")
 BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
 SYSTEMD_SERVICE_DIR = join(BLOOP_INSTALLATION_TARGET, "systemd")
+XDG_DIR = join(BLOOP_INSTALLATION_TARGET, "xdg")
 
 # If this is not a released version of Bloop, we need to extract the commit SHA
 # to know how to download the completion and startup scripts.
@@ -76,12 +77,16 @@ NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/p
 ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % ETC_VERSION
 BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % ETC_VERSION
 SYSTEMD_SERVICE_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/systemd/bloop.service" % ETC_VERSION
+XDG_APPLICATION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.desktop" % ETC_VERSION
+XDG_ICON_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.png" % ETC_VERSION
 BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-coursier")
 BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 ZSH_COMPLETION_TARGET = join(ZSH_COMPLETION_DIR, "_bloop")
 BASH_COMPLETION_TARGET = join(BASH_COMPLETION_DIR, "bloop")
 SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
+XDG_APPLICATION_TARGET = join(XDG_DIR, "bloop.desktop")
+XDG_ICON_TARGET = join(XDG_DIR, "bloop.png")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
@@ -137,6 +142,7 @@ makedir(BLOOP_INSTALLATION_TARGET)
 makedir(ZSH_COMPLETION_DIR)
 makedir(BASH_COMPLETION_DIR)
 makedir(SYSTEMD_SERVICE_DIR)
+makedir(XDG_DIR)
 
 if not isfile(BLOOP_COURSIER_TARGET):
     download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET, 0o755)
@@ -155,3 +161,9 @@ print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
 
 download_and_install_template(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
 print("Installed systemd service in '%s'" % SYSTEMD_SERVICE_TARGET)
+
+download_and_install_template(XDG_APPLICATION_URL, XDG_APPLICATION_TARGET, 0o755)
+print("Installed XDG desktop entry in '%s'" % XDG_APPLICATION_TARGET)
+
+download_and_install(XDG_ICON_URL, XDG_ICON_TARGET)
+print("Installed icon in '%s'" % XDG_ICON_TARGET)

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Bloop
+Comment=Bloop Scala build server
+Path=__BLOOP_INSTALLATION_TARGET__/
+Exec=__BLOOP_INSTALLATION_TARGET__/bloop server
+Icon=__BLOOP_INSTALLATION_TARGET__/xdg/bloop.png
+Terminal=true
+Categories=Development;Building;
