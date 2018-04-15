@@ -2,7 +2,7 @@
 Description=Bloop Scala build server
 
 [Service]
-ExecStart=%h/.bloop/bloop server
+ExecStart=__BLOOP_INSTALLATION_TARGET__/bloop server
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=bloop

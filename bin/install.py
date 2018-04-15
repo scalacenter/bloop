@@ -12,8 +12,10 @@ import re
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
     from urllib import urlretrieve as urlretrieve
+    from urllib2 import urlopen as urlopen
 else:
     from urllib.request import urlretrieve as urlretrieve
+    from urllib.request import urlopen as urlopen
 
 # INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
@@ -84,9 +86,25 @@ SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
+def replace_template_variables(template):
+    return template.replace("__BLOOP_INSTALLATION_TARGET__", BLOOP_INSTALLATION_TARGET)
+
 def download_and_install(url, target):
     try:
         urlretrieve(url, target)
+        os.chmod(target, 0o755)
+    except IOError:
+        print("Couldn't download %s, please try again." % url)
+        sys.exit(1)
+
+def download_and_install_template(url, target):
+    try:
+        socket = urlopen(url)
+        template = socket.read()
+        with open(target, "w") as file:
+            output = replace_template_variables(template)
+            file.write(output)
+        socket.close()
         os.chmod(target, 0o755)
     except IOError:
         print("Couldn't download %s, please try again." % url)
@@ -131,5 +149,5 @@ print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET)
 print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
 
-download_and_install(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
+download_and_install_template(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
 print("Installed systemd service in '%s'" % SYSTEMD_SERVICE_TARGET)
