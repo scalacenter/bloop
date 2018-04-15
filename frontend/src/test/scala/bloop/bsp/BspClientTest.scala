@@ -1,6 +1,7 @@
 package bloop.bsp
 
 import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
@@ -12,6 +13,7 @@ import ch.epfl.`scala`.bsp.schema.{
   InitializedBuildParams
 }
 import ch.epfl.scala.bsp.endpoints
+import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.langmeta.jsonrpc.{BaseProtocolMessage, Response, Services}
@@ -104,12 +106,23 @@ object BspClientTest {
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
       val cwd = TestUtil.getBaseFromConfigDir(configDirectory.underlying)
-      val initializeServer = endpoints.Build.initialize.request(
-        InitializeBuildParams(
-          rootUri = cwd.toAbsolutePath.toString,
-          Some(BuildClientCapabilities(List("scala")))
-        )
-      )
+      val initializeServer = {
+        def messages = logger0.underlying.getMessages().filter(_._1 == "info")
+        def waitForLiveServer: Task[Unit] = Task(()).flatMap { _ =>
+          if (!messages.exists(_._2.startsWith("The server started to listen")))
+            waitForLiveServer.delayExecution(FiniteDuration(100, TimeUnit.MILLISECONDS))
+          else Task(())
+        }
+
+        waitForLiveServer.flatMap { _ =>
+          endpoints.Build.initialize.request(
+            InitializeBuildParams(
+              rootUri = cwd.toAbsolutePath.toString,
+              Some(BuildClientCapabilities(List("scala")))
+            )
+          )
+        }
+      }
 
       for {
         // Delay the task to let the bloop server go live
