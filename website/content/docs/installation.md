@@ -76,6 +76,7 @@ One way to run Bloop server automatically if you are using systemd is to
 install the provided user service file:
 
 ```sh
+$ mkdir -p $HOME/.config/systemd/user
 $ cp $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
 $ systemctl --user enable bloop
 ```
