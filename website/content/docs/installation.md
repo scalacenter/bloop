@@ -95,6 +95,12 @@ $ systemctl --user start bloop
 $ systemctl --user stop bloop
 ```
 
+Logs can be viewed using:
+
+```
+$ journalctl --user-unit bloop
+```
+
 ## Use bloop with sbt
 
 The first step is to generate the configuration files for Bloop with our sbt
