@@ -341,7 +341,7 @@ object PluginImplementation {
                             AutoImported.bloopManagedResourceDirectories.in(configKey))
             .value
         val s = Keys.streams.value
-        val cacheStore = Compat.generateCacheFile(s, "copy-resources-bloop")
+        val cacheStore = bloop.integrations.sbt.Compat.generateCacheFile(s, "copy-resources-bloop")
         val mappings = (sbt.PathFinder(Keys.resources.value) --- dirs) pair (sbt.Path
           .rebase(dirs, t) | sbt.Path.flat(t))
         s.log.debug("Copy resource mappings: " + mappings.mkString("\n\t", "\n\t", ""))
