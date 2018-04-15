@@ -1,0 +1,8 @@
+[Unit]
+Description=Bloop Scala build server
+
+[Service]
+ExecStart=%h/.bloop/bloop server
+
+[Install]
+WantedBy=default.target

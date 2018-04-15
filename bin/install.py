@@ -56,28 +56,31 @@ BLOOP_VERSION = args.version
 NAILGUN_COMMIT = args.nailgun
 ZSH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "zsh")
 BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
+SYSTEMD_SERVICE_DIR = join(BLOOP_INSTALLATION_TARGET, "systemd")
 
 # If this is not a released version of Bloop, we need to extract the commit SHA
-# to know how to download the completion scripts.
+# to know how to download the completion and startup scripts.
 # If we can't get the SHA, just download from master.
 if CUSTOMIZED_SCRIPT:
-    COMPLETION_VERSION = "v" + BLOOP_VERSION
+    ETC_VERSION = "v" + BLOOP_VERSION
 else:
     pattern = '(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?'
     matches = re.search(pattern, BLOOP_VERSION)
     if matches is not None:
-        COMPLETION_VERSION = matches.group(1)
+        ETC_VERSION = matches.group(1)
     else:
-        COMPLETION_VERSION = "master"
+        ETC_VERSION = "master"
 
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
-ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % COMPLETION_VERSION
-BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % COMPLETION_VERSION
+ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % ETC_VERSION
+BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % ETC_VERSION
+SYSTEMD_SERVICE_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/systemd/bloop.service" % ETC_VERSION
 BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-coursier")
 BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 ZSH_COMPLETION_TARGET = join(ZSH_COMPLETION_DIR, "_bloop")
 BASH_COMPLETION_TARGET = join(BASH_COMPLETION_DIR, "bloop")
+SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
@@ -111,6 +114,7 @@ def makedir(directory):
 makedir(BLOOP_INSTALLATION_TARGET)
 makedir(ZSH_COMPLETION_DIR)
 makedir(BASH_COMPLETION_DIR)
+makedir(SYSTEMD_SERVICE_DIR)
 
 if not isfile(BLOOP_COURSIER_TARGET):
     download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET)
@@ -126,3 +130,6 @@ print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 
 download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET)
 print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+
+download_and_install(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
+print("Installed systemd service in '%s'" % SYSTEMD_SERVICE_TARGET)

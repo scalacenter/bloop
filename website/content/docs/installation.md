@@ -41,8 +41,14 @@ Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 <pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M8</span>/install.py | python
 </code></pre>
 
-The installation script will also install completions for zsh and Bash, but
-you need to set them up manually.
+The installation script will also install:
+
+ * completions for zsh and Bash
+ * service file for systemd
+
+but you need to set them up manually.
+
+### Shell completions
 
 #### Zsh completions
 
@@ -60,6 +66,33 @@ To get the command line completions with Bash, add the following to your `~/.bas
 
 ```sh
 . $HOME/.bloop/bash/bloop
+```
+
+### Automatic startup
+
+#### Systemd
+
+One way to run Bloop server automatically if you are using systemd is to
+install the provided user service file:
+
+```sh
+$ cp $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+$ systemctl --user enable bloop
+```
+
+This way, Bloop server will be started when you log in for the first time and
+stopped when you exit your last session. It is also possible to start the
+service right after boot and keep it running until the system shuts down.
+Please refer to [this wiki page about user services in systemd]
+(https://wiki.archlinux.org/index.php/Systemd/User) if you want some advanced
+options.
+
+You can also check the status, start and stop the service manually:
+
+```
+$ systemctl --user status bloop
+$ systemctl --user start bloop
+$ systemctl --user stop bloop
 ```
 
 ## Use bloop with sbt
