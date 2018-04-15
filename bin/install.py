@@ -12,7 +12,7 @@ import re
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
     from urllib import urlretrieve as urlretrieve
-    from urllib2 import urlopen as urlopen
+    from urllib import urlopen as urlopen
 else:
     from urllib.request import urlretrieve as urlretrieve
     from urllib.request import urlopen as urlopen
