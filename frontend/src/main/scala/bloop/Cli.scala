@@ -250,17 +250,25 @@ object Cli {
       logger.debug(s"Elapsed: $elapsed ms")
     }
 
-    try {
-      // Simulate try-catch-finally with monix tasks to time the task execution
-      val handle =
-        Task
-          .now(System.nanoTime())
-          .flatMap(start => taskState.materialize.map(s => (s, start)))
-          .map { case (state, start) => logElapsed(start); state }
-          .dematerialize
-          .executeWithOptions(_.enableAutoCancelableRunLoops)
-          .runAsync(ExecutionContext.scheduler)
+    // Simulate try-catch-finally with monix tasks to time the task execution
+    val handle =
+      Task
+        .now(System.nanoTime())
+        .flatMap(start => taskState.materialize.map(s => (s, start)))
+        .map { case (state, start) => logElapsed(start); state }
+        .dematerialize
+        .executeWithOptions(_.enableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.scheduler)
 
+    def handleException(t: Throwable) = {
+      handle.cancel()
+      if (t.getMessage != null)
+        logger.error(t.getMessage)
+      logger.trace(t)
+      ExitStatus.UnexpectedError
+    }
+
+    try {
       // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
       pool.addListener {
         case e: CloseEvent =>
@@ -275,11 +283,8 @@ object Cli {
       ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
       result.status
     } catch {
-      case NonFatal(t) =>
-        if (t.getMessage != null)
-          logger.error(t.getMessage)
-        logger.trace(t)
-        ExitStatus.UnexpectedError
+      case i: InterruptedException => handleException(i)
+      case NonFatal(t) => handleException(t)
     }
   }
 }
