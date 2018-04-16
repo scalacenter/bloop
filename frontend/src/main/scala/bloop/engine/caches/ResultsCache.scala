@@ -4,11 +4,15 @@ import java.util.Optional
 
 import bloop.{Compiler, Project}
 import bloop.Compiler.Result
-import bloop.engine.Build
+import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.reporter.Reporter
+import monix.eval.Task
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -63,35 +67,6 @@ final class ResultsCache private (
   def addResults(ps: List[(Project, Compiler.Result)]): ResultsCache =
     ps.foldLeft(this) { case (rs, (p, r)) => rs.addResult(p, r) }
 
-  private def initializeResult(project: Project, cwd: AbsolutePath): ResultsCache = {
-    import java.nio.file.Files
-    import sbt.internal.inc.FileAnalysisStore
-    import bloop.util.JavaCompat.EnrichOptional
-
-    def fetchPreviousResult(p: Project): Compiler.Result = {
-      val analysisFile = ResultsCache.pathToAnalysis(p)
-      if (Files.exists(analysisFile.underlying)) {
-        val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
-        contents match {
-          case Some(res) =>
-            logger.debug(s"Loading previous analysis for '${project.name}' from '$analysisFile'.")
-            val p = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
-            val reporter = Reporter.fromAnalysis(res.getAnalysis, cwd, logger)
-            Result.Success(reporter, p, 0L)
-          case None =>
-            logger.debug(s"Analysis '$analysisFile' for '${project.name}' is empty.")
-            Result.Empty
-        }
-      } else {
-        logger.debug(s"Missing analysis file for project '${project.name}'")
-        Result.Empty
-      }
-    }
-
-    if (all.contains(project)) this
-    else addResult(project, fetchPreviousResult(project))
-  }
-
   override def toString: String = s"ResultsCache(${successful.mkString(", ")})"
 }
 
@@ -105,8 +80,45 @@ object ResultsCache {
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
-    build.projects.foldLeft(new ResultsCache(Map.empty, Map.empty, logger)) {
-      case (results, project) => results.initializeResult(project, cwd)
+    val handle = loadAsync(build, cwd, logger).runAsync(ExecutionContext.ioScheduler)
+    Await.result(handle, Duration.Inf)
+  }
+
+  def loadAsync(build: Build, cwd: AbsolutePath, logger: Logger): Task[ResultsCache] = {
+    import java.nio.file.Files
+    import sbt.internal.inc.FileAnalysisStore
+    import bloop.util.JavaCompat.EnrichOptional
+
+    def fetchPreviousResult(p: Project): Task[Compiler.Result] = {
+      val analysisFile = ResultsCache.pathToAnalysis(p)
+      if (Files.exists(analysisFile.underlying)) {
+        Task {
+          val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
+          contents match {
+            case Some(res) =>
+              logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
+              val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
+              val reporter = Reporter.fromAnalysis(res.getAnalysis, cwd, logger)
+              Result.Success(reporter, r, 0L)
+            case None =>
+              logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
+              Result.Empty
+          }
+
+        }
+      } else {
+        Task.now {
+          logger.debug(s"Missing analysis file for project '${p.name}'")
+          Result.Empty
+        }
+      }
+    }
+
+    val all = build.projects.map(p => fetchPreviousResult(p).map(r => p -> r))
+    Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
+      val cache = new ResultsCache(Map.empty, Map.empty, logger)
+      cache.addResults(projectResults)
+      cache
     }
   }
 
