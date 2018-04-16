@@ -2,18 +2,19 @@ package bloop.nailgun
 
 import java.util.concurrent.TimeUnit
 
-import scala.Console.{GREEN, RESET}
+import bloop.bsp.BspServer
+
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
 import bloop.logging.RecordingLogger
 
 class BasicNailgunSpec extends NailgunTest {
-
   val out = System.out
   val err = System.err
 
   @Test
   def unknownCommandTest(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       val command = "thatcommanddoesntexist"
       client.fail(command)
@@ -25,6 +26,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testHelpCommand(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       client.success("help")
       val messages = logger.getMessages()
@@ -38,6 +40,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testAboutCommand(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       client.success("about")
       val messages = logger.getMessages()
@@ -54,6 +57,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testProjectsCommand(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       client.success("projects")
       val messages = logger.getMessages()
@@ -67,6 +71,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testCompileCommand(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       client.success("clean", "with-resources")
       client.success("compile", "with-resources")
@@ -113,6 +118,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testRunCommand(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       client.success("clean", "with-resources")
       client.success("run", "with-resources")
@@ -141,6 +147,7 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testCleanCommand(): Unit = {
+    if (BspServer.isWindows) return ()
     withServerInProject("with-resources") { (logger, client) =>
       client.success("clean", "-p", "with-resources")
       client.success("compile", "-p", "with-resources")
