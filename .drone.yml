@@ -6,6 +6,7 @@ matrix:
           "jsonConfig/test" \
           "sbtBloop/scripted" \
           "frontend/integrationSetUpBloop" \
+          "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests" \
           "backend/test" \
           "frontend/test" \
           "docs/makeSite"
