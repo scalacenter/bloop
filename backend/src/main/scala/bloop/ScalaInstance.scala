@@ -74,9 +74,11 @@ object ScalaInstance {
             scalaVersion: String,
             allJars: Array[AbsolutePath],
             logger: Logger): ScalaInstance = {
-    if (allJars.nonEmpty && allJars.forall(j => Files.exists(j.underlying)))
-      new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
-    else resolve(scalaOrg, scalaName, scalaVersion, logger)
+    if (allJars.nonEmpty && allJars.forall(j => Files.exists(j.underlying))) {
+      def newInstance = new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
+      val instanceId = (scalaOrg, scalaName, scalaVersion)
+      instances.computeIfAbsent(instanceId, _ => newInstance)
+    } else resolve(scalaOrg, scalaName, scalaVersion, logger)
   }
 
   // Cannot wait to use opaque types for this
