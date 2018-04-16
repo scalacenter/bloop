@@ -43,7 +43,9 @@ class HotBloopBenchmark {
                                      "-Xmx2G",
                                      "-jar",
                                      bloopJarPath,
-                                     ".")
+                                     "--config-dir",
+                                     "2.0")
+    builder.redirectErrorStream(true)
     builder.directory(base.toFile)
     inputRedirect = builder.redirectInput()
     outputRedirect = builder.redirectOutput()
@@ -76,7 +78,7 @@ class HotBloopBenchmark {
       if (read == -1) sys.error("EOF: " + output.toString)
       else {
         output.append(buffer, 0, read)
-        if (output.toString.contains("\n> ")) {
+        if (output.toString.contains("shell> ")) {
           if (output.toString.contains("[E]")) sys.error(output.toString)
           return
         }
