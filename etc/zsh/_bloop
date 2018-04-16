@@ -2,10 +2,12 @@
 
 _projects() {
     compadd "$@" $(bloop autocomplete --format zsh --mode projects 2> /dev/null)
+    return 0
 }
 
 _commands() {
     compadd "$@" $(bloop autocomplete --format zsh --mode commands 2> /dev/null || _notStarted)
+    return 0
 }
 
 _notStarted() {
@@ -25,30 +27,53 @@ _boolean() {
 }
 
 _testsfqcn() {
-    project="$words[2]"
+    local project="$words[2]"
     compadd "$@" $(bloop autocomplete --format zsh --mode testsfqcn --project $project)
 }
 
 _mainsfqcn() {
-    project="$words[2]"
+    local project="$words[2]"
     compadd "$@" $(bloop autocomplete --format zsh --mode mainsfqcn --project $project)
 }
 
 _flags() {
-    cmd="$words[1]"
-    saveIFS=$IFS
-    IFS=$'\n'
-    results=($(bloop autocomplete --format zsh --mode flags --command $cmd))
-    # Add a dummy result without completion, otherwise no completion is shown.
-    results=($results '*:dummy:')
-    IFS=$saveIFS
+    local cmd="$words[1]"
+    _flags_for_cmd $cmd
+}
 
-    _arguments $results
+_flags_for_cmd() {
+    local cmd=$1
+    local saveIFS=$IFS
+    IFS=$'\n'
+    local flags=($(bloop autocomplete --format zsh --mode flags --command $cmd))
+    flags=($flags ':approximate-4:::' )
+    IFS=$saveIFS
+    _arguments $flags
+    return 0
+}
+
+_project_or_flags() {
+    local project_cmd=($(bloop autocomplete --format zsh --mode project-commands))
+    local cmd=${words[2]}
+    # For project related commands, try to complete project. If not in a project
+    # folder, switch to flags. Otherwise, complete flags
+    if  [[ $CURRENT == 3 ]] && [[ -n "${project_cmd[(r)$cmd]}" ]]; then
+        local projs=($(bloop autocomplete --format zsh --mode projects 2> /dev/null))
+        if  [[ "$projs" != " " && "$projs" != "" ]]; then
+            _projects
+        else
+            cmd=${words[2]}
+            _flags_for_cmd $cmd
+        fi
+    else
+        cmd=${words[2]}
+        _flags_for_cmd $cmd
+    fi
 }
 
 _arguments \
-  ":command:_commands" \
-  ":project:_projects" \
-  "*::flags:_flags"
+    ":command:_commands" \
+    ":project_or_flags:_project_or_flags" \
+    "*::flags:_flags"
 
 return 0

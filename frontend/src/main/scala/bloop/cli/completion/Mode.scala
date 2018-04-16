@@ -13,6 +13,9 @@ object Mode {
   /** Query autocompletion of project names */
   case object Projects extends Mode("projects")
 
+  /** Query autocompletion of project-bound commands */
+  case object ProjectBoundCommands extends Mode("project-commands")
+
   /** Query autocompletion of command flags */
   case object Flags extends Mode("flags")
 
@@ -29,7 +32,7 @@ object Mode {
   case object MainsFQCN extends Mode("mainsfqcn")
 
   val modes: List[Mode] =
-    List(Commands, Projects, Flags, Reporters, Protocols, TestsFQCN, MainsFQCN)
+    List(Commands, Projects, ProjectBoundCommands, Flags, Reporters, Protocols, TestsFQCN, MainsFQCN)
 
   implicit val completionModeRead: ArgParser[Mode] = {
     ArgParser.instance[Mode]("mode") { input =>

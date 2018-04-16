@@ -10,6 +10,17 @@ _projects() {
     return 0
 }
 
+_projects_or_flags() {
+    projects=$(bloop autocomplete --mode=projects --format=bash 2> /dev/null)
+    if [ "$projects" == " " ] || [ "$projects" == "" ]; then
+        command=$1
+        flags=$(bloop autocomplete --mode=flags --format=bash --command=$command)
+        COMPREPLY=( $(compgen -W "$flags" -- $cur) )
+        return 0
+    fi
+    _projects
+}
+
 _commands() {
     commands=$(bloop autocomplete --mode=commands --format=bash 2> /dev/null || _notStarted)
     COMPREPLY=( $(compgen -W "$commands" -- $cur) )
@@ -78,7 +89,7 @@ _bloop() {
             ;;
 
         2)
-            _projects
+            _projects_or_flags "$prev"
             ;;
 
         *)

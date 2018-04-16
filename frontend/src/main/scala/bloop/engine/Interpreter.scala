@@ -216,6 +216,8 @@ object Interpreter {
   private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
 
     cmd.mode match {
+      case Mode.ProjectBoundCommands =>
+          state.logger.info(Commands.projectBound)
       case Mode.Commands =>
         for {
           (name, args) <- CommandsMessages.messages
