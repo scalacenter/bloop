@@ -74,32 +74,39 @@ object ScalaInstance {
             scalaVersion: String,
             allJars: Array[AbsolutePath],
             logger: Logger): ScalaInstance = {
-    if (allJars.nonEmpty && allJars.forall(j => Files.exists(j.underlying))) {
-      def newInstance = new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
-      val instanceId = (scalaOrg, scalaName, scalaVersion)
-      instances.computeIfAbsent(instanceId, _ => newInstance)
+    if (allJars.nonEmpty) {
+      def newInstance = {
+        logger.warn(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")
+        new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
+      }
+
+      val nonExistingJars = allJars.filter(j => !Files.exists(j.underlying))
+      nonExistingJars.foreach(p => logger.warn(s"Scala instance jar ${p.syntax} doesn't exist!"))
+      instancesByJar.computeIfAbsent(allJars, _ => newInstance)
     } else resolve(scalaOrg, scalaName, scalaVersion, logger)
   }
 
   // Cannot wait to use opaque types for this
-  type InstanceId = (String, String, String)
   import java.util.concurrent.ConcurrentHashMap
-  private val instances = new ConcurrentHashMap[InstanceId, ScalaInstance]
-  def resolve(scalaOrg: String,
-              scalaName: String,
-              scalaVersion: String,
-              logger: Logger): ScalaInstance = {
+  type InstanceId = (String, String, String)
+  private val instancesById = new ConcurrentHashMap[InstanceId, ScalaInstance]
+  private val instancesByJar = new ConcurrentHashMap[Array[AbsolutePath], ScalaInstance]
+  def resolve(
+      scalaOrg: String,
+      scalaName: String,
+      scalaVersion: String,
+      logger: Logger
+  ): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
       val allPaths = DependencyResolution.resolve(scalaOrg, scalaName, scalaVersion, logger)
       val allJars = allPaths.collect {
-        case path if path.underlying.toString.endsWith(".jar") =>
-          path.underlying.toFile
+        case path if path.underlying.toString.endsWith(".jar") => path.underlying.toFile
       }
       new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.toArray)
     }
 
     val instanceId = (scalaOrg, scalaName, scalaVersion)
-    instances.computeIfAbsent(instanceId, _ => resolveInstance)
+    instancesById.computeIfAbsent(instanceId, _ => resolveInstance)
   }
 
   def getVersion(loader: ClassLoader): String = {
