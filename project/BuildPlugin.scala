@@ -166,6 +166,8 @@ object BuildKeys {
         "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
     },
+    Keys.run in JmhKeys.Jmh :=
+      (Keys.run in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated,
     Keys.runMain in JmhKeys.Jmh :=
       (Keys.runMain in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated
   )

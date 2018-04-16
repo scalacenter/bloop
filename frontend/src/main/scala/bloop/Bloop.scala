@@ -97,7 +97,7 @@ object Bloop extends CaseApp[CliOptions] {
 
   private def consoleReader(): ConsoleReader = {
     val reader = new ConsoleReader()
-    reader.setPrompt("> ")
+    reader.setPrompt("shell> ")
     reader
   }
 
