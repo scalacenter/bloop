@@ -2,7 +2,7 @@ package bloop
 
 import java.io.File
 import java.net.URLClassLoader
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Properties
 
@@ -74,15 +74,17 @@ object ScalaInstance {
             scalaVersion: String,
             allJars: Array[AbsolutePath],
             logger: Logger): ScalaInstance = {
+    val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
       def newInstance = {
-        logger.warn(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")
+        logger.debug(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")
+        jarsKey.foreach(p => logger.debug(s"  => $p"))
         new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
       }
 
       val nonExistingJars = allJars.filter(j => !Files.exists(j.underlying))
       nonExistingJars.foreach(p => logger.warn(s"Scala instance jar ${p.syntax} doesn't exist!"))
-      instancesByJar.computeIfAbsent(allJars, _ => newInstance)
+      instancesByJar.computeIfAbsent(jarsKey, _ => newInstance)
     } else resolve(scalaOrg, scalaName, scalaVersion, logger)
   }
 
@@ -90,7 +92,7 @@ object ScalaInstance {
   import java.util.concurrent.ConcurrentHashMap
   type InstanceId = (String, String, String)
   private val instancesById = new ConcurrentHashMap[InstanceId, ScalaInstance]
-  private val instancesByJar = new ConcurrentHashMap[Array[AbsolutePath], ScalaInstance]
+  private val instancesByJar = new ConcurrentHashMap[List[Path], ScalaInstance]
   def resolve(
       scalaOrg: String,
       scalaName: String,
