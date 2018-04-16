@@ -8,6 +8,7 @@ import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigDecoders}
+import bloop.engine.ExecutionContext
 import metaconfig.{Conf, Configured}
 import org.langmeta.inputs.Input
 
@@ -58,13 +59,11 @@ object Project {
    * @return The list of loaded projects.
    */
   def lazyLoadFromDir(configRoot: AbsolutePath, logger: Logger): Task[List[Project]] = {
-    timed(logger) {
-      // TODO: We're not handling projects with duplicated names here.
-      val configFiles = loadAllFiles(configRoot)
-      logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
-      val all = configFiles.iterator.map(configFile => Task(fromFile(configFile, logger))).toList
-      Task.gatherUnordered(all)
-    }
+    // TODO: We're not handling projects with duplicated names here.
+    val configFiles = loadAllFiles(configRoot)
+    logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
+    val all = configFiles.iterator.map(configFile => Task(fromFile(configFile, logger))).toList
+    Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler)
   }
 
   /**
