@@ -55,6 +55,7 @@ object Tasks {
       state: State,
       project: Project,
       reporterConfig: ReporterConfig,
+      sequentialCompilation: Boolean,
       excludeRoot: Boolean = false
   ): Task[State] = {
     import state.{logger, compilerCache}
@@ -95,16 +96,33 @@ object Tasks {
     }
 
     val dag = state.build.getDagFor(project)
-    toCompileTask(dag, compile(_)).map { results0 =>
-      logger.debug(Dag.toDotGraph(results0))
-      val results = Dag.dfs(results0)
-      val failures = failed(results).distinct
-      val newState = state.copy(results = state.results.addResults(results))
-      if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
-      else {
-        failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
-        newState.copy(status = ExitStatus.CompilationError)
+    def triggerCompile: Task[State] = {
+      toCompileTask(dag, compile(_)).map { results0 =>
+        logger.debug(Dag.toDotGraph(results0))
+        val results = Dag.dfs(results0)
+        val failures = failed(results).distinct
+        val newState = state.copy(results = state.results.addResults(results))
+        if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
+        else {
+          failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
+          newState.copy(status = ExitStatus.CompilationError)
+        }
       }
+    }
+
+    if (!sequentialCompilation) triggerCompile
+    else {
+      // Check dependent projects didn't fail in previous sequential compile
+      val allDependencies = Dag.dfs(dag).toSet
+      val dependentResults =
+        state.results.allResults.filter(pr => allDependencies.contains(pr._1))
+      val failedDependentProjects = failed(dependentResults.toList)
+      if (!failedDependentProjects.isEmpty) {
+        val failedProjects = failedDependentProjects.map(p => s"'${p.name}'").mkString(", ")
+        logger.warn(
+          s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
+        Task.now(state.copy(status = ExitStatus.CompilationError))
+      } else triggerCompile
     }
   }
 

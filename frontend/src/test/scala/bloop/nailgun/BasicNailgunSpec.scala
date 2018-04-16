@@ -2,13 +2,13 @@ package bloop.nailgun
 
 import java.util.concurrent.TimeUnit
 
-import scala.Console.{GREEN, RESET}
+import bloop.bsp.BspServer
+
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
 import bloop.logging.RecordingLogger
 
 class BasicNailgunSpec extends NailgunTest {
-
   val out = System.out
   val err = System.err
 

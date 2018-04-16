@@ -20,45 +20,51 @@ import scala.concurrent.duration.Duration
 
 object Interpreter {
   // This is stack safe because of monix trampolined execution.
-  def execute(action: Action, stateTask: Task[State]): Task[State] = stateTask.flatMap { state =>
-    action match {
-      // We keep this case because there is a 'match may not be exhaustive' false positive by scalac.
-      // Looks related to existing bug report https://github.com/scala/bug/issues/10251
-      case Exit(exitStatus: ExitStatus) if exitStatus.isOk =>
-        Task.now(state.mergeStatus(exitStatus))
-      case Exit(exitStatus: ExitStatus) => Task.now(state.mergeStatus(exitStatus))
-      case Print(msg, commonOptions, next) =>
-        state.logger.info(msg)
-        execute(next, Task.now(state))
-      case Run(Commands.About(cliOptions), next) =>
-        execute(next, printAbout(state))
-      case Run(cmd: Commands.ValidatedBsp, next) =>
-        execute(next, runBsp(cmd, state))
-      case Run(cmd: Commands.Clean, next) =>
-        execute(next, clean(cmd, state))
-      case Run(cmd: Commands.Compile, next) =>
-        execute(next, compile(cmd, state))
-      case Run(cmd: Commands.Console, next) =>
-        execute(next, console(cmd, state))
-      case Run(cmd: Commands.Projects, next) =>
-        execute(next, showProjects(cmd, state))
-      case Run(cmd: Commands.Test, next) =>
-        execute(next, test(cmd, state))
-      case Run(cmd: Commands.Run, next) =>
-        execute(next, run(cmd, state))
-      case Run(cmd: Commands.Configure, next) =>
-        execute(next, configure(cmd, state))
-      case Run(cmd: Commands.Autocomplete, next) =>
-        execute(next, autocomplete(cmd, state))
-      case Run(cmd: Commands.Help, next) =>
-        val msg = "The handling of help doesn't happen in the `Interpreter`."
-        val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
-        execute(printAction, Task.now(state))
-      case Run(cmd: Commands.Bsp, next) =>
-        val msg = "Internal error: command bsp must be validated before use."
-        val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
-        execute(printAction, Task.now(state))
+  def execute(action: Action, stateTask: Task[State]): Task[State] = {
+    def execute(action: Action, stateTask: Task[State], inRecursion: Boolean): Task[State] = {
+      stateTask.flatMap { state =>
+        action match {
+          // We keep it case because there is a 'match may not be exhaustive' false positive by scalac
+          // Looks related to existing bug report https://github.com/scala/bug/issues/10251
+          case Exit(exitStatus: ExitStatus) if exitStatus.isOk =>
+            Task.now(state.mergeStatus(exitStatus))
+          case Exit(exitStatus: ExitStatus) => Task.now(state.mergeStatus(exitStatus))
+          case Print(msg, commonOptions, next) =>
+            state.logger.info(msg)
+            execute(next, Task.now(state), true)
+          case Run(Commands.About(cliOptions), next) =>
+            execute(next, printAbout(state), true)
+          case Run(cmd: Commands.ValidatedBsp, next) =>
+            execute(next, runBsp(cmd, state), true)
+          case Run(cmd: Commands.Clean, next) =>
+            execute(next, clean(cmd, state), true)
+          case Run(cmd: Commands.Compile, next) =>
+            execute(next, compile(cmd, state, inRecursion), true)
+          case Run(cmd: Commands.Console, next) =>
+            execute(next, console(cmd, state, inRecursion), true)
+          case Run(cmd: Commands.Projects, next) =>
+            execute(next, showProjects(cmd, state), true)
+          case Run(cmd: Commands.Test, next) =>
+            execute(next, test(cmd, state, inRecursion), true)
+          case Run(cmd: Commands.Run, next) =>
+            execute(next, run(cmd, state, inRecursion), true)
+          case Run(cmd: Commands.Configure, next) =>
+            execute(next, configure(cmd, state), true)
+          case Run(cmd: Commands.Autocomplete, next) =>
+            execute(next, autocomplete(cmd, state), true)
+          case Run(cmd: Commands.Help, next) =>
+            val msg = "The handling of help doesn't happen in the `Interpreter`."
+            val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
+            execute(printAction, Task.now(state), true)
+          case Run(cmd: Commands.Bsp, next) =>
+            val msg = "Internal error: command bsp must be validated before use."
+            val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
+            execute(printAction, Task.now(state), true)
+        }
+      }
     }
+
+    execute(action, stateTask, inRecursion = false)
   }
 
   private final val t = "    "
@@ -108,13 +114,13 @@ object Interpreter {
     fg(state).flatMap(newState => watcher.watch(newState, fg))
   }
 
-  private def compile(cmd: Commands.Compile, state: State): Task[State] = {
-    val reporterConfig = ReporterKind.toReporterConfig(cmd.reporter)
+  private def compile(cmd: Commands.Compile, state: State, sequential: Boolean): Task[State] = {
+    val config = ReporterKind.toReporterConfig(cmd.reporter)
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
         def doCompile(state: State): Task[State] =
-          Tasks.compile(state, project, reporterConfig).map(_.mergeStatus(ExitStatus.Ok))
+          Tasks.compile(state, project, config, sequential).map(_.mergeStatus(ExitStatus.Ok))
 
         val initialState = {
           if (cmd.incremental) Task(state)
@@ -153,9 +159,10 @@ object Interpreter {
       project: Project,
       reporterConfig: ReporterConfig,
       excludeRoot: Boolean,
+      checkPrevious: Boolean,
       nextAction: String
   )(next: State => Task[State]): Task[State] = {
-    Tasks.compile(state, project, reporterConfig, excludeRoot).flatMap { compiled =>
+    Tasks.compile(state, project, reporterConfig, checkPrevious, excludeRoot).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         Task.now {
@@ -166,20 +173,19 @@ object Interpreter {
     }
   }
 
-  private def console(cmd: Commands.Console, state: State): Task[State] = {
-    val reporterConfig = ReporterKind.toReporterConfig(cmd.reporter)
-
+  private def console(cmd: Commands.Console, state: State, sequential: Boolean): Task[State] = {
+    val config = ReporterKind.toReporterConfig(cmd.reporter)
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        compileAnd(state, project, reporterConfig, cmd.excludeRoot, "`console`") { state =>
-          Tasks.console(state, project, reporterConfig, cmd.excludeRoot)
+        compileAnd(state, project, config, cmd.excludeRoot, sequential, "`console`") { state =>
+          Tasks.console(state, project, config, cmd.excludeRoot)
         }
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
     }
   }
 
-  private def test(cmd: Commands.Test, state: State): Task[State] = {
+  private def test(cmd: Commands.Test, state: State, sequential: Boolean): Task[State] = {
     val reporterConfig = ReporterKind.toReporterConfig(cmd.reporter)
 
     Tasks.pickTestProject(cmd.project, state) match {
@@ -187,8 +193,7 @@ object Interpreter {
         def doTest(state: State): Task[State] = {
           val testFilter = TestInternals.parseFilters(cmd.only)
           val cwd = cmd.cliOptions.common.workingPath
-
-          compileAnd(state, project, reporterConfig, excludeRoot = false, "`test`") { state =>
+          compileAnd(state, project, reporterConfig, false, sequential, "`test`") { state =>
             Tasks.test(state, project, cwd, cmd.isolated, cmd.args, testFilter)
           }
         }
@@ -278,7 +283,7 @@ object Interpreter {
     else Task(reportMissing(missing, state))
   }
 
-  private def run(cmd: Commands.Run, state: State): Task[State] = {
+  private def run(cmd: Commands.Run, state: State, sequential: Boolean): Task[State] = {
     val reporter = ReporterKind.toReporterConfig(cmd.reporter)
 
     state.build.getProjectFor(cmd.project) match {
@@ -302,7 +307,7 @@ object Interpreter {
         }
 
         def doRun(state: State): Task[State] = {
-          compileAnd(state, project, reporter, excludeRoot = false, "`run`") { state =>
+          compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
             getMainClass(state) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>

@@ -175,7 +175,8 @@ class DagSpec {
     Assert.assertEquals("case 11", Set(i), reduce(Set(i, f)))
     Assert.assertEquals("case 12", Set(i, d, b), reduce(Set(i, f, d, b)))
     Assert.assertEquals("case 13", Set(e), reduce(Set(c, e)))
-    Assert.assertEquals("case 13", Set(i, g), reduce(Set(i, h, g, f)))
+    Assert.assertEquals("case 14", Set(i, g), reduce(Set(i, h, g, f)))
+    Assert.assertEquals("case 14", Set(e, b, i, g), reduce(Set(e, d, c, a, b, i, h, f, g)))
     ()
   }
 }

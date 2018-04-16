@@ -3,16 +3,17 @@ package bloop.tasks
 import org.junit.Test
 import org.junit.Assert.assertTrue
 import org.junit.experimental.categories.Category
-
-import bloop.{ScalaInstance}
-import bloop.engine.State
+import bloop.ScalaInstance
+import bloop.cli.Commands
+import bloop.engine.{Run, State}
+import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil.{
+  RootProject,
   checkAfterCleanCompilation,
   getProject,
   hasPreviousResult,
-  noPreviousResult,
-  RootProject
+  noPreviousResult
 }
 
 @Category(Array(classOf[bloop.FastTests]))
@@ -194,5 +195,41 @@ class CompilationTaskTest {
                                dependencies,
                                scalaInstance = scalaInstance,
                                quiet = true)(_ => ())
+  }
+
+  @Test
+  def failSequentialCompilation = {
+    object Sources {
+      val `A.scala` = "package p0\nclass A extends NonExistentClass"
+      val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
+      val `C.scala` = "package p2\nimport p0.A\nclass C extends A"
+    }
+
+    val structure = Map(
+      "A" -> Map("A.scala" -> Sources.`A.scala`),
+      "B" -> Map("B.scala" -> Sources.`B.scala`),
+      "C" -> Map("C.scala" -> Sources.`C.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map("B" -> Set("A"), "C" -> Set("A"))
+
+    val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
+    val javaEnv: JavaEnv = JavaEnv.default
+    TestUtil.withState(structure, deps, scalaInstance = scalaInstance, javaEnv = javaEnv) {
+      (state0: State) =>
+        val state = state0.copy(logger = logger)
+        // Check that this is a clean compile!
+        val projects = state.build.projects
+        assert(projects.forall(p => noPreviousResult(p, state)))
+        val projectA = getProject("A", state)
+        val projectB = getProject("B", state)
+        val action = Run(Commands.Compile("B"), Run(Commands.Compile("C")))
+        val compiledState = TestUtil.blockingExecute(action, state)
+        val msgs = logger.getMessages
+        assert(msgs.exists(m => m._1 == "error" && m._2.contains("'A' failed to compile.")))
+        val targetMsg = s"Skipping compilation of project 'C'; dependent 'A' failed to compile."
+        assert(msgs.exists(m => m._1 == "warn" && m._2.contains(targetMsg)))
+    }
   }
 }

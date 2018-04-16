@@ -14,10 +14,12 @@ import bloop.io.AbsolutePath
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
 import monix.eval.Task
+import monix.execution.Cancelable
 import xsbti.compile.ClasspathOptionsUtil
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -64,7 +66,11 @@ object TestUtil {
       .execute(a, Task.now(state))
       .executeWithOptions(_.enableAutoCancelableRunLoops)
       .runAsync(ExecutionContext.scheduler)
-    Await.result(handle, Duration.Inf)
+    try Await.result(handle, Duration.Inf)
+    catch {
+      case NonFatal(t) => handle.cancel(); throw t
+      case i: InterruptedException => handle.cancel(); state
+    }
   }
 
   def quietIfError[T](logger: Logger)(op: BufferedLogger => T): T = {
