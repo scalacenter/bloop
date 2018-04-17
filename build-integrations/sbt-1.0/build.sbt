@@ -3,7 +3,8 @@ val GuardianFrontend = Integrations.GuardianFrontend
 val MiniBetterFiles = Integrations.MiniBetterFiles
 val WithResources = Integrations.WithResources
 val WithTests = Integrations.WithTests
-val integrations = List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests)
+val AkkaAkka = Integrations.AkkaAkka
+val integrations = List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests, AkkaAkka)
 
 import bloop.build.integrations.PluginKeys
 val dummy = project
@@ -18,7 +19,8 @@ val dummy = project
         "frontend" -> bloopConfigDir.in(GuardianFrontend).in(Compile).value,
         "mini-better-files" -> bloopConfigDir.in(MiniBetterFiles).in(Compile).value,
         "with-resources" -> bloopConfigDir.in(WithResources).in(Compile).value,
-        "with-tests" -> bloopConfigDir.in(WithTests).in(Compile).value
+        "with-tests" -> bloopConfigDir.in(WithTests).in(Compile).value,
+        "akka" -> bloopConfigDir.in(AkkaAkka).in(Compile).value
       )
     },
     cleanAllBuilds := {
@@ -29,7 +31,8 @@ val dummy = project
         clean.in(GuardianFrontend),
         clean.in(MiniBetterFiles),
         clean.in(WithResources),
-        clean.in(WithTests)
+        clean.in(WithTests),
+        clean.in(AkkaAkka)
       )
     }
   )
