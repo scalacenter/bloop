@@ -8,12 +8,13 @@ from os.path import expanduser, isdir, isfile, join
 from subprocess import CalledProcessError, check_call
 import sys
 import re
+from shutil import copyfileobj
 
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
-    from urllib import urlretrieve as urlretrieve
+    from urllib2 import urlopen as urlopen
 else:
-    from urllib.request import urlretrieve as urlretrieve
+    from urllib.request import urlopen as urlopen
 
 # INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
@@ -84,9 +85,14 @@ SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
+BUFFER_SIZE = 4096
+
 def download(url, target):
     try:
-        urlretrieve(url, target)
+        socket = urlopen(url)
+        with open(target, "wb") as file:
+            copyfileobj(socket, file, BUFFER_SIZE)
+        socket.close()
     except IOError:
         print("Couldn't download %s, please try again." % url)
         sys.exit(1)
