@@ -118,7 +118,6 @@ object ResultsCache {
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
       val cache = new ResultsCache(Map.empty, Map.empty, logger)
       cache.addResults(projectResults)
-      cache
     }
   }
 
