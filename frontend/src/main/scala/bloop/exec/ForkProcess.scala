@@ -2,6 +2,7 @@ package bloop.exec
 
 import java.io.File.{pathSeparator, separator}
 import java.lang.ClassLoader
+import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
 import java.net.URLClassLoader
 import java.util.Properties
@@ -70,6 +71,7 @@ final case class ForkProcess(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
       ForkProcess.EXIT_ERROR
     } else {
       val processBuilder = new ProcessBuilder(cmd: _*)
+      processBuilder.redirectInput(Redirect.INHERIT)
       processBuilder.directory(cwd.toFile)
       val processEnv = processBuilder.environment()
       processEnv.clear()
