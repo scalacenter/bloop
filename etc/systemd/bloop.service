@@ -1,0 +1,11 @@
+[Unit]
+Description=Bloop Scala build server
+
+[Service]
+ExecStart=__BLOOP_INSTALLATION_TARGET__/bloop server
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bloop
+
+[Install]
+WantedBy=default.target

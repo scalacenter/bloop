@@ -8,12 +8,13 @@ from os.path import expanduser, isdir, isfile, join
 from subprocess import CalledProcessError, check_call
 import sys
 import re
+from shutil import copyfileobj
 
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
-    from urllib import urlretrieve as urlretrieve
+    from urllib2 import urlopen as urlopen
 else:
-    from urllib.request import urlretrieve as urlretrieve
+    from urllib.request import urlopen as urlopen
 
 # INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
@@ -56,38 +57,62 @@ BLOOP_VERSION = args.version
 NAILGUN_COMMIT = args.nailgun
 ZSH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "zsh")
 BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
+SYSTEMD_SERVICE_DIR = join(BLOOP_INSTALLATION_TARGET, "systemd")
 
 # If this is not a released version of Bloop, we need to extract the commit SHA
-# to know how to download the completion scripts.
+# to know how to download the completion and startup scripts.
 # If we can't get the SHA, just download from master.
 if CUSTOMIZED_SCRIPT:
-    COMPLETION_VERSION = "v" + BLOOP_VERSION
+    ETC_VERSION = "v" + BLOOP_VERSION
 else:
     pattern = '(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?'
     matches = re.search(pattern, BLOOP_VERSION)
     if matches is not None:
-        COMPLETION_VERSION = matches.group(1)
+        ETC_VERSION = matches.group(1)
     else:
-        COMPLETION_VERSION = "master"
+        ETC_VERSION = "master"
 
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
-ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % COMPLETION_VERSION
-BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % COMPLETION_VERSION
+ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % ETC_VERSION
+BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % ETC_VERSION
+SYSTEMD_SERVICE_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/systemd/bloop.service" % ETC_VERSION
 BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-coursier")
 BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 ZSH_COMPLETION_TARGET = join(ZSH_COMPLETION_DIR, "_bloop")
 BASH_COMPLETION_TARGET = join(BASH_COMPLETION_DIR, "bloop")
+SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
 
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
-def download_and_install(url, target):
+BUFFER_SIZE = 4096
+
+def download(url, target):
     try:
-        urlretrieve(url, target)
-        os.chmod(target, 0o755)
+        socket = urlopen(url)
+        with open(target, "wb") as file:
+            copyfileobj(socket, file, BUFFER_SIZE)
+        socket.close()
     except IOError:
         print("Couldn't download %s, please try again." % url)
         sys.exit(1)
+
+def download_and_install(url, target, permissions=0o644):
+    download(url, target)
+    os.chmod(target, permissions)
+
+def replace_template_variables(template):
+    return template.replace("__BLOOP_INSTALLATION_TARGET__", BLOOP_INSTALLATION_TARGET)
+
+def download_and_install_template(url, target, permissions=0o644):
+    template_target = target + ".tmp"
+    download(url, template_target)
+    with open(template_target, "r") as template_file, open(target, "w") as output_file:
+        template = template_file.read()
+        output = replace_template_variables(template)
+        output_file.write(output)
+    os.remove(template_target)
+    os.chmod(target, permissions)
 
 def coursier_bootstrap(target, main):
     try:
@@ -111,18 +136,22 @@ def makedir(directory):
 makedir(BLOOP_INSTALLATION_TARGET)
 makedir(ZSH_COMPLETION_DIR)
 makedir(BASH_COMPLETION_DIR)
+makedir(SYSTEMD_SERVICE_DIR)
 
 if not isfile(BLOOP_COURSIER_TARGET):
-    download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET)
+    download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET, 0o755)
 
 coursier_bootstrap(BLOOP_SERVER_TARGET, "bloop.Server")
 print("Installed bloop server in '%s'" % BLOOP_SERVER_TARGET)
 
-download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET)
+download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET, 0o755)
 print("Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET)
 
-download_and_install(ZSH_COMPLETION_URL, ZSH_COMPLETION_TARGET)
+download_and_install(ZSH_COMPLETION_URL, ZSH_COMPLETION_TARGET, 0o755)
 print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 
-download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET)
+download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET, 0o755)
 print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+
+download_and_install_template(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
+print("Installed systemd service in '%s'" % SYSTEMD_SERVICE_TARGET)
