@@ -58,6 +58,7 @@ val jsonConfig = project
           Dependencies.metaconfigDocs,
           Dependencies.metaconfigConfig,
           Dependencies.circeDerivation,
+          Dependencies.nuprocess,
           Dependencies.scalacheck % Test,
         )
       } else {

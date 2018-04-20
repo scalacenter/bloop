@@ -163,7 +163,7 @@ class FileWatchingSpec {
         readCompilingLines(1, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(1, "- should be very personal", bloopOut)
         readCompilingLines(1, "Total for specification Specs2Test", bloopOut)
-        readCompilingLines(2, "Terminating test server.", bloopOut)
+        readCompilingLines(2, "Test server has been successfully closed.", bloopOut)
         readCompilingLines(1, "Watching 8 directories... (press C-c to interrupt)", bloopOut)
 
         // Write the contents of a source back to the same source
@@ -176,7 +176,7 @@ class FileWatchingSpec {
         readCompilingLines(2, "+ Greeting.is personal: OK", bloopOut)
         readCompilingLines(2, "- should be very personal", bloopOut)
         readCompilingLines(2, "Total for specification Specs2Test", bloopOut)
-        readCompilingLines(4, "Terminating test server.", bloopOut)
+        readCompilingLines(4, "Test server has been successfully closed.", bloopOut)
 
         // Finish source file watching
         workerThread.interrupt()

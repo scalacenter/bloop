@@ -1,20 +1,21 @@
 package bloop.tasks
 
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
+
+import bloop.ScalaInstance
 import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.experimental.categories.Category
-
 import bloop.cli.Commands
-import bloop.engine.{Interpreter, Run, State}
+import bloop.engine.{Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
-import bloop.logging.{ProcessLogger, RecordingLogger}
-import bloop.tasks.TestUtil.{
-  checkAfterCleanCompilation,
-  getProject,
-  loadTestProject,
-  runAndCheck
-}
+import bloop.logging.RecordingLogger
+import bloop.tasks.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
+
+import scala.concurrent.duration.Duration
 
 @Category(Array(classOf[bloop.FastTests]))
 class RunTasksSpec {
@@ -149,4 +150,39 @@ class RunTasksSpec {
     }
   }
 
+  @Test
+  def canRunApplicationThatRequiresInput = {
+    object Sources {
+      val `A.scala` =
+        """object Foo {
+          |  def main(args: Array[String]): Unit = {
+          |    println("Hello, World! I'm waiting for input")
+          |    println(new java.util.Scanner(System.in).nextLine())
+          |    println("I'm done!")
+          |  }
+          |}
+        """.stripMargin
+    }
+
+    val logger = new RecordingLogger
+    val structure = Map("A" -> Map("A.scala" -> Sources.`A.scala`))
+    val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
+    val javaEnv: JavaEnv = JavaEnv.default
+    TestUtil.withState(structure, Map.empty, scalaInstance = scalaInstance, javaEnv = javaEnv) {
+      (state0: State) =>
+        // It has to contain a new line for the process to finish! ;)
+        val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
+        val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
+        val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
+        val projects = state.build.projects
+        val projectA = getProject("A", state)
+        val action = Run(Commands.Run("A"))
+        val duration = Duration.apply(15, TimeUnit.SECONDS)
+        def msgs = logger.getMessages
+        val compiledState =
+          try TestUtil.blockingExecute(action, state, duration)
+          catch { case t: Throwable => println(msgs.mkString("\n")); throw t}
+        assert(compiledState.status.isOk)
+    }
+  }
 }

@@ -83,14 +83,32 @@ object ProcessLogger {
  * @param logFn  The handler that receives data from the `stream`
  * @param stream The stream that produces the data.
  */
-private class StreamLogger(logFn: String => Unit, stream: InputStream) extends Thread {
+private final class StreamLogger(logFn: String => Unit, stream: InputStream) extends Thread {
   private[this] val reader = new BufferedReader(new InputStreamReader(stream))
 
   @tailrec
-  override final def run(): Unit = {
+  override def run(): Unit = {
     Option(reader.readLine()) match {
       case Some(line) => logFn(line); run()
       case None => ()
+    }
+  }
+}
+
+private final class InputThread(in: InputStream, processIn: OutputStream) extends Thread {
+  override def run(): Unit = {
+    val buffer = new Array[Byte](256)
+    var read: Int = -1
+    while (true) {
+      try {
+        read = in.read(buffer)
+        if (read == -1) return
+        else {
+          processIn.write(buffer, 0, read)
+        }
+      } catch {
+        case e: java.io.IOException => return
+      }
     }
   }
 }

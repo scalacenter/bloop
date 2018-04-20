@@ -1,18 +1,22 @@
 package bloop.exec
 
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.util.concurrent.TimeUnit
 
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import org.junit.experimental.categories.Category
-
 import bloop.logging.RecordingLogger
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
 import bloop.tasks.TestUtil.withTemporaryDirectory
 
+import scala.concurrent.duration.Duration
+
 @Category(Array(classOf[bloop.FastTests]))
-class ForkProcessSpec {
+class ForkerSpec {
 
   val packageName = "foo.bar"
   val mainClassName = "Main"
@@ -31,8 +35,7 @@ class ForkProcessSpec {
   }
 
   val dependencies = Map.empty[String, Set[String]]
-  val runnableProject = Map(
-    TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
+  val runnableProject = Map(TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
 
   private def run(cwd: Path, args: Array[String])(op: (Int, List[(String, String)]) => Unit): Unit =
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
@@ -40,13 +43,46 @@ class ForkProcessSpec {
       val project = TestUtil.getProject(TestUtil.RootProject, state)
       val env = JavaEnv.default
       val classpath = project.classpath
-      val config = ForkProcess(env, classpath)
+      val config = Forker(env, classpath)
       val logger = new RecordingLogger
-      val userEnv = TestUtil.runAndTestProperties
-      val exitCode = config.runMain(cwdPath, s"$packageName.$mainClassName", args, logger, userEnv)
+      val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
+      val mainClass = s"$packageName.$mainClassName"
+      val wait = Duration.apply(15, TimeUnit.SECONDS)
+      val exitCode =
+        TestUtil.await(wait)(config.runMain(cwdPath, mainClass, args, logger.asVerbose, opts))
       val messages = logger.getMessages
       op(exitCode, messages)
     }
+
+  @Test
+  def detectNewLines(): Unit = {
+    val nl = System.lineSeparator()
+    val remaining = new StringBuilder()
+    val msg = ByteBuffer.wrap("   ".getBytes(StandardCharsets.UTF_8))
+    val lines = Forker.linesFrom(msg, remaining)
+    assert(lines.length == 0)
+    assert(remaining.mkString == "   ")
+
+    val msg2 = ByteBuffer.wrap(s"Hello${nl}World!$nl".getBytes(StandardCharsets.UTF_8))
+    val lines2 = Forker.linesFrom(msg2, remaining)
+    assert(lines2.length == 2)
+    assert(lines2(0) == "   Hello")
+    assert(lines2(1) == "World!")
+    assert(remaining.mkString.isEmpty)
+
+    val msg3 = ByteBuffer.wrap(s"${nl}${nl}asdf".getBytes(StandardCharsets.UTF_8))
+    val lines3 = Forker.linesFrom(msg3, remaining)
+    assert(lines3.length == 2)
+    assert(lines3(0) == "")
+    assert(lines3(1) == "")
+    assert(remaining.mkString == "asdf")
+
+    val msg4 = ByteBuffer.wrap(s"${nl}this is SPARTA${nl}".getBytes(StandardCharsets.UTF_8))
+    val lines4 = Forker.linesFrom(msg4, remaining)
+    assert(lines4.length == 2)
+    assert(lines4(0) == "asdf")
+    assert(lines4(1) == "this is SPARTA")
+  }
 
   @Test
   def canRun(): Unit = withTemporaryDirectory { tmp =>
@@ -77,7 +113,7 @@ class ForkProcessSpec {
           case ("error", msg) => msg.contains(nonExisting)
           case _ => false
         }
-        assertEquals(ForkProcess.EXIT_ERROR, exitCode.toLong)
+        assertEquals(Forker.EXIT_ERROR, exitCode.toLong)
         assert(messages.exists(expected), s"Couldn't find expected error messages in $messages")
     }
   }

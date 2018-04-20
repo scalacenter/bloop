@@ -21,6 +21,7 @@ object Dependencies {
   val monixVersion = "2.3.3"
   val metaconfigVersion = "0.7.0"
   val circeVersion = "0.9.3"
+  val nuprocessVersion = "1.1.3"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -57,4 +58,5 @@ object Dependencies {
   val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % metaconfigVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
+  val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
 }
