@@ -1,4 +1,4 @@
-package bloop.testing
+/*package bloop.testing
 
 import bloop.cli.Commands
 import bloop.tasks.TestUtil
@@ -58,4 +58,4 @@ class TestLoggingSpec {
     assertEquals(10, messages1.count(_ == needle).toLong)
   }
 
-}
+}*/
