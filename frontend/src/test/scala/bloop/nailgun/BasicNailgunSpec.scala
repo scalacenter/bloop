@@ -3,15 +3,12 @@ package bloop.nailgun
 import java.util.concurrent.TimeUnit
 
 import bloop.bsp.BspServer
-
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
-import bloop.logging.RecordingLogger
+import bloop.logging.{BloopLogger, RecordingLogger}
+import bloop.tasks.TestUtil
 
 class BasicNailgunSpec extends NailgunTest {
-  val out = System.out
-  val err = System.err
-
   @Test
   def unknownCommandTest(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
@@ -113,10 +110,10 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testRunCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
+    val logger = new RecordingLogger(false, None)
+    withServer(logger, TestUtil.getBloopConfigDir("with-resources")) { client =>
       client.success("clean", "with-resources")
       client.success("run", "with-resources")
-      client.success("run", "-p", "with-resources")
       val messages = logger.getMessages()
       val needle = ("info", "OK")
       assertTrue(s"${messages.mkString("\n")} didn't contain '$needle'", messages.contains(needle))

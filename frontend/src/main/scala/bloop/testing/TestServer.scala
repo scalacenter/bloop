@@ -105,10 +105,14 @@ final class TestServer(
       val is = new ObjectInputStream(socket.getInputStream)
       val config = new ForkConfiguration(logger.ansiCodesSupported, /* parallel = */ false)
 
+      @volatile var alreadyClosed: Boolean = false
       val cleanSocketResources = Task {
-        is.close()
-        os.close()
-        socket.close()
+        if (!alreadyClosed) {
+          is.close()
+          os.close()
+          socket.close()
+          alreadyClosed = true
+        }
       }
 
       Task(talk(is, os, config))

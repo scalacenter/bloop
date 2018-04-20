@@ -124,10 +124,17 @@ class TestTaskTest(
         val discoveredTests = DiscoveredTests(classLoader, tests)
         val opts = CommonOptions.default.copy(env = TestUtil.runAndTestProperties)
 
-        val cancelTime = Duration.apply(100, TimeUnit.MILLISECONDS)
-        val testHandle =
+        val cancelTime = Duration.apply(1, TimeUnit.SECONDS)
+        def createTestTask =
           TestInternals.execute(cwd, config, discoveredTests, Nil, Tasks.handler, logger, opts)
-            .runAsync(ExecutionContext.ioScheduler)
+
+        val testsTask = for {
+          _ <- createTestTask
+          _ <- createTestTask
+          _ <- createTestTask
+          state <- createTestTask
+        } yield state
+        val testHandle = testsTask.runAsync(ExecutionContext.ioScheduler)
         val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { testHandle.cancel() }
 
         val exitCode = try Await.result(testHandle, Duration.apply(10, TimeUnit.SECONDS))

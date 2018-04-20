@@ -202,9 +202,7 @@ class FileWatchingSpec {
         val rootProject = state.build.getProjectFor(RootProject).get
         val watchTask = Interpreter.watch(rootProject, state, simulation _)
         val s1 = Scheduler.computation(parallelism = 2)
-        val handle = watchTask
-          .executeWithOptions(_.enableAutoCancelableRunLoops)
-          .runAsync(ExecutionContext.scheduler)
+        val handle = watchTask.runAsync(ExecutionContext.scheduler)
 
         val waitForWatching = Task(Await.result(handle, Duration.Inf))
         val waitAndCancelWatching =

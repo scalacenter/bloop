@@ -13,7 +13,7 @@ import monix.execution.{ExecutionModel, UncaughtExceptionReporter}
 import monix.execution.schedulers.ExecutorScheduler
 
 object ExecutionContext {
-  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors() + 1
+  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors() + 4
 
   // This inlines the implementation of `Executors.newFixedThreadPool` to avoid losing the type
   private[bloop] val executor: ThreadPoolExecutor =

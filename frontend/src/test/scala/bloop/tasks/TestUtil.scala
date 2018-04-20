@@ -63,7 +63,6 @@ object TestUtil {
 
   def await[T](duration: Duration)(t: Task[T]): T = {
     val handle = t
-      .executeWithOptions(_.enableAutoCancelableRunLoops)
       .runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
@@ -75,7 +74,6 @@ object TestUtil {
   def interpreterTask(a: Action, state: State): Task[State] = {
     Interpreter
       .execute(a, Task.now(state))
-      .executeWithOptions(_.enableAutoCancelableRunLoops)
   }
 
   def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {

@@ -13,6 +13,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
 import monix.eval.Task
+import monix.execution.Cancelable
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -72,6 +73,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         Forker.EXIT_ERROR
       }
     } else {
+      var gobbleInput: Cancelable = null
       final class ProcessHandler extends NuAbstractProcessHandler {
         override def onStart(nuProcess: NuProcess): Unit = {
           if (logger.isVerbose) {
@@ -93,6 +95,9 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         val outBuilder = StringBuilder.newBuilder
         override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
           if (closed) {
+            // Make sure that the gobbler never stays awake!
+            if (gobbleInput != null) gobbleInput.cancel()
+            opts.ngout.println("The process is closed; emptying out buffer.")
             val remaining = outBuilder.mkString
             if (!remaining.isEmpty)
               logger.info(remaining)
@@ -113,7 +118,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         }
       }
 
-      Task(logger.debug(s"Running '$mainClass' in a new JVM.")).flatMap { _ =>
+      Task(opts.ngout.println(s"Running '$mainClass' in a new JVM.")).flatMap { _ =>
         import com.zaxxer.nuprocess.NuProcessBuilder
         val handler = new ProcessHandler()
         val builder = new NuProcessBuilder(handler, cmd: _*)
@@ -122,6 +127,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         npEnv.clear()
         npEnv.putAll(propertiesAsScalaMap(opts.env).asJava)
         val process = builder.start()
+        @volatile var shutdownInput: Boolean = false
 
         /* We need to gobble the input manually with a fixed delay because otherwise
          * the remote process will not see it. Instead of using the `wantWrite` API
@@ -130,27 +136,29 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
          * The input gobble runs on a 50ms basis and it can process a maximum of 4096
          * bytes at a time. The rest that is not read will be read in the next 50ms. */
         val duration = FiniteDuration(50, TimeUnit.MILLISECONDS)
-        val gobbleInput = ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
+        gobbleInput = ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
           val buffer = new Array[Byte](4096)
           val read = opts.in.read(buffer, 0, buffer.length)
-          if (read == -1) ()
+          if (read == -1 || shutdownInput || !process.isRunning) ()
           else process.writeStdin(ByteBuffer.wrap(buffer))
         }
 
         Task {
-          val code = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
-          gobbleInput.cancel()
-          code
-        }
-        // Uncomment this and the task will never complete!
-        //.doOnFinish(_ => Task(gobbleInput.cancel()))
-          .doOnCancel(Task {
+          try {
+            val exitCode = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
+            opts.ngout.println(s"Forked JVM exited with code: $exitCode")
+            exitCode
+          } finally {
+            shutdownInput = true
             gobbleInput.cancel()
-            try process.closeStdin(false)
+          }
+        }.doOnCancel(Task {
+            shutdownInput = true
+            gobbleInput.cancel()
+            try process.closeStdin(true)
             finally {
-              process.destroy(false)
-              process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
               process.destroy(true)
+              process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
               if (process.isRunning) {
                 opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
                 logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")

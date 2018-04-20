@@ -368,6 +368,7 @@ object Tasks {
     val processConfig = Forker(project.javaEnv, classpath)
     val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
     runTask.map { exitCode =>
+      state.commonOptions.ngout.println("RUN MAIN CAME BACK")
       state.mergeStatus {
         if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
         else ExitStatus.UnexpectedError
