@@ -137,12 +137,28 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
           else process.writeStdin(ByteBuffer.wrap(buffer))
         }
 
-        Task(process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS))
-          .doOnFinish(_ => Task(gobbleInput.cancel()))
+        Task {
+          val code = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
+          gobbleInput.cancel()
+          code
+        }
+        // Uncomment this and the task will never complete!
+        //.doOnFinish(_ => Task(gobbleInput.cancel()))
           .doOnCancel(Task {
             gobbleInput.cancel()
-            try process.closeStdin(true)
-            finally process.destroy(true)
+            try process.closeStdin(false)
+            finally {
+              process.destroy(false)
+              process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+              process.destroy(true)
+              if (process.isRunning) {
+                opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
+                logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")
+              } else {
+                opts.ngout.println(s"The run process for '${mainClass}' has been closed.")
+                logger.debug(s"The run process for '${mainClass}' has been closed.")
+              }
+            }
           })
       }
     }

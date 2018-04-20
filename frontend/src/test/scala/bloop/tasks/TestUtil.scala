@@ -72,11 +72,14 @@ object TestUtil {
     }
   }
 
-  def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
-    val handle = Interpreter
+  def interpreterTask(a: Action, state: State): Task[State] = {
+    Interpreter
       .execute(a, Task.now(state))
       .executeWithOptions(_.enableAutoCancelableRunLoops)
-      .runAsync(ExecutionContext.scheduler)
+  }
+
+  def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
+    val handle = interpreterTask(a, state).runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

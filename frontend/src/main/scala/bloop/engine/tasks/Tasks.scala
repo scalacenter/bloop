@@ -274,7 +274,7 @@ object Tasks {
   ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
-    def foundFrameworks (frameworks: Array[Framework])= frameworks.map(_.name).mkString(", ")
+    def foundFrameworks(frameworks: Array[Framework]) = frameworks.map(_.name).mkString(", ")
 
     // Test arguments coming after `--` can only be used if only one mapping is found
     def considerFrameworkArgs(frameworks: Array[Framework]) = {
@@ -366,7 +366,8 @@ object Tasks {
           args: Array[String]): Task[State] = {
     val classpath = project.classpath
     val processConfig = Forker(project.javaEnv, classpath)
-    processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions).map { exitCode =>
+    val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
+    runTask.map { exitCode =>
       state.mergeStatus {
         if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
         else ExitStatus.UnexpectedError
