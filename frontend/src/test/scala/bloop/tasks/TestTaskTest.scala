@@ -18,6 +18,7 @@ import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.Tasks
 import bloop.testing.{DiscoveredTests, TestInternals}
+import monix.execution.misc.NonFatal
 import xsbti.compile.CompileAnalysis
 
 import scala.concurrent.Await
@@ -57,7 +58,7 @@ class TestTaskTest(
 ) {
 
   @Test
-  def testSuffixCanBeOmitted = {
+  def testSuffixCanBeOmitted (): Unit = {
     val expectedName = testProject.name
     val withoutSuffix = Tasks.pickTestProject(expectedName.stripSuffix("-test"), testState)
     val withSuffix = Tasks.pickTestProject(expectedName, testState)
@@ -83,7 +84,7 @@ class TestTaskTest(
   }
 
   @Test
-  def canRunTestFramework: Unit = {
+  def canRunTestFramework(): Unit = {
     TestUtil.withTemporaryDirectory { tmp =>
       TestUtil.quietIfSuccess(testState.logger) { logger =>
         val cwd = AbsolutePath(tmp)
@@ -107,7 +108,43 @@ class TestTaskTest(
   }
 
   @Test
-  def testsAreDetected = {
+  def canCancelTestFramework(): Unit = {
+    TestUtil.withTemporaryDirectory { tmp =>
+      TestUtil.quietIfSuccess(testState.logger) { logger =>
+        val cwd = AbsolutePath(tmp)
+        val config = processRunnerConfig
+        val classLoader = testLoader(config)
+        val discovered = Tasks.discoverTests(testAnalysis, frameworks(classLoader)).toList
+        val tests = discovered.flatMap {
+          case (framework, taskDefs) =>
+            val testName = s"${framework}Test"
+            val filteredDefs = taskDefs.filter(_.fullyQualifiedName.contains(testName))
+            Seq(framework -> filteredDefs)
+        }.toMap
+        val discoveredTests = DiscoveredTests(classLoader, tests)
+        val opts = CommonOptions.default.copy(env = TestUtil.runAndTestProperties)
+
+        val cancelTime = Duration.apply(100, TimeUnit.MILLISECONDS)
+        val testHandle =
+          TestInternals.execute(cwd, config, discoveredTests, Nil, Tasks.handler, logger, opts)
+            .runAsync(ExecutionContext.ioScheduler)
+        val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { testHandle.cancel() }
+
+        val exitCode = try Await.result(testHandle, Duration.apply(10, TimeUnit.SECONDS))
+        catch {
+          case NonFatal(t) =>
+            driver.cancel()
+            testHandle.cancel()
+            throw t
+        }
+
+        assert(exitCode != 0)
+      }
+    }
+  }
+
+  @Test
+  def testsAreDetected (): Unit = {
     TestUtil.quietIfSuccess(testState.logger) { logger =>
       val config = processRunnerConfig
       val classLoader = testLoader(config)
