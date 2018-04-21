@@ -57,7 +57,7 @@ final class BspLogger private (
             val end = lsp.Position(pos0.line, lineRange.end)
             lsp.Range(start, end)
           case None =>
-            val pos = lsp.Position(pos0.line, pos0.line)
+            val pos = lsp.Position(pos0.line, pos0.column)
             lsp.Range(pos, pos)
         }
 
