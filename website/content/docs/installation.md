@@ -71,6 +71,10 @@ To get the command line completions with Bash, add the following to your `~/.bas
 
 ### Automatic startup
 
+<span class="label warning">Note</span> that you should choose only one of
+the methods below (systemd or desktop entry). Systemd is the more robust one,
+but we provide a desktop entry for people not using systemd.
+
 #### Systemd
 
 One way to run Bloop server automatically if you are using systemd is to
