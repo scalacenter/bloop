@@ -45,6 +45,7 @@ The installation script will also install:
 
  * completions for zsh and Bash
  * service file for systemd
+ * desktop entry for freedesktop-compliant desktop environments
 
 but you need to set them up manually.
 
@@ -69,6 +70,10 @@ To get the command line completions with Bash, add the following to your `~/.bas
 ```
 
 ### Automatic startup
+
+<span class="label warning">Note</span> that you should choose only one of
+the methods below (systemd or desktop entry). Systemd is the more robust one,
+but we provide a desktop entry for people not using systemd.
 
 #### Systemd
 
@@ -100,6 +105,27 @@ Logs can be viewed using:
 
 ```
 $ journalctl --user-unit bloop
+```
+
+#### Desktop Entry
+
+There is a `bloop.desktop` file which you can use as a simple shortcut or as
+an autostart entry if your desktop environment complies with freedesktop.org
+specification and you are not using (or don't want to use) systemd.
+
+To let your desktop environment know about the shortcut (it will most likely
+add an icon to your applications menu, depending on environment) you can do:
+
+```sh
+$ mkdir -p $HOME/.local/share/applications
+$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
+```
+
+To add it to autostart:
+
+```sh
+$ mkdir -p $HOME/.config/autostart
+$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
 ```
 
 ## Use bloop with sbt
