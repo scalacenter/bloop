@@ -192,6 +192,7 @@ start it manually.</p>
 <ul>
 <li>completions for zsh and Bash</li>
 <li>service file for systemd</li>
+<li>desktop entry for freedesktop-compliant desktop environments</li>
 </ul>
 
 <p>but you need to set them up manually.</p>
@@ -215,6 +216,10 @@ compinit
 </code></pre>
 
 <h3 id="automatic-startup">Automatic startup</h3>
+
+<p><span class="label warning">Note</span> that you should choose only one of
+the methods below (systemd or desktop entry). Systemd is the more robust one,
+but we provide a desktop entry for people not using systemd.</p>
 
 <h4 id="systemd">Systemd</h4>
 
@@ -242,6 +247,25 @@ $ systemctl --user stop bloop
 <p>Logs can be viewed using:</p>
 
 <pre><code>$ journalctl --user-unit bloop
+</code></pre>
+
+<h4 id="desktop-entry">Desktop Entry</h4>
+
+<p>There is a <code>bloop.desktop</code> file which you can use as a simple shortcut or as
+an autostart entry if your desktop environment complies with freedesktop.org
+specification and you are not using (or don&rsquo;t want to use) systemd.</p>
+
+<p>To let your desktop environment know about the shortcut (it will most likely
+add an icon to your applications menu, depending on environment) you can do:</p>
+
+<pre><code class="language-sh">$ mkdir -p $HOME/.local/share/applications
+$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
+</code></pre>
+
+<p>To add it to autostart:</p>
+
+<pre><code class="language-sh">$ mkdir -p $HOME/.config/autostart
+$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
 </code></pre>
 
 <h2 id="use-bloop-with-sbt">Use bloop with sbt</h2>
