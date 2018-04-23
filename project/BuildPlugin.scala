@@ -344,7 +344,7 @@ object BuildImplementation {
     val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
       val orig = Keys.scalaVersion.value
       val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
-      if (is013) "2.10.6" else orig
+      if (is013) "2.10.7" else orig
     }
 
     // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement

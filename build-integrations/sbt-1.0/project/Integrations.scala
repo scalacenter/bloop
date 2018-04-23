@@ -12,5 +12,7 @@ object Integrations {
     uri("git://github.com/scalacenter/with-resources.git#f0a46830cae7ef6282d9bba64b6da34bae18f339"))
   val WithTests = RootProject(
     uri("git://github.com/scalacenter/with-tests.git#3be26f4f21427c5bc0b83deb96d6e66973102eb2"))
+  val AkkaAkka = RootProject(
+    uri("git://github.com/akka/akka.git#577b38ce7b75752f443ecf6b3481d911f8564891"))
 
 }

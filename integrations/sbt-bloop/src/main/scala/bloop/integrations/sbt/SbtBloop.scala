@@ -3,6 +3,7 @@ package bloop.integrations.sbt
 import bloop.config.Config
 import sbt.{
   AutoPlugin,
+  ClasspathDep,
   Compile,
   Configuration,
   Def,
@@ -122,8 +123,10 @@ object PluginImplementation {
     }
 
     object Feedback {
-      def unknownConfiguration(p: ResolvedProject, conf: String, from: ProjectRef): String = {
-        s"""Project ${p.id} depends on unsupported configuration $conf of ${from.project}.
+      def unknownConfigurations(p: ResolvedProject,
+                                confs: Seq[String],
+                                from: ProjectRef): String = {
+        s"""Project ${p.id} depends on unsupported configuration(s) ${confs.mkString(", ")} of ${from.project}.
            |Bloop will assume this dependency goes to the test configuration.
            |Report upstream if you run into trouble: https://github.com/scalacenter/bloop/issues/new
          """.stripMargin
@@ -136,15 +139,33 @@ object PluginImplementation {
       def nameFromString(name: String, configuration: Configuration): String =
         if (configuration == Compile) name else name + "-test"
 
-      def nameFromRef(ref: ProjectRef, configuration: Configuration): String = {
-        ref.configuration match {
-          case Some(conf) if Compile.name == conf => ref.project
-          case Some(conf) if Test.name == conf => s"${ref.project}-test"
-          case Some(unknown) =>
-            logger.warn(Feedback.unknownConfiguration(project, unknown, ref))
-            s"${ref.project}-test"
+      def nameFromRef(dep: ClasspathDep[ProjectRef], configuration: Configuration): String = {
+        val ref = dep.project
+        dep.configuration match {
+          case Some(_) =>
+            val mapping = sbt.Classpaths.mapped(
+              dep.configuration,
+              List("compile", "test"),
+              List("compile", "test"),
+              "compile",
+              "*->compile"
+            )
+
+            mapping(configuration.name) match {
+              case Nil => nameFromString(ref.project, configuration)
+              case List(conf) if Compile.name == conf => ref.project
+              case List(conf) if Test.name == conf => s"${ref.project}-test"
+              case List(conf1, conf2) if Test.name == conf1 && Compile.name == conf2 =>
+                s"${ref.project}-test"
+              case List(conf1, conf2) if Compile.name == conf1 && Test.name == conf2 =>
+                s"${ref.project}-test"
+              case unknown =>
+                logger.warn(Feedback.unknownConfigurations(project, unknown, ref))
+                s"${ref.project}-test"
+            }
           case None => nameFromString(ref.project, configuration)
         }
+
       }
 
       val configuration = Keys.configuration.value
@@ -157,7 +178,7 @@ object PluginImplementation {
       val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
 
       val projectDependencies =
-        project.dependencies.map(dep => nameFromRef(dep.project, configuration)).toList
+        project.dependencies.map(dep => nameFromRef(dep, configuration)).toList
       val dependencies = (projectDependencies ++ baseProjectDependency).toArray
       val aggregates = project.aggregate.map(agg => nameFromString(agg.project, configuration))
       val dependenciesAndAggregates = dependencies ++ aggregates
