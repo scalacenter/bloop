@@ -1,6 +1,6 @@
 package bloop.io
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 
 import bloop.Project
 import bloop.bsp.BspServer
@@ -15,16 +15,14 @@ import monix.eval.Task
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 
-final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
+final class SourceWatcher private (
+    project: Project,
+    dirs: Seq[Path],
+    files: Seq[Path],
+    logger: Logger
+) {
   import java.nio.file.Files
-  private val paths = paths0.distinct
-  private val dirs = paths.filter(p => Files.isDirectory(p))
-  private val dirsCount = dirs.size
-  private val filesCount = paths.filter(p => Files.isRegularFile(p)).size
   private val slf4jLogger = new Slf4jAdapter(logger)
-
-  // Create source directories if they don't exist, otherwise the watcher fails.
-  dirs.foreach(p => if (!Files.exists(p)) Files.createDirectories(p) else ())
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
     val ngout = state0.commonOptions.ngout
@@ -40,9 +38,10 @@ final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
       Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(
         ExecutionContext.ioScheduler)
 
+    val allPaths = (files ++ dirs).asJava
     var watchingEnabled: Boolean = true
     val watcher = DirectoryWatcher.create(
-      paths.asJava,
+      allPaths,
       new DirectoryChangeListener {
         // Define `isWatching` just for correctness
         override def isWatching: Boolean = watchingEnabled
@@ -102,7 +101,18 @@ final class SourceWatcher(project: Project, paths0: Seq[Path], logger: Logger) {
   }
 
   def notifyWatch(): Unit = {
+    val filesCount = files.size
+    val dirsCount = dirs.size
     val andFiles = if (filesCount == 0) "" else s" and $filesCount files"
     logger.info(s"Watching $dirsCount directories$andFiles... (press C-c to interrupt)")
+  }
+}
+
+object SourceWatcher {
+  def apply(project: Project, paths0: Seq[Path], logger: Logger): SourceWatcher = {
+    val existingPaths = paths0.distinct.filter(p => Files.exists(p))
+    val dirs = existingPaths.filter(p => Files.isDirectory(p))
+    val files = existingPaths.filter(p => Files.isRegularFile(p))
+    new SourceWatcher(project, dirs, files, logger)
   }
 }

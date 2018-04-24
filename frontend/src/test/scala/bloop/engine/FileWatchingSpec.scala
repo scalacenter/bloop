@@ -38,6 +38,16 @@ class FileWatchingSpec {
     val `C.scala` = "package p2\nclass C extends p0.A with p1.B"
   }
 
+  def addNonExistingSources(project: Project): Project = {
+    val currentSources = project.sources
+    currentSources.headOption match {
+      case Some(source) =>
+        val fakeSource = source.getParent.resolve("fake-source-dir-scala")
+        project.copy(sources = currentSources ++ Array(fakeSource))
+      case None => project
+    }
+  }
+
   type FileWatchingContext = (State, Project, ByteArrayOutputStream)
   def testFileWatcher(state0: State, projectName: String)(
       workerAction: FileWatchingContext => Unit,
@@ -46,9 +56,11 @@ class FileWatchingSpec {
     import scala.concurrent.duration
     implicit val scheduler = ExecutionContext.scheduler
     val projects0 = state0.build.projects
-    val rootProject = projects0
+    val rootProject0 = projects0
       .find(_.name == projectName)
       .getOrElse(sys.error(s"Project $projectName could not be found!"))
+    // Add non-existing sources on purpose to the project to ensure it doesn't crash
+    val rootProject = addNonExistingSources(rootProject0)
     val cleanAction = Run(Commands.Clean(rootProject.name :: Nil), Exit(ExitStatus.Ok))
     val state = TestUtil.blockingExecute(cleanAction, state0)
     val projects = state.build.projects
