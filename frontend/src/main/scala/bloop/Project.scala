@@ -9,8 +9,7 @@ import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigDecoders}
 import bloop.engine.ExecutionContext
-import metaconfig.{Conf, Configured}
-import org.langmeta.inputs.Input
+import metaconfig.{Conf, Configured, Input}
 
 final case class Project(
     name: String,

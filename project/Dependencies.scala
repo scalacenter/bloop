@@ -19,7 +19,7 @@ object Dependencies {
   val mavenScalaPluginVersion = "3.2.2"
   val ipcsocketVersion = "1.0.0"
   val monixVersion = "2.3.3"
-  val metaconfigVersion = "0.6.0"
+  val metaconfigVersion = "0.7.0"
   val circeVersion = "0.9.3"
 
   import sbt.librarymanagement.syntax.stringToOrganization
