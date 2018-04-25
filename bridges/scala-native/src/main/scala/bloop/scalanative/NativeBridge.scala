@@ -6,7 +6,7 @@ import bloop.logging.Logger
 
 import java.nio.file.Path
 
-import scala.scalanative.build.{Discover, Build, Config, GC, Mode}
+import scala.scalanative.build.{Discover, Build, Config, GC, Mode, Logger => NativeLogger}
 
 object NativeBridge {
 
@@ -21,6 +21,7 @@ object NativeBridge {
     val triple = Discover.targetTriple(clang, workdir)
     val nativelib = Discover.nativelib(classpath).get
     val outpath = workdir.resolve("out")
+    val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
 
     val config =
       Config.empty
@@ -35,6 +36,7 @@ object NativeBridge {
         .withMainClass(entry)
         .withClassPath(classpath)
         .withWorkdir(workdir)
+        .withLogger(nativeLogger)
 
     Build.build(config, outpath)
   }
