@@ -78,6 +78,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           testFrameworks = Array.empty,
           testOptions = Config.TestOptions.empty,
           javaEnv = javaEnv,
+          platform = Config.Platform.default,
           out = classesDir
         )
         val state =

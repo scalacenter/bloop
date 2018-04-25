@@ -81,6 +81,7 @@ object MojoImplementation {
       val dependencies = project.getProjectReferences().asScala.values.map(_.getArtifactId).toArray
       val allScalaJars = mojo.getAllScalaJars().map(abs).toArray
       val scalacArgs = mojo.getScalacArgs().asScala.toArray
+      val platform = Config.Platform.default
 
       // FORMAT: OFF
       val config = {
@@ -89,8 +90,9 @@ object MojoImplementation {
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
         val jvm = Config.Jvm(Some(abs(mojo.getJavaHome())), launcher.getJvmArgs().toArray)
+
         val compileOptions = Config.CompileOptions(Config.Mixed)
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, test)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, test, platform)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

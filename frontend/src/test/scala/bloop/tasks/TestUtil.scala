@@ -228,6 +228,7 @@ object TestUtil {
       testFrameworks = Array.empty,
       testOptions = Config.TestOptions.empty,
       javaEnv = javaEnv,
+      platform = Config.Platform.default,
       out = AbsolutePath(baseDirectory) // This means nothing in tests
     )
   }

@@ -51,7 +51,8 @@ class JsonSpec {
       Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
       Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
       Java(Array("-version")),
-      ConfigTest(Array(), TestOptions(Nil, Nil))
+      ConfigTest(Array(), TestOptions(Nil, Nil)),
+      Platform.default
     )
 
     parseConfig(File(File.LatestVersion, project))

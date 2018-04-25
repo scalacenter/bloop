@@ -23,6 +23,7 @@ object Dependencies {
   val metaconfigVersion = "0.7.0"
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.0"
+  val scalaNativeVersion = "0.3.7"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -63,4 +64,5 @@ object Dependencies {
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
+  val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
 }

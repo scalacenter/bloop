@@ -8,6 +8,7 @@ import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigDecoders}
+import bloop.config.Config.Platform
 import bloop.engine.ExecutionContext
 import metaconfig.{Conf, Configured, Input}
 
@@ -25,6 +26,7 @@ final case class Project(
     testFrameworks: Array[Config.TestFramework],
     testOptions: Config.TestOptions,
     javaEnv: JavaEnv,
+    platform: Platform,
     out: AbsolutePath
 ) {
   override def toString: String = s"$name"
@@ -117,6 +119,7 @@ object Project {
       project.test.frameworks,
       project.test.options,
       javaEnv,
+      project.platform,
       AbsolutePath(project.out)
     )
   }

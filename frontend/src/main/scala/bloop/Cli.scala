@@ -187,6 +187,12 @@ object Cli {
               case Right(c: Commands.Configure) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
+              case Right(c: Commands.NativeLink) =>
+                val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
+                withProject(c.project) { (p: String) =>
+                  val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
+                  run(cmd, newCommand.cliOptions)
+                }
             }
         }
         newAction.getOrElse {
