@@ -8,6 +8,7 @@ import bloop.config.Config.{
   File,
   Java,
   Jvm,
+  Platform,
   Project,
   Scala,
   TestOptions,
