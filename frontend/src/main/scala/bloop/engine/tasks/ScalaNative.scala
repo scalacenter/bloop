@@ -24,7 +24,11 @@ object ScalaNative {
     val bridgeClazz = nativeClassLoader.loadClass("bloop.scalanative.NativeBridge")
     val paramTypes = classOf[Project] :: classOf[String] :: classOf[Logger] :: Nil
     val nativeLinkMeth = bridgeClazz.getMethod("nativeLink", paramTypes: _*)
-    AbsolutePath(nativeLinkMeth.invoke(null, project, entry, logger).asInstanceOf[Path])
+
+    // The Scala Native toolchain expects to receive the module class' name
+    val fullEntry = if (entry.endsWith("$")) entry else entry + "$"
+
+    AbsolutePath(nativeLinkMeth.invoke(null, project, fullEntry, logger).asInstanceOf[Path])
   }
 
   private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
