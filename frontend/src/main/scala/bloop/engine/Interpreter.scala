@@ -6,11 +6,12 @@ import scala.annotation.tailrec
 import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
+import bloop.config.Config.Platform
 import bloop.io.{RelativePath, SourceWatcher}
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{ScalaNative, Tasks}
 import bloop.Project
 import monix.eval.Task
 import monix.execution.misc.NonFatal
@@ -52,6 +53,8 @@ object Interpreter {
             execute(next, configure(cmd, state), true)
           case Run(cmd: Commands.Autocomplete, next) =>
             execute(next, autocomplete(cmd, state), true)
+          case Run(cmd: Commands.NativeLink, next) =>
+            execute(next, nativeLink(cmd, state, inRecursion), true)
           case Run(cmd: Commands.Help, next) =>
             val msg = "The handling of help doesn't happen in the `Interpreter`."
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
@@ -271,6 +274,39 @@ object Interpreter {
     state
   }
 
+  private def nativeLink(cmd: Commands.NativeLink,
+                         state: State,
+                         sequential: Boolean): Task[State] = {
+    state.build.getProjectFor(cmd.project) match {
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
+      case Some(project) if project.platform != Platform.Native =>
+        Task {
+          state.logger.error("This command can only be called on a Scala Native project.")
+          state.mergeStatus(ExitStatus.RunError)
+        }
+      case Some(project) =>
+        val reporter = ReporterKind.toReporterConfig(cmd.reporter)
+        def doRun(state: State): Task[State] = {
+          compileAnd(state, project, reporter, false, sequential, "`nativeLink`") { state =>
+            cmd.main.orElse(getMainClass(state, project)) match {
+              case None => Task(state.mergeStatus(ExitStatus.RunError))
+              case Some(main) =>
+                Task {
+                  val out = ScalaNative.nativeLink(project, main, state.logger)
+                  state.logger.info(s"Produced $out")
+                  state
+                }
+            }
+          }
+        }
+
+        if (cmd.watch) watch(project, state, doRun _)
+        else doRun(state)
+
+    }
+  }
+
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
     if (cmd.threads != ExecutionContext.executor.getCorePoolSize)
       State.setCores(state, cmd.threads)
@@ -289,27 +325,9 @@ object Interpreter {
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        def getMainClass(state: State): Option[String] = {
-          cmd.main.orElse {
-            Tasks.findMainClasses(state, project) match {
-              case Array() =>
-                state.logger.error(s"No main classes found in project '${project.name}'")
-                None
-              case Array(main) =>
-                Some(main)
-              case mainClasses =>
-                val eol = System.lineSeparator
-                val message = s"""Several main classes were found, specify which one:
-                                 |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
-                state.logger.error(message)
-                None
-            }
-          }
-        }
-
         def doRun(state: State): Task[State] = {
           compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
-            getMainClass(state) match {
+            cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
                 val args = cmd.args.toArray
@@ -333,5 +351,21 @@ object Interpreter {
     state.logger.error(s"No projects named $projects found in '$configDirectory'.")
     state.logger.error(s"Use the `projects` command to list existing projects.")
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
+  }
+
+  private def getMainClass(state: State, project: Project): Option[String] = {
+    Tasks.findMainClasses(state, project) match {
+      case Array() =>
+        state.logger.error(s"No main classes found in project '${project.name}'")
+        None
+      case Array(main) =>
+        Some(main)
+      case mainClasses =>
+        val eol = System.lineSeparator
+        val message = s"""Several main classes were found, specify which one:
+                         |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+        state.logger.error(message)
+        None
+    }
   }
 }

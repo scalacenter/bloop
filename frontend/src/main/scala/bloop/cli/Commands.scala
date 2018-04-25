@@ -158,4 +158,19 @@ object Commands {
       watch: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
+
+  case class NativeLink(
+      @ExtraName("p")
+      @HelpMessage("The project to run (will be inferred from remaining cli args).")
+      project: String = "",
+      @ExtraName("m")
+      @HelpMessage("The main class to link. Leave unset to let bloop select automatically.")
+      main: Option[String] = None,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
+      @ExtraName("w")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
+      watch: Boolean = false,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends CompilingCommand
 }
