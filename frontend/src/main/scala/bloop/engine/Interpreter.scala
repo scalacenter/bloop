@@ -332,7 +332,12 @@ object Interpreter {
               case Some(main) =>
                 val args = cmd.args.toArray
                 val cwd = cmd.cliOptions.common.workingPath
-                Tasks.run(state, project, cwd, main, args)
+                project.platform match {
+                  case Platform.Native =>
+                    ScalaNative.run(state, project, cwd, main, args)
+                  case _ =>
+                    Tasks.run(state, project, cwd, main, args)
+                }
             }
           }
         }

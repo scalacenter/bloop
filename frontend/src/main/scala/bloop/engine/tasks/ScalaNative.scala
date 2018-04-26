@@ -4,8 +4,13 @@ import java.net.URLClassLoader
 import java.nio.file.{Files, Path}
 
 import bloop.{DependencyResolution, Project}
+import bloop.cli.ExitStatus
+import bloop.engine.State
+import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+
+import monix.eval.Task
 
 object ScalaNative {
 
@@ -29,6 +34,35 @@ object ScalaNative {
     val fullEntry = if (entry.endsWith("$")) entry else entry + "$"
 
     AbsolutePath(nativeLinkMeth.invoke(null, project, fullEntry, logger).asInstanceOf[Path])
+  }
+
+  /**
+   * Link `project` to a native binary and run it.
+   *
+   * @param state The current state of Bloop.
+   * @param project The project to link.
+   * @param cwd     The working directory in which to start the process.
+   * @param main    The fully qualified main class name.
+   * @param args    The arguments to pass to the program.
+   * @return A task that links and run the project.
+   */
+  def run(state: State,
+          project: Project,
+          cwd: AbsolutePath,
+          main: String,
+          args: Array[String]): Task[State] = {
+    Task(nativeLink(project, main, state.logger))
+      .flatMap { nativeBinary =>
+        val cmd = nativeBinary.syntax +: args
+        Forker.run(cwd, cmd, state.logger, state.commonOptions)
+      }
+      .map { exitCode =>
+        val exitStatus = {
+          if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
+          else ExitStatus.UnexpectedError
+        }
+        state.mergeStatus(exitStatus)
+      }
   }
 
   private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
