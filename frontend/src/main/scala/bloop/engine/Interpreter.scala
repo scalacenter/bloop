@@ -103,7 +103,7 @@ object Interpreter {
   private[bloop] def watch(project: Project, state: State, f: State => Task[State]): Task[State] = {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
-    val watcher = new SourceWatcher(project, allSources.toList, state.logger)
+    val watcher = SourceWatcher(project, allSources.toList, state.logger)
     val fg = (state: State) =>
       f(state).map { state =>
         watcher.notifyWatch()
