@@ -8,22 +8,12 @@ import java.util.Properties
 
 import bloop.logging.Logger
 
-class ScalaInstance(
+final class ScalaInstance private(
     val organization: String,
     val name: String,
     override val version: String,
-    override val allJars: Array[File],
+    override val allJars: Array[File]
 ) extends xsbti.compile.ScalaInstance {
-
-  override lazy val loader: ClassLoader =
-    new URLClassLoader(allJars.map(_.toURI.toURL), null)
-
-  private def isJar(filename: String): Boolean = filename.endsWith(".jar")
-  private def hasScalaCompilerName(filename: String): Boolean =
-    if (isDotty) filename.startsWith("dotty-compiler") else filename.startsWith("scala-compiler")
-  private def hasScalaLibraryName(filename: String): Boolean =
-    filename.startsWith("scala-library")
-
   override val compilerJar: File =
     allJars.find(f => isJar(f.getName) && hasScalaCompilerName(f.getName)).orNull
   override val libraryJar: File =
@@ -36,6 +26,19 @@ class ScalaInstance(
   /** Is this `ScalaInstance` using Dotty? */
   def isDotty: Boolean =
     organization == "ch.epfl.lamp" && sbt.internal.inc.ScalaInstance.isDotty(version)
+
+  override lazy val loaderLibraryOnly: ClassLoader =
+    new URLClassLoader(Array(libraryJar.toURI.toURL), null)
+  override lazy val loader: ClassLoader = {
+    val allJarsButLibrary = allJars.filterNot(_ == libraryJar).map(_.toURI.toURL)
+    new URLClassLoader(allJarsButLibrary, loaderLibraryOnly)
+  }
+
+  private def isJar(filename: String): Boolean = filename.endsWith(".jar")
+  private def hasScalaCompilerName(filename: String): Boolean =
+    filename.startsWith("scala-compiler")
+  private def hasScalaLibraryName(filename: String): Boolean =
+    filename.startsWith("scala-library")
 
   /** Tells us what the real version of the classloaded scalac compiler in this instance is. */
   override def actualVersion(): String = {
