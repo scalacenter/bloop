@@ -2,7 +2,7 @@ package build
 
 object Dependencies {
   val nailgunVersion = "0c8b937b"
-  val zincVersion = "1.1.7+62-0f4ad9d5"
+  val zincVersion = "1.1.0+88-9dd5cbfd"
   val bspVersion = "1.0.0-M4"
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M3"

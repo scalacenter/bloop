@@ -26,6 +26,7 @@ object ExecutionContext {
   }
 
   implicit lazy val scheduler: Scheduler = Scheduler(executor)
+  implicit lazy val compilationContext = scala.concurrent.ExecutionContext.fromExecutor(executor)
 
   val ioReporter = UncaughtExceptionReporter.LogExceptionsToStandardErr
   lazy val ioExecutor: ThreadPoolExecutor = {
