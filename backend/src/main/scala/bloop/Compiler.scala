@@ -4,18 +4,23 @@ import xsbti.compile._
 import xsbti.T2
 import java.util.Optional
 import java.io.File
+import java.net.URI
+import java.util.concurrent.CompletableFuture
 
 import bloop.internal.Ecosystem
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import bloop.reporter.Reporter
+import sbt.internal.inc.javac.JavaTools
 import sbt.internal.inc.{FreshCompilerCache, Locate, ZincUtil}
+import sbt.util.InterfaceUtil
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
+    picklepath: Array[URI],
     classesDir: AbsolutePath,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
@@ -23,6 +28,8 @@ case class CompileInputs(
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     reporter: Reporter,
+    pickleReceiver: Option[CompletableFuture[URI]],
+    javaClasspath: Option[CompletableFuture[Seq[File]]],
     logger: Logger
 )
 
@@ -43,6 +50,13 @@ object Compiler {
     final case class Failed(problems: Array[xsbti.Problem], elapsed: Long) extends Result
     final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
         extends Result
+
+    object NotOk {
+      def unapply(result: Result): Option[Result] = result match {
+        case f @ (Failed(_, _) | Cancelled(_) | Blocked(_)) => Some(f)
+        case _ => None
+      }
+    }
   }
 
   def compile(compileInputs: CompileInputs): Result = {
@@ -64,6 +78,7 @@ object Compiler {
         .withClassesDirectory(classesDir)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
+        .withPicklepath(inputs.picklepath)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
@@ -81,13 +96,36 @@ object Compiler {
         else Ecosystem.supportDotty(IncOptions.create())
       }
       val progress = Optional.empty[CompileProgress]
-      Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
+      val receiver = compileInputs.pickleReceiver
+      val setup =
+        Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
+      if (!receiver.isDefined) setup
+      else setup.withPicklePromise(InterfaceUtil.toOptional(receiver))
+    }
+
+    /**
+     * Modifies the java tools to use our own javac compiler in case pipelined
+     * compilation is enabled. Our javac compiler is just a valid `JavaCompiler`
+     * definition that wraps the underlying java compilation but doesn't start
+     * compiling the Java project until the ready promise is completed.
+     *
+     * The ready promise is completed by the user of this API upon the completion
+     * of all the Scala compilation processes of dependent projects.
+     */
+    def setUpCompilers(compilers: Compilers): Compilers = {
+      compileInputs.javaClasspath match {
+        case Some(startFuture) =>
+          val oldJavaTools = compilers.javaTools()
+          val newJavac = new BlockingJavaCompiler(startFuture, oldJavaTools.javac())
+          compilers.withJavaTools(JavaTools(newJavac, oldJavaTools.javadoc()))
+        case None => compilers
+      }
     }
 
     val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
-    val compilers = compileInputs.compilerCache.get(scalaInstance)
+    val compilers = setUpCompilers(compileInputs.compilerCache.get(scalaInstance))
     val inputs = getInputs(compilers)
     val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
 

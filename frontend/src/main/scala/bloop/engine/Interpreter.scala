@@ -10,7 +10,7 @@ import bloop.config.Config.Platform
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks}
+import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks, Pipelined}
 import bloop.Project
 import bloop.config.Config
 import monix.eval.Task
@@ -124,7 +124,7 @@ object Interpreter {
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
         def doCompile(state: State): Task[State] =
-          Tasks.compile(state, project, config, sequential).map(_.mergeStatus(ExitStatus.Ok))
+          Pipelined.compile(state, project, config, sequential).map(_.mergeStatus(ExitStatus.Ok))
 
         val initialState = {
           if (cmd.incremental) Task.now(state)
@@ -165,7 +165,7 @@ object Interpreter {
       checkPrevious: Boolean,
       nextAction: String
   )(next: State => Task[State]): Task[State] = {
-    Tasks.compile(state, project, reporterConfig, checkPrevious, excludeRoot).flatMap { compiled =>
+    Pipelined.compile(state, project, reporterConfig, checkPrevious, excludeRoot).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         Task.now {

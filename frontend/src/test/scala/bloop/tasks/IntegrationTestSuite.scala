@@ -18,7 +18,7 @@ import bloop.io.AbsolutePath
 import xsbti.compile.ClasspathOptionsUtil
 
 object IntegrationTestSuite {
-  val projects = TestUtil.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
+  val projects = TestUtil.testProjectsIndex.filterKeys(_.contains("frontend")).map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
@@ -44,6 +44,7 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
     bool(sys.props.getOrElse("run.community.build", "false"))
+    true
   }
 
   @Test

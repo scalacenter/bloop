@@ -1,13 +1,15 @@
 package sbt.internal.inc.bloop
 
+import java.io.File
 import java.nio.file.Files
 
 import bloop.ScalaInstance
 import bloop.io.AbsolutePath
 import xsbti.{ComponentProvider, Position}
 import sbt.internal.inc.ZincComponentCompiler
-import sbt.internal.inc.javac.DiagnosticsReporter
+import sbt.internal.inc.javac.{AnalyzingJavaCompiler, DiagnosticsReporter}
 import sbt.librarymanagement.{Configurations, ModuleID}
+import xsbti.compile.{ClasspathOptions, JavaCompiler}
 
 object ZincInternals {
   def latestVersion: String = ZincComponentCompiler.incrementalVersion
@@ -67,5 +69,16 @@ object ZincInternals {
         impl.startPosition.flatMap(s => impl.endPosition.map(e => LineRange(s.toInt, e.toInt)))
       case _ => None
     }
+  }
+
+  def instantiateJavaCompiler(
+      javac: xsbti.compile.JavaCompiler,
+      classpath: Seq[File],
+      instance: xsbti.compile.ScalaInstance,
+      cpOptions: ClasspathOptions,
+      lookup: (String => Option[File]),
+      searchClasspath: Seq[File]
+  ): JavaCompiler = {
+    new AnalyzingJavaCompiler(javac, classpath, instance, cpOptions, lookup, searchClasspath)
   }
 }
