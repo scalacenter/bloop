@@ -10,6 +10,7 @@ import pl.project13.scala.sbt.JmhPlugin.JmhKeys
 import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.{AllPassFilter, IO}
 import sbt.io.syntax.fileToRichFile
+import sbt.librarymanagement.MavenRepository
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtdynver.GitDescribeOutput
@@ -217,16 +218,21 @@ object BuildImplementation {
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
+  private final val scalaPRsResolver = {
+    MavenRepository("pr",
+                    "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/")
+  }
+
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := "2.12.4",
+    Keys.scalaVersion := "2.12.7-bin-af4ffa8-SNAPSHOT",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
       val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
       val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
-      (oldResolvers :+ scalametaResolver :+ scalacenterResolver).distinct
+      (oldResolvers :+ scalametaResolver :+ scalacenterResolver :+ scalaPRsResolver).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
       // Only tag releases go directly to Maven Central, the rest go to bintray!
@@ -289,7 +295,7 @@ object BuildImplementation {
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-  ) ++ metalsSettings
+  ) // ++ metalsSettings
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
