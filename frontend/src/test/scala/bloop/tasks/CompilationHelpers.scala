@@ -1,15 +1,11 @@
 package bloop.tasks
 
-import java.io.File
-
 import scala.util.Properties
 
 import bloop.{CompilerCache, ScalaInstance}
-import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.{RecordingLogger, Logger}
 import sbt.internal.inc.bloop.ZincInternals
-import sbt.librarymanagement.Resolver
 
 object CompilationHelpers {
   final val componentProvider =
