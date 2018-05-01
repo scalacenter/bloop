@@ -94,7 +94,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
           if (closed) {
             // Make sure that the gobbler never stays awake!
             if (gobbleInput != null) gobbleInput.cancel()
-            opts.ngout.println("The process is closed; emptying out buffer.")
+            logger.debug("The process is closed; emptying out buffer.")
             val remaining = outBuilder.mkString
             if (!remaining.isEmpty)
               logger.info(remaining)
@@ -115,7 +115,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         }
       }
 
-      Task(opts.ngout.println(s"Running '$mainClass' in a new JVM.")).flatMap { _ =>
+      Task(logger.debug(s"Running '$mainClass' in a new JVM.")).flatMap { _ =>
         import com.zaxxer.nuprocess.NuProcessBuilder
         val handler = new ProcessHandler()
         val builder = new NuProcessBuilder(handler, cmd: _*)
@@ -143,7 +143,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         Task {
           try {
             val exitCode = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
-            opts.ngout.println(s"Forked JVM exited with code: $exitCode")
+            logger.debug(s"Forked JVM exited with code: $exitCode")
             exitCode
           } finally {
             shutdownInput = true
