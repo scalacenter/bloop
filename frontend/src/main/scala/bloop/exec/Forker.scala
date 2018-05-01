@@ -33,12 +33,9 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
    * @param parent A parent classloader
    * @return A classloader constructed from the classpath of this `ForkProcess`.
    */
-  def toExecutionClassLoader(parent: Option[ClassLoader]): ClassLoader = {
-    def makeNew(parent: Option[ClassLoader]): ClassLoader = {
-      val classpathEntries = classpath.map(_.underlying.toUri.toURL)
-      new URLClassLoader(classpathEntries, parent.orNull)
-    }
-    Forker.classLoaderCache.computeIfAbsent(parent, makeNew)
+  def newClassLoader(parent: Option[ClassLoader]): ClassLoader = {
+    val classpathEntries = classpath.map(_.underlying.toUri.toURL)
+    new URLClassLoader(classpathEntries, parent.orNull)
   }
 
   /**
@@ -174,16 +171,11 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
 }
 
 object Forker {
-  private val classLoaderCache: ConcurrentHashMap[Option[ClassLoader], ClassLoader] =
-    new ConcurrentHashMap
-
   /** The code returned after a successful execution. */
   final val EXIT_OK = 0
 
   /** The code returned after the execution errored. */
   final val EXIT_ERROR = 1
-
-  private final val EmptyArray = Array.empty[String]
 
   /**
    * Return an array of lines from a process buffer and a no lines buffer.
@@ -206,7 +198,7 @@ object Forker {
     val msg = new String(bytes, StandardCharsets.UTF_8)
     val newLines = msg.split(System.lineSeparator, Integer.MAX_VALUE)
     newLines match {
-      case Array() => remaining.++=(msg); EmptyArray
+      case Array() => remaining.++=(msg); Array.empty[String]
       case msgs =>
         val msgAtTheEnd = newLines.apply(newLines.length - 1)
         val shouldBuffer = !msgAtTheEnd.isEmpty
@@ -221,7 +213,7 @@ object Forker {
             remaining.clear()
             newLines.init
           }
-        } else EmptyArray
+        } else Array.empty[String]
     }
   }
 }

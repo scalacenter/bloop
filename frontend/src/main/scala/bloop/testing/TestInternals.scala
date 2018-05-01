@@ -102,7 +102,7 @@ object TestInternals {
     // Make sure that we cache the resolution of the test agent jar and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
 
-    val testLoader = forker.toExecutionClassLoader(Some(filteredLoader))
+    val testLoader = forker.newClassLoader(Some(filteredLoader))
     val server = new TestServer(logger, handler, discovered, args, opts)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)

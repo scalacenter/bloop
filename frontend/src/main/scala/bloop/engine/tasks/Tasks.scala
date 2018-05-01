@@ -300,7 +300,7 @@ object Tasks {
       val projectName = project.name
       val projectTestArgs = project.testOptions.arguments
       val forker = Forker(project.javaEnv, project.classpath)
-      val testLoader = forker.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+      val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
       logger.debug(s"Found frameworks: ${foundFrameworks(frameworks)}")

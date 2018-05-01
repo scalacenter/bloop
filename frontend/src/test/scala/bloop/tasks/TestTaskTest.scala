@@ -75,7 +75,7 @@ class TestTaskTest(
   }
 
   private def testLoader(fork: Forker): ClassLoader = {
-    fork.toExecutionClassLoader(Some(TestInternals.filteredLoader))
+    fork.newClassLoader(Some(TestInternals.filteredLoader))
   }
 
   private def frameworks(classLoader: ClassLoader): Array[Framework] = {
