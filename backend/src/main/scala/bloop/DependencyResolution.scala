@@ -29,6 +29,12 @@ object DependencyResolution {
   import scalaz.\/
   import scalaz.concurrent.Task
 
+  private val baseRepositories = Seq(
+    Cache.ivy2Local,
+    MavenRepository("https://repo1.maven.org/maven2"),
+    MavenRepository("https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/")
+  )
+
   /**
    * Resolve the specified module and get all the files. By default, the local ivy
    * repository and Maven Central are included in resolution.
@@ -48,17 +54,19 @@ object DependencyResolution {
     logger.debug(s"Resolving $organization:$module:$version")
     val dependency = Dependency(Module(organization, module), version)
     val start = Resolution(Set(dependency))
-    val repositories = {
-      val baseRepositories = Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
-      baseRepositories ++ additionalRepositories
-    }
+    val repositories = baseRepositories ++ additionalRepositories
     val fetch = Fetch.from(repositories, Cache.fetch())
     val resolution = start.process.run(fetch).unsafePerformSync
-    // TODO: Do something with the errors.
-    //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
-    val localArtifacts: Seq[FileError \/ File] =
-      Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
-    val allFiles = localArtifacts.flatMap(_.toList).toArray
-    allFiles.map(f => AbsolutePath(f.toPath))
+    val errors = resolution.metadataErrors
+    if (errors.isEmpty) {
+      val localArtifacts: Seq[FileError \/ File] =
+        Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
+      val allFiles = localArtifacts.flatMap(_.toList).toArray
+      allFiles.map(f => AbsolutePath(f.toPath))
+    } else {
+      sys.error(
+        s"Resolution of Scala instance failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
+      )
+    }
   }
 }
