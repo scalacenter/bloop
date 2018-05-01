@@ -27,9 +27,7 @@ object CompilationHelpers {
 
   final val scalaInstance: ScalaInstance = {
     val logger = new RecordingLogger
-    ScalaInstance.resolve("org.scala-lang",
-                          "scala-compiler",
-                          Properties.versionNumberString,
-                          logger)
+    val scalaVersion = Properties.developmentVersion.getOrElse(Properties.versionNumberString)
+    ScalaInstance.resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
   }
 }
