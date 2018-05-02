@@ -203,7 +203,12 @@ object PluginImplementation {
       }
 
       val classesDir = AutoImported.bloopProductDirectories.value.head.toPath()
-      val sourceDirs = Keys.sourceDirectories.value.map(_.toPath).toArray
+      val sources = {
+        val sourceDirs = Keys.sourceDirectories.value.iterator.map(_.toPath)
+        val sourceFiles = Keys.sources.value.iterator.map(_.toPath)
+        (sourceDirs ++ sourceFiles).toArray
+      }
+
       val testOptions = {
         val frameworks =
           Keys.testFrameworks.value.map(f => Config.TestFramework(f.implClassNames.toList)).toArray
@@ -262,8 +267,9 @@ object PluginImplementation {
         val java = Config.Java(javacOptions)
         val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
         val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
+
         val compileOptions = Config.CompileOptions(compileOrder)
-        val project = Config.Project(projectName, baseDirectory, sourceDirs, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, testOptions)
+        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, testOptions)
         Config.File(Config.File.LatestVersion, project)
       }
       // format: ON
