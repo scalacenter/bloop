@@ -45,6 +45,7 @@ abstract class NailgunTest {
     val errStream = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
 
     val serverIsStarted = scala.concurrent.Promise[Unit]()
+    val serverIsFinished = scala.concurrent.Promise[Unit]()
     val serverLogic = Task {
       var optServer: Option[NGServer] = None
 
@@ -63,6 +64,7 @@ abstract class NailgunTest {
       val server = optServer.getOrElse(sys.error("The nailgun server failed to initialize!"))
       serverIsStarted.success(())
       server.run()
+      serverIsFinished.success(())
     }
 
     val client = new Client(TEST_PORT, log, config)
@@ -75,8 +77,10 @@ abstract class NailgunTest {
           errStream.flush()
       })
 
-    val trigger = Task.fromFuture(serverIsStarted.future)
-    val f = Task.zip2(serverLogic, trigger.flatMap(_ => clientLogic)).runAsync(nailgunPool)
+    val startTrigger = Task.fromFuture(serverIsStarted.future)
+    val endTrigger = Task.fromFuture(serverIsFinished.future)
+    val runClient = startTrigger.flatMap(_ => clientLogic.flatMap(_ => endTrigger))
+    val f = Task.zip2(serverLogic, startTrigger.flatMap(_ => clientLogic)).runAsync(nailgunPool)
     Await.result(f, FiniteDuration(60, TimeUnit.SECONDS))._2
   }
 
