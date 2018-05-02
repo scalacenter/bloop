@@ -51,6 +51,11 @@ object Pipelined {
   private object CompletePromise extends RuntimeException("Promise completed after compilation")
   private object BlockURI extends RuntimeException("URI cannot complete: compilation is blocked")
 
+  private val startTimings = new scala.collection.mutable.HashMap[Project, Long]
+  private val endTimings = new scala.collection.mutable.HashMap[Project, Long]
+  private val timingDeps = new scala.collection.mutable.HashMap[Project, List[Project]]
+  private val pickleTimings = new scala.collection.mutable.HashMap[Project, Long]
+
   /**
    * Performs incremental compilation of the dependencies of `project`, including `project` if
    * `excludeRoot` is `false`, excluding it otherwise.
@@ -114,22 +119,17 @@ object Pipelined {
     def compile(inputs: PipelineInputs): Compiler.Result = {
       val project = inputs.project
       logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
+      startTimings += (project -> System.currentTimeMillis())
       val previous = state.results.lastSuccessfulResult(project)
-      val res = try Compiler.compile(toInputs(inputs, reporterConfig, previous))
+      try Compiler.compile(toInputs(inputs, reporterConfig, previous))
       finally {
+        endTimings += (project -> System.currentTimeMillis())
         if (!inputs.pickleReady.isDone) {
           logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
           inputs.pickleReady.completeExceptionally(CompletePromise)
           ()
         }
       }
-
-      res match {
-        case Compiler.Result.Failed(problems, _) =>
-          println(s"Failed compilation with: ${problems.toList}")
-        case _ => ()
-      }
-      res
     }
 
     val dag = state.build.getDagFor(project)
@@ -143,8 +143,18 @@ object Pipelined {
         futureFullResults.map { results =>
           val failures = failed(results).distinct
           val newState = state.copy(results = state.results.addResults(results))
-          if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
-          else {
+          if (failures.isEmpty) {
+            startTimings.map {
+              case (k, startMs) =>
+                val endMs = endTimings.get(k).get
+                val allTimingDeps = timingDeps.get(k).get.map(d => endTimings.get(d).get)
+                val hypotheticalEnd = if (allTimingDeps.isEmpty) startMs else allTimingDeps.max
+                val duration = (endMs - startMs)
+                val saved = (hypotheticalEnd - startMs)
+                logger.info(s"Project ${k.name} compiled in ${duration}ms; and saved ${saved}ms")
+            }
+            newState.copy(status = ExitStatus.Ok)
+          } else {
             failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
             newState.copy(status = ExitStatus.CompilationError)
           }
@@ -204,6 +214,7 @@ object Pipelined {
               Task(new CompletableFuture[URI]()).flatMap { cf =>
                 val t = Task(compile(PipelineInputs(project, Nil, cf, None)))
                 val running = t.runAsync(ExecutionContext.scheduler)
+                timingDeps += (project -> Nil)
                 Task
                   .fromFuture(cf.asScala)
                   .materialize
@@ -244,9 +255,12 @@ object Pipelined {
                         }
                     }
 
+                    val pickleProjects = dfss.map(_._1).distinct
+                    timingDeps += (project -> pickleProjects)
+
                     // This future tells the java compiler when to start compilation
-                    val javaReady = downstreamFutures.runAsync(ExecutionContext.scheduler).asJava
-                    val t = Task(compile(PipelineInputs(project, picklepath, cf, Some(javaReady))))
+                    //val javaReady = downstreamFutures.runAsync(ExecutionContext.scheduler).asJava
+                    val t = Task(compile(PipelineInputs(project, picklepath, cf, None)))
                     val running = t.runAsync(ExecutionContext.scheduler)
                     Task
                       .fromFuture(cf.asScala)
