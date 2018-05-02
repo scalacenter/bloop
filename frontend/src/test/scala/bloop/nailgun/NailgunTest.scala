@@ -1,16 +1,22 @@
 package bloop.nailgun
 
-import java.io.{File, PrintStream}
+import java.io.PrintStream
 
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import java.nio.file.{Files, Path, Paths}
-import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 import bloop.Server
 import bloop.bsp.BspServer
 import bloop.logging.{ProcessLogger, RecordingLogger}
 import bloop.tasks.TestUtil
 import com.martiansoftware.nailgun.NGServer
+import monix.eval.Task
+import monix.execution.Scheduler
+import org.apache.commons.io.IOUtils
+
+import scala.concurrent.Await
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Base class for writing test for the nailgun integration.
@@ -18,6 +24,8 @@ import com.martiansoftware.nailgun.NGServer
 abstract class NailgunTest {
 
   private final val TEST_PORT = 8998
+
+  private final val nailgunPool = Scheduler.computation(parallelism = 2)
 
   /**
    * Starts a Nailgun server, creates a client and executes operations with that client.
@@ -29,41 +37,51 @@ abstract class NailgunTest {
    * @return The result of executing `op` on the client.
    */
   def withServer[T](log: RecordingLogger, config: Path)(op: Client => T): T = {
+    val oldIn = System.in
     val oldOut = System.out
     val oldErr = System.err
+    val inStream = IOUtils.toInputStream("")
     val outStream = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
     val errStream = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
 
-    val serverThread =
-      new Thread {
-        override def run(): Unit = {
-          var optServer: Option[NGServer] = None
+    val serverIsStarted = scala.concurrent.Promise[Unit]()
+    val serverIsFinished = scala.concurrent.Promise[Unit]()
+    val serverLogic = Task {
+      var optServer: Option[NGServer] = None
 
-          // Trick nailgun into thinking these are the real streams
-          System.setOut(outStream)
-          System.setErr(errStream)
-          try {
-            optServer = Some(Server.instantiateServer(Array(TEST_PORT.toString)))
-          } finally {
-            System.setOut(oldOut)
-            System.setErr(oldErr)
-          }
-
-          val server = optServer.getOrElse(sys.error("The nailgun server failed to initialize!"))
-          server.run()
-        }
+      // Trick nailgun into thinking these are the real streams
+      System.setIn(inStream)
+      System.setOut(outStream)
+      System.setErr(errStream)
+      try {
+        optServer = Some(Server.instantiateServer(Array(TEST_PORT.toString)))
+      } finally {
+        System.setIn(oldIn)
+        System.setOut(oldOut)
+        System.setErr(oldErr)
       }
 
-    serverThread.start()
-
-    Thread.sleep(500)
-    val client = new Client(TEST_PORT, log, config)
-    try op(client)
-    finally {
-      client.success("exit")
-      outStream.flush()
-      errStream.flush()
+      val server = optServer.getOrElse(sys.error("The nailgun server failed to initialize!"))
+      serverIsStarted.success(())
+      server.run()
+      serverIsFinished.success(())
     }
+
+    val client = new Client(TEST_PORT, log, config)
+    val clientLogic = Task(op(client))
+      .onErrorRestart(3)
+      .doOnFinish(_ =>
+        Task {
+          client.success("exit")
+          outStream.flush()
+          errStream.flush()
+      })
+
+    val startTrigger = Task.fromFuture(serverIsStarted.future)
+    val endTrigger = Task.fromFuture(serverIsFinished.future)
+    val runClient = startTrigger.flatMap(_ => clientLogic.flatMap(_ => endTrigger))
+    val f = Task.zip2(serverLogic, startTrigger.flatMap(_ => clientLogic)).runAsync(nailgunPool)
+    Await.result(f, FiniteDuration(60, TimeUnit.SECONDS))._2
   }
 
   /**
@@ -110,6 +128,7 @@ abstract class NailgunTest {
         if (BspServer.isWindows) "python" :: clientPath.toString :: Nil
         else clientPath.toString :: Nil
       val builder = new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
+      builder.redirectInput(ProcessBuilder.Redirect.INHERIT)
       val env = builder.environment()
       env.put("BLOOP_OWNER", "owner")
       builder.directory(base.toFile)
@@ -126,12 +145,12 @@ abstract class NailgunTest {
     }
 
     /**
-      * Execute a command `cmd` on the server and return the process
-      * executing the specified command.
-      *
-      * @param cmd The command to execute
-      * @return The exit code of the operation.
-      */
+     * Execute a command `cmd` on the server and return the process
+     * executing the specified command.
+     *
+     * @param cmd The command to execute
+     * @return The exit code of the operation.
+     */
     def issueAsProcess(cmd0: String*): Process = {
       val cmd = cmd0 ++ List("--config-dir", configPath)
       val builder = processBuilder(cmd)
@@ -166,7 +185,5 @@ abstract class NailgunTest {
            |""".stripMargin
       assertNotEquals(failMessage, 0, issue(cmd: _*).toLong)
     }
-
   }
-
 }

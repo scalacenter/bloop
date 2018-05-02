@@ -97,7 +97,7 @@ object BspServer {
         .doOnFinish(_ => me.Task { handle.serverSocket.close() })
     }
 
-    val runTask = initServer(cmd, state).materialize.flatMap {
+    initServer(cmd, state).materialize.flatMap {
       case scala.util.Success(handle: ConnectionHandle) =>
         startServer(handle).onErrorRecover {
           case t: Throwable =>
@@ -112,7 +112,5 @@ object BspServer {
           state
         }
     }
-
-    runTask.executeWithOptions(_.enableAutoCancelableRunLoops)
   }
 }

@@ -257,7 +257,6 @@ object Cli {
         .flatMap(start => taskState.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
         .dematerialize
-        .executeWithOptions(_.enableAutoCancelableRunLoops)
         .runAsync(ExecutionContext.scheduler)
 
     def handleException(t: Throwable) = {

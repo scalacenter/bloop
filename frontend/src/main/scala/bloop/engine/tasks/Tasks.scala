@@ -4,7 +4,7 @@ import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
-import bloop.exec.ForkProcess
+import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, Reporter, ReporterConfig}
@@ -271,52 +271,54 @@ object Tasks {
       isolated: Boolean,
       frameworkSpecificRawArgs: List[String],
       testFilter: String => Boolean
-  ): Task[State] = Task {
-    // TODO(jvican): This method should cache the test loader always.
+  ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
+    def foundFrameworks(frameworks: Array[Framework]) = frameworks.map(_.name).mkString(", ")
 
-    val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
-    projectsToTest.foreach { project =>
-      val projectName = project.name
-      val projectTestArgs = project.testOptions.arguments
-      val forkProcess = ForkProcess(project.javaEnv, project.classpath)
-      val testLoader = forkProcess.toExecutionClassLoader(Some(TestInternals.filteredLoader))
-      val frameworks = project.testFrameworks
-        .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
-      def foundFrameworks = frameworks.map(_.name).mkString(", ")
-      logger.debug(s"Found frameworks: $foundFrameworks")
-
-      // Test arguments coming after `--` can only be used if only one mapping is found
-      val frameworkArgs = {
-        if (frameworkSpecificRawArgs.isEmpty) Nil
-        else {
-          frameworks match {
-            case Array(oneFramework) =>
-              val rawArgs = frameworkSpecificRawArgs.toArray
-              val cls = oneFramework.getClass.getName()
-              logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
-              List(Config.TestArgument(rawArgs, Some(Config.TestFramework(List(cls)))))
-            case _ =>
-              val ignoredArgs = frameworkSpecificRawArgs.mkString(" ")
-              logger.warn(
-                s"Framework-specific test options '${ignoredArgs}' are ignored because several frameworks were found: $foundFrameworks")
-              Nil
-          }
+    // Test arguments coming after `--` can only be used if only one mapping is found
+    def considerFrameworkArgs(frameworks: Array[Framework]) = {
+      if (frameworkSpecificRawArgs.isEmpty) Nil
+      else {
+        frameworks match {
+          case Array(oneFramework) =>
+            val rawArgs = frameworkSpecificRawArgs.toArray
+            val cls = oneFramework.getClass.getName()
+            logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
+            List(Config.TestArgument(rawArgs, Some(Config.TestFramework(List(cls)))))
+          case _ =>
+            val ignoredArgs = frameworkSpecificRawArgs.mkString(" ")
+            logger.warn(
+              s"Framework-specific test options '${ignoredArgs}' are ignored because several frameworks were found: ${foundFrameworks(frameworks)}")
+            Nil
         }
       }
+    }
 
-      val analysis = state.results.lastSuccessfulResult(project).analysis().toOption.getOrElse {
+    val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
+    val testTasks = projectsToTest.map { project =>
+      val projectName = project.name
+      val projectTestArgs = project.testOptions.arguments
+      val forker = Forker(project.javaEnv, project.classpath)
+      val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
+      val frameworks = project.testFrameworks
+        .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
+      logger.debug(s"Found frameworks: ${foundFrameworks(frameworks)}")
+
+      val frameworkArgs = considerFrameworkArgs(frameworks)
+      val lastCompileResult = state.results.lastSuccessfulResult(project)
+      val analysis = lastCompileResult.analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
         Analysis.empty
       }
 
-      val discoveredTests = {
+      val discovered = {
         val tests = discoverTests(analysis, frameworks)
         val excluded = project.testOptions.excludes.toSet
         val ungroupedTests = tests.toList.flatMap {
           case (framework, tasks) => tasks.map(t => (framework, t))
         }
+
         val (includedTests, excludedTests) = ungroupedTests.partition {
           case (_, task) =>
             val fqn = task.fullyQualifiedName()
@@ -335,13 +337,17 @@ object Tasks {
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
       }
 
+      val opts = state.commonOptions
       val args = project.testOptions.arguments ++ frameworkArgs
-      val env = state.commonOptions.env
-      TestInternals.executeTasks(cwd, forkProcess, discoveredTests, args, handler, logger, env)
+      TestInternals.execute(cwd, forker, discovered, args, handler, logger, opts)
     }
 
-    // Return the previous state, test execution doesn't modify it.
-    state.mergeStatus(ExitStatus.Ok)
+    // For now, test execution is only sequential.
+    Task.sequence(testTasks).map { exitCodes =>
+      val isOk = exitCodes.forall(_ == 0)
+      if (isOk) state.mergeStatus(ExitStatus.Ok)
+      else state.copy(status = ExitStatus.TestExecutionError)
+    }
   }
 
   /**
@@ -357,16 +363,16 @@ object Tasks {
           project: Project,
           cwd: AbsolutePath,
           fqn: String,
-          args: Array[String]): Task[State] = Task {
+          args: Array[String]): Task[State] = {
     val classpath = project.classpath
-    val processConfig = ForkProcess(project.javaEnv, classpath)
-    val exitCode = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions.env)
-    val exitStatus = {
-      if (exitCode == ForkProcess.EXIT_OK) ExitStatus.Ok
-      else ExitStatus.UnexpectedError
+    val processConfig = Forker(project.javaEnv, classpath)
+    val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
+    runTask.map { exitCode =>
+      state.mergeStatus {
+        if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
+        else ExitStatus.UnexpectedError
+      }
     }
-
-    state.mergeStatus(exitStatus)
   }
 
   /**

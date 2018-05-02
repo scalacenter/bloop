@@ -4,10 +4,13 @@ import java.util.Properties
 import java.util.regex.Pattern
 
 import bloop.DependencyResolution
+import bloop.cli.CommonOptions
 import bloop.config.Config
-import bloop.exec.ForkProcess
+import bloop.engine.ExecutionContext
+import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+import monix.eval.Task
 import sbt.testing.{AnnotatedFingerprint, EventHandler, Fingerprint, SubclassFingerprint}
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
@@ -78,37 +81,40 @@ object TestInternals {
    * Execute the test tasks in a forked JVM.
    *
    * @param cwd             The directory in which to start the forked JVM.
-   * @param fork            Configuration for the forked JVM.
-   * @param discoveredTests The tests that were discovered.
+   * @param forker            Configuration for the forked JVM.
+   * @param discovered The tests that were discovered.
    * @param args            The test arguments to pass to the framework.
-   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
+   * @param handler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
    * @param env             The environment properties to run the program with.
    */
-  def executeTasks(cwd: AbsolutePath,
-                   fork: ForkProcess,
-                   discoveredTests: DiscoveredTests,
-                   args: List[Config.TestArgument],
-                   eventHandler: EventHandler,
-                   logger: Logger,
-                   env: Properties): Unit = {
+  def execute(
+      cwd: AbsolutePath,
+      forker: Forker,
+      discovered: DiscoveredTests,
+      args: List[Config.TestArgument],
+      handler: EventHandler,
+      logger: Logger,
+      opts: CommonOptions
+  ): Task[Int] = {
     logger.debug("Starting forked test execution.")
 
     // Make sure that we cache the resolution of the test agent jar and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
 
-    val testLoader = fork.toExecutionClassLoader(Some(filteredLoader))
-    val server = new TestServer(logger, eventHandler, discoveredTests, args)
+    val testLoader = forker.newClassLoader(Some(filteredLoader))
+    val server = new TestServer(logger, handler, discovered, args, opts)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
     logger.debug("Test agent jars: " + agentFiles.mkString(", "))
 
-    val exitCode = server.whileRunning {
-      fork.runMain(cwd, forkMain, arguments, logger, env, testAgentJars)
-    }
-
-    if (exitCode != 0) logger.error(s"Forked execution terminated with non-zero code: $exitCode")
+    val listener = server.listenToTests
+    val runner = forker.runMain(cwd, forkMain, arguments, logger, opts, testAgentJars)
+    val listenerHandle = listener.reporter.runAsync(ExecutionContext.ioScheduler)
+    runner.delayExecutionWith(listener.startServer)
+      .executeOn(ExecutionContext.ioScheduler)
+      .doOnCancel(Task(listenerHandle.cancel()))
   }
 
   def loadFramework(l: ClassLoader, fqns: List[String], logger: Logger): Option[Framework] = {

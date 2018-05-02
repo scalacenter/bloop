@@ -4,12 +4,14 @@ matrix:
   SBT_RUN:
     - sbt "benchmarks/compile" \
           "jsonConfig/test" \
-          "sbtBloop/scripted" \
           "frontend/integrationSetUpBloop" \
-          "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests" \
           "backend/test" \
           "frontend/test" \
           "docs/makeSite"
+
+  SBT_RUN_BENCHMARKS_AND_SCRIPTED:
+    - sbt "sbtBloop/scripted" \
+          "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
 
   SBT_PUBLISH:
     - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
@@ -23,6 +25,9 @@ matrix:
   OS:
     - windows
     - linux
+  OPS:
+    - basic
+    - extra
 
 clone:
   git:
@@ -62,12 +67,27 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
       matrix:
         OS: linux
+        OPS: basic
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
       - ./bin/add-coursier.sh
       - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
       - ${SBT_RUN}; ./bin/ci-clean-cache.sh
+
+  run_benchmarks_scripted:
+    image: scalacenter/scala-docs:1.1
+    group: build
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
+        OPS: extra
+    commands:
+      - export DRONE_DIR="/drone"
+      - git log | head -n 20
+      - ./bin/add-coursier.sh
+      - ${SBT_RUN_BENCHMARKS_AND_SCRIPTED}; ./bin/ci-clean-cache.sh
 
   build_windows:
     group: build
@@ -76,6 +96,7 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
       matrix:
         OS: windows
+        OPS: basic
     secrets: [ bloop_jenkins_token ]
     commands:
       - ./bin/stream-jenkins-log.sh "bloop:$BLOOP_JENKINS_TOKEN"
@@ -91,6 +112,7 @@ pipeline:
       status: success
       matrix:
         OS: linux
+        OPS: basic
     commands:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
@@ -112,6 +134,7 @@ pipeline:
       status: success
       matrix:
         OS: linux
+        OPS: basic
     commands:
       - export DRONE_DIR="/drone"
       - ./bin/add-coursier.sh
@@ -124,6 +147,7 @@ pipeline:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
       matrix:
         OS: linux
+        OPS: basic
     secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
     rebuild: true
     mount:
