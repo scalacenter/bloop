@@ -2,3 +2,4 @@
 > baz/compile
 > woo/test:compile
 > bloopInstall
+> checkBloopFile
