@@ -37,10 +37,11 @@ final class BlockingJavaCompiler(ready: CompletableFuture[Seq[File]], javaCompil
     }
 
 
-    try {
+    javaCompiler.run(files, args, opts, reporter, logger)
+/*    try {
       val classpath = ready.get()
       if (classpath.isEmpty) notifyExit
       else compileJava(classpath)
-    } catch { case t: Throwable => notifyExit }
+    } catch { case t: Throwable => notifyExit }*/
   }
 }
