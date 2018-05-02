@@ -15,6 +15,7 @@ import sbt.{
   Test,
   ThisBuild
 }
+import xsbti.compile.CompileOrder
 
 object SbtBloop extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -246,6 +247,12 @@ object PluginImplementation {
         }
       }
 
+      val compileOrder = Keys.compileOrder.value match {
+        case CompileOrder.JavaThenScala => Config.JavaThenScala
+        case CompileOrder.ScalaThenJava => Config.ScalaThenJava
+        case CompileOrder.Mixed => Config.Mixed
+      }
+
       val javacOptions = Keys.javacOptions.value.toArray
       val (javaHome, javaOptions) = javaConfiguration.value
       val outFile = bloopConfigDir / s"$projectName.json"
@@ -260,7 +267,9 @@ object PluginImplementation {
         val java = Config.Java(javacOptions)
         val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
         val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
-        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, out, classesDir, `scala`, jvm, java, testOptions)
+
+        val compileOptions = Config.CompileOptions(compileOrder)
+        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, testOptions)
         Config.File(Config.File.LatestVersion, project)
       }
       // format: ON

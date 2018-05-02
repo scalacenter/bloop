@@ -2,17 +2,7 @@ package bloop.config
 
 import java.nio.file.{Files, Paths}
 
-import bloop.config.Config.{
-  File,
-  ClasspathOptions,
-  Java,
-  Jvm,
-  Project,
-  Scala,
-  TestOptions,
-  Test => ConfigTest
-}
-
+import bloop.config.Config.{ClasspathOptions, CompileOptions, File, Java, Jvm, Project, Scala, TestOptions, Test => ConfigTest}
 import bloop.config.ConfigDecoders.allConfigDecoder
 import bloop.config.ConfigEncoders.allConfigEncoder
 import metaconfig.{Conf, Configured}
@@ -55,6 +45,7 @@ class JsonSpec {
       Array("dummy-2"),
       Array(scalaLibraryJar),
       ClasspathOptions.empty,
+      CompileOptions.empty,
       classesDir,
       outDir,
       Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),

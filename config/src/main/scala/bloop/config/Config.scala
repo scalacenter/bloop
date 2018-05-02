@@ -33,6 +33,20 @@ object Config {
     private[bloop] val empty: ClasspathOptions = ClasspathOptions(true, false, false, true, true)
   }
 
+  sealed trait CompileOrder
+  case object Mixed extends CompileOrder
+  case object JavaThenScala extends CompileOrder
+  case object ScalaThenJava extends CompileOrder
+
+  // TODO(jvican): Move the classpath options to this field before 1.0.0. Holding off of this breaking change for now.
+  case class CompileOptions(
+      order: CompileOrder
+  )
+
+  object CompileOptions {
+    private[bloop] val empty: CompileOptions = CompileOptions(Mixed)
+  }
+
   case class Scala(
       organization: String,
       name: String,
@@ -52,6 +66,7 @@ object Config {
       dependencies: Array[String],
       classpath: Array[Path],
       classpathOptions: ClasspathOptions,
+      compileOptions: CompileOptions,
       out: Path,
       classesDir: Path,
       `scala`: Scala,
@@ -63,7 +78,7 @@ object Config {
   object Project {
     // FORMAT: OFF
     private[bloop] val empty: Project =
-      Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty, Test.empty)
+      Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty, CompileOptions.empty, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty, Test.empty)
     // FORMAT: ON
   }
 

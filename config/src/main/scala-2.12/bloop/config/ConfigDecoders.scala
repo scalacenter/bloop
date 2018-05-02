@@ -3,8 +3,8 @@ package bloop.config
 import java.nio.file.{Files, Path, Paths}
 
 import bloop.config.Config._
-import metaconfig.generic.Surface
-import metaconfig.{ConfDecoder, ConfError, Configured, generic}
+import metaconfig.generic.{Field, Surface}
+import metaconfig.{Conf, ConfDecoder, ConfError, Configured, generic}
 
 import scala.util.{Failure, Success, Try}
 
@@ -55,6 +55,30 @@ object ConfigDecoders {
     generic.deriveSurface[ClasspathOptions]
   implicit val classpathOptionsConfigDecoder: ConfDecoder[ClasspathOptions] =
     generic.deriveDecoder[ClasspathOptions](ClasspathOptions.empty)
+
+  implicit val compileOrderConfigSurface: Surface[CompileOrder] = {
+    val field = new Field("compileOrder", "string", Nil, Nil)
+    new Surface[CompileOrder](List(List(field)))
+  }
+
+  implicit val compileOrderConfigDecoder: ConfDecoder[CompileOrder] = {
+    new ConfDecoder[CompileOrder] {
+      override def read(conf: Conf): Configured[CompileOrder] = {
+        conf match {
+          case Conf.Str("mixed") | Conf.Str("Mixed") => Configured.ok(Mixed)
+          case Conf.Str("java->Scala") => Configured.ok(JavaThenScala)
+          case Conf.Str("scala->java") => Configured.ok(ScalaThenJava)
+          case Conf.Str(unknown) => Configured.error(s"Unknown compile order $unknown")
+          case conf => Configured.typeMismatch("string", conf)
+        }
+      }
+    }
+  }
+
+  implicit val compileOptionsConfigSurface: Surface[CompileOptions] =
+    generic.deriveSurface[CompileOptions]
+  implicit val compileOptionsConfigDecoder: ConfDecoder[CompileOptions] =
+    generic.deriveDecoder[CompileOptions](CompileOptions.empty)
 
   implicit val projectConfigSurface: Surface[Project] =
     generic.deriveSurface[Project]
