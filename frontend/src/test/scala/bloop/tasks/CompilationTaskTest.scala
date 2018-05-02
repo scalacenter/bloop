@@ -38,10 +38,23 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileWithScala2124 = {
+  def compileWithScala2126 = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.6", logger)
+    simpleProject(scalaInstance)
+  }
+
+  @Test
+  def compileWithScalaPrVersion = {
+    // Make sure that we can resolve a version used in Scala development
+    val logger = new RecordingLogger
+    val scalaInstance = ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      "2.12.7-bin-af4ffa8-SNAPSHOT",
+      logger
+    )
     simpleProject(scalaInstance)
   }
 
