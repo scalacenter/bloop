@@ -212,7 +212,8 @@ object Tasks {
     val loader = ClasspathUtilities.makeLoader(classpathFiles, scalaInstance)
     val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
     val classpathOptions = ClasspathOptionsUtil.repl
-    compiler.console(classpathFiles, project.scalacOptions, classpathOptions, "", "", state.logger)(
+    val options = project.scalacOptions :+ "-Xnojline"
+    compiler.console(classpathFiles, options, classpathOptions, "", "", state.logger)(
       Some(loader))
     state
   }
