@@ -16,14 +16,14 @@ import java.util
 import io.github.soc.directories.ProjectDirectories
 
 object Paths {
-  private val projectDirectories = ProjectDirectories.fromProjectName("bloop")
+  private val projectDirectories = ProjectDirectories.from("", "", "bloop")
   private def createDirFor(filepath: String): AbsolutePath =
     AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
 
-  final val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.projectCacheDir)
-  final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.projectDataDir)
+  final val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.cacheDir)
+  final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
   final val bloopLogsDir: AbsolutePath = createDirFor(bloopDataDir.resolve("logs").syntax)
-  final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.projectConfigDir)
+  final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.configDir)
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
