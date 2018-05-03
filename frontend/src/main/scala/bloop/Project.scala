@@ -7,7 +7,7 @@ import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import xsbti.compile.{ClasspathOptions, ClasspathOptionsUtil}
+import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import config.{Config, ConfigEncoderDecoders}
@@ -21,8 +21,8 @@ final case class Project(
     baseDirectory: AbsolutePath,
     dependencies: List[String],
     scalaInstance: ScalaInstance,
-    rawClasspath: List[AbsolutePath],
-    classpathOptions: ClasspathOptions,
+    rawClasspath: Array[AbsolutePath],
+    compileSetup: Config.CompileSetup,
     classesDir: AbsolutePath,
     scalacOptions: List[String],
     javacOptions: List[String],
@@ -45,7 +45,17 @@ final case class Project(
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
-  val classpath: Array[AbsolutePath] = classesDir +: rawClasspath.toArray
+  val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
+
+  val classpathOptions: ClasspathOptions = {
+    ClasspathOptions.of(
+      compileSetup.addLibraryToBootClasspath,
+      compileSetup.addCompilerToClasspath,
+      compileSetup.addExtraJarsToClasspath,
+      compileSetup.manageBootClasspath,
+      compileSetup.filterLibraryFromClasspath
+    )
+  }
 }
 
 object Project {
@@ -106,17 +116,7 @@ object Project {
       }
     }
 
-    val classpathOptions = {
-      val setup = scala.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
-      ClasspathOptions.of(
-        setup.addLibraryToBootClasspath,
-        setup.addCompilerToClasspath,
-        setup.addExtraJarsToClasspath,
-        setup.manageBootClasspath,
-        setup.filterLibraryFromClasspath
-      )
-    }
-
+    val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val jsToolchain = project.platform.flatMap { platform =>
       Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
     }
@@ -144,8 +144,8 @@ object Project {
       AbsolutePath(project.directory),
       project.dependencies,
       instance,
-      project.classpath.map(AbsolutePath.apply),
-      classpathOptions,
+      project.classpath.map(AbsolutePath.apply).toArray,
+      setup,
       AbsolutePath(project.classesDir),
       scala.map(_.options).getOrElse(Nil),
       project.java.map(_.options).getOrElse(Nil),

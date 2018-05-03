@@ -23,7 +23,7 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbt.api.Discovery
-import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
+import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, CompileOrder, MiniSetup, PreviousResult}
 
 object Tasks {
   private val TestFailedStatus: Set[Status] =
@@ -84,6 +84,13 @@ object Tasks {
       val javacOptions = project.javacOptions.toArray
       val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
+
+      val compileOrder = project.compileSetup.order match {
+        case Config.Mixed => CompileOrder.Mixed
+        case Config.JavaThenScala => CompileOrder.JavaThenScala
+        case Config.ScalaThenJava => CompileOrder.ScalaThenJava
+      }
+
       // Set the reporter based on the kind of logger to publish diagnostics
       val reporter = logger match {
         case bspLogger: BspLogger =>
@@ -93,7 +100,7 @@ object Tasks {
       }
 
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, classpathOptions, result, reporter, None, None, logger)
+      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, None, None, logger)
       // FORMAT: ON
     }
 
