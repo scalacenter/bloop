@@ -34,9 +34,9 @@ object Config {
   }
 
   sealed trait CompileOrder
-  case object Mixed extends CompileOrder
-  case object JavaThenScala extends CompileOrder
-  case object ScalaThenJava extends CompileOrder
+  case object Mixed extends CompileOrder { val id: String = "mixed" }
+  case object JavaThenScala extends CompileOrder { val id: String = "java->scala" }
+  case object ScalaThenJava extends CompileOrder { val id: String = "scala->java" }
 
   // TODO(jvican): Move the classpath options to this field before 1.0.0. Holding off of this breaking change for now.
   case class CompileOptions(
