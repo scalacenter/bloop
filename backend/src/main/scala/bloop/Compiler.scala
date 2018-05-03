@@ -25,6 +25,7 @@ case class CompileInputs(
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
     javacOptions: Array[String],
+    compileOrder: CompileOrder,
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     reporter: Reporter,
@@ -82,6 +83,7 @@ object Compiler {
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
+        .withOrder(inputs.compileOrder)
     }
 
     def getSetup(compileInputs: CompileInputs): Setup = {

@@ -5,6 +5,7 @@ import java.net.URI
 import java.util.concurrent.CompletableFuture
 
 import bloop.cli.ExitStatus
+import bloop.config.Config
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent, State}
 import bloop.io.AbsolutePath
 import bloop.logging.{BspLogger, Logger}
@@ -12,7 +13,7 @@ import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
 import bloop.monix.Java8Compat.{JavaCompletableFutureUtils, ScalaFutureUtils}
-import xsbti.compile.PreviousResult
+import xsbti.compile.{ClasspathOptions, ClasspathOptionsUtil, CompileOrder, PreviousResult}
 
 import scala.util.{Failure, Success, Try}
 
@@ -94,21 +95,27 @@ object Pipelined {
       val target = project.out
       val scalacOptions = project.scalacOptions
       val javacOptions = project.javacOptions
-      val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
       val pickleReady = inputs.pickleReady
       val javaClasspath = inputs.javaClasspath
+
+      val classpathOptions = project.classpathOptions
+      val compileOrder = project.compileSetup.order match {
+        case Config.Mixed => CompileOrder.Mixed
+        case Config.JavaThenScala => CompileOrder.JavaThenScala
+        case Config.ScalaThenJava => CompileOrder.ScalaThenJava
+      }
 
       // Set the reporter based on the kind of logger to publish diagnostics
       val reporter = logger match {
         case bspLogger: BspLogger =>
           // Don't show errors in reverse order, log as they come!
-          new BspReporter(bspLogger, cwd, identity, config.copy(reverseOrder = false))
+          new BspReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
         case _ => new LogReporter(logger, cwd, identity, config)
       }
 
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, picklepath.toArray, classesDir, target, scalacOptions, javacOptions, classpathOptions, result, reporter, Some(pickleReady), javaClasspath, logger)
+      CompileInputs(instance, compilerCache, sources, classpath, picklepath.toArray, classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, Some(pickleReady), javaClasspath, logger)
       // FORMAT: ON
     }
 
