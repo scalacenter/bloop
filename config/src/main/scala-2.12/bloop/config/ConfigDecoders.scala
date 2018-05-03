@@ -65,9 +65,9 @@ object ConfigDecoders {
     new ConfDecoder[CompileOrder] {
       override def read(conf: Conf): Configured[CompileOrder] = {
         conf match {
-          case Conf.Str("mixed") | Conf.Str("Mixed") => Configured.ok(Mixed)
-          case Conf.Str("java->Scala") => Configured.ok(JavaThenScala)
-          case Conf.Str("scala->java") => Configured.ok(ScalaThenJava)
+          case Conf.Str(Mixed.id) => Configured.ok(Mixed)
+          case Conf.Str(JavaThenScala.id) => Configured.ok(JavaThenScala)
+          case Conf.Str(ScalaThenJava.id) => Configured.ok(ScalaThenJava)
           case Conf.Str(unknown) => Configured.error(s"Unknown compile order $unknown")
           case conf => Configured.typeMismatch("string", conf)
         }
