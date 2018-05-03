@@ -1,5 +1,7 @@
 package bloop.integrations.sbt
 
+import java.nio.file.Path
+
 import bloop.config.Config
 import sbt.{
   AutoPlugin,
@@ -123,6 +125,18 @@ object PluginImplementation {
       classesDir
     }
 
+    // Select only the sources that are not present in the source directories
+    def pruneSources(sourceDirs: Seq[Path], sources: Seq[Path]): Seq[Path] = {
+      def checkIfParent(parent: Path, potentialParent: Path): Boolean = {
+        if (potentialParent == null) false
+        else if (potentialParent == parent) true
+        else checkIfParent(parent, potentialParent.getParent)
+      }
+
+      val realSources = sources.map(_.toAbsolutePath())
+      sources.filter(source => !sourceDirs.exists(dir => checkIfParent(dir, source.getParent)))
+    }
+
     object Feedback {
       def unknownConfigurations(p: ResolvedProject,
                                 confs: Seq[String],
@@ -203,9 +217,13 @@ object PluginImplementation {
       }
 
       val classesDir = AutoImported.bloopProductDirectories.value.head.toPath()
+
+      /* This is a best-effort to export source directories + stray source files that
+       * are not contained in them. Source directories are superior over source files because
+       * they allow us to watch them and detect the creation of new source files in situ. */
       val sources = {
-        val sourceDirs = Keys.sourceDirectories.value.iterator.map(_.toPath)
-        val sourceFiles = Keys.sources.value.iterator.map(_.toPath)
+        val sourceDirs = Keys.sourceDirectories.value.map(_.toPath)
+        val sourceFiles = pruneSources(sourceDirs, Keys.sources.value.map(_.toPath))
         (sourceDirs ++ sourceFiles).toArray
       }
 
