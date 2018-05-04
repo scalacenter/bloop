@@ -23,7 +23,13 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbt.api.Discovery
-import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, CompileOrder, MiniSetup, PreviousResult}
+import xsbti.compile.{
+  ClasspathOptionsUtil,
+  CompileAnalysis,
+  CompileOrder,
+  MiniSetup,
+  PreviousResult
+}
 
 object Tasks {
   private val TestFailedStatus: Set[Status] =
@@ -49,8 +55,12 @@ object Tasks {
         case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
         case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
         case Compiler.Result.Blocked(on) => s"${project.name} (blocked on ${on.mkString(", ")})"
-        case Compiler.Result.Failed(problems, ms) =>
-          s"${project.name} (failed with ${Problem.count(problems)}, ${ms}ms)"
+        case Compiler.Result.Failed(problems, t, ms) =>
+          val extra = t match {
+            case Some(t) => s"exception '${t.getMessage}', "
+            case None => ""
+          }
+          s"${project.name} (failed with ${Problem.count(problems)}, $extra${ms}ms)"
       }
     }
   }
@@ -100,11 +110,11 @@ object Tasks {
       }
 
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, None, None, logger)
+      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, None, Task.now(true), logger)
       // FORMAT: ON
     }
 
-    def compile(project: Project): Compiler.Result = {
+    def compile(project: Project): Task[Compiler.Result] = {
       logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
       val previous = state.results.lastSuccessfulResult(project)
       Compiler.compile(toInputs(project, reporterConfig, previous))
@@ -159,7 +169,7 @@ object Tasks {
    */
   private def toCompileTask(
       dag: Dag[Project],
-      compile: Project => Compiler.Result
+      compile: Project => Task[Compiler.Result]
   ): CompileTask = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
     def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
@@ -178,13 +188,14 @@ object Tasks {
         case Some(task) => task
         case None =>
           val task = dag match {
-            case Leaf(project) => Task(Leaf(CompileResult(project, compile(project))))
+            case Leaf(project) => compile(project).map(res => Leaf(CompileResult(project, res)))
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { results =>
                 val failed = results.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) Task(Parent(CompileResult(project, compile(project)), results))
-                else {
+                if (failed.isEmpty) {
+                  compile(project).map(res => Parent(CompileResult(project, res), results))
+                } else {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blocked = Compiler.Result.Blocked(failed.map(_.name))
                   Task.now(Parent(CompileResult(project, blocked), results))

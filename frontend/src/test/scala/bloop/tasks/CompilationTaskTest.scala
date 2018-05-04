@@ -59,13 +59,13 @@ class CompilationTaskTest {
     simpleProject(scalaInstance)
   }
 
-  /*  @Test
+  @Test
   def compileWithScala21111 = {
     val logger = new RecordingLogger
     val scalaInstance =
       ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)
     simpleProject(scalaInstance)
-  }*/
+  }
 
   @Test
   def compileTwoProjectsWithADependency = {
@@ -131,21 +131,12 @@ class CompilationTaskTest {
   @Test
   def compileJavaProjectDependingOnScala: Unit = {
     object Sources {
-      def `A.scala` = "package foo; object Greeting { def greeting: String = \"Hello, World!\" }"
-      def `B.java` =
-        """import foo.Greeting;
-          |public class B {
-          |    public static void main(String[] args) {
-          |        System.out.println(Greeting.greeting());
-          |    }
-          |}
-          |"""
-
-      def `B2.java` =
+      val `A.scala` = "package foo; object Greeting { def greeting: String = \"Hello, World!\" }"
+      val `B.java` =
         """
           |import foo.Greeting;
           |
-          |public class B2 {
+          |public class B {
           |
           |    public static void main(String[] args) {
           |        // Prints "Hello, World" to the terminal window.
@@ -154,12 +145,19 @@ class CompilationTaskTest {
           |
           |}
         """.stripMargin
+
+      val `C.scala` =
+        """
+          |object DependencyOnScalaCode {
+          |  println(foo.Greeting.greeting)
+          |}
+        """.stripMargin
     }
 
     val projectsStructures = Map(
       "parent" -> Map("A.scala" -> Sources.`A.scala`),
       "unrelated" -> Map("B2.scala" -> ArtificialSources.`B2.scala`),
-      RootProject -> Map("B2.java" -> Sources.`B2.java`)
+      RootProject -> Map("B.java" -> Sources.`B.java`, "C.scala" -> Sources.`C.scala`)
     )
 
     val dependencies = Map(RootProject -> Set("parent"))
