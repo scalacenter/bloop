@@ -152,6 +152,14 @@ class FileWatchingSpec {
         // Start the compilation
         workerThread.start()
 
+        // Create non-existing source dirs in tests Xhttps://github.com/scalacenter/bloop/pull/471
+        project.sources.foreach { a =>
+          val p = a.underlying
+          val s = p.toString
+          if (!Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java"))
+            Files.createDirectories(p)
+        }
+
         // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
         val newSource = project.sources.head.resolve("D.scala").underlying
         if (Files.exists(newSource)) TestUtil.delete(newSource)
