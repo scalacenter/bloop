@@ -36,8 +36,12 @@ object Pipelined {
         case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
         case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
         case Compiler.Result.Blocked(on) => s"${project.name} (blocked on ${on.mkString(", ")})"
-        case Compiler.Result.Failed(problems, ms) =>
-          s"${project.name} (failed with ${Problem.count(problems)}, ${ms}ms)"
+        case Compiler.Result.Failed(problems, t, ms) =>
+          val extra = t match {
+            case Some(t) => s"exception '${t.getMessage}', "
+            case None => ""
+          }
+          s"${project.name} (failed with ${Problem.count(problems)}, $extra${ms}ms)"
       }
     }
   }
@@ -46,7 +50,7 @@ object Pipelined {
       project: Project,
       picklepath: List[URI],
       pickleReady: CompletableFuture[URI],
-      javaClasspath: Option[CompletableFuture[Seq[File]]]
+      javaReady: Task[Boolean]
   )
 
   private object CompletePromise extends RuntimeException("Promise completed after compilation")
@@ -97,7 +101,7 @@ object Pipelined {
       val javacOptions = project.javacOptions
       val cwd = state.build.origin.getParent
       val pickleReady = inputs.pickleReady
-      val javaClasspath = inputs.javaClasspath
+      val javaReady = inputs.javaReady
 
       val classpathOptions = project.classpathOptions
       val compileOrder = project.compileSetup.order match {
@@ -115,7 +119,7 @@ object Pipelined {
       }
 
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, picklepath.toArray, classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, Some(pickleReady), javaClasspath, logger)
+      CompileInputs(instance, compilerCache, sources, classpath, picklepath.toArray, classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, Some(pickleReady), javaReady, logger)
       // FORMAT: ON
     }
 
@@ -123,18 +127,19 @@ object Pipelined {
       results.collect { case (p, Compiler.Result.NotOk(_)) => p }
     }
 
-    def compile(inputs: PipelineInputs): Compiler.Result = {
+    def compile(inputs: PipelineInputs): Task[Compiler.Result] = {
       val project = inputs.project
       logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
       startTimings += (project -> System.currentTimeMillis())
       val previous = state.results.lastSuccessfulResult(project)
-      try Compiler.compile(toInputs(inputs, reporterConfig, previous))
-      finally {
-        endTimings += (project -> System.currentTimeMillis())
-        if (!inputs.pickleReady.isDone) {
-          logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-          inputs.pickleReady.completeExceptionally(CompletePromise)
-          ()
+      Compiler.compile(toInputs(inputs, reporterConfig, previous)).doOnFinish { _ =>
+        Task {
+          endTimings += (project -> System.currentTimeMillis())
+          if (!inputs.pickleReady.isDone) {
+            logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
+            inputs.pickleReady.completeExceptionally(CompletePromise)
+            ()
+          }
         }
       }
     }
@@ -195,7 +200,7 @@ object Pipelined {
    */
   private def toCompileTask(
       dag: Dag[Project],
-      compile: PipelineInputs => Compiler.Result,
+      compile: PipelineInputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTask = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
@@ -219,7 +224,7 @@ object Pipelined {
           val task = dag match {
             case Leaf(project) =>
               Task(new CompletableFuture[URI]()).flatMap { cf =>
-                val t = Task(compile(PipelineInputs(project, Nil, cf, None)))
+                val t = compile(PipelineInputs(project, Nil, cf, Task.now(true)))
                 val running = t.runAsync(ExecutionContext.scheduler)
                 timingDeps += (project -> Nil)
                 Task
@@ -247,27 +252,21 @@ object Pipelined {
 
                   Task(new CompletableFuture[URI]()).flatMap { cf =>
                     // Signals whether Java compilation can proceed or not.
-                    val downstreamFutures = {
+                    val javaReady = {
                       Task
                         .gatherUnordered(dfss.map(t => t._2._2.map(r => t._1 -> r)))
                         .map { rs =>
-                          val foundErrors = rs.collect {
+                          rs.collect {
                             case (_, r @ Compiler.Result.NotOk(_)) => r
                             case (_, r @ Compiler.Result.Blocked(_)) => r
-                          }.nonEmpty
-
-                          // Needs explicit seq conversion because completable future is invariant
-                          if (foundErrors) Seq()
-                          else rs.map(_._1.classesDir.toFile).toSeq
+                          }.isEmpty
                         }
                     }
 
                     val pickleProjects = dfss.map(_._1).distinct
                     timingDeps += (project -> pickleProjects)
 
-                    // This future tells the java compiler when to start compilation
-                    //val javaReady = downstreamFutures.runAsync(ExecutionContext.scheduler).asJava
-                    val t = Task(compile(PipelineInputs(project, picklepath, cf, None)))
+                    val t = compile(PipelineInputs(project, picklepath, cf, javaReady))
                     val running = t.runAsync(ExecutionContext.scheduler)
                     Task
                       .fromFuture(cf.asScala)

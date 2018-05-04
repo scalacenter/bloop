@@ -11,9 +11,10 @@ import bloop.internal.Ecosystem
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import bloop.reporter.Reporter
-import sbt.internal.inc.javac.JavaTools
-import sbt.internal.inc.{FreshCompilerCache, Locate, ZincUtil}
+import sbt.internal.inc.bloop.BloopZincCompiler
+import sbt.internal.inc.{FreshCompilerCache, Locate}
 import sbt.util.InterfaceUtil
+import _root_.monix.eval.Task
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -30,7 +31,7 @@ case class CompileInputs(
     previousResult: PreviousResult,
     reporter: Reporter,
     pickleReceiver: Option[CompletableFuture[URI]],
-    javaClasspath: Option[CompletableFuture[Seq[File]]],
+    startJavaCompilation: Task[Boolean],
     logger: Logger
 )
 
@@ -48,19 +49,20 @@ object Compiler {
     final case object Empty extends Result
     final case class Blocked(on: List[String]) extends Result
     final case class Cancelled(elapsed: Long) extends Result
-    final case class Failed(problems: Array[xsbti.Problem], elapsed: Long) extends Result
+    final case class Failed(problems: Array[xsbti.Problem], t: Option[Throwable], elapsed: Long)
+        extends Result
     final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
         extends Result
 
     object NotOk {
       def unapply(result: Result): Option[Result] = result match {
-        case f @ (Failed(_, _) | Cancelled(_) | Blocked(_)) => Some(f)
+        case f @ (Failed(_, _, _) | Cancelled(_) | Blocked(_)) => Some(f)
         case _ => None
       }
     }
   }
 
-  def compile(compileInputs: CompileInputs): Result = {
+  def compile(compileInputs: CompileInputs): Task[Result] = {
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -105,42 +107,25 @@ object Compiler {
       else setup.withPicklePromise(InterfaceUtil.toOptional(receiver))
     }
 
-    /**
-     * Modifies the java tools to use our own javac compiler in case pipelined
-     * compilation is enabled. Our javac compiler is just a valid `JavaCompiler`
-     * definition that wraps the underlying java compilation but doesn't start
-     * compiling the Java project until the ready promise is completed.
-     *
-     * The ready promise is completed by the user of this API upon the completion
-     * of all the Scala compilation processes of dependent projects.
-     */
-    def setUpCompilers(compilers: Compilers): Compilers = {
-      compileInputs.javaClasspath match {
-        case Some(startFuture) =>
-          val oldJavaTools = compilers.javaTools()
-          val newJavac = new BlockingJavaCompiler(startFuture, oldJavaTools.javac())
-          compilers.withJavaTools(JavaTools(newJavac, oldJavaTools.javadoc()))
-        case None => compilers
-      }
-    }
-
     val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
-    val compilers = setUpCompilers(compileInputs.compilerCache.get(scalaInstance))
+    val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
-    val incrementalCompiler = ZincUtil.defaultIncrementalCompiler
+    val javaSignal = compileInputs.startJavaCompilation
 
     // We don't want nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
 
-    try {
-      val result0 = incrementalCompiler.compile(inputs, compileInputs.logger)
-      val result = PreviousResult.of(Optional.of(result0.analysis()), Optional.of(result0.setup()))
-      Result.Success(compileInputs.reporter, result, elapsed)
-    } catch {
-      case f: xsbti.CompileFailed => Result.Failed(f.problems(), elapsed)
-      case _: xsbti.CompileCancelled => Result.Cancelled(elapsed)
+    import scala.util.{Success, Failure}
+    BloopZincCompiler.compile(inputs, javaSignal, compileInputs.logger).materialize.map {
+      case Success(result0) =>
+        val result =
+          PreviousResult.of(Optional.of(result0.analysis()), Optional.of(result0.setup()))
+        Result.Success(compileInputs.reporter, result, elapsed)
+      case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems(), None, elapsed)
+      case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)
+      case Failure(t: Throwable) => Result.Failed(Array.empty, Some(t), elapsed)
     }
   }
 }
