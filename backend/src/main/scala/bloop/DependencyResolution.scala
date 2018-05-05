@@ -26,7 +26,7 @@ object DependencyResolution {
     Repository,
     Resolution
   }
-  import scalaz.\/
+  import coursier.interop.scalaz._
   import scalaz.concurrent.Task
 
   /**
@@ -56,9 +56,12 @@ object DependencyResolution {
     val resolution = start.process.run(fetch).unsafePerformSync
     // TODO: Do something with the errors.
     //val errors: Seq[((Module, String), Seq[String])] = resolution.metadataErrors
-    val localArtifacts: Seq[FileError \/ File] =
+    val localArtifacts: List[Either[FileError, File]] =
       Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
-    val allFiles = localArtifacts.flatMap(_.toList).toArray
-    allFiles.map(f => AbsolutePath(f.toPath))
+    val allFiles = localArtifacts.collect {
+      case Right(f) => AbsolutePath(f.toPath)
+    }
+
+    allFiles.toArray
   }
 }
