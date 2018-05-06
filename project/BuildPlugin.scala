@@ -204,7 +204,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "2.0",
+    BuildKeys.schemaVersion := "2.2",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
@@ -392,6 +392,8 @@ object BuildImplementation {
       buildIndexFile,
       buildIntegrationsBase / "sbt-0.13" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
+      buildIntegrationsBase / "sbt-0.13-2" / "build.sbt",
+      buildIntegrationsBase / "sbt-0.13-2" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-1.0" / "build.sbt",
       buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala",
       buildIntegrationsBase / "global" / "src" / "main" / "scala" / "bloop" / "build" / "integrations" / "IntegrationPlugin.scala",
@@ -418,6 +420,10 @@ object BuildImplementation {
         val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
         if (exitGenerate013 != 0)
           throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13.")
+
+        val exitGenerate0132 = Process(cmd, buildIntegrationsBase / "sbt-0.13-2").!
+        if (exitGenerate0132 != 0)
+          throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13 (2).")
 
         val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
         if (exitGenerate10 != 0)
