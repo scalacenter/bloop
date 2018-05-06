@@ -53,6 +53,7 @@ object Pipelined {
       javaReady: Task[Boolean]
   )
 
+  private object FailPromise extends RuntimeException("Promise completed after compilation error")
   private object CompletePromise extends RuntimeException("Promise completed after compilation")
   private object BlockURI extends RuntimeException("URI cannot complete: compilation is blocked")
 
@@ -123,6 +124,10 @@ object Pipelined {
       // FORMAT: ON
     }
 
+    def exceptions(results: List[CompileResult]): List[(Project, Throwable)] = {
+      results.collect { case (p, Compiler.Result.Failed(_, Some(t), _)) => (p, t) }
+    }
+
     def failed(results: List[CompileResult]): List[Project] = {
       results.collect { case (p, Compiler.Result.NotOk(_)) => p }
     }
@@ -132,15 +137,21 @@ object Pipelined {
       logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
       startTimings += (project -> System.currentTimeMillis())
       val previous = state.results.lastSuccessfulResult(project)
-      Compiler.compile(toInputs(inputs, reporterConfig, previous)).doOnFinish { _ =>
-        Task {
-          endTimings += (project -> System.currentTimeMillis())
-          if (!inputs.pickleReady.isDone) {
-            logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-            inputs.pickleReady.completeExceptionally(CompletePromise)
-            ()
+      Compiler.compile(toInputs(inputs, reporterConfig, previous)).map { result =>
+        // Do some book-keeping before returning the result to the caller
+        endTimings += (project -> System.currentTimeMillis())
+        if (!inputs.pickleReady.isDone) {
+          result match {
+            case Compiler.Result.NotOk(_) =>
+              inputs.pickleReady.completeExceptionally(FailPromise)
+            case result =>
+              if (result != Compiler.Result.Empty)
+                logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
+              inputs.pickleReady.completeExceptionally(CompletePromise)
           }
         }
+
+        result
       }
     }
 
@@ -167,6 +178,13 @@ object Pipelined {
             }
             newState.copy(status = ExitStatus.Ok)
           } else {
+            exceptions(results).foreach {
+              case (p, t) =>
+                logger.error(s"Unexpected error when compiling ${p.name}: '${t.getMessage}'")
+                // Make a better job here at reporting any throwable that happens during compilation
+                logger.trace(t)
+            }
+
             failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
             newState.copy(status = ExitStatus.CompilationError)
           }
