@@ -18,7 +18,6 @@ else:
 
 # INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
-COURSIER_URL = "https://github.com/alexarchambault/coursier/raw/" + COURSIER_VERSION + "/coursier"
 
 # Check whether this script has been customized to allow installation without passing args
 # `BLOOP_VERSION` and `NAILGUN_COMMIT` will be defined at the beginning of this script
@@ -27,10 +26,12 @@ CUSTOMIZED_SCRIPT = False
 try:
     BLOOP_VERSION
     NAILGUN_COMMIT
+    COURSIER_VERSION
     CUSTOMIZED_SCRIPT = True
 except NameError:
     BLOOP_VERSION = None
     NAILGUN_COMMIT = None
+    COURSIER_VERSION = None
 
 parser = argparse.ArgumentParser(description="Installation script for Bloop.")
 parser.add_argument(
@@ -50,6 +51,12 @@ parser.add_argument(
     required=not CUSTOMIZED_SCRIPT,
     default=NAILGUN_COMMIT,
     help="Commit hash of the Nailgun client ot use")
+parser.add_argument(
+    '-c',
+    '--coursier',
+    required=not CUSTOMIZED_SCRIPT,
+    default=COURSIER_VERSION,
+    help="Version number for the coursier client if not already installed.")
 args = parser.parse_args()
 
 BLOOP_INSTALLATION_TARGET = args.dest
@@ -59,6 +66,7 @@ ZSH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "zsh")
 BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
 SYSTEMD_SERVICE_DIR = join(BLOOP_INSTALLATION_TARGET, "systemd")
 XDG_DIR = join(BLOOP_INSTALLATION_TARGET, "xdg")
+COURSIER_URL = "https://github.com/alexarchambault/coursier/raw/v" + args.coursier + "/coursier"
 
 # If this is not a released version of Bloop, we need to extract the commit SHA
 # to know how to download the completion and startup scripts.
@@ -144,8 +152,9 @@ makedir(BASH_COMPLETION_DIR)
 makedir(SYSTEMD_SERVICE_DIR)
 makedir(XDG_DIR)
 
-if not isfile(BLOOP_COURSIER_TARGET):
-    download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET, 0o755)
+# Install coursier always because there is no way to tell when the coursier version changes
+print("Downloading Bloop's coursier version, this may take some seconds...")
+download_and_install(COURSIER_URL, BLOOP_COURSIER_TARGET, 0o755)
 
 coursier_bootstrap(BLOOP_SERVER_TARGET, "bloop.Server")
 print("Installed bloop server in '%s'" % BLOOP_SERVER_TARGET)
