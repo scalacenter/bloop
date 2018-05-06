@@ -18,7 +18,7 @@ else:
 
 # INSERT_INSTALL_VARIABLES
 BLOOP_DEFAULT_INSTALLATION_TARGET = join(expanduser("~"), ".bloop")
-COURSIER_URL = "https://git.io/vgvpD"
+COURSIER_URL = "https://github.com/alexarchambault/coursier/raw/" + COURSIER_VERSION + "/coursier"
 
 # Check whether this script has been customized to allow installation without passing args
 # `BLOOP_VERSION` and `NAILGUN_COMMIT` will be defined at the beginning of this script

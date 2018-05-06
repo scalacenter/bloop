@@ -22,6 +22,7 @@ object ReleaseUtils {
    */
   val versionedInstallScript = Def.task {
     val nailgun = Dependencies.nailgunVersion
+    val coursier = Dependencies.coursierVersion
     val version = Keys.version.value
     val target = Keys.target.value
     val log = Keys.streams.value.log
@@ -36,7 +37,8 @@ object ReleaseUtils {
               val customizedVariables =
                 List(
                   s"""NAILGUN_COMMIT = "$nailgun"""",
-                  s"""BLOOP_VERSION = "$version""""
+                  s"""BLOOP_VERSION = "$version"""",
+                  s"""COURSIER_VERSION = $coursier""""
                 )
               val newContent = before ::: customizedVariables ::: after
               val scriptTarget = target / script.getName
