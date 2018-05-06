@@ -6,6 +6,7 @@ import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
 import bloop.Project
 import bloop.config.Config
+import bloop.tasks.CompilationHelpers
 import guru.nidi.graphviz.parse.Parser
 import xsbti.compile.ClasspathOptionsUtil
 
@@ -14,7 +15,7 @@ class DagSpec {
 
   private val logger = new RecordingLogger
   private val classpathOptions = ClasspathOptionsUtil.boot()
-  private val dummyInstance = bloop.ScalaInstance("bla", "ble", "bli", Array(), logger)
+  private val dummyInstance = CompilationHelpers.scalaInstance
   private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
 
   // format: OFF

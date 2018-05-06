@@ -1,6 +1,5 @@
 package bloop.testing
 
-import java.util.Properties
 import java.util.regex.Pattern
 
 import bloop.DependencyResolution
