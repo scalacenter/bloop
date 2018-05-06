@@ -4,7 +4,8 @@ object Dependencies {
   val nailgunVersion = "615737a9"
   val zincVersion = "1.1.1+49-1c290cbb"
   val bspVersion = "ce87199c"
-  val coursierVersion = "1.0.0-RC8"
+  val scalazVersion = "7.2.20"
+  val coursierVersion = "1.1.0-M3"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
   val caseAppVersion = "1.2.0"
@@ -30,8 +31,11 @@ object Dependencies {
 
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
+  val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
+  val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
+  val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion

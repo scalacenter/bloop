@@ -28,8 +28,11 @@ val backend = project
     libraryDependencies ++= List(
       Dependencies.zinc,
       Dependencies.nailgun,
+      Dependencies.scalazCore,
+      Dependencies.scalazConcurrent,
       Dependencies.coursier,
       Dependencies.coursierCache,
+      Dependencies.coursierScalaz,
       Dependencies.libraryManagement,
       Dependencies.configDirectories,
       Dependencies.sourcecode,
@@ -92,6 +95,7 @@ val frontend = project
     fork in Test := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
+      Dependencies.scalazCore,
       Dependencies.bsp,
       Dependencies.monix,
       Dependencies.caseApp,
