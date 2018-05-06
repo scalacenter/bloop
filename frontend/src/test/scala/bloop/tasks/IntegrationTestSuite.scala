@@ -44,7 +44,6 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
     bool(sys.props.getOrElse("run.community.build", "false"))
-    true
   }
 
   @Test
