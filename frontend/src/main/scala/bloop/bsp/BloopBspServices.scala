@@ -1,6 +1,7 @@
 package bloop.bsp
 
 import java.nio.charset.{Charset, StandardCharsets}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{Compiler, Project}
@@ -20,6 +21,8 @@ import org.langmeta.jsonrpc.{
 }
 import scalapb_circe.JsonFormat
 import xsbti.Problem
+
+import scala.concurrent.duration.FiniteDuration
 
 final class BloopBspServices(
     callSiteState: State,
@@ -86,17 +89,26 @@ final class BloopBspServices(
     }
   }
 
-  @volatile private var isInitialized: Boolean = false
+  val isInitialized = scala.concurrent.Promise[Either[ProtocolError, Unit]]()
+  val isInitializedTask = Task.fromFuture(isInitialized.future).memoize
   def initialized(
       initializedBuildParams: InitializedBuildParams
   ): Unit = {
-    isInitialized = true
+    isInitialized.success(Right(()))
     callSiteState.logger.info("BSP initialization handshake complete.")
   }
 
   def ifInitialized[T](t: => BspResponse[T]): BspResponse[T] = {
-    if (isInitialized) t
-    else Task.now(Left(JsonRpcResponse.invalidRequest("The session has not been initialized.")))
+    // Give a time window for `isInitialized` to complete, otherwise assume it didn't happen
+    isInitializedTask
+      .timeoutTo(
+        FiniteDuration(1, TimeUnit.SECONDS),
+        Task.now(Left(JsonRpcResponse.invalidRequest("The session has not been initialized.")))
+      )
+      .flatMap {
+        case l: Left[ProtocolError, T] => Task.now(l)
+        case r: Right[ProtocolError, T] => t
+      }
   }
 
   type ProjectMapping = (BuildTargetIdentifier, Project)

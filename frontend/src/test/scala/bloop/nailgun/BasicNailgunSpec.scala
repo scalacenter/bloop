@@ -110,8 +110,8 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testRunCommand(): Unit = {
-    val logger = new RecordingLogger(false, None)
-    withServer(logger, TestUtil.getBloopConfigDir("with-resources")) { client =>
+    def logger = new RecordingLogger(false, None)
+    withServer(TestUtil.getBloopConfigDir("with-resources"), logger) { (logger, client) =>
       client.success("clean", "with-resources")
       client.success("run", "with-resources")
       val messages = logger.getMessages()

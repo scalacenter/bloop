@@ -12,7 +12,7 @@ import bloop.logging.{ProcessLogger, RecordingLogger}
 import bloop.tasks.TestUtil
 import com.martiansoftware.nailgun.NGServer
 import monix.eval.Task
-import monix.execution.Scheduler
+import monix.execution.{CancelableFuture, Scheduler}
 import org.apache.commons.io.IOUtils
 
 import scala.concurrent.Await
@@ -36,7 +36,8 @@ abstract class NailgunTest {
    * @param op   A function that will receive the instantiated Client.
    * @return The result of executing `op` on the client.
    */
-  def withServer[T](log: RecordingLogger, config: Path)(op: Client => T): T = {
+  def withServerTask[T](log: RecordingLogger, config: Path)(
+      op: (RecordingLogger, Client) => T): Task[T] = {
     val oldIn = System.in
     val oldOut = System.out
     val oldErr = System.err
@@ -68,33 +69,43 @@ abstract class NailgunTest {
     }
 
     val client = new Client(TEST_PORT, log, config)
-    val clientLogic = Task(op(client))
-      .onErrorRestart(3)
-      .doOnFinish(_ =>
-        Task {
-          client.success("exit")
-          outStream.flush()
-          errStream.flush()
-      })
+    val clientCancel = Task {
+      client.success("exit")
+      outStream.flush()
+      errStream.flush()
+    }
 
+    val clientLogic = Task(op(log, client)).doOnFinish(_ => clientCancel).doOnCancel(clientCancel)
     val startTrigger = Task.fromFuture(serverIsStarted.future)
     val endTrigger = Task.fromFuture(serverIsFinished.future)
-    val runClient = startTrigger.flatMap(_ => clientLogic.flatMap(_ => endTrigger))
-    val f = Task.zip2(serverLogic, startTrigger.flatMap(_ => clientLogic)).runAsync(nailgunPool)
-    Await.result(f, FiniteDuration(60, TimeUnit.SECONDS))._2
+    val runClient = startTrigger.flatMap(_ => clientLogic.flatMap(t => endTrigger.map(_ => t)))
+
+    // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
+    Task
+      .zip2(serverLogic, runClient)
+      .map(t => t._2)
+      .timeout(FiniteDuration(40, TimeUnit.SECONDS))
   }
 
   /**
-   * Starts a server and provides a client in `base`. A logger that will receive
-   * all output will be created and passed to `op`.
+   * Starts a Nailgun server, creates a client and executes operations with that client.
+   * The server is shut down at the end of `op`.
    *
-   * @param config The config directory where the client will be.
-   * @param op   A function that accepts a logger and a client.
-   * @return The result of executing `op` on the logger and client.
+   * @param log  The logger that will receive all produced output.
+   * @param config The config directory in which the client will be.
+   * @param op   A function that will receive the instantiated Client.
+   * @return The result of executing `op` on the client.
    */
-  def withServerIn[T](config: Path)(op: (RecordingLogger, Client) => T): T = {
-    val logger = new RecordingLogger
-    withServer(logger, config)(op(logger, _))
+  def withServer[T](config: Path, log: => RecordingLogger)(
+      op: (RecordingLogger, Client) => T): T = {
+    // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
+    val f = withServerTask(log, config)(op)
+    // Note we cannot use restart because our task uses promises that cannot be completed twice
+      .onErrorFallbackTo(
+        withServerTask(log, config)(op).onErrorFallbackTo(withServerTask(log, config)(op)))
+      .runAsync(nailgunPool)
+    try Await.result(f, FiniteDuration(125, TimeUnit.SECONDS))
+    finally f.cancel()
   }
 
   /**
@@ -106,7 +117,7 @@ abstract class NailgunTest {
    * @return The result of executing `op` on the logger and client.
    */
   def withServerInProject[T](name: String)(op: (RecordingLogger, Client) => T): T = {
-    withServerIn(TestUtil.getBloopConfigDir(name))(op)
+    withServer(TestUtil.getBloopConfigDir(name), new RecordingLogger())(op)
   }
 
   /**
