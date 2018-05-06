@@ -38,7 +38,7 @@ object ReleaseUtils {
                 List(
                   s"""NAILGUN_COMMIT = "$nailgun"""",
                   s"""BLOOP_VERSION = "$version"""",
-                  s"""COURSIER_VERSION = $coursier""""
+                  s"""COURSIER_VERSION = "$coursier""""
                 )
               val newContent = before ::: customizedVariables ::: after
               val scriptTarget = target / script.getName
