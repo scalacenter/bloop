@@ -30,13 +30,14 @@ final class ScalaInstance private(
   override lazy val loaderLibraryOnly: ClassLoader =
     new URLClassLoader(Array(libraryJar.toURI.toURL), null)
   override lazy val loader: ClassLoader = {
-    val allJarsButLibrary = allJars.filterNot(_ == libraryJar).map(_.toURI.toURL)
-    new URLClassLoader(allJarsButLibrary, loaderLibraryOnly)
+    // For some exceptionally weird reason, we need to load all jars for dotty here
+    val jarsToLoad = if (isDotty) allJars else allJars.filterNot(_ == libraryJar)
+    new URLClassLoader(jarsToLoad.map(_.toURI.toURL), loaderLibraryOnly)
   }
 
   private def isJar(filename: String): Boolean = filename.endsWith(".jar")
   private def hasScalaCompilerName(filename: String): Boolean =
-    filename.startsWith("scala-compiler")
+    filename.startsWith("scala-compiler") || (isDotty && filename.startsWith("dotty-compiler"))
   private def hasScalaLibraryName(filename: String): Boolean =
     filename.startsWith("scala-library")
 
