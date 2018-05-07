@@ -8,6 +8,7 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import caseapp.{ArgsName, CommandName, ExtraName, HelpMessage, Hidden, Recurse}
 import caseapp.core.CommandMessages
+import cats.Show
 
 object Commands {
 
@@ -30,6 +31,13 @@ object Commands {
   sealed trait CompilingCommand extends RawCommand {
     def project: String
     def reporter: ReporterKind
+    def incremental: Boolean
+    def pipelined: Boolean
+  }
+
+  sealed trait LinkingCommand extends CompilingCommand {
+    def main: Option[String]
+    def optimize: Option[OptimizerConfig]
   }
 
   case class Help(
@@ -104,6 +112,8 @@ object Commands {
       project: String = "",
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
+      @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
+      pipelined: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
@@ -118,6 +128,10 @@ object Commands {
       project: String = "",
       @HelpMessage("Do not run tests for dependencies. By default, false.")
       isolated: Boolean = false,
+      @HelpMessage("Compile the project incrementally. By default, true.")
+      incremental: Boolean = true,
+      @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
+      pipelined: Boolean = false,
       @ExtraName("o")
       @HelpMessage("The list of test suite filters to test for only.")
       only: List[String] = Nil,
@@ -135,6 +149,10 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project to run the console at (will be inferred from remaining cli args).")
       project: String = "",
+      @HelpMessage("Compile the project incrementally. By default, true.")
+      incremental: Boolean = true,
+      @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
+      pipelined: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
@@ -150,6 +168,10 @@ object Commands {
       @ExtraName("m")
       @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
       main: Option[String] = None,
+      @HelpMessage("Compile the project incrementally. By default, true.")
+      incremental: Boolean = true,
+      @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
+      pipelined: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("The arguments to pass in to the main class.")
@@ -162,7 +184,7 @@ object Commands {
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends CompilingCommand
+  ) extends LinkingCommand
 
   case class Link(
       @ExtraName("p")
@@ -171,6 +193,10 @@ object Commands {
       @ExtraName("m")
       @HelpMessage("The main class to link. Leave unset to let bloop select automatically.")
       main: Option[String] = None,
+      @HelpMessage("Compile the project incrementally. By default, true.")
+      incremental: Boolean = true,
+      @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
+      pipelined: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
@@ -181,5 +207,5 @@ object Commands {
         "Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`.")
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends CompilingCommand
+  ) extends LinkingCommand
 }

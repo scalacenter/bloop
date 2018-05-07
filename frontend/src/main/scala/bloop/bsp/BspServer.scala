@@ -3,11 +3,12 @@ package bloop.bsp
 import java.net.ServerSocket
 import java.util.Locale
 
-import bloop.cli.{Commands, ExitStatus}
+import bloop.cli.Commands
 import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.Slf4jAdapter
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
+import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
 
@@ -31,21 +32,21 @@ object BspServer {
 
   import Commands.ValidatedBsp
   import monix.{eval => me}
-  private def initServer(cmd: ValidatedBsp, state: State): me.Task[ConnectionHandle] = {
+  private def initServer(cmd: ValidatedBsp, state: State): Task[ConnectionHandle] = {
     cmd match {
       case Commands.WindowsLocalBsp(pipeName, _) =>
         val server = new NGWin32NamedPipeServerSocket(pipeName)
         state.logger.debug(s"Waiting for a connection at pipe $pipeName...")
-        me.Task(WindowsLocal(pipeName, server)).doOnCancel(me.Task(server.close()))
+        Task(WindowsLocal(pipeName, server)).doOnCancel(Task(server.close()))
       case Commands.UnixLocalBsp(socketFile, _) =>
         val server = new NGUnixDomainServerSocket(socketFile.toString)
         state.logger.debug(s"Waiting for a connection at $socketFile...")
-        me.Task(UnixLocal(socketFile, server)).doOnCancel(me.Task(server.close()))
+        Task(UnixLocal(socketFile, server)).doOnCancel(Task(server.close()))
       case Commands.TcpBsp(address, portNumber, _) =>
         val socketAddress = new InetSocketAddress(address, portNumber)
         val server = new java.net.ServerSocket(portNumber, 10, address)
         state.logger.debug(s"Waiting for a connection at $socketAddress...")
-        me.Task(Tcp(socketAddress, server)).doOnCancel(me.Task(server.close()))
+        Task(Tcp(socketAddress, server)).doOnCancel(Task(server.close()))
     }
   }
 
@@ -66,7 +67,7 @@ object BspServer {
       state: State,
       configPath: RelativePath,
       scheduler: Scheduler
-  ): me.Task[State] = {
+  ): Task[State] = {
     def uri(handle: ConnectionHandle): String = {
       handle match {
         case w: WindowsLocal => s"local:${w.pipeName}"
@@ -76,7 +77,7 @@ object BspServer {
     }
 
     import state.logger
-    def startServer(handle: ConnectionHandle): me.Task[State] = {
+    def startServer(handle: ConnectionHandle): Task[State] = {
       val connectionURI = uri(handle)
       logger.debug(s"The server is listening for incoming connections at $connectionURI...")
       val socket = handle.serverSocket.accept()
@@ -94,19 +95,22 @@ object BspServer {
 
       server.startTask
         .map(_ => servicesProvider.latestState)
-        .onErrorHandleWith(t =>
-          servicesProvider.latestState.withError(s"BSP server was stopped by ${t.getMessage}"))
-        .doOnFinish(_ => me.Task { handle.serverSocket.close() })
+        .onErrorHandleWith { t =>
+          Task.now(
+            servicesProvider.latestState.withError(s"BSP server stopped by ${t.getMessage}")
+          )
+        }
+        .doOnFinish(_ => Task { handle.serverSocket.close() })
     }
 
     initServer(cmd, state).materialize.flatMap {
       case scala.util.Success(handle: ConnectionHandle) =>
         startServer(handle).onErrorRecoverWith {
           case t: Throwable =>
-            state.withError(s"BSP server failed to start with ${t.getMessage}", t)
+            Task.now(state.withError(s"BSP server failed to start with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
-        state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t)
+        Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
     }
   }
 }

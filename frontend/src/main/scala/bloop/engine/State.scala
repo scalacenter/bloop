@@ -111,11 +111,13 @@ object State {
   }
 
   implicit class XState(val s: State) extends AnyVal {
-    def withInfo(msg: String): Task[State] = Task.now { s.logger.info(msg); s }
-    def withError(msg: String): Task[State] = withError(msg, ExitStatus.UnexpectedError)
-    def withError(msg: String, t: Throwable): Task[State] =
-      withError(msg, ExitStatus.UnexpectedError).map(state => {state.logger.trace(t); state})
-    def withError(msg: String, status: ExitStatus): Task[State] = Task.now {
+    def withTrace(t: Throwable): State = { s.logger.trace(t); s }
+    def withDebug(msg: String): State = { s.logger.debug(msg); s }
+    def withInfo(msg: String): State = { s.logger.info(msg); s }
+    def withError(msg: String): State = withError(msg, ExitStatus.UnexpectedError)
+    def withError(msg: String, t: Throwable): State =
+      withError(msg, ExitStatus.UnexpectedError).withTrace(t)
+    def withError(msg: String, status: ExitStatus): State = {
       s.logger.error(msg)
       s.mergeStatus(status)
     }

@@ -210,7 +210,7 @@ class FileWatchingSpec {
     withState(structures, Map.empty, scalaInstance = instance, javaEnv = javaEnv) {
       (state: State) =>
         val rootProject = state.build.getProjectFor(RootProject).get
-        val watchTask = Interpreter.watch(rootProject, state, simulation _)
+        val watchTask = Interpreter.watch(rootProject, state)(simulation _)
         val s1 = Scheduler.computation(parallelism = 2)
         val handle = watchTask.runAsync(ExecutionContext.scheduler)
 
