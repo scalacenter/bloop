@@ -29,12 +29,11 @@ object Dag {
         else visiting.+=(project)
 
         val dag = visited.get(project).getOrElse {
-          val dependencies = project.dependencies.toList
           markVisited {
             project match {
-              case leaf if dependencies.isEmpty => Leaf(leaf)
+              case leaf if project.dependencies.isEmpty => Leaf(leaf)
               case parent =>
-                val childrenNodes = dependencies.iterator.map(name => projectsMap(name))
+                val childrenNodes = project.dependencies.iterator.map(name => projectsMap(name))
                 Parent(parent, childrenNodes.map(loop(_, true)).toList)
             }
           }
@@ -88,28 +87,28 @@ object Dag {
   }
 
   /**
-    * Reduce takes a list of dags and a set of targets and outputs the smallest
-    * set of disjoint DAGs that include all the targets (transitively).
-    *
-    * Therefore, all the nodes in `targets` that have a children relationship
-    * with another node in `targets` will be subsumed by the latter and removed
-    * from the returned set of DAGs nodes.
-    *
-    * This operation is necessary to remove the repetition of a transitive
-    * action over the nodes in targets. This operation has not been tweaked
-    * for performance yet because it's unlikely we stumble upon densely
-    * populated DAGs (in the magnitude of hundreds) with tons of inter-dependencies
-    * in real-world module graphs.
-    *
-    * To make this operation more efficient, we may want to do indexing of
-    * transitives and then cache them in the build so that we don't have to
-    * recompute them every time.
+   * Reduce takes a list of dags and a set of targets and outputs the smallest
+   * set of disjoint DAGs that include all the targets (transitively).
+   *
+   * Therefore, all the nodes in `targets` that have a children relationship
+   * with another node in `targets` will be subsumed by the latter and removed
+   * from the returned set of DAGs nodes.
+   *
+   * This operation is necessary to remove the repetition of a transitive
+   * action over the nodes in targets. This operation has not been tweaked
+   * for performance yet because it's unlikely we stumble upon densely
+   * populated DAGs (in the magnitude of hundreds) with tons of inter-dependencies
+   * in real-world module graphs.
+   *
+   * To make this operation more efficient, we may want to do indexing of
+   * transitives and then cache them in the build so that we don't have to
+   * recompute them every time.
 
-    *
-    * @param dags The forest of disjoint DAGs from which we start from.
-    * @param targets The targets to be deduplicated transitively.
-    * @return The smallest set of disjoint DAGs including all targets.
-    */
+   *
+   * @param dags The forest of disjoint DAGs from which we start from.
+   * @param targets The targets to be deduplicated transitively.
+   * @return The smallest set of disjoint DAGs including all targets.
+   */
   def reduce[T](dags: List[Dag[T]], targets: Set[T]): Set[T] = {
     val transitives = scala.collection.mutable.HashMap[Dag[T], List[T]]()
     val subsumed = scala.collection.mutable.HashSet[T]()
@@ -121,7 +120,7 @@ object Dag {
               if (subsumed.contains(value)) acc else acc.+(value)
             case Leaf(_) => acc
             case p @ Parent(value, children) if targets.contains(value) =>
-              val transitiveChildren = transitives.get(p).getOrElse{
+              val transitiveChildren = transitives.get(p).getOrElse {
                 val transitives0 = children.flatMap(Dag.dfs(_))
                 transitives.+=(p -> transitives0)
                 transitives0
