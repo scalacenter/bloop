@@ -15,6 +15,9 @@ import bloop.internal.build.BuildInfo
  * Caches instances and abstract over some common functionality.
  */
 abstract class ToolchainCompanion[Toolchain] {
+  /** The official name of the toolchain. */
+  def name: String
+
   type Platform <: Config.Platform
 
   /** The artifact name of this toolchain. */

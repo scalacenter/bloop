@@ -72,6 +72,7 @@ object Tasks {
    * @param state          The current state of Bloop.
    * @param project        The project to compile.
    * @param reporterConfig Configuration of the compilation messages reporter.
+   * @param deduplicateFailedCompilation Don't compile a target if it has failed in the same compile run.
    * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise,
    *                       also compile `project`.
    * @return The new state of Bloop after compilation.
@@ -80,7 +81,7 @@ object Tasks {
       state: State,
       project: Project,
       reporterConfig: ReporterConfig,
-      sequentialCompilation: Boolean,
+      deduplicateFailedCompilation: Boolean,
       excludeRoot: Boolean = false
   ): Task[State] = {
     import state.{logger, compilerCache}
@@ -143,7 +144,7 @@ object Tasks {
       }
     }
 
-    if (!sequentialCompilation) triggerCompile
+    if (!deduplicateFailedCompilation) triggerCompile
     else {
       // Check dependent projects didn't fail in previous sequential compile
       val allDependencies = Dag.dfs(dag).toSet
@@ -231,14 +232,14 @@ object Tasks {
    *
    * @param state   The current state of Bloop.
    * @param project The project for which to start the REPL.
-   * @param config  Configuration of the compilation messages reporter.
    * @param noRoot  If false, include `project` on the classpath. Do not include it otherwise.
    * @return The new state of Bloop.
    */
-  def console(state: State,
-              project: Project,
-              config: ReporterConfig,
-              noRoot: Boolean): Task[State] = Task {
+  def console(
+      state: State,
+      project: Project,
+      noRoot: Boolean
+  ): Task[State] = Task {
     val scalaInstance = project.scalaInstance
     val classpath = project.classpath
     val classpathFiles = classpath.map(_.underlying.toFile).toSeq
@@ -416,15 +417,37 @@ object Tasks {
    * @param fqn       The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    */
-  def run(state: State,
-          project: Project,
-          cwd: AbsolutePath,
-          fqn: String,
-          args: Array[String]): Task[State] = {
+  def runJVM(state: State,
+             project: Project,
+             cwd: AbsolutePath,
+             fqn: String,
+             args: Array[String]): Task[State] = {
     val classpath = project.classpath
     val processConfig = Forker(project.javaEnv, classpath)
     val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
     runTask.map { exitCode =>
+      val exitStatus = Forker.exitStatus(exitCode)
+      state.mergeStatus(exitStatus)
+    }
+  }
+
+  /**
+    * Runs the fully qualified class `className` in a Native or JavaScript `project`.
+    *
+    * @param state     The current state of Bloop.
+    * @param project   The project to run.
+    * @param cwd       The directory in which to start the forked run process.
+    * @param fqn       The fully qualified name of the main class.
+    * @param args      The arguments to pass to the main class.
+    */
+  def runNativeOrJs(
+      state: State,
+      project: Project,
+      cwd: AbsolutePath,
+      fqn: String,
+      args: Array[String]
+  ): Task[State] = {
+    Forker.run(cwd, args, state.logger, state.commonOptions).map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
       state.mergeStatus(exitStatus)
     }
