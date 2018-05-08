@@ -106,8 +106,8 @@ final class BloopBspServices(
         Task.now(Left(JsonRpcResponse.invalidRequest("The session has not been initialized.")))
       )
       .flatMap {
-        case l: Left[ProtocolError, T] => Task.now(l)
-        case r: Right[ProtocolError, T] => t
+        case Left(e) => Task.now(Left(e))
+        case Right(_) => t
       }
   }
 
