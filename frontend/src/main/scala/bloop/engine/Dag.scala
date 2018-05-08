@@ -4,8 +4,14 @@ import bloop.Project
 import scalaz.Show
 
 sealed trait Dag[T]
-final case class Leaf[T](value: T) extends Dag[T]
-final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T]
+
+final case class Leaf[T](value: T) extends Dag[T] {
+  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
+}
+
+final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T] {
+  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
+}
 
 object Dag {
   class RecursiveCycle(path: List[Project])
