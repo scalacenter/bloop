@@ -70,7 +70,14 @@ abstract class NailgunTest {
 
     val client = new Client(TEST_PORT, log, config)
     val clientCancel = Task {
-      client.success("exit")
+      /* Exit on Windows seems to return a failing exit code (but no logs are logged).
+       * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
+       * for the sake of development I'm merging this since this method will be rarely called. */
+      if (BspServer.isWindows) {
+        val exitStatusCode = client.issue("exit")
+        log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
+      } else client.success("exit")
+
       outStream.flush()
       errStream.flush()
     }
