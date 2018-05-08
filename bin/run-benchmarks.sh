@@ -38,7 +38,7 @@ main() {
 
     JMH_CMD="$BLOOP_JMH_RUNNER"
     TEMP_DIR=$(mktemp -d)
-    SBT_COMMANDS=";"
+    SBT_COMMANDS=""
 
     pushd "$TEMP_DIR"
 
