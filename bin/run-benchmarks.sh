@@ -15,6 +15,7 @@ usage() {
     echo "Usage: ./run-benchmarks.sh -r | --ref <git-ref>       Build and benchmark the given reference."
     echo "                                                      Defaults to \"$BLOOP_DEFAULT_REFERENCE\""
     echo "                           --upload                   If set, upload the results to InfluxDB."
+    echo "                           --log-file                 Pass the file location for the logs."
     echo "                           -js | --jmh-options-small  Pass the given options to JMH (small projects)."
     echo "                                                      Defaults to \"$BLOOP_SMALL_JMH_OPTIONS\""
     echo "                           -jm | --jmh-options-medium Pass the given options to JMH (medium projects)."
@@ -36,9 +37,8 @@ main() {
     mkdir -p "$BLOOP_HOME"
 
     JMH_CMD="$BLOOP_JMH_RUNNER"
-    LOG_FILE="$BLOOP_HOME/$(date +"%F-%H%M%S")-benchmarks-log.txt"
     TEMP_DIR=$(mktemp -d)
-    COMMANDS_FILE="$TEMP_DIR/commands"
+    SBT_COMMANDS=";"
 
     pushd "$TEMP_DIR"
 
@@ -47,37 +47,34 @@ main() {
     git checkout -qf FETCH_HEAD
     git submodule update --init --recursive
 
-    echo "integrationSetUpBloop" >> "$COMMANDS_FILE"
+    SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
-    SCALAC_SBT_BLOOP_BENCHMARKS=("$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
+    SCALAC_SBT_BLOOP_BENCHMARKS=(#"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
                                  "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files")
     for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"
     do
-        echo "$JMH_CMD .*Hot.*Benchmark.* $benchmark" >> "$COMMANDS_FILE"
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot.*Benchmark.* $benchmark"
     done
 
     SBT_BLOOP_BENCHMARKS=("$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
-                          "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
-                          "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
-                          "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
+                          #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
+                          #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
+                          #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
                           "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
                           "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
                           "$BLOOP_LARGE_JMH_OPTIONS -p project=spark -p projectName=examples")
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"
     do
-        echo "$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark" >> "$COMMANDS_FILE"
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
     done
 
-    BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark"
-                      "$BLOOP_SMALL_JMH_OPTIONS bloop.logging.BloopLoggerBenchmark")
+    BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
     for benchmark in "${BLOOP_BENCHMARKS[@]}"
     do
-        echo "$JMH_CMD $benchmark" >> "$COMMANDS_FILE"
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD $benchmark"
     done
 
-    echo "exit" >> "$COMMANDS_FILE"
-
-    sbt -no-colors < "$COMMANDS_FILE" | tee "$LOG_FILE"
+    sbt -no-colors "$SBT_COMMANDS" | tee "$LOG_FILE"
 
     popd
     rm -rf "$TEMP_DIR"
@@ -89,6 +86,10 @@ while [ "$1" != "" ]; do
                                      BLOOP_REFERENCE=$1
                                      ;;
         --upload )                   BLOOP_JMH_RUNNER="benchmarks/jmh:runMain scala.bench.UploadingRunner"
+                                     ;;
+
+        --log-file )                 shift
+                                     LOG_FILE=$1
                                      ;;
         -js | --jmh-options-small )  shift
                                      BLOOP_SMALL_JMH_OPTIONS=$1
