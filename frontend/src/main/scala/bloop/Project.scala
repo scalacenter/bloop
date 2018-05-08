@@ -28,6 +28,7 @@ final case class Project(
     out: AbsolutePath
 ) {
   override def toString: String = s"$name"
+  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
 
   /** The bsp uri associated with this project. */
   val bspUri: String = ProjectUris.toUri(baseDirectory, name).toString
@@ -62,7 +63,7 @@ object Project {
     val configFiles = loadAllFiles(configRoot)
     logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
     val all = configFiles.iterator.map(configFile => Task(fromFile(configFile, logger))).toList
-    Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler)
+    Task.gatherUnordered(all).executeOn(ExecutionContext.scheduler)
   }
 
   /**

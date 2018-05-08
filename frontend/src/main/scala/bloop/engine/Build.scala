@@ -10,6 +10,7 @@ final case class Build private (origin: AbsolutePath,
 
   private val stringToProjects: Map[String, Project] = projects.map(p => p.name -> p).toMap
   private[bloop] val dags: List[Dag[Project]] = Dag.fromMap(stringToProjects)
+  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
 
   def getProjectFor(name: String): Option[Project] = stringToProjects.get(name)
   def getDagFor(project: Project): Dag[Project] =

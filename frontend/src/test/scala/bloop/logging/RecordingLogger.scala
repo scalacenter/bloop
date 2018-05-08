@@ -31,6 +31,7 @@ final class RecordingLogger(
     }
 
     messages.add((key, value))
+    ()
   }
 
   override def debug(msg: String): Unit = { add("debug", msg); () }
@@ -52,4 +53,10 @@ final class RecordingLogger(
   override def isVerbose: Boolean = true
   override def asVerbose: Logger = this
   override def asDiscrete: Logger = this
+
+  def dump(): Unit = println {
+    s"""Logger contains the following messages:
+       |${getMessages.map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
+     """.stripMargin
+  }
 }

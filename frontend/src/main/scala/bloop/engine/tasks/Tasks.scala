@@ -7,7 +7,7 @@ import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.BspLogger
-import bloop.reporter.{BspReporter, LogReporter, Problem, Reporter, ReporterConfig}
+import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
 import bloop.testing.{DiscoveredTests, TestInternals}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
@@ -21,15 +21,19 @@ object Tasks {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
-  private type CompileResult = (Project, Compiler.Result)
+  private case class CompileResult(project: Project, result: Compiler.Result) {
+    // Cache hash code here so that `Dag.toDotGraph` doesn't recompute it all the time
+    override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
+  }
+
   private type CompileTask = Task[Dag[CompileResult]]
 
   import scalaz.Show
   private final implicit val showCompileTask: Show[CompileResult] = new Show[CompileResult] {
     private def seconds(ms: Double): String = s"${ms}ms"
     override def shows(r: CompileResult): String = {
-      val project = r._1
-      r._2 match {
+      val project = r.project
+      r.result match {
         case Compiler.Result.Empty => s"${project.name} (empty)"
         case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
         case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
@@ -88,7 +92,7 @@ object Tasks {
       Compiler.compile(toInputs(project, reporterConfig, previous))
     }
 
-    def failed(results: List[CompileResult]): List[Project] = {
+    def failed(results: List[(Project, Compiler.Result)]): List[Project] = {
       results.collect {
         case (p, _: Compiler.Result.Cancelled) => p
         case (p, _: Compiler.Result.Failed) => p
@@ -98,8 +102,9 @@ object Tasks {
     val dag = state.build.getDagFor(project)
     def triggerCompile: Task[State] = {
       toCompileTask(dag, compile(_)).map { results0 =>
-        logger.debug(Dag.toDotGraph(results0))
-        val results = Dag.dfs(results0)
+        if (logger.isVerbose)
+          logger.debug(Dag.toDotGraph(results0))
+        val results = Dag.dfs(results0).map(r => (r.project, r.result))
         val failures = failed(results).distinct
         val newState = state.copy(results = state.results.addResults(results))
         if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
@@ -141,12 +146,12 @@ object Tasks {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
     def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
 
-    def blockedBy(dag: Dag[(Project, Compiler.Result)]): Option[Project] = {
+    def blockedBy(dag: Dag[CompileResult]): Option[Project] = {
       dag match {
-        case Leaf((_, _: Compiler.Result.Success)) => None
-        case Leaf((project, _)) => Some(project)
-        case Parent((_, _: Compiler.Result.Success), _) => None
-        case Parent((project, _), _) => Some(project)
+        case Leaf(CompileResult(_, _: Compiler.Result.Success)) => None
+        case Leaf(CompileResult(project, _)) => Some(project)
+        case Parent(CompileResult(_, _: Compiler.Result.Success), _) => None
+        case Parent(CompileResult(project, _), _) => Some(project)
       }
     }
 
@@ -155,16 +160,16 @@ object Tasks {
         case Some(task) => task
         case None =>
           val task = dag match {
-            case Leaf(project) => Task(Leaf(project -> compile(project)))
+            case Leaf(project) => Task(Leaf(CompileResult(project, compile(project))))
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { results =>
                 val failed = results.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) Task(Parent(project -> compile(project), results))
+                if (failed.isEmpty) Task(Parent(CompileResult(project, compile(project)), results))
                 else {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blocked = Compiler.Result.Blocked(failed.map(_.name))
-                  Task.now(Parent(project -> blocked, results))
+                  Task.now(Parent(CompileResult(project, blocked), results))
                 }
               }
           }
@@ -213,8 +218,7 @@ object Tasks {
     val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
     val classpathOptions = ClasspathOptionsUtil.repl
     val options = project.scalacOptions :+ "-Xnojline"
-    compiler.console(classpathFiles, options, classpathOptions, "", "", state.logger)(
-      Some(loader))
+    compiler.console(classpathFiles, options, classpathOptions, "", "", state.logger)(Some(loader))
     state
   }
 
