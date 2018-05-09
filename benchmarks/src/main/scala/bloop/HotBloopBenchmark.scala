@@ -43,6 +43,7 @@ class HotBloopBenchmark {
       sys.props("java.home") + "/bin/java",
       "-Xms2G",
       "-Xmx2G",
+      "-XX:ReservedCodeCacheSize=256m",
       "-jar",
       bloopJarPath,
       "--config-dir",
