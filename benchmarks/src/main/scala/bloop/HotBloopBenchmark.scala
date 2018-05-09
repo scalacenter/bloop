@@ -33,6 +33,11 @@ class HotBloopBenchmark {
   var processInputReader: BufferedWriter = _
   var output = new java.lang.StringBuilder()
 
+  def findMaxHeap(project: String): String = project match {
+    case "lichess" | "akka" => "-Xmx3G"
+    case _ => "-Xmx2G"
+  }
+
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = TestUtil.getBloopConfigDir(project)
     val base = configDir.getParent.getParent
@@ -42,8 +47,8 @@ class HotBloopBenchmark {
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
       "-Xms2G",
-      "-Xmx2G",
-      "-XX:ReservedCodeCacheSize=256m",
+      findMaxHeap(project),
+      "-XX:ReservedCodeCacheSize=128m",
       "-jar",
       bloopJarPath,
       "--config-dir",

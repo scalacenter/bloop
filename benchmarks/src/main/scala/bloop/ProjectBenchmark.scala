@@ -4,14 +4,19 @@ import java.nio.file.Files
 
 import bloop.io.AbsolutePath
 import bloop.logging.NoopLogger
+import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
 import org.openjdk.jmh.annotations.Benchmark
+import java.util.concurrent.TimeUnit
+
+import bloop.engine.Build
+
+import scala.concurrent.duration.FiniteDuration
 
 object ProjectBenchmark {
-  val sbtLocation = existing(AbsolutePath(TestUtil.getBloopConfigDir("sbt").getParent))
-  val sbtRootProjectLocation = existing(
-    AbsolutePath(TestUtil.getBloopConfigDir("sbt").resolve("sbtRoot.config")))
-  val uTestLocation = existing(AbsolutePath(TestUtil.getBloopConfigDir("utest").getParent))
+  val sbt = existing(AbsolutePath(TestUtil.getBloopConfigDir("sbt")))
+  val lichess = existing(AbsolutePath(TestUtil.getBloopConfigDir("lichess")))
+  val akka = existing(AbsolutePath(TestUtil.getBloopConfigDir("akka")))
 
   def existing(path: AbsolutePath): AbsolutePath = {
     assert(Files.exists(path.underlying))
@@ -20,20 +25,26 @@ object ProjectBenchmark {
 }
 
 class ProjectBenchmark {
+  final def loadProject(configDir: AbsolutePath): Unit = {
+    val t = Project
+      .lazyLoadFromDir(configDir, NoopLogger)
+      .map(ps => Build(configDir, ps))
+    TestUtil.await(FiniteDuration(30, TimeUnit.SECONDS))(t)
+    ()
+  }
 
   @Benchmark
   def loadSbtProject(): Unit = {
-    val _ = Project.eagerLoadFromDir(ProjectBenchmark.sbtLocation, NoopLogger)
+    loadProject(ProjectBenchmark.sbt)
   }
 
   @Benchmark
-  def loadUTestProject(): Unit = {
-    val _ = Project.eagerLoadFromDir(ProjectBenchmark.uTestLocation, NoopLogger)
+  def loadLichessProject(): Unit = {
+    loadProject(ProjectBenchmark.lichess)
   }
 
   @Benchmark
-  def loadSbtRootProject(): Unit = {
-    val _ = Project.eagerLoadFromDir(ProjectBenchmark.sbtRootProjectLocation, NoopLogger)
+  def loadAkkaProject(): Unit = {
+    loadProject(ProjectBenchmark.akka)
   }
-
 }
