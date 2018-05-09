@@ -49,30 +49,33 @@ main() {
 
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
-    SCALAC_SBT_BLOOP_BENCHMARKS=(#"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
-                                 "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files")
-    for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"
-    do
+    SCALAC_SBT_BLOOP_BENCHMARKS=(
+      #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files"
+    )
+
+    for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"; do
         SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot.*Benchmark.* $benchmark"
     done
 
-    SBT_BLOOP_BENCHMARKS=("$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
-                          #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
-                          #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
-                          #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
-                          "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
-                          "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
-                          "$BLOOP_LARGE_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
-                          "$BLOOP_LARGE_JMH_OPTIONS -p project=akka -p projectName=akka"
-                          "$BLOOP_LARGE_JMH_OPTIONS -p project=spark -p projectName=examples")
-    for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"
-    do
+    SBT_BLOOP_BENCHMARKS=(
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
+      #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
+      #"$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=akka -p projectName=akka"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=spark -p projectName=examples"
+    )
+
+    for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
         SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
     done
 
     BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
-    for benchmark in "${BLOOP_BENCHMARKS[@]}"
-    do
+    for benchmark in "${BLOOP_BENCHMARKS[@]}"; do
         SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD $benchmark"
     done
 
