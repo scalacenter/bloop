@@ -34,17 +34,21 @@ class HotBloopBenchmark {
   var output = new java.lang.StringBuilder()
 
   @Setup(Level.Trial) def spawn(): Unit = {
-    val base = TestUtil.getBloopConfigDir(project).getParent
+    val configDir = TestUtil.getBloopConfigDir(project)
+    val base = configDir.getParent.getParent
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 
-    val builder = new ProcessBuilder(sys.props("java.home") + "/bin/java",
-                                     "-Xms2G",
-                                     "-Xmx2G",
-                                     "-jar",
-                                     bloopJarPath,
-                                     "--config-dir",
-                                     "2.0")
+    val builder = new ProcessBuilder(
+      sys.props("java.home") + "/bin/java",
+      "-Xms2G",
+      "-Xmx2G",
+      "-jar",
+      bloopJarPath,
+      "--config-dir",
+      configDir.toAbsolutePath.toString
+    )
+
     builder.redirectErrorStream(true)
     builder.directory(base.toFile)
     inputRedirect = builder.redirectInput()
