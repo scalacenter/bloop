@@ -30,15 +30,27 @@ object MojoImplementation {
   }
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
-  val JUnitFramework = Config.TestFramework(List("com.novocode.junit.JUnitFramework"))
+
+  val ScalaCheckFramework = Config.TestFramework(List(
+    "org.scalacheck.ScalaCheckFramework"
+  ))
+  val ScalaTestFramework = Config.TestFramework(List(
+    "org.scalatest.tools.Framework",
+    "org.scalatest.tools.ScalaTestFramework"
+  ))
+  val SpecsFramework = Config.TestFramework(List(
+    "org.specs.runner.SpecsFramework",
+    "org.specs2.runner.Specs2Framework",
+    "org.specs2.runner.SpecsFramework"
+  ))
+  val JUnitFramework = Config.TestFramework(List(
+    "com.novocode.junit.JUnitFramework"
+  ))
+
   private val testFrameworks: Array[Config.TestFramework] = Array(
-    Config.TestFramework(List("org.scalacheck.ScalaCheckFramework")),
-    Config.TestFramework(
-      List("org.scalatest.tools.Framework", "org.scalatest.tools.ScalaTestFramework")),
-    Config.TestFramework(
-      List("org.specs.runner.SpecsFramework",
-           "org.specs2.runner.Specs2Framework",
-           "org.specs2.runner.SpecsFramework")),
+    ScalaCheckFramework,
+    ScalaTestFramework,
+    SpecsFramework,
     JUnitFramework
   )
 
