@@ -152,17 +152,18 @@ class FileWatchingSpec {
         // Start the compilation
         workerThread.start()
 
-        // Create non-existing source dirs in tests Xhttps://github.com/scalacenter/bloop/pull/471
-        project.sources.foreach { a =>
-          val p = a.underlying
+        val reachable = Dag.dfs(state.build.getDagFor(project))
+        val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying).toList
+        val existingProjectSources = allSources.filter { p =>
           val s = p.toString
-          if (!Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java"))
-            Files.createDirectories(p)
+          Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java")
         }
 
         // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
         val newSource = project.sources.head.resolve("D.scala").underlying
         if (Files.exists(newSource)) TestUtil.delete(newSource)
+
+        val dirsToWatch = existingProjectSources.length
 
         // Wait for #1 compilation to finish
         readCompilingLines(1, "Compiling 1 Scala source to", bloopOut)
@@ -172,7 +173,9 @@ class FileWatchingSpec {
         readCompilingLines(1, "- should be very personal", bloopOut)
         readCompilingLines(1, "Total for specification Specs2Test", bloopOut)
         readCompilingLines(2, "Test server has been successfully closed.", bloopOut)
-        readCompilingLines(1, "Watching 8 directories... (press C-c to interrupt)", bloopOut)
+        readCompilingLines(1,
+                           s"Watching $dirsToWatch directories... (press C-c to interrupt)",
+                           bloopOut)
 
         // Write the contents of a source back to the same source
         Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
