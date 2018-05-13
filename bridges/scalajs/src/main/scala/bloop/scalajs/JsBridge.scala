@@ -3,7 +3,6 @@ package bloop.scalajs
 import scala.collection.JavaConverters._
 
 import java.nio.file.{Files, Path}
-import java.io.File
 
 import org.scalajs.core.tools.io.IRFileCache.IRContainer
 import org.scalajs.core.tools.io.{
@@ -34,30 +33,38 @@ object JsBridge {
     override def trace(t: => Throwable): Unit = logger.trace(t)
   }
 
+  @inline private def isIrFile(path: Path): Boolean =
+    path.toString.endsWith(".sjsir")
+
+  @inline private def isJarFile(path: Path): Boolean =
+    path.toString.endsWith(".jar")
+
+  private def findIrFiles(path: Path): List[Path] =
+    Files
+      .walk(path)
+      .iterator()
+      .asScala
+      .filter(isIrFile)
+      .toList
+
   def link(project: Project,
            mainClass: String,
            logger: BloopLogger,
            optimize: OptimizerConfig): Path = {
+    val classpath = project.classpath.map(_.underlying)
+    val classpathIrFiles = classpath
+      .filter(Files.isDirectory(_))
+      .flatMap(findIrFiles)
+      .map(f => new FileVirtualScalaJSIRFile(f.toFile))
+
     val outputPath = project.out.underlying
     val target = project.out.resolve("out.js")
 
-    val sources = Files
-      .walk(outputPath)
-      .iterator()
-      .asScala
-      .filter(_.getFileName.toString.endsWith(".sjsir"))
-      .map(_.toFile)
-      .toList
-    val sourceIrFiles = sources.map(new FileVirtualScalaJSIRFile(_))
-
-    val classPath = project.classpath.map(_.underlying)
     val jarFiles =
-      classPath.toList.map(_.toFile).filter(_.getName.endsWith(".jar"))
-    val jars =
-      jarFiles.map(jar => IRContainer.Jar(new FileVirtualBinaryFile(jar) with VirtualJarFile))
-    val jarIrFiles = jars.flatMap(_.jar.sjsirFiles)
-
-    val irFiles = sourceIrFiles ++ jarIrFiles
+      classpath
+        .filter(isJarFile)
+        .map(jar => IRContainer.Jar(new FileVirtualBinaryFile(jar.toFile) with VirtualJarFile))
+    val jarIrFiles = jarFiles.flatMap(_.jar.sjsirFiles)
 
     val initializer =
       ModuleInitializer.mainMethodWithArgs(mainClass, "main")
@@ -69,10 +76,12 @@ object JsBridge {
 
     val config = StandardLinker.Config().withOptimizer(enableOptimizer)
 
-    StandardLinker(config).link(irFiles = irFiles,
-                                moduleInitializers = Seq(initializer),
-                                output = AtomicWritableFileVirtualJSFile(target.toFile),
-                                logger = new Logger(logger))
+    StandardLinker(config).link(
+      irFiles = classpathIrFiles ++ jarIrFiles,
+      moduleInitializers = Seq(initializer),
+      output = AtomicWritableFileVirtualJSFile(target.toFile),
+      logger = new Logger(logger)
+    )
     target.underlying
   }
 
