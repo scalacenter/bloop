@@ -142,7 +142,7 @@ object Commands {
 
   case class Run(
       @ExtraName("p")
-      @HelpMessage("The project to run (will be inferred from remaining cli args).")
+      @HelpMessage("The project to run (will be inferred from remaining cli args). Requires Node.js to be in $PATH for Scala.js.")
       project: String = "",
       @ExtraName("m")
       @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
@@ -157,7 +157,7 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
-  case class NativeLink(
+  case class Link(
       @ExtraName("p")
       @HelpMessage("The project to run (will be inferred from remaining cli args).")
       project: String = "",
@@ -169,6 +169,12 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @ExtraName("opt")
+      @HelpMessage("Perform additional code optimisations. Only available for Scala.js. Disabled by default.")
+      optimise: Boolean = false,
+      @ExtraName("o")
+      @HelpMessage("Change the output path. By default, the linked output file will be stored in `out`.")
+      output: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 }
