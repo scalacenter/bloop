@@ -1,6 +1,6 @@
 package bloop
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 
 import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
@@ -207,8 +207,10 @@ object Cli {
   def run(action: Action, pool: ClientPool, userArgs: Array[String]): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
+      val cwd = AbsolutePath(cliOptions.common.workingDirectory)
+
       cliOptions.configDir
-        .map(AbsolutePath.apply)
+        .map(AbsolutePath.apply(_)(cwd))
         .getOrElse(cliOptions.common.workingPath.resolve(".bloop"))
     }
 
@@ -224,13 +226,18 @@ object Cli {
       BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
-    waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger, userArgs) {
-      Interpreter.execute(action, currentState).map { newState =>
-        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-        // Persist successful result on the background for the new state -- it doesn't block!
-        Tasks.persist(newState).runAsync(ExecutionContext.ioScheduler)
-        newState
+    if (Files.exists(configDirectory.underlying)) {
+      waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger, userArgs) {
+        Interpreter.execute(action, currentState).map { newState =>
+          State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+          // Persist successful result on the background for the new state -- it doesn't block!
+          Tasks.persist(newState).runAsync(ExecutionContext.ioScheduler)
+          newState
+        }
       }
+    } else {
+      logger.error(s"Config directory does not exist: $configDirectory")
+      ExitStatus.InvalidCommandLineOption
     }
   }
 

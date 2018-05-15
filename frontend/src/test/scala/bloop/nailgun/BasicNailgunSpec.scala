@@ -159,6 +159,49 @@ class BasicNailgunSpec extends NailgunTest {
     }
   }
 
+  @Test
+  def testConfigDirPathResolving(): Unit = {
+    val projectName = "with-resources"
+
+    withServerInProject(projectName) { (logger, client) =>
+      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
+      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
+
+      val relativeConfigDir = projectBase.relativize(absoluteConfigPath).toString
+
+      client.success("projects", "--config-dir", relativeConfigDir)
+
+      val messages = logger.getMessages()
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
+      }
+
+      contains(projectName)
+      contains(projectName + "-test")
+    }
+  }
+
+  @Test
+  def testConfigDirPathResolvingForUnknownPath(): Unit = {
+    val projectName = "with-resources"
+    val wrongDirectory = "something-not-right"
+
+    withServerInProject(projectName) { (logger, client) =>
+      client.fail("projects", "--config-dir", wrongDirectory)
+
+      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
+      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
+
+      val messages = logger.getMessages()
+
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
+      }
+
+      contains(s"Config directory does not exist: ${projectBase.resolve(wrongDirectory)}")
+    }
+  }
+
   /*
   @Test
   def testSeveralConcurrentClients(): Unit = {
