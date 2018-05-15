@@ -61,7 +61,7 @@ object DependencyResolution {
       localArtifacts.collect { case Right(f) => AbsolutePath(f.toPath) }.toArray
     } else {
       sys.error(
-        s"Resolution of Scala instance failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
+        s"Resolution of module $module failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
       )
     }
   }

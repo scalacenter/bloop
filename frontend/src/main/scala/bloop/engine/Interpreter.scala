@@ -1,24 +1,28 @@
 package bloop.engine
 
+import java.io.File
+
 import bloop.bsp.BspServer
 
-import scala.annotation.tailrec
-import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
+import bloop.cli.{BspProtocol, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
-import bloop.io.{RelativePath, SourceWatcher}
-import bloop.io.Timer.timed
+import bloop.config.Config.Platform
+import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.reporter.ReporterConfig
 import bloop.testing.TestInternals
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{ScalaJs, ScalaNative, Tasks}
 import bloop.Project
+import bloop.exec.Process
+import bloop.exec.Forker
 import monix.eval.Task
-import monix.execution.misc.NonFatal
-
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 
 object Interpreter {
+  private val DefaultTargetNames: Map[Platform, String] = Map(
+    Platform.JVM    -> "out.jar",
+    Platform.JS     -> "out.js",
+    Platform.Native -> "out")
+
   // This is stack safe because of monix trampolined execution.
   def execute(action: Action, stateTask: Task[State]): Task[State] = {
     def execute(action: Action, stateTask: Task[State], inRecursion: Boolean): Task[State] = {
@@ -52,6 +56,8 @@ object Interpreter {
             execute(next, configure(cmd, state), true)
           case Run(cmd: Commands.Autocomplete, next) =>
             execute(next, autocomplete(cmd, state), true)
+          case Run(cmd: Commands.Link, next) =>
+            execute(next, link(cmd, state, inRecursion), true)
           case Run(cmd: Commands.Help, next) =>
             val msg = "The handling of help doesn't happen in the `Interpreter`."
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
@@ -270,6 +276,54 @@ object Interpreter {
     state
   }
 
+  private def link(cmd: Commands.Link,
+                   state: State,
+                   sequential: Boolean): Task[State] = {
+    val cwd    = cmd.cliOptions.common.workingPath
+    val output = cmd.output.map(cwd.resolve)
+
+    state.build.getProjectFor(cmd.project) match {
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
+      case _ if output.exists(_.isDirectory) =>
+        Task {
+          state.logger.error("The output path must point to a file.")
+          state.mergeStatus(ExitStatus.RunError)
+        }
+      case Some(project) if project.platform != Platform.Native &&
+                            project.platform != Platform.JS =>
+        Task {
+          state.logger.error("This command can only be called on a Scala Native or Scala.js project.")
+          state.mergeStatus(ExitStatus.RunError)
+        }
+      case Some(project) =>
+        val reporter = ReporterKind.toReporterConfig(cmd.reporter)
+        def doRun(state: State): Task[State] = {
+          compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
+            cmd.main.orElse(getMainClass(state, project)) match {
+              case None => Task(state.mergeStatus(ExitStatus.RunError))
+              case Some(main) =>
+                val target = output.getOrElse(
+                  project.out.resolve(DefaultTargetNames(project.platform)))
+
+                Task {
+                  if (project.platform == Platform.Native)
+                    ScalaNative.link(project, main, target.toFile, state.logger)
+                  else ScalaJs.link(
+                    project, main, target.toFile, cmd.optimise, state.logger)
+
+                  state.logger.info(s"Output written to $target.")
+                  state
+                }
+            }
+          }
+        }
+
+        if (cmd.watch) watch(project, state, doRun _)
+        else doRun(state)
+    }
+  }
+
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
     if (cmd.threads != ExecutionContext.executor.getCorePoolSize)
       State.setCores(state, cmd.threads)
@@ -288,32 +342,30 @@ object Interpreter {
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        def getMainClass(state: State): Option[String] = {
-          cmd.main.orElse {
-            Tasks.findMainClasses(state, project) match {
-              case Array() =>
-                state.logger.error(s"No main classes found in project '${project.name}'")
-                None
-              case Array(main) =>
-                Some(main)
-              case mainClasses =>
-                val eol = System.lineSeparator
-                val message = s"""Several main classes were found, specify which one:
-                                 |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
-                state.logger.error(message)
-                None
-            }
-          }
-        }
-
         def doRun(state: State): Task[State] = {
           compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
-            getMainClass(state) match {
+            cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
-              case Some(main) =>
-                val args = cmd.args.toArray
-                val cwd = cmd.cliOptions.common.workingPath
-                Tasks.run(state, project, cwd, main, args)
+              case Some(mainClass) =>
+                val args   = cmd.args
+                val cwd    = cmd.cliOptions.common.workingPath
+                val target = new File(
+                  project.out.toFile, DefaultTargetNames(project.platform))
+
+                project.platform match {
+                  case Platform.Native =>
+                    ScalaNative.link(project, mainClass, target, state.logger)
+                    Task(runCommand(state, cwd, target.toString +: args))
+
+                  case Platform.JS =>
+                    ScalaJs.link(project, mainClass, target, optimise = false,
+                      state.logger)
+                    val command = List("node", target.toString) ++ args
+                    Task(runCommand(state, cwd, command))
+
+                  case _ =>
+                    Tasks.run(state, project, cwd, mainClass, args.toArray)
+                }
             }
           }
         }
@@ -326,11 +378,40 @@ object Interpreter {
     }
   }
 
+  private def runCommand(state: State,
+                         cwd  : AbsolutePath,
+                         cmd  : List[String]): State = {
+    import scala.collection.JavaConverters.propertiesAsScalaMap
+    val env = propertiesAsScalaMap(state.commonOptions.env).toMap
+    val exitCode = Process.run(cwd, cmd, env, state.logger)
+
+    val exitStatus =
+      if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
+      else ExitStatus.UnexpectedError
+    state.mergeStatus(exitStatus)
+  }
+
   private def reportMissing(projectNames: List[String], state: State): State = {
     val projects = projectNames.mkString("'", "', '", "'")
     val configDirectory = state.build.origin.syntax
     state.logger.error(s"No projects named $projects found in '$configDirectory'.")
     state.logger.error(s"Use the `projects` command to list existing projects.")
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
+  }
+
+  private def getMainClass(state: State, project: Project): Option[String] = {
+    Tasks.findMainClasses(state, project) match {
+      case Array() =>
+        state.logger.error(s"No main classes found in project '${project.name}'")
+        None
+      case Array(main) =>
+        Some(main)
+      case mainClasses =>
+        val eol = System.lineSeparator
+        val message = s"""Several main classes were found, specify which one:
+                         |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+        state.logger.error(message)
+        None
+    }
   }
 }

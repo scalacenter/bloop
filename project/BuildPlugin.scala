@@ -113,12 +113,23 @@ object BuildKeys {
   )
 
   import sbtbuildinfo.BuildInfoKey
-  final val BloopInfoKeys = {
+  def bloopInfoKeys(nativeBridge: Reference, jsBridge: Reference) = {
     val zincKey = BuildInfoKey.constant("zincVersion" -> Dependencies.zincVersion)
     val developersKey = BuildInfoKey.map(Keys.developers) {
       case (k, devs) => k -> devs.map(_.name)
     }
+    val nativeBridgeKey = BuildInfoKey.map(Keys.ivyModule in nativeBridge) {
+      case (_, module) =>
+        "nativeBridge" -> module.withModule(sbt.util.Logger.Null)((_, mod, _) =>
+          mod.getModuleRevisionId.getName)
+    }
+    val jsBridgeKey = BuildInfoKey.map(Keys.ivyModule in jsBridge) {
+      case (_, module) =>
+        "jsBridge" -> module.withModule(sbt.util.Logger.Null)((_, mod, _) =>
+          mod.getModuleRevisionId.getName)
+    }
     val commonKeys = List[BuildInfoKey](
+      Keys.organization,
       Keys.name,
       Keys.version,
       Keys.scalaVersion,
@@ -126,7 +137,7 @@ object BuildKeys {
       buildIntegrationsIndex,
       nailgunClientLocation
     )
-    commonKeys ++ List(zincKey, developersKey)
+    commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridgeKey)
   }
 
   import sbtassembly.{AssemblyKeys, MergeStrategy}

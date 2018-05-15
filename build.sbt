@@ -78,7 +78,7 @@ val jsonConfig = project
 
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
-val frontend = project
+lazy val frontend: Project = project
   .dependsOn(backend, backend % "test->test", jsonConfig)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
@@ -87,7 +87,7 @@ val frontend = project
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopInfoKeys,
+    buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
@@ -144,7 +144,27 @@ val docs = project
     websiteSettings
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop)
+lazy val jsBridge = project
+  .dependsOn(frontend)
+  .in(file("bridges") / "scalajs")
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-js-bridge",
+    libraryDependencies += Dependencies.scalaJsTools
+  )
+
+lazy val nativeBridge = project
+  .dependsOn(frontend)
+  .in(file("bridges") / "scala-native")
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-native-bridge",
+    libraryDependencies += Dependencies.scalaNativeTools
+  )
+
+val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge, jsBridge)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
