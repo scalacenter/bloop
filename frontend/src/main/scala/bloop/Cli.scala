@@ -207,8 +207,10 @@ object Cli {
   def run(action: Action, pool: ClientPool, userArgs: Array[String]): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
+      val cwd = AbsolutePath(cliOptions.common.workingDirectory)
+
       cliOptions.configDir
-        .map(AbsolutePath.apply)
+        .map(AbsolutePath.apply(_)(cwd))
         .getOrElse(cliOptions.common.workingPath.resolve(".bloop"))
     }
 

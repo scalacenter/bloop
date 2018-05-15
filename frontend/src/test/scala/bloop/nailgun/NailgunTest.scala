@@ -119,7 +119,7 @@ abstract class NailgunTest {
    * Starts a server and provides a client in the directory of project `name`.
    * A logger that will receive all output will be created and passed to `op`.
    *
-   * @param base The base directory where the client will be.
+   * @param name The name of the project where the client will be.
    * @param op   A function that accepts a logger and a client.
    * @return The result of executing `op` on the logger and client.
    */
@@ -131,7 +131,8 @@ abstract class NailgunTest {
    * A client that interacts with a running Nailgun server.
    *
    * @param port The port on which the client should communicate with the server.
-   * @param base The base directory from which the client is running.
+   * @param log recording logger for test run.
+   * @param config The base directory with the configuration files.
    */
   private case class Client(port: Int, log: RecordingLogger, config: Path) {
     private val base = TestUtil.getBaseFromConfigDir(config)
@@ -166,11 +167,16 @@ abstract class NailgunTest {
      * Execute a command `cmd` on the server and return the process
      * executing the specified command.
      *
-     * @param cmd The command to execute
+     * @param cmd0 The command to execute
      * @return The exit code of the operation.
      */
     def issueAsProcess(cmd0: String*): Process = {
-      val cmd = cmd0 ++ List("--config-dir", configPath)
+      val cmd =
+        if (cmd0.contains("--config-dir"))
+          cmd0
+        else
+          cmd0 ++ List("--config-dir", configPath)
+
       val builder = processBuilder(cmd)
       val process = builder.start()
       val processLogger = new ProcessLogger(log, process)

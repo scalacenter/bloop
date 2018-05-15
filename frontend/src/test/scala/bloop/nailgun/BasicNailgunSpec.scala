@@ -3,7 +3,7 @@ package bloop.nailgun
 import java.util.concurrent.TimeUnit
 
 import bloop.bsp.BspServer
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.Assert.{assertEquals, assertTrue}
 import bloop.logging.{BloopLogger, RecordingLogger}
 import bloop.tasks.TestUtil
@@ -156,6 +156,36 @@ class BasicNailgunSpec extends NailgunTest {
       assertEquals(s"${messages.mkString("\n")} should contain four times '$needle'",
                    4,
                    matches.toLong)
+    }
+  }
+
+  @Test
+  def testConfigDirPathResolving(): Unit = {
+    val projectName = "with-resources"
+
+    withServerInProject(projectName) { (logger, client) =>
+      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
+      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
+
+      val relativeConfigDir = projectBase.relativize(absoluteConfigPath).toString
+
+      client.success("projects", "--config-dir", relativeConfigDir)
+
+      val messages = logger.getMessages()
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
+      }
+
+      contains(projectName)
+      contains(projectName + "-test")
+    }
+  }
+
+  @Test
+  @Ignore
+  def testConfigDirPathResolvingForUnknownPath(): Unit = {
+    withServerInProject("with-resources") { (logger, client) =>
+      client.fail("projects", "--config-dir", ".this-should-fail")
     }
   }
 
