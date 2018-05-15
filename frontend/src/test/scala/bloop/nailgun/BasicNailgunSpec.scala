@@ -3,7 +3,7 @@ package bloop.nailgun
 import java.util.concurrent.TimeUnit
 
 import bloop.bsp.BspServer
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
 import bloop.logging.{BloopLogger, RecordingLogger}
 import bloop.tasks.TestUtil
@@ -182,10 +182,23 @@ class BasicNailgunSpec extends NailgunTest {
   }
 
   @Test
-  @Ignore
   def testConfigDirPathResolvingForUnknownPath(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
-      client.fail("projects", "--config-dir", ".this-should-fail")
+    val projectName = "with-resources"
+    val wrongDirectory = "something-not-right"
+
+    withServerInProject(projectName) { (logger, client) =>
+      client.fail("projects", "--config-dir", wrongDirectory)
+
+      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
+      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
+
+      val messages = logger.getMessages()
+
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
+      }
+
+      contains(s"Config directory does not exist: ${projectBase.resolve(wrongDirectory)}")
     }
   }
 
