@@ -25,7 +25,8 @@ final case class Project(
     testFrameworks: Array[Config.TestFramework],
     testOptions: Config.TestOptions,
     javaEnv: JavaEnv,
-    out: AbsolutePath
+    out: AbsolutePath,
+    analysisOut: AbsolutePath
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -117,7 +118,8 @@ object Project {
       project.test.frameworks,
       project.test.options,
       javaEnv,
-      AbsolutePath(project.out)
+      AbsolutePath(project.out),
+      AbsolutePath(project.analysisOut)
     )
   }
 

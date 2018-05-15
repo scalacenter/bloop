@@ -52,6 +52,8 @@ object AutoImported {
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: sbt.TaskKey[File] =
     sbt.taskKey[File]("Generate bloop configuration files for this project")
+  val bloopAnalysisOut: SettingKey[File] =
+    settingKey[File]("File where to write incremental compiler state")
 }
 
 object PluginImplementation {
@@ -77,7 +79,12 @@ object PluginImplementation {
       BloopKeys.bloopClassDirectory := PluginDefaults.generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := PluginDefaults.bloopInternalDependencyClasspath.value,
       BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
-      BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value
+      BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value,
+      BloopKeys.bloopAnalysisOut := {
+        val projectName = Keys.thisProject.value.id
+        val configurationName = Keys.configuration.value.name
+        BloopKeys.bloopConfigDir.value / projectName / s"$projectName-$configurationName-analysis.bin"
+      }
     )
     val all = rawSettingsInConfigs ++ DiscoveredSbtPlugins.settings
     all.flatMap(ss => sbt.inConfig(Compile)(ss) ++ sbt.inConfig(Test)(ss))
@@ -287,7 +294,8 @@ object PluginImplementation {
         val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
 
         val compileOptions = Config.CompileOptions(compileOrder)
-        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, testOptions)
+        val analysisOut = BloopKeys.bloopAnalysisOut.value.toPath.toAbsolutePath
+        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, testOptions)
         Config.File(Config.File.LatestVersion, project)
       }
       // format: ON

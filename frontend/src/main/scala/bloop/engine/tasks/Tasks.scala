@@ -233,7 +233,7 @@ object Tasks {
     import bloop.util.JavaCompat.EnrichOptional
     def persist(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
-        val storeFile = ResultsCache.pathToAnalysis(project)
+        val storeFile = project.analysisOut
         state.commonOptions.ngout.println(s"Writing ${storeFile.syntax}.")
         FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
         ResultsCache.persisted.add(result)

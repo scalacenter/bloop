@@ -70,6 +70,7 @@ object MojoImplementation {
       val build = project.getBuild()
       val baseDirectory = abs(project.getBasedir())
       val out = baseDirectory.resolve("target")
+      val analysisOut = out.resolve(name).resolve(s"$name-$configuration-analysis.bin")
       val sourceDirs = sourceDirs0.map(abs).toArray
       val classesDir = abs(classesDir0)
       val classpath1 = {
@@ -90,7 +91,7 @@ object MojoImplementation {
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
         val jvm = Config.Jvm(Some(abs(mojo.getJavaHome())), launcher.getJvmArgs().toArray)
         val compileOptions = Config.CompileOptions(Config.Mixed)
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, test)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencies, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

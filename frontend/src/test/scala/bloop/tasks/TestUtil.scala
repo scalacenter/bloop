@@ -228,7 +228,8 @@ object TestUtil {
       testFrameworks = Array.empty,
       testOptions = Config.TestOptions.empty,
       javaEnv = javaEnv,
-      out = AbsolutePath(baseDirectory) // This means nothing in tests
+      out = AbsolutePath(baseDirectory), // This means nothing in tests
+      analysisOut = AbsolutePath(baseDirectory.resolve("test-util.bin"))
     )
   }
 

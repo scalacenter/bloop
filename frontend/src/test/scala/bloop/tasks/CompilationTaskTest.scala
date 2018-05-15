@@ -1,10 +1,14 @@
 package bloop.tasks
 
+import java.nio.file.Files
+import java.util.concurrent.TimeUnit
+
 import org.junit.Test
 import org.junit.Assert.assertTrue
 import org.junit.experimental.categories.Category
 import bloop.ScalaInstance
 import bloop.cli.Commands
+import bloop.engine.tasks.Tasks
 import bloop.engine.{Run, State}
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
@@ -15,6 +19,8 @@ import bloop.tasks.TestUtil.{
   hasPreviousResult,
   noPreviousResult
 }
+
+import scala.concurrent.duration.FiniteDuration
 
 @Category(Array(classOf[bloop.FastTests]))
 class CompilationTaskTest {
@@ -245,4 +251,28 @@ class CompilationTaskTest {
       assert(projects.forall(p => hasPreviousResult(p, state)))
     }
   }
+
+  @Test
+  def incrementalAnalysisOutFile: Unit = {
+    val testProject = "with-resources"
+    val logger = new RecordingLogger()
+    val state0 = TestUtil.loadTestProject(testProject)
+
+    val state = state0.copy(logger = logger)
+
+    val action = Run(Commands.Compile(testProject))
+
+    val compiledState = TestUtil.blockingExecute(action, state)
+
+    val t = Tasks.persist(compiledState)
+
+    try TestUtil.await(FiniteDuration(7, TimeUnit.SECONDS))(t)
+    catch { case t: Throwable => logger.dump(); throw t }
+    ()
+
+    val analysisOutFile = state0.build.getProjectFor(testProject).get.analysisOut
+
+    assertTrue(Files.exists(analysisOutFile.underlying))
+  }
+
 }

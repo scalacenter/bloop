@@ -25,7 +25,7 @@ import scala.concurrent.duration.Duration
  * This data structure is not thread-safe and should not be used like so.
  *
  * @param all The map of projects to latest compilation results.
- * @param succesful The map of all projects to latest successful compilation results.
+ * @param successful The map of all projects to latest successful compilation results.
  * @param logger A logger.
  */
 final class ResultsCache private (
@@ -90,7 +90,7 @@ object ResultsCache {
     import bloop.util.JavaCompat.EnrichOptional
 
     def fetchPreviousResult(p: Project): Task[Compiler.Result] = {
-      val analysisFile = ResultsCache.pathToAnalysis(p)
+      val analysisFile = p.analysisOut
       if (Files.exists(analysisFile.underlying)) {
         Task {
           val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
@@ -120,7 +120,4 @@ object ResultsCache {
       cache.addResults(projectResults)
     }
   }
-
-  def pathToAnalysis(project: Project): AbsolutePath =
-    project.out.resolve(s"${project.name}-analysis.bin")
 }
