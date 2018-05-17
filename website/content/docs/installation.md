@@ -38,7 +38,7 @@ Homebrew also automatically installs completions for zsh and Bash.
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
-<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M8</span>/install.py | python
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M10</span>/install.py | python
 </code></pre>
 
 The installation script will also install:
@@ -150,7 +150,7 @@ The sbt plugin is available for both sbt `0.13` and `1.x`. To install it, add
 the following to your `project/plugins.sbt`:
 
 
-<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M8</span>"</span>)</code></pre>
+<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M10</span>"</span>)</code></pre>
 
 
 Once sbt is configured, you can run `bloopInstall` to generate the Bloop configuration:
@@ -180,9 +180,10 @@ bloopAggregateSourceDependencies in Global := true
 
 To generate Bloop's configuration using Maven, run (from your project directory):
 
-```sh
-$ mvn ch.epfl.scala:maven-bloop_2.12:1.0.0-M10:bloopInstall
-```
+<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.12.:<span class="latest-version">1.0.0-M10</span>:bloopInstall
+</code></pre>
+
+<span class="label warning">Useful</span> You can remove the version number from the mvn command to fetch the latest Bloop release from master.
 
 ### Start bloop
 
