@@ -4,7 +4,7 @@ set -o pipefail
 BLOOP_DEFAULT_REFERENCE="master"
 BLOOP_SMALL_JMH_OPTIONS="-wi 10 -i 10 -f3 -t1"
 BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f2 -t1"
-BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
+BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1 -jvm /usr/lib/jvm/java-8-graal-ee/bin/java"
 
 BLOOP_REFERENCE="$BLOOP_DEFAULT_REFERENCE"
 BLOOP_JMH_RUNNER="benchmarks/jmh:run"
