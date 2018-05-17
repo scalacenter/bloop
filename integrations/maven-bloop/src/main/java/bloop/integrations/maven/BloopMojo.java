@@ -13,7 +13,7 @@ import scala_maven.ExtendedScalaContinuousCompileMojo;
 import java.io.File;
 import java.util.List;
 
-@Mojo(name = "bloop", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.INITIALIZE, requiresDependencyResolution = ResolutionScope.TEST)
+@Mojo(name = "bloopInstall", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.GENERATE_RESOURCES, requiresDependencyResolution = ResolutionScope.TEST)
 public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(defaultValue = "${mojoExecution}", readonly = true, required = true)
     private MojoExecution mojoExecution;
@@ -59,7 +59,7 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         BloopMojo initializedMojo = MojoImplementation.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
-        MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, this.getLog());
+        MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, session, this.getLog());
     }
 
     public File[] getAllScalaJars() throws Exception {
