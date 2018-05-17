@@ -293,11 +293,12 @@ This installation script requires more information to install Bloop:
    logs to figure out the exact version number.
  - The SHA of the commit to use to get the Nailgun client. Look at which commit points our `nailgun`
    submodule at a given point in time to find that information.
+ - Coursier's version to use. Look at `project/Dependencies.scala` to find the version number.
 
 Pass this information to the installation script:
 
 ```sh
-$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
+$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT -c $COURSIER_VERSION
 ```
 
 <script type="text/javascript">

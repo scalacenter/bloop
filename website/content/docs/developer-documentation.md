@@ -42,12 +42,13 @@ $ git clone --recursive https://github.com/scalacenter/bloop.git
 $ cd bloop
 $ sbt
 > install
-> frontend/version # copy this version number
+> frontend/version # copy this version number as <version>
 $ cd nailgun
-$ git rev-parse HEAD # copy this commit SHA
+$ git rev-parse HEAD # copy this commit SHA as <nailgun-commit-sha>
 $ cd ..
-# paste the version number and SHA obtained above in the following command:
-$ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --version <version>
+$ grep 'val coursierVersion' project/Dependencies.scala # copy this version number as <coursier-version>
+# paste the version numbers and SHA obtained above in the following command:
+$ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --coursier <coursier-version> --version <version>
 ```
 
 ## Running our test suite
