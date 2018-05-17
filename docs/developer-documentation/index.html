@@ -190,12 +190,13 @@ locally on your machine and generate the binaries that you can immediately run:<
 $ cd bloop
 $ sbt
 &gt; install
-&gt; frontend/version # copy this version number
+&gt; frontend/version # copy this version number as &lt;version&gt;
 $ cd nailgun
-$ git rev-parse HEAD # copy this commit SHA
+$ git rev-parse HEAD # copy this commit SHA as &lt;nailgun-commit-sha&gt;
 $ cd ..
-# paste the version number and SHA obtained above in the following command:
-$ bin/install.py --dest $HOME/.bloop --nailgun &lt;nailgun-commit-sha&gt; --version &lt;version&gt;
+$ grep 'val coursierVersion' project/Dependencies.scala # copy this version number as &lt;coursier-version&gt;
+# paste the version numbers and SHA obtained above in the following command:
+$ bin/install.py --dest $HOME/.bloop --nailgun &lt;nailgun-commit-sha&gt; --coursier &lt;coursier-version&gt; --version &lt;version&gt;
 </code></pre>
 
 <h2 id="running-our-test-suite">Running our test suite</h2>

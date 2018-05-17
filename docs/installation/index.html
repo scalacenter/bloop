@@ -421,11 +421,12 @@ script</a> can be downloaded directly from our repository.</p>
 logs to figure out the exact version number.</li>
 <li>The SHA of the commit to use to get the Nailgun client. Look at which commit points our <code>nailgun</code>
 submodule at a given point in time to find that information.</li>
+<li>Coursier&rsquo;s version to use. Look at <code>project/Dependencies.scala</code> to find the version number.</li>
 </ul>
 
 <p>Pass this information to the installation script:</p>
 
-<pre><code class="language-sh">$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT
+<pre><code class="language-sh">$ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT -c $COURSIER_VERSION
 </code></pre>
 
 <script type="text/javascript">
