@@ -83,30 +83,29 @@ object TestInternals {
    * @param forker            Configuration for the forked JVM.
    * @param discovered The tests that were discovered.
    * @param args            The test arguments to pass to the framework.
-   * @param handler    Handler that reacts on messages from the testing frameworks.
+   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
    * @param logger          Logger receiving test output.
-   * @param env             The environment properties to run the program with.
+   * @param opts            The options to run the program with.
    */
   def execute(
       cwd: AbsolutePath,
       forker: Forker,
       discovered: DiscoveredTests,
       args: List[Config.TestArgument],
-      handler: EventHandler,
+      eventHandler: TestSuiteEventHandler,
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
     logger.debug("Starting forked test execution.")
 
-    // Make sure that we cache the resolution of the test agent jar and we don't repeat it every time
+    // Make sure that we cache the resolution of the test agent JAR and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
 
-    val testLoader = forker.newClassLoader(Some(filteredLoader))
-    val server = new TestServer(logger, handler, discovered, args, opts)
+    val server = new TestServer(logger, eventHandler, discovered, args, opts)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
-    logger.debug("Test agent jars: " + agentFiles.mkString(", "))
+    logger.debug("Test agent JARs: " + testAgentJars.mkString(", "))
 
     val listener = server.listenToTests
     val runner = forker.runMain(cwd, forkMain, arguments, logger, opts, testAgentJars)

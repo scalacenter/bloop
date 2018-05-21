@@ -45,7 +45,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
    * @param mainClass      The fully qualified name of the class to run.
    * @param args           The arguments to pass to the main method.
    * @param logger         Where to log the messages from execution.
-   * @param properties     The environment properties to run the program with.
+   * @param opts           The options to run the program with.
    * @param extraClasspath Paths to append to the classpath before running.
    * @return 0 if the execution exited successfully, a non-zero number otherwise.
    */
@@ -87,7 +87,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         }
 
         override def onExit(statusCode: Int): Unit =
-          logger.debug(s"Forked JVM exited with code $statusCode")
+          logger.debug(s"Forked JVM exited with code: $statusCode")
 
         val outBuilder = StringBuilder.newBuilder
         override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
