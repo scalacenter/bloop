@@ -1,14 +1,13 @@
 package build
 
 import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
 
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import pl.project13.scala.sbt.JmhPlugin.JmhKeys
 import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
-import sbt.io.{AllPassFilter, IO}
+import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
@@ -222,7 +221,7 @@ object BuildImplementation {
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := "2.12.4",
+    Keys.scalaVersion := "2.12.6",
     Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
@@ -291,7 +290,7 @@ object BuildImplementation {
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-  ) ++ metalsSettings
+  )// ++ metalsSettings
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::

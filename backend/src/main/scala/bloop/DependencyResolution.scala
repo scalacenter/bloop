@@ -54,14 +54,15 @@ object DependencyResolution {
     }
     val fetch = Fetch.from(repositories, Cache.fetch())
     val resolution = start.process.run(fetch).unsafePerformSync
-    val errors = resolution.metadataErrors
+    val errors = resolution.errors
     if (errors.isEmpty) {
       val localArtifacts: List[Either[FileError, File]] =
         Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
       localArtifacts.collect { case Right(f) => AbsolutePath(f.toPath) }.toArray
     } else {
+      val instance = s"$organization:$module:$version"
       sys.error(
-        s"Resolution of Scala instance failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
+        s"Resolution of $instance failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
       )
     }
   }

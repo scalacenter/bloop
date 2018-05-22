@@ -91,7 +91,7 @@ object MavenPluginImplementation {
       if (!MavenPluginKeys.mavenPlugin.value) Def.task(Nil)
       else {
         val task = Def.task {
-          val BloopGoal = "bloop"
+          val BloopGoal = "bloopInstall"
           val descriptor = new PluginDescriptor()
           descriptor.setName(Keys.name.value)
           descriptor.setGroupId(Keys.organization.value)
