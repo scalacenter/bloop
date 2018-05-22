@@ -229,7 +229,7 @@ object TestUtil {
       testOptions = Config.TestOptions.empty,
       javaEnv = javaEnv,
       out = AbsolutePath(baseDirectory), // This means nothing in tests
-      analysisOut = AbsolutePath(baseDirectory.resolve("test-util.bin"))
+      analysisOut = AbsolutePath(baseDirectory.resolve(s"$name-analysis.bin"))
     )
   }
 

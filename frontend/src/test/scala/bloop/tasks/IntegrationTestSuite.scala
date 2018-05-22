@@ -79,7 +79,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           testOptions = Config.TestOptions.empty,
           javaEnv = javaEnv,
           out = classesDir,
-          analysisOut = classesDir.resolve("test.bin")
+          analysisOut = classesDir.resolve(s"$rootProjectName-analysis.bin")
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
