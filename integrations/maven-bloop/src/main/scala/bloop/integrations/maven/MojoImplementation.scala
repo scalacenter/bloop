@@ -95,8 +95,6 @@ object MojoImplementation {
                     classpath0: java.util.List[_],
                     launcher: AppLauncher,
                     configuration: String): Unit = {
-      def abs(file: File): Path = file.toPath().toRealPath().toAbsolutePath()
-
       val suffix = if (configuration == "compile") "" else s"-$configuration"
       val name = project.getArtifactId() + suffix
       val build = project.getBuild()
