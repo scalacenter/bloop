@@ -154,9 +154,9 @@ The supported options are:
     <p>
       Whether to re-run the command when the projects' files are modified. Each time one of the
       file of the project, or of the dependencies of the project, is modified, the
-      <code>test</code> command will be issued again, automatically.
+      <code>run</code> command will be issued again, automatically.
     </p>
-    <p><em>example:</em> <samp>bloop test foobar --watch</samp></p>
+    <p><em>example:</em> <samp>bloop run foobar --watch</samp></p>
   </dd>
 </dl>
 
