@@ -81,6 +81,8 @@ object Config {
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty, CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty, Test.empty)
     // FORMAT: ON
+
+    def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
   }
 
   case class File(version: String, project: Project)

@@ -59,7 +59,6 @@ class IntegrationTestSuite(testDirectory: Path) {
 
       case None =>
         val rootProjectName = "bloop-test-root"
-        val fakeConfigDir = AbsolutePath(testDirectory.resolve(s"$rootProjectName"))
         val classesDir = AbsolutePath(testDirectory)
         val previousProjects = state0.build.projects
         val javaEnv = JavaEnv.default
@@ -79,7 +78,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           testOptions = Config.TestOptions.empty,
           javaEnv = javaEnv,
           out = classesDir,
-          analysisOut = classesDir.resolve(s"$rootProjectName-analysis.bin")
+          analysisOut = classesDir.resolve(Config.Project.analysisFileName(rootProjectName))
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
