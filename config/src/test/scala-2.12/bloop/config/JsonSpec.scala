@@ -2,7 +2,7 @@ package bloop.config
 
 import java.nio.file.{Files, Paths}
 
-import bloop.config.Config.{ClasspathOptions, CompileOptions, File, Java, Jvm, Project, Scala, TestOptions, Test => ConfigTest}
+import bloop.config.Config.{ClasspathOptions, CompileOptions, File, Java, Jvm, Platform, Project, Scala, TestOptions, Test => ConfigTest}
 import bloop.config.ConfigDecoders.allConfigDecoder
 import bloop.config.ConfigEncoders.allConfigEncoder
 import metaconfig.{Conf, Configured}
