@@ -110,7 +110,8 @@ object TestInternals {
     val listener = server.listenToTests
     val runner = forker.runMain(cwd, forkMain, arguments, logger, opts, testAgentJars)
     val listenerHandle = listener.reporter.runAsync(ExecutionContext.ioScheduler)
-    runner.delayExecutionWith(listener.startServer)
+    runner
+      .delayExecutionWith(listener.startServer)
       .executeOn(ExecutionContext.ioScheduler)
       .doOnCancel(Task(listenerHandle.cancel()))
   }

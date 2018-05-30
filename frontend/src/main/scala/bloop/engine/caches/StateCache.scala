@@ -41,7 +41,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @return The state associated with `from`, or the newly computed state.
    */
   def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => Task[State]): Task[State] = {
-    def computeAndSave: Task[State] = computeBuild(from).map(s => {cache.put(from, s); s})
+    def computeAndSave: Task[State] = computeBuild(from).map(s => { cache.put(from, s); s })
 
     Option(cache.get(from)) match {
       case Some(state) =>

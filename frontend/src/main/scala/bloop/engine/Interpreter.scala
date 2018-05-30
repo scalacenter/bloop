@@ -195,13 +195,20 @@ object Interpreter {
           val cwd = cmd.cliOptions.common.workingPath
           compileAnd(state, project, reporterConfig, false, sequential, "`test`") { state =>
             val loggingEventHandler = new LoggingEventHandler(state.logger)
-            Tasks.test(
-              state, project, cwd, cmd.isolated, cmd.args, testFilter,
-              loggingEventHandler
-            ).map { state =>
-              loggingEventHandler.report()
-              state
-            }
+            Tasks
+              .test(
+                state,
+                project,
+                cwd,
+                cmd.isolated,
+                cmd.args,
+                testFilter,
+                loggingEventHandler
+              )
+              .map { state =>
+                loggingEventHandler.report()
+                state
+              }
           }
         }
         if (cmd.watch) watch(project, state, doTest _)
@@ -229,7 +236,7 @@ object Interpreter {
 
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
-          state.logger.info(Commands.projectBound)
+        state.logger.info(Commands.projectBound)
       case Mode.Commands =>
         for {
           (name, args) <- CommandsMessages.messages

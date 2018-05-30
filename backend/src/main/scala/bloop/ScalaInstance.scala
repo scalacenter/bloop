@@ -8,7 +8,7 @@ import java.util.Properties
 
 import bloop.logging.Logger
 
-final class ScalaInstance private(
+final class ScalaInstance private (
     val organization: String,
     val name: String,
     override val version: String,

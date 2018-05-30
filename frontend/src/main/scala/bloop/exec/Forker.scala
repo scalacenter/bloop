@@ -150,27 +150,28 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
             gobbleInput.cancel()
           }
         }.doOnCancel(Task {
-            shutdownInput = true
-            gobbleInput.cancel()
-            try process.closeStdin(true)
-            finally {
-              process.destroy(true)
-              process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
-              if (process.isRunning) {
-                opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
-                logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")
-              } else {
-                opts.ngout.println(s"The run process for '${mainClass}' has been closed.")
-                logger.debug(s"The run process for '${mainClass}' has been closed.")
-              }
+          shutdownInput = true
+          gobbleInput.cancel()
+          try process.closeStdin(true)
+          finally {
+            process.destroy(true)
+            process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+            if (process.isRunning) {
+              opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
+              logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")
+            } else {
+              opts.ngout.println(s"The run process for '${mainClass}' has been closed.")
+              logger.debug(s"The run process for '${mainClass}' has been closed.")
             }
-          })
+          }
+        })
       }
     }
   }
 }
 
 object Forker {
+
   /** The code returned after a successful execution. */
   final val EXIT_OK = 0
 

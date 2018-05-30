@@ -352,17 +352,16 @@ object Tasks {
       /* Intercept test failures to set the correct error code */
       val failureHandler: TestSuiteEventHandler = {
         case TestSuiteEvent.Results(_, ev)
-          if ev.exists(e => TestSuiteFailureStatuses.contains(e.status())) =>
+            if ev.exists(e => TestSuiteFailureStatuses.contains(e.status())) =>
           failure = true
         case _ =>
       }
 
       logger.debug(s"Running test suites with arguments: $args")
-      TestInternals.execute(
-        cwd, forker, discovered, args, { event =>
-          eventHandler.handle(event)
-          failureHandler.handle(event)
-        }, logger, opts)
+      TestInternals.execute(cwd, forker, discovered, args, { event =>
+        eventHandler.handle(event)
+        failureHandler.handle(event)
+      }, logger, opts)
     }
 
     // For now, test execution is only sequential.

@@ -29,7 +29,8 @@ object ExitStatus {
     }
   }
 
-  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, TestExecutionError, RunError: ExitStatus =
+  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError,
+  TestExecutionError, RunError: ExitStatus =
     generateExitStatus
 
   def apply(code: Int): ExitStatus = {
