@@ -100,7 +100,7 @@ object MojoImplementation {
       val build = project.getBuild()
       val baseDirectory = abs(project.getBasedir())
       val out = baseDirectory.resolve("target")
-      val analysisOut = out.resolve(name).resolve(s"$name-$configuration-analysis.bin")
+      val analysisOut = out.resolve(Config.Project.analysisFileName(name))
       val sourceDirs = sourceDirs0.map(abs).toArray
       val classesDir = abs(classesDir0)
       val classpath = {

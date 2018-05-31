@@ -256,23 +256,15 @@ class CompilationTaskTest {
   def incrementalAnalysisOutFile: Unit = {
     val testProject = "with-resources"
     val logger = new RecordingLogger()
-    val state0 = TestUtil.loadTestProject(testProject)
-
-    val state = state0.copy(logger = logger)
-
+    val state = TestUtil.loadTestProject(testProject).copy(logger = logger)
     val action = Run(Commands.Compile(testProject))
-
     val compiledState = TestUtil.blockingExecute(action, state)
-
     val t = Tasks.persist(compiledState)
 
     try TestUtil.await(FiniteDuration(7, TimeUnit.SECONDS))(t)
     catch { case t: Throwable => logger.dump(); throw t }
-    ()
 
-    val analysisOutFile = state0.build.getProjectFor(testProject).get.analysisOut
-
+    val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
     assertTrue(Files.exists(analysisOutFile.underlying))
   }
-
 }
