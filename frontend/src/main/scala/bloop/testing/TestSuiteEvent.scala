@@ -21,6 +21,7 @@ object TestSuiteEvent {
 
 trait TestSuiteEventHandler {
   def handle(testSuiteEvent: TestSuiteEvent): Unit
+  def report(): Unit
 }
 
 class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
@@ -30,14 +31,10 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   private val suitesFailed = mutable.ArrayBuffer.empty[String]
   private var suitesTotal = 0
 
-  private def formatMetrics(metrics: List[(Int, String)]): String =
-    metrics
-      .filter(_._1 > 0)
-      .map {
-        case (value, metric) =>
-          value + " " + metric
-      }
-      .mkString(", ")
+  private def formatMetrics(metrics: List[(Int, String)]): String = {
+    val relevant = metrics.iterator.filter(_._1 > 0)
+    relevant.map { case (value, metric) => value + " " + metric }.mkString(", ")
+  }
 
   override def handle(event: TestSuiteEvent): Unit = event match {
     case TestSuiteEvent.Error(message) => logger.error(message)
@@ -47,7 +44,6 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
     case TestSuiteEvent.Trace(throwable) =>
       logger.error("Test suite aborted.")
       logger.trace(throwable)
-
       suitesAborted += 1
       suitesTotal += 1
 
@@ -63,38 +59,40 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       val pending = events.count(_.status() == Status.Pending)
       val errors = events.count(_.status() == Status.Error)
 
-      events
+      // Log any exception that may have happened
+      events.iterator
         .filter(_.throwable().isDefined)
         .map(_.throwable().get())
         .foreach(logger.trace)
 
       logger.info(s"Execution took ${TimeFormat.humanReadable(duration)}.")
+      val regularMetrics = List(
+        testsTotal -> "tests",
+        passed -> "passed",
+        pending -> "pending",
+        ignored -> "ignored",
+        skipped -> "skipped"
+      )
 
-      val regularMetrics = List(testsTotal -> "tests",
-                                passed -> "passed",
-                                pending -> "pending",
-                                ignored -> "ignored",
-                                skipped -> "skipped")
-
+      val failureCount = failed + canceled + errors
       val failureMetrics = List(failed -> "failed", canceled -> "canceled", errors -> "errors")
-
       logger.info(formatMetrics(regularMetrics ++ failureMetrics))
 
-      if (failureMetrics.exists(_._1 != 0)) suitesFailed.append(testSuite)
+      if (failureCount > 0) suitesFailed.append(testSuite)
       else {
         suitesPassed += 1
-        logger.info(s"All tests passed.")
+        logger.info(s"All tests in ${testSuite} passed.")
       }
 
       logger.info("")
-
       suitesTotal += 1
       suitesDuration += duration
 
-    case TestSuiteEvent.Done =>
+    case TestSuiteEvent.Done => ()
   }
 
-  def report(): Unit = {
+  override def report(): Unit = {
+    // TODO: Shall we think of a better way to format this delimiter based on screen length?
     logger.info("===============================================")
     logger.info(s"Total duration: ${TimeFormat.humanReadable(suitesDuration)}")
 
@@ -116,6 +114,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   }
 }
 
-case object NoopEventHandler extends TestSuiteEventHandler {
+object NoopEventHandler extends TestSuiteEventHandler {
   override def handle(event: TestSuiteEvent): Unit = ()
+  override def report(): Unit = ()
 }

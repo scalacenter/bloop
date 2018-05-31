@@ -6,9 +6,15 @@ import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
-import bloop.logging.{BspLogger, Logger}
+import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.testing.{DiscoveredTests, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
+import bloop.testing.{
+  DiscoveredTests,
+  LoggingEventHandler,
+  TestInternals,
+  TestSuiteEvent,
+  TestSuiteEventHandler
+}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
@@ -18,7 +24,7 @@ import xsbt.api.Discovery
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
-  final val TestSuiteFailureStatuses: Set[Status] =
+  private val TestFailedStatus: Set[Status] =
     Set(Status.Failure, Status.Error, Status.Canceled)
 
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
@@ -279,7 +285,7 @@ object Tasks {
       isolated: Boolean,
       frameworkSpecificRawArgs: List[String],
       testFilter: String => Boolean,
-      eventHandler: TestSuiteEventHandler
+      testEventHandler: TestSuiteEventHandler
   ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
@@ -350,22 +356,27 @@ object Tasks {
       val args = project.testOptions.arguments ++ frameworkArgs
 
       /* Intercept test failures to set the correct error code */
-      val failureHandler: TestSuiteEventHandler = {
-        case TestSuiteEvent.Results(_, ev)
-            if ev.exists(e => TestSuiteFailureStatuses.contains(e.status())) =>
-          failure = true
-        case _ =>
+      val failureHandler = new LoggingEventHandler(state.logger) {
+        override def report(): Unit = super.report()
+        override def handle(event: TestSuiteEvent): Unit = {
+          super.handle(event)
+          event match {
+            case TestSuiteEvent.Results(_, ev)
+                if ev.exists(e => TestFailedStatus.contains(e.status())) =>
+              failure = true
+            case _ => ()
+          }
+        }
       }
 
       logger.debug(s"Running test suites with arguments: $args")
-      TestInternals.execute(cwd, forker, discovered, args, { event =>
-        eventHandler.handle(event)
-        failureHandler.handle(event)
-      }, logger, opts)
+      TestInternals.execute(cwd, forker, discovered, args, failureHandler, logger, opts)
     }
 
     // For now, test execution is only sequential.
     Task.sequence(testTasks).map { exitCodes =>
+      // When the test execution is over report no matter what the result is
+      testEventHandler.report()
       logger.debug(s"Test suites failed: $failure")
       val isOk = !failure && exitCodes.forall(_ == 0)
       if (isOk) state.mergeStatus(ExitStatus.Ok)

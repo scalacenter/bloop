@@ -194,21 +194,8 @@ object Interpreter {
           val testFilter = TestInternals.parseFilters(cmd.only)
           val cwd = cmd.cliOptions.common.workingPath
           compileAnd(state, project, reporterConfig, false, sequential, "`test`") { state =>
-            val loggingEventHandler = new LoggingEventHandler(state.logger)
-            Tasks
-              .test(
-                state,
-                project,
-                cwd,
-                cmd.isolated,
-                cmd.args,
-                testFilter,
-                loggingEventHandler
-              )
-              .map { state =>
-                loggingEventHandler.report()
-                state
-              }
+            val testEventHandler = new LoggingEventHandler(state.logger)
+            Tasks.test(state, project, cwd, cmd.isolated, cmd.args, testFilter, testEventHandler)
           }
         }
         if (cmd.watch) watch(project, state, doTest _)

@@ -79,20 +79,20 @@ object TestInternals {
   /**
    * Execute the test tasks in a forked JVM.
    *
-   * @param cwd             The directory in which to start the forked JVM.
-   * @param forker            Configuration for the forked JVM.
-   * @param discovered The tests that were discovered.
-   * @param args            The test arguments to pass to the framework.
-   * @param eventHandler    Handler that reacts on messages from the testing frameworks.
-   * @param logger          Logger receiving test output.
-   * @param opts            The options to run the program with.
+   * @param cwd              The directory in which to start the forked JVM.
+   * @param forker           Configuration for the forked JVM.
+   * @param discovered       The tests that were discovered.
+   * @param args             The test arguments to pass to the framework.
+   * @param testEventHandler Handler that reacts on messages from the testing frameworks.
+   * @param logger           Logger receiving test output.
+   * @param opts             The options to run the program with.
    */
   def execute(
       cwd: AbsolutePath,
       forker: Forker,
       discovered: DiscoveredTests,
       args: List[Config.TestArgument],
-      eventHandler: TestSuiteEventHandler,
+      testEventHandler: TestSuiteEventHandler,
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
@@ -101,7 +101,7 @@ object TestInternals {
     // Make sure that we cache the resolution of the test agent JAR and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
 
-    val server = new TestServer(logger, eventHandler, discovered, args, opts)
+    val server = new TestServer(logger, testEventHandler, discovered, args, opts)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
