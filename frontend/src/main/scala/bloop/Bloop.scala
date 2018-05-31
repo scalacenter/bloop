@@ -6,7 +6,9 @@ import bloop.cli.CliParsers.{
   inputStreamRead,
   pathParser,
   printStreamRead,
-  propertiesParser
+  propertiesParser,
+  coParser,
+  cliParser
 }
 import bloop.engine.{Action, Build, Exit, Interpreter, NoPool, Print, Run, State}
 import bloop.engine.tasks.Tasks
