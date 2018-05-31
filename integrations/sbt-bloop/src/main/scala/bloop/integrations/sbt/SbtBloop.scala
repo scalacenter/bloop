@@ -52,6 +52,8 @@ object AutoImported {
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: sbt.TaskKey[File] =
     sbt.taskKey[File]("Generate bloop configuration files for this project")
+  val bloopAnalysisOut: SettingKey[Option[File]] =
+    settingKey[Option[File]]("User-defined location for the incremental analysis file.")
 }
 
 object PluginImplementation {
@@ -77,7 +79,8 @@ object PluginImplementation {
       BloopKeys.bloopClassDirectory := PluginDefaults.generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := PluginDefaults.bloopInternalDependencyClasspath.value,
       BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
-      BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value
+      BloopKeys.bloopGenerate := PluginDefaults.bloopGenerate.value,
+      BloopKeys.bloopAnalysisOut := None
     )
     val all = rawSettingsInConfigs ++ DiscoveredSbtPlugins.settings
     all.flatMap(ss => sbt.inConfig(Compile)(ss) ++ sbt.inConfig(Test)(ss))
@@ -199,7 +202,7 @@ object PluginImplementation {
       val dependenciesAndAggregates = dependencies ++ aggregates
 
       val bloopConfigDir = BloopKeys.bloopConfigDir.value
-      val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
+      val out = (bloopConfigDir / projectName).toPath.toAbsolutePath
       val scalaName = "scala-compiler"
       val scalaVersion = Keys.scalaVersion.value
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
@@ -287,7 +290,8 @@ object PluginImplementation {
         val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
 
         val compileOptions = Config.CompileOptions(compileOrder)
-        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, testOptions)
+        val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
+        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, testOptions)
         Config.File(Config.File.LatestVersion, project)
       }
       // format: ON

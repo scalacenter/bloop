@@ -2,7 +2,17 @@ package bloop.config
 
 import java.nio.file.{Files, Paths}
 
-import bloop.config.Config.{ClasspathOptions, CompileOptions, File, Java, Jvm, Project, Scala, TestOptions, Test => ConfigTest}
+import bloop.config.Config.{
+  ClasspathOptions,
+  CompileOptions,
+  File,
+  Java,
+  Jvm,
+  Project,
+  Scala,
+  TestOptions,
+  Test => ConfigTest
+}
 import bloop.config.ConfigDecoders.allConfigDecoder
 import bloop.config.ConfigEncoders.allConfigEncoder
 import metaconfig.{Conf, Configured}
@@ -35,6 +45,8 @@ class JsonSpec {
     // This is like `target` in sbt.
     val outDir = Files.createTempFile("out", "test")
     outDir.toFile.deleteOnExit()
+    val outAnalysisFile = outDir.resolve("out-analysis.bin")
+    outAnalysisFile.toFile.deleteOnExit()
     val classesDir = Files.createTempFile("classes", "test")
     classesDir.toFile.deleteOnExit()
 
@@ -48,6 +60,7 @@ class JsonSpec {
       CompileOptions.empty,
       classesDir,
       outDir,
+      outAnalysisFile,
       Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
       Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
       Java(Array("-version")),

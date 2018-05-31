@@ -31,21 +31,25 @@ object MojoImplementation {
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
 
-  val ScalaCheckFramework = Config.TestFramework(List(
-    "org.scalacheck.ScalaCheckFramework"
-  ))
-  val ScalaTestFramework = Config.TestFramework(List(
-    "org.scalatest.tools.Framework",
-    "org.scalatest.tools.ScalaTestFramework"
-  ))
-  val SpecsFramework = Config.TestFramework(List(
-    "org.specs.runner.SpecsFramework",
-    "org.specs2.runner.Specs2Framework",
-    "org.specs2.runner.SpecsFramework"
-  ))
-  val JUnitFramework = Config.TestFramework(List(
-    "com.novocode.junit.JUnitFramework"
-  ))
+  val ScalaCheckFramework = Config.TestFramework(
+    List(
+      "org.scalacheck.ScalaCheckFramework"
+    ))
+  val ScalaTestFramework = Config.TestFramework(
+    List(
+      "org.scalatest.tools.Framework",
+      "org.scalatest.tools.ScalaTestFramework"
+    ))
+  val SpecsFramework = Config.TestFramework(
+    List(
+      "org.specs.runner.SpecsFramework",
+      "org.specs2.runner.Specs2Framework",
+      "org.specs2.runner.SpecsFramework"
+    ))
+  val JUnitFramework = Config.TestFramework(
+    List(
+      "com.novocode.junit.JUnitFramework"
+    ))
 
   private val testFrameworks: Array[Config.TestFramework] = Array(
     ScalaCheckFramework,
@@ -91,12 +95,12 @@ object MojoImplementation {
                     classpath0: java.util.List[_],
                     launcher: AppLauncher,
                     configuration: String): Unit = {
-
       val suffix = if (configuration == "compile") "" else s"-$configuration"
       val name = project.getArtifactId() + suffix
       val build = project.getBuild()
       val baseDirectory = abs(project.getBasedir())
       val out = baseDirectory.resolve("target")
+      val analysisOut = out.resolve(Config.Project.analysisFileName(name))
       val sourceDirs = sourceDirs0.map(abs).toArray
       val classesDir = abs(classesDir0)
       val classpath = {
@@ -118,7 +122,7 @@ object MojoImplementation {
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
         val jvm = Config.Jvm(Some(abs(mojo.getJavaHome().getParentFile.getParentFile)), launcher.getJvmArgs().toArray)
         val compileOptions = Config.CompileOptions(Config.Mixed)
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, classesDir, `scala`, jvm, java, test)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

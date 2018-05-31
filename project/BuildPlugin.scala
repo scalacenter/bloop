@@ -135,7 +135,7 @@ object BuildKeys {
     AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly := {
       case "LICENSE.md" => MergeStrategy.first
       case "NOTICE.md" => MergeStrategy.first
-      case PathList("io", "github", "soc", "directories", _ @ _*) => MergeStrategy.first
+      case PathList("io", "github", "soc", "directories", _ @_*) => MergeStrategy.first
       case x =>
         val oldStrategy = (AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly).value
         oldStrategy(x)
@@ -203,7 +203,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "2.2",
+    BuildKeys.schemaVersion := "2.3",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
@@ -290,7 +290,7 @@ object BuildImplementation {
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-  )// ++ metalsSettings
+  ) // ++ metalsSettings
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
