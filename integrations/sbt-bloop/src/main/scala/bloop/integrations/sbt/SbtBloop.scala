@@ -202,7 +202,7 @@ object PluginImplementation {
       val dependenciesAndAggregates = dependencies ++ aggregates
 
       val bloopConfigDir = BloopKeys.bloopConfigDir.value
-      val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
+      val out = (bloopConfigDir / projectName).toPath.toAbsolutePath
       val scalaName = "scala-compiler"
       val scalaVersion = Keys.scalaVersion.value
       val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
