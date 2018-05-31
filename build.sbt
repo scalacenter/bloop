@@ -100,7 +100,8 @@ val frontend = project
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.ipcsocket % Test
-    )
+    ),
+    dependencyOverrides += Dependencies.shapeless
   )
 
 val benchmarks = project

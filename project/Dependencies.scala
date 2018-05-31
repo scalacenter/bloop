@@ -8,7 +8,7 @@ object Dependencies {
   val coursierVersion = "1.1.0-M3"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
-  val caseAppVersion = "1.2.0"
+  val caseAppVersion = "1.2.0-faster-compile-time"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.0.4"
@@ -23,6 +23,7 @@ object Dependencies {
   val metaconfigVersion = "0.7.0"
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.0"
+  val shapelessVersion = "2.3.3-lower-priority-coproduct"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -36,7 +37,8 @@ object Dependencies {
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
   val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
-  val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
+  val shapeless = "ch.epfl.scala" %% "shapeless" % shapelessVersion
+  val caseApp = "ch.epfl.scala" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
