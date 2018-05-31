@@ -19,19 +19,20 @@ import sbt.{
 }
 import xsbti.compile.CompileOrder
 
-object SbtBloop extends AutoPlugin {
+object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   override def requires = JvmPlugin
   override def trigger = allRequirements
-  final val autoImport = AutoImported
+  final val autoImport = BloopKeys
 
   override def globalSettings: Seq[Def.Setting[_]] = PluginImplementation.globalSettings
   override def buildSettings: Seq[Def.Setting[_]] = PluginImplementation.buildSettings
   override def projectSettings: Seq[Def.Setting[_]] = PluginImplementation.projectSettings
 }
 
-object AutoImported {
+object BloopKeys {
   import sbt.{SettingKey, TaskKey, settingKey, taskKey}
+
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
@@ -57,7 +58,6 @@ object AutoImported {
 }
 
 object PluginImplementation {
-  import bloop.integrations.sbt.{AutoImported => BloopKeys}
   val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopInstall := PluginDefaults.bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := false
@@ -122,7 +122,7 @@ object PluginImplementation {
 
     lazy val generateBloopProductDirectories: Def.Initialize[File] = Def.setting {
       val configuration = Keys.configuration.value
-      val bloopTarget = AutoImported.bloopTargetDir.value
+      val bloopTarget = BloopKeys.bloopTargetDir.value
       val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
       if (!classesDir.exists()) sbt.IO.createDirectory(classesDir)
       classesDir
@@ -219,7 +219,7 @@ object PluginImplementation {
                                 cpo.filterLibrary)
       }
 
-      val classesDir = AutoImported.bloopProductDirectories.value.head.toPath()
+      val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
 
       /* This is a best-effort to export source directories + stray source files that
        * are not contained in them. Source directories are superior over source files because
@@ -251,7 +251,7 @@ object PluginImplementation {
       // TODO(jvican): Override classes directories here too (e.g. plugins are defined in the build)
       val scalacOptions = {
         val scalacOptions0 = Keys.scalacOptions.value.toArray
-        val internalClasspath = AutoImported.bloopInternalClasspath.value
+        val internalClasspath = BloopKeys.bloopInternalClasspath.value
         internalClasspath.foldLeft(scalacOptions0) {
           case (scalacOptions, (oldClassesDir, newClassesDir)) =>
             val old1 = oldClassesDir.toString
@@ -366,7 +366,7 @@ object PluginImplementation {
           if ((dep != currentProject) || (conf.name != c && self.name != c)) {
             val classpathKey = (Keys.productDirectories in (dep, sbt.ConfigKey(c)))
             productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
-            val bloopKey = (AutoImported.bloopProductDirectories in (dep, sbt.ConfigKey(c)))
+            val bloopKey = (BloopKeys.bloopProductDirectories in (dep, sbt.ConfigKey(c)))
             bloopProductDirs += bloopKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
           }
         }
@@ -382,7 +382,7 @@ object PluginImplementation {
     }
 
     final lazy val emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
-      val internalClasspath = AutoImported.bloopInternalClasspath.value.map(_._2)
+      val internalClasspath = BloopKeys.bloopInternalClasspath.value.map(_._2)
       val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
       internalClasspath ++ externalClasspath
     }
@@ -391,11 +391,11 @@ object PluginImplementation {
       val configKey = sbt.ConfigKey(Keys.configuration.value.name)
       Def.task {
         import sbt._
-        val t = AutoImported.bloopClassDirectory.value
+        val t = BloopKeys.bloopClassDirectory.value
         val dirs =
           Classpaths
             .concatSettings(Keys.unmanagedResourceDirectories.in(configKey),
-                            AutoImported.bloopManagedResourceDirectories.in(configKey))
+                            BloopKeys.bloopManagedResourceDirectories.in(configKey))
             .value
         val s = Keys.streams.value
         val cacheStore = bloop.integrations.sbt.Compat.generateCacheFile(s, "copy-resources-bloop")
@@ -414,7 +414,7 @@ object PluginImplementation {
         val oldUnmanagedResourceDirs = Keys.managedResourceDirectories.in(configKey).value
         val oldResourceDir = Keys.resourceManaged.in(configKey).value
         val newResourceDir =
-          AutoImported.bloopResourceManaged.in(configKey).value / Defaults.nameForSrc(configName)
+          BloopKeys.bloopResourceManaged.in(configKey).value / Defaults.nameForSrc(configName)
         oldUnmanagedResourceDirs.map { dir =>
           if (dir == oldResourceDir) newResourceDir else dir
         }

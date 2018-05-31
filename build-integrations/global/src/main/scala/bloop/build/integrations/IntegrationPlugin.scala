@@ -2,13 +2,13 @@ package bloop.build.integrations
 
 import java.io.File
 
-import bloop.integrations.sbt.{AutoImported => BloopKeys, SbtBloop}
+import bloop.integrations.sbt.{BloopKeys, BloopPlugin => SbtBloopPlugin}
 import sbt.{AutoPlugin, Def, PluginTrigger, Plugins, Keys, ThisBuild, Global}
 
 object IntegrationPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   override def trigger: PluginTrigger = allRequirements
-  override def requires: Plugins = JvmPlugin && SbtBloop
+  override def requires: Plugins = JvmPlugin && SbtBloopPlugin
   val autoImport = PluginKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
