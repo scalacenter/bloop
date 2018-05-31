@@ -74,37 +74,38 @@ object BloopDefaults {
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
   )
 
-  lazy val configSettings: Seq[Def.Setting[_]] = {
-    val rawSettingsInConfigs = List(
+  lazy val configSettings: Seq[Def.Setting[_]] =
+    List(
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopManagedResourceDirectories := managedResourceDirs.value,
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
-      BloopKeys.bloopGenerate := bloopGenerate.value
+      BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None
-    )
-    val all = rawSettingsInConfigs ++ DiscoveredSbtPlugins.settings
-    all.flatMap(ss => sbt.inConfig(Compile)(ss) ++ sbt.inConfig(Test)(ss))
-  }
+    ) ++ DiscoveredSbtPlugins.settings
 
-  lazy val projectSettings: Seq[Def.Setting[_]] = configSettings ++ List(
-    BloopKeys.bloopTargetDir := bloopTargetDir.value,
-    BloopKeys.bloopConfigDir := Def.settingDyn {
-      val ref = Keys.thisProjectRef.value
-      val rootBuild = sbt.BuildRef(Keys.loadedBuild.value.root)
-      Def.setting {
-        (BloopKeys.bloopConfigDir in Global).?.value.getOrElse {
-          if (BloopKeys.bloopAggregateSourceDependencies.in(Global).value) {
-            (Keys.baseDirectory in rootBuild).value / ".bloop"
-          } else {
-            // We do this so that it works nicely with source dependencies.
-            (Keys.baseDirectory in ref in ThisBuild).value / ".bloop"
+
+  lazy val projectSettings: Seq[Def.Setting[_]] =
+    sbt.inConfig(Compile)(configSettings) ++
+      sbt.inConfig(Test)(configSettings) ++
+      List(
+        BloopKeys.bloopTargetDir := bloopTargetDir.value,
+        BloopKeys.bloopConfigDir := Def.settingDyn {
+          val ref = Keys.thisProjectRef.value
+          val rootBuild = sbt.BuildRef(Keys.loadedBuild.value.root)
+          Def.setting {
+            (BloopKeys.bloopConfigDir in Global).?.value.getOrElse {
+              if (BloopKeys.bloopAggregateSourceDependencies.in(Global).value) {
+                (Keys.baseDirectory in rootBuild).value / ".bloop"
+              } else {
+                // We do this so that it works nicely with source dependencies.
+                (Keys.baseDirectory in ref in ThisBuild).value / ".bloop"
+              }
+            }
           }
-        }
-      }
-    }.value
-  )
+        }.value
+      )
 
   lazy val bloopTargetDir: Def.Initialize[File] = Def.setting {
     val project = Keys.thisProject.value
