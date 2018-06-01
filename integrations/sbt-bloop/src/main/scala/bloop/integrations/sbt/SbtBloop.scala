@@ -153,8 +153,8 @@ object BloopDefaults {
   lazy val bloopGenerate: Def.Initialize[Task[File]] = Def.task {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
-    def nameFromString(name: String, configuration: Configuration): String =
-      if (configuration == Compile) name else name + "-test"
+      def nameFromString(name: String, configuration: Configuration): String =
+        if (configuration == Compile) name else s"$name-${configuration.name}"
 
     def nameFromRef(dep: ClasspathDep[ProjectRef], configuration: Configuration): String = {
       val ref = dep.project
@@ -326,7 +326,7 @@ object BloopDefaults {
   }
 
   lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
-    val filter = sbt.ScopeFilter(sbt.inAnyProject, sbt.inConfigurations(Compile, Test))
+    val filter = sbt.ScopeFilter(sbt.inAnyProject, sbt.inAnyConfiguration, sbt.inTasks(BloopKeys.bloopGenerate))
     val allConfigDirs =
       BloopKeys.bloopConfigDir.?.all(sbt.ScopeFilter(sbt.inAnyProject))
         .map(_.flatMap(_.toList).toSet)
