@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 import bloop.logging.Logger
 import monix.eval.Task
 import sbt.{ForkConfiguration, ForkTags}
-import sbt.testing.{Event, EventHandler, TaskDef}
+import sbt.testing.{Event, TaskDef}
 
 import scala.concurrent.Promise
 
@@ -21,7 +21,7 @@ import scala.concurrent.Promise
  */
 final class TestServer(
     logger: Logger,
-    eventHandler: EventHandler,
+    eventHandler: TestSuiteEventHandler,
     discoveredTests: DiscoveredTests,
     args: List[Config.TestArgument],
     opts: CommonOptions
@@ -42,27 +42,28 @@ final class TestServer(
     @annotation.tailrec
     def receiveLogs(is: ObjectInputStream, os: ObjectOutputStream): Unit = {
       is.readObject() match {
-        case ForkTags.`Done` =>
-          os.writeObject(ForkTags.Done)
-          os.flush()
         case Array(ForkTags.`Error`, s: String) =>
-          logger.error(s)
+          eventHandler.handle(TestSuiteEvent.Error(s))
           receiveLogs(is, os)
         case Array(ForkTags.`Warn`, s: String) =>
-          logger.warn(s)
+          eventHandler.handle(TestSuiteEvent.Warn(s))
           receiveLogs(is, os)
         case Array(ForkTags.`Info`, s: String) =>
-          logger.info(s)
+          eventHandler.handle(TestSuiteEvent.Info(s))
           receiveLogs(is, os)
         case Array(ForkTags.`Debug`, s: String) =>
-          logger.debug(s)
+          eventHandler.handle(TestSuiteEvent.Debug(s))
           receiveLogs(is, os)
         case t: Throwable =>
-          logger.trace(t)
+          eventHandler.handle(TestSuiteEvent.Trace(t))
           receiveLogs(is, os)
-        case Array(_: String, tEvents: Array[Event]) =>
-          tEvents.foreach(eventHandler.handle)
+        case Array(testSuite: String, events: Array[Event]) =>
+          eventHandler.handle(TestSuiteEvent.Results(testSuite, events.toList))
           receiveLogs(is, os)
+        case ForkTags.`Done` =>
+          eventHandler.handle(TestSuiteEvent.Done)
+          os.writeObject(ForkTags.Done)
+          os.flush()
       }
     }
 
@@ -73,7 +74,7 @@ final class TestServer(
       os.writeInt(frameworks.size)
 
       frameworks.foreach { framework =>
-        val frameworkClass = framework.getClass.getName()
+        val frameworkClass = framework.getClass.getName
         val fargs = args.filter { arg =>
           arg.framework match {
             case Some(f) => f.names.contains(frameworkClass)

@@ -8,16 +8,25 @@ import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.testing.{DiscoveredTests, TestInternals}
+import bloop.testing.{
+  DiscoveredTests,
+  LoggingEventHandler,
+  TestInternals,
+  TestSuiteEvent,
+  TestSuiteEventHandler
+}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
-import sbt.testing.{Event, EventHandler, Framework, SuiteSelector, TaskDef}
+import sbt.testing._
 import xsbt.api.Discovery
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
+  private val TestFailedStatus: Set[Status] =
+    Set(Status.Failure, Status.Error, Status.Canceled)
+
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
@@ -275,7 +284,8 @@ object Tasks {
       cwd: AbsolutePath,
       isolated: Boolean,
       frameworkSpecificRawArgs: List[String],
-      testFilter: String => Boolean
+      testFilter: String => Boolean,
+      testEventHandler: TestSuiteEventHandler
   ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
@@ -300,10 +310,10 @@ object Tasks {
       }
     }
 
+    var failure = false
     val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
     val testTasks = projectsToTest.map { project =>
       val projectName = project.name
-      val projectTestArgs = project.testOptions.arguments
       val forker = Forker(project.javaEnv, project.classpath)
       val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
@@ -344,12 +354,31 @@ object Tasks {
 
       val opts = state.commonOptions
       val args = project.testOptions.arguments ++ frameworkArgs
-      TestInternals.execute(cwd, forker, discovered, args, handler, logger, opts)
+
+      /* Intercept test failures to set the correct error code */
+      val failureHandler = new LoggingEventHandler(state.logger) {
+        override def report(): Unit = super.report()
+        override def handle(event: TestSuiteEvent): Unit = {
+          super.handle(event)
+          event match {
+            case TestSuiteEvent.Results(_, ev)
+                if ev.exists(e => TestFailedStatus.contains(e.status())) =>
+              failure = true
+            case _ => ()
+          }
+        }
+      }
+
+      logger.debug(s"Running test suites with arguments: $args")
+      TestInternals.execute(cwd, forker, discovered, args, failureHandler, logger, opts)
     }
 
     // For now, test execution is only sequential.
     Task.sequence(testTasks).map { exitCodes =>
-      val isOk = exitCodes.forall(_ == 0)
+      // When the test execution is over report no matter what the result is
+      testEventHandler.report()
+      logger.debug(s"Test suites failed: $failure")
+      val isOk = !failure && exitCodes.forall(_ == 0)
       if (isOk) state.mergeStatus(ExitStatus.Ok)
       else state.copy(status = ExitStatus.TestExecutionError)
     }
@@ -405,9 +434,6 @@ object Tasks {
   private[bloop] def pickTestProject(projectName: String, state: State): Option[Project] = {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
-
-  private[bloop] val handler =
-    new EventHandler { override def handle(event: Event): Unit = () }
 
   private[bloop] def discoverTests(analysis: CompileAnalysis,
                                    frameworks: Array[Framework]): Map[Framework, List[TaskDef]] = {

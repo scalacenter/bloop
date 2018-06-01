@@ -2,6 +2,7 @@ package bloop.logging
 import java.util.function.Supplier
 
 abstract class Logger extends xsbti.Logger with sbt.testing.Logger {
+
   /** The name of the logger */
   def name: String
 
@@ -20,5 +21,5 @@ abstract class Logger extends xsbti.Logger with sbt.testing.Logger {
   override def info(msg: Supplier[String]): Unit = info(msg.get)
   override def trace(exception: Supplier[Throwable]): Unit = trace(exception.get())
 
-  def report(msg: String, t: Throwable): Unit = {error(msg); trace(t)}
+  def report(msg: String, t: Throwable): Unit = { error(msg); trace(t) }
 }

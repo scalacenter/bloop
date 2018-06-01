@@ -45,9 +45,11 @@ object Commands {
   ) extends RawCommand
 
   /** List of commands accepting a project as argument, used for autopomcletion */
-  val projectBound = CommandsMessages.messages.collect {
-    case (name, CommandMessages(args, _)) if args.exists(_.name == "project") => name
-  }.mkString(" ")
+  val projectBound: String = {
+    CommandsMessages.messages
+      .collect { case (name, CommandMessages(args, _)) if args.exists(_.name == "project") => name }
+      .mkString(" ")
+  }
 
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default

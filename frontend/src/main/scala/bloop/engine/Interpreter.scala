@@ -9,7 +9,7 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{RelativePath, SourceWatcher}
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
-import bloop.testing.TestInternals
+import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.Tasks
 import bloop.Project
 import monix.eval.Task
@@ -194,7 +194,8 @@ object Interpreter {
           val testFilter = TestInternals.parseFilters(cmd.only)
           val cwd = cmd.cliOptions.common.workingPath
           compileAnd(state, project, reporterConfig, false, sequential, "`test`") { state =>
-            Tasks.test(state, project, cwd, cmd.isolated, cmd.args, testFilter)
+            val testEventHandler = new LoggingEventHandler(state.logger)
+            Tasks.test(state, project, cwd, cmd.isolated, cmd.args, testFilter, testEventHandler)
           }
         }
         if (cmd.watch) watch(project, state, doTest _)
@@ -222,7 +223,7 @@ object Interpreter {
 
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
-          state.logger.info(Commands.projectBound)
+        state.logger.info(Commands.projectBound)
       case Mode.Commands =>
         for {
           (name, args) <- CommandsMessages.messages

@@ -45,7 +45,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
    * @param mainClass      The fully qualified name of the class to run.
    * @param args           The arguments to pass to the main method.
    * @param logger         Where to log the messages from execution.
-   * @param properties     The environment properties to run the program with.
+   * @param opts           The options to run the program with.
    * @param extraClasspath Paths to append to the classpath before running.
    * @return 0 if the execution exited successfully, a non-zero number otherwise.
    */
@@ -87,7 +87,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         }
 
         override def onExit(statusCode: Int): Unit =
-          logger.debug(s"Forked JVM exited with code $statusCode")
+          logger.debug(s"Forked JVM exited with code: $statusCode")
 
         val outBuilder = StringBuilder.newBuilder
         override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
@@ -150,27 +150,28 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
             gobbleInput.cancel()
           }
         }.doOnCancel(Task {
-            shutdownInput = true
-            gobbleInput.cancel()
-            try process.closeStdin(true)
-            finally {
-              process.destroy(true)
-              process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
-              if (process.isRunning) {
-                opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
-                logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")
-              } else {
-                opts.ngout.println(s"The run process for '${mainClass}' has been closed.")
-                logger.debug(s"The run process for '${mainClass}' has been closed.")
-              }
+          shutdownInput = true
+          gobbleInput.cancel()
+          try process.closeStdin(true)
+          finally {
+            process.destroy(true)
+            process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+            if (process.isRunning) {
+              opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
+              logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")
+            } else {
+              opts.ngout.println(s"The run process for '${mainClass}' has been closed.")
+              logger.debug(s"The run process for '${mainClass}' has been closed.")
             }
-          })
+          }
+        })
       }
     }
   }
 }
 
 object Forker {
+
   /** The code returned after a successful execution. */
   final val EXIT_OK = 0
 

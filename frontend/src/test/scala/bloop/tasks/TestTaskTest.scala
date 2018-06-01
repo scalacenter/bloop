@@ -17,7 +17,7 @@ import bloop.io.AbsolutePath
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.Tasks
-import bloop.testing.{DiscoveredTests, TestInternals}
+import bloop.testing.{DiscoveredTests, NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
 import xsbti.compile.CompileAnalysis
 
@@ -100,7 +100,7 @@ class TestTaskTest(
         val discoveredTests = DiscoveredTests(classLoader, tests)
         val opts = CommonOptions.default.copy(env = TestUtil.runAndTestProperties)
         val exitCode = TestUtil.await(Duration.apply(15, TimeUnit.SECONDS)) {
-          TestInternals.execute(cwd, config, discoveredTests, Nil, Tasks.handler, logger, opts)
+          TestInternals.execute(cwd, config, discoveredTests, Nil, NoopEventHandler, logger, opts)
         }
         assert(exitCode == 0)
       }
@@ -126,7 +126,7 @@ class TestTaskTest(
 
         val cancelTime = Duration.apply(1, TimeUnit.SECONDS)
         def createTestTask =
-          TestInternals.execute(cwd, config, discoveredTests, Nil, Tasks.handler, logger, opts)
+          TestInternals.execute(cwd, config, discoveredTests, Nil, NoopEventHandler, logger, opts)
 
         val testsTask = for {
           _ <- createTestTask

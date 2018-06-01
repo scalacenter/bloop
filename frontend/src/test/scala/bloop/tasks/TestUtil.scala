@@ -125,7 +125,8 @@ object TestUtil {
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = Project.eagerLoadFromDir(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects)
-    State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+    val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+    state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
   }
 
   private[bloop] final val runAndTestProperties = {

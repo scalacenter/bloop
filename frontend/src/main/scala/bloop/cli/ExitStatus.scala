@@ -29,8 +29,9 @@ object ExitStatus {
     }
   }
 
-  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, TestExecutionError, RunError: ExitStatus =
-    generateExitStatus
+  // FORMAT: OFF
+  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, TestExecutionError, RunError: ExitStatus = generateExitStatus
+  // FORMAT: ON
 
   def apply(code: Int): ExitStatus = {
     if (cache.contains(code)) cache.get(code)
