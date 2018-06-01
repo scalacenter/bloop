@@ -7,6 +7,7 @@ import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
+import scala.util.Either;
 import scala_maven.AppLauncher;
 import scala_maven.ExtendedScalaContinuousCompileMojo;
 
@@ -58,8 +59,14 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        BloopMojo initializedMojo = MojoImplementation.initializeMojo(project, session, mojoExecution, mavenPluginManager, encoding);
-        MojoImplementation.writeCompileAndTestConfiguration(initializedMojo, session, this.getLog());
+        final Either<String, BloopMojo> initializedMojo = MojoImplementation.initializeMojo(
+                project, session, mojoExecution, mavenPluginManager, encoding);
+        if (initializedMojo.isLeft()) {
+            getLog().warn("Skipping configuration file generation: " + initializedMojo.left().get());
+            return;
+        }
+        final BloopMojo bloopMojo = initializedMojo.right().get();
+        MojoImplementation.writeCompileAndTestConfiguration(bloopMojo, session, this.getLog());
     }
 
     public File[] getAllScalaJars() throws Exception {

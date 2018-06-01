@@ -14,19 +14,26 @@ import scala_maven.AppLauncher
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
 
-  def initializeMojo(project: MavenProject,
-                     session: MavenSession,
-                     mojoExecution: MojoExecution,
-                     mavenPluginManager: MavenPluginManager,
-                     encoding: String): BloopMojo = {
-    val currentConfig = mojoExecution.getConfiguration()
-    val scalaMavenPlugin = Option(project.getBuild().getPluginsAsMap().get(ScalaMavenGroupArtifact))
-      .getOrElse(sys.error(s"The plugin $ScalaMavenGroupArtifact could not be found."))
-    val scalaMavenConfig = scalaMavenPlugin.getConfiguration().asInstanceOf[Xpp3Dom]
-    mojoExecution.setConfiguration(Xpp3Dom.mergeXpp3Dom(currentConfig, scalaMavenConfig))
-    mavenPluginManager
-      .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
-      .asInstanceOf[BloopMojo]
+  def initializeMojo(
+    project: MavenProject,
+    session: MavenSession,
+    mojoExecution: MojoExecution,
+    mavenPluginManager: MavenPluginManager,
+    encoding: String
+  ): Either[String, BloopMojo] = {
+    Option(project.getBuild().getPluginsAsMap().get(ScalaMavenGroupArtifact)) match {
+      case None =>
+        Left(s"The plugin $ScalaMavenGroupArtifact could not be found.")
+      case Some(scalaMavenPlugin) =>
+        val currentConfig = mojoExecution.getConfiguration()
+        val scalaMavenConfig = scalaMavenPlugin.getConfiguration().asInstanceOf[Xpp3Dom]
+        mojoExecution.setConfiguration(Xpp3Dom.mergeXpp3Dom(currentConfig, scalaMavenConfig))
+        Right(
+          mavenPluginManager
+            .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
+            .asInstanceOf[BloopMojo]
+        )
+    }
   }
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
