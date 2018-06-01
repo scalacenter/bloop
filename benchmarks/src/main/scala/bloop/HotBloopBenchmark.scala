@@ -33,18 +33,28 @@ class HotBloopBenchmark {
   var processInputReader: BufferedWriter = _
   var output = new java.lang.StringBuilder()
 
+  def findMaxHeap(project: String): String = project match {
+    case "lichess" | "akka" => "-Xmx3G"
+    case _ => "-Xmx2G"
+  }
+
   @Setup(Level.Trial) def spawn(): Unit = {
-    val base = TestUtil.getBloopConfigDir(project).getParent
+    val configDir = TestUtil.getBloopConfigDir(project)
+    val base = configDir.getParent.getParent
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 
-    val builder = new ProcessBuilder(sys.props("java.home") + "/bin/java",
-                                     "-Xms2G",
-                                     "-Xmx2G",
-                                     "-jar",
-                                     bloopJarPath,
-                                     "--config-dir",
-                                     "2.0")
+    val builder = new ProcessBuilder(
+      sys.props("java.home") + "/bin/java",
+      "-Xms2G",
+      findMaxHeap(project),
+      "-XX:ReservedCodeCacheSize=128m",
+      "-jar",
+      bloopJarPath,
+      "--config-dir",
+      configDir.toAbsolutePath.toString
+    )
+
     builder.redirectErrorStream(true)
     builder.directory(base.toFile)
     inputRedirect = builder.redirectInput()
