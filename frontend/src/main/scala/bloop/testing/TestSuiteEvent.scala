@@ -65,7 +65,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
         .map(_.throwable().get())
         .foreach(logger.trace)
 
-      logger.info(s"Execution took ${TimeFormat.humanReadable(duration)}.")
+      logger.info(s"Execution took ${TimeFormat.printUntilHours(duration)}.")
       val regularMetrics = List(
         testsTotal -> "tests",
         passed -> "passed",
@@ -74,14 +74,19 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
         skipped -> "skipped"
       )
 
+      // If test metrics
       val failureCount = failed + canceled + errors
       val failureMetrics = List(failed -> "failed", canceled -> "canceled", errors -> "errors")
-      logger.info(formatMetrics(regularMetrics ++ failureMetrics))
+      val testMetrics = formatMetrics(regularMetrics ++ failureMetrics)
+      if (!testMetrics.isEmpty) logger.info(testMetrics)
 
       if (failureCount > 0) suitesFailed.append(testSuite)
       else {
-        suitesPassed += 1
-        logger.info(s"All tests in ${testSuite} passed.")
+        if (testsTotal <= 0) logger.info("No test suite was run.")
+        else {
+          suitesPassed += 1
+          logger.info(s"All tests in ${testSuite} passed.")
+        }
       }
 
       logger.info("")
@@ -94,11 +99,13 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   override def report(): Unit = {
     // TODO: Shall we think of a better way to format this delimiter based on screen length?
     logger.info("===============================================")
-    logger.info(s"Total duration: ${TimeFormat.humanReadable(suitesDuration)}")
+    logger.info(s"Total duration: ${TimeFormat.printUntilHours(suitesDuration)}")
 
-    if (suitesPassed == suitesTotal)
+    if (suitesPassed == 0) {
+      logger.info(s"No test suites were run.")
+    } else if (suitesPassed == suitesTotal) {
       logger.info(s"All $suitesPassed test suites passed.")
-    else {
+    } else {
       val metrics =
         List(suitesPassed -> "passed", suitesFailed.length -> "failed", suitesAborted -> "aborted")
       logger.info(formatMetrics(metrics))

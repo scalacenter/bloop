@@ -9,7 +9,6 @@ import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
 
 class TestFilterSpec {
-
   private def neg(filter: String): String =
     s"-$filter"
 
@@ -166,5 +165,4 @@ class TestFilterSpec {
       }
     )
   }
-
 }
