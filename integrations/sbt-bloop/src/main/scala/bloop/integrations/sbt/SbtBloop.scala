@@ -6,6 +6,7 @@ import bloop.config.Config
 import sbt.{
   AutoPlugin,
   ClasspathDep,
+  ClasspathDependency,
   Compile,
   Configuration,
   Def,
@@ -15,7 +16,8 @@ import sbt.{
   ProjectRef,
   ResolvedProject,
   Test,
-  ThisBuild
+  ThisBuild,
+  ThisProject
 }
 import xsbti.compile.CompileOrder
 
@@ -47,6 +49,8 @@ object BloopKeys {
     settingKey[File]("Target directory for the pertinent project and configuration")
   val bloopResourceManaged: SettingKey[File] =
     settingKey[File]("Resource managed for bloop")
+  val bloopDependencies: SettingKey[Seq[ClasspathDependency]] =
+    settingKey[Seq[ClasspathDependency]]("Additional dependencies between Bloop projects")
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
@@ -82,13 +86,16 @@ object BloopDefaults {
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
       BloopKeys.bloopGenerate := bloopGenerate.value,
-      BloopKeys.bloopAnalysisOut := None
+      BloopKeys.bloopAnalysisOut := None,
+      BloopKeys.bloopDependencies := Seq.empty
     ) ++ DiscoveredSbtPlugins.settings
 
+  lazy val testConfigSettings: Seq[Def.Setting[_]] =
+    configSettings :+ (BloopKeys.bloopDependencies := bloopMainDependency.value)
 
   lazy val projectSettings: Seq[Def.Setting[_]] =
     sbt.inConfig(Compile)(configSettings) ++
-      sbt.inConfig(Test)(configSettings) ++
+      sbt.inConfig(Test)(testConfigSettings) ++
       List(
         BloopKeys.bloopTargetDir := bloopTargetDir.value,
         BloopKeys.bloopConfigDir := Def.settingDyn {
@@ -125,6 +132,10 @@ object BloopDefaults {
     val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
     if (!classesDir.exists()) sbt.IO.createDirectory(classesDir)
     classesDir
+  }
+
+  lazy val bloopMainDependency: Def.Initialize[Seq[ClasspathDependency]] = Def.setting {
+    Seq(ClasspathDependency(ThisProject, Some(Compile.name)))
   }
 
   // Select only the sources that are not present in the source directories
@@ -185,18 +196,41 @@ object BloopDefaults {
 
     }
 
+    def nameFromDependency(dependency: ClasspathDependency): String = {
+      import sbt.{LocalProject, LocalRootProject, RootProject}
+
+      val projectName = dependency.project match {
+        case ThisProject => Keys.thisProject.value.id
+        case LocalProject(project) => project
+        // Not sure about these three:
+        case LocalRootProject => "root"
+        case ProjectRef(build, project) => project
+        case RootProject(build) => "root"
+      }
+
+      val name = dependency.configuration match {
+        case Some("compile") | None => projectName
+        case Some(configurationName) => s"$projectName-$configurationName"
+      }
+
+      name
+    }
+
     val configuration = Keys.configuration.value
     val projectName = nameFromString(project.id, configuration)
     val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
     val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
     val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
-    // In the test configuration, add a dependency on the base project
-    val baseProjectDependency = if (configuration == Test) List(project.id) else Nil
+    /* This is mostly for dependencies which are implicit in sbt, like test->compile.
+     * Ideally, we would use something like `configuration.extendsConfigs` to get these
+     * dependencies, but it seems that sbt prefers to keep them secret.
+     * By default we add the test->compile dependency, but users can override this. */
+    val baseProjectDependencies = BloopKeys.bloopDependencies.value.map(nameFromDependency(_))
 
     val projectDependencies =
       project.dependencies.map(dep => nameFromRef(dep, configuration)).toList
-    val dependencies = (projectDependencies ++ baseProjectDependency).toArray
+    val dependencies = (projectDependencies ++ baseProjectDependencies).toArray
     val aggregates = project.aggregate.map(agg => nameFromString(agg.project, configuration))
     val dependenciesAndAggregates = dependencies ++ aggregates
 

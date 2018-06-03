@@ -2,3 +2,4 @@
 $ exists .bloop/foo.json
 $ exists .bloop/foo-test.json
 $ exists .bloop/foo-it.json
+> checkBloopFile
