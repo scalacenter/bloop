@@ -185,7 +185,7 @@ object BloopDefaults {
             // Sbt seems to return tasks for the extended configurations (looks like a big bug)
             t.info.get(Keys.taskDefinitionKey) match {
               // So we now make sure that the returned config key matches the original one
-              case Some(taskDef) => taskDef.scope.config.toOption.contains(configKey)
+              case Some(taskDef) => taskDef.scope.config.toOption.toList.contains(configKey)
               case None => true
             }
           case None => false
