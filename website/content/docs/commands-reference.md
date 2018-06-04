@@ -47,7 +47,7 @@ The supported options are:
   <dt><code>--reporter</code></dt>
   <dd>
     <p>
-      The error reporter to use. By default, Bloop's error reporter is use. The possible choices
+      The error reporter to use. By default, Bloop's error reporter is used. The possible choices
       are <code>bloop</code> and <code>scalac</code>.
     </p>
     <p><em>example:</em> <samp>bloop compile foobar --reporter scalac</samp>
