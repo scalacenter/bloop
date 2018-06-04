@@ -8,6 +8,7 @@ import sbt.{
   ClasspathDep,
   ClasspathDependency,
   Compile,
+  ConfigKey,
   Configuration,
   Def,
   File,
@@ -49,8 +50,6 @@ object BloopKeys {
     settingKey[File]("Target directory for the pertinent project and configuration")
   val bloopResourceManaged: SettingKey[File] =
     settingKey[File]("Resource managed for bloop")
-  val bloopDependencies: SettingKey[Seq[ClasspathDependency]] =
-    settingKey[Seq[ClasspathDependency]]("Additional dependencies between Bloop projects")
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
@@ -86,16 +85,12 @@ object BloopDefaults {
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
       BloopKeys.bloopGenerate := bloopGenerate.value,
-      BloopKeys.bloopAnalysisOut := None,
-      BloopKeys.bloopDependencies := Seq.empty
+      BloopKeys.bloopAnalysisOut := None
     ) ++ DiscoveredSbtPlugins.settings
-
-  lazy val testConfigSettings: Seq[Def.Setting[_]] =
-    configSettings :+ (BloopKeys.bloopDependencies := bloopMainDependency.value)
 
   lazy val projectSettings: Seq[Def.Setting[_]] =
     sbt.inConfig(Compile)(configSettings) ++
-      sbt.inConfig(Test)(testConfigSettings) ++
+      sbt.inConfig(Test)(configSettings) ++
       List(
         BloopKeys.bloopTargetDir := bloopTargetDir.value,
         BloopKeys.bloopConfigDir := Def.settingDyn {
@@ -150,10 +145,59 @@ object BloopDefaults {
     sources.filter(source => !sourceDirs.exists(dir => checkIfParent(dir, source.getParent)))
   }
 
+  /**
+   * Detect the eligible configuration dependencies from a given configuration.
+   *
+   * A configuration is elibile if the project defines it and `bloopGenerate`
+   * exists for it. Otherwise, the configuration dependency is ignored.
+   *
+   * This is required to prevent transitive configurations like `Runtime` from
+   * generating useless bloop configuration files and possibly incorrect project
+   * dependencies. For example, if we didn't do this then the dependencies of
+   * `IntegrationTest` would be `projectName-runtime` and `projectName-compile`,
+   * whereas the following logic will return only the configuration `Compile`
+   * so that the use site of this function can create the project dep
+   * `projectName-compile`.
+   */
+  lazy val eligibleDepsFromConfig: Def.Initialize[Task[List[Configuration]]] = {
+    Def.task {
+      def depsFromConfig(configuration: Configuration): List[Configuration] = {
+        configuration.extendsConfigs.toList match {
+          case config :: Nil if config.extendsConfigs.isEmpty => config :: Nil
+          case config :: Nil => config :: depsFromConfig(config)
+          case Nil => Nil
+        }
+      }
+
+      val config = Keys.configuration.value
+      val configs = depsFromConfig(config)
+      val activeProjectConfigs = Keys.thisProject.value.configurations.toSet
+
+      import scala.collection.JavaConverters._
+      val data = Keys.settingsData.value
+      val thisProjectRef = Keys.thisProjectRef.value
+      val productDirs = (new java.util.LinkedHashSet[Task[File]]).asScala
+      val eligibleConfigs = activeProjectConfigs.filter { c =>
+        val configKey = ConfigKey.configurationToKey(c)
+        val eligibleKey = (BloopKeys.bloopGenerate in (thisProjectRef, configKey))
+        eligibleKey.get(data) match {
+          case Some(t) =>
+            // Sbt seems to return tasks for the extended configurations (looks like a big bug)
+            t.info.get(Keys.taskDefinitionKey) match {
+              // So we now make sure that the returned config key matches the original one
+              case Some(taskDef) => taskDef.scope.config.toOption.contains(configKey)
+              case None => true
+            }
+          case None => false
+        }
+      }
+
+      configs.filter(c => eligibleConfigs.contains(c))
+    }
+  }
+
   object Feedback {
-    def unknownConfigurations(p: ResolvedProject,
-                              confs: Seq[String],
-                              from: ProjectRef): String = {
+    def unknownConfigurations(p: ResolvedProject, confs: Seq[String], from: ProjectRef): String = {
       s"""Project ${p.id} depends on unsupported configuration(s) ${confs.mkString(", ")} of ${from.project}.
          |Bloop will assume this dependency goes to the test configuration.
          |Report upstream if you run into trouble: https://github.com/scalacenter/bloop/issues/new
@@ -164,8 +208,8 @@ object BloopDefaults {
   lazy val bloopGenerate: Def.Initialize[Task[File]] = Def.task {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
-      def nameFromString(name: String, configuration: Configuration): String =
-        if (configuration == Compile) name else s"$name-${configuration.name}"
+    def nameFromString(name: String, configuration: Configuration): String =
+      if (configuration == Compile) name else s"$name-${configuration.name}"
 
     def nameFromRef(dep: ClasspathDep[ProjectRef], configuration: Configuration): String = {
       val ref = dep.project
@@ -222,15 +266,14 @@ object BloopDefaults {
     val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
     val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
-    /* This is mostly for dependencies which are implicit in sbt, like test->compile.
-     * Ideally, we would use something like `configuration.extendsConfigs` to get these
-     * dependencies, but it seems that sbt prefers to keep them secret.
-     * By default we add the test->compile dependency, but users can override this. */
-    val baseProjectDependencies = BloopKeys.bloopDependencies.value.map(nameFromDependency(_))
-
-    val projectDependencies =
+    // Project dependencies come from classpath deps and also inter-project config deps
+    val classpathProjectDependencies =
       project.dependencies.map(dep => nameFromRef(dep, configuration)).toList
-    val dependencies = (projectDependencies ++ baseProjectDependencies).toArray
+    val configDependencies =
+      eligibleDepsFromConfig.value.map(c => nameFromString(project.id, c))
+    // Make sure that we don't have repeated project deps as there can be overlays between the two
+    val dependencies = (classpathProjectDependencies ++ configDependencies).distinct.toArray
+
     val aggregates = project.aggregate.map(agg => nameFromString(agg.project, configuration))
     val dependenciesAndAggregates = dependencies ++ aggregates
 
@@ -360,7 +403,12 @@ object BloopDefaults {
   }
 
   lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
-    val filter = sbt.ScopeFilter(sbt.inAnyProject, sbt.inAnyConfiguration, sbt.inTasks(BloopKeys.bloopGenerate))
+    val filter = sbt.ScopeFilter(
+      sbt.inAnyProject,
+      sbt.inAnyConfiguration,
+      sbt.inTasks(BloopKeys.bloopGenerate)
+    )
+
     val allConfigDirs =
       BloopKeys.bloopConfigDir.?.all(sbt.ScopeFilter(sbt.inAnyProject))
         .map(_.flatMap(_.toList).toSet)
