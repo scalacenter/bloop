@@ -180,7 +180,7 @@ bloopAggregateSourceDependencies in Global := true
 
 To generate Bloop's configuration using Maven, run (from your project directory):
 
-<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.12.:<span class="latest-version">1.0.0-M10</span>:bloopInstall
+<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.12:<span class="latest-version">1.0.0-M10</span>:bloop
 </code></pre>
 
 <span class="label warning">Useful</span> You can remove the version number from the mvn command to fetch the latest Bloop release from master.
