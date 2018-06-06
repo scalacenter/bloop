@@ -90,7 +90,8 @@ object Config {
       jvm: Jvm,
       java: Java,
       test: Test,
-      platform: Platform
+      platform: Platform,
+      nativeClasspath: Array[Path]
   )
 
   object Project {
@@ -98,7 +99,7 @@ object Config {
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
         CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default)
+        Test.empty, Platform.default, Array())
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -151,7 +152,8 @@ object Config {
         Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
         Java(Array("-version")),
         Test(Array(), TestOptions(Nil, Nil)),
-        Platform.default
+        Platform.default,
+        Array.empty
       )
 
       File(LatestVersion, project)

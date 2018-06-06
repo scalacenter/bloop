@@ -22,7 +22,7 @@ class DagSpec {
   def dummyProject(name: String, dependencies: List[String]): Project =
     Project(name, dummyPath, dependencies.toArray, dummyInstance, Array(), classpathOptions,  dummyPath, Array(),
       Array(), Array(), Array(), Config.TestOptions.empty, JavaEnv.default, dummyPath, dummyPath,
-      Config.Platform.default)
+      Config.Platform.default, Array())
   // format: ON
 
   private object TestProjects {

@@ -291,7 +291,8 @@ object Interpreter {
             cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
-                ScalaNative.link(project, main, state.logger).map {
+                val nativeToolchain = ScalaNative.forProject(project, state.logger)
+                nativeToolchain.link(project, main, state.logger).map {
                   case Success(nativeBinary) =>
                     state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
                     state
@@ -335,7 +336,8 @@ object Interpreter {
                 val cwd = cmd.cliOptions.common.workingPath
                 project.platform match {
                   case Platform.Native =>
-                    ScalaNative.run(state, project, cwd, main, args)
+                    val nativeToolchain = ScalaNative.forProject(project, state.logger)
+                    nativeToolchain.run(state, project, cwd, main, args)
                   case _ =>
                     Tasks.run(state, project, cwd, main, args)
                 }

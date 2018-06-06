@@ -28,7 +28,8 @@ final case class Project(
     javaEnv: JavaEnv,
     out: AbsolutePath,
     analysisOut: AbsolutePath,
-    platform: Platform
+    platform: Platform,
+    nativeClasspath: Array[AbsolutePath]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -130,7 +131,8 @@ object Project {
       javaEnv,
       AbsolutePath(project.out),
       AbsolutePath(project.analysisOut),
-      project.platform
+      project.platform,
+      project.nativeClasspath.map(AbsolutePath.apply)
     )
   }
 

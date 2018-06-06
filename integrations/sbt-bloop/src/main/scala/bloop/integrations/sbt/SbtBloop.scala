@@ -363,6 +363,7 @@ object BloopDefaults {
       else if (pluginLabels.contains(ScalaJsPluginLabel)) Config.Platform.JS
       else Config.Platform.JVM
     }
+    val nativeClasspath = Array.empty[Path]
 
     // Force source generators on this task manually
     Keys.managedSources.value
@@ -379,7 +380,7 @@ object BloopDefaults {
       val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
       val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
         classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm,
-        java, testOptions, platform)
+        java, testOptions, platform, nativeClasspath)
       Config.File(Config.File.LatestVersion, project)
     }
     // format: ON
