@@ -58,6 +58,12 @@ You can speed it up by avoiding binary dependencies on modules that your build d
 or by making sure that all the source and resource generators are cached (if you depend
 on a plugin, the plugin should make sure of that).
 
+## Bloop doesn't detect some of my sbt configurations!
+
+By default the sbt plugin exports only `Compile` and `Test` configurations.
+If you want to export other sbt configurations too, please read about
+[advanced sbt configuration]({{<relref "docs/sbt.md" >}}).
+
 ## Is Bloop open source?
 
 Yes. Bloop is released under the Apache-2.0 license and is free and open source software.
