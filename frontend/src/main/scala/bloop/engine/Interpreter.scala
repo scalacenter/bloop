@@ -18,6 +18,7 @@ import monix.execution.misc.NonFatal
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.{Success, Failure}
 
 object Interpreter {
   // This is stack safe because of monix trampolined execution.
@@ -53,8 +54,8 @@ object Interpreter {
             execute(next, configure(cmd, state), true)
           case Run(cmd: Commands.Autocomplete, next) =>
             execute(next, autocomplete(cmd, state), true)
-          case Run(cmd: Commands.NativeLink, next) =>
-            execute(next, nativeLink(cmd, state, inRecursion), true)
+          case Run(cmd: Commands.Link, next) =>
+            execute(next, link(cmd, state, inRecursion), true)
           case Run(cmd: Commands.Help, next) =>
             val msg = "The handling of help doesn't happen in the `Interpreter`."
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
@@ -274,9 +275,7 @@ object Interpreter {
     state
   }
 
-  private def nativeLink(cmd: Commands.NativeLink,
-                         state: State,
-                         sequential: Boolean): Task[State] = {
+  private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     state.build.getProjectFor(cmd.project) match {
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
@@ -288,14 +287,16 @@ object Interpreter {
       case Some(project) =>
         val reporter = ReporterKind.toReporterConfig(cmd.reporter)
         def doRun(state: State): Task[State] = {
-          compileAnd(state, project, reporter, false, sequential, "`nativeLink`") { state =>
+          compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
             cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
-                Task {
-                  val out = ScalaNative.nativeLink(project, main, state.logger)
-                  state.logger.info(s"Produced $out")
-                  state
+                ScalaNative.link(project, main, state.logger).map {
+                  case Success(nativeBinary) =>
+                    state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
+                    state
+                  case Failure(ex) =>
+                    state.mergeStatus(ExitStatus.UnexpectedError)
                 }
             }
           }

@@ -159,7 +159,7 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
-  case class NativeLink(
+  case class Link(
       @ExtraName("p")
       @HelpMessage("The project to run (will be inferred from remaining cli args).")
       project: String = "",

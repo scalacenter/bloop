@@ -1,5 +1,7 @@
 package bloop.engine.tasks
 
+import scala.util.{Failure, Success, Try}
+
 import java.net.URLClassLoader
 import java.nio.file.{Files, Path}
 
@@ -22,7 +24,7 @@ object ScalaNative {
    * @param logger  The logger to use
    * @return The absolute path to the native binary.
    */
-  def nativeLink(project: Project, entry: String, logger: Logger): AbsolutePath = {
+  def link(project: Project, entry: String, logger: Logger): Task[Try[AbsolutePath]] = {
 
     initializeToolChain(logger)
 
@@ -33,7 +35,9 @@ object ScalaNative {
     // The Scala Native toolchain expects to receive the module class' name
     val fullEntry = if (entry.endsWith("$")) entry else entry + "$"
 
-    AbsolutePath(nativeLinkMeth.invoke(null, project, fullEntry, logger).asInstanceOf[Path])
+    Task(nativeLinkMeth.invoke(null, project, fullEntry, logger)).materialize.map {
+      _.collect { case path: Path => AbsolutePath(path) }
+    }
   }
 
   /**
@@ -51,18 +55,23 @@ object ScalaNative {
           cwd: AbsolutePath,
           main: String,
           args: Array[String]): Task[State] = {
-    Task(nativeLink(project, main, state.logger))
-      .flatMap { nativeBinary =>
+    link(project, main, state.logger).flatMap {
+      case Success(nativeBinary) =>
         val cmd = nativeBinary.syntax +: args
-        Forker.run(cwd, cmd, state.logger, state.commonOptions)
-      }
-      .map { exitCode =>
-        val exitStatus = {
-          if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
-          else ExitStatus.UnexpectedError
+        Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
+          val exitStatus = {
+            if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
+            else ExitStatus.UnexpectedError
+          }
+          state.mergeStatus(exitStatus)
         }
-        state.mergeStatus(exitStatus)
-      }
+      case Failure(ex) =>
+        Task {
+          state.logger.error("Couldn't create native binary.")
+          state.logger.trace(ex)
+          state.mergeStatus(ExitStatus.UnexpectedError)
+        }
+    }
   }
 
   private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
