@@ -1,6 +1,7 @@
 package bloop.scalanative
 
 import bloop.Project
+import bloop.config.Config.NativeConfig
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 
@@ -13,32 +14,46 @@ object NativeBridge {
   def nativeLink(project: Project, entry: String, logger: Logger): Path = {
     val classpath = project.classpath.map(_.underlying)
     val workdir = project.out.resolve("native").underlying
-
-    val clang = Discover.clang()
-    val clangpp = Discover.clangpp()
-    val linkopts = Discover.linkingOptions()
-    val compopts = Discover.compileOptions()
-    val triple = Discover.targetTriple(clang, workdir)
-    val nativelib = Discover.nativelib(classpath).get
     val outpath = workdir.resolve("out")
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
+    val nativeConfig = project.nativeConfig.getOrElse(defaultNativeConfig(project))
 
     val config =
       Config.empty
-        .withGC(GC.default)
+        .withGC(GC(nativeConfig.gc))
         .withMode(Mode.default)
-        .withClang(clang)
-        .withClangPP(clangpp)
-        .withLinkingOptions(linkopts)
-        .withCompileOptions(compopts)
-        .withTargetTriple(triple)
-        .withNativelib(nativelib)
+        .withClang(nativeConfig.clang)
+        .withClangPP(nativeConfig.clangPP)
+        .withLinkingOptions(nativeConfig.linkingOptions)
+        .withCompileOptions(nativeConfig.compileOptions)
+        .withTargetTriple(nativeConfig.targetTriple)
+        .withNativelib(nativeConfig.nativelib)
+        .withLinkStubs(nativeConfig.linkStubs)
         .withMainClass(entry)
         .withClassPath(classpath)
         .withWorkdir(workdir)
         .withLogger(nativeLogger)
 
     Build.build(config, outpath)
+  }
+
+  private[scalanative] def defaultNativeConfig(project: Project): NativeConfig = {
+    val classpath = project.classpath.map(_.underlying)
+    val workdir = project.out.resolve("native").underlying
+
+    val clang = Discover.clang()
+
+    NativeConfig(
+      toolchainClasspath = Array.empty, // Toolchain is on the classpath of this project, so that's fine
+      gc = GC.default.name,
+      clang = clang,
+      clangPP = Discover.clangpp(),
+      linkingOptions = Discover.linkingOptions().toArray,
+      compileOptions = Discover.compileOptions().toArray,
+      targetTriple = Discover.targetTriple(clang, workdir),
+      nativelib = Discover.nativelib(classpath).get,
+      linkStubs = true
+    )
   }
 
 }

@@ -237,7 +237,7 @@ object TestUtil {
       // Let's store the analysis file in target even though we usually do it in `out`
       analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name))),
       platform = Config.Platform.default,
-      nativeClasspath = Array.empty
+      nativeConfig = None
     )
   }
 

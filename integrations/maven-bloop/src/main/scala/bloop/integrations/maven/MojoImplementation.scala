@@ -130,8 +130,8 @@ object MojoImplementation {
         val jvm = Config.Jvm(Some(abs(mojo.getJavaHome().getParentFile.getParentFile)), launcher.getJvmArgs().toArray)
         val compileOptions = Config.CompileOptions(Config.Mixed)
         val platform = Config.Platform.default
-        val nativeClasspath = Array.empty[Path]
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeClasspath)
+        val nativeConfig = None
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeConfig)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

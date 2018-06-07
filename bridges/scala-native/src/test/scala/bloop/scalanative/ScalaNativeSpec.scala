@@ -1,4 +1,4 @@
-package bloop.tasks
+package bloop.scalanative
 
 import bloop.{DependencyResolution, Project, ScalaInstance}
 import bloop.cli.Commands
@@ -7,6 +7,7 @@ import bloop.engine.{Run, State}
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.logging.{Logger, RecordingLogger}
+import bloop.tasks.TestUtil
 
 import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
@@ -21,7 +22,9 @@ class ScalaNativeSpec {
   @Test
   def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
-    val state = TestUtil.loadTestProject("cross-platform", _.map(setScalaNativeClasspath)).copy(logger = logger)
+    val state = TestUtil
+      .loadTestProject("cross-platform", _.map(setScalaNativeClasspath))
+      .copy(logger = logger)
     val action = Run(Commands.Link(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
@@ -40,7 +43,9 @@ class ScalaNativeSpec {
   @Test
   def canRunScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
-    val state = TestUtil.loadTestProject("cross-platform", _.map(setScalaNativeClasspath)).copy(logger = logger)
+    val state = TestUtil
+      .loadTestProject("cross-platform", _.map(setScalaNativeClasspath))
+      .copy(logger = logger)
     val action = Run(Commands.Run(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -62,7 +67,7 @@ class ScalaNativeSpec {
   // and will work because the toolchain is on this module's classpath.
   private val setScalaNativeClasspath: Project => Project = {
     case prj if prj.platform == Config.Platform.Native =>
-      prj.copy(nativeClasspath = Array(AbsolutePath(".")))
+      prj.copy(nativeConfig = Some(NativeBridge.defaultNativeConfig(prj)))
     case other =>
       other
   }

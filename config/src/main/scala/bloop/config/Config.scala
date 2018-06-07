@@ -75,6 +75,30 @@ object Config {
     }
   }
 
+  case class NativeConfig(
+      toolchainClasspath: Array[Path],
+      gc: String,
+      clang: Path,
+      clangPP: Path,
+      linkingOptions: Array[String],
+      compileOptions: Array[String],
+      targetTriple: String,
+      nativelib: Path,
+      linkStubs: Boolean
+  )
+
+  object NativeConfig {
+    private[bloop] val empty = NativeConfig(Array.empty,
+                                            "",
+                                            emptyPath,
+                                            emptyPath,
+                                            Array.empty,
+                                            Array.empty,
+                                            "",
+                                            emptyPath,
+                                            false)
+  }
+
   case class Project(
       name: String,
       directory: Path,
@@ -91,7 +115,7 @@ object Config {
       java: Java,
       test: Test,
       platform: Platform,
-      nativeClasspath: Array[Path]
+      nativeConfig: Option[NativeConfig]
   )
 
   object Project {
@@ -99,7 +123,7 @@ object Config {
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
         CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default, Array())
+        Test.empty, Platform.default, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -153,7 +177,7 @@ object Config {
         Java(Array("-version")),
         Test(Array(), TestOptions(Nil, Nil)),
         Platform.default,
-        Array.empty
+        None
       )
 
       File(LatestVersion, project)

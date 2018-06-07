@@ -22,8 +22,13 @@ object ScalaNative {
     new ConcurrentHashMap
 
   def forProject(project: Project, logger: Logger): ScalaNative = {
-    if (project.nativeClasspath.isEmpty) ivyResolved(logger)
-    else direct(project.nativeClasspath)
+    project.nativeConfig match {
+      case None =>
+        ivyResolved(logger)
+      case Some(config) =>
+        val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
+        direct(classpath)
+    }
   }
 
   def ivyResolved(logger: Logger): ScalaNative = synchronized {
