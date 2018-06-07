@@ -1,4 +1,4 @@
 > bloopInstall
-> barJVM/check JVM
-> barJS/check JS
-> barNative/check Native
+> barJVM/check jvm
+> barJS/check js
+> barNative/check native

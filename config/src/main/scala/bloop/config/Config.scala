@@ -63,11 +63,11 @@ object Config {
   object Platform {
     private[bloop] val default: Platform = JVM
 
-    case object JS extends Platform("JS")
-    case object JVM extends Platform("JVM")
-    case object Native extends Platform("Native")
+    case object JS extends Platform("js")
+    case object JVM extends Platform("jvm")
+    case object Native extends Platform("native")
 
-    def apply(platform: String): Platform = platform match {
+    def apply(platform: String): Platform = platform.toLowerCase match {
       case JS.name => JS
       case JVM.name => JVM
       case Native.name => Native
