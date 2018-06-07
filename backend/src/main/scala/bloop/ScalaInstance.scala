@@ -6,6 +6,7 @@ import java.nio.file.{Files, Path}
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Properties
 
+import bloop.internal.build.BloopScalaInfo
 import bloop.logging.Logger
 
 final class ScalaInstance private (
@@ -35,9 +36,10 @@ final class ScalaInstance private (
     new URLClassLoader(jarsToLoad.map(_.toURI.toURL), loaderLibraryOnly)
   }
 
+  import ScalaInstance.ScalacCompilerName
   private def isJar(filename: String): Boolean = filename.endsWith(".jar")
   private def hasScalaCompilerName(filename: String): Boolean =
-    filename.startsWith("scala-compiler") || (isDotty && filename.startsWith("dotty-compiler"))
+    filename.startsWith(ScalacCompilerName) || (isDotty && filename.startsWith("dotty-compiler"))
   private def hasScalaLibraryName(filename: String): Boolean =
     filename.startsWith("scala-library")
 
@@ -64,6 +66,8 @@ final class ScalaInstance private (
 
 object ScalaInstance {
   import bloop.io.AbsolutePath
+
+  private[ScalaInstance] final val ScalacCompilerName = "scala-compiler"
 
   /**
    * Reuses all jars to create an Scala instance if and only if all of them exist.
@@ -117,6 +121,18 @@ object ScalaInstance {
 
     val instanceId = (scalaOrg, scalaName, scalaVersion)
     instancesById.computeIfAbsent(instanceId, _ => resolveInstance)
+  }
+
+  /** Returns the default scala instance that is used in bloop's classloader. */
+  def bloopScalaInstance(logger: Logger): ScalaInstance = {
+    // This should be changed in the unlikely event the bloop codebase compiles with dotty
+    ScalaInstance(
+      BloopScalaInfo.scalaOrganization,
+      ScalacCompilerName,
+      BloopScalaInfo.scalaVersion,
+      BloopScalaInfo.scalaJars.iterator.map(AbsolutePath(_)).toArray,
+      logger
+    )
   }
 
   def getVersion(loader: ClassLoader): String = {

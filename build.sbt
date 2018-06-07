@@ -21,10 +21,14 @@ val benchmarkBridge = project
 import build.Dependencies
 
 val backend = project
+  .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-backend",
+    buildInfoPackage := "bloop.internal.build",
+    buildInfoKeys := BloopBackendInfoKeys,
+    buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
       Dependencies.zinc,
       Dependencies.nailgun,

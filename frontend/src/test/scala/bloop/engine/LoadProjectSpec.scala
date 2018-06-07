@@ -3,6 +3,7 @@ package bloop.engine
 import java.util.concurrent.TimeUnit
 
 import bloop.Project
+import bloop.config.Config
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
@@ -28,5 +29,16 @@ class LoadProjectSpec {
     try TestUtil.await(FiniteDuration(7, TimeUnit.SECONDS))(t)
     catch { case t: Throwable => logger.dump(); throw t }
     ()
+  }
+
+  @Test def loadJavaProject(): Unit = {
+    // Make sure that when no scala setup is configured the project load succeeds
+    val logger = new RecordingLogger()
+    val config0 = Config.File.dummyForTests
+    val project = config0.project
+    val emptyScala = Config.Scala("", "", "", Array(), Array())
+    val configWithNoScala = config0.copy(config0.version, project.copy(scala = emptyScala))
+    val inferredInstance = Project.fromConfig(configWithNoScala, logger).scalaInstance
+    assert(inferredInstance.version.nonEmpty)
   }
 }
