@@ -84,32 +84,29 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
 
 object ScalaNativeToolchain {
 
-  private[this] var _ivyResolved: ScalaNativeToolchain = _
   private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNativeToolchain] =
     new ConcurrentHashMap
 
   def forProject(project: Project, logger: Logger): ScalaNativeToolchain = {
     project.nativeConfig match {
       case None =>
-        ivyResolved(logger)
+        resolveNativeToolchain(logger)
       case Some(config) =>
         val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
         direct(classpath)
     }
   }
 
-  def ivyResolved(logger: Logger): ScalaNativeToolchain = synchronized {
-    if (_ivyResolved == null) {
-      val jars = bridgeJars(logger)
-      val nativeClassLoader = toClassLoader(jars)
-      _ivyResolved = new ScalaNativeToolchain(nativeClassLoader)
-    }
-    _ivyResolved
+  def resolveNativeToolchain(logger: Logger): ScalaNativeToolchain = {
+    val jars = bridgeJars(logger)
+    direct(jars)
   }
 
   def direct(classpath: Array[AbsolutePath]): ScalaNativeToolchain = {
-    instancesCache.computeIfAbsent(classpath,
-                                   classpath => new ScalaNativeToolchain(toClassLoader(classpath)))
+    def createToolchain(classpath: Array[AbsolutePath]) = {
+      new ScalaNativeToolchain(toClassLoader(classpath))
+    }
+    instancesCache.computeIfAbsent(classpath, createToolchain)
   }
 
   private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
