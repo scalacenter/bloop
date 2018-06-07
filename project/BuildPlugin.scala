@@ -112,11 +112,16 @@ object BuildKeys {
   )
 
   import sbtbuildinfo.BuildInfoKey
-  final val BloopInfoKeys = {
+  final val BloopBackendInfoKeys: List[BuildInfoKey] = {
+    val scalaJarsKey =
+      BuildInfoKey.map(Keys.scalaInstance) { case (_, i) => "scalaJars" -> i.allJars.toList }
+    List(Keys.scalaVersion, Keys.scalaOrganization, scalaJarsKey)
+  }
+
+  final val BloopInfoKeys: List[BuildInfoKey] = {
     val zincKey = BuildInfoKey.constant("zincVersion" -> Dependencies.zincVersion)
-    val developersKey = BuildInfoKey.map(Keys.developers) {
-      case (k, devs) => k -> devs.map(_.name)
-    }
+    val developersKey =
+      BuildInfoKey.map(Keys.developers) { case (k, devs) => k -> devs.map(_.name) }
     val commonKeys = List[BuildInfoKey](
       Keys.name,
       Keys.version,

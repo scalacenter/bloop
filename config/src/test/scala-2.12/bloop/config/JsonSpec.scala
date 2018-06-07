@@ -37,36 +37,6 @@ class JsonSpec {
   }
 
   @Test def testSimpleConfigJson(): Unit = {
-    val workingDirectory = Paths.get(System.getProperty("user.dir"))
-    val sourceFile = Files.createTempFile("Foo", ".scala")
-    sourceFile.toFile.deleteOnExit()
-    val scalaLibraryJar = Files.createTempFile("scala-library", ".jar")
-    scalaLibraryJar.toFile.deleteOnExit()
-    // This is like `target` in sbt.
-    val outDir = Files.createTempFile("out", "test")
-    outDir.toFile.deleteOnExit()
-    val outAnalysisFile = outDir.resolve("out-analysis.bin")
-    outAnalysisFile.toFile.deleteOnExit()
-    val classesDir = Files.createTempFile("classes", "test")
-    classesDir.toFile.deleteOnExit()
-
-    val project = Project(
-      "dummy-project",
-      workingDirectory,
-      Array(sourceFile),
-      Array("dummy-2"),
-      Array(scalaLibraryJar),
-      ClasspathOptions.empty,
-      CompileOptions.empty,
-      classesDir,
-      outDir,
-      outAnalysisFile,
-      Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
-      Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
-      Java(Array("-version")),
-      ConfigTest(Array(), TestOptions(Nil, Nil))
-    )
-
-    parseConfig(File(File.LatestVersion, project))
+    parseConfig(File.dummyForTests)
   }
 }

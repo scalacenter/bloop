@@ -85,8 +85,16 @@ object Project {
   def fromConfig(file: Config.File, logger: Logger): Project = {
     val project = file.project
     val scala = project.`scala`
-    val scalaJars = scala.jars.map(AbsolutePath.apply).toArray
-    val instance = ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
+    val isEmpty = scala.organization.isEmpty && scala.name.isEmpty && scala.version.isEmpty && scala.jars.isEmpty
+
+    // Use the default Bloop scala instance if it's not a Scala project
+    val instance = {
+      if (isEmpty) ScalaInstance.bloopScalaInstance(logger)
+      else {
+        val scalaJars = scala.jars.map(AbsolutePath.apply).toArray
+        ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
+      }
+    }
 
     val classpathOptions = {
       val opts = project.classpathOptions
