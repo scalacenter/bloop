@@ -185,7 +185,8 @@ addCommandAlias(
     s"^${sbtBloop.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
-    s"${frontend.id}/$publishLocalCmd"
+    s"${frontend.id}/$publishLocalCmd",
+    s"${nativeBridge.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
@@ -198,6 +199,7 @@ val allBloopReleases = List(
   s"+${jsonConfig.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
+  s"${nativeBridge.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")
