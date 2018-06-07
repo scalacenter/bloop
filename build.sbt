@@ -150,7 +150,7 @@ val docs = project
   )
 
 lazy val nativeBridge = project
-  .dependsOn(frontend % Provided)
+  .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)

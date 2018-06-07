@@ -116,14 +116,18 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-  def loadTestProject(name: String): State = loadTestProject(getBloopConfigDir(name), name)
+  def loadTestProject(name: String,
+                      transformProjects: List[Project] => List[Project] = identity): State =
+    loadTestProject(getBloopConfigDir(name), name, transformProjects)
 
-  def loadTestProject(configDir: Path, name: String): State = {
+  def loadTestProject(configDir: Path,
+                      name: String,
+                      transformProjects: List[Project] => List[Project]): State = {
     val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = Project.eagerLoadFromDir(configDirectory, logger)
+    val loadedProjects = transformProjects(Project.eagerLoadFromDir(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
     state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
