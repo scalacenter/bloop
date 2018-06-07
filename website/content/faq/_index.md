@@ -41,8 +41,8 @@ its own folder.
 A classes directory is stored in a similar path as sbt: `target/classes`, and
 `target/test-classes` for test projects. If you want to change that, you can
 by redefining
-[`bloopTargetDir`](https://github.com/scalacenter/bloop/blob/6e1d55cc840905c475d4e97eaf443fdacfcf1e34/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L26-L27)
-in your sbt build like [here](https://github.com/scalacenter/bloop/blob/6e1d55cc840905c475d4e97eaf443fdacfcf1e34/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L59).
+[`bloopTargetDir`](https://github.com/scalacenter/bloop/blob/405896f4164cb96bfd39a7369a714d8f73257dd5/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L49-L50)
+in your sbt build like [here](https://github.com/scalacenter/bloop/blob/405896f4164cb96bfd39a7369a714d8f73257dd5/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L95).
 
 <span class="label warning">Note</span> that you need to scope it in every
 sbt project.
@@ -57,6 +57,12 @@ and resource generation.
 You can speed it up by avoiding binary dependencies on modules that your build defines
 or by making sure that all the source and resource generators are cached (if you depend
 on a plugin, the plugin should make sure of that).
+
+## Bloop doesn't detect some of my sbt configurations!
+
+By default the sbt plugin exports only `Compile` and `Test` configurations.
+If you want to export other sbt configurations too, please read about
+[advanced sbt configuration]({{<relref "docs/sbt.md" >}}).
 
 ## Is Bloop open source?
 
