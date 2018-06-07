@@ -75,6 +75,11 @@ object Config {
     }
   }
 
+  /**
+   * Configures how to start and use the Scala Native toolchain, if needed.
+   * For the description of these fields, see:
+   * http://static.javadoc.io/org.scala-native/tools_2.10/0.3.7/index.html#scala.scalanative.build.Config
+   */
   case class NativeConfig(
       toolchainClasspath: Array[Path],
       gc: String,
@@ -88,15 +93,11 @@ object Config {
   )
 
   object NativeConfig {
-    private[bloop] val empty = NativeConfig(Array.empty,
-                                            "",
-                                            emptyPath,
-                                            emptyPath,
-                                            Array.empty,
-                                            Array.empty,
-                                            "",
-                                            emptyPath,
-                                            false)
+    // FORMAT: OFF
+    private[bloop] val empty: NativeConfig =
+      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath,
+        false)
+    // FORMAT: ON
   }
 
   case class Project(

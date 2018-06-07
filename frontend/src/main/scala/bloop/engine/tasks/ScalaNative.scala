@@ -15,53 +15,6 @@ import bloop.logging.Logger
 
 import monix.eval.Task
 
-object ScalaNative {
-
-  private[this] var _ivyResolved: ScalaNative = _
-  private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNative] =
-    new ConcurrentHashMap
-
-  def forProject(project: Project, logger: Logger): ScalaNative = {
-    project.nativeConfig match {
-      case None =>
-        ivyResolved(logger)
-      case Some(config) =>
-        val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
-        direct(classpath)
-    }
-  }
-
-  def ivyResolved(logger: Logger): ScalaNative = synchronized {
-    if (_ivyResolved == null) {
-      val jars = bridgeJars(logger)
-      val nativeClassLoader = toClassLoader(jars)
-      _ivyResolved = new ScalaNative(nativeClassLoader)
-    }
-    _ivyResolved
-  }
-
-  def direct(classpath: Array[AbsolutePath]): ScalaNative = {
-    instancesCache.computeIfAbsent(classpath,
-                                   classpath => new ScalaNative(toClassLoader(classpath)))
-  }
-
-  private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
-    val organization = bloop.internal.build.BuildInfo.organization
-    val nativeBridge = bloop.internal.build.BuildInfo.nativeBridge
-    val version = bloop.internal.build.BuildInfo.version
-    logger.debug(s"Resolving Native bridge: $organization:$nativeBridge:$version")
-    val files = DependencyResolution.resolve(organization, nativeBridge, version, logger)
-    files.filter(_.underlying.toString.endsWith(".jar"))
-  }
-
-  private def toClassLoader(classpath: Array[AbsolutePath]): ClassLoader = {
-    val parent = this.getClass.getClassLoader
-    val entries = classpath.map(_.underlying.toUri.toURL)
-    new URLClassLoader(entries, parent)
-  }
-
-}
-
 class ScalaNative private (classLoader: ClassLoader) {
 
   /**
@@ -125,6 +78,53 @@ class ScalaNative private (classLoader: ClassLoader) {
           state.mergeStatus(ExitStatus.UnexpectedError)
         }
     }
+  }
+
+}
+
+object ScalaNative {
+
+  private[this] var _ivyResolved: ScalaNative = _
+  private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNative] =
+    new ConcurrentHashMap
+
+  def forProject(project: Project, logger: Logger): ScalaNative = {
+    project.nativeConfig match {
+      case None =>
+        ivyResolved(logger)
+      case Some(config) =>
+        val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
+        direct(classpath)
+    }
+  }
+
+  def ivyResolved(logger: Logger): ScalaNative = synchronized {
+    if (_ivyResolved == null) {
+      val jars = bridgeJars(logger)
+      val nativeClassLoader = toClassLoader(jars)
+      _ivyResolved = new ScalaNative(nativeClassLoader)
+    }
+    _ivyResolved
+  }
+
+  def direct(classpath: Array[AbsolutePath]): ScalaNative = {
+    instancesCache.computeIfAbsent(classpath,
+                                   classpath => new ScalaNative(toClassLoader(classpath)))
+  }
+
+  private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
+    val organization = bloop.internal.build.BuildInfo.organization
+    val nativeBridge = bloop.internal.build.BuildInfo.nativeBridge
+    val version = bloop.internal.build.BuildInfo.version
+    logger.debug(s"Resolving Native bridge: $organization:$nativeBridge:$version")
+    val files = DependencyResolution.resolve(organization, nativeBridge, version, logger)
+    files.filter(_.underlying.toString.endsWith(".jar"))
+  }
+
+  private def toClassLoader(classpath: Array[AbsolutePath]): ClassLoader = {
+    val parent = this.getClass.getClassLoader
+    val entries = classpath.map(_.underlying.toUri.toURL)
+    new URLClassLoader(entries, parent)
   }
 
 }
