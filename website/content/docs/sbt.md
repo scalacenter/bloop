@@ -19,19 +19,32 @@ In order for Bloop to export your custom configurations, they need to include
 some
 [Bloop-specific settings and tasks](https://github.com/scalacenter/bloop/blob/405896f4164cb96bfd39a7369a714d8f73257dd5/integrations/sbt-bloop/src/main/scala/bloop/integrations/sbt/SbtBloop.scala#L80-L89),
 of which the most important is the `bloopGenerate` task. You can do this either
-by temporarily setting them in your sbt shell, or by permanently adding them to
-your build file.
+by by permanently adding them to your build file, or by temporarily setting
+them in your sbt shell.
 
-### Temporary solution: sbt shell
+### Permanent solution: `*.sbt` file
 
-In your sbt shell, type:
+(This is the **recommended** solution.)
 
+Let's say that our project has
+[an `IntegrationTest` configuration](https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Integration+Tests).
+
+To tell bloop to export it we need to add the following line in our `build.sbt` file:
+
+```scala
+import bloop.integrations.sbt.BloopDefaults
+
+// Dummy sbt project with an IntegrationTest configuration
+val foo = project
+  .configs(IntegrationTest)
+  .settings(
+    // This is the line bloop requires
+    inConfig(IntegrationTest)(BloopDefaults.configSettings)
+  )
 ```
-sbt> set inConfig(IntegrationTest)(bloop.integrations.sbt.BloopDefaults.configSettings)
-```
 
-where `IntegrationTest` is the configuration which you want to export. Now you
-can run `bloopInstall` as usual:
+After reloading your build, `bloopInstall` will export a configuration file
+for the `IntegrationTest` configuration called `foo-it.json`:
 
 ```
 sbt> bloopInstall
@@ -42,23 +55,33 @@ sbt> bloopInstall
 [success] Generated '/my-project/.bloop/foo-it.json'.
 ```
 
-Please note that these settings will be lost after you exit sbt, so if you need
-to regenerate Bloop configuration files later you will need to run the `set`
-command above again.
+If you don't want to pollute your main `build.sbt` file with Bloop-specific
+settings, you can add the previous `inConfig` line in another file
+(e.g. `local.sbt`) and add this file to your global `.gitignore`
+(or some other VCS-specific ignore file if not using Git).
 
-### Permanent solution: `*.sbt` file
+### Temporary solution: sbt shell
 
-You can also add the relevant settings to an `*.sbt` file in your project's
-root directory. Normally, that would be `build.sbt`, but if you don't want to
-pollute your main build file with Bloop-specific settings, you can create
-another one (e.g. `local.sbt`) and add this file to your `.gitignore` (or some
-other VCS-specific ignore file if not using Git).
+To export a configuration temporarily or make experiments, type the following
+in your sbt shell:
 
-The code you need to add (again, assuming `IntegrationTest` is the sbt
-configuration you want to export):
-
-```scala
-import bloop.integrations.sbt.BloopDefaults
-
-inConfig(IntegrationTest)(BloopDefaults.configSettings)
 ```
+sbt> set inConfig(IntegrationTest)(bloop.integrations.sbt.BloopDefaults.configSettings)
+```
+
+where `IntegrationTest` is the configuration which you want to export. Note that
+you may need to scope it in the project that contains the `IntegrationTest`
+configuration. Now you can run `bloopInstall` as usual:
+
+```
+sbt> bloopInstall
+[info] Loading global plugins from /home/user/.sbt/1.0/plugins
+(...)
+[success] Generated '/my-project/.bloop/foo.json'.
+[success] Generated '/my-project/.bloop/foo-test.json'.
+[success] Generated '/my-project/.bloop/foo-it.json'.
+```
+
+These settings *will be lost after you exit or reload sbt*, so if you need
+to regenerate Bloop configuration files later on you will either need to run
+the `set` command again or use the permanent recommend solution above.
