@@ -11,7 +11,7 @@ import bloop.io.{RelativePath, SourceWatcher}
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{ScalaNative, Tasks}
+import bloop.engine.tasks.{ScalaNativeToolchain, Tasks}
 import bloop.Project
 import monix.eval.Task
 import monix.execution.misc.NonFatal
@@ -291,7 +291,7 @@ object Interpreter {
             cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
-                val nativeToolchain = ScalaNative.forProject(project, state.logger)
+                val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
                 nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
                   case Success(nativeBinary) =>
                     state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
@@ -336,7 +336,7 @@ object Interpreter {
                 val cwd = cmd.cliOptions.common.workingPath
                 project.platform match {
                   case Platform.Native =>
-                    val nativeToolchain = ScalaNative.forProject(project, state.logger)
+                    val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
                     nativeToolchain.run(state, project, cwd, main, args, cmd.optimize)
                   case _ =>
                     Tasks.run(state, project, cwd, main, args)

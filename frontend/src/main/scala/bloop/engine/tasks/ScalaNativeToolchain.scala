@@ -15,7 +15,7 @@ import bloop.logging.Logger
 
 import monix.eval.Task
 
-class ScalaNative private (classLoader: ClassLoader) {
+class ScalaNativeToolchain private (classLoader: ClassLoader) {
 
   /**
    * Compile down to native binary using Scala Native's toolchain.
@@ -82,13 +82,13 @@ class ScalaNative private (classLoader: ClassLoader) {
 
 }
 
-object ScalaNative {
+object ScalaNativeToolchain {
 
-  private[this] var _ivyResolved: ScalaNative = _
-  private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNative] =
+  private[this] var _ivyResolved: ScalaNativeToolchain = _
+  private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNativeToolchain] =
     new ConcurrentHashMap
 
-  def forProject(project: Project, logger: Logger): ScalaNative = {
+  def forProject(project: Project, logger: Logger): ScalaNativeToolchain = {
     project.nativeConfig match {
       case None =>
         ivyResolved(logger)
@@ -98,18 +98,18 @@ object ScalaNative {
     }
   }
 
-  def ivyResolved(logger: Logger): ScalaNative = synchronized {
+  def ivyResolved(logger: Logger): ScalaNativeToolchain = synchronized {
     if (_ivyResolved == null) {
       val jars = bridgeJars(logger)
       val nativeClassLoader = toClassLoader(jars)
-      _ivyResolved = new ScalaNative(nativeClassLoader)
+      _ivyResolved = new ScalaNativeToolchain(nativeClassLoader)
     }
     _ivyResolved
   }
 
-  def direct(classpath: Array[AbsolutePath]): ScalaNative = {
+  def direct(classpath: Array[AbsolutePath]): ScalaNativeToolchain = {
     instancesCache.computeIfAbsent(classpath,
-                                   classpath => new ScalaNative(toClassLoader(classpath)))
+                                   classpath => new ScalaNativeToolchain(toClassLoader(classpath)))
   }
 
   private def bridgeJars(logger: Logger): Array[AbsolutePath] = {

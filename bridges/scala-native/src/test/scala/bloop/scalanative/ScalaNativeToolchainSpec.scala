@@ -17,7 +17,7 @@ import org.junit.Test
 import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
-class ScalaNativeSpec {
+class ScalaNativeToolchainSpec {
 
   @Test
   def canLinkScalaNativeProject(): Unit = {
