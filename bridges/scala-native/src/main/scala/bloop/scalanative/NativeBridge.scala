@@ -2,10 +2,10 @@ package bloop.scalanative
 
 import bloop.Project
 import bloop.config.Config.NativeConfig
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 
 import scala.scalanative.build.{Discover, Build, Config, GC, Mode, Logger => NativeLogger}
 
@@ -13,7 +13,11 @@ object NativeBridge {
 
   def nativeLink(project: Project, entry: String, logger: Logger): Path = {
     val classpath = project.classpath.map(_.underlying)
-    val workdir = project.out.resolve("native").underlying
+    val workdir = project.out.resolve("native")
+
+    Paths.delete(workdir)
+    Files.createDirectories(workdir.underlying)
+
     val outpath = workdir.resolve("out")
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
     val nativeConfig = project.nativeConfig.getOrElse(defaultNativeConfig(project))
@@ -31,10 +35,10 @@ object NativeBridge {
         .withLinkStubs(nativeConfig.linkStubs)
         .withMainClass(entry)
         .withClassPath(classpath)
-        .withWorkdir(workdir)
+        .withWorkdir(workdir.underlying)
         .withLogger(nativeLogger)
 
-    Build.build(config, outpath)
+    Build.build(config, outpath.underlying)
   }
 
   private[scalanative] def defaultNativeConfig(project: Project): NativeConfig = {

@@ -9,6 +9,7 @@ import bloop.Project
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.logging.BloopLogger
 import bloop.exec.JavaEnv
+import bloop.io.Paths.delete
 import bloop.tasks.{CompilationHelpers, TestUtil}
 import bloop.tasks.TestUtil.{RootProject, noPreviousResult, withState}
 import monix.eval.Task
@@ -158,8 +159,8 @@ class FileWatchingSpec {
         }
 
         // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
-        val newSource = project.sources.head.resolve("D.scala").underlying
-        if (Files.exists(newSource)) TestUtil.delete(newSource)
+        val newSource = project.sources.head.resolve("D.scala")
+        if (Files.exists(newSource.underlying)) delete(newSource)
 
         val dirsToWatch = existingProjectSources.length
 
@@ -176,7 +177,7 @@ class FileWatchingSpec {
                            bloopOut)
 
         // Write the contents of a source back to the same source
-        Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
+        Files.write(newSource.underlying, "object ForceRecompilation {}".getBytes("UTF-8"))
 
         // Wait for #2 compilation to finish
         readCompilingLines(2, "Compiling 1 Scala source to", bloopOut)

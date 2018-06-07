@@ -3,13 +3,15 @@ package bloop.io
 import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{
+  DirectoryNotEmptyException,
   FileSystems,
   FileVisitOption,
   FileVisitResult,
   FileVisitor,
   Files,
   Path,
-  Paths => NioPaths
+  Paths => NioPaths,
+  SimpleFileVisitor
 }
 import java.util
 
@@ -59,5 +61,29 @@ object Paths {
                        maxDepth,
                        visitor)
     out.toArray
+  }
+
+  /**
+   * Recursively delete `path` and all its content.
+   *
+   * @param path The path to delete
+   */
+  def delete(path: AbsolutePath): Unit = {
+    Files.walkFileTree(
+      path.underlying,
+      new SimpleFileVisitor[Path] {
+        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+          Files.delete(file)
+          FileVisitResult.CONTINUE
+        }
+
+        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+          try Files.delete(dir)
+          catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
+          FileVisitResult.CONTINUE
+        }
+      }
+    )
+    ()
   }
 }

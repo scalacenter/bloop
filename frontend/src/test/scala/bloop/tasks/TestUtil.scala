@@ -11,6 +11,7 @@ import bloop.engine.{Action, Build, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
+import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
 import monix.eval.Task
@@ -261,32 +262,13 @@ object TestUtil {
   def withTemporaryDirectory[T](op: Path => T): T = {
     val temp = Files.createTempDirectory("tmp-test")
     try op(temp)
-    finally delete(temp)
+    finally delete(AbsolutePath(temp))
   }
 
   def withTemporaryFile[T](op: Path => T): T = {
     val temp = Files.createTempFile("tmp", "")
     try op(temp)
-    finally delete(temp)
+    finally delete(AbsolutePath(temp))
   }
 
-  def delete(path: Path): Unit = {
-    import java.nio.file.DirectoryNotEmptyException
-    Files.walkFileTree(
-      path,
-      new SimpleFileVisitor[Path] {
-        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-          Files.delete(file)
-          FileVisitResult.CONTINUE
-        }
-
-        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-          try Files.delete(dir)
-          catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
-          FileVisitResult.CONTINUE
-        }
-      }
-    )
-    ()
-  }
 }
