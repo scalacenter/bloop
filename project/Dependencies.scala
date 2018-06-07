@@ -22,7 +22,7 @@ object Dependencies {
   val monixVersion = "2.3.3"
   val metaconfigVersion = "0.7.0"
   val circeVersion = "0.9.3"
-  val nuprocessVersion = "1.2.0"
+  val nuprocessVersion = "1.2.3"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
 
   import sbt.librarymanagement.syntax.stringToOrganization
