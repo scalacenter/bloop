@@ -1,6 +1,7 @@
 package bloop.scalanative
 
 import bloop.Project
+import bloop.cli.OptimizerConfig
 import bloop.config.Config.NativeConfig
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
@@ -11,7 +12,10 @@ import scala.scalanative.build.{Discover, Build, Config, GC, Mode, Logger => Nat
 
 object NativeBridge {
 
-  def nativeLink(project: Project, entry: String, logger: Logger): Path = {
+  def nativeLink(project: Project,
+                 entry: String,
+                 logger: Logger,
+                 optimize: OptimizerConfig): Path = {
     val classpath = project.classpath.map(_.underlying)
     val workdir = project.out.resolve("native")
 
@@ -21,11 +25,15 @@ object NativeBridge {
     val outpath = workdir.resolve("out")
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
     val nativeConfig = project.nativeConfig.getOrElse(defaultNativeConfig(project))
+    val nativeMode = optimize match {
+      case OptimizerConfig.Debug => Mode.debug
+      case OptimizerConfig.Release => Mode.release
+    }
 
     val config =
       Config.empty
         .withGC(GC(nativeConfig.gc))
-        .withMode(Mode.default)
+        .withMode(nativeMode)
         .withClang(nativeConfig.clang)
         .withClangPP(nativeConfig.clangPP)
         .withLinkingOptions(nativeConfig.linkingOptions)

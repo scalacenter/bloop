@@ -156,6 +156,10 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @ExtraName("o")
+      @HelpMessage(
+        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
+      optimize: OptimizerConfig = OptimizerConfig.Debug,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
@@ -171,6 +175,10 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @ExtraName("o")
+      @HelpMessage(
+        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
+      optimize: OptimizerConfig = OptimizerConfig.Debug,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 }

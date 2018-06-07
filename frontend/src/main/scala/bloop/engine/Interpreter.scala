@@ -292,7 +292,7 @@ object Interpreter {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
                 val nativeToolchain = ScalaNative.forProject(project, state.logger)
-                nativeToolchain.link(project, main, state.logger).map {
+                nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
                   case Success(nativeBinary) =>
                     state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
                     state
@@ -337,7 +337,7 @@ object Interpreter {
                 project.platform match {
                   case Platform.Native =>
                     val nativeToolchain = ScalaNative.forProject(project, state.logger)
-                    nativeToolchain.run(state, project, cwd, main, args)
+                    nativeToolchain.run(state, project, cwd, main, args, cmd.optimize)
                   case _ =>
                     Tasks.run(state, project, cwd, main, args)
                 }

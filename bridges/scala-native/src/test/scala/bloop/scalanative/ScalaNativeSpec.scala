@@ -1,7 +1,7 @@
 package bloop.scalanative
 
 import bloop.{DependencyResolution, Project, ScalaInstance}
-import bloop.cli.Commands
+import bloop.cli.{Commands, OptimizerConfig}
 import bloop.config.Config
 import bloop.engine.{Run, State}
 import bloop.exec.JavaEnv
@@ -29,15 +29,20 @@ class ScalaNativeSpec {
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages.assertContain("Scala Native binary:", atLevel = "info")
+  }
 
-    val needle = "Scala Native binary:"
-    assertTrue(
-      s"Logs didn't contain '$needle': ${logger.getMessages.mkString("\n")}",
-      logger.getMessages.exists {
-        case ("info", msg) => msg.startsWith(needle)
-        case _ => false
-      }
-    )
+  @Test
+  def canLinkScalaNativeProjectInReleaseMode(): Unit = {
+    val logger = new RecordingLogger
+    val state = TestUtil
+      .loadTestProject("cross-platform", _.map(setScalaNativeClasspath))
+      .copy(logger = logger)
+    val action = Run(Commands.Link(project = "crossNative", optimize = OptimizerConfig.Release))
+    val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
+
+    assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages.assertContain("Optimizing (release mode)", atLevel = "info")
   }
 
   @Test
@@ -48,16 +53,9 @@ class ScalaNativeSpec {
       .copy(logger = logger)
     val action = Run(Commands.Run(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
-    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
 
-    val needle = "Hello, world!"
-    assertTrue(
-      s"Logs didn't contain '$needle': ${logger.getMessages.mkString("\n")}",
-      logger.getMessages.exists {
-        case ("info", msg) => msg.startsWith(needle)
-        case _ => false
-      }
-    )
+    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages.assertContain("Hello, world!", atLevel = "info")
   }
 
   private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
@@ -72,4 +70,14 @@ class ScalaNativeSpec {
       other
   }
 
+  private implicit class RichLogs(logs: List[(String, String)]) {
+    def assertContain(needle: String, atLevel: String): Unit = {
+      def failMessage = s"""Logs didn't contain `$needle` at level `$atLevel`. Logs were:
+                           |${logs.mkString("\n")}""".stripMargin
+      assertTrue(failMessage, logs.exists {
+        case (`atLevel`, msg) => msg.contains(needle)
+        case _ => false
+      })
+    }
+  }
 }
