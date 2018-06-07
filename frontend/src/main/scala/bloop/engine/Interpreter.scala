@@ -282,7 +282,7 @@ object Interpreter {
       case Some(project) if project.platform != Platform.Native =>
         Task {
           state.logger.error("This command can only be called on a Scala Native project.")
-          state.mergeStatus(ExitStatus.RunError)
+          state.mergeStatus(ExitStatus.InvalidCommandLineOption)
         }
       case Some(project) =>
         val reporter = ReporterKind.toReporterConfig(cmd.reporter)
@@ -297,7 +297,7 @@ object Interpreter {
                     state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
                     state
                   case Failure(ex) =>
-                    state.mergeStatus(ExitStatus.UnexpectedError)
+                    state.mergeStatus(ExitStatus.LinkingError)
                 }
             }
           }

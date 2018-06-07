@@ -67,7 +67,7 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
         Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
           val exitStatus = {
             if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
-            else ExitStatus.UnexpectedError
+            else ExitStatus.RunError
           }
           state.mergeStatus(exitStatus)
         }
@@ -75,7 +75,7 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
         Task {
           state.logger.error("Couldn't create native binary.")
           state.logger.trace(ex)
-          state.mergeStatus(ExitStatus.UnexpectedError)
+          state.mergeStatus(ExitStatus.LinkingError)
         }
     }
   }

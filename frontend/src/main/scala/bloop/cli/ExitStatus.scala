@@ -30,7 +30,7 @@ object ExitStatus {
   }
 
   // FORMAT: OFF
-  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, TestExecutionError, RunError: ExitStatus = generateExitStatus
+  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, LinkingError, TestExecutionError, RunError: ExitStatus = generateExitStatus
   // FORMAT: ON
 
   def apply(code: Int): ExitStatus = {
