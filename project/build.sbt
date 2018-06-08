@@ -1,9 +1,5 @@
 val mvnVersion = "3.5.2"
 val mvnPluginToolsVersion = "3.5"
-val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
-val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
-val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
-val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % "0.6.0"
 val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 
 val root = project
@@ -45,13 +41,7 @@ val root = project
       "org.apache.maven" % "maven-model-builder" % mvnVersion,
       "commons-codec" % "commons-codec" % "1.11"
     ),
-    libraryDependencies ++= List(
-      typesafeConfig,
-      metaconfigCore,
-      metaconfigDocs,
-      metaconfigConfig,
-      circeDerivation
-    ),
+    libraryDependencies ++= List(circeDerivation),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
     dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)
   )

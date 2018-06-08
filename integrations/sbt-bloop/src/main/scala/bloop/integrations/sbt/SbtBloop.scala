@@ -59,7 +59,7 @@ object BloopKeys {
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: sbt.TaskKey[File] =
-    sbt.taskKey[File]("Generate bloop configuration files for this project")
+    taskKey[File]("Generate bloop configuration files for this project")
   val bloopAnalysisOut: SettingKey[Option[File]] =
     settingKey[Option[File]]("User-defined location for the incremental analysis file.")
 }
@@ -94,7 +94,7 @@ object BloopDefaults {
     ) ++ DiscoveredSbtPlugins.settings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
-      sbt.inConfig(Compile)(configSettings) ++
+    sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       List(
         BloopKeys.bloopTargetDir := bloopTargetDir.value,
@@ -312,11 +312,12 @@ object BloopDefaults {
 
   def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
     ms0.map { m0 =>
-      ms1.find(m => Config.Module.moduleEq.eqv(m0, m)) match {
+      ms1.find(m =>
+        m0.organization == m.organization && m0.name == m.name && m0.version == m.version && m0.direct == m.direct) match {
         case Some(m1) => m0.copy(artifacts = m0.artifacts ++ m1.artifacts)
         case None => m0
       }
-    }
+    }.distinct
   }
 
   lazy val updateClassifiers: Def.Initialize[Task[Option[sbt.UpdateReport]]] = Def.taskDyn {
@@ -440,7 +441,7 @@ object BloopDefaults {
 
     sbt.IO.createDirectory(bloopConfigDir)
     val outFile = bloopConfigDir / s"$projectName.json"
-    Config.File.write(config, outFile.toPath())
+    bloop.config.write(config, outFile.toPath)
 
     // Only shorten path for configuration files written to the the root build
     val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value

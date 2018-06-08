@@ -5,7 +5,7 @@ val nativeProject = project
     InputKey[Unit]("check") := {
       val expected = complete.DefaultParsers.spaceDelimited("").parsed.head
       val config = bloopConfigDir.value / s"${thisProject.value.id}.json"
-      val lines = IO.read(config)
-      assert(lines.contains(s""""platform" : "$expected""""))
+      val lines = IO.read(config).replaceAll("\\s", "")
+      assert(lines.contains(s""""platform":"$expected""""))
     }
   )

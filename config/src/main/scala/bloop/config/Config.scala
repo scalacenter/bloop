@@ -33,10 +33,14 @@ object Config {
     private[bloop] val empty: ClasspathOptions = ClasspathOptions(true, false, false, true, true)
   }
 
-  sealed trait CompileOrder
-  case object Mixed extends CompileOrder { val id: String = "mixed" }
-  case object JavaThenScala extends CompileOrder { val id: String = "java->scala" }
-  case object ScalaThenJava extends CompileOrder { val id: String = "scala->java" }
+  sealed abstract class CompileOrder(val id: String)
+  case object Mixed extends CompileOrder("mixed")
+  case object JavaThenScala extends CompileOrder("java->scala")
+  case object ScalaThenJava extends CompileOrder("scala->java")
+
+  object CompileOrder {
+    final val All: List[String] = List(Mixed.id, JavaThenScala.id, ScalaThenJava.id)
+  }
 
   // TODO(jvican): Move the classpath options to this field before 1.0.0. Holding off of this breaking change for now.
   case class CompileOptions(
@@ -67,12 +71,7 @@ object Config {
     case object JVM extends Platform("jvm")
     case object Native extends Platform("native")
 
-    def apply(platform: String): Platform = platform.toLowerCase match {
-      case JS.name => JS
-      case JVM.name => JVM
-      case Native.name => Native
-      case _ => throw new IllegalArgumentException(s"Unknown platform: '$platform'")
-    }
+    final val All: List[String] = List(JVM.name, JS.name, Native.name)
   }
 
   /**
@@ -138,11 +137,6 @@ object Config {
 
   object Module {
     private[bloop] val empty: Module = Module("", "", "", None, true, Nil)
-    implicit val moduleEq: cats.Eq[Module] = cats.Eq.instance { (m1: Module, m2: Module) =>
-      m1.organization == m2.organization &&
-      m1.name == m2.name &&
-      m1.version == m2.version
-    }
   }
 
   case class Resolution(
@@ -190,13 +184,6 @@ object Config {
     final val LatestVersion = "1.0.0"
 
     private[bloop] val empty = File(LatestVersion, Project.empty)
-    private final val DefaultCharset = Charset.defaultCharset()
-
-    def write(all: File, target: Path): Unit = {
-      val contents = ConfigEncoders.allConfigEncoder(all).spaces4
-      Files.write(target, contents.getBytes(DefaultCharset))
-      ()
-    }
 
     private[bloop] def dummyForTests: File = {
       val workingDirectory = Paths.get(System.getProperty("user.dir"))

@@ -141,7 +141,7 @@ object MojoImplementation {
       val configTarget = new File(mojo.getBloopConfigDir, s"$name.json")
       val finalTarget = relativize(root, configTarget).getOrElse(configTarget.getAbsolutePath)
       log.info(s"Generated $finalTarget")
-      Config.File.write(config, configTarget.toPath)
+      bloop.config.write(config, configTarget.toPath)
     }
 
     writeConfig(mojo.getCompileSourceDirectories.asScala,
