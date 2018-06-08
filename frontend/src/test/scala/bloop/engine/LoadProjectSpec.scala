@@ -25,13 +25,12 @@ class LoadProjectSpec {
     val t = Project
       .lazyLoadFromDir(configDir, logger)
       .map(ps => Dag.fromMap(ps.map(p => p.name -> p).toMap))
-    // Fail the test if this takes longer than 7 seconds -- In linux it's ~3.2s
-    try TestUtil.await(FiniteDuration(7, TimeUnit.SECONDS))(t)
+    try TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(t)
     catch { case t: Throwable => logger.dump(); throw t }
     ()
   }
 
-  @Test def loadJavaProject(): Unit = {
+  @Test def LoadJavaProject(): Unit = {
     // Make sure that when no scala setup is configured the project load succeeds
     val logger = new RecordingLogger()
     val config0 = Config.File.dummyForTests

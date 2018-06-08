@@ -129,10 +129,11 @@ object MojoImplementation {
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
         val jvm = Config.Jvm(Some(abs(mojo.getJavaHome().getParentFile.getParentFile)), launcher.getJvmArgs().toArray)
         val compileOptions = Config.CompileOptions(Config.Mixed)
-        val platform = Config.Platform.default
         val nativeConfig = None
         val jsConfig = None
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeConfig, jsConfig)
+        val platform = Config.Platform.default
+        val resolution = Config.Resolution.empty
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeConfig, jsConfig, resolution)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON
@@ -140,7 +141,7 @@ object MojoImplementation {
       val configTarget = new File(mojo.getBloopConfigDir, s"$name.json")
       val finalTarget = relativize(root, configTarget).getOrElse(configTarget.getAbsolutePath)
       log.info(s"Generated $finalTarget")
-      Config.File.write(config, configTarget.toPath)
+      bloop.config.write(config, configTarget.toPath)
     }
 
     writeConfig(mojo.getCompileSourceDirectories.asScala,

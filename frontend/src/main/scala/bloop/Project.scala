@@ -1,16 +1,17 @@
 package bloop
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
-import bloop.io.Timer.timed
 import bloop.logging.Logger
 import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
-import bloop.config.{Config, ConfigDecoders}
+import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.config.Config.{JsConfig, NativeConfig, Platform}
 import bloop.engine.ExecutionContext
-import metaconfig.{Conf, Configured, Input}
 
 final case class Project(
     name: String,
@@ -139,14 +140,15 @@ object Project {
   }
 
   private[bloop] def fromFile(config: AbsolutePath, logger: Logger): Project = {
-    import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser
+    import _root_.io.circe.parser
     logger.debug(s"Loading project from '$config'")
-    val configFilepath = config.underlying
-    val input = Input.File(configFilepath)
-    val configured = Conf.parseInput(input)(typesafeConfigMetaconfigParser)
-    ConfigDecoders.allConfigDecoder.read(configured) match {
-      case Configured.Ok(file) => Project.fromConfig(file, logger)
-      case Configured.NotOk(error) => sys.error(error.toString())
+    val contents = new String(Files.readAllBytes(config.underlying), StandardCharsets.UTF_8)
+    parser.parse(contents) match {
+      case Left(failure) => throw failure
+      case Right(json) => ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
+        case Right(file) => Project.fromConfig(file, logger)
+        case Left(failure) => throw failure
+      }
     }
   }
 }

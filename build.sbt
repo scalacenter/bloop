@@ -60,17 +60,13 @@ val jsonConfig = project
     libraryDependencies ++= {
       if (scalaBinaryVersion.value == "2.12") {
         List(
-          Dependencies.typesafeConfig,
-          Dependencies.metaconfigCore,
-          Dependencies.metaconfigDocs,
-          Dependencies.metaconfigConfig,
+          Dependencies.circeParser,
           Dependencies.circeDerivation,
           Dependencies.nuprocess,
           Dependencies.scalacheck % Test,
         )
       } else {
         List(
-          Dependencies.typesafeConfig,
           Dependencies.circeCore,
           Dependencies.circeGeneric,
           compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),

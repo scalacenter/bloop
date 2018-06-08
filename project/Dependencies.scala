@@ -20,7 +20,6 @@ object Dependencies {
   val mavenScalaPluginVersion = "3.2.2"
   val ipcsocketVersion = "1.0.0"
   val monixVersion = "2.3.3"
-  val metaconfigVersion = "0.7.0"
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.3"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
@@ -60,10 +59,7 @@ object Dependencies {
   val monix = "io.monix" %% "monix" % monixVersion
 
   val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
-  val typesafeConfig = "com.typesafe" % "config" % "1.3.2"
-  val metaconfigCore = "com.geirsson" %% "metaconfig-core" % metaconfigVersion
-  val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % metaconfigVersion
-  val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % metaconfigVersion
+  val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion

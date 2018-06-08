@@ -33,10 +33,14 @@ object Config {
     private[bloop] val empty: ClasspathOptions = ClasspathOptions(true, false, false, true, true)
   }
 
-  sealed trait CompileOrder
-  case object Mixed extends CompileOrder { val id: String = "mixed" }
-  case object JavaThenScala extends CompileOrder { val id: String = "java->scala" }
-  case object ScalaThenJava extends CompileOrder { val id: String = "scala->java" }
+  sealed abstract class CompileOrder(val id: String)
+  case object Mixed extends CompileOrder("mixed")
+  case object JavaThenScala extends CompileOrder("java->scala")
+  case object ScalaThenJava extends CompileOrder("scala->java")
+
+  object CompileOrder {
+    final val All: List[String] = List(Mixed.id, JavaThenScala.id, ScalaThenJava.id)
+  }
 
   // TODO(jvican): Move the classpath options to this field before 1.0.0. Holding off of this breaking change for now.
   case class CompileOptions(
@@ -67,12 +71,7 @@ object Config {
     case object JVM extends Platform("jvm")
     case object Native extends Platform("native")
 
-    def apply(platform: String): Platform = platform.toLowerCase match {
-      case JS.name => JS
-      case JVM.name => JVM
-      case Native.name => Native
-      case _ => throw new IllegalArgumentException(s"Unknown platform: '$platform'")
-    }
+    final val All: List[String] = List(JVM.name, JS.name, Native.name)
   }
 
   /**
@@ -95,18 +94,57 @@ object Config {
   object NativeConfig {
     // FORMAT: OFF
     private[bloop] val empty: NativeConfig =
-      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath,
-        false)
+      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath, false)
     // FORMAT: ON
   }
 
   case class JsConfig(toolchainClasspath: Array[Path])
 
   object JsConfig {
-    // FORMAT: OFF
-    private[bloop] val empty: JsConfig =
-      JsConfig(Array.empty)
-    // FORMAT: ON
+    private[bloop] val empty: JsConfig = JsConfig(Array.empty)
+  }
+
+  case class Checksum(
+      digest: String,
+      `type`: String
+  )
+
+  object Checksum {
+    private[bloop] val empty: Checksum = Checksum("", "")
+  }
+
+  case class Artifact(
+      name: String,
+      `type`: String,
+      extension: String,
+      classifier: Option[String],
+      checksum: Option[Checksum],
+      path: Path
+  )
+
+  object Artifact {
+    private[bloop] val empty: Artifact = Artifact("", "", "", None, None, emptyPath)
+  }
+
+  case class Module(
+      organization: String,
+      name: String,
+      version: String,
+      configurations: Option[String],
+      direct: Boolean,
+      artifacts: List[Artifact]
+  )
+
+  object Module {
+    private[bloop] val empty: Module = Module("", "", "", None, true, Nil)
+  }
+
+  case class Resolution(
+      modules: List[Module]
+  )
+
+  object Resolution {
+    private[bloop] val empty: Resolution = Resolution(Nil)
   }
 
   case class Project(
@@ -126,7 +164,8 @@ object Config {
       test: Test,
       platform: Platform,
       nativeConfig: Option[NativeConfig],
-      jsConfig: Option[JsConfig]
+      jsConfig: Option[JsConfig],
+      resolution: Resolution
   )
 
   object Project {
@@ -134,7 +173,7 @@ object Config {
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
         CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default, None, None)
+        Test.empty, Platform.default, None, None, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -145,13 +184,6 @@ object Config {
     final val LatestVersion = "1.0.0"
 
     private[bloop] val empty = File(LatestVersion, Project.empty)
-    private final val DefaultCharset = Charset.defaultCharset()
-
-    def write(all: File, target: Path): Unit = {
-      val contents = ConfigEncoders.allConfigEncoder(all).spaces4
-      Files.write(target, contents.getBytes(DefaultCharset))
-      ()
-    }
 
     private[bloop] def dummyForTests: File = {
       val workingDirectory = Paths.get(System.getProperty("user.dir"))
@@ -189,7 +221,8 @@ object Config {
         Test(Array(), TestOptions(Nil, Nil)),
         Platform.default,
         None,
-        None
+        None,
+        Resolution.empty
       )
 
       File(LatestVersion, project)

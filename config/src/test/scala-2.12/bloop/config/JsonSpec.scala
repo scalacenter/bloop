@@ -1,35 +1,21 @@
 package bloop.config
 
-import java.nio.file.{Files, Paths}
-
-import bloop.config.Config.{
-  ClasspathOptions,
-  CompileOptions,
-  File,
-  Java,
-  Jvm,
-  Platform,
-  Project,
-  Scala,
-  TestOptions,
-  Test => ConfigTest
-}
-import bloop.config.ConfigDecoders.allConfigDecoder
-import bloop.config.ConfigEncoders.allConfigEncoder
-import metaconfig.{Conf, Configured}
-import metaconfig.typesafeconfig.typesafeConfigMetaconfigParser
+import bloop.config.Config.File
+import io.circe.parser
 import org.junit.Test
 import org.junit.Assert
 
 class JsonSpec {
   def parseConfig(config: File): Unit = {
-    val jsonConfig = allConfigEncoder(config).spaces4
-    val parsedEmptyConfig = allConfigDecoder.read(Conf.parseString(jsonConfig))
-    allConfigDecoder.read(Conf.parseString(jsonConfig)) match {
-      case Configured.Ok(parsed) =>
+    import ConfigEncoderDecoders.{allDecoder, allEncoder}
+    val jsonConfig = bloop.config.toStr(config)
+    println(jsonConfig)
+    val parsed = parser.parse(jsonConfig).getOrElse(sys.error("error parsing"))
+    allDecoder.decodeJson(parsed) match {
+      case Right(parsedConfig) =>
         // Compare stringified representation because `Array` equals uses reference equality
-        Assert.assertEquals(allConfigEncoder(parsed).spaces4, jsonConfig)
-      case Configured.NotOk(error) => sys.error(s"Could not parse simple config: $error")
+        Assert.assertEquals(allEncoder(parsedConfig).spaces4, jsonConfig)
+      case Left(failure) => throw failure
     }
   }
 

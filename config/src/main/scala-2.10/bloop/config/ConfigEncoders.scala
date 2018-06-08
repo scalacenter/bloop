@@ -13,9 +13,9 @@ object ConfigEncoders {
 
   implicit val compileOrderEncoder: RootEncoder[CompileOrder] = new RootEncoder[CompileOrder] {
     override final def apply(o: CompileOrder): Json = o match {
-      case Mixed => Json.fromString("mixed")
-      case JavaThenScala => Json.fromString("java->scala")
-      case ScalaThenJava => Json.fromString("scala->java")
+      case Mixed => Json.fromString(Mixed.id)
+      case JavaThenScala => Json.fromString(JavaThenScala.id)
+      case ScalaThenJava => Json.fromString(ScalaThenJava.id)
     }
   }
 
@@ -25,6 +25,10 @@ object ConfigEncoders {
 
   implicit val nativeConfigEncoder: ObjectEncoder[NativeConfig] = deriveEncoder
   implicit val jsConfigEncoder: ObjectEncoder[JsConfig] = deriveEncoder
+  implicit val checksumEncoder: ObjectEncoder[Checksum] = deriveEncoder
+  implicit val moduleEncoder: ObjectEncoder[Module] = deriveEncoder
+  implicit val artifactEncoder: ObjectEncoder[Artifact] = deriveEncoder
+  implicit val resolutionEncoder: ObjectEncoder[Resolution] = deriveEncoder
   implicit val javaConfigEncoder: ObjectEncoder[Java] = deriveEncoder
   implicit val jvmConfigEncoder: ObjectEncoder[Jvm] = deriveEncoder
   implicit val testFrameworkConfigEncoder: ObjectEncoder[TestFramework] = deriveEncoder
