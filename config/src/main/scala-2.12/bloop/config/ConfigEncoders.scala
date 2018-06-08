@@ -24,6 +24,7 @@ object ConfigEncoders {
   }
 
   implicit val nativeConfigEncoder: ObjectEncoder[NativeConfig] = deriveEncoder
+  implicit val jsConfigEncoder: ObjectEncoder[JsConfig] = deriveEncoder
   implicit val javaConfigEncoder: ObjectEncoder[Java] = deriveEncoder
   implicit val jvmConfigEncoder: ObjectEncoder[Jvm] = deriveEncoder
   implicit val testFrameworkConfigEncoder: ObjectEncoder[TestFramework] = deriveEncoder

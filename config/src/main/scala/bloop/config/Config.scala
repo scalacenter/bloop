@@ -100,6 +100,15 @@ object Config {
     // FORMAT: ON
   }
 
+  case class JsConfig(toolchainClasspath: Array[Path])
+
+  object JsConfig {
+    // FORMAT: OFF
+    private[bloop] val empty: JsConfig =
+      JsConfig(Array.empty)
+    // FORMAT: ON
+  }
+
   case class Project(
       name: String,
       directory: Path,
@@ -116,7 +125,8 @@ object Config {
       java: Java,
       test: Test,
       platform: Platform,
-      nativeConfig: Option[NativeConfig]
+      nativeConfig: Option[NativeConfig],
+      jsConfig: Option[JsConfig]
   )
 
   object Project {
@@ -124,7 +134,7 @@ object Config {
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
         CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default, None)
+        Test.empty, Platform.default, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -178,6 +188,7 @@ object Config {
         Java(Array("-version")),
         Test(Array(), TestOptions(Nil, Nil)),
         Platform.default,
+        None,
         None
       )
 

@@ -17,6 +17,7 @@ import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
 
 import bloop.Project
 import bloop.cli.OptimizerConfig
+import bloop.config.Config.JsConfig
 import bloop.logging.{Logger => BloopLogger}
 
 object JsBridge {
@@ -73,6 +74,10 @@ object JsBridge {
                                 output = AtomicWritableFileVirtualJSFile(target.toFile),
                                 logger = new Logger(logger))
     target.underlying
+  }
+
+  private[scalajs] def defaultJsConfig(project: Project): JsConfig = {
+    JsConfig(toolchainClasspath = Array.empty)
   }
 
 }

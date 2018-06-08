@@ -150,7 +150,7 @@ val docs = project
   )
 
 lazy val jsBridge = project
-  .dependsOn(frontend)
+  .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)

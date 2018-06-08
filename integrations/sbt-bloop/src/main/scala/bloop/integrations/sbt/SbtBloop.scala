@@ -364,6 +364,7 @@ object BloopDefaults {
       else Config.Platform.JVM
     }
     val nativeConfig = None
+    val jsConfig = None
 
     // Force source generators on this task manually
     Keys.managedSources.value
@@ -380,7 +381,7 @@ object BloopDefaults {
       val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
       val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
         classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm,
-        java, testOptions, platform, nativeConfig)
+        java, testOptions, platform, nativeConfig, jsConfig)
       Config.File(Config.File.LatestVersion, project)
     }
     // format: ON

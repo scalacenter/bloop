@@ -9,7 +9,7 @@ import bloop.config.Config.Platform
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{ScalaJs, ScalaNativeToolchain, Tasks}
+import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks}
 import bloop.Project
 import bloop.exec.Forker
 import monix.eval.Task
@@ -303,7 +303,8 @@ object Interpreter {
                       state.mergeStatus(ExitStatus.LinkingError)
                   }
                 } else {
-                  ScalaJs.link(state, project, main, cmd.optimize).map {
+                  val jsToolchain = ScalaJsToolchain.forProject(project, state.logger)
+                  jsToolchain.link(project, main, state.logger, cmd.optimize).map {
                     case Success(jsOut) =>
                       state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
                       state
@@ -353,7 +354,8 @@ object Interpreter {
                     nativeToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
 
                   case Platform.JS =>
-                    ScalaJs.link(state, project, mainClass, cmd.optimize).flatMap {
+                    val jsToolchain = ScalaJsToolchain.forProject(project, state.logger)
+                    jsToolchain.link(project, mainClass, state.logger, cmd.optimize).flatMap {
                       case Success(jsOut) =>
                         val command = List("node", jsOut.syntax) ++ args.toList
                         runCommand(state, cwd, command)

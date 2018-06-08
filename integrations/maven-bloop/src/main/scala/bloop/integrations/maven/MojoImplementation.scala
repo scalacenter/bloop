@@ -15,11 +15,11 @@ object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
 
   def initializeMojo(
-    project: MavenProject,
-    session: MavenSession,
-    mojoExecution: MojoExecution,
-    mavenPluginManager: MavenPluginManager,
-    encoding: String
+      project: MavenProject,
+      session: MavenSession,
+      mojoExecution: MojoExecution,
+      mavenPluginManager: MavenPluginManager,
+      encoding: String
   ): Either[String, BloopMojo] = {
     Option(project.getBuild().getPluginsAsMap().get(ScalaMavenGroupArtifact)) match {
       case None =>
@@ -131,7 +131,8 @@ object MojoImplementation {
         val compileOptions = Config.CompileOptions(Config.Mixed)
         val platform = Config.Platform.default
         val nativeConfig = None
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeConfig)
+        val jsConfig = None
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeConfig, jsConfig)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

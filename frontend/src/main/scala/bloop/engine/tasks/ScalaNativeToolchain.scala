@@ -2,11 +2,9 @@ package bloop.engine.tasks
 
 import scala.util.{Failure, Success, Try}
 
-import java.net.URLClassLoader
-import java.nio.file.{Files, Path}
-import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.Path
 
-import bloop.{DependencyResolution, Project}
+import bloop.Project
 import bloop.cli.{ExitStatus, OptimizerConfig}
 import bloop.engine.State
 import bloop.exec.Forker
@@ -82,50 +80,23 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
 
 }
 
-object ScalaNativeToolchain {
+object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
 
-  private[this] var resolvedInstance: ScalaNativeToolchain = _
-  private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNativeToolchain] =
-    new ConcurrentHashMap
+  override val toolchainArtifactName = bloop.internal.build.BuildInfo.nativeBridge
 
-  def forProject(project: Project, logger: Logger): ScalaNativeToolchain = {
+  override def apply(classLoader: ClassLoader): ScalaNativeToolchain = {
+    new ScalaNativeToolchain(classLoader)
+  }
+
+  override def forProject(project: Project, logger: Logger): ScalaNativeToolchain = {
     project.nativeConfig match {
       case None =>
-        resolveNativeToolchain(logger)
+        resolveToolchain(logger)
+
       case Some(config) =>
         val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
         direct(classpath)
     }
-  }
-
-  def resolveNativeToolchain(logger: Logger): ScalaNativeToolchain = synchronized {
-    if (resolvedInstance == null) {
-      val jars = bridgeJars(logger)
-      resolvedInstance = direct(jars)
-    }
-    resolvedInstance
-  }
-
-  def direct(classpath: Array[AbsolutePath]): ScalaNativeToolchain = {
-    def createToolchain(classpath: Array[AbsolutePath]) = {
-      new ScalaNativeToolchain(toClassLoader(classpath))
-    }
-    instancesCache.computeIfAbsent(classpath, createToolchain)
-  }
-
-  private def bridgeJars(logger: Logger): Array[AbsolutePath] = {
-    val organization = bloop.internal.build.BuildInfo.organization
-    val nativeBridge = bloop.internal.build.BuildInfo.nativeBridge
-    val version = bloop.internal.build.BuildInfo.version
-    logger.debug(s"Resolving Native bridge: $organization:$nativeBridge:$version")
-    val files = DependencyResolution.resolve(organization, nativeBridge, version, logger)
-    files.filter(_.underlying.toString.endsWith(".jar"))
-  }
-
-  private def toClassLoader(classpath: Array[AbsolutePath]): ClassLoader = {
-    val parent = this.getClass.getClassLoader
-    val entries = classpath.map(_.underlying.toUri.toURL)
-    new URLClassLoader(entries, parent)
   }
 
 }
