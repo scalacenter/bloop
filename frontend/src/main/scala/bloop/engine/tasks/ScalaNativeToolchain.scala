@@ -84,6 +84,7 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
 
 object ScalaNativeToolchain {
 
+  private[this] var resolvedInstance: ScalaNativeToolchain = _
   private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], ScalaNativeToolchain] =
     new ConcurrentHashMap
 
@@ -97,9 +98,12 @@ object ScalaNativeToolchain {
     }
   }
 
-  def resolveNativeToolchain(logger: Logger): ScalaNativeToolchain = {
-    val jars = bridgeJars(logger)
-    direct(jars)
+  def resolveNativeToolchain(logger: Logger): ScalaNativeToolchain = synchronized {
+    if (resolvedInstance == null) {
+      val jars = bridgeJars(logger)
+      resolvedInstance = direct(jars)
+    }
+    resolvedInstance
   }
 
   def direct(classpath: Array[AbsolutePath]): ScalaNativeToolchain = {
