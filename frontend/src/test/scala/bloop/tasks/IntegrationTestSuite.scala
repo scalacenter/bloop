@@ -52,7 +52,7 @@ class IntegrationTestSuite(testDirectory: Path) {
   }
 
   def compileProject0: Unit = {
-    val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName)
+    val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName, identity)
     val (initialState, projectToCompile) = getModuleToCompile(testDirectory) match {
       case Some(projectName) =>
         (state0, state0.build.getProjectFor(projectName).get)
@@ -78,7 +78,9 @@ class IntegrationTestSuite(testDirectory: Path) {
           testOptions = Config.TestOptions.empty,
           javaEnv = javaEnv,
           out = classesDir,
-          analysisOut = classesDir.resolve(Config.Project.analysisFileName(rootProjectName))
+          analysisOut = classesDir.resolve(Config.Project.analysisFileName(rootProjectName)),
+          platform = Config.Platform.default,
+          nativeConfig = None
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))

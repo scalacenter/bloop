@@ -59,6 +59,47 @@ object Config {
     private[bloop] val empty: Scala = Scala("", "", "", Array(), Array())
   }
 
+  sealed abstract class Platform(val name: String)
+  object Platform {
+    private[bloop] val default: Platform = JVM
+
+    case object JS extends Platform("js")
+    case object JVM extends Platform("jvm")
+    case object Native extends Platform("native")
+
+    def apply(platform: String): Platform = platform.toLowerCase match {
+      case JS.name => JS
+      case JVM.name => JVM
+      case Native.name => Native
+      case _ => throw new IllegalArgumentException(s"Unknown platform: '$platform'")
+    }
+  }
+
+  /**
+   * Configures how to start and use the Scala Native toolchain, if needed.
+   * For the description of these fields, see:
+   * http://static.javadoc.io/org.scala-native/tools_2.10/0.3.7/index.html#scala.scalanative.build.Config
+   */
+  case class NativeConfig(
+      toolchainClasspath: Array[Path],
+      gc: String,
+      clang: Path,
+      clangPP: Path,
+      linkingOptions: Array[String],
+      compileOptions: Array[String],
+      targetTriple: String,
+      nativelib: Path,
+      linkStubs: Boolean
+  )
+
+  object NativeConfig {
+    // FORMAT: OFF
+    private[bloop] val empty: NativeConfig =
+      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath,
+        false)
+    // FORMAT: ON
+  }
+
   case class Project(
       name: String,
       directory: Path,
@@ -73,13 +114,17 @@ object Config {
       `scala`: Scala,
       jvm: Jvm,
       java: Java,
-      test: Test
+      test: Test,
+      platform: Platform,
+      nativeConfig: Option[NativeConfig]
   )
 
   object Project {
     // FORMAT: OFF
     private[bloop] val empty: Project =
-      Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty, CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty, Test.empty)
+      Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
+        CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
+        Test.empty, Platform.default, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -131,7 +176,9 @@ object Config {
         Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
         Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
         Java(Array("-version")),
-        Test(Array(), TestOptions(Nil, Nil))
+        Test(Array(), TestOptions(Nil, Nil)),
+        Platform.default,
+        None
       )
 
       File(LatestVersion, project)

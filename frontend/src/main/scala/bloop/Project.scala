@@ -8,6 +8,7 @@ import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigDecoders}
+import bloop.config.Config.{NativeConfig, Platform}
 import bloop.engine.ExecutionContext
 import metaconfig.{Conf, Configured, Input}
 
@@ -26,7 +27,9 @@ final case class Project(
     testOptions: Config.TestOptions,
     javaEnv: JavaEnv,
     out: AbsolutePath,
-    analysisOut: AbsolutePath
+    analysisOut: AbsolutePath,
+    platform: Platform,
+    nativeConfig: Option[NativeConfig]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -127,7 +130,9 @@ object Project {
       project.test.options,
       javaEnv,
       AbsolutePath(project.out),
-      AbsolutePath(project.analysisOut)
+      AbsolutePath(project.analysisOut),
+      project.platform,
+      project.nativeConfig
     )
   }
 

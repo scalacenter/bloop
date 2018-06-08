@@ -82,7 +82,7 @@ val jsonConfig = project
 
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
-val frontend = project
+lazy val frontend: Project = project
   .dependsOn(backend, backend % "test->test", jsonConfig)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
@@ -91,7 +91,7 @@ val frontend = project
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopInfoKeys,
+    buildInfoKeys := BloopInfoKeys(nativeBridge),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
@@ -149,7 +149,17 @@ val docs = project
     websiteSettings
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop)
+lazy val nativeBridge = project
+  .dependsOn(frontend % Provided, frontend % "test->test")
+  .in(file("bridges") / "scala-native")
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-native-bridge",
+    libraryDependencies += Dependencies.scalaNativeTools
+  )
+
+val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -175,7 +185,8 @@ addCommandAlias(
     s"^${sbtBloop.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
-    s"${frontend.id}/$publishLocalCmd"
+    s"${frontend.id}/$publishLocalCmd",
+    s"${nativeBridge.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
@@ -188,6 +199,7 @@ val allBloopReleases = List(
   s"+${jsonConfig.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
+  s"${nativeBridge.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

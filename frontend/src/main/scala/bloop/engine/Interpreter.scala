@@ -6,17 +6,19 @@ import scala.annotation.tailrec
 import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
+import bloop.config.Config.Platform
 import bloop.io.{RelativePath, SourceWatcher}
 import bloop.io.Timer.timed
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{ScalaNativeToolchain, Tasks}
 import bloop.Project
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.{Success, Failure}
 
 object Interpreter {
   // This is stack safe because of monix trampolined execution.
@@ -52,6 +54,8 @@ object Interpreter {
             execute(next, configure(cmd, state), true)
           case Run(cmd: Commands.Autocomplete, next) =>
             execute(next, autocomplete(cmd, state), true)
+          case Run(cmd: Commands.Link, next) =>
+            execute(next, link(cmd, state, inRecursion), true)
           case Run(cmd: Commands.Help, next) =>
             val msg = "The handling of help doesn't happen in the `Interpreter`."
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
@@ -271,6 +275,40 @@ object Interpreter {
     state
   }
 
+  private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
+    state.build.getProjectFor(cmd.project) match {
+      case None =>
+        Task(reportMissing(cmd.project :: Nil, state))
+      case Some(project) if project.platform != Platform.Native =>
+        Task {
+          state.logger.error("This command can only be called on a Scala Native project.")
+          state.mergeStatus(ExitStatus.InvalidCommandLineOption)
+        }
+      case Some(project) =>
+        val reporter = ReporterKind.toReporterConfig(cmd.reporter)
+        def doRun(state: State): Task[State] = {
+          compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
+            cmd.main.orElse(getMainClass(state, project)) match {
+              case None => Task(state.mergeStatus(ExitStatus.RunError))
+              case Some(main) =>
+                val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
+                nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
+                  case Success(nativeBinary) =>
+                    state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
+                    state
+                  case Failure(ex) =>
+                    state.mergeStatus(ExitStatus.LinkingError)
+                }
+            }
+          }
+        }
+
+        if (cmd.watch) watch(project, state, doRun _)
+        else doRun(state)
+
+    }
+  }
+
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
     if (cmd.threads != ExecutionContext.executor.getCorePoolSize)
       State.setCores(state, cmd.threads)
@@ -289,32 +327,20 @@ object Interpreter {
 
     state.build.getProjectFor(cmd.project) match {
       case Some(project) =>
-        def getMainClass(state: State): Option[String] = {
-          cmd.main.orElse {
-            Tasks.findMainClasses(state, project) match {
-              case Array() =>
-                state.logger.error(s"No main classes found in project '${project.name}'")
-                None
-              case Array(main) =>
-                Some(main)
-              case mainClasses =>
-                val eol = System.lineSeparator
-                val message = s"""Several main classes were found, specify which one:
-                                 |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
-                state.logger.error(message)
-                None
-            }
-          }
-        }
-
         def doRun(state: State): Task[State] = {
           compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
-            getMainClass(state) match {
+            cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
                 val args = cmd.args.toArray
                 val cwd = cmd.cliOptions.common.workingPath
-                Tasks.run(state, project, cwd, main, args)
+                project.platform match {
+                  case Platform.Native =>
+                    val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
+                    nativeToolchain.run(state, project, cwd, main, args, cmd.optimize)
+                  case _ =>
+                    Tasks.run(state, project, cwd, main, args)
+                }
             }
           }
         }
@@ -333,5 +359,21 @@ object Interpreter {
     state.logger.error(s"No projects named $projects found in '$configDirectory'.")
     state.logger.error(s"Use the `projects` command to list existing projects.")
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
+  }
+
+  private def getMainClass(state: State, project: Project): Option[String] = {
+    Tasks.findMainClasses(state, project) match {
+      case Array() =>
+        state.logger.error(s"No main classes found in project '${project.name}'")
+        None
+      case Array(main) =>
+        Some(main)
+      case mainClasses =>
+        val eol = System.lineSeparator
+        val message = s"""Several main classes were found, specify which one:
+                         |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+        state.logger.error(message)
+        None
+    }
   }
 }

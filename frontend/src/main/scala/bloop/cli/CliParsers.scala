@@ -30,6 +30,14 @@ object CliParsers {
     }
   }
 
+  implicit val optimizerConfigRead: ArgParser[OptimizerConfig] = {
+    ArgParser.instance[OptimizerConfig]("optimize") {
+      case "debug" => Right(OptimizerConfig.Debug)
+      case "release" => Right(OptimizerConfig.Release)
+      case w00t => Left(s"Unrecognized optimizer config: $w00t")
+    }
+  }
+
   implicit val propertiesParser: ArgParser[CommonOptions.PrettyProperties] = {
     ArgParser.instance("A properties parser") {
       case whatever => Left("You cannot pass in properties through the command line.")
@@ -63,8 +71,10 @@ object CliParsers {
   implicit val implicitOptionDefaultInputStream: Implicit[Option[Default[InputStream]]] =
     Implicit.instance(Some(Default.instance[InputStream](System.in)))
 
-  implicit val labelledGenericCommonOptions: LabelledGeneric[CommonOptions] = LabelledGeneric.materializeProduct
-  implicit val labelledGenericCliOptions: LabelledGeneric[CliOptions] = LabelledGeneric.materializeProduct
+  implicit val labelledGenericCommonOptions: LabelledGeneric[CommonOptions] =
+    LabelledGeneric.materializeProduct
+  implicit val labelledGenericCliOptions: LabelledGeneric[CliOptions] =
+    LabelledGeneric.materializeProduct
   implicit val coParser: Parser[CommonOptions] = Parser.generic
   implicit val cliParser: Parser[CliOptions] = Parser.generic
 

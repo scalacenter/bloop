@@ -57,37 +57,64 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath] = Array.empty
   ): Task[Int] = {
-    import scala.collection.JavaConverters.{propertiesAsScalaMap, mapAsJavaMapConverter}
     val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
     val java = javaEnv.javaHome.resolve("bin").resolve("java")
     val classpathOption = "-cp" :: fullClasspath :: Nil
     val appOptions = mainClass :: args.toList
     val cmd = java.syntax :: javaEnv.javaOptions.toList ::: classpathOption ::: appOptions
+    val logTask =
+      if (logger.isVerbose) {
+        val debugOptions =
+          s"""
+             |Fork options:
+             |   command      = '${cmd.mkString(" ")}'
+             |   cwd          = '$cwd'
+             |   classpath    = '$fullClasspath'
+             |   java_home    = '${javaEnv.javaHome}'
+             |   java_options = '${javaEnv.javaOptions.mkString(" ")}""".stripMargin
+        Task(logger.debug(debugOptions))
+      } else Task.unit
+    logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
+  }
 
+}
+
+object Forker {
+
+  /** The code returned after a successful execution. */
+  final val EXIT_OK = 0
+
+  /** The code returned after the execution errored. */
+  final val EXIT_ERROR = 1
+
+  /**
+   * Runs `cmd` in a new process and logs the results. The exit code is returned.
+   *
+   * @param cwd    The directory in which to start the process.
+   * @param cmd    The command to run.
+   * @param logger Where to log the messages from execution.
+   * @param opts   The options to run the program with.
+   * @return The exit code of the process.
+   */
+  def run(cwd: AbsolutePath, cmd: Seq[String], logger: Logger, opts: CommonOptions): Task[Int] = {
+    import scala.collection.JavaConverters.{propertiesAsScalaMap, mapAsJavaMapConverter}
     if (!Files.exists(cwd.underlying)) {
       Task {
-        logger.error(s"Couldn't start the forked JVM because '$cwd' doesn't exist.")
+        logger.error(s"Couldn't start the process because '$cwd' doesn't exist.")
         Forker.EXIT_ERROR
       }
     } else {
       var gobbleInput: Cancelable = null
       final class ProcessHandler extends NuAbstractProcessHandler {
         override def onStart(nuProcess: NuProcess): Unit = {
-          if (logger.isVerbose) {
-            val debugOptions =
-              s"""
-                 |Fork options:
-                 |   command      = '${cmd.mkString(" ")}'
-                 |   cwd          = '$cwd'
-                 |   classpath    = '$fullClasspath'
-                 |   java_home    = '${javaEnv.javaHome}'
-                 |   java_options = '${javaEnv.javaOptions.mkString(" ")}""".stripMargin
-            logger.debug(debugOptions)
-          }
+          logger.debug(s"""Starting forked process:
+                          |  cwd = '$cwd'
+                          |  pid = '${nuProcess.getPID}'
+                          |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
         }
 
         override def onExit(statusCode: Int): Unit =
-          logger.debug(s"Forked JVM exited with code: $statusCode")
+          logger.debug(s"Forked process exited with code: $statusCode")
 
         val outBuilder = StringBuilder.newBuilder
         override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
@@ -115,7 +142,8 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         }
       }
 
-      Task(logger.debug(s"Running '$mainClass' in a new JVM.")).flatMap { _ =>
+      @volatile var shutdownInput: Boolean = false
+      Task {
         import com.zaxxer.nuprocess.NuProcessBuilder
         val handler = new ProcessHandler()
         val builder = new NuProcessBuilder(handler, cmd: _*)
@@ -123,9 +151,8 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         val npEnv = builder.environment()
         npEnv.clear()
         npEnv.putAll(propertiesAsScalaMap(opts.env).asJava)
-        val process = builder.start()
-        @volatile var shutdownInput: Boolean = false
-
+        builder.start()
+      }.flatMap { process =>
         /* We need to gobble the input manually with a fixed delay because otherwise
          * the remote process will not see it. Instead of using the `wantWrite` API
          * we write directly to the process to avoid the extra level of indirection.
@@ -143,7 +170,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
         Task {
           try {
             val exitCode = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
-            logger.debug(s"Forked JVM exited with code: $exitCode")
+            logger.debug(s"Process ${process.getPID} exited with code: $exitCode")
             exitCode
           } finally {
             shutdownInput = true
@@ -157,26 +184,19 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
             process.destroy(true)
             process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
             if (process.isRunning) {
-              opts.ngout.println(s"The cancellation couldn't destroy process for ${mainClass}.")
-              logger.debug(s"The cancellation couldn't destroy process for ${mainClass}.")
+              val msg = s"The cancellation couldn't destroy process ${process.getPID}."
+              opts.ngout.println(msg)
+              logger.debug(msg)
             } else {
-              opts.ngout.println(s"The run process for '${mainClass}' has been closed.")
-              logger.debug(s"The run process for '${mainClass}' has been closed.")
+              val msg = s"The run process ${process.getPID} has been closed."
+              opts.ngout.println(msg)
+              logger.debug(msg)
             }
           }
         })
       }
     }
   }
-}
-
-object Forker {
-
-  /** The code returned after a successful execution. */
-  final val EXIT_OK = 0
-
-  /** The code returned after the execution errored. */
-  final val EXIT_ERROR = 1
 
   /**
    * Return an array of lines from a process buffer and a no lines buffer.

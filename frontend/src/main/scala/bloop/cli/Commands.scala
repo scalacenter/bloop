@@ -156,6 +156,29 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @ExtraName("o")
+      @HelpMessage(
+        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
+      optimize: OptimizerConfig = OptimizerConfig.Debug,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends CompilingCommand
+
+  case class Link(
+      @ExtraName("p")
+      @HelpMessage("The project to run (will be inferred from remaining cli args).")
+      project: String = "",
+      @ExtraName("m")
+      @HelpMessage("The main class to link. Leave unset to let bloop select automatically.")
+      main: Option[String] = None,
+      @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
+      reporter: ReporterKind = BloopReporter,
+      @ExtraName("w")
+      @HelpMessage("If set, run the command whenever projects' source files change.")
+      watch: Boolean = false,
+      @ExtraName("o")
+      @HelpMessage(
+        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
+      optimize: OptimizerConfig = OptimizerConfig.Debug,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 }

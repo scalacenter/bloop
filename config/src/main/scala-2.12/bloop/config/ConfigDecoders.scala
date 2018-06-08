@@ -16,6 +16,20 @@ object ConfigDecoders {
     }
   }
 
+  implicit val platformDecoder: ConfDecoder[Platform] = {
+    ConfDecoder.stringConfDecoder.flatMap { str =>
+      Try(Platform(str)) match {
+        case Success(platform) => Configured.Ok(platform)
+        case Failure(t) => Configured.error(t.getMessage)
+      }
+    }
+  }
+
+  implicit val nativeConfigSurface: Surface[NativeConfig] =
+    generic.deriveSurface[NativeConfig]
+  implicit val nativeConfigDecoder: ConfDecoder[NativeConfig] =
+    generic.deriveDecoder[NativeConfig](NativeConfig.empty)
+
   implicit val javaConfigSurface: Surface[Java] =
     generic.deriveSurface[Java]
   implicit val javaConfigDecoder: ConfDecoder[Java] =

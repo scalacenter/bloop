@@ -11,6 +11,7 @@ import bloop.engine.{Action, Build, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
+import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
 import monix.eval.Task
@@ -116,14 +117,18 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-  def loadTestProject(name: String): State = loadTestProject(getBloopConfigDir(name), name)
+  def loadTestProject(name: String,
+                      transformProjects: List[Project] => List[Project] = identity): State =
+    loadTestProject(getBloopConfigDir(name), name, transformProjects)
 
-  def loadTestProject(configDir: Path, name: String): State = {
+  def loadTestProject(configDir: Path,
+                      name: String,
+                      transformProjects: List[Project] => List[Project]): State = {
     val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = Project.eagerLoadFromDir(configDirectory, logger)
+    val loadedProjects = transformProjects(Project.eagerLoadFromDir(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
     state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
@@ -231,7 +236,9 @@ object TestUtil {
       javaEnv = javaEnv,
       out = AbsolutePath(baseDirectory), // This means nothing in tests
       // Let's store the analysis file in target even though we usually do it in `out`
-      analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name)))
+      analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name))),
+      platform = Config.Platform.default,
+      nativeConfig = None
     )
   }
 
@@ -255,32 +262,13 @@ object TestUtil {
   def withTemporaryDirectory[T](op: Path => T): T = {
     val temp = Files.createTempDirectory("tmp-test")
     try op(temp)
-    finally delete(temp)
+    finally delete(AbsolutePath(temp))
   }
 
   def withTemporaryFile[T](op: Path => T): T = {
     val temp = Files.createTempFile("tmp", "")
     try op(temp)
-    finally delete(temp)
+    finally delete(AbsolutePath(temp))
   }
 
-  def delete(path: Path): Unit = {
-    import java.nio.file.DirectoryNotEmptyException
-    Files.walkFileTree(
-      path,
-      new SimpleFileVisitor[Path] {
-        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-          Files.delete(file)
-          FileVisitResult.CONTINUE
-        }
-
-        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-          try Files.delete(dir)
-          catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
-          FileVisitResult.CONTINUE
-        }
-      }
-    )
-    ()
-  }
 }
