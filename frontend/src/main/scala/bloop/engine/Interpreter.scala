@@ -2,17 +2,16 @@ package bloop.engine
 
 import bloop.bsp.BspServer
 
-import scala.annotation.tailrec
-import bloop.cli.{BspProtocol, CliOptions, Commands, ExitStatus, ReporterKind}
+import bloop.cli.{BspProtocol, Commands, ExitStatus, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.config.Config.Platform
-import bloop.io.{RelativePath, SourceWatcher}
-import bloop.io.Timer.timed
+import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{ScalaNativeToolchain, Tasks}
+import bloop.engine.tasks.{ScalaJs, ScalaNativeToolchain, Tasks}
 import bloop.Project
+import bloop.exec.Forker
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 
@@ -279,9 +278,12 @@ object Interpreter {
     state.build.getProjectFor(cmd.project) match {
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
-      case Some(project) if project.platform != Platform.Native =>
+      case Some(project)
+          if project.platform != Platform.Native &&
+            project.platform != Platform.JS =>
         Task {
-          state.logger.error("This command can only be called on a Scala Native project.")
+          state.logger.error(
+            "This command can only be called on a Scala Native or Scala.js project.")
           state.mergeStatus(ExitStatus.InvalidCommandLineOption)
         }
       case Some(project) =>
@@ -291,13 +293,23 @@ object Interpreter {
             cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
               case Some(main) =>
-                val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
-                nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
-                  case Success(nativeBinary) =>
-                    state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
-                    state
-                  case Failure(ex) =>
-                    state.mergeStatus(ExitStatus.LinkingError)
+                if (project.platform == Platform.Native) {
+                  val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
+                  nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
+                    case Success(nativeBinary) =>
+                      state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
+                      state
+                    case Failure(ex) =>
+                      state.mergeStatus(ExitStatus.LinkingError)
+                  }
+                } else {
+                  ScalaJs.link(state, project, main, cmd.optimize).map {
+                    case Success(jsOut) =>
+                      state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
+                      state
+                    case Failure(ex) =>
+                      state.mergeStatus(ExitStatus.LinkingError)
+                  }
                 }
             }
           }
@@ -331,15 +343,26 @@ object Interpreter {
           compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
             cmd.main.orElse(getMainClass(state, project)) match {
               case None => Task(state.mergeStatus(ExitStatus.RunError))
-              case Some(main) =>
+              case Some(mainClass) =>
                 val args = cmd.args.toArray
                 val cwd = cmd.cliOptions.common.workingPath
+
                 project.platform match {
                   case Platform.Native =>
                     val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
-                    nativeToolchain.run(state, project, cwd, main, args, cmd.optimize)
+                    nativeToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
+
+                  case Platform.JS =>
+                    ScalaJs.link(state, project, mainClass, cmd.optimize).flatMap {
+                      case Success(jsOut) =>
+                        val command = List("node", jsOut.syntax) ++ args.toList
+                        runCommand(state, cwd, command)
+                      case Failure(ex) =>
+                        Task(state.mergeStatus(ExitStatus.LinkingError))
+                    }
+
                   case _ =>
-                    Tasks.run(state, project, cwd, main, args)
+                    Tasks.run(state, project, cwd, mainClass, args.toArray)
                 }
             }
           }
@@ -350,6 +373,19 @@ object Interpreter {
 
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
+    }
+  }
+
+  private def runCommand(state: State, cwd: AbsolutePath, cmd: List[String]): Task[State] = {
+    import scala.collection.JavaConverters.propertiesAsScalaMap
+    val env = propertiesAsScalaMap(state.commonOptions.env).toMap
+
+    Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
+      val exitStatus = {
+        if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
+        else ExitStatus.UnexpectedError
+      }
+      state.mergeStatus(exitStatus)
     }
   }
 

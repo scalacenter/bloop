@@ -60,9 +60,9 @@ object DependencyResolution {
         Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
       localArtifacts.collect { case Right(f) => AbsolutePath(f.toPath) }.toArray
     } else {
-      val instance = s"$organization:$module:$version"
+      val moduleInfo = s"$organization:$module:$version"
       sys.error(
-        s"Resolution of $instance failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
+        s"Resolution of module $moduleInfo failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
       )
     }
   }

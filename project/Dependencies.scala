@@ -25,6 +25,7 @@ object Dependencies {
   val nuprocessVersion = "1.2.3"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
+  val scalaJsVersion = "0.6.22"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -68,4 +69,5 @@ object Dependencies {
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
 
   val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
+  val scalaJsTools = "org.scala-js" %% "scalajs-tools" % scalaJsVersion
 }

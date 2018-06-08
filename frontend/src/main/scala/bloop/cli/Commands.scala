@@ -144,7 +144,8 @@ object Commands {
 
   case class Run(
       @ExtraName("p")
-      @HelpMessage("The project to run (will be inferred from remaining cli args).")
+      @HelpMessage(
+        "The project to run (will be inferred from remaining cli args). Requires Node.js to be in $PATH for Scala.js.")
       project: String = "",
       @ExtraName("m")
       @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
