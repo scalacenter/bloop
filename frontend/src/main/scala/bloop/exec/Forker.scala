@@ -7,7 +7,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
-import bloop.cli.CommonOptions
+import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
@@ -82,10 +82,22 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
 object Forker {
 
   /** The code returned after a successful execution. */
-  final val EXIT_OK = 0
+  private final val EXIT_OK = 0
 
   /** The code returned after the execution errored. */
-  final val EXIT_ERROR = 1
+  private final val EXIT_ERROR = 1
+
+  /**
+   * Converts this exit code to an `ExitStatus`.
+   * If execution failed, `RunError` is returned. Otherwise, `Ok`.
+   *
+   * @param exitCode The exit code to convert
+   * @return The corresponding exit status.
+   */
+  def exitStatus(exitCode: Int): ExitStatus = {
+    if (exitCode == EXIT_OK) ExitStatus.Ok
+    else ExitStatus.RunError
+  }
 
   /**
    * Runs `cmd` in a new process and logs the results. The exit code is returned.

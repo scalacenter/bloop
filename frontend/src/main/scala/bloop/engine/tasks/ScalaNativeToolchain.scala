@@ -63,10 +63,7 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
       case Success(nativeBinary) =>
         val cmd = nativeBinary.syntax +: args
         Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
-          val exitStatus = {
-            if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
-            else ExitStatus.RunError
-          }
+          val exitStatus = Forker.exitStatus(exitCode)
           state.mergeStatus(exitStatus)
         }
       case Failure(ex) =>

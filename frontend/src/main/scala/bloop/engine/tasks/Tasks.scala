@@ -402,10 +402,8 @@ object Tasks {
     val processConfig = Forker(project.javaEnv, classpath)
     val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
     runTask.map { exitCode =>
-      state.mergeStatus {
-        if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
-        else ExitStatus.UnexpectedError
-      }
+      val exitStatus = Forker.exitStatus(exitCode)
+      state.mergeStatus(exitStatus)
     }
   }
 
