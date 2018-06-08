@@ -2,13 +2,15 @@ package bloop.integrations.sbt
 
 import bloop.config.Config
 import sbt.io.syntax.File
-import sbt.{Artifact, Keys, SettingKey}
+import sbt.{Artifact, Exec, Keys, SettingKey}
 import sbt.librarymanagement.ScalaModuleInfo
 
 object Compat {
   implicit class WithIvyScala(keys: Keys.type) {
     def ivyScala: SettingKey[Option[ScalaModuleInfo]] = keys.scalaModuleInfo
   }
+
+  implicit def execToString(e: Exec): String = e.commandLine
 
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
 

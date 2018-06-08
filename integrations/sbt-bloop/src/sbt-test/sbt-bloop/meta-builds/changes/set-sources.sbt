@@ -1,0 +1,1 @@
+bloopExportSourceAndDocJars in ThisBuild := true
