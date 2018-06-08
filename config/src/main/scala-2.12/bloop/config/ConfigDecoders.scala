@@ -99,6 +99,26 @@ object ConfigDecoders {
   implicit val compileOptionsConfigDecoder: ConfDecoder[CompileOptions] =
     generic.deriveDecoder[CompileOptions](CompileOptions.empty)
 
+  implicit val checksumConfigSurface: Surface[Checksum] =
+    generic.deriveSurface[Checksum]
+  implicit val checksumConfigDecoder: ConfDecoder[Checksum] =
+    generic.deriveDecoder(Checksum.empty)
+
+  implicit val artifactConfigSurface: Surface[Artifact] =
+    generic.deriveSurface[Artifact]
+  implicit val artifactConfigDecoder: ConfDecoder[Artifact] =
+    generic.deriveDecoder(Artifact.empty)
+
+  implicit val moduleConfigSurface: Surface[Module] =
+    generic.deriveSurface[Module]
+  implicit val moduleConfigDecoder: ConfDecoder[Module] =
+    generic.deriveDecoder(Module.empty)
+
+  implicit val resolutionConfigSurface: Surface[Resolution] =
+    generic.deriveSurface[Resolution]
+  implicit val resolutionConfigDecoder: ConfDecoder[Resolution] =
+    generic.deriveDecoder(Resolution.empty)
+
   implicit val projectConfigSurface: Surface[Project] =
     generic.deriveSurface[Project]
   implicit val projectConfigDecoder: ConfDecoder[Project] =

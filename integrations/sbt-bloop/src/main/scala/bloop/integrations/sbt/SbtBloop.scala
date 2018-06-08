@@ -4,7 +4,7 @@ import java.nio.file.Path
 
 import bloop.config.Config
 import bloop.integration.sbt.Feedback
-import sbt.util.Logger
+import sbt.Logger
 import sbt.{
   AutoPlugin,
   ClasspathDep,
@@ -36,7 +36,7 @@ object BloopPlugin extends AutoPlugin {
 }
 
 object BloopKeys {
-  import sbt.{SettingKey, TaskKey, settingKey, taskKey}
+  import sbt.{SettingKey, TaskKey, settingKey, taskKey, UpdateReport}
 
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
@@ -77,7 +77,7 @@ object BloopDefaults {
     // Bloop users: Do NEVER override this setting as a user if you want it to work
     BloopKeys.bloopAggregateSourceDependencies :=
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
-  ) ++ updateSettings
+  )
 
   lazy val configSettings: Seq[Def.Setting[_]] =
     List(
@@ -90,8 +90,8 @@ object BloopDefaults {
       BloopKeys.bloopAnalysisOut := None
     ) ++ DiscoveredSbtPlugins.settings
 
-  lazy val projectSettings: Seq[Def.Setting[_]] =
-    sbt.inConfig(Compile)(configSettings) ++
+  lazy val projectSettings: Seq[Def.Setting[_]] = {
+      sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       List(
         BloopKeys.bloopTargetDir := bloopTargetDir.value,
@@ -110,6 +110,7 @@ object BloopDefaults {
           }
         }.value
       )
+  }
 
   private final val ScalaNativePluginLabel = "scala.scalanative.sbtplugin.ScalaNativePlugin"
   private final val ScalaJsPluginLabel = "org.scalajs.sbtplugin.ScalaJSPlugin"
@@ -211,6 +212,8 @@ object BloopDefaults {
    * dependencies like sbt does and extract them. This parsing only supports compile
    * and test, any kind of other dependency will be assumed to be test and will be
    * reported to the user.
+   *
+   * Ref https://www.scala-sbt.org/1.x/docs/Library-Management.html#Configurations.
    */
   def projectDependencyName(
       dep: ClasspathDep[ProjectRef],
@@ -264,7 +267,13 @@ object BloopDefaults {
     }
   }
 
-  def rebaseScalacOptionsInputs(
+  /**
+   * Replace any old path that is used as a scalac option by the new path.
+   *
+   * This will make the code correct in the case sbt has references to
+   * the classes directory in the scalac option parameter.
+   */
+  def replaceScalacOptionsPaths(
       opts: Array[String],
       internalClasspath: Seq[(File, File)],
       logger: Logger
@@ -277,10 +286,33 @@ object BloopDefaults {
         scalacOptions.map { scalacOption =>
           if (scalacOptions.contains(old1) ||
               scalacOptions.contains(old2)) {
-            logger.warn(Feedback.warnReferenceToClassesDir(scalacOption, oldClassesDir))
+            logger.warn(Feedback.warnReferenceToClassesDir(scalacOption, oldClassesDir.toString))
             scalacOption.replace(old1, newClassesDirAbs).replace(old2, newClassesDirAbs)
           } else scalacOption
         }
+    }
+  }
+
+  def configModules(report: sbt.UpdateReport): Seq[Config.Module] = {
+    val moduleReports = for {
+      configuration <- report.configurations
+      module <- configuration.modules
+    } yield module
+
+    moduleReports.map { mreport =>
+      val artifacts = mreport.artifacts.toList.map { case (a, f) => toBloopArtifact(a, f) }
+      val m = mreport.module
+      val isDirect = !m.isTransitive
+      Config.Module(m.organization, m.name, m.revision, m.configurations, isDirect, artifacts)
+    }
+  }
+
+  def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
+    ms0.map { m0 =>
+      ms1.find(m => Config.Module.moduleEq.eqv(m0, m)) match {
+        case Some(m1) => m0.copy(artifacts = m0.artifacts ++ m1.artifacts)
+        case None => m0
+      }
     }
   }
 
@@ -354,7 +386,7 @@ object BloopDefaults {
     val scalacOptions = {
       val options = Keys.scalacOptions.value.toArray
       val internalClasspath = BloopKeys.bloopInternalClasspath.value
-      rebaseScalacOptionsInputs(options, internalClasspath, logger)
+      replaceScalacOptionsPaths(options, internalClasspath, logger)
     }
 
     val compileOrder = Keys.compileOrder.value match {
@@ -372,6 +404,11 @@ object BloopDefaults {
       else Config.Platform.JVM
     }
 
+    val binaryModules = configModules(Keys.update.value)
+    val sourceModules = configModules(Keys.updateClassifiers.value)
+    val allModules = mergeModules(binaryModules, sourceModules)
+    val resolution = Config.Resolution(allModules.toList)
+
     // Force source generators on this task manually
     Keys.managedSources.value
     // Copy the resources, so that they're available when running and testing
@@ -387,7 +424,7 @@ object BloopDefaults {
       val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
       val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
         classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm,
-        java, testOptions, platform, nativeConfig, jsConfig)
+        java, testOptions, platform, nativeConfig, jsConfig, resolution)
       Config.File(Config.File.LatestVersion, project)
     }
     // format: ON

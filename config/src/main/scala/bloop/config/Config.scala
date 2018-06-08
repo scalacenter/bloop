@@ -95,18 +95,62 @@ object Config {
   object NativeConfig {
     // FORMAT: OFF
     private[bloop] val empty: NativeConfig =
-      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath,
-        false)
+      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath, false)
     // FORMAT: ON
   }
 
   case class JsConfig(toolchainClasspath: Array[Path])
 
   object JsConfig {
-    // FORMAT: OFF
-    private[bloop] val empty: JsConfig =
-      JsConfig(Array.empty)
-    // FORMAT: ON
+    private[bloop] val empty: JsConfig = JsConfig(Array.empty)
+  }
+
+  case class Checksum(
+      digest: String,
+      `type`: String
+  )
+
+  object Checksum {
+    private[bloop] val empty: Checksum = Checksum("", "")
+  }
+
+  case class Artifact(
+      name: String,
+      `type`: String,
+      extension: String,
+      classifier: Option[String],
+      checksum: Option[Checksum],
+      path: Path
+  )
+
+  object Artifact {
+    private[bloop] val empty: Artifact = Artifact("", "", "", None, None, emptyPath)
+  }
+
+  case class Module(
+      organization: String,
+      name: String,
+      version: String,
+      configurations: Option[String],
+      direct: Boolean,
+      artifacts: List[Artifact]
+  )
+
+  object Module {
+    private[bloop] val empty: Module = Module("", "", "", None, true, Nil)
+    implicit val moduleEq: cats.Eq[Module] = cats.Eq.instance { (m1: Module, m2: Module) =>
+      m1.organization == m2.organization &&
+      m1.name == m2.name &&
+      m1.version == m2.version
+    }
+  }
+
+  case class Resolution(
+      modules: List[Module]
+  )
+
+  object Resolution {
+    private[bloop] val empty: Resolution = Resolution(Nil)
   }
 
   case class Project(
@@ -126,7 +170,8 @@ object Config {
       test: Test,
       platform: Platform,
       nativeConfig: Option[NativeConfig],
-      jsConfig: Option[JsConfig]
+      jsConfig: Option[JsConfig],
+      resolution: Resolution
   )
 
   object Project {
@@ -134,7 +179,7 @@ object Config {
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
         CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default, None, None)
+        Test.empty, Platform.default, None, None, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -189,7 +234,8 @@ object Config {
         Test(Array(), TestOptions(Nil, Nil)),
         Platform.default,
         None,
-        None
+        None,
+        Resolution.empty
       )
 
       File(LatestVersion, project)
