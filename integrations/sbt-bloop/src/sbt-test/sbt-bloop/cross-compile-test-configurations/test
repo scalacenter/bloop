@@ -3,3 +3,6 @@
 > woo/test:compile
 > bloopInstall
 > checkBloopFile
+> set bloopExportSourceAndDocJars in ThisBuild := true
+> bloopInstall
+> checkSourceAndDocs

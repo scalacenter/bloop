@@ -42,6 +42,8 @@ object BloopKeys {
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir.")
+  val bloopExportSourceAndDocJars: SettingKey[Boolean] =
+    settingKey[Boolean]("Export the source and javadoc jars to the bloop configuration file")
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopManagedResourceDirectories: SettingKey[Seq[File]] =
@@ -74,6 +76,7 @@ object BloopDefaults {
   // We create build setting proxies to global settings so that we get autocompletion (sbt bug)
   lazy val buildSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopInstall := BloopKeys.bloopInstall.in(Global).value,
+    BloopKeys.bloopExportSourceAndDocJars := false,
     // Bloop users: Do NEVER override this setting as a user if you want it to work
     BloopKeys.bloopAggregateSourceDependencies :=
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
@@ -316,6 +319,12 @@ object BloopDefaults {
     }
   }
 
+  lazy val updateClassifiers: Def.Initialize[Task[Option[sbt.UpdateReport]]] = Def.taskDyn {
+    val runUpdateClassifiers = BloopKeys.bloopExportSourceAndDocJars.value
+    if (!runUpdateClassifiers) Def.task(None)
+    else Def.task(Some(Keys.updateClassifiers.value))
+  }
+
   lazy val bloopGenerate: Def.Initialize[Task[File]] = Def.task {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -405,7 +414,7 @@ object BloopDefaults {
     }
 
     val binaryModules = configModules(Keys.update.value)
-    val sourceModules = configModules(Keys.updateClassifiers.value)
+    val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
     val allModules = mergeModules(binaryModules, sourceModules)
     val resolution = Config.Resolution(allModules.toList)
 
