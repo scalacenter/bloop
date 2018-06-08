@@ -8,6 +8,7 @@ matrix:
           "backend/test" \
           "frontend/test" \
           "nativeBridge/test" \
+          "jsBridge/test" \
           "docs/makeSite"
 
   SBT_RUN_BENCHMARKS_AND_SCRIPTED:
