@@ -355,13 +355,7 @@ object Interpreter {
 
                   case Platform.JS =>
                     val jsToolchain = ScalaJsToolchain.forProject(project, state.logger)
-                    jsToolchain.link(project, mainClass, state.logger, cmd.optimize).flatMap {
-                      case Success(jsOut) =>
-                        val command = List("node", jsOut.syntax) ++ args.toList
-                        runCommand(state, cwd, command)
-                      case Failure(ex) =>
-                        Task(state.mergeStatus(ExitStatus.LinkingError))
-                    }
+                    jsToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
 
                   case _ =>
                     Tasks.run(state, project, cwd, mainClass, args.toArray)
@@ -375,19 +369,6 @@ object Interpreter {
 
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
-    }
-  }
-
-  private def runCommand(state: State, cwd: AbsolutePath, cmd: List[String]): Task[State] = {
-    import scala.collection.JavaConverters.propertiesAsScalaMap
-    val env = propertiesAsScalaMap(state.commonOptions.env).toMap
-
-    Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
-      val exitStatus = {
-        if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
-        else ExitStatus.UnexpectedError
-      }
-      state.mergeStatus(exitStatus)
     }
   }
 

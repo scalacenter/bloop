@@ -3,14 +3,15 @@ package bloop.engine.tasks
 import java.nio.file.Path
 
 import bloop.Project
-import bloop.cli.OptimizerConfig
+import bloop.cli.{ExitStatus, OptimizerConfig}
 import bloop.engine.State
+import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 
 import monix.eval.Task
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class ScalaJsToolchain private (classLoader: ClassLoader) {
 
@@ -35,6 +36,42 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
 
     Task(method.invoke(null, project, mainClass, logger, optimize)).materialize.map {
       _.collect { case path: Path => AbsolutePath(path) }
+    }
+  }
+
+  /**
+   * Compile `project` to a Javascript and run it.
+   *
+   * @param state    The current state of Bloop.
+   * @param project  The project to link.
+   * @param cwd      The working directory in which to start the process.
+   * @param main     The fully qualified main class name.
+   * @param args     The arguments to pass to the program.
+   * @param optimize The configuration of the optimizer.
+   * @return A task that compiles and run the project.
+   */
+  def run(state: State,
+          project: Project,
+          cwd: AbsolutePath,
+          mainClass: String,
+          args: Array[String],
+          optimize: OptimizerConfig): Task[State] = {
+    link(project, mainClass, state.logger, optimize).flatMap {
+      case Success(jsOut) =>
+        val cmd = "node" +: jsOut.syntax +: args
+        Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
+          val exitStatus = {
+            if (exitCode == Forker.EXIT_OK) ExitStatus.Ok
+            else ExitStatus.RunError
+          }
+          state.mergeStatus(exitStatus)
+        }
+      case Failure(ex) =>
+        Task {
+          state.logger.error("Couldn't create JS output.")
+          state.logger.trace(ex)
+          state.mergeStatus(ExitStatus.LinkingError)
+        }
     }
   }
 
