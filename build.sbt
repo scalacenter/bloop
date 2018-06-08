@@ -91,7 +91,7 @@ lazy val frontend: Project = project
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopInfoKeys(nativeBridge),
+    buildInfoKeys := BloopInfoKeys(nativeBridge, jsBridge),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
@@ -149,6 +149,16 @@ val docs = project
     websiteSettings
   )
 
+lazy val jsBridge = project
+  .dependsOn(frontend % Provided, frontend % "test->test")
+  .in(file("bridges") / "scalajs")
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-js-bridge",
+    libraryDependencies += Dependencies.scalaJsTools
+  )
+
 lazy val nativeBridge = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native")
@@ -159,7 +169,8 @@ lazy val nativeBridge = project
     libraryDependencies += Dependencies.scalaNativeTools
   )
 
-val allProjects = Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge)
+val allProjects =
+  Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge, jsBridge)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -186,7 +197,8 @@ addCommandAlias(
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
-    s"${nativeBridge.id}/$publishLocalCmd"
+    s"${nativeBridge.id}/$publishLocalCmd",
+    s"${jsBridge.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
@@ -199,7 +211,8 @@ val allBloopReleases = List(
   s"+${jsonConfig.id}/$releaseEarlyCmd",
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
-  s"${nativeBridge.id}/$releaseEarlyCmd"
+  s"${nativeBridge.id}/$releaseEarlyCmd",
+  s"${jsBridge.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

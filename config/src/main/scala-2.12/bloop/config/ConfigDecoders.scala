@@ -30,6 +30,11 @@ object ConfigDecoders {
   implicit val nativeConfigDecoder: ConfDecoder[NativeConfig] =
     generic.deriveDecoder[NativeConfig](NativeConfig.empty)
 
+  implicit val jsConfigSurface: Surface[JsConfig] =
+    generic.deriveSurface[JsConfig]
+  implicit val jsConfigDecoder: ConfDecoder[JsConfig] =
+    generic.deriveDecoder[JsConfig](JsConfig.empty)
+
   implicit val javaConfigSurface: Surface[Java] =
     generic.deriveSurface[Java]
   implicit val javaConfigDecoder: ConfDecoder[Java] =

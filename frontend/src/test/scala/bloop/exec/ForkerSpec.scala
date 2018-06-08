@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import org.junit.experimental.categories.Category
+import bloop.cli.ExitStatus
 import bloop.logging.RecordingLogger
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
@@ -113,7 +114,8 @@ class ForkerSpec {
           case ("error", msg) => msg.contains(nonExisting)
           case _ => false
         }
-        assertEquals(Forker.EXIT_ERROR, exitCode.toLong)
+        val exitStatus = Forker.exitStatus(exitCode)
+        assertEquals(ExitStatus.RunError, exitStatus)
         assert(messages.exists(expected), s"Couldn't find expected error messages in $messages")
     }
   }
