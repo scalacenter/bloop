@@ -103,7 +103,7 @@ object Config {
    */
   case class NativeConfig(
       gc: String,
-      platform: String,
+      targetTriple: String,
       nativelib: Path,
       clang: Path,
       clangpp: Path,

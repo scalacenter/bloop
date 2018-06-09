@@ -42,7 +42,7 @@ object NativeBridge {
         .withClangPP(nativeConfig.clangpp)
         .withLinkingOptions(nativeConfig.options.linker.toSeq.toArray)
         .withCompileOptions(nativeConfig.options.compiler.toSeq.toArray)
-        .withTargetTriple(nativeConfig.platform)
+        .withTargetTriple(nativeConfig.targetTriple)
         .withNativelib(nativeConfig.nativelib)
         .withLinkStubs(nativeConfig.linkStubs)
         .withMainClass(entry)
@@ -64,7 +64,7 @@ object NativeBridge {
       toolchainClasspath = Nil, // Toolchain is on the classpath of this project, so that's fine
       nativelib = Discover.nativelib(classpath).get,
       gc = GC.default.name,
-      platform = Discover.targetTriple(clang, workdir),
+      targetTriple = Discover.targetTriple(clang, workdir),
       clang = clang,
       clangpp = Discover.clangpp(),
       options = options,
