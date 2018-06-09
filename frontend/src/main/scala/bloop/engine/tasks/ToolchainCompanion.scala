@@ -3,6 +3,7 @@ package bloop.engine.tasks
 import bloop.{DependencyResolution, Project}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+import bloop.config.Config
 
 import java.net.URLClassLoader
 import java.util.concurrent.ConcurrentHashMap
@@ -17,6 +18,8 @@ abstract class ToolchainCompanion[Toolchain] {
   private[this] val instancesCache: ConcurrentHashMap[Array[AbsolutePath], Toolchain] =
     new ConcurrentHashMap
 
+  type Config <: Config.PlatformConfig
+
   /**
    * Get a new instance of this toolchain for `project`.
    *
@@ -24,7 +27,7 @@ abstract class ToolchainCompanion[Toolchain] {
    * @param logger  A logger that will receive messages about toolchain instantiation.
    * @return An instance of the toolchain.
    */
-  def forProject(project: Project, logger: Logger): Toolchain
+  def forConfig(config: Config, logger: Logger): Toolchain
 
   /** The artifact name of this toolchain. */
   def toolchainArtifactName: String

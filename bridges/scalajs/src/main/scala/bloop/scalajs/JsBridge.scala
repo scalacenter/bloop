@@ -20,7 +20,6 @@ import bloop.config.Config.JsConfig
 import bloop.logging.{Logger => BloopLogger}
 
 object JsBridge {
-
   private class Logger(logger: BloopLogger) extends JsLogger {
     override def log(level: Level, message: => String): Unit =
       level match {
@@ -86,7 +85,6 @@ object JsBridge {
   }
 
   private[scalajs] def defaultJsConfig(project: Project): JsConfig = {
-    JsConfig(toolchainClasspath = Array.empty)
+    JsConfig(toolchainClasspath = Nil)
   }
-
 }

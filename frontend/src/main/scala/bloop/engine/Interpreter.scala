@@ -278,39 +278,45 @@ object Interpreter {
     state.build.getProjectFor(cmd.project) match {
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
+
       case Some(project)
           if project.platform != Platform.Native &&
-            project.platform != Platform.JS =>
+            project.platform != Platform.Js =>
         Task {
           state.logger.error(
             "This command can only be called on a Scala Native or Scala.js project.")
           state.mergeStatus(ExitStatus.InvalidCommandLineOption)
         }
+
       case Some(project) =>
         val reporter = ReporterKind.toReporterConfig(cmd.reporter)
         def doRun(state: State): Task[State] = {
           compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
             cmd.main.orElse(getMainClass(state, project)) match {
-              case None => Task(state.mergeStatus(ExitStatus.RunError))
+              case None => Task(state)
               case Some(main) =>
-                if (project.platform == Platform.Native) {
-                  val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
-                  nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
-                    case Success(nativeBinary) =>
-                      state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
-                      state
-                    case Failure(ex) =>
-                      state.mergeStatus(ExitStatus.LinkingError)
-                  }
-                } else {
-                  val jsToolchain = ScalaJsToolchain.forProject(project, state.logger)
-                  jsToolchain.link(project, main, state.logger, cmd.optimize).map {
-                    case Success(jsOut) =>
-                      state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
-                      state
-                    case Failure(ex) =>
-                      state.mergeStatus(ExitStatus.LinkingError)
-                  }
+                project.platform match {
+                  case Platform.Native(config) =>
+                    val nativeToolchain = ScalaNativeToolchain.forConfig(config, state.logger)
+                    nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
+                      case Success(nativeBinary) =>
+                        state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
+                        state
+                      case Failure(ex) => state.mergeStatus(ExitStatus.LinkingError)
+                    }
+                  case Platform.Js(config) =>
+                    val jsToolchain = ScalaJsToolchain.forConfig(config, state.logger)
+                    jsToolchain.link(project, main, state.logger, cmd.optimize).map {
+                      case Success(jsOut) =>
+                        state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
+                        state
+                      case Failure(ex) => state.mergeStatus(ExitStatus.LinkingError)
+                    }
+                  case _: Platform.Jvm =>
+                    Task {
+                      state.logger.error(s"Missing main class for project ${project.name}")
+                      state.mergeStatus(ExitStatus.RunError)
+                    }
                 }
             }
           }
@@ -349,16 +355,13 @@ object Interpreter {
                 val cwd = cmd.cliOptions.common.workingPath
 
                 project.platform match {
-                  case Platform.Native =>
-                    val nativeToolchain = ScalaNativeToolchain.forProject(project, state.logger)
+                  case Platform.Native(config) =>
+                    val nativeToolchain = ScalaNativeToolchain.forConfig(config, state.logger)
                     nativeToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
-
-                  case Platform.JS =>
-                    val jsToolchain = ScalaJsToolchain.forProject(project, state.logger)
+                  case Platform.Js(config) =>
+                    val jsToolchain = ScalaJsToolchain.forConfig(config, state.logger)
                     jsToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
-
-                  case _ =>
-                    Tasks.run(state, project, cwd, mainClass, args.toArray)
+                  case _ => Tasks.run(state, project, cwd, mainClass, args.toArray)
                 }
             }
           }

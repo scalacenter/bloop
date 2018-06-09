@@ -1,15 +1,11 @@
 package bloop.config
 
-import java.nio.charset.Charset
 import java.nio.file.{Files, Path, Paths}
 
 object Config {
   private final val emptyPath = Paths.get("")
   case class Java(options: Array[String])
   object Java { private[bloop] val empty = Java(Array()) }
-
-  case class Jvm(home: Option[Path], options: Array[String])
-  object Jvm { private[bloop] val empty = Jvm(None, Array()) }
 
   case class TestFramework(names: List[String])
   object TestFramework { private[bloop] val empty = TestFramework(Nil) }
@@ -63,45 +59,68 @@ object Config {
     private[bloop] val empty: Scala = Scala("", "", "", Array(), Array())
   }
 
-  sealed abstract class Platform(val name: String)
-  object Platform {
-    private[bloop] val default: Platform = JVM
-
-    case object JS extends Platform("js")
-    case object JVM extends Platform("jvm")
-    case object Native extends Platform("native")
-
-    final val All: List[String] = List(JVM.name, JS.name, Native.name)
+  sealed abstract class Platform(val name: String) {
+    type Config <: PlatformConfig
+    def config: Config
   }
 
+  object Platform {
+    private[bloop] val default: Platform = Jvm(JvmConfig.empty)
+
+    object Js { val name: String = "js" }
+    case class Js(override val config: JsConfig) extends Platform(Js.name) {
+      type Config = JsConfig
+    }
+
+    object Jvm { val name: String = "jvm" }
+    case class Jvm(override val config: JvmConfig) extends Platform(Jvm.name) {
+      type Config = JvmConfig
+    }
+
+    object Native { val name: String = "native" }
+    case class Native(override val config: NativeConfig) extends Platform(Native.name) {
+      type Config = NativeConfig
+    }
+
+    final val All: List[String] = List(Jvm.name, Js.name, Native.name)
+  }
+
+  sealed trait PlatformConfig
+
+  case class JvmConfig(home: Option[Path], options: List[String]) extends PlatformConfig
+  object JvmConfig { private[bloop] val empty = JvmConfig(None, Nil) }
+
+  case class JsConfig(toolchainClasspath: List[Path]) extends PlatformConfig
+  object JsConfig { private[bloop] val empty: JsConfig = JsConfig(Nil) }
+
   /**
-   * Configures how to start and use the Scala Native toolchain, if needed.
+   * Represents the native platform and all the options it takes.
+   *
    * For the description of these fields, see:
    * http://static.javadoc.io/org.scala-native/tools_2.10/0.3.7/index.html#scala.scalanative.build.Config
+   *
+   * The only field that has been replaced for user-friendliness is `targetTriple` by `platform`.
    */
   case class NativeConfig(
-      toolchainClasspath: Array[Path],
       gc: String,
-      clang: Path,
-      clangPP: Path,
-      linkingOptions: Array[String],
-      compileOptions: Array[String],
-      targetTriple: String,
+      platform: String,
       nativelib: Path,
+      clang: Path,
+      clangpp: Path,
+      toolchainClasspath: List[Path],
+      options: NativeOptions,
       linkStubs: Boolean
-  )
+  ) extends PlatformConfig
 
   object NativeConfig {
     // FORMAT: OFF
-    private[bloop] val empty: NativeConfig =
-      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath, false)
+    private[bloop] val empty: NativeConfig = NativeConfig("", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false)
     // FORMAT: ON
   }
 
-  case class JsConfig(toolchainClasspath: Array[Path])
-
-  object JsConfig {
-    private[bloop] val empty: JsConfig = JsConfig(Array.empty)
+  case class NativeOptions(linker: List[String], compiler: List[String])
+  object NativeOptions {
+    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil)
   }
 
   case class Checksum(
@@ -156,12 +175,9 @@ object Config {
       analysisOut: Path,
       classesDir: Path,
       `scala`: Scala,
-      jvm: Jvm,
       java: Java,
       test: Test,
       platform: Platform,
-      nativeConfig: Option[NativeConfig],
-      jsConfig: Option[JsConfig],
       resolution: Resolution
   )
 
@@ -169,8 +185,8 @@ object Config {
     // FORMAT: OFF
     private[bloop] val empty: Project =
       Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
-        CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default, None, None, Resolution.empty)
+        CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty,
+        Test.empty, Platform.default, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -201,6 +217,7 @@ object Config {
       val classesDir = Files.createTempFile("classes", "test")
       classesDir.toFile.deleteOnExit()
 
+      val platform = Platform.Jvm(JvmConfig(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil))
       val project = Project(
         "dummy-project",
         workingDirectory,
@@ -213,12 +230,9 @@ object Config {
         outDir,
         outAnalysisFile,
         Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
-        Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
         Java(Array("-version")),
         Test(Array(), TestOptions(Nil, Nil)),
-        Platform.default,
-        None,
-        None,
+        platform,
         Resolution.empty
       )
 

@@ -489,9 +489,14 @@ object BloopDefaults {
         val nativeConfig = None
         val platform = {
           val pluginLabels = project.autoPlugins.map(_.label).toSet
-          if (pluginLabels.contains(ScalaNativePluginLabel)) Config.Platform.Native
-          else if (pluginLabels.contains(ScalaJsPluginLabel)) Config.Platform.JS
-          else Config.Platform.JVM
+          if (pluginLabels.contains(ScalaNativePluginLabel))
+            Config.Platform.Native(Config.NativeConfig.empty)
+          else if (pluginLabels.contains(ScalaJsPluginLabel))
+            Config.Platform.Js(Config.JsConfig.empty)
+          else {
+            val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
+            Config.Platform.Jvm(config)
+          }
         }
 
         val binaryModules = configModules(Keys.update.value)
@@ -508,13 +513,12 @@ object BloopDefaults {
         val config = {
           val java = Config.Java(javacOptions)
           val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
-          val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
 
           val compileOptions = Config.CompileOptions(compileOrder)
           val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm,
-            java, testOptions, platform, nativeConfig, jsConfig, resolution)
+            classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, java,
+            testOptions, platform, resolution)
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON

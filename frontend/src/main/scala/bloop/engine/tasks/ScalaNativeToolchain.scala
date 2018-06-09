@@ -1,16 +1,15 @@
 package bloop.engine.tasks
 
 import scala.util.{Failure, Success, Try}
-
 import java.nio.file.Path
 
 import bloop.Project
 import bloop.cli.{ExitStatus, OptimizerConfig}
+import bloop.config.Config
 import bloop.engine.State
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-
 import monix.eval.Task
 
 class ScalaNativeToolchain private (classLoader: ClassLoader) {
@@ -74,26 +73,18 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
         }
     }
   }
-
 }
 
 object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
-
+  override type Config = Config.NativeConfig
   override val toolchainArtifactName = bloop.internal.build.BuildInfo.nativeBridge
 
   override def apply(classLoader: ClassLoader): ScalaNativeToolchain = {
     new ScalaNativeToolchain(classLoader)
   }
 
-  override def forProject(project: Project, logger: Logger): ScalaNativeToolchain = {
-    project.nativeConfig match {
-      case None =>
-        resolveToolchain(logger)
-
-      case Some(config) =>
-        val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
-        direct(classpath)
-    }
+  override def forConfig(config: Config.NativeConfig, logger: Logger): ScalaNativeToolchain = {
+    if (config == Config.NativeConfig.empty) resolveToolchain(logger)
+    else direct(config.toolchainClasspath.map(AbsolutePath.apply).toArray)
   }
-
 }

@@ -9,8 +9,8 @@ import bloop.logging.Logger
 import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
-import bloop.config.{Config, ConfigEncoderDecoders}
-import bloop.config.Config.{JsConfig, NativeConfig, Platform}
+import config.{Config, ConfigEncoderDecoders}
+import config.Config.{JsConfig, NativeConfig, Platform}
 import bloop.engine.ExecutionContext
 
 final case class Project(
@@ -29,9 +29,7 @@ final case class Project(
     javaEnv: JavaEnv,
     out: AbsolutePath,
     analysisOut: AbsolutePath,
-    platform: Platform,
-    nativeConfig: Option[NativeConfig],
-    jsConfig: Option[JsConfig]
+    platform: Platform
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -112,10 +110,12 @@ object Project {
       )
     }
 
-    // Replace `JavaEnv` by `Config.Jvm`?
-    val jvm = project.jvm
-    val jvmHome = jvm.home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
-    val javaEnv = JavaEnv(jvmHome, jvm.options)
+    val javaEnv = project.platform match {
+      case Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions)) =>
+        val jvmHome = home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
+        JavaEnv(jvmHome, jvmOptions.toArray)
+      case _ => JavaEnv.default
+    }
 
     Project(
       project.name,
@@ -133,9 +133,7 @@ object Project {
       javaEnv,
       AbsolutePath(project.out),
       AbsolutePath(project.analysisOut),
-      project.platform,
-      project.nativeConfig,
-      project.jsConfig
+      project.platform
     )
   }
 

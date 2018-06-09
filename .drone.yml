@@ -3,7 +3,7 @@
 matrix:
   SBT_RUN:
     - sbt "benchmarks/compile" \
-          "jsonConfig/test" \
+          "+jsonConfig/test" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
           "frontend/test" \

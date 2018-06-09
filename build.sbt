@@ -67,6 +67,7 @@ val jsonConfig = project
         )
       } else {
         List(
+          Dependencies.circeParser,
           Dependencies.circeCore,
           Dependencies.circeGeneric,
           compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),

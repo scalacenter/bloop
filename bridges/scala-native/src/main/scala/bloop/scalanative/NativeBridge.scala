@@ -2,13 +2,13 @@ package bloop.scalanative
 
 import bloop.Project
 import bloop.cli.OptimizerConfig
-import bloop.config.Config.NativeConfig
-import bloop.io.{AbsolutePath, Paths}
+import bloop.config.Config.{NativeConfig, NativeOptions}
+import bloop.config.Config.Platform
+import bloop.io.Paths
 import bloop.logging.Logger
-
 import java.nio.file.{Files, Path}
 
-import scala.scalanative.build.{Discover, Build, Config, GC, Mode, Logger => NativeLogger}
+import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => NativeLogger}
 
 object NativeBridge {
 
@@ -24,7 +24,11 @@ object NativeBridge {
 
     val outpath = workdir.resolve("out")
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
-    val nativeConfig = project.nativeConfig.getOrElse(defaultNativeConfig(project))
+    val nativeConfig = project.platform match {
+      case Platform.Native(config) => config
+      case _ => defaultNativeConfig(project)
+    }
+
     val nativeMode = optimize match {
       case OptimizerConfig.Debug => Mode.debug
       case OptimizerConfig.Release => Mode.release
@@ -35,10 +39,10 @@ object NativeBridge {
         .withGC(GC(nativeConfig.gc))
         .withMode(nativeMode)
         .withClang(nativeConfig.clang)
-        .withClangPP(nativeConfig.clangPP)
-        .withLinkingOptions(nativeConfig.linkingOptions)
-        .withCompileOptions(nativeConfig.compileOptions)
-        .withTargetTriple(nativeConfig.targetTriple)
+        .withClangPP(nativeConfig.clangpp)
+        .withLinkingOptions(nativeConfig.options.linker.toSeq.toArray)
+        .withCompileOptions(nativeConfig.options.compiler.toSeq.toArray)
+        .withTargetTriple(nativeConfig.platform)
         .withNativelib(nativeConfig.nativelib)
         .withLinkStubs(nativeConfig.linkStubs)
         .withMainClass(entry)
@@ -54,18 +58,17 @@ object NativeBridge {
     val workdir = project.out.resolve("native").underlying
 
     val clang = Discover.clang()
+    val options = NativeOptions(Discover.linkingOptions().toList, Discover.compileOptions().toList)
 
     NativeConfig(
-      toolchainClasspath = Array.empty, // Toolchain is on the classpath of this project, so that's fine
-      gc = GC.default.name,
-      clang = clang,
-      clangPP = Discover.clangpp(),
-      linkingOptions = Discover.linkingOptions().toArray,
-      compileOptions = Discover.compileOptions().toArray,
-      targetTriple = Discover.targetTriple(clang, workdir),
+      toolchainClasspath = Nil, // Toolchain is on the classpath of this project, so that's fine
       nativelib = Discover.nativelib(classpath).get,
+      gc = GC.default.name,
+      platform = Discover.targetTriple(clang, workdir),
+      clang = clang,
+      clangpp = Discover.clangpp(),
+      options = options,
       linkStubs = true
     )
   }
-
 }

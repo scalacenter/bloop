@@ -237,9 +237,7 @@ object TestUtil {
       out = AbsolutePath(baseDirectory), // This means nothing in tests
       // Let's store the analysis file in target even though we usually do it in `out`
       analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name))),
-      platform = Config.Platform.default,
-      nativeConfig = None,
-      jsConfig = None
+      platform = Config.Platform.default
     )
   }
 

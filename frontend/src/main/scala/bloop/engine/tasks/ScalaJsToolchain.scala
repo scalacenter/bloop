@@ -4,11 +4,11 @@ import java.nio.file.Path
 
 import bloop.Project
 import bloop.cli.{ExitStatus, OptimizerConfig}
+import bloop.config.Config
 import bloop.engine.State
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-
 import monix.eval.Task
 
 import scala.util.{Failure, Success, Try}
@@ -75,22 +75,15 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
 }
 
 object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
-
+  override type Config = Config.JsConfig
   override val toolchainArtifactName = bloop.internal.build.BuildInfo.jsBridge
 
   override def apply(classLoader: ClassLoader): ScalaJsToolchain = {
     new ScalaJsToolchain(classLoader)
   }
 
-  override def forProject(project: Project, logger: Logger): ScalaJsToolchain = {
-    project.jsConfig match {
-      case None =>
-        resolveToolchain(logger)
-
-      case Some(config) =>
-        val classpath = config.toolchainClasspath.map(AbsolutePath.apply)
-        direct(classpath)
-    }
+  override def forConfig(config: Config.JsConfig, logger: Logger): ScalaJsToolchain = {
+    if (config == Config.JsConfig.empty) resolveToolchain(logger)
+    else direct(config.toolchainClasspath.map(AbsolutePath.apply).toArray)
   }
-
 }

@@ -63,7 +63,7 @@ class ScalaJsToolchainSpec {
   // Set a Scala JS Config with an empty classpath for the toolchain.
   // This works, because this module has the Scala.js toolchain on its classpath.
   private val setScalaJsConfig: Project => Project = {
-    case prj if prj.platform == Config.Platform.JS =>
+    case prj if prj.platform == Config.Platform.Js =>
       prj.copy(jsConfig = Some(JsBridge.defaultJsConfig(prj)))
     case other =>
       other
