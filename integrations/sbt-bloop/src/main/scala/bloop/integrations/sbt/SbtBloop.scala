@@ -335,7 +335,7 @@ object BloopDefaults {
   def checksumFor(path: Path, algorithm: String): Option[Config.Checksum] = {
     val presumedChecksumFilename = s"${path.getFileName}.$algorithm"
     val presumedChecksum = path.getParent.resolve(presumedChecksumFilename)
-    if (!Files.exists(presumedChecksum) || Files.isDirectory(presumedChecksum)) None
+    if (!Files.isRegularFile(presumedChecksum)) None
     else {
       import scala.util.{Try, Success, Failure}
       Try(new String(Files.readAllBytes(presumedChecksum), StandardCharsets.UTF_8)) match {
