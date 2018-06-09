@@ -128,3 +128,52 @@ will then kick in and confirm your request.
 the benchmarks for it. Run it to execute the benchmark suite locally, but keep
 in mind that you must make sure your machine is stable and has been tweaked to
 get stable results.
+
+## Debugging
+
+When analysing a bug, it is often infeasible to rely only on tests. It might be
+more convenient to run Bloop and attach a debugger instead.
+
+### Running Bloop server from sbt
+
+To run the server directly from sbt:
+
+```sh
+$ sbt
+> frontend/runMain bloop.Server
+```
+
+If you want to be able to stop the server with <kbd>Ctrl</kbd><kbd>C</kbd>
+without killing the sbt shell, you need to set `cancelable` to `true` first:
+
+```
+> set cancelable in Global := true
+```
+
+#### Attaching debugger
+
+In order to attach a debugger you need to run Bloop with some additional JVM
+options to enable debugging in the first place. Here we will use the standard
+JDWP (Java Debug Wire Protocol) agent. Type the following in your sbt shell:
+
+```sh
+$ sbt
+> set javaOptions in (frontend, run) += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+> frontend/runMain bloop.Server
+```
+
+Now attach your favourite debugger using port `5005`. The JVM will wait with
+starting Bloop until a debugger is attached -- change `suspend` to `n` if you
+don't want this behaviour.
+
+#### Ensime
+
+If you are using [Ensime](https://ensime.github.io/), there is `ensimeRunDebug`
+task defined by `sbt-ensime` plugin which lets you simply do:
+
+```sh
+$ sbt
+> frontend/ensimeRunDebug bloop.Server
+```
+
+which is equivalent to setting `javaOptions` like above.
