@@ -106,11 +106,8 @@ object ConfigEncoderDecoders {
   implicit val testEncoder: ObjectEncoder[Test] = deriveEncoder
   implicit val testDecoder: Decoder[Test] = deriveDecoder
 
-  implicit val classpathOptionsEncoder: ObjectEncoder[ClasspathOptions] = deriveEncoder
-  implicit val classpathOptionsDecoder: Decoder[ClasspathOptions] = deriveDecoder
-
-  implicit val compileOptionsEncoder: ObjectEncoder[CompileOptions] = deriveEncoder
-  implicit val compileOptionsDecoder: Decoder[CompileOptions] = deriveDecoder
+  implicit val compileOptionsEncoder: ObjectEncoder[CompileSetup] = deriveEncoder
+  implicit val compileOptionsDecoder: Decoder[CompileSetup] = deriveDecoder
 
   implicit val scalaEncoder: ObjectEncoder[Scala] = deriveEncoder
   implicit val scalaDecoder: Decoder[Scala] = deriveDecoder

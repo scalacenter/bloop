@@ -17,18 +17,6 @@ object Config {
   case class Test(frameworks: Array[TestFramework], options: TestOptions)
   object Test { private[bloop] val empty = Test(Array(), TestOptions.empty) }
 
-  case class ClasspathOptions(
-      bootLibrary: Boolean,
-      compiler: Boolean,
-      extra: Boolean,
-      autoBoot: Boolean,
-      filterLibrary: Boolean
-  )
-
-  object ClasspathOptions {
-    private[bloop] val empty: ClasspathOptions = ClasspathOptions(true, false, false, true, true)
-  }
-
   sealed abstract class CompileOrder(val id: String)
   case object Mixed extends CompileOrder("mixed")
   case object JavaThenScala extends CompileOrder("java->scala")
@@ -38,13 +26,17 @@ object Config {
     final val All: List[String] = List(Mixed.id, JavaThenScala.id, ScalaThenJava.id)
   }
 
-  // TODO(jvican): Move the classpath options to this field before 1.0.0. Holding off of this breaking change for now.
-  case class CompileOptions(
-      order: CompileOrder
+  case class CompileSetup(
+      order: CompileOrder,
+      addLibraryToBootClasspath: Boolean,
+      addCompilerToClasspath: Boolean,
+      addExtraJarsToClasspath: Boolean,
+      manageBootClasspath: Boolean,
+      filterLibraryFromClasspath: Boolean
   )
 
-  object CompileOptions {
-    private[bloop] val empty: CompileOptions = CompileOptions(Mixed)
+  object CompileSetup {
+    private[bloop] val empty: CompileSetup = CompileSetup(Mixed, true, false, false, true, true)
   }
 
   case class Scala(
@@ -169,8 +161,6 @@ object Config {
       sources: Array[Path],
       dependencies: Array[String],
       classpath: Array[Path],
-      classpathOptions: ClasspathOptions,
-      compileOptions: CompileOptions,
       out: Path,
       analysisOut: Path,
       classesDir: Path,
@@ -178,15 +168,13 @@ object Config {
       java: Java,
       test: Test,
       platform: Platform,
+      compileSetup: CompileSetup,
       resolution: Resolution
   )
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project =
-      Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
-        CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty,
-        Test.empty, Platform.default, Resolution.empty)
+    private[bloop] val empty: Project = Project("", emptyPath, Array(), Array(), Array(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -224,8 +212,6 @@ object Config {
         Array(sourceFile),
         Array("dummy-2"),
         Array(scalaLibraryJar),
-        ClasspathOptions.empty,
-        CompileOptions.empty,
         classesDir,
         outDir,
         outAnalysisFile,
@@ -233,6 +219,7 @@ object Config {
         Java(Array("-version")),
         Test(Array(), TestOptions(Nil, Nil)),
         platform,
+        CompileSetup.empty,
         Resolution.empty
       )
 

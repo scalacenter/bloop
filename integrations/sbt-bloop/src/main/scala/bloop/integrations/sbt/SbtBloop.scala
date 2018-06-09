@@ -437,10 +437,6 @@ object BloopDefaults {
 
         val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
         val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toArray
-        val classpathOptions = {
-          val c = Keys.classpathOptions.value
-          Config.ClasspathOptions(c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
-        }
 
         /* This is a best-effort to export source directories + stray source files that
          * are not contained in them. Source directories are superior over source files because
@@ -514,11 +510,12 @@ object BloopDefaults {
           val java = Config.Java(javacOptions)
           val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
 
-          val compileOptions = Config.CompileOptions(compileOrder)
+          val c = Keys.classpathOptions.value
+          val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
           val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, java,
-            testOptions, platform, resolution)
+            classpath, out, analysisOut, classesDir, `scala`, java,
+            testOptions, platform, compileSetup, resolution)
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON

@@ -82,12 +82,13 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         return bloopConfigDir;
     }
 
-    public Config.ClasspathOptions getClasspathOptions() {
-        return new Config.ClasspathOptions(classpathOptionsBootLibrary,
-                                           classpathOptionsCompiler,
-                                           classpathOptionsExtra,
-                                           classpathOptionsAutoBoot,
-                                           classpathOptionsFilterLibrary);
+    public Config.CompileSetup getCompileSetup() {
+        return new Config.CompileSetup(Config.Mixed$.MODULE$,
+                                       classpathOptionsBootLibrary,
+                                       classpathOptionsCompiler,
+                                       classpathOptionsExtra,
+                                       classpathOptionsAutoBoot,
+                                       classpathOptionsFilterLibrary);
     }
 
     public String getScalaArtifactID() {

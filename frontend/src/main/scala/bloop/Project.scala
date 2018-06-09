@@ -10,7 +10,7 @@ import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import config.{Config, ConfigEncoderDecoders}
-import config.Config.{JsConfig, NativeConfig, Platform}
+import config.Config.Platform
 import bloop.engine.ExecutionContext
 
 final case class Project(
@@ -100,13 +100,13 @@ object Project {
     }
 
     val classpathOptions = {
-      val opts = project.classpathOptions
+      val setup = project.compileSetup
       ClasspathOptions.of(
-        opts.bootLibrary,
-        opts.compiler,
-        opts.extra,
-        opts.autoBoot,
-        opts.filterLibrary
+        setup.addLibraryToBootClasspath,
+        setup.addCompilerToClasspath,
+        setup.addExtraJarsToClasspath,
+        setup.manageBootClasspath,
+        setup.filterLibraryFromClasspath
       )
     }
 
