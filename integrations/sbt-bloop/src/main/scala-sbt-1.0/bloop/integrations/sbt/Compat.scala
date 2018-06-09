@@ -19,6 +19,6 @@ object Compat {
 
   def toBloopArtifact(a: Artifact, f: File): Config.Artifact = {
     val checksum = a.checksum.map(c => Config.Checksum(c.digest, c.`type`))
-    Config.Artifact(a.name, a.`type`, a.extension, a.classifier, checksum, f.toPath)
+    Config.Artifact(a.name, a.classifier, checksum, f.toPath)
   }
 }

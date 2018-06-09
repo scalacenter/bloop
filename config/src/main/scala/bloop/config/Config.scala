@@ -115,15 +115,13 @@ object Config {
 
   case class Artifact(
       name: String,
-      `type`: String,
-      extension: String,
       classifier: Option[String],
       checksum: Option[Checksum],
       path: Path
   )
 
   object Artifact {
-    private[bloop] val empty: Artifact = Artifact("", "", "", None, None, emptyPath)
+    private[bloop] val empty: Artifact = Artifact("", None, None, emptyPath)
   }
 
   case class Module(
@@ -131,12 +129,11 @@ object Config {
       name: String,
       version: String,
       configurations: Option[String],
-      direct: Boolean,
       artifacts: List[Artifact]
   )
 
   object Module {
-    private[bloop] val empty: Module = Module("", "", "", None, true, Nil)
+    private[bloop] val empty: Module = Module("", "", "", None, Nil)
   }
 
   case class Resolution(

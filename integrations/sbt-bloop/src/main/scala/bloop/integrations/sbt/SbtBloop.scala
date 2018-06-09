@@ -366,15 +366,14 @@ object BloopDefaults {
       }
 
       val m = mreport.module
-      val isDirect = !m.isTransitive
-      Config.Module(m.organization, m.name, m.revision, m.configurations, isDirect, artifacts)
+      Config.Module(m.organization, m.name, m.revision, m.configurations, artifacts)
     }
   }
 
   def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
     ms0.map { m0 =>
       ms1.find(m =>
-        m0.organization == m.organization && m0.name == m.name && m0.version == m.version && m0.direct == m.direct) match {
+        m0.organization == m.organization && m0.name == m.name && m0.version == m.version) match {
         case Some(m1) => m0.copy(artifacts = m0.artifacts ++ m1.artifacts)
         case None => m0
       }
@@ -383,9 +382,13 @@ object BloopDefaults {
 
   def onlyCompilationModules(ms: Seq[Config.Module], classpath: Array[Path]): Seq[Config.Module] = {
     val classpathFiles = classpath.filter(p => Files.exists(p) && !Files.isDirectory(p))
-    ms.filter { m =>
-      m.artifacts.filter(a => a.extension == "jar" && a.classifier.isEmpty).exists { a =>
-        classpathFiles.exists(p => Files.isSameFile(a.path, p))
+    if (classpathFiles.isEmpty) Nil
+    else {
+      ms.filter { m =>
+        // The artifacts that have no classifier are the normal binary jars we're interested in
+        m.artifacts.filter(a => a.classifier.isEmpty).exists { a =>
+          classpathFiles.exists(p => Files.isSameFile(a.path, p))
+        }
       }
     }
   }

@@ -10,6 +10,6 @@ object Compat {
   def generateCacheFile(s: sbt.Keys.TaskStreams, id: String) = s.cacheDirectory / id
 
   def toBloopArtifact(a: Artifact, f: File): Config.Artifact = {
-    Config.Artifact(a.name, a.`type`, a.extension, a.classifier, None, f.toPath)
+    Config.Artifact(a.name, a.classifier, None, f.toPath)
   }
 }
