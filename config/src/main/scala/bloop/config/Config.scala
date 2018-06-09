@@ -105,8 +105,8 @@ object Config {
   }
 
   case class Checksum(
-      digest: String,
-      `type`: String
+      `type`: String,
+      digest: String
   )
 
   object Checksum {

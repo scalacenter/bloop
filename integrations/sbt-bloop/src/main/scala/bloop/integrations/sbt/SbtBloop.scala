@@ -1,5 +1,6 @@
 package bloop.integrations.sbt
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
 import bloop.config.Config
@@ -129,6 +130,9 @@ object BloopDefaults {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       List(
+        // Override checksums so that `updates` don't check md5 for all jars
+        Keys.checksums in Keys.update := Vector("sha1"),
+        Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
         BloopKeys.bloopTargetDir := bloopTargetDir.value,
         BloopKeys.bloopConfigDir := Def.settingDyn {
           val ref = Keys.thisProjectRef.value
@@ -328,6 +332,19 @@ object BloopDefaults {
     }
   }
 
+  def checksumFor(path: Path, algorithm: String): Option[Config.Checksum] = {
+    val presumedChecksumFilename = s"${path.getFileName}.$algorithm"
+    val presumedChecksum = path.getParent.resolve(presumedChecksumFilename)
+    if (!Files.exists(presumedChecksum) || Files.isDirectory(presumedChecksum)) None
+    else {
+      import scala.util.{Try, Success, Failure}
+      Try(new String(Files.readAllBytes(presumedChecksum), StandardCharsets.UTF_8)) match {
+        case Success(checksum) => Some(Config.Checksum(algorithm, checksum))
+        case Failure(_) => None
+      }
+    }
+  }
+
   def configModules(report: sbt.UpdateReport): Seq[Config.Module] = {
     val moduleReports = for {
       configuration <- report.configurations
@@ -335,7 +352,19 @@ object BloopDefaults {
     } yield module
 
     moduleReports.map { mreport =>
-      val artifacts = mreport.artifacts.toList.map { case (a, f) => toBloopArtifact(a, f) }
+      val artifacts = mreport.artifacts.toList.map {
+        case (a, f) =>
+          val path = f.toPath
+          val artifact = toBloopArtifact(a, f)
+          artifact.checksum match {
+            case Some(_) => artifact
+            case None =>
+              // If sbt hasn't filled in the checksums field, let's try to do it ourselves
+              val checksum = checksumFor(path, "sha1").orElse(checksumFor(path, "md5"))
+              artifact.copy(checksum = checksum)
+          }
+      }
+
       val m = mreport.module
       val isDirect = !m.isTransitive
       Config.Module(m.organization, m.name, m.revision, m.configurations, isDirect, artifacts)
