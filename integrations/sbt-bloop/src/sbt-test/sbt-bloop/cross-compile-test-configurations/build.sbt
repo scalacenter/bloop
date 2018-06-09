@@ -1,8 +1,13 @@
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 
 val foo = project
   .settings(
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5",
+    libraryDependencies ++= List(
+      "org.scalatest" %% "scalatest" % "3.0.5",
+      "io.circe" %% "circe-core" % "0.9.3",
+      "io.circe" %% "circe-generic" % "0.9.3",
+      "org.scalameta" %% "scalameta" % "4.0.0-M2"
+    ),
     sources.in(Test) += baseDirectory.in(ThisBuild).value./("StraySourceFile.scala")
   )
 
@@ -42,14 +47,35 @@ checkBloopFile in ThisBuild := {
   assert(fooTestConfigContents.contains("StraySourceFile.scala"), "Source file is missing in foo.")
 }
 
+import bloop.config.{Config, ConfigEncoderDecoders}
+def fromFile(contents: String): Config.File = {
+  import _root_.io.circe.jackson
+  jackson.parse(contents) match {
+    case Left(failure) => throw failure
+    case Right(json) => ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
+      case Right(file) => file
+      case Left(failure) => throw failure
+    }
+  }
+}
+
 val checkSourceAndDocs = taskKey[Unit]("Check source and doc jars are resolved and persisted")
 checkSourceAndDocs in ThisBuild := {
   def readBareFile(p: java.nio.file.Path): String =
     new String(Files.readAllBytes(p)).replaceAll("\\s", "")
 
-  val allConfigs = allBloopConfigFiles.value
-  val fooConfig = allConfigs.find(_.toString.endsWith("foo.json")).getOrElse(sys.error("Missing foo.json"))
-  val fooConfigContents = readBareFile(fooConfig.toPath)
-  assert(fooConfigContents.contains("\"classifier\":\"sources\""), "Missing source jar.")
-  assert(fooConfigContents.contains("\"classifier\":\"javadoc\""), "Missing doc jar.")
+  val fooConfig = allBloopConfigFiles.value
+    .find(_.toString.endsWith("foo.json")).getOrElse(sys.error("Missing foo.json"))
+  val fooConfigContents = new String(Files.readAllBytes(fooConfig.toPath))
+  val fooBloopFile: Config.File = fromFile(fooConfigContents)
+
+  val modules = fooBloopFile.project.resolution.modules
+  assert(modules.nonEmpty, "Modules are empty!")
+  val modulesEmpty = modules.map(m => m -> m.artifacts.nonEmpty)
+  assert(modulesEmpty.forall(_._2), s"Modules ${modulesEmpty.filter(!_._2).map(_._1).mkString(", ")} have empty artifacts!")
+  val modulesWithSourceAndDocs =
+    modules.map(m => m -> (m.artifacts.exists(_.classifier.contains("javadoc")) && m.artifacts.exists(_.classifier.contains("sources"))))
+  assert(modulesWithSourceAndDocs.forall(_._2), s"Modules ${modulesWithSourceAndDocs.filter(!_._2).map(_._1).mkString(", ")} have no sources and docs!")
+  val classpathSize = fooBloopFile.project.classpath.size
+  assert(classpathSize == modules.size, "There are more modules than classpath entries!")
 }

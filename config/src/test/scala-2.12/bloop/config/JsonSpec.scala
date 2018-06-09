@@ -9,7 +9,6 @@ class JsonSpec {
   def parseConfig(config: File): Unit = {
     import ConfigEncoderDecoders.{allDecoder, allEncoder}
     val jsonConfig = bloop.config.toStr(config)
-    println(jsonConfig)
     val parsed = parser.parse(jsonConfig).getOrElse(sys.error("error parsing"))
     allDecoder.decodeJson(parsed) match {
       case Right(parsedConfig) =>

@@ -139,7 +139,7 @@ object Project {
     )
   }
 
-  private[bloop] def fromFile(config: AbsolutePath, logger: Logger): Project = {
+  def fromFile(config: AbsolutePath, logger: Logger): Project = {
     import _root_.io.circe.parser
     logger.debug(s"Loading project from '$config'")
     val contents = new String(Files.readAllBytes(config.underlying), StandardCharsets.UTF_8)

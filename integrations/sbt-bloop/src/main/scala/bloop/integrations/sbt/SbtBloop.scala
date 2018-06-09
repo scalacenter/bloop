@@ -1,29 +1,10 @@
 package bloop.integrations.sbt
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 
 import bloop.config.Config
 import bloop.integration.sbt.Feedback
-import sbt.{
-  AutoPlugin,
-  ClasspathDep,
-  ClasspathDependency,
-  Compile,
-  ConfigKey,
-  Configuration,
-  Def,
-  File,
-  Global,
-  Keys,
-  LocalRootProject,
-  Logger,
-  Project,
-  ProjectRef,
-  ResolvedProject,
-  Test,
-  ThisBuild,
-  ThisProject
-}
+import sbt.{AutoPlugin, ClasspathDep, ClasspathDependency, Compile, ConfigKey, Configuration, Def, File, Global, Keys, LocalRootProject, Logger, Project, ProjectRef, ResolvedProject, Test, ThisBuild, ThisProject}
 import xsbti.compile.CompileOrder
 
 object BloopPlugin extends AutoPlugin {
@@ -352,6 +333,15 @@ object BloopDefaults {
     }.distinct
   }
 
+  def onlyCompilationModules(ms: Seq[Config.Module], classpath: Array[Path]): Seq[Config.Module] = {
+    val classpathFiles = classpath.filter(p => Files.exists(p) && !Files.isDirectory(p))
+    ms.filter { m =>
+      m.artifacts.filter(a => a.extension == "jar" && a.classifier.isEmpty).exists { a =>
+        classpathFiles.exists(p => Files.isSameFile(a.path, p))
+      }
+    }
+  }
+
   lazy val updateClassifiers: Def.Initialize[Task[Option[sbt.UpdateReport]]] = Def.taskDyn {
     val runUpdateClassifiers = BloopKeys.bloopExportSourceAndDocJars.value
     if (!runUpdateClassifiers) Def.task(None)
@@ -453,7 +443,7 @@ object BloopDefaults {
       val binaryModules = configModules(Keys.update.value)
       val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
       val allModules = mergeModules(binaryModules, sourceModules)
-      val resolution = Config.Resolution(allModules.toList)
+      val resolution = Config.Resolution(onlyCompilationModules(allModules, classpath).toList)
 
       // Force source generators on this task manually
       Keys.managedSources.value
