@@ -4,7 +4,26 @@ import java.nio.file.{Files, Path}
 
 import bloop.config.Config
 import bloop.integration.sbt.Feedback
-import sbt.{AutoPlugin, ClasspathDep, ClasspathDependency, Compile, ConfigKey, Configuration, Def, File, Global, Keys, LocalRootProject, Logger, Project, ProjectRef, ResolvedProject, Test, ThisBuild, ThisProject}
+import sbt.{
+  AutoPlugin,
+  ClasspathDep,
+  ClasspathDependency,
+  Compile,
+  ConfigKey,
+  Configuration,
+  Def,
+  File,
+  Global,
+  Keys,
+  LocalRootProject,
+  Logger,
+  Project,
+  ProjectRef,
+  ResolvedProject,
+  Test,
+  ThisBuild,
+  ThisProject
+}
 import xsbti.compile.CompileOrder
 
 object BloopPlugin extends AutoPlugin {
@@ -355,131 +374,135 @@ object BloopDefaults {
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
 
     if (isMetaBuild && configuration == Test) Def.task(None)
-    else Def.task {
-      val projectName = projectNameFromString(project.id, configuration)
-      val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-      val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
-      val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
+    else {
+      Def.task {
+        val projectName = projectNameFromString(project.id, configuration)
+        val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
+        val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
+        val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
-      val dependencies = {
-        // Project dependencies come from classpath deps and also inter-project config deps
-        val classpathProjectDependencies =
-          project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
-        val configDependencies =
-          eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c))
-        // The distinct here is important to make sure that there are no repeated project deps
-        (classpathProjectDependencies ++ configDependencies).distinct.toArray
-      }
-
-      // Aggregates are considered to be dependencies too for the sake of user-friendliness
-      val aggregates =
-        project.aggregate.map(agg => projectNameFromString(agg.project, configuration))
-      val dependenciesAndAggregates = dependencies ++ aggregates
-
-      val bloopConfigDir = BloopKeys.bloopConfigDir.value
-      val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
-      val scalaName = "scala-compiler"
-      val scalaVersion = Keys.scalaVersion.value
-      val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
-      val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toArray
-
-      val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
-      val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toArray
-      val classpathOptions = {
-        val c = Keys.classpathOptions.value
-        Config.ClasspathOptions(c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
-      }
-
-      /* This is a best-effort to export source directories + stray source files that
-       * are not contained in them. Source directories are superior over source files because
-       * they allow us to watch them and detect the creation of new source files in situ. */
-      val sources = {
-        val sourceDirs = Keys.sourceDirectories.value.map(_.toPath)
-        val sourceFiles = pruneSources(sourceDirs, Keys.sources.value.map(_.toPath))
-        (sourceDirs ++ sourceFiles).toArray
-      }
-
-      val testOptions = {
-        val frameworks =
-          Keys.testFrameworks.value.map(f => Config.TestFramework(f.implClassNames.toList)).toArray
-        val empty = (List.empty[String], List.empty[Config.TestArgument])
-        val options = Keys.testOptions.value.foldLeft(Config.TestOptions.empty) {
-          case (options, sbt.Tests.Argument(framework0, args0)) =>
-            val args = args0.toArray
-            val framework = framework0.map(f => Config.TestFramework(f.implClassNames.toList))
-            options.copy(arguments = Config.TestArgument(args, framework) :: options.arguments)
-          case (options, sbt.Tests.Exclude(tests)) =>
-            options.copy(excludes = tests.toList ++ options.excludes)
-          case (options, other: sbt.TestOption) =>
-            logger.info(s"Skipped test option '${other}' as it can only be used within sbt.")
-            options
+        val dependencies = {
+          // Project dependencies come from classpath deps and also inter-project config deps
+          val classpathProjectDependencies =
+            project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
+          val configDependencies =
+            eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c))
+          // The distinct here is important to make sure that there are no repeated project deps
+          (classpathProjectDependencies ++ configDependencies).distinct.toArray
         }
-        Config.Test(frameworks, options)
+
+        // Aggregates are considered to be dependencies too for the sake of user-friendliness
+        val aggregates =
+          project.aggregate.map(agg => projectNameFromString(agg.project, configuration))
+        val dependenciesAndAggregates = dependencies ++ aggregates
+
+        val bloopConfigDir = BloopKeys.bloopConfigDir.value
+        val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
+        val scalaName = "scala-compiler"
+        val scalaVersion = Keys.scalaVersion.value
+        val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
+        val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toArray
+
+        val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
+        val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toArray
+        val classpathOptions = {
+          val c = Keys.classpathOptions.value
+          Config.ClasspathOptions(c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
+        }
+
+        /* This is a best-effort to export source directories + stray source files that
+         * are not contained in them. Source directories are superior over source files because
+         * they allow us to watch them and detect the creation of new source files in situ. */
+        val sources = {
+          val sourceDirs = Keys.sourceDirectories.value.map(_.toPath)
+          val sourceFiles = pruneSources(sourceDirs, Keys.sources.value.map(_.toPath))
+          (sourceDirs ++ sourceFiles).toArray
+        }
+
+        val testOptions = {
+          val frameworks =
+            Keys.testFrameworks.value
+              .map(f => Config.TestFramework(f.implClassNames.toList))
+              .toArray
+          val empty = (List.empty[String], List.empty[Config.TestArgument])
+          val options = Keys.testOptions.value.foldLeft(Config.TestOptions.empty) {
+            case (options, sbt.Tests.Argument(framework0, args0)) =>
+              val args = args0.toArray
+              val framework = framework0.map(f => Config.TestFramework(f.implClassNames.toList))
+              options.copy(arguments = Config.TestArgument(args, framework) :: options.arguments)
+            case (options, sbt.Tests.Exclude(tests)) =>
+              options.copy(excludes = tests.toList ++ options.excludes)
+            case (options, other: sbt.TestOption) =>
+              logger.info(s"Skipped test option '${other}' as it can only be used within sbt.")
+              options
+          }
+          Config.Test(frameworks, options)
+        }
+
+        val javacOptions = Keys.javacOptions.value.toArray
+        val (javaHome, javaOptions) = javaConfiguration.value
+        val scalacOptions = {
+          val options = Keys.scalacOptions.value.toArray
+          val internalClasspath = BloopKeys.bloopInternalClasspath.value
+          replaceScalacOptionsPaths(options, internalClasspath, logger)
+        }
+
+        val compileOrder = Keys.compileOrder.value match {
+          case CompileOrder.JavaThenScala => Config.JavaThenScala
+          case CompileOrder.ScalaThenJava => Config.ScalaThenJava
+          case CompileOrder.Mixed => Config.Mixed
+        }
+
+        val jsConfig = None
+        val nativeConfig = None
+        val platform = {
+          val pluginLabels = project.autoPlugins.map(_.label).toSet
+          if (pluginLabels.contains(ScalaNativePluginLabel)) Config.Platform.Native
+          else if (pluginLabels.contains(ScalaJsPluginLabel)) Config.Platform.JS
+          else Config.Platform.JVM
+        }
+
+        val binaryModules = configModules(Keys.update.value)
+        val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
+        val allModules = mergeModules(binaryModules, sourceModules)
+        val resolution = Config.Resolution(onlyCompilationModules(allModules, classpath).toList)
+
+        // Force source generators on this task manually
+        Keys.managedSources.value
+        // Copy the resources, so that they're available when running and testing
+        bloopCopyResourcesTask.value
+
+        // format: OFF
+        val config = {
+          val java = Config.Java(javacOptions)
+          val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
+          val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
+
+          val compileOptions = Config.CompileOptions(compileOrder)
+          val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
+          val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
+            classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm,
+            java, testOptions, platform, nativeConfig, jsConfig, resolution)
+          Config.File(Config.File.LatestVersion, project)
+        }
+        // format: ON
+
+        sbt.IO.createDirectory(bloopConfigDir)
+        val outFile = bloopConfigDir / s"$projectName.json"
+        bloop.config.write(config, outFile.toPath)
+
+        // Only shorten path for configuration files written to the the root build
+        val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
+        val userFriendlyConfigPath = {
+          if (allInRoot || buildBaseDirectory == rootBaseDirectory)
+            outFile.relativeTo(rootBaseDirectory).getOrElse(outFile)
+          else outFile
+        }
+
+        logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+        logger.success(s"Generated $userFriendlyConfigPath")
+        Some(outFile)
       }
-
-      val javacOptions = Keys.javacOptions.value.toArray
-      val (javaHome, javaOptions) = javaConfiguration.value
-      val scalacOptions = {
-        val options = Keys.scalacOptions.value.toArray
-        val internalClasspath = BloopKeys.bloopInternalClasspath.value
-        replaceScalacOptionsPaths(options, internalClasspath, logger)
-      }
-
-      val compileOrder = Keys.compileOrder.value match {
-        case CompileOrder.JavaThenScala => Config.JavaThenScala
-        case CompileOrder.ScalaThenJava => Config.ScalaThenJava
-        case CompileOrder.Mixed => Config.Mixed
-      }
-
-      val jsConfig = None
-      val nativeConfig = None
-      val platform = {
-        val pluginLabels = project.autoPlugins.map(_.label).toSet
-        if (pluginLabels.contains(ScalaNativePluginLabel)) Config.Platform.Native
-        else if (pluginLabels.contains(ScalaJsPluginLabel)) Config.Platform.JS
-        else Config.Platform.JVM
-      }
-
-      val binaryModules = configModules(Keys.update.value)
-      val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
-      val allModules = mergeModules(binaryModules, sourceModules)
-      val resolution = Config.Resolution(onlyCompilationModules(allModules, classpath).toList)
-
-      // Force source generators on this task manually
-      Keys.managedSources.value
-      // Copy the resources, so that they're available when running and testing
-      bloopCopyResourcesTask.value
-
-      // format: OFF
-      val config = {
-        val java = Config.Java(javacOptions)
-        val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
-        val jvm = Config.Jvm(Some(javaHome.toPath), javaOptions.toArray)
-
-        val compileOptions = Config.CompileOptions(compileOrder)
-        val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
-        val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-          classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm,
-          java, testOptions, platform, nativeConfig, jsConfig, resolution)
-        Config.File(Config.File.LatestVersion, project)
-      }
-      // format: ON
-
-      sbt.IO.createDirectory(bloopConfigDir)
-      val outFile = bloopConfigDir / s"$projectName.json"
-      bloop.config.write(config, outFile.toPath)
-
-      // Only shorten path for configuration files written to the the root build
-      val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
-      val userFriendlyConfigPath = {
-        if (allInRoot || buildBaseDirectory == rootBaseDirectory)
-          outFile.relativeTo(rootBaseDirectory).getOrElse(outFile)
-        else outFile
-      }
-
-      logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
-      logger.success(s"Generated $userFriendlyConfigPath")
-      Some(outFile)
     }
   }
 
