@@ -69,5 +69,5 @@ object Dependencies {
   val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
   val scalaJsTools10 = "org.scala-js" %% "scalajs-tools" % scalaJs10Version
-  val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion
+  val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion % Provided
 }
