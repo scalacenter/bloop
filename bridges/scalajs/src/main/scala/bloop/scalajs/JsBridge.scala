@@ -13,7 +13,6 @@ import org.scalajs.core.tools.io.{
 import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
 import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
 import bloop.Project
-import bloop.cli.OptimizerConfig
 import bloop.config.Config.{JsConfig, LinkerMode}
 import bloop.logging.{Logger => BloopLogger}
 
@@ -37,17 +36,17 @@ object JsBridge {
     path.toString.endsWith(".jar")
 
   private def findIrFiles(path: Path): List[Path] =
-    Files
-      .walk(path)
-      .iterator()
-      .asScala
-      .filter(isIrFile)
-      .toList
+    Files.walk(path).iterator().asScala.filter(isIrFile).toList
 
-  def link(project: Project,
-           mainClass: String,
-           logger: BloopLogger,
-           optimize: OptimizerConfig): Path = {
+  private def toIRJar(jar: Path) =
+    IRContainer.Jar(new FileVirtualBinaryFile(jar.toFile) with VirtualJarFile)
+
+  def link(
+      config: JsConfig,
+      project: Project,
+      mainClass: String,
+      logger: BloopLogger
+  ): Path = {
     val classpath = project.classpath.map(_.underlying)
     val classpathIrFiles = classpath
       .filter(Files.isDirectory(_))
@@ -57,39 +56,22 @@ object JsBridge {
     val outputPath = project.out.underlying
     val target = project.out.resolve("out.js")
 
-    val jarFiles =
-      classpath
-        .filter(isJarFile)
-        .map(jar => IRContainer.Jar(new FileVirtualBinaryFile(jar.toFile) with VirtualJarFile))
-    val jarIrFiles = jarFiles.flatMap(_.jar.sjsirFiles)
-
-    val initializer =
-      ModuleInitializer.mainMethodWithArgs(mainClass, "main")
-
-    val enableOptimizer = optimize match {
-      case OptimizerConfig.Debug => false
-      case OptimizerConfig.Release => true
+    val enableOptimizer = config.mode match {
+      case LinkerMode.Debug => false
+      case LinkerMode.Release => true
     }
 
-    val config = StandardLinker.Config().withOptimizer(enableOptimizer)
-
-    StandardLinker(config).link(
+    val jarFiles = classpath.filter(isJarFile).map(toIRJar)
+    val jarIrFiles = jarFiles.flatMap(_.jar.sjsirFiles)
+    val initializer = ModuleInitializer.mainMethodWithArgs(mainClass, "main")
+    val jsConfig = StandardLinker.Config().withOptimizer(enableOptimizer)
+    StandardLinker(jsConfig).link(
       irFiles = classpathIrFiles ++ jarIrFiles,
       moduleInitializers = Seq(initializer),
       output = AtomicWritableFileVirtualJSFile(target.toFile),
       logger = new Logger(logger)
     )
-    target.underlying
-  }
 
-  private[scalajs] def defaultJsConfig(
-      project: Project,
-      optimizerConfig: OptimizerConfig
-  ): JsConfig = {
-    val mode = optimizerConfig match {
-      case OptimizerConfig.Debug => LinkerMode.Debug
-      case OptimizerConfig.Release => LinkerMode.Release
-    }
-    JsConfig(mode = mode, toolchainClasspath = Nil)
+    target.underlying
   }
 }

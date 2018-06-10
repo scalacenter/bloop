@@ -3,8 +3,9 @@ package bloop.engine.tasks
 import java.nio.file.Path
 
 import bloop.Project
-import bloop.cli.{ExitStatus, OptimizerConfig}
+import bloop.cli.ExitStatus
 import bloop.config.Config
+import bloop.config.Config.JsConfig
 import bloop.engine.State
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
@@ -19,22 +20,22 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
    * Compile down to JavaScript using Scala.js' toolchain.
    *
    * @param project   The project to link
+   * @param config    The configuration for Scalajs
    * @param mainClass The fully qualified main class name
    * @param logger    The logger to use
-   * @param optimize  The configurtaion of the optimizer.
    * @return The absolute path to the generated JS source.
    */
-  def link(project: Project,
-           mainClass: String,
-           logger: Logger,
-           optimize: OptimizerConfig): Task[Try[AbsolutePath]] = {
-
+  def link(
+      config: JsConfig,
+      project: Project,
+      mainClass: String,
+      logger: Logger
+  ): Task[Try[AbsolutePath]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalajs.JsBridge")
-    val paramTypes = classOf[Project] :: classOf[String] :: classOf[Logger] :: classOf[
-      OptimizerConfig] :: Nil
-    val method = bridgeClazz.getMethod("link", paramTypes: _*)
+    val paramTypes = classOf[JsConfig] :: classOf[Project] :: classOf[String] :: classOf[Logger] :: Nil
 
-    Task(method.invoke(null, project, mainClass, logger, optimize)).materialize.map {
+    val method = bridgeClazz.getMethod("link", paramTypes: _*)
+    Task(method.invoke(null, config, project, mainClass, logger)).materialize.map {
       _.collect { case path: Path => AbsolutePath(path) }
     }
   }
@@ -44,19 +45,21 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
    *
    * @param state    The current state of Bloop.
    * @param project  The project to link.
+   * @param config  The configuration for Scalajs.
    * @param cwd      The working directory in which to start the process.
    * @param main     The fully qualified main class name.
    * @param args     The arguments to pass to the program.
-   * @param optimize The configuration of the optimizer.
    * @return A task that compiles and run the project.
    */
-  def run(state: State,
-          project: Project,
-          cwd: AbsolutePath,
-          mainClass: String,
-          args: Array[String],
-          optimize: OptimizerConfig): Task[State] = {
-    link(project, mainClass, state.logger, optimize).flatMap {
+  def run(
+      state: State,
+      config: JsConfig,
+      project: Project,
+      cwd: AbsolutePath,
+      mainClass: String,
+      args: Array[String]
+  ): Task[State] = {
+    link(config, project, mainClass, state.logger).flatMap {
       case Success(jsOut) =>
         val cmd = "node" +: jsOut.syntax +: args
         Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>

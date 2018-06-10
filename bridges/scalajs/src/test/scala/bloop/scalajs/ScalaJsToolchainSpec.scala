@@ -18,9 +18,7 @@ import org.junit.experimental.categories.Category
 class ScalaJsToolchainSpec {
   @Test def canLinkScalaJsProject(): Unit = {
     val logger = new RecordingLogger
-    val state = TestUtil
-      .loadTestProject("cross-platform", _.map(setScalaJsConfig(OptimizerConfig.Debug)))
-      .copy(logger = logger)
+    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
     val action = Run(Commands.Link(project = "crossJS"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
@@ -31,9 +29,7 @@ class ScalaJsToolchainSpec {
   @Test def canLinkScalaJsProjectInReleaseMode(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
-    val state = TestUtil
-      .loadTestProject("cross-platform", _.map(setScalaJsConfig(mode)))
-      .copy(logger = logger)
+    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
     val action = Run(Commands.Link(project = "crossJS", optimize = Some(mode)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
@@ -44,9 +40,7 @@ class ScalaJsToolchainSpec {
   @Test def canRunScalaJsProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
-    val state = TestUtil
-      .loadTestProject("cross-platform", _.map(setScalaJsConfig(mode)))
-      .copy(logger = logger)
+    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
     val action = Run(Commands.Run(project = "crossJS"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
@@ -54,12 +48,7 @@ class ScalaJsToolchainSpec {
     logger.getMessages.assertContain("Hello, world!", atLevel = "info")
   }
 
-  private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
-
-  // Set a Scala JS Config with an empty classpath for the toolchain to avoid coursier resolution
-  private def setScalaJsConfig(mode: OptimizerConfig): Project => Project = { (p: Project) =>
-    p.copy(platform = Config.Platform.Js(JsBridge.defaultJsConfig(p, mode)))
-  }
+  private final val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
 
   private implicit class RichLogs(logs: List[(String, String)]) {
     def assertContain(needle: String, atLevel: String): Unit = {

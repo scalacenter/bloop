@@ -19,9 +19,7 @@ class ScalaNativeToolchainSpec {
   @Test def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
-    val state = TestUtil
-      .loadTestProject("cross-platform", _.map(setScalaNativeClasspath(mode)))
-      .copy(logger = logger)
+    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
     val action = Run(Commands.Link(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
@@ -32,9 +30,7 @@ class ScalaNativeToolchainSpec {
   @Test def canLinkScalaNativeProjectInReleaseMode(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
-    val state = TestUtil
-      .loadTestProject("cross-platform", _.map(setScalaNativeClasspath(mode)))
-      .copy(logger = logger)
+    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
     val action = Run(Commands.Link(project = "crossNative", optimize = Some(mode)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
@@ -45,9 +41,7 @@ class ScalaNativeToolchainSpec {
   @Test def canRunScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
-    val state = TestUtil
-      .loadTestProject("cross-platform", _.map(setScalaNativeClasspath(mode)))
-      .copy(logger = logger)
+    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
     val action = Run(Commands.Run(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
@@ -56,11 +50,6 @@ class ScalaNativeToolchainSpec {
   }
 
   private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
-
-  // Set dummy native classpath to avoid coursier resolution (works because toolchain it's in this classpath)
-  private def setScalaNativeClasspath(mode: OptimizerConfig): Project => Project = { (p: Project) =>
-    p.copy(platform = Config.Platform.Native(NativeBridge.defaultNativeConfig(p, mode)))
-  }
 
   private implicit class RichLogs(logs: List[(String, String)]) {
     def assertContain(needle: String, atLevel: String): Unit = {

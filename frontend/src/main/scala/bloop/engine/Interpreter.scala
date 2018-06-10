@@ -270,15 +270,16 @@ object Interpreter {
     state
   }
 
-  def getOptimizerMode(config: Option[OptimizerConfig], mode: Config.LinkerMode) = {
-    config.getOrElse {
-      mode match {
-        case Config.LinkerMode.Debug => OptimizerConfig.Debug
-        case Config.LinkerMode.Release => OptimizerConfig.Release
-      }
+  def getOptimizerMode(
+      config: Option[OptimizerConfig],
+      fallbackMode: Config.LinkerMode
+  ): Config.LinkerMode = {
+    config match {
+      case Some(OptimizerConfig.Debug) => Config.LinkerMode.Debug
+      case Some(OptimizerConfig.Release) => Config.LinkerMode.Release
+      case None => fallbackMode
     }
   }
-
 
   private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     state.build.getProjectFor(cmd.project) match {
@@ -302,19 +303,19 @@ object Interpreter {
               case None => Task(state)
               case Some(main) =>
                 project.platform match {
-                  case Platform.Native(config) =>
-                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
-                    val nativeToolchain = ScalaNativeToolchain.forConfig(config, state.logger)
-                    nativeToolchain.link(project, main, state.logger, optimizerMode).map {
+                  case Platform.Native(config0) =>
+                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                    val toolchain = ScalaNativeToolchain.forConfig(config, state.logger)
+                    toolchain.link(config, project, main, state.logger).map {
                       case Success(nativeBinary) =>
                         state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
                         state
                       case Failure(ex) => state.mergeStatus(ExitStatus.LinkingError)
                     }
-                  case Platform.Js(config) =>
-                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
-                    val jsToolchain = ScalaJsToolchain.forConfig(config, state.logger)
-                    jsToolchain.link(project, main, state.logger, optimizerMode).map {
+                  case Platform.Js(config0) =>
+                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                    val toolchain = ScalaJsToolchain.forConfig(config, state.logger)
+                    toolchain.link(config, project, main, state.logger).map {
                       case Success(jsOut) =>
                         state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
                         state
@@ -363,14 +364,14 @@ object Interpreter {
                 val cwd = cmd.cliOptions.common.workingPath
 
                 project.platform match {
-                  case Platform.Native(config) =>
-                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
-                    val nativeToolchain = ScalaNativeToolchain.forConfig(config, state.logger)
-                    nativeToolchain.run(state, project, cwd, mainClass, args, optimizerMode)
-                  case Platform.Js(config) =>
-                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
-                    val jsToolchain = ScalaJsToolchain.forConfig(config, state.logger)
-                    jsToolchain.run(state, project, cwd, mainClass, args, optimizerMode)
+                  case Platform.Native(config0) =>
+                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                    val toolchain = ScalaNativeToolchain.forConfig(config, state.logger)
+                    toolchain.run(state, config, project, cwd, mainClass, args)
+                  case Platform.Js(config0) =>
+                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                    val toolchain = ScalaJsToolchain.forConfig(config, state.logger)
+                    toolchain.run(state, config, project, cwd, mainClass, args)
                   case _ => Tasks.run(state, project, cwd, mainClass, args.toArray)
                 }
             }
