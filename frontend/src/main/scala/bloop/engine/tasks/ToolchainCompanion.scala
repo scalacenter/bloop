@@ -37,7 +37,7 @@ abstract class ToolchainCompanion[Toolchain] {
    * @param logger The logger that will receive message about resolution.
    * @return An instance of this toolchain, possibly cached.
    */
-  def resolveToolchain(platform: Config.Platform, logger: Logger): Toolchain = synchronized {
+  def resolveToolchain(platform: Config.Platform, logger: Logger): Toolchain = {
     val (artifactName, toolchain) = platform match {
       case Config.Platform.Js(config) => (artifactNameFrom(config.version), config.toolchain)
       case Config.Platform.Native(config) => (artifactNameFrom(config.version), config.toolchain)
@@ -54,7 +54,7 @@ abstract class ToolchainCompanion[Toolchain] {
    * @param classpath The classpath with which to run this toolchain.
    * @return An instance of this toolchain, possibly cached.
    */
-  private def toToolchain(classpath: List[Path]): Toolchain = synchronized {
+  private def toToolchain(classpath: List[Path]): Toolchain = {
     def createToolchain(classpath: List[Path]): Toolchain =
       apply(toClassLoader(classpath))
 

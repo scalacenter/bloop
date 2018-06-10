@@ -175,7 +175,9 @@ lazy val nativeBridge = project
   .settings(testSettings)
   .settings(
     name := "bloop-native-bridge",
-    libraryDependencies += Dependencies.scalaNativeTools
+    libraryDependencies += Dependencies.scalaNativeTools,
+    javaOptions in Test ++= jvmOptions,
+    fork in Test := true,
   )
 
 val allProjects =

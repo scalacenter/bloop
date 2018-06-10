@@ -14,22 +14,22 @@ import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class ScalaNativeToolchainSpec {
+  private val state0 = TestUtil.loadTestProject("cross-platform")
   @Test def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
-    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
+    val state = state0.copy(logger = logger)
     val action = Run(Commands.Link(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
     logger.getMessages.assertContain("Generated native binary '", atLevel = "info")
-    logger.dump()
   }
 
   @Test def canLinkScalaNativeProjectInReleaseMode(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
-    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
+    val state = state0.copy(logger = logger)
     val action = Run(Commands.Link(project = "crossNative", optimize = Some(mode)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
@@ -40,7 +40,7 @@ class ScalaNativeToolchainSpec {
   @Test def canRunScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
-    val state = TestUtil.loadTestProject("cross-platform").copy(logger = logger)
+    val state = state0.copy(logger = logger)
     val action = Run(Commands.Run(project = "crossNative"))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
