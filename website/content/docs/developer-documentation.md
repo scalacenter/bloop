@@ -131,7 +131,7 @@ get stable results.
 
 ## Debugging
 
-If you're trying to catch a bug, it might ben convenient to attach a debugger
+If you're trying to catch a bug, it might be convenient to attach a debugger
 to Bloop instead of creating your own tests and `println`ing.
 
 In order to attach a debugger you need to run Bloop with some additional JVM
@@ -179,18 +179,14 @@ Kill the bloop server with <kbd>Ctrl</kbd><kbd>C</kbd>.
 
 #### Attaching debugger in local bloop
 
-This is mostly useful for Bloop developers. If you have a local copy of bloop
-and you're implementing a new feature that seems to behave abnormally, you can
-debug with bloop itself (if you're using it to compile/test the codebase), sbt
-or Ensime.
-
-Remember to replace the configuration directory `/foo/bar` with the
-configuration directory of the project you want to test.
+This is mostly useful for Bloop developers that have a local copy of bloop
+they want to debug. You can debug bloop with three tools: `bloop` (if you use
+it to develop `bloop`), `sbt` or `ensime`.
 
 ##### bloop
 
 ```bash
-bloop run frontend bloop.Server -- -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+bloop run frontend -- -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
 Listening for transport dt_socket at address: 5005
 ```
 
@@ -199,7 +195,7 @@ Listening for transport dt_socket at address: 5005
 ```sh
 $ sbt
 > set javaOptions in (frontend, run) += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
-> frontend/runMain bloop.Server --config-dir /foo/bar
+> frontend/runMain bloop.Server
 Listening for transport dt_socket at address: 5005
 ```
 
@@ -207,6 +203,6 @@ Listening for transport dt_socket at address: 5005
 
 ```sh
 $ sbt
-> frontend/ensimeRunDebug bloop.Server --config-dir /foo/bar
+> frontend/ensimeRunDebug bloop.Server
 Listening for transport dt_socket at address: 5005
 ```
