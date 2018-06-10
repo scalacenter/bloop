@@ -449,7 +449,10 @@ object BloopDefaults {
     deps.filter(isPlugin(_, org)).headOption.map(_.revision)
   }
 
-  lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.task {
+  private val isWindows: Boolean =
+    System.getProperty("os.name").toLowerCase(java.util.Locale.ENGLISH).contains("windows")
+
+  lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
     val project = Keys.thisProject.value
     val (javaHome, javaOptions) = javaConfiguration.value
 
@@ -457,43 +460,53 @@ object BloopDefaults {
     val externalClasspath: Seq[Path] =
       Keys.externalDependencyClasspath.value.map(_.data.toPath).filter(f => Files.exists(f))
 
-    // Add targetTriple to the config when the scala native plugin supports it
-    val emptyNative = Config.NativeConfig.empty
-    val clang = ScalaNativeKeys.nativeClang.?.value.map(_.toPath).getOrElse(emptyNative.clang)
-    val clangpp = ScalaNativeKeys.nativeClangPP.?.value.map(_.toPath).getOrElse(emptyNative.clangpp)
-    val nativeGc = ScalaNativeKeys.nativeGC.?.value.getOrElse(emptyNative.gc)
-    val nativeLinkStubs = ScalaNativeKeys.nativeLinkStubs.?.value.getOrElse(emptyNative.linkStubs)
-    val nativelib = findNativelib(externalClasspath).getOrElse(emptyNative.nativelib)
-    val nativeCompileOptions = ScalaNativeKeys.nativeCompileOptions.?.value.toList.flatten
-    val nativeLinkingOptions = ScalaNativeKeys.nativeLinkingOptions.?.value.toList.flatten
-    val nativeVersion = findVersion(libraryDeps, "org.scala-native").getOrElse(emptyNative.version)
-
-    val nativeMode = ScalaNativeKeys.nativeMode.?.value match {
-      case Some("debug") => Config.LinkerMode.Debug
-      case Some("release") => Config.LinkerMode.Release
-      case _ => emptyNative.mode
-    }
-
-    val emptyScalajs = Config.JsConfig.empty
-    val scalajsVersion = findVersion(libraryDeps, "org.scala-js").getOrElse(emptyScalajs.version)
-    val scalajsStage = BloopKeys.bloopScalaJSStage.value match {
-      case Some(ScalajsFastOpt) => Config.LinkerMode.Debug
-      case Some(ScalajsFullOpt) => Config.LinkerMode.Release
-      case _ => emptyScalajs.mode
-    }
-
     val pluginLabels = project.autoPlugins.map(_.label).toSet
+
     // FORMAT: OFF
     if (pluginLabels.contains(ScalaNativePluginLabel)) {
-      val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
-      val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs)
-      Config.Platform.Native(nativeConfig)
+      if (isWindows) Def.task(Config.Platform.Native(Config.NativeConfig.empty))
+      else {
+        Def.task {
+          // Add targetTriple to the config when the scala native plugin supports it
+          val emptyNative = Config.NativeConfig.empty
+          val clang = ScalaNativeKeys.nativeClang.?.value.map(_.toPath).getOrElse(emptyNative.clang)
+          val clangpp = ScalaNativeKeys.nativeClangPP.?.value.map(_.toPath).getOrElse(emptyNative.clangpp)
+          val nativeGc = ScalaNativeKeys.nativeGC.?.value.getOrElse(emptyNative.gc)
+          val nativeLinkStubs = ScalaNativeKeys.nativeLinkStubs.?.value.getOrElse(emptyNative.linkStubs)
+          val nativelib = findNativelib(externalClasspath).getOrElse(emptyNative.nativelib)
+          val nativeCompileOptions = ScalaNativeKeys.nativeCompileOptions.?.value.toList.flatten
+          val nativeLinkingOptions = ScalaNativeKeys.nativeLinkingOptions.?.value.toList.flatten
+          val nativeVersion = findVersion(libraryDeps, "org.scala-native").getOrElse(emptyNative.version)
+
+          val nativeMode = ScalaNativeKeys.nativeMode.?.value match {
+            case Some("debug") => Config.LinkerMode.Debug
+            case Some("release") => Config.LinkerMode.Release
+            case _ => emptyNative.mode
+          }
+
+          val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
+          val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs)
+          Config.Platform.Native(nativeConfig)
+        }
+      }
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
-      val jsConfig = Config.JsConfig(scalajsVersion, scalajsStage, emptyScalajs.toolchain)
-      Config.Platform.Js(jsConfig)
+      Def.task {
+        val emptyScalajs = Config.JsConfig.empty
+        val scalajsVersion = findVersion(libraryDeps, "org.scala-js").getOrElse(emptyScalajs.version)
+        val scalajsStage = BloopKeys.bloopScalaJSStage.value match {
+          case Some(ScalajsFastOpt) => Config.LinkerMode.Debug
+          case Some(ScalajsFullOpt) => Config.LinkerMode.Release
+          case _ => emptyScalajs.mode
+        }
+
+        val jsConfig = Config.JsConfig(scalajsVersion, scalajsStage, emptyScalajs.toolchain)
+        Config.Platform.Js(jsConfig)
+      }
     } else {
-      val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
-      Config.Platform.Jvm(config)
+      Def.task {
+        val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
+        Config.Platform.Jvm(config)
+      }
     }
     // FORMAT: ON
   }
