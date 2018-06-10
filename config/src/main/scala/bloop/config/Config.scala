@@ -89,8 +89,13 @@ object Config {
     val All = List(Debug.id, Release.id)
   }
 
-  case class JsConfig(mode: LinkerMode, toolchainClasspath: List[Path]) extends PlatformConfig
-  object JsConfig { private[bloop] val empty: JsConfig = JsConfig(LinkerMode.Debug, Nil) }
+  case class JsConfig(
+      version: String,
+      mode: LinkerMode,
+      toolchain: List[Path]
+  ) extends PlatformConfig
+
+  object JsConfig { private[bloop] val empty: JsConfig = JsConfig("", LinkerMode.Debug, Nil) }
 
   /**
    * Represents the native platform and all the options it takes.
@@ -101,20 +106,21 @@ object Config {
    * The only field that has been replaced for user-friendliness is `targetTriple` by `platform`.
    */
   case class NativeConfig(
+      version: String,
       mode: LinkerMode,
       gc: String,
       targetTriple: String,
       nativelib: Path,
       clang: Path,
       clangpp: Path,
-      toolchainClasspath: List[Path],
+      toolchain: List[Path],
       options: NativeOptions,
       linkStubs: Boolean
   ) extends PlatformConfig
 
   object NativeConfig {
     // FORMAT: OFF
-    private[bloop] val empty: NativeConfig = NativeConfig(LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false)
+    private[bloop] val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false)
     // FORMAT: ON
   }
 

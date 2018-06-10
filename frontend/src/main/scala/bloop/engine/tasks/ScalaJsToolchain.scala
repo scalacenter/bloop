@@ -8,6 +8,7 @@ import bloop.config.Config
 import bloop.config.Config.JsConfig
 import bloop.engine.State
 import bloop.exec.Forker
+import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import monix.eval.Task
@@ -78,15 +79,15 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
 }
 
 object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
-  override type Config = Config.JsConfig
-  override val toolchainArtifactName = bloop.internal.build.BuildInfo.jsBridge
+  override type Platform = Config.Platform.Js
 
-  override def apply(classLoader: ClassLoader): ScalaJsToolchain = {
+  override def apply(classLoader: ClassLoader): ScalaJsToolchain =
     new ScalaJsToolchain(classLoader)
-  }
 
-  override def forConfig(config: Config.JsConfig, logger: Logger): ScalaJsToolchain = {
-    if (config == Config.JsConfig.empty) resolveToolchain(logger)
-    else direct(config.toolchainClasspath.map(AbsolutePath.apply).toArray)
+  /** The artifact name of this toolchain. */
+  override def artifactNameFrom(version: String): String = {
+    if (version.startsWith("0.6")) BuildInfo.jsBridge06
+    else if (version.startsWith("1.0")) BuildInfo.jsBridge10
+    else sys.error(s"Expected supported Scalajs version instead of ${version}")
   }
 }

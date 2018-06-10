@@ -72,8 +72,9 @@ object NativeBridge {
     }
 
     NativeConfig(
+      version = config.version,
       mode = mode,
-      toolchainClasspath = Nil, // No worries, toolchain is on this project's classpath
+      toolchain = Nil, // No worries, toolchain is on this project's classpath
       nativelib = nativelib,
       gc = gc,
       targetTriple = targetTriple,

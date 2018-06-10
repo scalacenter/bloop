@@ -157,19 +157,18 @@ object BloopDefaults {
   private final val ScalaNativePluginLabel = "scala.scalanative.sbtplugin.ScalaNativePlugin"
   private final val ScalaJsPluginLabel = "org.scalajs.sbtplugin.ScalaJSPlugin"
 
-
   private final val ScalajsFastOpt = "fastopt"
   private final val ScalajsFullOpt = "fullopt"
 
   /**
-    * Find out the scalajs stage via Java reflection and some manifest tricks.
-    *
-    * Getting this information isn't as easy as with Scala native because the type of the
-    * scalajs stage depends on a class defined in another classloader. The way we solve
-    * this problem is by cheating: we create our own manifest that we pass explicitly
-    * to the setting definition so that sbt is capable of matching it with the possibly
-    * defined scalajs plugin (if the scalajs plugin is in the build).
-    */
+   * Find out the scalajs stage via Java reflection and some manifest tricks.
+   *
+   * Getting this information isn't as easy as with Scala native because the type of the
+   * scalajs stage depends on a class defined in a Scalajs classloader. The way we solve
+   * this problem is by cheating: we create our own manifest that we pass explicitly
+   * to the setting definition so that sbt is capable of matching it with the possibly
+   * defined scalajs plugin (if the scalajs plugin is in the build).
+   */
   lazy val findOutScalajsStage: Def.Initialize[Option[String]] = Def.settingDyn {
     try {
       val stageClass = Class.forName("org.scalajs.sbtplugin.Stage")
@@ -440,10 +439,21 @@ object BloopDefaults {
     }
   }
 
+  import sbt.ModuleID
+  private final val CompilerPluginConfig = "plugin->default(compile)"
+
+  /** Find nativelib jar on the classpath. Copy pasted from Scala native. */
+  def findVersion(deps: Seq[ModuleID], org: String): Option[String] = {
+    def isPlugin(d: ModuleID, org: String) =
+      d.configurations.toList.contains(CompilerPluginConfig) && d.organization == org
+    deps.filter(isPlugin(_, org)).headOption.map(_.revision)
+  }
+
   lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.task {
     val project = Keys.thisProject.value
     val (javaHome, javaOptions) = javaConfiguration.value
 
+    val libraryDeps = Keys.libraryDependencies.value
     val externalClasspath: Seq[Path] =
       Keys.externalDependencyClasspath.value.map(_.data.toPath).filter(f => Files.exists(f))
 
@@ -456,13 +466,16 @@ object BloopDefaults {
     val nativelib = findNativelib(externalClasspath).getOrElse(emptyNative.nativelib)
     val nativeCompileOptions = ScalaNativeKeys.nativeCompileOptions.?.value.toList.flatten
     val nativeLinkingOptions = ScalaNativeKeys.nativeLinkingOptions.?.value.toList.flatten
+    val nativeVersion = findVersion(libraryDeps, "org.scala-native").getOrElse(emptyNative.version)
+
     val nativeMode = ScalaNativeKeys.nativeMode.?.value match {
-        case Some("debug") => Config.LinkerMode.Debug
-        case Some("release") => Config.LinkerMode.Release
-        case _ => emptyNative.mode
+      case Some("debug") => Config.LinkerMode.Debug
+      case Some("release") => Config.LinkerMode.Release
+      case _ => emptyNative.mode
     }
 
     val emptyScalajs = Config.JsConfig.empty
+    val scalajsVersion = findVersion(libraryDeps, "org.scala-js").getOrElse(emptyScalajs.version)
     val scalajsStage = BloopKeys.bloopScalaJSStage.value match {
       case Some(ScalajsFastOpt) => Config.LinkerMode.Debug
       case Some(ScalajsFullOpt) => Config.LinkerMode.Release
@@ -473,10 +486,10 @@ object BloopDefaults {
     // FORMAT: OFF
     if (pluginLabels.contains(ScalaNativePluginLabel)) {
       val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
-      val nativeConfig = Config.NativeConfig(nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs)
+      val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs)
       Config.Platform.Native(nativeConfig)
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
-      val jsConfig = Config.JsConfig(scalajsStage, emptyScalajs.toolchainClasspath)
+      val jsConfig = Config.JsConfig(scalajsVersion, scalajsStage, emptyScalajs.toolchain)
       Config.Platform.Js(jsConfig)
     } else {
       val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)

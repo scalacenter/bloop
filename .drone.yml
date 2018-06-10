@@ -6,13 +6,16 @@ matrix:
           "+jsonConfig/test" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
-          "nativeBridge/test" \
-          "jsBridge/test" \
           "frontend/test" \
           "docs/makeSite"
 
   SBT_RUN_BENCHMARKS_AND_SCRIPTED:
     - sbt "sbtBloop/scripted" \
+          "frontend/integrationSetUpBloop" \
+          "nativeBridge/publishLocal" \
+          "jsBridge06/publishLocal" \
+          "nativeBridge/test" \
+          "jsBridge06/test" \
           "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
 
   SBT_PUBLISH:

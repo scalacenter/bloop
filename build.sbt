@@ -88,7 +88,7 @@ lazy val frontend: Project = project
     name := s"bloop-frontend",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopInfoKeys(nativeBridge, jsBridge),
+    buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
@@ -146,14 +146,26 @@ val docs = project
     websiteSettings
   )
 
-lazy val jsBridge = project
+lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
-    name := "bloop-js-bridge",
-    libraryDependencies += Dependencies.scalaJsTools
+    name := "bloop-js-bridge-0.6",
+    libraryDependencies += Dependencies.scalaJsTools06
+  )
+
+lazy val jsBridge10 = project
+  .dependsOn(frontend % Provided, frontend % "test->test")
+  .in(file("bridges") / "scalajs" / "target" / "scalajs-1.0")
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-js-bridge-1.0",
+    sourceDirectories in Compile += file("bridges") / "scalajs" / "src" / "main" / "scala",
+    sourceDirectories in Test += file("bridges") / "scalajs" / "src" / "test" / "scala",
+    libraryDependencies += Dependencies.scalaJsTools10
   )
 
 lazy val nativeBridge = project
@@ -167,7 +179,7 @@ lazy val nativeBridge = project
   )
 
 val allProjects =
-  Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge, jsBridge)
+  Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge, jsBridge06, jsBridge10)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -195,7 +207,8 @@ addCommandAlias(
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
-    s"${jsBridge.id}/$publishLocalCmd"
+    s"${jsBridge06.id}/$publishLocalCmd",
+    s"${jsBridge10.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
@@ -209,7 +222,8 @@ val allBloopReleases = List(
   s"^${sbtBloop.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
-  s"${jsBridge.id}/$releaseEarlyCmd"
+  s"${jsBridge06.id}/$releaseEarlyCmd",
+  s"${jsBridge10.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

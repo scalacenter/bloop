@@ -1,8 +1,6 @@
 package bloop.scalanative
 
-import bloop.Project
 import bloop.cli.{Commands, OptimizerConfig}
-import bloop.config.Config
 import bloop.engine.Run
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
@@ -24,7 +22,8 @@ class ScalaNativeToolchainSpec {
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Scala Native binary:", atLevel = "info")
+    logger.getMessages.assertContain("Generated native binary '", atLevel = "info")
+    logger.dump()
   }
 
   @Test def canLinkScalaNativeProjectInReleaseMode(): Unit = {
@@ -50,7 +49,6 @@ class ScalaNativeToolchainSpec {
   }
 
   private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
-
   private implicit class RichLogs(logs: List[(String, String)]) {
     def assertContain(needle: String, atLevel: String): Unit = {
       def failMessage = s"""Logs didn't contain `$needle` at level `$atLevel`. Logs were:

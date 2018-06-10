@@ -134,8 +134,7 @@ object Interpreter {
           else watch(project, state, doCompile _)
         }
 
-      case None =>
-        Task(reportMissing(cmd.project :: Nil, state))
+      case None => Task(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -282,57 +281,75 @@ object Interpreter {
   }
 
   private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
+    val reporter = ReporterKind.toReporterConfig(cmd.reporter)
+
+    def doJsRun(project: Project, config0: Config.JsConfig)(state: State): Task[State] = {
+      compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
+        cmd.main.orElse(getMainClass(state, project)) match {
+          case None => Task(state)
+          case Some(main) =>
+            project.jsToolchain match {
+              case Some(toolchain) =>
+                val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                toolchain.link(config, project, main, state.logger).flatMap {
+                  case Success(jsOut) =>
+                    state.withInfo(s"Generated js binary '${jsOut.syntax}'")
+                  case Failure(ex) =>
+                    state.logger.trace(ex)
+                    val msg = s"Javascript linking failed with '${ex.getMessage}'"
+                    state.withError(msg, ExitStatus.LinkingError)
+                }
+
+              case None =>
+                val msg = s"Missing Scala.js toolchain for project $project. Report upstream."
+                state.withError(msg, ExitStatus.LinkingError)
+            }
+        }
+      }
+    }
+
+    def doNativeRun(project: Project, config0: Config.NativeConfig)(state: State): Task[State] = {
+      compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
+        cmd.main.orElse(getMainClass(state, project)) match {
+          case None => Task(state)
+          case Some(main) =>
+            project.nativeToolchain match {
+              case Some(toolchain) =>
+                val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                toolchain.link(config, project, main, state.logger).flatMap {
+                  case Success(bin) =>
+                    state.withInfo(s"Generated native binary '${bin.syntax}'")
+                  case Failure(ex) =>
+                    state.logger.trace(ex)
+                    val msg = s"Native linking failed with '${ex.getMessage}'"
+                    state.withError(msg, ExitStatus.LinkingError)
+                }
+              case None =>
+                val msg = s"Missing Scala Native toolchain for project $project. Report upstream."
+                state.withError(msg, ExitStatus.LinkingError)
+            }
+        }
+      }
+    }
+
     state.build.getProjectFor(cmd.project) match {
       case None =>
         Task(reportMissing(cmd.project :: Nil, state))
 
-      case Some(project)
-          if project.platform != Platform.Native &&
-            project.platform != Platform.Js =>
-        Task {
-          state.logger.error(
-            "This command can only be called on a Scala Native or Scala.js project.")
-          state.mergeStatus(ExitStatus.InvalidCommandLineOption)
-        }
-
       case Some(project) =>
-        val reporter = ReporterKind.toReporterConfig(cmd.reporter)
-        def doRun(state: State): Task[State] = {
-          compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
-            cmd.main.orElse(getMainClass(state, project)) match {
-              case None => Task(state)
-              case Some(main) =>
-                project.platform match {
-                  case Platform.Native(config0) =>
-                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                    val toolchain = ScalaNativeToolchain.forConfig(config, state.logger)
-                    toolchain.link(config, project, main, state.logger).map {
-                      case Success(nativeBinary) =>
-                        state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
-                        state
-                      case Failure(ex) => state.mergeStatus(ExitStatus.LinkingError)
-                    }
-                  case Platform.Js(config0) =>
-                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                    val toolchain = ScalaJsToolchain.forConfig(config, state.logger)
-                    toolchain.link(config, project, main, state.logger).map {
-                      case Success(jsOut) =>
-                        state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
-                        state
-                      case Failure(ex) => state.mergeStatus(ExitStatus.LinkingError)
-                    }
-                  case _: Platform.Jvm =>
-                    Task {
-                      state.logger.error(s"Missing main class for project ${project.name}")
-                      state.mergeStatus(ExitStatus.RunError)
-                    }
-                }
-            }
-          }
-        }
+        project.platform match {
+          case Platform.Native(config) =>
+            if (cmd.watch) watch(project, state, doNativeRun(project, config))
+            else doNativeRun(project, config)(state)
 
-        if (cmd.watch) watch(project, state, doRun _)
-        else doRun(state)
+          case Platform.Js(config) =>
+            if (cmd.watch) watch(project, state, doJsRun(project, config))
+            else doJsRun(project, config)(state)
+
+          case Platform.Jvm(_) =>
+            val msg = "Expected Scala Native or Scala.js project to run `link`."
+            state.withError(msg, ExitStatus.InvalidCommandLineOption)
+        }
 
     }
   }
@@ -365,13 +382,25 @@ object Interpreter {
 
                 project.platform match {
                   case Platform.Native(config0) =>
-                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                    val toolchain = ScalaNativeToolchain.forConfig(config, state.logger)
-                    toolchain.run(state, config, project, cwd, mainClass, args)
+                    project.nativeToolchain match {
+                      case Some(toolchain) =>
+                        val config =
+                          config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                        toolchain.run(state, config, project, cwd, mainClass, args)
+                      case None =>
+                        val msg = s"Missing Scala Native toolchain in '$project'. Report upstream."
+                        state.withError(msg, ExitStatus.LinkingError)
+                    }
                   case Platform.Js(config0) =>
-                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                    val toolchain = ScalaJsToolchain.forConfig(config, state.logger)
-                    toolchain.run(state, config, project, cwd, mainClass, args)
+                    project.jsToolchain match {
+                      case Some(toolchain) =>
+                        val config =
+                          config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                        toolchain.run(state, config, project, cwd, mainClass, args)
+                      case None =>
+                        val msg = s"Missing Scala.js toolchain in '$project'. Report upstream."
+                        state.withError(msg, ExitStatus.LinkingError)
+                    }
                   case _ => Tasks.run(state, project, cwd, mainClass, args.toArray)
                 }
             }

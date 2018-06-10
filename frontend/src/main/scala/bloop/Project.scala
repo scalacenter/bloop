@@ -3,6 +3,7 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
@@ -12,6 +13,7 @@ import bloop.bsp.ProjectUris
 import config.{Config, ConfigEncoderDecoders}
 import config.Config.Platform
 import bloop.engine.ExecutionContext
+import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
 
 final case class Project(
     name: String,
@@ -29,7 +31,9 @@ final case class Project(
     javaEnv: JavaEnv,
     out: AbsolutePath,
     analysisOut: AbsolutePath,
-    platform: Platform
+    platform: Platform,
+    jsToolchain: Option[ScalaJsToolchain],
+    nativeToolchain: Option[ScalaNativeToolchain]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -110,6 +114,18 @@ object Project {
       )
     }
 
+    val jsToolchain = project.platform match {
+      case platform: Config.Platform.Js =>
+        Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
+      case _ => None
+    }
+
+    val nativeToolchain = project.platform match {
+      case platform: Config.Platform.Native =>
+        Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
+      case _ => None
+    }
+
     val javaEnv = project.platform match {
       case Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions)) =>
         val jvmHome = home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
@@ -133,7 +149,9 @@ object Project {
       javaEnv,
       AbsolutePath(project.out),
       AbsolutePath(project.analysisOut),
-      project.platform
+      project.platform,
+      jsToolchain,
+      nativeToolchain
     )
   }
 

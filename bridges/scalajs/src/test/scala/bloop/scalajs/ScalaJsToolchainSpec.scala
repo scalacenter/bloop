@@ -1,8 +1,6 @@
 package bloop.scalajs
 
-import bloop.Project
 import bloop.cli.{Commands, OptimizerConfig}
-import bloop.config.Config
 import bloop.engine.Run
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
@@ -23,7 +21,7 @@ class ScalaJsToolchainSpec {
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Scala.js output written to:", atLevel = "info")
+    logger.getMessages.assertContain("Generated js binary '", atLevel = "info")
   }
 
   @Test def canLinkScalaJsProjectInReleaseMode(): Unit = {

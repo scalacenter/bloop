@@ -9,6 +9,7 @@ import bloop.config.Config
 import bloop.config.Config.NativeConfig
 import bloop.engine.State
 import bloop.exec.Forker
+import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import monix.eval.Task
@@ -78,14 +79,9 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
 }
 
 object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
-  override type Config = Config.NativeConfig
-  override val toolchainArtifactName = bloop.internal.build.BuildInfo.nativeBridge
+  override type Platform = Config.Platform.Native
+  override def artifactNameFrom(version: String): String = BuildInfo.nativeBridge
 
   override def apply(classLoader: ClassLoader): ScalaNativeToolchain =
     new ScalaNativeToolchain(classLoader)
-
-  override def forConfig(config: Config.NativeConfig, logger: Logger): ScalaNativeToolchain = {
-    if (config == Config.NativeConfig.empty) resolveToolchain(logger)
-    else direct(config.toolchainClasspath.map(AbsolutePath.apply).toArray)
-  }
 }
