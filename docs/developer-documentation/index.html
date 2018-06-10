@@ -276,6 +276,78 @@ the benchmarks for it. Run it to execute the benchmark suite locally, but keep
 in mind that you must make sure your machine is stable and has been tweaked to
 get stable results.</p>
 
+<h2 id="debugging">Debugging</h2>
+
+<p>If you&rsquo;re trying to catch a bug, it might be convenient to attach a debugger
+to Bloop instead of creating your own tests and <code>println</code>ing.</p>
+
+<p>In order to attach a debugger you need to run Bloop with some additional JVM
+options to enable debugging in the first place. Here we use the standard JDWP
+(Java Debug Wire Protocol) agent.</p>
+
+<p>After running the commands shown below, attach your favourite debugger to port
+<code>5005</code>. The JVM will suspend startup until the debugger is attached &mdash; change
+<code>suspend</code> to <code>n</code> if you don&rsquo;t want this behaviour.</p>
+
+<h3 id="debugging-installed-version-of-bloop">Debugging installed version of bloop</h3>
+
+<p>If you want to debug your installed bloop server, first kill the server. You
+can do this with, for example, <code>systemctl stop --user bloop</code> or a similar
+incantation. The command to run depends on your OS and how you installed and
+started the server.</p>
+
+<p>The server is now stopped. You can run a debuggable Bloop server with either of these options:</p>
+
+<h4 id="using-bloop-server">Using <code>bloop server</code></h4>
+
+<pre><code class="language-bash">bloop server -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+Listening for transport dt_socket at address: 5005
+</code></pre>
+
+<h4 id="using-java-tool-options">Using <code>JAVA_TOOL_OPTIONS</code></h4>
+
+<pre><code class="language-bash">JAVA_TOOL_OPTIONS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005' bloop server
+Picked up JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+Listening for transport dt_socket at address: 5005
+</code></pre>
+
+<h3 id="running-bloop-server-from-sbt">Running Bloop server from sbt</h3>
+
+<p>Run the bloop server directly from sbt:</p>
+
+<pre><code class="language-sh">$ sbt
+&gt; frontend/runMain bloop.Server
+</code></pre>
+
+<p>Kill the bloop server with <kbd>Ctrl</kbd><kbd>C</kbd>.</p>
+
+<h4 id="attaching-debugger-in-local-bloop">Attaching debugger in local bloop</h4>
+
+<p>This is mostly useful for Bloop developers that have a local copy of bloop
+they want to debug. You can debug bloop with three tools: <code>bloop</code> (if you use
+it to develop <code>bloop</code>), <code>sbt</code> or <code>ensime</code>.</p>
+
+<h5 id="bloop">bloop</h5>
+
+<pre><code class="language-bash">bloop run frontend -- -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+Listening for transport dt_socket at address: 5005
+</code></pre>
+
+<h5 id="sbt">sbt</h5>
+
+<pre><code class="language-sh">$ sbt
+&gt; set javaOptions in (frontend, run) += &quot;-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005&quot;
+&gt; frontend/runMain bloop.Server
+Listening for transport dt_socket at address: 5005
+</code></pre>
+
+<h5 id="ensime">Ensime</h5>
+
+<pre><code class="language-sh">$ sbt
+&gt; frontend/ensimeRunDebug bloop.Server
+Listening for transport dt_socket at address: 5005
+</code></pre>
+
 
     
     </div>
