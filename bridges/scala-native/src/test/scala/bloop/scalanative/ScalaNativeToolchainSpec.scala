@@ -60,14 +60,9 @@ class ScalaNativeToolchainSpec {
 
   private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
 
-  // Set a dummy `nativeClasspath` for the Scala Native toolchain.
-  // This is to avoid trying to resolve the toolchain with Coursier,
-  // and will work because the toolchain is on this module's classpath.
-  private val setScalaNativeClasspath: Project => Project = {
-    case prj if prj.platform == Config.Platform.Native =>
-      prj.copy(nativeConfig = Some(NativeBridge.defaultNativeConfig(prj)))
-    case other =>
-      other
+  // Set dummy native classpath to avoid coursier resolution (works because toolchain it's in this classpath)
+  private val setScalaNativeClasspath: Project => Project = { (p: Project) =>
+    p.copy(platform = Config.Platform.Native(NativeBridge.defaultNativeConfig(p)))
   }
 
   private implicit class RichLogs(logs: List[(String, String)]) {

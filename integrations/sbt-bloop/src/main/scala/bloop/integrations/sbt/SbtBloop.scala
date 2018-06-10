@@ -67,6 +67,10 @@ object BloopKeys {
     taskKey[Option[File]]("Generate bloop configuration files for this project")
   val bloopAnalysisOut: SettingKey[Option[File]] =
     settingKey[Option[File]]("User-defined location for the incremental analysis file.")
+  val bloopScalaNativeConfig: SettingKey[Config.NativeConfig] =
+    settingKey[Config.NativeConfig]("The configuration to use for Scala Native in bloop.")
+  val bloopScalajsConfig: SettingKey[Config.JsConfig] =
+    settingKey[Config.JsConfig]("The configuration to use for Scala.js in bloop.")
 }
 
 object BloopDefaults {
@@ -130,6 +134,8 @@ object BloopDefaults {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       List(
+        BloopKeys.bloopScalajsConfig := Config.JsConfig.empty,
+        BloopKeys.bloopScalaNativeConfig := Config.NativeConfig.empty,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.checksums in Keys.update := Vector("sha1"),
         Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
@@ -484,11 +490,13 @@ object BloopDefaults {
         val jsConfig = None
         val nativeConfig = None
         val platform = {
+          val nativeConfig = BloopKeys.bloopScalaNativeConfig.value
+          val jsConfig = BloopKeys.bloopScalajsConfig.value
           val pluginLabels = project.autoPlugins.map(_.label).toSet
           if (pluginLabels.contains(ScalaNativePluginLabel))
-            Config.Platform.Native(Config.NativeConfig.empty)
+            Config.Platform.Native(nativeConfig)
           else if (pluginLabels.contains(ScalaJsPluginLabel))
-            Config.Platform.Js(Config.JsConfig.empty)
+            Config.Platform.Js(jsConfig)
           else {
             val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
             Config.Platform.Jvm(config)
