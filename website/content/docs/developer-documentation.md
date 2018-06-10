@@ -128,3 +128,81 @@ will then kick in and confirm your request.
 the benchmarks for it. Run it to execute the benchmark suite locally, but keep
 in mind that you must make sure your machine is stable and has been tweaked to
 get stable results.
+
+## Debugging
+
+If you're trying to catch a bug, it might be convenient to attach a debugger
+to Bloop instead of creating your own tests and `println`ing.
+
+In order to attach a debugger you need to run Bloop with some additional JVM
+options to enable debugging in the first place. Here we use the standard JDWP
+(Java Debug Wire Protocol) agent.
+
+After running the commands shown below, attach your favourite debugger to port
+`5005`. The JVM will suspend startup until the debugger is attached --- change
+`suspend` to `n` if you don't want this behaviour.
+
+### Debugging installed version of bloop
+
+If you want to debug your installed bloop server, first kill the server. You
+can do this with, for example, `systemctl stop --user bloop` or a similar
+incantation. The command to run depends on your OS and how you installed and
+started the server.
+
+The server is now stopped. You can run a debuggable Bloop server with either of these options:
+
+#### Using `bloop server`
+
+```bash
+bloop server -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+Listening for transport dt_socket at address: 5005
+```
+
+#### Using `JAVA_TOOL_OPTIONS`
+
+```bash
+JAVA_TOOL_OPTIONS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005' bloop server
+Picked up JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+Listening for transport dt_socket at address: 5005
+```
+
+### Running Bloop server from sbt
+
+Run the bloop server directly from sbt:
+
+```sh
+$ sbt
+> frontend/runMain bloop.Server
+```
+
+Kill the bloop server with <kbd>Ctrl</kbd><kbd>C</kbd>.
+
+#### Attaching debugger in local bloop
+
+This is mostly useful for Bloop developers that have a local copy of bloop
+they want to debug. You can debug bloop with three tools: `bloop` (if you use
+it to develop `bloop`), `sbt` or `ensime`.
+
+##### bloop
+
+```bash
+bloop run frontend -- -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+Listening for transport dt_socket at address: 5005
+```
+
+##### sbt
+
+```sh
+$ sbt
+> set javaOptions in (frontend, run) += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+> frontend/runMain bloop.Server
+Listening for transport dt_socket at address: 5005
+```
+
+##### Ensime
+
+```sh
+$ sbt
+> frontend/ensimeRunDebug bloop.Server
+Listening for transport dt_socket at address: 5005
+```
