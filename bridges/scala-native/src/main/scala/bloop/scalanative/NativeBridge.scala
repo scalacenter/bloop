@@ -11,7 +11,7 @@ import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => Nat
 object NativeBridge {
   def nativeLink(config0: NativeConfig, project: Project, entry: String, logger: Logger): Path = {
     val workdir = project.out.resolve("native")
-    Paths.delete(workdir)
+    if (workdir.isDirectory) Paths.delete(workdir)
     Files.createDirectories(workdir.underlying)
 
     val outpath = workdir.resolve("out")
