@@ -7,5 +7,6 @@ val nativeProject = project
       val config = bloopConfigDir.value / s"${thisProject.value.id}.json"
       val lines = IO.read(config).replaceAll("\\s", "")
       assert(lines.contains(s""""platform":{"name":"$expected""""))
+      assert(lines.contains(""""mode":"debug""""))
     }
   )

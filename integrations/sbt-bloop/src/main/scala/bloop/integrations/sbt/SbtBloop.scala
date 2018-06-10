@@ -39,7 +39,7 @@ object BloopPlugin extends AutoPlugin {
 }
 
 object BloopKeys {
-  import sbt.{SettingKey, TaskKey, settingKey, taskKey, UpdateReport}
+  import sbt.{SettingKey, TaskKey, settingKey, taskKey}
 
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
@@ -67,10 +67,8 @@ object BloopKeys {
     taskKey[Option[File]]("Generate bloop configuration files for this project")
   val bloopAnalysisOut: SettingKey[Option[File]] =
     settingKey[Option[File]]("User-defined location for the incremental analysis file.")
-  val bloopScalaNativeConfig: SettingKey[Config.NativeConfig] =
-    settingKey[Config.NativeConfig]("The configuration to use for Scala Native in bloop.")
-  val bloopScalajsConfig: SettingKey[Config.JsConfig] =
-    settingKey[Config.JsConfig]("The configuration to use for Scala.js in bloop.")
+  val bloopScalaJSStage: SettingKey[Option[String]] =
+    settingKey[Option[String]]("Scalajs independent definition of `scalaJSStage`.")
 }
 
 object BloopDefaults {
@@ -134,8 +132,7 @@ object BloopDefaults {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       List(
-        BloopKeys.bloopScalajsConfig := Config.JsConfig.empty,
-        BloopKeys.bloopScalaNativeConfig := Config.NativeConfig.empty,
+        BloopKeys.bloopScalaJSStage := findOutScalajsStage.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.checksums in Keys.update := Vector("sha1"),
         Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
@@ -159,6 +156,36 @@ object BloopDefaults {
 
   private final val ScalaNativePluginLabel = "scala.scalanative.sbtplugin.ScalaNativePlugin"
   private final val ScalaJsPluginLabel = "org.scalajs.sbtplugin.ScalaJSPlugin"
+
+
+  private final val ScalajsFastOpt = "fastopt"
+  private final val ScalajsFullOpt = "fullopt"
+
+  /**
+    * Find out the scalajs stage via Java reflection and some manifest tricks.
+    *
+    * Getting this information isn't as easy as with Scala native because the type of the
+    * scalajs stage depends on a class defined in another classloader. The way we solve
+    * this problem is by cheating: we create our own manifest that we pass explicitly
+    * to the setting definition so that sbt is capable of matching it with the possibly
+    * defined scalajs plugin (if the scalajs plugin is in the build).
+    */
+  lazy val findOutScalajsStage: Def.Initialize[Option[String]] = Def.settingDyn {
+    try {
+      val stageClass = Class.forName("org.scalajs.sbtplugin.Stage")
+      val stageManifest = new Manifest[AnyRef] { override def runtimeClass = stageClass }
+      val stageSetting = toAnyRefSettingKey("scalaJSStage", stageManifest).?
+      Def.setting {
+        stageSetting.value.toString match {
+          case "Some(FastOpt)" => Some(ScalajsFastOpt)
+          case "Some(FullOpt)" => Some(ScalajsFullOpt)
+          case _ => None
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+    }
+  }
 
   lazy val bloopTargetDir: Def.Initialize[File] = Def.setting {
     val project = Keys.thisProject.value
@@ -405,6 +432,59 @@ object BloopDefaults {
     else Def.task(Some(Keys.updateClassifiers.value))
   }
 
+  /** Find nativelib jar on the classpath. Copy pasted from Scala native. */
+  def findNativelib(classpath: Seq[Path]): Option[Path] = {
+    classpath.find { path =>
+      val absolute = path.toAbsolutePath.toString
+      absolute.contains("scala-native") && absolute.contains("nativelib")
+    }
+  }
+
+  lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.task {
+    val project = Keys.thisProject.value
+    val (javaHome, javaOptions) = javaConfiguration.value
+
+    val externalClasspath: Seq[Path] =
+      Keys.externalDependencyClasspath.value.map(_.data.toPath).filter(f => Files.exists(f))
+
+    // Add targetTriple to the config when the scala native plugin supports it
+    val emptyNative = Config.NativeConfig.empty
+    val clang = ScalaNativeKeys.nativeClang.?.value.map(_.toPath).getOrElse(emptyNative.clang)
+    val clangpp = ScalaNativeKeys.nativeClangPP.?.value.map(_.toPath).getOrElse(emptyNative.clangpp)
+    val nativeGc = ScalaNativeKeys.nativeGC.?.value.getOrElse(emptyNative.gc)
+    val nativeLinkStubs = ScalaNativeKeys.nativeLinkStubs.?.value.getOrElse(emptyNative.linkStubs)
+    val nativelib = findNativelib(externalClasspath).getOrElse(emptyNative.nativelib)
+    val nativeCompileOptions = ScalaNativeKeys.nativeCompileOptions.?.value.toList.flatten
+    val nativeLinkingOptions = ScalaNativeKeys.nativeLinkingOptions.?.value.toList.flatten
+    val nativeMode = ScalaNativeKeys.nativeMode.?.value match {
+        case Some("debug") => Config.LinkerMode.Debug
+        case Some("release") => Config.LinkerMode.Release
+        case _ => emptyNative.mode
+    }
+
+    val emptyScalajs = Config.JsConfig.empty
+    val scalajsStage = BloopKeys.bloopScalaJSStage.value match {
+      case Some(ScalajsFastOpt) => Config.LinkerMode.Debug
+      case Some(ScalajsFullOpt) => Config.LinkerMode.Release
+      case _ => emptyScalajs.mode
+    }
+
+    val pluginLabels = project.autoPlugins.map(_.label).toSet
+    // FORMAT: OFF
+    if (pluginLabels.contains(ScalaNativePluginLabel)) {
+      val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
+      val nativeConfig = Config.NativeConfig(nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs)
+      Config.Platform.Native(nativeConfig)
+    } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
+      val jsConfig = Config.JsConfig(scalajsStage, emptyScalajs.toolchainClasspath)
+      Config.Platform.Js(jsConfig)
+    } else {
+      val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
+      Config.Platform.Jvm(config)
+    }
+    // FORMAT: ON
+  }
+
   lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -474,7 +554,6 @@ object BloopDefaults {
         }
 
         val javacOptions = Keys.javacOptions.value.toArray
-        val (javaHome, javaOptions) = javaConfiguration.value
         val scalacOptions = {
           val options = Keys.scalacOptions.value.toArray
           val internalClasspath = BloopKeys.bloopInternalClasspath.value
@@ -489,19 +568,7 @@ object BloopDefaults {
 
         val jsConfig = None
         val nativeConfig = None
-        val platform = {
-          val nativeConfig = BloopKeys.bloopScalaNativeConfig.value
-          val jsConfig = BloopKeys.bloopScalajsConfig.value
-          val pluginLabels = project.autoPlugins.map(_.label).toSet
-          if (pluginLabels.contains(ScalaNativePluginLabel))
-            Config.Platform.Native(nativeConfig)
-          else if (pluginLabels.contains(ScalaJsPluginLabel))
-            Config.Platform.Js(jsConfig)
-          else {
-            val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
-            Config.Platform.Jvm(config)
-          }
-        }
+        val platform = findOutPlatform.value
 
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)

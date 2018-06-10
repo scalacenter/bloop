@@ -1,7 +1,6 @@
 package bloop.scalajs
 
 import scala.collection.JavaConverters._
-
 import java.nio.file.{Files, Path}
 
 import org.scalajs.core.tools.io.IRFileCache.IRContainer
@@ -13,10 +12,9 @@ import org.scalajs.core.tools.io.{
 }
 import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
 import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
-
 import bloop.Project
 import bloop.cli.OptimizerConfig
-import bloop.config.Config.JsConfig
+import bloop.config.Config.{JsConfig, LinkerMode}
 import bloop.logging.{Logger => BloopLogger}
 
 object JsBridge {
@@ -84,7 +82,14 @@ object JsBridge {
     target.underlying
   }
 
-  private[scalajs] def defaultJsConfig(project: Project): JsConfig = {
-    JsConfig(toolchainClasspath = Nil)
+  private[scalajs] def defaultJsConfig(
+      project: Project,
+      optimizerConfig: OptimizerConfig
+  ): JsConfig = {
+    val mode = optimizerConfig match {
+      case OptimizerConfig.Debug => LinkerMode.Debug
+      case OptimizerConfig.Release => LinkerMode.Release
+    }
+    JsConfig(mode = mode, toolchainClasspath = Nil)
   }
 }

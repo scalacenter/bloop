@@ -1,23 +1,19 @@
 package bloop.engine
 
 import bloop.bsp.BspServer
-
-import bloop.cli.{BspProtocol, Commands, ExitStatus, ReporterKind}
+import bloop.cli.{BspProtocol, Commands, ExitStatus, OptimizerConfig, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.config.Config.Platform
-import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
+import bloop.io.{RelativePath, SourceWatcher}
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks}
 import bloop.Project
-import bloop.exec.Forker
+import bloop.config.Config
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 object Interpreter {
   // This is stack safe because of monix trampolined execution.
@@ -274,6 +270,16 @@ object Interpreter {
     state
   }
 
+  def getOptimizerMode(config: Option[OptimizerConfig], mode: Config.LinkerMode) = {
+    config.getOrElse {
+      mode match {
+        case Config.LinkerMode.Debug => OptimizerConfig.Debug
+        case Config.LinkerMode.Release => OptimizerConfig.Release
+      }
+    }
+  }
+
+
   private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     state.build.getProjectFor(cmd.project) match {
       case None =>
@@ -297,16 +303,18 @@ object Interpreter {
               case Some(main) =>
                 project.platform match {
                   case Platform.Native(config) =>
+                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
                     val nativeToolchain = ScalaNativeToolchain.forConfig(config, state.logger)
-                    nativeToolchain.link(project, main, state.logger, cmd.optimize).map {
+                    nativeToolchain.link(project, main, state.logger, optimizerMode).map {
                       case Success(nativeBinary) =>
                         state.logger.info(s"Scala Native binary: '${nativeBinary.syntax}'")
                         state
                       case Failure(ex) => state.mergeStatus(ExitStatus.LinkingError)
                     }
                   case Platform.Js(config) =>
+                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
                     val jsToolchain = ScalaJsToolchain.forConfig(config, state.logger)
-                    jsToolchain.link(project, main, state.logger, cmd.optimize).map {
+                    jsToolchain.link(project, main, state.logger, optimizerMode).map {
                       case Success(jsOut) =>
                         state.logger.info(s"Scala.js output written to: '${jsOut.syntax}'")
                         state
@@ -356,11 +364,13 @@ object Interpreter {
 
                 project.platform match {
                   case Platform.Native(config) =>
+                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
                     val nativeToolchain = ScalaNativeToolchain.forConfig(config, state.logger)
-                    nativeToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
+                    nativeToolchain.run(state, project, cwd, mainClass, args, optimizerMode)
                   case Platform.Js(config) =>
+                    val optimizerMode = getOptimizerMode(cmd.optimize, config.mode)
                     val jsToolchain = ScalaJsToolchain.forConfig(config, state.logger)
-                    jsToolchain.run(state, project, cwd, mainClass, args, cmd.optimize)
+                    jsToolchain.run(state, project, cwd, mainClass, args, optimizerMode)
                   case _ => Tasks.run(state, project, cwd, mainClass, args.toArray)
                 }
             }

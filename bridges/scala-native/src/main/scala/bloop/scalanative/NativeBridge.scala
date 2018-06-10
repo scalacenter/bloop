@@ -11,7 +11,6 @@ import java.nio.file.{Files, Path}
 import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => NativeLogger}
 
 object NativeBridge {
-
   def nativeLink(project: Project,
                  entry: String,
                  logger: Logger,
@@ -26,7 +25,7 @@ object NativeBridge {
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
     val nativeConfig = project.platform match {
       case Platform.Native(config) => config
-      case _ => defaultNativeConfig(project)
+      case _ => defaultNativeConfig(project, optimize)
     }
 
     val nativeMode = optimize match {
@@ -53,14 +52,23 @@ object NativeBridge {
     Build.build(config, outpath.underlying)
   }
 
-  private[scalanative] def defaultNativeConfig(project: Project): NativeConfig = {
+  import bloop.config.Config.LinkerMode
+  private[scalanative] def defaultNativeConfig(
+      project: Project,
+      optimizerConfig: OptimizerConfig
+  ): NativeConfig = {
     val classpath = project.classpath.map(_.underlying)
     val workdir = project.out.resolve("native").underlying
 
     val clang = Discover.clang()
     val options = NativeOptions(Discover.linkingOptions().toList, Discover.compileOptions().toList)
+    val mode = optimizerConfig match {
+      case OptimizerConfig.Debug => LinkerMode.Debug
+      case OptimizerConfig.Release => LinkerMode.Release
+    }
 
     NativeConfig(
+      mode = mode,
       toolchainClasspath = Nil, // Toolchain is on the classpath of this project, so that's fine
       nativelib = Discover.nativelib(classpath).get,
       gc = GC.default.name,

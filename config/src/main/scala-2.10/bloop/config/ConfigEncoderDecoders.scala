@@ -44,7 +44,27 @@ object ConfigEncoderDecoders {
         case ScalaThenJava.id => Right(ScalaThenJava)
         case _ =>
           val msg = s"Expected compile order ${CompileOrder.All.map(s => s"'$s'").mkString(", ")})."
-          Left(DecodingFailure(msg, List(CursorOp.DownField("id"))))
+          Left(DecodingFailure(msg, c.history))
+      }
+    }
+  }
+
+  import LinkerMode.{Debug, Release}
+  implicit val linkerModeEncoder: RootEncoder[LinkerMode] = new RootEncoder[LinkerMode] {
+    override final def apply(o: LinkerMode): Json = o match {
+      case Debug => Json.fromString(Debug.id)
+      case Release => Json.fromString(Release.id)
+    }
+  }
+
+  implicit val linkerModeDecoder: Decoder[LinkerMode] = new Decoder[LinkerMode] {
+    override def apply(c: HCursor): Result[LinkerMode] = {
+      c.as[String].flatMap {
+        case Debug.id => Right(Debug)
+        case Release.id => Right(Release)
+        case _ =>
+          val msg = s"Expected linker mode ${LinkerMode.All.map(s => s"'$s'").mkString(", ")})."
+          Left(DecodingFailure(msg, c.history))
       }
     }
   }
