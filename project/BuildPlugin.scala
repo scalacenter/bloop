@@ -118,20 +118,27 @@ object BuildKeys {
     List(Keys.scalaVersion, Keys.scalaOrganization, scalaJarsKey)
   }
 
-  def BloopInfoKeys(nativeBridge: Reference, jsBridge: Reference): List[BuildInfoKey] = {
+  import sbt.util.Logger.{Null => NullLogger}
+  def bloopInfoKeys(
+      nativeBridge: Reference,
+      jsBridge06: Reference,
+      jsBridge10: Reference
+  ): List[BuildInfoKey] = {
     val zincKey = BuildInfoKey.constant("zincVersion" -> Dependencies.zincVersion)
     val developersKey =
       BuildInfoKey.map(Keys.developers) { case (k, devs) => k -> devs.map(_.name) }
-    val nativeBridgeKey = BuildInfoKey.map(Keys.ivyModule in nativeBridge) {
-      case (_, module) =>
-        "nativeBridge" -> module.withModule(sbt.util.Logger.Null)((_, mod, _) =>
-          mod.getModuleRevisionId.getName)
+    type Module = sbt.internal.librarymanagement.IvySbt#Module
+    def fromIvyModule(id: String, e: BuildInfoKey.Entry[Module]): BuildInfoKey.Entry[String] = {
+      BuildInfoKey.map(e) {
+        case (_, module) =>
+          id -> module.withModule(NullLogger)((_, mod, _) => mod.getModuleRevisionId.getName)
+      }
     }
-    val jsBridgeKey = BuildInfoKey.map(Keys.ivyModule in jsBridge) {
-      case (_, module) =>
-        "jsBridge" -> module.withModule(sbt.util.Logger.Null)((_, mod, _) =>
-          mod.getModuleRevisionId.getName)
-    }
+
+    // Add only the artifact name for 0.6 bridge because we replace it
+    val jsBridge06Key = fromIvyModule("jsBridge06", Keys.ivyModule in jsBridge06)
+    val jsBridge10Key = fromIvyModule("jsBridge10", Keys.ivyModule in jsBridge10)
+    val nativeBridgeKey = fromIvyModule("nativeBridge", Keys.ivyModule in nativeBridge)
     val commonKeys = List[BuildInfoKey](
       Keys.organization,
       Keys.name,
@@ -141,7 +148,7 @@ object BuildKeys {
       buildIntegrationsIndex,
       nailgunClientLocation
     )
-    commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridgeKey)
+    commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridge06Key, jsBridge10Key)
   }
 
   import sbtassembly.{AssemblyKeys, MergeStrategy}
@@ -219,7 +226,7 @@ object BuildImplementation {
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "2.5-upickle",
+    BuildKeys.schemaVersion := "2.6",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,

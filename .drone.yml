@@ -3,12 +3,12 @@
 matrix:
   SBT_RUN:
     - sbt "benchmarks/compile" \
-          "jsonConfig/test" \
+          "+jsonConfig/test" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
-          "frontend/test" \
           "nativeBridge/test" \
-          "jsBridge/test" \
+          "jsBridge06/test" \
+          "frontend/test" \
           "docs/makeSite"
 
   SBT_RUN_BENCHMARKS_AND_SCRIPTED:

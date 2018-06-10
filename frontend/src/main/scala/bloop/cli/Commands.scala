@@ -160,7 +160,7 @@ object Commands {
       @ExtraName("o")
       @HelpMessage(
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
-      optimize: OptimizerConfig = OptimizerConfig.Debug,
+      optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
@@ -179,7 +179,7 @@ object Commands {
       @ExtraName("o")
       @HelpMessage(
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
-      optimize: OptimizerConfig = OptimizerConfig.Debug,
+      optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 }

@@ -1,15 +1,11 @@
 package bloop.config
 
-import java.nio.charset.Charset
 import java.nio.file.{Files, Path, Paths}
 
 object Config {
   private final val emptyPath = Paths.get("")
   case class Java(options: Array[String])
   object Java { private[bloop] val empty = Java(Array()) }
-
-  case class Jvm(home: Option[Path], options: Array[String])
-  object Jvm { private[bloop] val empty = Jvm(None, Array()) }
 
   case class TestFramework(names: List[String])
   object TestFramework { private[bloop] val empty = TestFramework(Nil) }
@@ -21,18 +17,6 @@ object Config {
   case class Test(frameworks: Array[TestFramework], options: TestOptions)
   object Test { private[bloop] val empty = Test(Array(), TestOptions.empty) }
 
-  case class ClasspathOptions(
-      bootLibrary: Boolean,
-      compiler: Boolean,
-      extra: Boolean,
-      autoBoot: Boolean,
-      filterLibrary: Boolean
-  )
-
-  object ClasspathOptions {
-    private[bloop] val empty: ClasspathOptions = ClasspathOptions(true, false, false, true, true)
-  }
-
   sealed abstract class CompileOrder(val id: String)
   case object Mixed extends CompileOrder("mixed")
   case object JavaThenScala extends CompileOrder("java->scala")
@@ -42,13 +26,17 @@ object Config {
     final val All: List[String] = List(Mixed.id, JavaThenScala.id, ScalaThenJava.id)
   }
 
-  // TODO(jvican): Move the classpath options to this field before 1.0.0. Holding off of this breaking change for now.
-  case class CompileOptions(
-      order: CompileOrder
+  case class CompileSetup(
+      order: CompileOrder,
+      addLibraryToBootClasspath: Boolean,
+      addCompilerToClasspath: Boolean,
+      addExtraJarsToClasspath: Boolean,
+      manageBootClasspath: Boolean,
+      filterLibraryFromClasspath: Boolean
   )
 
-  object CompileOptions {
-    private[bloop] val empty: CompileOptions = CompileOptions(Mixed)
+  object CompileSetup {
+    private[bloop] val empty: CompileSetup = CompileSetup(Mixed, true, false, false, true, true)
   }
 
   case class Scala(
@@ -63,50 +51,87 @@ object Config {
     private[bloop] val empty: Scala = Scala("", "", "", Array(), Array())
   }
 
-  sealed abstract class Platform(val name: String)
-  object Platform {
-    private[bloop] val default: Platform = JVM
-
-    case object JS extends Platform("js")
-    case object JVM extends Platform("jvm")
-    case object Native extends Platform("native")
-
-    final val All: List[String] = List(JVM.name, JS.name, Native.name)
+  sealed abstract class Platform(val name: String) {
+    type Config <: PlatformConfig
+    def config: Config
   }
 
+  object Platform {
+    private[bloop] val default: Platform = Jvm(JvmConfig.empty)
+
+    object Js { val name: String = "js" }
+    case class Js(override val config: JsConfig) extends Platform(Js.name) {
+      type Config = JsConfig
+    }
+
+    object Jvm { val name: String = "jvm" }
+    case class Jvm(override val config: JvmConfig) extends Platform(Jvm.name) {
+      type Config = JvmConfig
+    }
+
+    object Native { val name: String = "native" }
+    case class Native(override val config: NativeConfig) extends Platform(Native.name) {
+      type Config = NativeConfig
+    }
+
+    final val All: List[String] = List(Jvm.name, Js.name, Native.name)
+  }
+
+  sealed trait PlatformConfig
+
+  case class JvmConfig(home: Option[Path], options: List[String]) extends PlatformConfig
+  object JvmConfig { private[bloop] val empty = JvmConfig(None, Nil) }
+
+  sealed abstract class LinkerMode(val id: String)
+  object LinkerMode {
+    case object Debug extends LinkerMode("debug")
+    case object Release extends LinkerMode("release")
+    val All = List(Debug.id, Release.id)
+  }
+
+  case class JsConfig(
+      version: String,
+      mode: LinkerMode,
+      toolchain: List[Path]
+  ) extends PlatformConfig
+
+  object JsConfig { private[bloop] val empty: JsConfig = JsConfig("", LinkerMode.Debug, Nil) }
+
   /**
-   * Configures how to start and use the Scala Native toolchain, if needed.
+   * Represents the native platform and all the options it takes.
+   *
    * For the description of these fields, see:
    * http://static.javadoc.io/org.scala-native/tools_2.10/0.3.7/index.html#scala.scalanative.build.Config
+   *
+   * The only field that has been replaced for user-friendliness is `targetTriple` by `platform`.
    */
   case class NativeConfig(
-      toolchainClasspath: Array[Path],
+      version: String,
+      mode: LinkerMode,
       gc: String,
-      clang: Path,
-      clangPP: Path,
-      linkingOptions: Array[String],
-      compileOptions: Array[String],
       targetTriple: String,
       nativelib: Path,
+      clang: Path,
+      clangpp: Path,
+      toolchain: List[Path],
+      options: NativeOptions,
       linkStubs: Boolean
-  )
+  ) extends PlatformConfig
 
   object NativeConfig {
     // FORMAT: OFF
-    private[bloop] val empty: NativeConfig =
-      NativeConfig(Array.empty, "", emptyPath, emptyPath, Array.empty, Array.empty, "", emptyPath, false)
+    private[bloop] val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false)
     // FORMAT: ON
   }
 
-  case class JsConfig(toolchainClasspath: Array[Path])
-
-  object JsConfig {
-    private[bloop] val empty: JsConfig = JsConfig(Array.empty)
+  case class NativeOptions(linker: List[String], compiler: List[String])
+  object NativeOptions {
+    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil)
   }
 
   case class Checksum(
-      digest: String,
-      `type`: String
+      `type`: String,
+      digest: String
   )
 
   object Checksum {
@@ -115,15 +140,13 @@ object Config {
 
   case class Artifact(
       name: String,
-      `type`: String,
-      extension: String,
       classifier: Option[String],
       checksum: Option[Checksum],
       path: Path
   )
 
   object Artifact {
-    private[bloop] val empty: Artifact = Artifact("", "", "", None, None, emptyPath)
+    private[bloop] val empty: Artifact = Artifact("", None, None, emptyPath)
   }
 
   case class Module(
@@ -131,12 +154,11 @@ object Config {
       name: String,
       version: String,
       configurations: Option[String],
-      direct: Boolean,
       artifacts: List[Artifact]
   )
 
   object Module {
-    private[bloop] val empty: Module = Module("", "", "", None, true, Nil)
+    private[bloop] val empty: Module = Module("", "", "", None, Nil)
   }
 
   case class Resolution(
@@ -153,27 +175,20 @@ object Config {
       sources: Array[Path],
       dependencies: Array[String],
       classpath: Array[Path],
-      classpathOptions: ClasspathOptions,
-      compileOptions: CompileOptions,
       out: Path,
       analysisOut: Path,
       classesDir: Path,
       `scala`: Scala,
-      jvm: Jvm,
       java: Java,
       test: Test,
       platform: Platform,
-      nativeConfig: Option[NativeConfig],
-      jsConfig: Option[JsConfig],
+      compileSetup: CompileSetup,
       resolution: Resolution
   )
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project =
-      Project("", emptyPath, Array(), Array(), Array(), ClasspathOptions.empty,
-        CompileOptions.empty, emptyPath, emptyPath, emptyPath, Scala.empty, Jvm.empty, Java.empty,
-        Test.empty, Platform.default, None, None, Resolution.empty)
+    private[bloop] val empty: Project = Project("", emptyPath, Array(), Array(), Array(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -204,24 +219,21 @@ object Config {
       val classesDir = Files.createTempFile("classes", "test")
       classesDir.toFile.deleteOnExit()
 
+      val platform = Platform.Jvm(JvmConfig(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil))
       val project = Project(
         "dummy-project",
         workingDirectory,
         Array(sourceFile),
         Array("dummy-2"),
         Array(scalaLibraryJar),
-        ClasspathOptions.empty,
-        CompileOptions.empty,
         classesDir,
         outDir,
         outAnalysisFile,
         Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
-        Jvm(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Array()),
         Java(Array("-version")),
         Test(Array(), TestOptions(Nil, Nil)),
-        Platform.default,
-        None,
-        None,
+        platform,
+        CompileSetup.empty,
         Resolution.empty
       )
 

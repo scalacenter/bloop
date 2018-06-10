@@ -109,4 +109,13 @@ object State {
 
     cached.map(_.copy(pool = pool, commonOptions = opts, logger = logger))
   }
+
+  implicit class XState(val s: State) extends AnyVal {
+    def withInfo(msg: String): Task[State] = Task.now { s.logger.info(msg); s }
+    def withError(msg: String): Task[State] = withError(msg, ExitStatus.UnexpectedError)
+    def withError(msg: String, status: ExitStatus): Task[State] = Task.now {
+      s.logger.error(msg)
+      s.mergeStatus(status)
+    }
+  }
 }

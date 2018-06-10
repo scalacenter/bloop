@@ -3,15 +3,17 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import xsbti.compile.ClasspathOptions
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
-import bloop.config.{Config, ConfigEncoderDecoders}
-import bloop.config.Config.{JsConfig, NativeConfig, Platform}
+import config.{Config, ConfigEncoderDecoders}
+import config.Config.Platform
 import bloop.engine.ExecutionContext
+import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
 
 final case class Project(
     name: String,
@@ -30,8 +32,8 @@ final case class Project(
     out: AbsolutePath,
     analysisOut: AbsolutePath,
     platform: Platform,
-    nativeConfig: Option[NativeConfig],
-    jsConfig: Option[JsConfig]
+    jsToolchain: Option[ScalaJsToolchain],
+    nativeToolchain: Option[ScalaNativeToolchain]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -102,20 +104,34 @@ object Project {
     }
 
     val classpathOptions = {
-      val opts = project.classpathOptions
+      val setup = project.compileSetup
       ClasspathOptions.of(
-        opts.bootLibrary,
-        opts.compiler,
-        opts.extra,
-        opts.autoBoot,
-        opts.filterLibrary
+        setup.addLibraryToBootClasspath,
+        setup.addCompilerToClasspath,
+        setup.addExtraJarsToClasspath,
+        setup.manageBootClasspath,
+        setup.filterLibraryFromClasspath
       )
     }
 
-    // Replace `JavaEnv` by `Config.Jvm`?
-    val jvm = project.jvm
-    val jvmHome = jvm.home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
-    val javaEnv = JavaEnv(jvmHome, jvm.options)
+    val jsToolchain = project.platform match {
+      case platform: Config.Platform.Js =>
+        Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
+      case _ => None
+    }
+
+    val nativeToolchain = project.platform match {
+      case platform: Config.Platform.Native =>
+        Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
+      case _ => None
+    }
+
+    val javaEnv = project.platform match {
+      case Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions)) =>
+        val jvmHome = home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
+        JavaEnv(jvmHome, jvmOptions.toArray)
+      case _ => JavaEnv.default
+    }
 
     Project(
       project.name,
@@ -134,12 +150,12 @@ object Project {
       AbsolutePath(project.out),
       AbsolutePath(project.analysisOut),
       project.platform,
-      project.nativeConfig,
-      project.jsConfig
+      jsToolchain,
+      nativeToolchain
     )
   }
 
-  private[bloop] def fromFile(config: AbsolutePath, logger: Logger): Project = {
+  def fromFile(config: AbsolutePath, logger: Logger): Project = {
     import _root_.io.circe.parser
     logger.debug(s"Loading project from '$config'")
     val contents = new String(Files.readAllBytes(config.underlying), StandardCharsets.UTF_8)

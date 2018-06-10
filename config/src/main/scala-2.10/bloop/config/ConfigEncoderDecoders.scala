@@ -1,15 +1,27 @@
 package bloop.config
 
+import io.circe._
+import bloop.config.Config._
+import io.circe.Decoder.Result
+import io.circe.generic.semiauto._
+
 import java.nio.file.{Path, Paths}
 
 import bloop.config.Config._
-import io.circe.{CursorOp, Decoder, DecodingFailure, HCursor, Json, ObjectEncoder, RootEncoder}
-import io.circe.Decoder.Result
-import io.circe.derivation._
-
 import scala.util.Try
 
 object ConfigEncoderDecoders {
+  implicit class RightEither[A, B](e: Either[A, B]) {
+    def flatMap[A1 >: A, B1](f: B => Either[A1, B1]): Either[A1, B1] = e.right.flatMap(f)
+    def map[B1](f: B => B1): Either[A, B1] = e.right.map(f)
+    // This one tries to workaround a change in the public binary API of circe in 2.10
+    def getOrElse[B1 >: B](or: => B1): B1 = {
+      e match {
+        case Left(a) => or
+        case Right(b) => b
+      }
+    }
+  }
 
   implicit val pathDecoder: Decoder[Path] = Decoder.decodeString.emapTry(s => Try(Paths.get(s)))
   implicit val pathEncoder: RootEncoder[Path] = new RootEncoder[Path] {
@@ -32,7 +44,7 @@ object ConfigEncoderDecoders {
         case ScalaThenJava.id => Right(ScalaThenJava)
         case _ =>
           val msg = s"Expected compile order ${CompileOrder.All.map(s => s"'$s'").mkString(", ")})."
-          Left(DecodingFailure(msg, List(CursorOp.DownField("id"))))
+          Left(DecodingFailure(msg, c.history))
       }
     }
   }

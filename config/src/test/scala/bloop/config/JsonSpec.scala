@@ -1,15 +1,13 @@
 package bloop.config
 
 import bloop.config.Config.File
-import io.circe.parser
-import org.junit.Test
-import org.junit.Assert
+import org.junit.{Assert, Test}
 
 class JsonSpec {
   def parseConfig(config: File): Unit = {
-    import ConfigEncoderDecoders.{allDecoder, allEncoder}
+    import io.circe.parser
+    import ConfigEncoderDecoders._
     val jsonConfig = bloop.config.toStr(config)
-    println(jsonConfig)
     val parsed = parser.parse(jsonConfig).getOrElse(sys.error("error parsing"))
     allDecoder.decodeJson(parsed) match {
       case Right(parsedConfig) =>

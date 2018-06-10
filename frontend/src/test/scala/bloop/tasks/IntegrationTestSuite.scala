@@ -80,8 +80,8 @@ class IntegrationTestSuite(testDirectory: Path) {
           out = classesDir,
           analysisOut = classesDir.resolve(Config.Project.analysisFileName(rootProjectName)),
           platform = Config.Platform.default,
-          nativeConfig = None,
-          jsConfig = None
+          jsToolchain = None,
+          nativeToolchain = None
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))

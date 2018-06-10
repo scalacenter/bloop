@@ -93,7 +93,7 @@ object MojoImplementation {
         emptyLauncher
       }
 
-    val classpathOptions = mojo.getClasspathOptions()
+    val compileSetup = mojo.getCompileSetup()
     val allScalaJars = mojo.getAllScalaJars().map(abs).toArray
     val scalacArgs = mojo.getScalacArgs().asScala.toArray
 
@@ -127,13 +127,10 @@ object MojoImplementation {
         val java = Config.Java(mojo.getJavacArgs().asScala.toArray)
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
-        val jvm = Config.Jvm(Some(abs(mojo.getJavaHome().getParentFile.getParentFile)), launcher.getJvmArgs().toArray)
-        val compileOptions = Config.CompileOptions(Config.Mixed)
-        val nativeConfig = None
-        val jsConfig = None
-        val platform = Config.Platform.default
+        val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
+        val platform = Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList))
         val resolution = Config.Resolution.empty
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, classpathOptions, compileOptions, out, analysisOut, classesDir, `scala`, jvm, java, test, platform, nativeConfig, jsConfig, resolution)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, analysisOut, classesDir, `scala`, java, test, platform, compileSetup, resolution)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON
