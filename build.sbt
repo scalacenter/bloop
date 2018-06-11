@@ -137,6 +137,13 @@ val mavenBloop = project
   .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
+val millBloop = project
+  .in(file("integrations") / "mill-bloop")
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig)
+  .settings(name := "mill-bloop")
+  .settings(BuildDefaults.millModuleBuildSettings)
+
 val docs = project
   .in(file("website"))
   .enablePlugins(HugoPlugin, GhpagesPlugin, ScriptedPlugin)
@@ -181,7 +188,7 @@ lazy val nativeBridge = project
   )
 
 val allProjects =
-  Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, nativeBridge, jsBridge06, jsBridge10)
+  Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, millBloop, nativeBridge, jsBridge06, jsBridge10)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
