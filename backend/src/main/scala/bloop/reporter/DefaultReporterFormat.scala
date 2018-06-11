@@ -25,8 +25,10 @@ object DefaultReporterFormat extends (ConfigurableReporter => ReporterFormat) {
 class DefaultReporterFormat(reporter: ConfigurableReporter) extends ReporterFormat(reporter) {
 
   protected def formatSourcePath(problem: Problem): Option[String] =
-    problem.position.pfile.map { f =>
-      colored(reporter.config.sourcePathColor, f)
+    problem.position.pfile.map { filePath =>
+      val line = toOption(problem.position.line).map(":" + _).getOrElse("")
+      val column = toOption(problem.position.pointer).map(o => s":${o + 1}").getOrElse("")
+      colored(reporter.config.sourcePathColor, s"$filePath$line$column")
     }
 
   protected def formatSource(problem: Problem): Option[String] =
