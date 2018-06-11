@@ -33,8 +33,8 @@ it keeps the state and compiler instances cached across all your builds.
 Type `bloop server`  to run the server on a terminal.
 
 <span class="label warning">Note</span> There can only be one server running
-per user session. If you want to run more than one server (strongly not
-recommended unless you know what you're doing), then specify the nailgun port
+per user session. If you want to run more than one server (strongly discouraged
+unless you know what you're doing), then specify the nailgun port
 in both the server and the client.
 
 The server is installed by default in the same directory than the `bloop`
