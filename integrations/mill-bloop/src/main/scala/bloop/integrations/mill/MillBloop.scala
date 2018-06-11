@@ -52,10 +52,12 @@ object Bloop extends ExternalModule {
       case _ => T.task(Config.Scala.empty)
     }
 
-    val jvmConfig = T.task {
-      Config.Jvm(
-        home = T.ctx().env.get("JAVA_HOME").map(s => Path(s).toNIO),
-        options = module.forkArgs().toArray
+    val platform = T.task {
+      Config.Platform.Jvm(
+        Config.JvmConfig(
+          home = T.ctx().env.get("JAVA_HOME").map(s => Path(s).toNIO),
+          options = module.forkArgs().toList
+        )
       )
     }
 
@@ -89,6 +91,14 @@ object Bloop extends ExternalModule {
     }
 
     val classpath = T.task(transitiveClasspath(module)() ++ ivyDepsClasspath())
+    val compileSetup = Config.CompileSetup(
+      Config.Mixed,
+      addLibraryToBootClasspath = true,
+      addCompilerToClasspath = false,
+      addExtraJarsToClasspath = false,
+      manageBootClasspath = true,
+      filterLibraryFromClasspath = true
+    )
 
     val project = T.task {
       Config.Project(
@@ -97,26 +107,14 @@ object Bloop extends ExternalModule {
         sources = module.sources().map(_.path.toNIO).toArray,
         dependencies = module.moduleDeps.map(name).toArray,
         classpath = classpath().map(_.toNIO).toArray,
-        classpathOptions = Config.ClasspathOptions(
-          bootLibrary = true,
-          compiler = false,
-          extra = false,
-          autoBoot = true,
-          filterLibrary = true
-        ),
-        compileOptions = Config.CompileOptions(
-          Config.Mixed
-        ),
         out = out(module).toNIO,
         analysisOut = analysisOut(module).toNIO,
         classesDir = classes(module).toNIO,
-        scala = scalaConfig(),
-        jvm = jvmConfig(),
+        `scala` = scalaConfig(),
         java = javaConfig(),
         test = testConfig(),
-        platform = Config.Platform.JVM,
-        nativeConfig = None,
-        jsConfig = None,
+        platform = platform(),
+        compileSetup = compileSetup(),
         resolution = Config.Resolution.empty
       )
     }
