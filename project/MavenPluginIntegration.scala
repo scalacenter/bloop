@@ -97,7 +97,11 @@ object MavenPluginImplementation {
     }
 
     val resourceGenerators: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
-      if (!MavenPluginKeys.mavenPlugin.value) Def.task(Nil)
+      // Let's protect this so that we don't run it when we do `bloopInstall`
+      val state = Keys.state.value.currentCommand
+      val isBloopInstall = state.exists(e =>
+        e.commandLine.contains("bloopInstall") || e.commandLine.contains("bloopGenerate"))
+      if (!MavenPluginKeys.mavenPlugin.value || isBloopInstall) Def.task(Nil)
       else {
         val task = Def.task {
           val BloopGoal = "bloopInstall"

@@ -13,8 +13,8 @@ import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
-
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
+import sbt.internal.PluginDiscovery
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin

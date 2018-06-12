@@ -12,7 +12,9 @@ val benchmarkBridge = project
   .disablePlugins(ScriptedPlugin)
   .settings(
     releaseEarly := { () },
-    skip in publish := true
+    skip in publish := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
   )
 
 /***************************************************************************************************/
@@ -171,18 +173,18 @@ lazy val jsBridge06 = project
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-0.6",
+    target := (file("bridges") / "scalajs" / "target" / "0.6").getAbsoluteFile,
     libraryDependencies += Dependencies.scalaJsTools06
   )
 
 lazy val jsBridge10 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs" / "target" / "scalajs-1.0")
+  .in(file("bridges") / "scalajs")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-1.0",
-    sourceDirectories in Compile += file("bridges") / "scalajs" / "src" / "main" / "scala",
-    sourceDirectories in Test += file("bridges") / "scalajs" / "src" / "test" / "scala",
+    target := (file("bridges") / "scalajs" / "target" / "1.0").getAbsoluteFile,
     libraryDependencies += Dependencies.scalaJsTools10
   )
 

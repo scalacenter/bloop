@@ -15,6 +15,9 @@ object Compat {
     def ivyScala: SettingKey[Option[ScalaModuleInfo]] = keys.scalaModuleInfo
   }
 
+  def currentCommandFromState(s: sbt.State): Option[String] =
+    s.currentCommand.map(_.commandLine)
+
   implicit def execToString(e: Exec): String = e.commandLine
 
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)

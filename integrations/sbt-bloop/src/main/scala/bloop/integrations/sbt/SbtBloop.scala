@@ -133,7 +133,7 @@ object BloopDefaults {
       BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None
-    ) ++ DiscoveredSbtPlugins.settings
+    ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
     sbt.inConfig(Compile)(configSettings) ++
@@ -160,6 +160,29 @@ object BloopDefaults {
         }.value
       )
   }
+
+  /**
+    * Replace the implementation of discovered sbt plugins so that we don't run it
+    * when we `bloopGenerate` or `bloopInstall`. This is important because when there
+    * are sbt plugins in the build they trigger the compilation of all the modules.
+    * We do no-op when there is indeed an sbt plugin in the build. */
+  lazy val discoveredSbtPluginsSettings: Seq[Def.Setting[_]] = List(
+    Keys.discoveredSbtPlugins := (Def.taskDyn {
+      if (!Keys.sbtPlugin.value) Def.task(PluginDiscovery.emptyDiscoveredNames)
+      else {
+        currentCommandFromState(Keys.state.value) match {
+          case Some(userCommand) =>
+            if (userCommand.endsWith(BloopKeys.bloopGenerate.key.label) ||
+              userCommand.endsWith(BloopKeys.bloopInstall.key.label)) {
+              Def.task(PluginDiscovery.emptyDiscoveredNames)
+            } else {
+              Def.task(PluginDiscovery.discoverSourceAll(Keys.compile.value))
+            }
+          case None => Def.task(PluginDiscovery.discoverSourceAll(Keys.compile.value))
+        }
+      }
+    }).value
+  )
 
   private final val ScalaNativePluginLabel = "scala.scalanative.sbtplugin.ScalaNativePlugin"
   private final val ScalaJsPluginLabel = "org.scalajs.sbtplugin.ScalaJSPlugin"
