@@ -28,7 +28,7 @@ class DefaultReporterFormat(reporter: ConfigurableReporter) extends ReporterForm
     problem.position.pfile.map { filePath =>
       val line = toOption(problem.position.line).map(":" + _).getOrElse("")
       val column = toOption(problem.position.pointer).map(o => s":${o + 1}").getOrElse("")
-      colored(reporter.config.sourcePathColor, s"$filePath$line$column")
+      colored(reporter.config.sourcePathColor, filePath) + s"$line$column"
     }
 
   protected def formatSource(problem: Problem): Option[String] =
