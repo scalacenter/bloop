@@ -18,7 +18,6 @@ import sbt.{
   Keys,
   LocalRootProject,
   Logger,
-  Project,
   ProjectRef,
   ResolvedProject,
   Test,
@@ -47,8 +46,9 @@ object BloopKeys {
     settingKey[Boolean]("Is this a meta build?")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir.")
-  val bloopExportSourceAndDocJars: SettingKey[Boolean] =
-    settingKey[Boolean]("Export the source and javadoc jars to the bloop configuration file")
+  val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
+    settingKey[Option[Set[String]]](
+      "The classifiers that will be exported with `updateClassifiers`.")
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopManagedResourceDirectories: SettingKey[Seq[File]] =
@@ -76,16 +76,22 @@ object BloopDefaults {
   import sbt.{Task, Defaults, State}
 
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
+    BloopKeys.bloopExportJarClassifiers := None,
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := false,
+    // Override classifiers so that we don't resolve always docs
+    Keys.transitiveClassifiers in Keys.updateClassifiers := {
+      val old = (Keys.transitiveClassifiers in Keys.updateClassifiers).value
+      val bloopClassifiers = BloopKeys.bloopExportJarClassifiers.in(ThisBuild).value
+      (if (bloopClassifiers.isEmpty) old else bloopClassifiers.get).toList
+    },
     BloopKeys.bloopIsMetaBuild := Keys.sbtPlugin.in(LocalRootProject).value,
     Keys.onLoad := {
-      { (state: State) =>
+      val oldOnLoad = Keys.onLoad.value
+      oldOnLoad.andThen { state =>
         val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
-        if (isMetaBuild) {
-          val extracted = Project.extract(state)
-          runCommandAndRemaining("bloopInstall")(state)
-        } else state
+        if (!isMetaBuild) state
+        else runCommandAndRemaining("bloopInstall")(state)
       }
     }
   )
@@ -111,7 +117,8 @@ object BloopDefaults {
   // We create build setting proxies to global settings so that we get autocompletion (sbt bug)
   lazy val buildSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopInstall := BloopKeys.bloopInstall.in(Global).value,
-    BloopKeys.bloopExportSourceAndDocJars := false,
+    // Repeat definition so that sbt shows autocopmletion for these settings
+    BloopKeys.bloopExportJarClassifiers := BloopKeys.bloopExportJarClassifiers.in(Global).value,
     // Bloop users: Do NEVER override this setting as a user if you want it to work
     BloopKeys.bloopAggregateSourceDependencies :=
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
@@ -426,8 +433,9 @@ object BloopDefaults {
   }
 
   lazy val updateClassifiers: Def.Initialize[Task[Option[sbt.UpdateReport]]] = Def.taskDyn {
-    val runUpdateClassifiers = BloopKeys.bloopExportSourceAndDocJars.value
+    val runUpdateClassifiers = BloopKeys.bloopExportJarClassifiers.value.nonEmpty
     if (!runUpdateClassifiers) Def.task(None)
+    else if (BloopKeys.bloopIsMetaBuild.value) Def.task(Some(Keys.updateSbtClassifiers.value))
     else Def.task(Some(Keys.updateClassifiers.value))
   }
 
@@ -509,6 +517,27 @@ object BloopDefaults {
       }
     }
     // FORMAT: ON
+  }
+
+  case class SbtMetadata(base: File, config: Config.Sbt)
+  lazy val computeSbtMetadata: Def.Initialize[Task[Option[SbtMetadata]]] = Def.taskDyn {
+    val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+    if (!isMetaBuild) Def.task(None)
+    else {
+      Def.task {
+        val structure = Keys.buildStructure.value
+        val buildUnit = structure.units(structure.root)
+        val sbtVersion = Keys.sbtVersion.value
+        val plugins = buildUnit.unit.plugins
+        val data = Keys.pluginData.value
+
+        // We do what sbt.Load does here: discover all plugins to find out the auto imports
+        val initialPluginLoader = new PluginManagement.PluginClassLoader(plugins.loader)
+        initialPluginLoader.add(data.classpath.map(_.data.toURI.toURL))
+        val autoImports = PluginDiscovery.discoverAll(data, initialPluginLoader).imports.toList
+        Some(SbtMetadata(plugins.base, Config.Sbt(sbtVersion, autoImports)))
+      }
+    }
   }
 
   lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
@@ -614,9 +643,10 @@ object BloopDefaults {
           val c = Keys.classpathOptions.value
           val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
           val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
+
+          val sbt = computeSbtMetadata.value.map(_.config).getOrElse(Config.Sbt.empty)
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, out, analysisOut, classesDir, `scala`, java,
-            testOptions, platform, compileSetup, resolution)
+            classpath, out, analysisOut, classesDir, `scala`, java, sbt, testOptions, platform, compileSetup, resolution)
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON

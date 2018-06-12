@@ -1,5 +1,6 @@
 import java.nio.file.{Files, Path}
 
+val BloopClassifiers = Set("sources", "javadoc")
 val foo = project
   .settings(
     libraryDependencies ++= List(

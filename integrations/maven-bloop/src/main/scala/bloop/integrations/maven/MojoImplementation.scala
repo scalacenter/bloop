@@ -123,6 +123,7 @@ object MojoImplementation {
 
       // FORMAT: OFF
       val config = {
+        val sbt = Config.Sbt.empty
         val test = Config.Test(testFrameworks, DefaultTestOptions)
         val java = Config.Java(mojo.getJavacArgs().asScala.toArray)
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
@@ -130,7 +131,7 @@ object MojoImplementation {
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
         val platform = Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList))
         val resolution = Config.Resolution.empty
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, analysisOut, classesDir, `scala`, java, test, platform, compileSetup, resolution)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, analysisOut, classesDir, `scala`, java, sbt, test, platform, compileSetup, resolution)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

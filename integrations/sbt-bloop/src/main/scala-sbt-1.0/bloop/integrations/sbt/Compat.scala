@@ -6,6 +6,11 @@ import sbt.{Artifact, Exec, Keys, SettingKey}
 import sbt.librarymanagement.ScalaModuleInfo
 
 object Compat {
+  type PluginData = sbt.PluginData
+  val PluginData = sbt.PluginData
+  val PluginDiscovery = sbt.internal.PluginDiscovery
+  val PluginManagement = sbt.internal.PluginManagement
+
   implicit class WithIvyScala(keys: Keys.type) {
     def ivyScala: SettingKey[Option[ScalaModuleInfo]] = keys.scalaModuleInfo
   }

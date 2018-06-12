@@ -132,6 +132,9 @@ object ConfigEncoderDecoders {
   implicit val scalaEncoder: ObjectEncoder[Scala] = deriveEncoder
   implicit val scalaDecoder: Decoder[Scala] = deriveDecoder
 
+  implicit val sbtEncoder: ObjectEncoder[Sbt] = deriveEncoder
+  implicit val sbtDecoder: Decoder[Sbt] = deriveDecoder
+
   implicit val projectEncoder: ObjectEncoder[Project] = deriveEncoder
   implicit val projectDecoder: Decoder[Project] = deriveDecoder
 

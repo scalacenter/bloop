@@ -112,6 +112,7 @@ object Bloop extends ExternalModule {
         classesDir = classes(module).toNIO,
         `scala` = scalaConfig(),
         java = javaConfig(),
+        sbt = Config.Sbt.empty,
         test = testConfig(),
         platform = platform(),
         compileSetup = compileSetup(),

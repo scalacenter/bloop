@@ -5,6 +5,11 @@ import sbt.{Def, Artifact, Keys, SettingKey}
 import java.io.File
 
 object Compat {
+  type PluginData = sbt.PluginData
+  val PluginData = sbt.PluginData
+  val PluginDiscovery = sbt.PluginDiscovery
+  val PluginManagement = sbt.PluginManagement
+
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
 
   def generateCacheFile(s: sbt.Keys.TaskStreams, id: String) = s.cacheDirectory / id

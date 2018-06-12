@@ -3,6 +3,7 @@
 > woo/test:compile
 > bloopInstall
 > checkBloopFile
-> set bloopExportSourceAndDocJars in ThisBuild := true
+$ copy-file changes/export-jars.sbt export-jars.sbt
+> reload
 > bloopInstall
 > checkSourceAndDocs
