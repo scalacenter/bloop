@@ -2,14 +2,16 @@ package bloop.bsp
 
 import java.net.ServerSocket
 import java.util.Locale
-import java.nio.file.{Files, Path}
 
-import bloop.cli.{BspProtocol, Commands}
-import bloop.engine.{ExecutionContext, State}
+import bloop.cli.Commands
+import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.Slf4jAdapter
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
-import monix.execution.{Cancelable, Scheduler}
+import monix.execution.Scheduler
+
+import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.meta.lsp.{LanguageClient, LanguageServer}
 
 object BspServer {
   private[bloop] val isWindows: Boolean =
@@ -64,10 +66,6 @@ object BspServer {
       configPath: RelativePath,
       scheduler: Scheduler
   ): me.Task[State] = {
-    import org.langmeta.lsp.LanguageClient
-    import org.langmeta.lsp.LanguageServer
-    import org.langmeta.jsonrpc.BaseProtocolMessage
-
     def uri(handle: ConnectionHandle): String = {
       handle match {
         case w: WindowsLocal => s"local:${w.pipeName}"

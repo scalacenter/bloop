@@ -9,17 +9,11 @@ import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
-import ch.epfl.`scala`.bsp.schema._
+import ch.epfl.scala.bsp
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.ScalaBuildTarget.ScalaPlatform
 import com.google.protobuf.ByteString
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
-import scalapb_circe.JsonFormat
+import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import xsbti.Problem
 
 import scala.concurrent.duration.FiniteDuration
@@ -69,20 +63,21 @@ final class BloopBspServices(
    * @param params The params request that we get from the client.
    * @return An async computation that returns the response to the client.
    */
-  def initialize(params: InitializeBuildParams): BspResponse[InitializeBuildResult] = {
-    val configDir = AbsolutePath(params.rootUri).resolve(relativeConfigPath)
+  def initialize(params: bsp.InitializeBuildParams): BspResponse[bsp.InitializeBuildResult] = {
+    val configDir = AbsolutePath(params.rootUri.value).resolve(relativeConfigPath)
     reloadState(configDir).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       currentState = state
       Right(
-        InitializeBuildResult(
-          Some(
-            BuildServerCapabilities(
-              compileProvider = true,
-              textDocumentBuildTargetsProvider = true,
-              dependencySourcesProvider = false,
-              buildTargetChangedProvider = true
-            )
+        bsp.InitializeBuildResult(
+          bsp.BuildServerCapabilities(
+            compileProvider = BloopBspServices.DefaultCompileProvider,
+            testProvider = BloopBspServices.DefaultTestProvider,
+            runProvider = BloopBspServices.DefaultRunProvider,
+            textDocumentBuildTargetsProvider = true,
+            dependencySourcesProvider = false,
+            resourcesProvider = false,
+            buildTargetChangedProvider = true
           )
         )
       )
@@ -92,7 +87,7 @@ final class BloopBspServices(
   val isInitialized = scala.concurrent.Promise[Either[ProtocolError, Unit]]()
   val isInitializedTask = Task.fromFuture(isInitialized.future).memoize
   def initialized(
-      initializedBuildParams: InitializedBuildParams
+      initializedBuildParams: bsp.InitializedBuildParams
   ): Unit = {
     isInitialized.success(Right(()))
     callSiteState.logger.info("BSP initialization handshake complete.")
@@ -111,12 +106,12 @@ final class BloopBspServices(
       }
   }
 
-  type ProjectMapping = (BuildTargetIdentifier, Project)
+  type ProjectMapping = (bsp.BuildTargetIdentifier, Project)
   private def mapToProjects(
-      targets: Seq[BuildTargetIdentifier]): Either[ProtocolError, Seq[ProjectMapping]] = {
-    def getProject(target: BuildTargetIdentifier): Either[ProtocolError, ProjectMapping] = {
+      targets: Seq[bsp.BuildTargetIdentifier]): Either[ProtocolError, Seq[ProjectMapping]] = {
+    def getProject(target: bsp.BuildTargetIdentifier): Either[ProtocolError, ProjectMapping] = {
       val uri = target.uri
-      ProjectUris.getProjectDagFromUri(uri, currentState) match {
+      ProjectUris.getProjectDagFromUri(uri.value, currentState) match {
         case Left(errorMsg) => Left(JsonRpcResponse.parseError(errorMsg))
         case Right(Some(project)) => Right((target, project))
         case Right(None) => Left(JsonRpcResponse.invalidRequest(s"No project associated with $uri"))
@@ -136,8 +131,8 @@ final class BloopBspServices(
     }
   }
 
-  def compile(params: CompileParams): BspResponse[CompileReport] = {
-    def compile(projects0: Seq[ProjectMapping]): BspResponse[CompileReport] = {
+  def compile(params: bsp.CompileParams): BspResponse[bsp.CompileReport] = {
+    def compile(projects0: Seq[ProjectMapping]): BspResponse[bsp.CompileReport] = {
       val current = currentState
       val projects = Dag.reduce(current.build.dags, projects0.map(_._2).toSet)
       val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
@@ -147,7 +142,7 @@ final class BloopBspServices(
       def report(p: Project, problems: Array[Problem], elapsedMs: Long) = {
         val count = bloop.reporter.Problem.count(problems)
         val id = toBuildTargetId(p)
-        CompileReportItem(
+        bsp.CompileReportItem(
           target = Some(id),
           errors = count.errors,
           warnings = count.warnings,
@@ -170,7 +165,7 @@ final class BloopBspServices(
                 List(report(p, reporter.problems, elapsed))
             }
         }
-        Right(CompileReport(items))
+        Right(bsp.CompileReport(items))
       }
     }
 
@@ -182,17 +177,17 @@ final class BloopBspServices(
     }
   }
 
-  private def toBuildTargetId(project: Project): BuildTargetIdentifier =
-    BuildTargetIdentifier(project.bspUri)
+  private def toBuildTargetId(project: Project): bsp.BuildTargetIdentifier =
+    bsp.BuildTargetIdentifier(project.bspUri)
 
-  def toScalaBuildTarget(project: Project): ScalaBuildTarget = {
+  def toScalaBuildTarget(project: Project): bsp.ScalaBuildTarget = {
     val instance = project.scalaInstance
     val jars = instance.allJars.iterator.map(_.toURI.toString).toList
-    ScalaBuildTarget(
+    bsp.ScalaBuildTarget(
       scalaOrganization = instance.organization,
       scalaVersion = instance.version,
       scalaBinaryVersion = instance.version,
-      platform = ScalaPlatform.JVM,
+      platform = bsp.ScalaPlatform.Jvm,
       jars = jars
     )
   }
@@ -268,5 +263,9 @@ final class BloopBspServices(
 }
 
 object BloopBspServices {
-  private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
+  private[bloop] val counter: AtomicInteger = new AtomicInteger(0)
+  private[bloop] val DefaultLanguages = List("scala", "java")
+  private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
+  private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
+  private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
 }

@@ -15,6 +15,8 @@ import config.Config.Platform
 import bloop.engine.ExecutionContext
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
 
+import ch.epfl.scala.{bsp => Bsp}
+
 final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
@@ -40,7 +42,7 @@ final case class Project(
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
 
   /** The bsp uri associated with this project. */
-  val bspUri: String = ProjectUris.toUri(baseDirectory, name).toString
+  val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
   val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
