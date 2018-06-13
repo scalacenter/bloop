@@ -89,7 +89,7 @@ object MojoImplementation {
         if (launchers.isEmpty)
           log.info(s"Using empty launcher: no run setup for ${project.getName}.")
         else if (launcherId.nonEmpty)
-          log.warn(s"Using empty launcher: launcher id '${launcherId}' doesn't exist.")
+          log.warn(s"Using empty launcher: Launcher ID '${launcherId}' does not exist")
         emptyLauncher
       }
 

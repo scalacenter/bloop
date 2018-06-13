@@ -61,7 +61,7 @@ class ScalaNativeToolchainSpec {
   private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
   private implicit class RichLogs(logs: List[(String, String)]) {
     def assertContain(needle: String, atLevel: String): Unit = {
-      def failMessage = s"""Logs didn't contain `$needle` at level `$atLevel`. Logs were:
+      def failMessage = s"""Logs did not contain `$needle` at level `$atLevel`. Logs were:
                            |${logs.mkString("\n")}""".stripMargin
       assertTrue(failMessage, logs.exists {
         case (`atLevel`, msg) => msg.contains(needle)

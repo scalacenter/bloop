@@ -16,7 +16,7 @@ import monix.eval.Task
 import scala.util.{Failure, Success}
 
 object Interpreter {
-  // This is stack safe because of monix trampolined execution.
+  // This is stack-safe because of Monix's trampolined execution
   def execute(action: Action, stateTask: Task[State]): Task[State] = {
     def execute(action: Action, stateTask: Task[State], inRecursion: Boolean): Task[State] = {
       stateTask.flatMap { state =>
@@ -26,10 +26,10 @@ object Interpreter {
           case Exit(exitStatus: ExitStatus) if exitStatus.isOk =>
             Task.now(state.mergeStatus(exitStatus))
           case Exit(exitStatus: ExitStatus) => Task.now(state.mergeStatus(exitStatus))
-          case Print(msg, commonOptions, next) =>
+          case Print(msg, _, next) =>
             state.logger.info(msg)
             execute(next, Task.now(state), true)
-          case Run(Commands.About(cliOptions), next) =>
+          case Run(Commands.About(_), next) =>
             execute(next, printAbout(state), true)
           case Run(cmd: Commands.ValidatedBsp, next) =>
             execute(next, runBsp(cmd, state), true)
@@ -51,12 +51,12 @@ object Interpreter {
             execute(next, autocomplete(cmd, state), true)
           case Run(cmd: Commands.Link, next) =>
             execute(next, link(cmd, state, inRecursion), true)
-          case Run(cmd: Commands.Help, next) =>
-            val msg = "The handling of help doesn't happen in the `Interpreter`."
+          case Run(cmd: Commands.Help, _) =>
+            val msg = "The handling of `help` does not happen in the `Interpreter`"
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
             execute(printAction, Task.now(state), true)
-          case Run(cmd: Commands.Bsp, next) =>
-            val msg = "Internal error: command bsp must be validated before use."
+          case Run(cmd: Commands.Bsp, _) =>
+            val msg = "Internal error: The `bsp` command must be validated before use"
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
             execute(printAction, Task.now(state), true)
         }
@@ -164,7 +164,7 @@ object Interpreter {
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         Task.now {
-          compiled.logger.debug(s"Failed compilation for ${project}. Skipping $nextAction.")
+          compiled.logger.debug(s"Failed compilation for $project. Skipping $nextAction...")
           compiled
         }
       }
@@ -228,7 +228,6 @@ object Interpreter {
           completion <- cmd.format.showCommand(name, args)
         } state.logger.info(completion)
       case Mode.Projects =>
-        val projects = state.build.projects
         for {
           project <- state.build.projects
           completion <- cmd.format.showProject(project)
@@ -260,7 +259,6 @@ object Interpreter {
       case Mode.TestsFQCN =>
         for {
           projectName <- cmd.project
-          project <- state.build.getProjectFor(projectName)
           placeholder <- List.empty[String]
           completion <- cmd.format.showTestName(placeholder)
         } state.logger.info(completion)
@@ -280,6 +278,26 @@ object Interpreter {
     }
   }
 
+  private def missingScalaNativeToolchain(state: State, project: Project): Task[State] = {
+    val artifactName = project.platform match {
+      case Config.Platform.Native(config) => ScalaNativeToolchain.artifactNameFrom(config.version)
+      case _ => sys.error(s"Fatal error: Scala Native project ${project.name} does not have a JavaScript configuration. Report upstream.")
+    }
+
+    val msg = s"Artifact $artifactName for Scala Native toolchain could not be resolved in project '$project'"
+    state.withError(msg, ExitStatus.LinkingError)
+  }
+
+  private def missingScalaJsToolchain(state: State, project: Project): Task[State] = {
+    val artifactName = project.platform match {
+      case Config.Platform.Js(config) => ScalaJsToolchain.artifactNameFrom(config.version)
+      case _ => sys.error(s"Fatal error: Scala.js project ${project.name} does not have a JavaScript configuration. Report upstream.")
+    }
+
+    val msg = s"Artifact $artifactName for Scala.js toolchain could not be resolved in project '$project'"
+    state.withError(msg, ExitStatus.LinkingError)
+  }
+
   private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     val reporter = ReporterKind.toReporterConfig(cmd.reporter)
 
@@ -293,16 +311,14 @@ object Interpreter {
                 val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
                 toolchain.link(config, project, main, state.logger).flatMap {
                   case Success(jsOut) =>
-                    state.withInfo(s"Generated js binary '${jsOut.syntax}'")
+                    state.withInfo(s"Generated JavaScript file '${jsOut.syntax}'")
                   case Failure(ex) =>
                     state.logger.trace(ex)
-                    val msg = s"Javascript linking failed with '${ex.getMessage}'"
+                    val msg = s"JavaScript linking failed with '${ex.getMessage}'"
                     state.withError(msg, ExitStatus.LinkingError)
                 }
 
-              case None =>
-                val msg = s"Missing Scala.js toolchain for project $project. Report upstream."
-                state.withError(msg, ExitStatus.LinkingError)
+              case None => missingScalaJsToolchain(state, project)
             }
         }
       }
@@ -324,9 +340,8 @@ object Interpreter {
                     val msg = s"Native linking failed with '${ex.getMessage}'"
                     state.withError(msg, ExitStatus.LinkingError)
                 }
-              case None =>
-                val msg = s"Missing Scala Native toolchain for project $project. Report upstream."
-                state.withError(msg, ExitStatus.LinkingError)
+
+              case None => missingScalaNativeToolchain(state, project)
             }
         }
       }
@@ -347,10 +362,9 @@ object Interpreter {
             else doJsRun(project, config)(state)
 
           case Platform.Jvm(_) =>
-            val msg = "Expected Scala Native or Scala.js project to run `link`."
+            val msg = s"Cannot link JVM project ${project.name}. `link` is only available for Scala Native and Scala.js projects"
             state.withError(msg, ExitStatus.InvalidCommandLineOption)
         }
-
     }
   }
 
@@ -387,9 +401,7 @@ object Interpreter {
                         val config =
                           config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
                         toolchain.run(state, config, project, cwd, mainClass, args)
-                      case None =>
-                        val msg = s"Missing Scala Native toolchain in '$project'. Report upstream."
-                        state.withError(msg, ExitStatus.LinkingError)
+                      case None => missingScalaNativeToolchain(state, project)
                     }
                   case Platform.Js(config0) =>
                     project.jsToolchain match {
@@ -397,9 +409,7 @@ object Interpreter {
                         val config =
                           config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
                         toolchain.run(state, config, project, cwd, mainClass, args)
-                      case None =>
-                        val msg = s"Missing Scala.js toolchain in '$project'. Report upstream."
-                        state.withError(msg, ExitStatus.LinkingError)
+                      case None => missingScalaJsToolchain(state, project)
                     }
                   case _ => Tasks.run(state, project, cwd, mainClass, args.toArray)
                 }
@@ -418,21 +428,21 @@ object Interpreter {
   private def reportMissing(projectNames: List[String], state: State): State = {
     val projects = projectNames.mkString("'", "', '", "'")
     val configDirectory = state.build.origin.syntax
-    state.logger.error(s"No projects named $projects found in '$configDirectory'.")
-    state.logger.error(s"Use the `projects` command to list existing projects.")
+    state.logger.error(s"No projects named $projects were found in '$configDirectory'")
+    state.logger.error(s"Use the `projects` command to list all existing projects")
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 
   private def getMainClass(state: State, project: Project): Option[String] = {
     Tasks.findMainClasses(state, project) match {
       case Array() =>
-        state.logger.error(s"No main classes found in project '${project.name}'")
+        state.logger.error(s"No main classes were found in the project '${project.name}'")
         None
       case Array(main) =>
         Some(main)
       case mainClasses =>
         val eol = System.lineSeparator
-        val message = s"""Several main classes were found, specify which one:
+        val message = s"""Several main classes were found. Specify one of:
                          |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
         state.logger.error(message)
         None

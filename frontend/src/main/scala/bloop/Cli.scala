@@ -242,7 +242,7 @@ object Cli {
         }
       }
     } else {
-      logger.error(s"Config directory does not exist: $configDirectory")
+      logger.error(s"Configuration directory does not exist: $configDirectory")
       ExitStatus.InvalidCommandLineOption
     }
   }
