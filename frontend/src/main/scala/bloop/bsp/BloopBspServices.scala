@@ -246,11 +246,11 @@ final class BloopBspServices(
             val sourceJars = project.resolution.toList.flatMap { res =>
               res.modules.flatMap { m =>
                 m.artifacts.iterator
-                  .filter(a => a.classifier == "sources")
+                  .filter(a => a.classifier.toList.contains("sources"))
                   .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
+                  .toList
               }
             }
-            currentState.logger.info(s"Dependency source jars are ${sourceJars}")
             bsp.DependencySourcesItem(target, sources ++ sourceJars)
         }.toList
       )
