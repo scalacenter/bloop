@@ -9,6 +9,7 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.Slf4jAdapter
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 import monix.execution.Scheduler
+import monix.execution.atomic.Atomic
 
 import scala.meta.jsonrpc.BaseProtocolMessage
 import scala.meta.lsp.{LanguageClient, LanguageServer}
@@ -81,28 +82,26 @@ object BspServer {
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at ${connectionURI}.")
 
+      val exitStatus = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
       val bspLogger = com.typesafe.scalalogging.Logger(new Slf4jAdapter(logger))
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider = new BloopBspServices(state, client, configPath)
+      val servicesProvider = new BloopBspServices(state, client, configPath, in, exitStatus)
       val bloopServices = servicesProvider.services
       val messages = BaseProtocolMessage.fromInputStream(in)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
       server.startTask
         .map(_ => servicesProvider.latestState)
+        .onErrorHandleWith(t =>
+          servicesProvider.latestState.withError(s"BSP server was stopped by ${t.getMessage}"))
         .doOnFinish(_ => me.Task { handle.serverSocket.close() })
     }
 
     initServer(cmd, state).materialize.flatMap {
       case scala.util.Success(handle: ConnectionHandle) =>
         startServer(handle).onErrorRecoverWith {
-          case BloopBspServices.BloopExitGracefully(code) =>
-            me.Task.now {
-              if (code == 0) state.mergeStatus(ExitStatus.Ok)
-              else state.mergeStatus(ExitStatus.UnexpectedError)
-            }
           case t: Throwable =>
             state.withError(s"BSP server failed to start with ${t.getMessage}", t)
         }

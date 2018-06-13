@@ -1,5 +1,6 @@
 package bloop.bsp
 
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -10,18 +11,21 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
+
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import xsbti.Problem
-
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+import monix.execution.atomic.AtomicInt
 
 import scala.concurrent.duration.FiniteDuration
 
 final class BloopBspServices(
     callSiteState: State,
     client: JsonRpcClient,
-    relativeConfigPath: RelativePath
+    relativeConfigPath: RelativePath,
+    socketInput: InputStream,
+    exitStatus: AtomicInt
 ) {
   private type ProtocolError = JsonRpcResponse.Error
   private type BspResponse[T] = Task[Either[ProtocolError, T]]
@@ -246,6 +250,7 @@ final class BloopBspServices(
                   .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
               }
             }
+            currentState.logger.info(s"Dependency source jars are ${sourceJars}")
             bsp.DependencySourcesItem(target, sources ++ sourceJars)
         }.toList
       )
@@ -295,13 +300,21 @@ final class BloopBspServices(
   }
 
   def exit(shutdown: bsp.Exit): Task[Unit] = {
+    def closeServices(code: Int): Unit = {
+      exitStatus.set(code)
+      // Closing the input stream is our way to stopping these services
+      try socketInput.close()
+      catch {case t: Throwable => ()}
+      ()
+    }
+
     isShutdownTask
       .timeoutTo(
         FiniteDuration(1, TimeUnit.SECONDS),
         Task.now(Left(()))
-      ).flatMap {
-      case Left(_) => throw BloopBspServices.BloopExitGracefully(1)
-      case Right(_) => throw BloopBspServices.BloopExitGracefully(0)
+      ).map {
+      case Left(_) => closeServices(1)
+      case Right(_) => closeServices(0)
     }
   }
 }
