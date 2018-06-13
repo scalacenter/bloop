@@ -97,23 +97,17 @@ object BspServer {
 
     initServer(cmd, state).materialize.flatMap {
       case scala.util.Success(handle: ConnectionHandle) =>
-        startServer(handle).onErrorRecover {
+        startServer(handle).onErrorRecoverWith {
+          case BloopBspServices.BloopExitGracefully(code) =>
+            me.Task.now {
+              if (code == 0) state.mergeStatus(ExitStatus.Ok)
+              else state.mergeStatus(ExitStatus.UnexpectedError)
+            }
           case t: Throwable =>
-            logger.error(t.getMessage)
-            logger.trace(t)
-            state
-        }
-      case scala.util.Failure(BloopBspServices.BloopExitGracefully(code)) =>
-        me.Task {
-          if (code == 0) state.mergeStatus(ExitStatus.Ok)
-          else state.mergeStatus(ExitStatus.UnexpectedError)
+            state.withError(s"BSP server failed to start with ${t.getMessage}", t)
         }
       case scala.util.Failure(t: Throwable) =>
-        me.Task {
-          logger.error(s"BSP server failed to open a socket: '${t.getMessage}'")
-          logger.trace(t)
-          state
-        }
+        state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t)
     }
   }
 }
