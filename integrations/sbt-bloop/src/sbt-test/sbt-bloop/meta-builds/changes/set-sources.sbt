@@ -1,1 +1,1 @@
-bloopExportSourceAndDocJars in ThisBuild := true
+bloopExportJarClassifiers in Global := Some(Set("sources", "javadoc"))

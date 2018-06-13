@@ -2,7 +2,7 @@ val mvnVersion = "3.5.2"
 val mvnPluginToolsVersion = "3.5"
 val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 
-val root = project
+val `bloop-build` = project
   .in(file("."))
   .settings(
     scalaVersion := "2.12.4",
@@ -17,7 +17,7 @@ val root = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
-    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.1"),
+    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3"),
     libraryDependencies += { "org.scala-sbt" %% "scripted-plugin" % sbtVersion.value },
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {

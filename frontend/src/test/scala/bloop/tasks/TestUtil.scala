@@ -239,7 +239,8 @@ object TestUtil {
       analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name))),
       platform = Config.Platform.default,
       jsToolchain = None,
-      nativeToolchain = None
+      nativeToolchain = None,
+      sbt = None
     )
   }
 

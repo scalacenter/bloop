@@ -12,7 +12,9 @@ val benchmarkBridge = project
   .disablePlugins(ScriptedPlugin)
   .settings(
     releaseEarly := { () },
-    skip in publish := true
+    skip in publish := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
   )
 
 /***************************************************************************************************/
@@ -47,40 +49,51 @@ val backend = project
     )
   )
 
-// Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-val jsonConfig = project
+val jsonConfig210 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-config",
-    crossScalaVersions := List(Keys.scalaVersion.in(backend).value, "2.10.7"),
+    target := (file("config") / "target" / "json-config-2.10").getAbsoluteFile,
+    scalaVersion := "2.10.7",
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
-      if (scalaBinaryVersion.value == "2.12") {
-        List(
-          Dependencies.circeParser,
-          Dependencies.circeDerivation,
-          Dependencies.nuprocess,
-          Dependencies.scalacheck % Test,
-        )
-      } else {
-        List(
-          Dependencies.circeParser,
-          Dependencies.circeCore,
-          Dependencies.circeGeneric,
-          compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
-          Dependencies.scalacheck % Test,
-        )
-      }
+      List(
+        Dependencies.circeParser,
+        Dependencies.circeCore,
+        Dependencies.circeGeneric,
+        compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+        Dependencies.scalacheck % Test,
+      )
+    }
+  )
+
+// Needs to be called `jsonConfig` because of naming conflict with sbt universe...
+val jsonConfig212 = project
+  .in(file("config"))
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-config",
+    target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
+    scalaVersion := Keys.scalaVersion.in(backend).value,
+    // We compile in both so that the maven integration can be tested locally
+    publishLocal := publishLocal.dependsOn(publishM2).value,
+    libraryDependencies ++= {
+      List(
+        Dependencies.circeParser,
+        Dependencies.circeDerivation,
+        Dependencies.scalacheck % Test,
+      )
     }
   )
 
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
-  .dependsOn(backend, backend % "test->test", jsonConfig)
+  .dependsOn(backend, backend % "test->test", jsonConfig212)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
@@ -100,6 +113,7 @@ lazy val frontend: Project = project
       Dependencies.bsp,
       Dependencies.monix,
       Dependencies.caseApp,
+      Dependencies.nuprocess,
       Dependencies.ipcsocket % Test
     ),
     dependencyOverrides += Dependencies.shapeless
@@ -114,33 +128,32 @@ val benchmarks = project
     skip in publish := true,
   )
 
-lazy val sbtBloop = project
+lazy val sbtBloop10 = project
   .enablePlugins(ScriptedPlugin)
   .in(file("integrations") / "sbt-bloop")
-  .dependsOn(jsonConfig)
   .settings(BuildDefaults.scriptedSettings)
-  .settings(
-    name := "sbt-bloop",
-    sbtPlugin := true,
-    scalaVersion := BuildDefaults.fixScalaVersionForSbtPlugin.value,
-    bintrayPackage := "sbt-bloop",
-    bintrayOrganization := Some("sbt"),
-    bintrayRepository := "sbt-plugin-releases",
-    publishMavenStyle := releaseEarlyWith.value == SonatypePublisher,
-    publishLocal := publishLocal.dependsOn(publishLocal in jsonConfig).value
-  )
+  .settings(sbtPluginSettings("1.1.4", jsonConfig212))
+  .dependsOn(jsonConfig212)
+
+// Let's remove scripted for 0.13, we only test 1.0
+lazy val sbtBloop013 = project
+  .disablePlugins(ScriptedPlugin)
+  .in(file("integrations") / "sbt-bloop")
+  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig210).value)
+  .settings(sbtPluginSettings("0.13.17", jsonConfig210))
+  .dependsOn(jsonConfig210)
 
 val mavenBloop = project
   .in(file("integrations") / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig)
+  .dependsOn(jsonConfig212)
   .settings(name := "maven-bloop")
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
 val millBloop = project
   .in(file("integrations") / "mill-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig)
+  .dependsOn(jsonConfig212)
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
 
@@ -160,18 +173,18 @@ lazy val jsBridge06 = project
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-0.6",
+    target := (file("bridges") / "scalajs" / "target" / "0.6").getAbsoluteFile,
     libraryDependencies += Dependencies.scalaJsTools06
   )
 
 lazy val jsBridge10 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs" / "target" / "scalajs-1.0")
+  .in(file("bridges") / "scalajs")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-1.0",
-    sourceDirectories in Compile += file("bridges") / "scalajs" / "src" / "main" / "scala",
-    sourceDirectories in Test += file("bridges") / "scalajs" / "src" / "test" / "scala",
+    target := (file("bridges") / "scalajs" / "target" / "1.0").getAbsoluteFile,
     libraryDependencies += Dependencies.scalaJsTools10
   )
 
@@ -188,7 +201,7 @@ lazy val nativeBridge = project
   )
 
 val allProjects =
-  Seq(backend, benchmarks, frontend, jsonConfig, sbtBloop, mavenBloop, millBloop, nativeBridge, jsBridge06, jsBridge10)
+  Seq(backend, benchmarks, frontend, jsonConfig210, jsonConfig212, sbtBloop013, sbtBloop10, mavenBloop, millBloop, nativeBridge, jsBridge06, jsBridge10)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -210,8 +223,10 @@ val publishLocalCmd = Keys.publishLocal.key.label
 addCommandAlias(
   "install",
   Seq(
-    s"+${jsonConfig.id}/$publishLocalCmd",
-    s"^${sbtBloop.id}/$publishLocalCmd",
+    s"${jsonConfig210.id}/$publishLocalCmd",
+    s"${jsonConfig212.id}/$publishLocalCmd",
+    s"${sbtBloop013.id}/$publishLocalCmd",
+    s"${sbtBloop10.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
@@ -226,9 +241,10 @@ val releaseEarlyCmd = releaseEarly.key.label
 val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
-  s"+${jsonConfig.id}/$publishLocalCmd", // Necessary because of a coursier bug?
-  s"+${jsonConfig.id}/$releaseEarlyCmd",
-  s"^${sbtBloop.id}/$releaseEarlyCmd",
+  s"${jsonConfig210.id}/$releaseEarlyCmd",
+  s"${jsonConfig212.id}/$releaseEarlyCmd",
+  s"${sbtBloop013.id}/$releaseEarlyCmd",
+  s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",

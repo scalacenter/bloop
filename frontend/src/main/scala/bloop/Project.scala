@@ -33,7 +33,8 @@ final case class Project(
     analysisOut: AbsolutePath,
     platform: Platform,
     jsToolchain: Option[ScalaJsToolchain],
-    nativeToolchain: Option[ScalaNativeToolchain]
+    nativeToolchain: Option[ScalaNativeToolchain],
+    sbt: Option[Config.Sbt]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -133,6 +134,11 @@ object Project {
       case _ => JavaEnv.default
     }
 
+    val sbt = project.sbt match {
+      case Config.Sbt.empty => None
+      case config => Some(config)
+    }
+
     Project(
       project.name,
       AbsolutePath(project.directory),
@@ -151,7 +157,8 @@ object Project {
       AbsolutePath(project.analysisOut),
       project.platform,
       jsToolchain,
-      nativeToolchain
+      nativeToolchain,
+      sbt
     )
   }
 

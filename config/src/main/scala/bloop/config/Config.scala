@@ -17,6 +17,15 @@ object Config {
   case class Test(frameworks: Array[TestFramework], options: TestOptions)
   object Test { private[bloop] val empty = Test(Array(), TestOptions.empty) }
 
+  case class Sbt(
+      sbtVersion: String,
+      autoImports: List[String]
+  )
+
+  object Sbt {
+    private[bloop] val empty = Sbt("", Nil)
+  }
+
   sealed abstract class CompileOrder(val id: String)
   case object Mixed extends CompileOrder("mixed")
   case object JavaThenScala extends CompileOrder("java->scala")
@@ -180,6 +189,7 @@ object Config {
       classesDir: Path,
       `scala`: Scala,
       java: Java,
+      sbt: Sbt,
       test: Test,
       platform: Platform,
       compileSetup: CompileSetup,
@@ -188,7 +198,7 @@ object Config {
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, Array(), Array(), Array(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
+    private[bloop] val empty: Project = Project("", emptyPath, Array(), Array(), Array(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Sbt.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -231,6 +241,7 @@ object Config {
         outAnalysisFile,
         Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
         Java(Array("-version")),
+        Sbt("1.1.0", Nil),
         Test(Array(), TestOptions(Nil, Nil)),
         platform,
         CompileSetup.empty,

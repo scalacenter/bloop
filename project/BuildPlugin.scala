@@ -6,13 +6,15 @@ import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import pl.project13.scala.sbt.JmhPlugin.JmhKeys
-import sbt.{AutoPlugin, BuildPaths, Command, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
+import sbt.{AutoPlugin, BuildPaths, Compile, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
+import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
+import sbt.internal.PluginDiscovery
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -165,6 +167,19 @@ object BuildKeys {
     }
   )
 
+  def sbtPluginSettings(sbtVersion: String, jsonConfig: Reference): Seq[Def.Setting[_]] = List(
+    Keys.name := "sbt-bloop",
+    Keys.sbtPlugin := true,
+    Keys.sbtVersion := sbtVersion,
+    Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
+    BintrayKeys.bintrayPackage := "sbt-bloop",
+    BintrayKeys.bintrayOrganization := Some("sbt"),
+    BintrayKeys.bintrayRepository := "sbt-plugin-releases",
+    Keys.publishMavenStyle :=
+      ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher,
+    Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishLocal in jsonConfig).value
+  )
+
   import sbtbuildinfo.BuildInfoKeys
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
@@ -223,11 +238,9 @@ object BuildImplementation {
   def GitHubDev(handle: String, fullName: String, email: String) =
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
-  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
-
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "2.6",
+    BuildKeys.schemaVersion := "2.7",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,
