@@ -6,27 +6,15 @@ import bloop.cli.Commands
 import bloop.io.AbsolutePath
 import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
-import ch.epfl.`scala`.bsp.schema.{
-  BuildClientCapabilities,
-  InitializeBuildParams,
-  InitializedBuildParams
-}
+import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
-import org.langmeta.jsonrpc.{BaseProtocolMessage, Response, Services}
-import org.langmeta.lsp.{
-  DiagnosticSeverity,
-  LanguageClient,
-  LanguageServer,
-  MessageType,
-  PublishDiagnostics,
-  ShowMessageParams,
-  TextDocument
-}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 
 import scala.concurrent.duration.FiniteDuration
+import scala.meta.jsonrpc.{BaseProtocolMessage, Response, Services}
+import scala.meta.lsp.{LanguageClient, LanguageServer}
 
 object BspClientTest {
   def cleanUpLastResources(cmd: Commands.ValidatedBsp) = {
@@ -57,23 +45,28 @@ object BspClientTest {
                                        ExecutionModel.AlwaysAsyncExecution)
 
   import com.typesafe.scalalogging.{Logger => ScalaLogger}
-  import org.langmeta.lsp.Window
   def createServices(logger: ScalaLogger): Services = {
     Services.empty
-      .notification(Window.showMessage) {
-        case ShowMessageParams(MessageType.Log, msg) => logger.debug(msg)
-        case ShowMessageParams(MessageType.Info, msg) => logger.info(msg)
-        case ShowMessageParams(MessageType.Warning, msg) => logger.warn(msg)
-        case ShowMessageParams(MessageType.Error, msg) => logger.error(msg)
+      .notification(endpoints.Build.showMessage) {
+        case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
       }
-      .notification(TextDocument.publishDiagnostics) {
-        case PublishDiagnostics(uri, diagnostics) =>
+      .notification(endpoints.Build.logMessage) {
+        case bsp.LogMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
+      }
+      .notification(endpoints.Build.publishDiagnostics) {
+        case bsp.PublishDiagnosticsParams(uri, _, diagnostics) =>
           diagnostics.foreach { d =>
             d.severity match {
-              case Some(DiagnosticSeverity.Error) => logger.error(d.toString)
-              case Some(DiagnosticSeverity.Warning) => logger.warn(d.toString)
-              case Some(DiagnosticSeverity.Information) => logger.info(d.toString)
-              case Some(DiagnosticSeverity.Hint) => logger.debug(d.toString)
+              case Some(bsp.DiagnosticSeverity.Error) => logger.error(d.toString)
+              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(d.toString)
+              case Some(bsp.DiagnosticSeverity.Information) => logger.info(d.toString)
+              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(d.toString)
               case None => logger.info(d.toString)
             }
           }
@@ -81,8 +74,12 @@ object BspClientTest {
   }
 
   type TestLogger = Slf4jAdapter[RecordingLogger]
-  def runTest[T](cmd: Commands.ValidatedBsp, configDirectory: AbsolutePath, logger0: TestLogger)(
-      runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
+  def runTest[T](
+      cmd: Commands.ValidatedBsp,
+      configDirectory: AbsolutePath,
+      logger0: TestLogger,
+      customServices: Services => Services = identity[Services],
+  )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
     val logger = ScalaLogger.apply(logger0)
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
@@ -105,16 +102,16 @@ object BspClientTest {
 
       val cwd = TestUtil.getBaseFromConfigDir(configDirectory.underlying)
       val initializeServer = endpoints.Build.initialize.request(
-        InitializeBuildParams(
-          rootUri = cwd.toAbsolutePath.toString,
-          Some(BuildClientCapabilities(List("scala")))
+        bsp.InitializeBuildParams(
+          rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
+          capabilities = bsp.BuildClientCapabilities(List("scala"), false)
         )
       )
 
       for {
         // Delay the task to let the bloop server go live
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
-        _ = endpoints.Build.initialized.notify(InitializedBuildParams())
+        _ = endpoints.Build.initialized.notify(bsp.InitializedBuildParams())
         otherCalls <- runEndpoints(lsClient)
       } yield BspServer.closeSocket(cmd, socket)
     }

@@ -9,11 +9,11 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.endpoints.Build
+import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
 
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
- * It does so via the replication of the `window/showMessage` LSP functionality.
+ * It does so via the replication of the `build/logMessage` LSP functionality.
  */
 final class BspLogger private (
     override val name: String,
@@ -33,15 +33,15 @@ final class BspLogger private (
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
   override def error(msg: String): Unit = {
-    Build.showMessage.notify(bsp.ShowMessageParams(bsp.MessageType.Error, None, None, msg))
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Error, None, None, msg))
   }
 
   override def warn(msg: String): Unit = {
-    Build.showMessage.notify(bsp.ShowMessageParams(bsp.MessageType.Warning, None, None, msg))
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, None, msg))
   }
 
   override def info(msg: String): Unit = {
-    Build.showMessage.notify(bsp.ShowMessageParams(bsp.MessageType.Info, None, None, msg))
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Info, None, None, msg))
   }
 
   def diagnostic(problem: Problem): Unit = {
@@ -80,6 +80,14 @@ final class BspLogger private (
           case Severity.Info => info(message)
         }
     }
+  }
+
+  def publishBspReport(uri: bsp.Uri, problems: Seq[Problem]): Unit = {
+    val errors = problems.count(_.severity == Severity.Error)
+    val warnings = problems.count(_.severity == Severity.Warn)
+    BuildTarget.compileReport.notify(
+      bsp.CompileReport(bsp.BuildTargetIdentifier(uri), None, errors, warnings, None)
+    )
   }
 }
 

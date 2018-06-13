@@ -9,21 +9,14 @@ import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
 import bloop.logging.{RecordingLogger, Slf4jAdapter}
-import ch.epfl.`scala`.bsp.schema.WorkspaceBuildTargetsRequest
 import org.junit.Test
+import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.{
-  BuildTargetIdentifier,
-  CompileParams,
-  CompileReport,
-  DependencySourcesParams,
-  ScalacOptionsParams
-}
 import junit.framework.Assert
 import monix.eval.Task
-import org.langmeta.jsonrpc.{Response => JsonRpcResponse}
-import org.langmeta.lsp.LanguageClient
 
+import scala.meta.lsp.LanguageClient
+import scala.meta.jsonrpc.{Response, Services}
 import scala.util.control.NonFatal
 
 class BspProtocolSpec {
@@ -93,17 +86,17 @@ class BspProtocolSpec {
     }
   }
 
-  def testBuildTargets(bsp: Commands.ValidatedBsp): Unit = {
+  def testBuildTargets(bspCmd: Commands.ValidatedBsp): Unit = {
     val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
-      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).map {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
         case Right(workspaceTargets) =>
           Right(Assert.assertEquals(workspaceTargets.targets.size, 8))
         case Left(error) => Left(error)
       }
     }
 
-    BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+    BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
 
     reportIfError(logger) {
       val BuildInitialize = "\"method\" : \"build/initialize\""
@@ -116,20 +109,20 @@ class BspProtocolSpec {
     }
   }
 
-  def testDependencySources(bsp: Commands.ValidatedBsp): Unit = {
+  def testDependencySources(bspCmd: Commands.ValidatedBsp): Unit = {
     val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
-      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
         case Right(workspaceTargets) =>
-          val btis = workspaceTargets.targets.flatMap(_.id.toList)
-          endpoints.BuildTarget.dependencySources.request(DependencySourcesParams(btis)).map {
+          val btis = workspaceTargets.targets.map(_.id)
+          endpoints.BuildTarget.dependencySources.request(bsp.DependencySourcesParams(btis)).map {
             case Left(error) => Left(error)
             case Right(sources) =>
-              val fetchedSources = sources.items.flatMap(_.uri)
+              val fetchedSources = sources.items.flatMap(i => i.uris.map(_.value))
               val expectedSources = Project
                 .eagerLoadFromDir(configDir, logger.underlying)
-                .flatMap(_.sources.map(_.toBspUri))
+                .flatMap(_.sources.map(s => bsp.Uri(s.underlying.toUri).value))
               val msg = s"Expected != Fetched, $expectedSources != $fetchedSources"
               val same = expectedSources.sorted.sameElements(fetchedSources.sorted)
               Right(Assert.assertTrue(msg, same))
@@ -138,136 +131,133 @@ class BspProtocolSpec {
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
       ()
     }
   }
 
-  def testScalacOptions(bsp: Commands.ValidatedBsp): Unit = {
+  def testScalacOptions(bspCmd: Commands.ValidatedBsp): Unit = {
     def stringify(xs: Seq[String]) = xs.sorted.mkString(";")
     def stringifyOptions(
         scalacOptions0: Seq[String],
-        classpath0: Seq[String],
-        classesDir: String
+        classpath0: Seq[bsp.Uri],
+        classesDir: bsp.Uri
     ): String = {
       val scalacOptions = stringify(scalacOptions0)
-      val classpath = stringify(classpath0)
-      s"""StringifiedScalacOption($scalacOptions, $classpath, $classesDir)"""
+      val classpath = stringify(classpath0.map(_.value))
+      s"""StringifiedScalacOption($scalacOptions, $classpath, ${classesDir.value})"""
     }
 
     val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
-      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
         case Right(workspaceTargets) =>
-          val btis = workspaceTargets.targets.flatMap(_.id.toList)
-          endpoints.BuildTarget.scalacOptions.request(ScalacOptionsParams(btis)).map {
+          val btis = workspaceTargets.targets.map(_.id)
+          endpoints.BuildTarget.scalacOptions.request(bsp.ScalacOptionsParams(btis)).map {
             case Left(error) => Left(error)
             case Right(options) =>
-              val optionItems0 = options.items
-              val optionItems = {
-                if (optionItems0.exists(_.target.isEmpty)) {
-                  Left(JsonRpcResponse.internalError(
-                    s"A scalac option item doesn't map to a target! $optionItems0"))
-                } else Right(optionItems0.map(i => (i.target.get.uri, i)).sortBy(_._1))
+              val uriOptions = options.items.map(i => (i.target.uri.value, i)).sortBy(_._1)
+              val expectedUriOptions = Project
+                .eagerLoadFromDir(configDir, logger.underlying)
+                .map(p => (p.bspUri.value, p))
+                .sortBy(_._1)
+
+              Assert
+                .assertEquals("Size of options differ", uriOptions.size, expectedUriOptions.size)
+              uriOptions.zip(expectedUriOptions).foreach {
+                case ((obtainedUri, opts), (expectedUri, p)) =>
+                  Assert.assertEquals(obtainedUri, expectedUri)
+                  val obtainedOptions =
+                    stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
+                  val classpath = p.classpath.iterator.map(i => bsp.Uri(i.toBspUri)).toList
+                  val classesDir = bsp.Uri(p.classesDir.toBspUri)
+                  val expectedOptions =
+                    stringifyOptions(p.scalacOptions.toList, classpath, classesDir)
+                  Assert.assertEquals(obtainedOptions, expectedOptions)
               }
 
-              optionItems.map { uriOptions =>
-                val expectedUriOptions = Project
-                  .eagerLoadFromDir(configDir, logger.underlying)
-                  .map(p => (p.bspUri, p))
-                  .sortBy(_._1)
-
-                Assert
-                  .assertEquals("Size of options differ", uriOptions.size, expectedUriOptions.size)
-                uriOptions.zip(expectedUriOptions).foreach {
-                  case ((obtainedUri, opts), (expectedUri, p)) =>
-                    Assert.assertEquals(obtainedUri, expectedUri)
-                    val obtainedOptions =
-                      stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
-                    val classpath = p.classpath.iterator.map(_.toBspUri).toList
-                    val expectedOptions =
-                      stringifyOptions(p.scalacOptions.toList, classpath, p.classesDir.toBspUri)
-                    Assert.assertEquals(obtainedOptions, expectedOptions)
-                }
-              }
+              Right(uriOptions)
           }
       }
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
       ()
     }
   }
 
-  def testCompile(bsp: Commands.ValidatedBsp): Unit = {
+  def testCompile(bspCmd: Commands.ValidatedBsp): Unit = {
+    var tested: Boolean = false
     val logger = new Slf4jAdapter(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
-      endpoints.Workspace.buildTargets.request(WorkspaceBuildTargetsRequest()).flatMap { ts =>
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
           case Right(workspaceTargets) =>
-            workspaceTargets.targets.map(_.id.get).find(_.uri.endsWith("utestJVM")) match {
+            workspaceTargets.targets.map(_.id).find(_.uri.value.endsWith("utestJVM")) match {
               case Some(id) =>
-                endpoints.BuildTarget.compile.request(CompileParams(List(id))).map {
+                endpoints.BuildTarget.compile.request(bsp.CompileParams(List(id), None, Nil)).map {
                   case Left(e) => Left(e)
                   case Right(report) =>
-                    Assert.assertEquals("Bloop compiled more than one target", report.items.size, 1)
-                    val utestJvmReport = report.items.head
-                    Assert.assertEquals("Warnings in utestJVM != 4", utestJvmReport.warnings, 4)
-                    Assert.assertEquals("Errors in utestJVM != 0", utestJvmReport.errors, 0)
-                    Assert.assertTrue("Duration in utestJVM == 0", utestJvmReport.time != 0)
-                    Right(report)
+                    if (tested) Right(report)
+                    else Left(Response.internalError("The test didn't receive any compile report."))
                 }
-              case None => Task.now(Left(JsonRpcResponse.internalError("Missing 'utestJVM'")))
+              case None => Task.now(Left(Response.internalError("Missing 'utestJVM'")))
             }
           case Left(error) =>
-            Task.now(Left(JsonRpcResponse.internalError(s"Target request failed with $error.")))
+            Task.now(Left(Response.internalError(s"Target request failed with $error.")))
+        }
+      }
+    }
+
+    val checkCompileReports = { (s: Services) =>
+      s.notification(endpoints.BuildTarget.compileReport) { report =>
+        if (tested) throw new AssertionError("Bloop compiled more than one target")
+        if (report.target.uri.value.endsWith("utestJVM")) {
+          tested = true
+          Assert.assertEquals("Warnings in utestJVM != 4", report.warnings, 4)
+          Assert.assertEquals("Errors in utestJVM != 0", report.errors, 0)
+          //Assert.assertTrue("Duration in utestJVM == 0", report.time != 0)
         }
       }
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
       // Make sure that the compilation is logged back to the client via logs in stdout
       val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
       Assert.assertTrue("End of compilation is not reported.", msgs.contains("Done compiling."))
     }
   }
 
-  type BspResponse[T] = Task[Either[JsonRpcResponse.Error, T]]
-  def testFailedCompile(bsp: Commands.ValidatedBsp): Unit = {
+  type BspResponse[T] = Task[Either[Response.Error, T]]
+  def testFailedCompile(bspCmd: Commands.ValidatedBsp): Unit = {
     val logger = new Slf4jAdapter(new RecordingLogger)
-    def expectError(request: BspResponse[CompileReport], expected: String, failMsg: String) = {
+    def expectError(request: BspResponse[bsp.CompileResult], expected: String, failMsg: String) = {
       request.flatMap {
         case Right(report) =>
-          Task.now(
-            Left(JsonRpcResponse.parseError(s"Expecting failed compilation, received $report.")))
+          Task.now(Left(Response.parseError(s"Expecting failed compilation, received $report.")))
         case Left(e) =>
           val validError = e.error.message.contains(expected)
           if (validError) Task.now(Right(()))
-          else Task.now(Left(JsonRpcResponse.parseError(failMsg)))
+          else Task.now(Left(Response.parseError(failMsg)))
       }
     }
 
     def clientWork(implicit client: LanguageClient) = {
+      def compileParams(xs: List[bsp.BuildTargetIdentifier]): bsp.CompileParams =
+        bsp.CompileParams(xs, None, Nil)
       val expected1 = "URI 'file://this-doesnt-exist' has invalid format."
       val fail1 = "The invalid format error was missed in 'this-doesnt-exist'"
-      val params1 = CompileParams(List(BuildTargetIdentifier("file://this-doesnt-exist")))
-
-      val expected2 = "URI cannot be empty."
-      val fail2 = "The invalid format error was missed in empty URI."
-      val params2 = CompileParams(List(BuildTargetIdentifier("")))
+      val f = new java.net.URI("file://thisdoesntexist")
+      val params1 = compileParams(List(bsp.BuildTargetIdentifier(bsp.Uri(f))))
 
       val expected3 = "Empty build targets. Expected at least one build target identifier."
       val fail3 = "No error was thrown on empty build targets."
-      val params3 = CompileParams(List())
+      val params3 = compileParams(List())
 
-      val extraErrors = List(
-        (expected2, fail2, params2),
-        (expected3, fail3, params3)
-      )
-
+      val extraErrors = List((expected3, fail3, params3))
       val init = expectError(endpoints.BuildTarget.compile.request(params1), expected1, fail1)
       extraErrors.foldLeft(init) {
         case (acc, (expected, fail, params)) =>
@@ -280,7 +270,7 @@ class BspProtocolSpec {
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bsp, configDir, logger)(c => clientWork(c))
+      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
     }
   }
 

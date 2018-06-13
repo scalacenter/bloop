@@ -36,7 +36,8 @@ final case class Project(
     platform: Platform,
     jsToolchain: Option[ScalaJsToolchain],
     nativeToolchain: Option[ScalaNativeToolchain],
-    sbt: Option[Config.Sbt]
+    sbt: Option[Config.Sbt],
+    resolution: Option[Config.Resolution]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
@@ -138,7 +139,12 @@ object Project {
 
     val sbt = project.sbt match {
       case Config.Sbt.empty => None
-      case config => Some(config)
+      case sbt => Some(sbt)
+    }
+
+    val resolution = project.resolution match {
+      case Config.Resolution.empty => None
+      case res => Some(res)
     }
 
     Project(
@@ -160,7 +166,8 @@ object Project {
       project.platform,
       jsToolchain,
       nativeToolchain,
-      sbt
+      sbt,
+      resolution
     )
   }
 
