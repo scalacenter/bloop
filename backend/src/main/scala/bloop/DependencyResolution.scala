@@ -49,7 +49,10 @@ object DependencyResolution {
     val dependency = Dependency(Module(organization, module), version)
     val start = Resolution(Set(dependency))
     val repositories = {
-      val baseRepositories = Seq(Cache.ivy2Local, MavenRepository("https://repo1.maven.org/maven2"))
+      val baseRepositories = Seq(
+        Cache.ivy2Local,
+        MavenRepository("https://repo1.maven.org/maven2"),
+        MavenRepository("https://dl.bintray.com/scalacenter/releases"))
       baseRepositories ++ additionalRepositories
     }
     val fetch = Fetch.from(repositories, Cache.fetch())
