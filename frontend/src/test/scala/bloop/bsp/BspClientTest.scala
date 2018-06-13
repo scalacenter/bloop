@@ -113,6 +113,8 @@ object BspClientTest {
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
         _ = endpoints.Build.initialized.notify(bsp.InitializedBuildParams())
         otherCalls <- runEndpoints(lsClient)
+        _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
+        _ = endpoints.Build.exit.notify(bsp.Exit())
       } yield BspServer.closeSocket(cmd, socket)
     }
 

@@ -3,7 +3,7 @@ package bloop.bsp
 import java.net.ServerSocket
 import java.util.Locale
 
-import bloop.cli.Commands
+import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.Slf4jAdapter
@@ -102,6 +102,11 @@ object BspServer {
             logger.error(t.getMessage)
             logger.trace(t)
             state
+        }
+      case scala.util.Failure(BloopBspServices.BloopExitGracefully(code)) =>
+        me.Task {
+          if (code == 0) state.mergeStatus(ExitStatus.Ok)
+          else state.mergeStatus(ExitStatus.UnexpectedError)
         }
       case scala.util.Failure(t: Throwable) =>
         me.Task {

@@ -31,6 +31,8 @@ final class BloopBspServices(
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
+    .request(endpoints.Build.shutdown)(shutdown(_))
+    .notificationAsync(endpoints.Build.exit)(exit(_))
     .requestAsync(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.dependencySources)(dependencySources(_))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(scalacOptions(_))
@@ -283,6 +285,25 @@ final class BloopBspServices(
       }
     }
   }
+
+  val isShutdown = scala.concurrent.Promise[Either[ProtocolError, Unit]]()
+  val isShutdownTask = Task.fromFuture(isShutdown.future).memoize
+  def shutdown(shutdown: bsp.Shutdown): Unit = {
+    isShutdown.success(Right(()))
+    callSiteState.logger.info("shutdown request received: build/shutdown")
+    ()
+  }
+
+  def exit(shutdown: bsp.Exit): Task[Unit] = {
+    isShutdownTask
+      .timeoutTo(
+        FiniteDuration(1, TimeUnit.SECONDS),
+        Task.now(Left(()))
+      ).flatMap {
+      case Left(_) => throw BloopBspServices.BloopExitGracefully(1)
+      case Right(_) => throw BloopBspServices.BloopExitGracefully(0)
+    }
+  }
 }
 
 object BloopBspServices {
@@ -291,4 +312,7 @@ object BloopBspServices {
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
+
+  // We need to use an exception to stop the server because lsp4s doesn't give us something better
+  private[bloop] case class BloopExitGracefully(code: Int) extends Exception
 }
