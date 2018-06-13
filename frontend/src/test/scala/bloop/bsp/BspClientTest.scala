@@ -96,7 +96,7 @@ object BspClientTest {
 
       implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in)
-      val services = createServices(logger)
+      val services = customServices(createServices(logger))
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 

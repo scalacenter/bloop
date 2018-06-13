@@ -211,7 +211,7 @@ class BspProtocolSpec {
       }
     }
 
-    val checkCompileReports = { (s: Services) =>
+    val addServicesTest = { (s: Services) =>
       s.notification(endpoints.BuildTarget.compileReport) { report =>
         if (tested) throw new AssertionError("Bloop compiled more than one target")
         if (report.target.uri.value.endsWith("utestJVM")) {
@@ -224,7 +224,7 @@ class BspProtocolSpec {
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
+      BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
       // Make sure that the compilation is logged back to the client via logs in stdout
       val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
       Assert.assertTrue("End of compilation is not reported.", msgs.contains("Done compiling."))
