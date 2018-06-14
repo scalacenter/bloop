@@ -86,7 +86,7 @@ object Tasks {
       val reporter = logger match {
         case bspLogger: BspLogger =>
           // Don't show errors in reverse order, log as they come!
-          new BspReporter(bspLogger, cwd, identity, config.copy(reverseOrder = false))
+          new BspReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
         case _ => new LogReporter(logger, cwd, identity, config)
       }
 

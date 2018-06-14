@@ -3,6 +3,8 @@ import build.BuildImplementation.BuildDefaults
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
 bloopAggregateSourceDependencies in Global := true
 
+bloopExportJarClassifiers in ThisBuild := Some(Set("sources"))
+
 /***************************************************************************************************/
 /*                      This is the build definition of the source deps                            */
 /***************************************************************************************************/
@@ -168,24 +170,26 @@ val docs = project
 
 lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs")
+  .in(file("bridges") / "scalajs-0.6")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-0.6",
-    target := (file("bridges") / "scalajs" / "target" / "0.6").getAbsoluteFile,
     libraryDependencies += Dependencies.scalaJsTools06
   )
 
 lazy val jsBridge10 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs")
+  .in(file("bridges") / "scalajs-1.0")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-1.0",
-    target := (file("bridges") / "scalajs" / "target" / "1.0").getAbsoluteFile,
-    libraryDependencies += Dependencies.scalaJsTools10
+    libraryDependencies ++= List(
+      Dependencies.scalaJsLinker10,
+      Dependencies.scalaJsLogging10,
+      Dependencies.scalaJsIO10,
+    )
   )
 
 lazy val nativeBridge = project

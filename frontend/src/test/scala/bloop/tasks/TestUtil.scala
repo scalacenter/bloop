@@ -240,7 +240,8 @@ object TestUtil {
       platform = Config.Platform.default,
       jsToolchain = None,
       nativeToolchain = None,
-      sbt = None
+      sbt = None,
+      resolution = None
     )
   }
 

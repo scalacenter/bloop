@@ -8,6 +8,8 @@ val CrossPlatform = Integrations.CrossPlatform
 val integrations =
   List(SbtSbt, GuardianFrontend, MiniBetterFiles, WithResources, WithTests, AkkaAkka, CrossPlatform)
 
+bloopExportJarClassifiers in WithTests := Some(Set("sources"))
+
 import bloop.build.integrations.PluginKeys
 val dummy = project
   .in(file("."))
@@ -23,7 +25,7 @@ val dummy = project
         "with-resources" -> bloopConfigDir.in(WithResources).in(Compile).value,
         "with-tests" -> bloopConfigDir.in(WithTests).in(Compile).value,
         "akka" -> bloopConfigDir.in(AkkaAkka).in(Compile).value,
-        "cross-platform" -> bloopConfigDir.in(CrossPlatform).in(Compile).value
+        "cross-platform" -> bloopConfigDir.in(CrossPlatform).in(Compile).value,
       )
     },
     cleanAllBuilds := {
@@ -36,7 +38,7 @@ val dummy = project
         clean.in(WithResources),
         clean.in(WithTests),
         clean.in(AkkaAkka),
-        clean.in(CrossPlatform)
+        clean.in(CrossPlatform),
       )
     }
   )

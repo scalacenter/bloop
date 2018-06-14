@@ -15,6 +15,8 @@ import config.Config.Platform
 import bloop.engine.ExecutionContext
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
 
+import ch.epfl.scala.{bsp => Bsp}
+
 final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
@@ -34,13 +36,14 @@ final case class Project(
     platform: Platform,
     jsToolchain: Option[ScalaJsToolchain],
     nativeToolchain: Option[ScalaNativeToolchain],
-    sbt: Option[Config.Sbt]
+    sbt: Option[Config.Sbt],
+    resolution: Option[Config.Resolution]
 ) {
   override def toString: String = s"$name"
   override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
 
   /** The bsp uri associated with this project. */
-  val bspUri: String = ProjectUris.toUri(baseDirectory, name).toString
+  val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
   val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
@@ -58,7 +61,7 @@ object Project {
   final val loadDepth: Int = 1
 
   private def loadAllFiles(configRoot: AbsolutePath): Array[AbsolutePath] =
-    Paths.getAll(configRoot, loadPattern, maxDepth = loadDepth)
+    Paths.getAllFiles(configRoot, loadPattern, maxDepth = loadDepth)
 
   /**
    * Load all the projects from `config` in a parallel, lazy fashion via monix Task.
@@ -136,7 +139,12 @@ object Project {
 
     val sbt = project.sbt match {
       case Config.Sbt.empty => None
-      case config => Some(config)
+      case sbt => Some(sbt)
+    }
+
+    val resolution = project.resolution match {
+      case Config.Resolution.empty => None
+      case res => Some(res)
     }
 
     Project(
@@ -158,7 +166,8 @@ object Project {
       project.platform,
       jsToolchain,
       nativeToolchain,
-      sbt
+      sbt,
+      resolution
     )
   }
 

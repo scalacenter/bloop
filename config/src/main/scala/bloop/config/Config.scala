@@ -98,13 +98,25 @@ object Config {
     val All = List(Debug.id, Release.id)
   }
 
+  sealed abstract class ModuleKindJS(val id: String)
+  object ModuleKindJS {
+    case object NoModule extends ModuleKindJS("none")
+    case object CommonJSModule extends ModuleKindJS("commonjs")
+    val All = List(NoModule.id, CommonJSModule.id)
+  }
+
   case class JsConfig(
       version: String,
       mode: LinkerMode,
+      kind: ModuleKindJS,
+      emitSourceMaps: Boolean,
       toolchain: List[Path]
   ) extends PlatformConfig
 
-  object JsConfig { private[bloop] val empty: JsConfig = JsConfig("", LinkerMode.Debug, Nil) }
+  object JsConfig {
+    private[bloop] val empty: JsConfig =
+      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, Nil)
+  }
 
   /**
    * Represents the native platform and all the options it takes.

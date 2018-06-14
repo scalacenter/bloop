@@ -69,6 +69,8 @@ object BloopKeys {
     settingKey[Option[File]]("User-defined location for the incremental analysis file.")
   val bloopScalaJSStage: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scalajs independent definition of `scalaJSStage`.")
+  val bloopScalaJSModuleKind: SettingKey[Option[String]] =
+    settingKey[Option[String]]("Scalajs independent definition of `scalaJSModuleKind`.")
 }
 
 object BloopDefaults {
@@ -140,6 +142,7 @@ object BloopDefaults {
       sbt.inConfig(Test)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalajsStage.value,
+        BloopKeys.bloopScalaJSModuleKind := findOutScalajsModuleKind.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.checksums in Keys.update := Vector("sha1"),
         Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
@@ -162,10 +165,10 @@ object BloopDefaults {
   }
 
   /**
-    * Replace the implementation of discovered sbt plugins so that we don't run it
-    * when we `bloopGenerate` or `bloopInstall`. This is important because when there
-    * are sbt plugins in the build they trigger the compilation of all the modules.
-    * We do no-op when there is indeed an sbt plugin in the build. */
+   * Replace the implementation of discovered sbt plugins so that we don't run it
+   * when we `bloopGenerate` or `bloopInstall`. This is important because when there
+   * are sbt plugins in the build they trigger the compilation of all the modules.
+   * We do no-op when there is indeed an sbt plugin in the build. */
   lazy val discoveredSbtPluginsSettings: Seq[Def.Setting[_]] = List(
     Keys.discoveredSbtPlugins := (Def.taskDyn {
       if (!Keys.sbtPlugin.value) Def.task(PluginDiscovery.emptyDiscoveredNames)
@@ -173,7 +176,7 @@ object BloopDefaults {
         currentCommandFromState(Keys.state.value) match {
           case Some(userCommand) =>
             if (userCommand.endsWith(BloopKeys.bloopGenerate.key.label) ||
-              userCommand.endsWith(BloopKeys.bloopInstall.key.label)) {
+                userCommand.endsWith(BloopKeys.bloopInstall.key.label)) {
               Def.task(PluginDiscovery.emptyDiscoveredNames)
             } else {
               Def.task(PluginDiscovery.discoverSourceAll(Keys.compile.value))
@@ -190,24 +193,44 @@ object BloopDefaults {
   private final val ScalajsFastOpt = "fastopt"
   private final val ScalajsFullOpt = "fullopt"
 
+  private final val NoJSModule = "NoModule"
+  private final val CommonJSModule = "CommonJSModule"
+
   /**
-   * Find out the scalajs stage via Java reflection and some manifest tricks.
-   *
-   * Getting this information isn't as easy as with Scala native because the type of the
-   * scalajs stage depends on a class defined in a Scalajs classloader. The way we solve
-   * this problem is by cheating: we create our own manifest that we pass explicitly
-   * to the setting definition so that sbt is capable of matching it with the possibly
-   * defined scalajs plugin (if the scalajs plugin is in the build).
+   * Create a "proxy" for a setting that will allow us to inspect its value even though
+   * its not accessed from the same classloader. This is required to access scalajs
+   * settings whose return type is scalajs specific and only lives in their classloader.
+   * Returns none if the key wasn't found with the id and type of class passed in.
    */
+  def proxyForSetting(id: String, `class`: Class[_]): Def.Initialize[Option[AnyRef]] = {
+    val stageManifest = new Manifest[AnyRef] { override def runtimeClass = `class` }
+    toAnyRefSettingKey(id, stageManifest).?
+  }
+
   lazy val findOutScalajsStage: Def.Initialize[Option[String]] = Def.settingDyn {
     try {
       val stageClass = Class.forName("org.scalajs.sbtplugin.Stage")
-      val stageManifest = new Manifest[AnyRef] { override def runtimeClass = stageClass }
-      val stageSetting = toAnyRefSettingKey("scalaJSStage", stageManifest).?
+      val stageSetting = proxyForSetting("scalaJSStage", stageClass)
       Def.setting {
         stageSetting.value.toString match {
           case "Some(FastOpt)" => Some(ScalajsFastOpt)
           case "Some(FullOpt)" => Some(ScalajsFullOpt)
+          case _ => None
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+    }
+  }
+
+  lazy val findOutScalajsModuleKind: Def.Initialize[Option[String]] = Def.settingDyn {
+    try {
+      val stageClass = Class.forName("core.tools.linker.backend.ModuleKind")
+      val stageSetting = proxyForSetting("scalaJSModuleKind", stageClass)
+      Def.setting {
+        stageSetting.value.toString match {
+          case "Some(NoModule)" => Some(NoJSModule)
+          case "Some(CommonJSModule)" => Some(CommonJSModule)
           case _ => None
         }
       }
@@ -530,7 +553,15 @@ object BloopDefaults {
           case _ => emptyScalajs.mode
         }
 
-        val jsConfig = Config.JsConfig(scalajsVersion, scalajsStage, emptyScalajs.toolchain)
+        val scalajsModule = BloopKeys.bloopScalaJSModuleKind.value match {
+          case Some(NoJSModule) => Config.ModuleKindJS.NoModule
+          case Some(CommonJSModule) => Config.ModuleKindJS.CommonJSModule
+          case _ => emptyScalajs.kind
+        }
+
+        val scalajsEmitSourceMaps =
+          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalajs.emitSourceMaps)
+        val jsConfig = Config.JsConfig(scalajsVersion, scalajsStage, scalajsModule, scalajsEmitSourceMaps, emptyScalajs.toolchain)
         Config.Platform.Js(jsConfig)
       }
     } else {

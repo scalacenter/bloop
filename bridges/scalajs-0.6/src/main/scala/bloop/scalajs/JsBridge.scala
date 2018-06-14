@@ -13,8 +13,10 @@ import org.scalajs.core.tools.io.{
 import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
 import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
 import bloop.Project
-import bloop.config.Config.{JsConfig, LinkerMode}
+import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
 import bloop.logging.{Logger => BloopLogger}
+import org.scalajs.core.tools.linker.backend.ModuleKind
+import org.scalajs.core.tools.sem.Semantics
 
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {
@@ -53,6 +55,16 @@ object JsBridge {
       .flatMap(findIrFiles)
       .map(f => new FileVirtualScalaJSIRFile(f.toFile))
 
+    val semantics = config.mode match {
+      case LinkerMode.Debug => Semantics.Defaults
+      case LinkerMode.Release => Semantics.Defaults.optimized
+    }
+
+    val moduleKind = config.kind match {
+      case ModuleKindJS.NoModule => ModuleKind.NoModule
+      case ModuleKindJS.CommonJSModule => ModuleKind.CommonJSModule
+    }
+
     val outputPath = project.out.underlying
     val target = project.out.resolve("out.js")
 
@@ -62,11 +74,18 @@ object JsBridge {
     }
 
     val jarFiles = classpath.filter(isJarFile).map(toIRJar)
-    val jarIrFiles = jarFiles.flatMap(_.jar.sjsirFiles)
+    val scalajsIRFiles = jarFiles.flatMap(_.jar.sjsirFiles)
     val initializer = ModuleInitializer.mainMethodWithArgs(mainClass, "main")
-    val jsConfig = StandardLinker.Config().withOptimizer(enableOptimizer)
+    val jsConfig = StandardLinker
+      .Config()
+      .withOptimizer(enableOptimizer)
+      .withClosureCompilerIfAvailable(enableOptimizer)
+      .withSemantics(semantics)
+      .withModuleKind(moduleKind)
+      .withSourceMap(config.emitSourceMaps)
+
     StandardLinker(jsConfig).link(
-      irFiles = classpathIrFiles ++ jarIrFiles,
+      irFiles = classpathIrFiles ++ scalajsIRFiles,
       moduleInitializers = Seq(initializer),
       output = AtomicWritableFileVirtualJSFile(target.toFile),
       logger = new Logger(logger)

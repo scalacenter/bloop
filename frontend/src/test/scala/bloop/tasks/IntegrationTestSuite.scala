@@ -82,7 +82,8 @@ class IntegrationTestSuite(testDirectory: Path) {
           platform = Config.Platform.default,
           jsToolchain = None,
           nativeToolchain = None,
-          sbt = None
+          sbt = None,
+          resolution = None
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))

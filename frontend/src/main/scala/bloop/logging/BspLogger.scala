@@ -4,14 +4,16 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.engine.State
 import bloop.reporter.{DefaultReporterFormat, Problem}
-import org.langmeta.jsonrpc.JsonRpcClient
-import org.langmeta.lsp
 import sbt.internal.inc.bloop.ZincInternals
 import xsbti.Severity
 
+import scala.meta.jsonrpc.JsonRpcClient
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
+
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
- * It does so via the replication of the `window/showMessage` LSP functionality.
+ * It does so via the replication of the `build/logMessage` LSP functionality.
  */
 final class BspLogger private (
     override val name: String,
@@ -31,15 +33,15 @@ final class BspLogger private (
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
   override def error(msg: String): Unit = {
-    lsp.Window.showMessage.error(msg)
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Error, None, None, msg))
   }
 
   override def warn(msg: String): Unit = {
-    lsp.Window.showMessage.warn(msg)
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, None, msg))
   }
 
   override def info(msg: String): Unit = {
-    lsp.Window.showMessage.info(msg)
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Info, None, None, msg))
   }
 
   def diagnostic(problem: Problem): Unit = {
@@ -53,24 +55,24 @@ final class BspLogger private (
       case Some((pos0, file)) =>
         val pos = ZincInternals.rangeFromPosition(problem.position) match {
           case Some(lineRange) =>
-            val start = lsp.Position(pos0.line, lineRange.start)
-            val end = lsp.Position(pos0.line, lineRange.end)
-            lsp.Range(start, end)
+            val start = bsp.Position(pos0.line, lineRange.start)
+            val end = bsp.Position(pos0.line, lineRange.end)
+            bsp.Range(start, end)
           case None =>
-            val pos = lsp.Position(pos0.line, pos0.column)
-            lsp.Range(pos, pos)
+            val pos = bsp.Position(pos0.line, pos0.column)
+            bsp.Range(pos, pos)
         }
 
         val severity = problem.severity match {
-          case Severity.Error => lsp.DiagnosticSeverity.Error
-          case Severity.Warn => lsp.DiagnosticSeverity.Warning
-          case Severity.Info => lsp.DiagnosticSeverity.Information
+          case Severity.Error => bsp.DiagnosticSeverity.Error
+          case Severity.Warn => bsp.DiagnosticSeverity.Warning
+          case Severity.Info => bsp.DiagnosticSeverity.Information
         }
 
-        val uri = file.toURI.toString
-        val diagnostic = lsp.Diagnostic(pos, Some(severity), None, None, message)
-        val diagnostics = lsp.PublishDiagnostics(uri, List(diagnostic))
-        lsp.TextDocument.publishDiagnostics.notify(diagnostics)
+        val uri = bsp.Uri(file.toURI)
+        val diagnostic = bsp.Diagnostic(pos, Some(severity), None, None, message, None)
+        val diagnostics = bsp.PublishDiagnosticsParams(uri, None, List(diagnostic))
+        Build.publishDiagnostics.notify(diagnostics)
       case None =>
         problem.severity match {
           case Severity.Error => error(message)
@@ -78,6 +80,14 @@ final class BspLogger private (
           case Severity.Info => info(message)
         }
     }
+  }
+
+  def publishBspReport(uri: bsp.Uri, problems: Seq[Problem]): Unit = {
+    val errors = problems.count(_.severity == Severity.Error)
+    val warnings = problems.count(_.severity == Severity.Warn)
+    BuildTarget.compileReport.notify(
+      bsp.CompileReport(bsp.BuildTargetIdentifier(uri), None, errors, warnings, None)
+    )
   }
 }
 

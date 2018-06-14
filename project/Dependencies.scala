@@ -3,7 +3,7 @@ package build
 object Dependencies {
   val nailgunVersion = "60c2d130"
   val zincVersion = "1.1.7+62-0f4ad9d5"
-  val bspVersion = "ce87199c"
+  val bspVersion = "1.0.0-M4"
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M3"
   val lmVersion = "1.0.0"
@@ -25,7 +25,7 @@ object Dependencies {
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
   val scalaJs06Version = "0.6.23"
-  val scalaJs10Version = "1.0.0-M2"
+  val scalaJs10Version = "1.0.0-M3"
   val millVersion = "0.2.3"
 
   import sbt.librarymanagement.syntax.stringToOrganization
@@ -68,6 +68,8 @@ object Dependencies {
 
   val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
-  val scalaJsTools10 = "org.scala-js" %% "scalajs-tools" % scalaJs10Version
+  val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version
+  val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version
+  val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version
   val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion % Provided
 }

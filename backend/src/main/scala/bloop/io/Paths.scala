@@ -35,15 +35,27 @@ object Paths {
     dir
   }
 
-  def getAll(base: AbsolutePath,
-             pattern: String,
-             maxDepth: Int = Int.MaxValue): Array[AbsolutePath] = {
+  /**
+    * Get all files under `base` that match the pattern `pattern` up to depth `maxDepth`.
+    *
+    * Example:
+    * ```
+    * Paths.getAll(src, "glob:**.{scala,java}")
+    * ```
+    */
+  def getAllFiles(
+      base: AbsolutePath,
+      pattern: String,
+      maxDepth: Int = Int.MaxValue
+  ): Array[AbsolutePath] = {
     val out = collection.mutable.ArrayBuffer.empty[AbsolutePath]
     val matcher = FileSystems.getDefault.getPathMatcher(pattern)
+
     val visitor = new FileVisitor[Path] {
-      override def preVisitDirectory(directory: Path,
-                                     attributes: BasicFileAttributes): FileVisitResult =
-        FileVisitResult.CONTINUE
+      override def preVisitDirectory(
+          directory: Path,
+          attributes: BasicFileAttributes
+      ): FileVisitResult = FileVisitResult.CONTINUE
 
       override def postVisitDirectory(directory: Path, exception: IOException): FileVisitResult =
         FileVisitResult.CONTINUE
@@ -56,10 +68,9 @@ object Paths {
       override def visitFileFailed(file: Path, exception: IOException): FileVisitResult =
         FileVisitResult.CONTINUE
     }
-    Files.walkFileTree(base.underlying,
-                       util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
-                       maxDepth,
-                       visitor)
+
+    val opts = util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
+    Files.walkFileTree(base.underlying, opts, maxDepth, visitor)
     out.toArray
   }
 

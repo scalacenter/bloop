@@ -2,14 +2,17 @@ package bloop.bsp
 
 import java.net.ServerSocket
 import java.util.Locale
-import java.nio.file.{Files, Path}
 
-import bloop.cli.{BspProtocol, Commands}
-import bloop.engine.{ExecutionContext, State}
+import bloop.cli.{Commands, ExitStatus}
+import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.Slf4jAdapter
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
-import monix.execution.{Cancelable, Scheduler}
+import monix.execution.Scheduler
+import monix.execution.atomic.Atomic
+
+import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.meta.lsp.{LanguageClient, LanguageServer}
 
 object BspServer {
   private[bloop] val isWindows: Boolean =
@@ -64,10 +67,6 @@ object BspServer {
       configPath: RelativePath,
       scheduler: Scheduler
   ): me.Task[State] = {
-    import org.langmeta.lsp.LanguageClient
-    import org.langmeta.lsp.LanguageServer
-    import org.langmeta.jsonrpc.BaseProtocolMessage
-
     def uri(handle: ConnectionHandle): String = {
       handle match {
         case w: WindowsLocal => s"local:${w.pipeName}"
@@ -83,34 +82,31 @@ object BspServer {
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at ${connectionURI}.")
 
+      val exitStatus = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
       val bspLogger = com.typesafe.scalalogging.Logger(new Slf4jAdapter(logger))
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider = new BloopBspServices(state, client, configPath)
+      val servicesProvider = new BloopBspServices(state, client, configPath, in, exitStatus)
       val bloopServices = servicesProvider.services
       val messages = BaseProtocolMessage.fromInputStream(in)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
       server.startTask
         .map(_ => servicesProvider.latestState)
+        .onErrorHandleWith(t =>
+          servicesProvider.latestState.withError(s"BSP server was stopped by ${t.getMessage}"))
         .doOnFinish(_ => me.Task { handle.serverSocket.close() })
     }
 
     initServer(cmd, state).materialize.flatMap {
       case scala.util.Success(handle: ConnectionHandle) =>
-        startServer(handle).onErrorRecover {
+        startServer(handle).onErrorRecoverWith {
           case t: Throwable =>
-            logger.error(t.getMessage)
-            logger.trace(t)
-            state
+            state.withError(s"BSP server failed to start with ${t.getMessage}", t)
         }
       case scala.util.Failure(t: Throwable) =>
-        me.Task {
-          logger.error(s"BSP server failed to open a socket: '${t.getMessage}'")
-          logger.trace(t)
-          state
-        }
+        state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t)
     }
   }
 }

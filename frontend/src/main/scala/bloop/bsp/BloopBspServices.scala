@@ -1,6 +1,6 @@
 package bloop.bsp
 
-import java.nio.charset.{Charset, StandardCharsets}
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -9,25 +9,23 @@ import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger
-import ch.epfl.`scala`.bsp.schema._
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
-import ch.epfl.scala.bsp.schema.ScalaBuildTarget.ScalaPlatform
-import com.google.protobuf.ByteString
-import org.langmeta.jsonrpc.{
-  JsonRpcClient,
-  Response => JsonRpcResponse,
-  Services => JsonRpcServices
-}
-import scalapb_circe.JsonFormat
+
+import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import xsbti.Problem
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+import monix.execution.atomic.AtomicInt
 
 import scala.concurrent.duration.FiniteDuration
 
 final class BloopBspServices(
     callSiteState: State,
     client: JsonRpcClient,
-    relativeConfigPath: RelativePath
+    relativeConfigPath: RelativePath,
+    socketInput: InputStream,
+    exitStatus: AtomicInt
 ) {
   private type ProtocolError = JsonRpcResponse.Error
   private type BspResponse[T] = Task[Either[ProtocolError, T]]
@@ -37,6 +35,8 @@ final class BloopBspServices(
   final val services = JsonRpcServices.empty
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
+    .request(endpoints.Build.shutdown)(shutdown(_))
+    .notificationAsync(endpoints.Build.exit)(exit(_))
     .requestAsync(endpoints.Workspace.buildTargets)(buildTargets(_))
     .requestAsync(endpoints.BuildTarget.dependencySources)(dependencySources(_))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(scalacOptions(_))
@@ -69,20 +69,22 @@ final class BloopBspServices(
    * @param params The params request that we get from the client.
    * @return An async computation that returns the response to the client.
    */
-  def initialize(params: InitializeBuildParams): BspResponse[InitializeBuildResult] = {
-    val configDir = AbsolutePath(params.rootUri).resolve(relativeConfigPath)
+  def initialize(params: bsp.InitializeBuildParams): BspResponse[bsp.InitializeBuildResult] = {
+    val uri = new java.net.URI(params.rootUri.value)
+    val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
     reloadState(configDir).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       currentState = state
       Right(
-        InitializeBuildResult(
-          Some(
-            BuildServerCapabilities(
-              compileProvider = true,
-              textDocumentBuildTargetsProvider = true,
-              dependencySourcesProvider = false,
-              buildTargetChangedProvider = true
-            )
+        bsp.InitializeBuildResult(
+          bsp.BuildServerCapabilities(
+            compileProvider = BloopBspServices.DefaultCompileProvider,
+            testProvider = BloopBspServices.DefaultTestProvider,
+            runProvider = BloopBspServices.DefaultRunProvider,
+            textDocumentBuildTargetsProvider = true,
+            dependencySourcesProvider = true,
+            resourcesProvider = false,
+            buildTargetChangedProvider = false
           )
         )
       )
@@ -92,7 +94,7 @@ final class BloopBspServices(
   val isInitialized = scala.concurrent.Promise[Either[ProtocolError, Unit]]()
   val isInitializedTask = Task.fromFuture(isInitialized.future).memoize
   def initialized(
-      initializedBuildParams: InitializedBuildParams
+      initializedBuildParams: bsp.InitializedBuildParams
   ): Unit = {
     isInitialized.success(Right(()))
     callSiteState.logger.info("BSP initialization handshake complete.")
@@ -111,12 +113,12 @@ final class BloopBspServices(
       }
   }
 
-  type ProjectMapping = (BuildTargetIdentifier, Project)
+  type ProjectMapping = (bsp.BuildTargetIdentifier, Project)
   private def mapToProjects(
-      targets: Seq[BuildTargetIdentifier]): Either[ProtocolError, Seq[ProjectMapping]] = {
-    def getProject(target: BuildTargetIdentifier): Either[ProtocolError, ProjectMapping] = {
+      targets: Seq[bsp.BuildTargetIdentifier]): Either[ProtocolError, Seq[ProjectMapping]] = {
+    def getProject(target: bsp.BuildTargetIdentifier): Either[ProtocolError, ProjectMapping] = {
       val uri = target.uri
-      ProjectUris.getProjectDagFromUri(uri, currentState) match {
+      ProjectUris.getProjectDagFromUri(uri.value, currentState) match {
         case Left(errorMsg) => Left(JsonRpcResponse.parseError(errorMsg))
         case Right(Some(project)) => Right((target, project))
         case Right(None) => Left(JsonRpcResponse.invalidRequest(s"No project associated with $uri"))
@@ -136,41 +138,42 @@ final class BloopBspServices(
     }
   }
 
-  def compile(params: CompileParams): BspResponse[CompileReport] = {
-    def compile(projects0: Seq[ProjectMapping]): BspResponse[CompileReport] = {
+  def compile(params: bsp.CompileParams): BspResponse[bsp.CompileResult] = {
+    def compile(projects0: Seq[ProjectMapping]): BspResponse[bsp.CompileResult] = {
       val current = currentState
       val projects = Dag.reduce(current.build.dags, projects0.map(_._2).toSet)
       val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
         case (action, project) => Run(Commands.Compile(project.name), action)
       }
 
-      def report(p: Project, problems: Array[Problem], elapsedMs: Long) = {
+      def reportError(p: Project, problems: Array[Problem], elapsedMs: Long): String = {
         val count = bloop.reporter.Problem.count(problems)
-        val id = toBuildTargetId(p)
-        CompileReportItem(
-          target = Some(id),
-          errors = count.errors,
-          warnings = count.warnings,
-          time = elapsedMs,
-          linesOfCode = 0
-        )
+        s"${p.name} [${elapsedMs}ms] (errors ${count.errors}, warnings ${count.warnings})"
       }
 
       Interpreter.execute(action, Task.now(current)).map { state =>
         currentState = state
         val compiledProjects = current.results.diffLatest(state.results)
-        val items = compiledProjects.flatMap {
+        val errorMsgs = compiledProjects.flatMap {
           case (p, result) =>
             result match {
               case Compiler.Result.Empty => Nil
               case Compiler.Result.Cancelled(_) => Nil
               case Compiler.Result.Blocked(_) => Nil
-              case Compiler.Result.Failed(problems, elapsed) => List(report(p, problems, elapsed))
-              case Compiler.Result.Success(reporter, _, elapsed) =>
-                List(report(p, reporter.problems, elapsed))
+              case Compiler.Result.Success(_, _, _) => Nil
+              case Compiler.Result.Failed(problems, elapsed) =>
+                List(reportError(p, problems, elapsed))
             }
         }
-        Right(CompileReport(items))
+
+        errorMsgs match {
+          case Nil => Right(bsp.CompileResult(None, None))
+          case xs =>
+            val allErrors = xs.map(str => s"  ${str}").mkString(System.lineSeparator())
+            Left(
+              JsonRpcResponse.internalError(
+                s"Compilation failed:${System.lineSeparator()}$allErrors".stripMargin))
+        }
       }
     }
 
@@ -182,35 +185,47 @@ final class BloopBspServices(
     }
   }
 
-  private def toBuildTargetId(project: Project): BuildTargetIdentifier =
-    BuildTargetIdentifier(project.bspUri)
+  private def toBuildTargetId(project: Project): bsp.BuildTargetIdentifier =
+    bsp.BuildTargetIdentifier(project.bspUri)
 
-  def toScalaBuildTarget(project: Project): ScalaBuildTarget = {
+  def toScalaBuildTarget(project: Project): bsp.ScalaBuildTarget = {
     val instance = project.scalaInstance
-    val jars = instance.allJars.iterator.map(_.toURI.toString).toList
-    ScalaBuildTarget(
+    val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
+    bsp.ScalaBuildTarget(
       scalaOrganization = instance.organization,
       scalaVersion = instance.version,
       scalaBinaryVersion = instance.version,
-      platform = ScalaPlatform.JVM,
+      platform = bsp.ScalaPlatform.Jvm,
       jars = jars
     )
   }
 
-  def buildTargets(request: WorkspaceBuildTargetsRequest): BspResponse[WorkspaceBuildTargets] = {
+  def buildTargets(
+      request: bsp.WorkspaceBuildTargetsRequest): BspResponse[bsp.WorkspaceBuildTargets] = {
     ifInitialized {
       val build = currentState.build
-      val targets = WorkspaceBuildTargets(
+      val targets = bsp.WorkspaceBuildTargets(
         build.projects.map { p =>
           val id = toBuildTargetId(p)
+          val kind = {
+            if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)
+              bsp.BuildTargetKind.Test
+            else bsp.BuildTargetKind.Library
+          }
           val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
-          val scalaTarget = JsonFormat.toJsonString(toScalaBuildTarget(p))
-          val extra = ByteString.copyFrom(scalaTarget, StandardCharsets.UTF_8)
-          BuildTarget(
-            id = Some(id),
+          val extra = Some(encodeScalaBuildTarget(toScalaBuildTarget(p)))
+          val capabilities = bsp.BuildTargetCapabilities(
+            canCompile = true,
+            canTest = true,
+            canRun = true
+          )
+          bsp.BuildTarget(
+            id = id,
             displayName = p.name,
-            languageIds = List("scala", "java"),
+            kind = kind,
+            languageIds = BloopBspServices.DefaultLanguages,
             dependencies = deps.map(toBuildTargetId).toList,
+            capabilities = capabilities,
             data = extra
           )
         }
@@ -220,14 +235,23 @@ final class BloopBspServices(
     }
   }
 
-  def dependencySources(request: DependencySourcesParams): BspResponse[DependencySources] = {
-    def sources(projects: Seq[ProjectMapping]): BspResponse[DependencySources] = {
-      val response = DependencySources(
-        projects.map {
+  def dependencySources(
+      request: bsp.DependencySourcesParams): BspResponse[bsp.DependencySourcesResult] = {
+    def sources(projects: Seq[ProjectMapping]): BspResponse[bsp.DependencySourcesResult] = {
+      val response = bsp.DependencySourcesResult(
+        projects.iterator.map {
           case (target, project) =>
-            val sources = project.sources.iterator.map(_.toBspUri).toList
-            DependencySourcesItem(Some(target), sources)
-        }
+            val sources = project.sources.iterator.map(s => bsp.Uri(s.toBspUri)).toList
+            val sourceJars = project.resolution.toList.flatMap { res =>
+              res.modules.flatMap { m =>
+                m.artifacts.iterator
+                  .filter(a => a.classifier.toList.contains("sources"))
+                  .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
+                  .toList
+              }
+            }
+            bsp.DependencySourcesItem(target, sources ++ sourceJars)
+        }.toList
       )
 
       Task.now(Right(response))
@@ -241,18 +265,18 @@ final class BloopBspServices(
     }
   }
 
-  def scalacOptions(request: ScalacOptionsParams): BspResponse[ScalacOptions] = {
-    def scalacOptions(projects: Seq[ProjectMapping]): BspResponse[ScalacOptions] = {
-      val response = ScalacOptions(
-        projects.map {
+  def scalacOptions(request: bsp.ScalacOptionsParams): BspResponse[bsp.ScalacOptionsResult] = {
+    def scalacOptions(projects: Seq[ProjectMapping]): BspResponse[bsp.ScalacOptionsResult] = {
+      val response = bsp.ScalacOptionsResult(
+        projects.iterator.map {
           case (target, project) =>
-            ScalacOptionsItem(
-              target = Some(target),
-              options = project.scalacOptions,
-              classpath = project.classpath.iterator.map(_.toBspUri).toList,
-              classDirectory = project.classesDir.toBspUri
+            bsp.ScalacOptionsItem(
+              target = target,
+              options = project.scalacOptions.toList,
+              classpath = project.classpath.iterator.map(e => bsp.Uri(e.toBspUri)).toList,
+              classDirectory = bsp.Uri(project.classesDir.toBspUri)
             )
-        }
+        }.toList
       )
 
       Task.now(Right(response))
@@ -265,8 +289,40 @@ final class BloopBspServices(
       }
     }
   }
+
+  val isShutdown = scala.concurrent.Promise[Either[ProtocolError, Unit]]()
+  val isShutdownTask = Task.fromFuture(isShutdown.future).memoize
+  def shutdown(shutdown: bsp.Shutdown): Unit = {
+    isShutdown.success(Right(()))
+    callSiteState.logger.info("shutdown request received: build/shutdown")
+    ()
+  }
+
+  def exit(shutdown: bsp.Exit): Task[Unit] = {
+    def closeServices(code: Int): Unit = {
+      exitStatus.set(code)
+      // Closing the input stream is our way to stopping these services
+      try socketInput.close()
+      catch { case t: Throwable => () }
+      ()
+    }
+
+    isShutdownTask
+      .timeoutTo(
+        FiniteDuration(1, TimeUnit.SECONDS),
+        Task.now(Left(()))
+      )
+      .map {
+        case Left(_) => closeServices(1)
+        case Right(_) => closeServices(0)
+      }
+  }
 }
 
 object BloopBspServices {
-  private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
+  private[bloop] val counter: AtomicInteger = new AtomicInteger(0)
+  private[bloop] val DefaultLanguages = List("scala", "java")
+  private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
+  private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
+  private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
 }
