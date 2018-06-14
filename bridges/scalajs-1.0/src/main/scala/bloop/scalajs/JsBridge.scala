@@ -40,8 +40,8 @@ object JsBridge {
     }
 
     val semantics = config.mode match {
-      case LinkerMode.Debug => Semantics.Defaults.optimized
-      case LinkerMode.Release => Semantics.Defaults
+      case LinkerMode.Debug => Semantics.Defaults
+      case LinkerMode.Release => Semantics.Defaults.optimized
     }
 
     val moduleKind = config.kind match {
