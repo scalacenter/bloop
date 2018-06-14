@@ -9,6 +9,7 @@ matrix:
           "backend/test" \
           "nativeBridge/test" \
           "jsBridge06/test" \
+          "jsBridge10/test" \
           "frontend/test" \
           "docs/makeSite"
 
