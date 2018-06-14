@@ -169,11 +169,10 @@ final class BloopBspServices(
         errorMsgs match {
           case Nil => Right(bsp.CompileResult(None, None))
           case xs =>
-            Left(JsonRpcResponse.internalError(s"""Compilation failed:
-                                                  |${xs
-                                                    .map(str => s"  ${str}")
-                                                    .mkString("\n")}
-            """.stripMargin))
+            val allErrors = xs.map(str => s"  ${str}").mkString(System.lineSeparator())
+            Left(
+              JsonRpcResponse.internalError(
+                s"Compilation failed:${System.lineSeparator()}$allErrors".stripMargin))
         }
       }
     }
@@ -304,7 +303,7 @@ final class BloopBspServices(
       exitStatus.set(code)
       // Closing the input stream is our way to stopping these services
       try socketInput.close()
-      catch {case t: Throwable => ()}
+      catch { case t: Throwable => () }
       ()
     }
 
@@ -312,10 +311,11 @@ final class BloopBspServices(
       .timeoutTo(
         FiniteDuration(1, TimeUnit.SECONDS),
         Task.now(Left(()))
-      ).map {
-      case Left(_) => closeServices(1)
-      case Right(_) => closeServices(0)
-    }
+      )
+      .map {
+        case Left(_) => closeServices(1)
+        case Right(_) => closeServices(0)
+      }
   }
 }
 
