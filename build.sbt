@@ -185,7 +185,11 @@ lazy val jsBridge10 = project
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-1.0",
-    libraryDependencies += Dependencies.scalaJsTools10
+    libraryDependencies ++= List(
+      Dependencies.scalaJsLinker10,
+      Dependencies.scalaJsLogging10,
+      Dependencies.scalaJsIO10,
+    )
   )
 
 lazy val nativeBridge = project

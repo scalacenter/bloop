@@ -69,6 +69,25 @@ object ConfigEncoderDecoders {
     }
   }
 
+  implicit val moduleKindJsEncoder: RootEncoder[ModuleKindJS] = new RootEncoder[ModuleKindJS] {
+    override final def apply(m: ModuleKindJS): Json = m match {
+      case m @ ModuleKindJS.NoModule => Json.fromString(m.id)
+      case m @ ModuleKindJS.CommonJSModule => Json.fromString(m.id)
+    }
+  }
+
+  implicit val moduleKindJsDecoder: Decoder[ModuleKindJS] = new Decoder[ModuleKindJS] {
+    override def apply(c: HCursor): Result[ModuleKindJS] = {
+      c.as[String].flatMap {
+        case ModuleKindJS.NoModule.id => Right(ModuleKindJS.NoModule)
+        case ModuleKindJS.CommonJSModule.id => Right(ModuleKindJS.CommonJSModule)
+        case _ =>
+          val msg = s"Expected module kind ${ModuleKindJS.All.map(s => s"'$s'").mkString(", ")})."
+          Left(DecodingFailure(msg, c.history))
+      }
+    }
+  }
+
   implicit val jvmEncoder: ObjectEncoder[JvmConfig] = deriveEncoder
   implicit val jvmDecoder: Decoder[JvmConfig] = deriveDecoder
 

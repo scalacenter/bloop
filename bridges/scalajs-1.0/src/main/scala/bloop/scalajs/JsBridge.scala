@@ -1,14 +1,15 @@
 package bloop.scalajs
 
-import scala.collection.JavaConverters._
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
-import org.scalajs.core.tools.io.{AtomicWritableFileVirtualJSFile, FileScalaJSIRContainer, FileVirtualBinaryFile, FileVirtualScalaJSIRFile, IRFileCache, VirtualJarFile}
-import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
-import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
+import org.scalajs.io.AtomicWritableFileVirtualJSFile
 import bloop.Project
-import bloop.config.Config.{JsConfig, LinkerMode}
+import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
+import bloop.io.Paths
 import bloop.logging.{Logger => BloopLogger}
+import org.scalajs.linker.irio.{FileScalaJSIRContainer, FileVirtualScalaJSIRFile, IRFileCache}
+import org.scalajs.linker.{ModuleInitializer, ModuleKind, Semantics, StandardLinker}
+import org.scalajs.logging.{Level, Logger => JsLogger}
 
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {
@@ -23,27 +24,13 @@ object JsBridge {
     override def trace(t: => Throwable): Unit = logger.trace(t)
   }
 
-  @inline private def isIrFile(path: Path): Boolean =
-    path.toString.endsWith(".sjsir")
-
-  @inline private def isJarFile(path: Path): Boolean =
-    path.toString.endsWith(".jar")
-
-  private def findIrFiles(path: Path): List[Path] =
-    Files.walk(path).iterator().asScala.filter(isIrFile).toList
-
+  private def isJarFile(path: Path): Boolean = path.toString.endsWith(".jar")
   def link(
       config: JsConfig,
       project: Project,
       mainClass: String,
       logger: BloopLogger
   ): Path = {
-    val classpath = project.classpath.map(_.underlying)
-    val classpathIrFiles = classpath
-      .filter(Files.isDirectory(_))
-      .flatMap(findIrFiles)
-      .map(f => new FileVirtualScalaJSIRFile(f.toFile))
-
     val outputPath = project.out.underlying
     val target = project.out.resolve("out.js")
 
@@ -52,14 +39,42 @@ object JsBridge {
       case LinkerMode.Release => true
     }
 
-    val cache = new IRFileCache().newCache
-    val irContainers = FileScalaJSIRContainer.fromClasspath(classpath.map(_.toFile))
-    val libraryIRs = cache.cached(irContainers)
+    val semantics = config.mode match {
+      case LinkerMode.Debug => Semantics.Defaults.optimized
+      case LinkerMode.Release => Semantics.Defaults
+    }
+
+    val moduleKind = config.kind match {
+      case ModuleKindJS.NoModule => ModuleKind.NoModule
+      case ModuleKindJS.CommonJSModule => ModuleKind.CommonJSModule
+    }
+
+    val classpath = project.classpath.map(_.underlying)
+
+    val sourceIRs = {
+      val classpathDirs = project.classpath.filter(_.isDirectory)
+      val sjsirFiles = classpathDirs.flatMap(d => Paths.getAllFiles(d, "glob:**.sjsir")).distinct
+      sjsirFiles.map(s => FileVirtualScalaJSIRFile(s.underlying.toFile))
+    }
+
+    val libraryIRs = {
+      val cache = new IRFileCache().newCache
+      val jarFiles = classpath.iterator.filter(isJarFile).map(_.toFile).toList
+      val irContainers = FileScalaJSIRContainer.fromClasspath(jarFiles)
+      cache.cached(irContainers)
+    }
 
     val initializer = ModuleInitializer.mainMethodWithArgs(mainClass, "main")
-    val jsConfig = StandardLinker.Config().withOptimizer(enableOptimizer)
+    val jsConfig = StandardLinker
+      .Config()
+      .withOptimizer(enableOptimizer)
+      .withClosureCompilerIfAvailable(enableOptimizer)
+      .withSemantics(semantics)
+      .withModuleKind(moduleKind)
+      .withSourceMap(config.emitSourceMaps)
+
     StandardLinker(jsConfig).link(
-      irFiles = classpathIrFiles ++ libraryIRs,
+      irFiles = sourceIRs ++ libraryIRs,
       moduleInitializers = Seq(initializer),
       output = AtomicWritableFileVirtualJSFile(target.toFile),
       logger = new Logger(logger)

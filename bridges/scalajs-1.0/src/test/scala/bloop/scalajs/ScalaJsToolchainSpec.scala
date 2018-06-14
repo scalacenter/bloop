@@ -16,7 +16,7 @@ import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class ScalaJsToolchainSpec {
-  val state0 = TestUtil.loadTestProject("cross-platform", _.map(setUpScalajs))
+  val state0 = TestUtil.loadTestProject("scalajs-1", _.map(setUpScalajs))
   @Test def canLinkScalaJsProject(): Unit = {
     val logger = new RecordingLogger
     val state = state0.copy(logger = logger)

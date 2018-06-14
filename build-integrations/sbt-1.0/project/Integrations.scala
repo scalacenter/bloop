@@ -16,5 +16,4 @@ object Integrations {
     uri("git://github.com/scalacenter/akka.git#ad1c3fcad5f5521792f3772a195b0b9167f570fd"))
   val CrossPlatform = RootProject(
     uri("git://github.com/scalacenter/cross-platform.git#6a29444158ec6b3de5384f0d49a3d9cded32b818"))
-
 }

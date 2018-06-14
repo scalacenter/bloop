@@ -98,7 +98,7 @@ object FileTracker {
                        pattern: String,
                        maxDepth: Int): List[(AbsolutePath, FileTime)] = {
     Paths
-      .getAll(base, pattern, maxDepth)
+      .getAllFiles(base, pattern, maxDepth)
       .map(path => path -> Files.getLastModifiedTime(path.underlying))
       .toList
   }

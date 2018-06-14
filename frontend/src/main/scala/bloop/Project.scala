@@ -61,7 +61,7 @@ object Project {
   final val loadDepth: Int = 1
 
   private def loadAllFiles(configRoot: AbsolutePath): Array[AbsolutePath] =
-    Paths.getAll(configRoot, loadPattern, maxDepth = loadDepth)
+    Paths.getAllFiles(configRoot, loadPattern, maxDepth = loadDepth)
 
   /**
    * Load all the projects from `config` in a parallel, lazy fashion via monix Task.
