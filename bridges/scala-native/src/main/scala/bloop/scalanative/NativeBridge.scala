@@ -9,12 +9,11 @@ import java.nio.file.{Files, Path}
 import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => NativeLogger}
 
 object NativeBridge {
-  def nativeLink(config0: NativeConfig, project: Project, entry: String, logger: Logger): Path = {
+  def nativeLink(config0: NativeConfig, project: Project, entry: String, target: Path, logger: Logger): Path = {
     val workdir = project.out.resolve("native")
     if (workdir.isDirectory) Paths.delete(workdir)
     Files.createDirectories(workdir.underlying)
 
-    val outpath = workdir.resolve("out")
     val classpath = project.classpath.map(_.underlying)
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
     val config = setUpNativeConfig(project, config0)
@@ -39,7 +38,7 @@ object NativeBridge {
         .withWorkdir(workdir.underlying)
         .withLogger(nativeLogger)
 
-    Build.build(nativeConfig, outpath.underlying)
+    Build.build(nativeConfig, target)
   }
 
   private[scalanative] def setUpNativeConfig(
@@ -81,7 +80,8 @@ object NativeBridge {
       clang = clang,
       clangpp = clangpp,
       options = options,
-      linkStubs = config.linkStubs
+      linkStubs = config.linkStubs,
+      output = config.output
     )
   }
 }

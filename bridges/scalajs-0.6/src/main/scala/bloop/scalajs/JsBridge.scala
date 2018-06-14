@@ -40,15 +40,16 @@ object JsBridge {
   private def findIrFiles(path: Path): List[Path] =
     Files.walk(path).iterator().asScala.filter(isIrFile).toList
 
-  private def toIRJar(jar: Path) =
+  private def toIrJar(jar: Path) =
     IRContainer.Jar(new FileVirtualBinaryFile(jar.toFile) with VirtualJarFile)
 
   def link(
       config: JsConfig,
       project: Project,
       mainClass: String,
+      target: Path,
       logger: BloopLogger
-  ): Path = {
+  ): Unit = {
     val classpath = project.classpath.map(_.underlying)
     val classpathIrFiles = classpath
       .filter(Files.isDirectory(_))
@@ -65,15 +66,8 @@ object JsBridge {
       case ModuleKindJS.CommonJSModule => ModuleKind.CommonJSModule
     }
 
-    val outputPath = project.out.underlying
-    val target = project.out.resolve("out.js")
-
-    val enableOptimizer = config.mode match {
-      case LinkerMode.Debug => false
-      case LinkerMode.Release => true
-    }
-
-    val jarFiles = classpath.filter(isJarFile).map(toIRJar)
+    val enableOptimizer = config.mode == LinkerMode.Release
+    val jarFiles = classpath.filter(isJarFile).map(toIrJar)
     val scalajsIRFiles = jarFiles.flatMap(_.jar.sjsirFiles)
     val initializer = ModuleInitializer.mainMethodWithArgs(mainClass, "main")
     val jsConfig = StandardLinker
@@ -90,7 +84,5 @@ object JsBridge {
       output = AtomicWritableFileVirtualJSFile(target.toFile),
       logger = new Logger(logger)
     )
-
-    target.underlying
   }
 }

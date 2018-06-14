@@ -1,5 +1,7 @@
 package bloop.engine.tasks
 
+import java.nio.file.{Files, Path}
+
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.engine.caches.ResultsCache
@@ -8,13 +10,7 @@ import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.testing.{
-  DiscoveredTests,
-  LoggingEventHandler,
-  TestInternals,
-  TestSuiteEvent,
-  TestSuiteEventHandler
-}
+import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
@@ -429,6 +425,23 @@ object Tasks {
     mainClasses.toArray
   }
 
+  def reasonOfInvalidPath(output: Path): Option[String] = {
+    if (Files.isDirectory(output))
+      Some(s"The output path $output does not point to a file.")
+    else if (!Files.isWritable(output.getParent))
+      Some(s"The output path ${output.getParent} cannot be created.")
+    else None
+  }
+
+  def reasonOfInvalidPath(output: Path, extension: String): Option[String] = {
+    reasonOfInvalidPath(output).orElse {
+      if (!output.toString.endsWith(extension))
+      // This is required for the Scala.js linker, otherwise it will throw an exception
+        Some(s"The output path $output must have the extension '$extension'.")
+      else None
+    }
+  }
+
   private[bloop] def pickTestProject(projectName: String, state: State): Option[Project] = {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
@@ -450,5 +463,4 @@ object Tasks {
     }
     tasks.mapValues(_.toList).toMap
   }
-
 }

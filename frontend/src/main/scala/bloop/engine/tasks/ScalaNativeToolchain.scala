@@ -1,8 +1,8 @@
 package bloop.engine.tasks
 
-import scala.util.{Failure, Success, Try}
 import java.nio.file.Path
 
+import scala.util.{Failure, Success, Try}
 import bloop.Project
 import bloop.cli.ExitStatus
 import bloop.config.Config
@@ -29,17 +29,17 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
       config: NativeConfig,
       project: Project,
       mainClass: String,
+      target: AbsolutePath,
       logger: Logger
-  ): Task[Try[AbsolutePath]] = {
+  ): Task[Try[Unit]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalanative.NativeBridge")
-    val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Logger] :: Nil
+    val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
     val nativeLinkMeth = bridgeClazz.getMethod("nativeLink", paramTypes: _*)
 
     // The Scala Native toolchain expects to receive the module class' name
     val fullEntry = if (mainClass.endsWith("$")) mainClass else mainClass + "$"
-    Task(nativeLinkMeth.invoke(null, config, project, fullEntry, logger)).materialize.map {
-      _.collect { case path: Path => AbsolutePath(path) }
-    }
+    Task(nativeLinkMeth.invoke(null, config, project, fullEntry, target.underlying, logger)
+      .asInstanceOf[Unit]).materialize
   }
 
   /**
@@ -59,11 +59,12 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
       project: Project,
       cwd: AbsolutePath,
       mainClass: String,
+      target: AbsolutePath,
       args: Array[String]
   ): Task[State] = {
-    link(config, project, mainClass, state.logger).flatMap {
-      case Success(nativeBinary) =>
-        val cmd = nativeBinary.syntax +: args
+    link(config, project, mainClass, target, state.logger).flatMap {
+      case Success(_) =>
+        val cmd = target.syntax +: args
         Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
           val exitStatus = Forker.exitStatus(exitCode)
           state.mergeStatus(exitStatus)

@@ -537,8 +537,8 @@ object BloopDefaults {
             case _ => emptyNative.mode
           }
 
-          val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
-          val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs)
+          val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions, None)
+          val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs, None)
           Config.Platform.Native(nativeConfig)
         }
       }
@@ -560,7 +560,7 @@ object BloopDefaults {
 
         val scalaJsEmitSourceMaps =
           ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
-        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, emptyScalaJs.toolchain)
+        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, None, emptyScalaJs.toolchain)
         Config.Platform.Js(jsConfig)
       }
     } else {

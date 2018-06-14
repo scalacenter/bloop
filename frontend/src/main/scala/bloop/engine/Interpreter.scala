@@ -1,11 +1,13 @@
 package bloop.engine
 
+import java.nio.file.Files
+
 import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, ExitStatus, OptimizerConfig, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.config.Config.Platform
-import bloop.io.{RelativePath, SourceWatcher}
+import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks}
@@ -16,6 +18,9 @@ import monix.eval.Task
 import scala.util.{Failure, Success}
 
 object Interpreter {
+  val LinkedFileNameScalaJs     = "out.js"
+  val LinkedFileNameScalaNative = "out"
+
   // This is stack-safe because of Monix's trampolined execution
   def execute(action: Action, stateTask: Task[State]): Task[State] = {
     def execute(action: Action, stateTask: Task[State], inRecursion: Boolean): Task[State] = {
@@ -122,7 +127,7 @@ object Interpreter {
           Tasks.compile(state, project, config, sequential).map(_.mergeStatus(ExitStatus.Ok))
 
         val initialState = {
-          if (cmd.incremental) Task(state)
+          if (cmd.incremental) Task.now(state)
           else {
             // Clean is isolated because we pass in all the build projects
             Tasks.clean(state, state.build.projects, true)
@@ -134,7 +139,7 @@ object Interpreter {
           else watch(project, state, doCompile _)
         }
 
-      case None => Task(reportMissing(cmd.project :: Nil, state))
+      case None => Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -179,7 +184,7 @@ object Interpreter {
           Tasks.console(state, project, config, cmd.excludeRoot)
         }
       case None =>
-        Task(reportMissing(cmd.project :: Nil, state))
+        Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -200,7 +205,7 @@ object Interpreter {
         else doTest(state)
 
       case None =>
-        Task(reportMissing(cmd.project :: Nil, state))
+        Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
@@ -304,18 +309,24 @@ object Interpreter {
     def doJsRun(project: Project, config0: Config.JsConfig)(state: State): Task[State] = {
       compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
         cmd.main.orElse(getMainClass(state, project)) match {
-          case None => Task(state)
+          case None => Task.now(state)
           case Some(main) =>
             project.jsToolchain match {
               case Some(toolchain) =>
-                val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                toolchain.link(config, project, main, state.logger).flatMap {
-                  case Success(jsOut) =>
-                    state.withInfo(s"Generated JavaScript file '${jsOut.syntax}'")
-                  case Failure(ex) =>
-                    state.logger.trace(ex)
-                    val msg = s"JavaScript linking failed with '${ex.getMessage}'"
-                    state.withError(msg, ExitStatus.LinkingError)
+                config0.output.flatMap(Tasks.reasonOfInvalidPath(_, ".js")) match {
+                  case Some(msg) => state.withError(msg, ExitStatus.LinkingError)
+                  case None =>
+                    val target = config0.output.map(AbsolutePath(_))
+                      .getOrElse(project.out.resolve(LinkedFileNameScalaJs))
+                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                    toolchain.link(config, project, main, target, state.logger).flatMap {
+                      case Success(_) =>
+                        state.withInfo(s"Generated JavaScript file '${target.syntax}'")
+                      case Failure(ex) =>
+                        state.logger.trace(ex)
+                        val msg = s"JavaScript linking failed with '${ex.getMessage}'"
+                        state.withError(msg, ExitStatus.LinkingError)
+                    }
                 }
 
               case None => missingScalaJsToolchain(state, project)
@@ -327,18 +338,24 @@ object Interpreter {
     def doNativeRun(project: Project, config0: Config.NativeConfig)(state: State): Task[State] = {
       compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
         cmd.main.orElse(getMainClass(state, project)) match {
-          case None => Task(state)
+          case None => Task.now(state)
           case Some(main) =>
             project.nativeToolchain match {
               case Some(toolchain) =>
-                val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                toolchain.link(config, project, main, state.logger).flatMap {
-                  case Success(bin) =>
-                    state.withInfo(s"Generated native binary '${bin.syntax}'")
-                  case Failure(ex) =>
-                    state.logger.trace(ex)
-                    val msg = s"Native linking failed with '${ex.getMessage}'"
-                    state.withError(msg, ExitStatus.LinkingError)
+                config0.output.flatMap(Tasks.reasonOfInvalidPath(_)) match {
+                  case Some(msg) => state.withError(msg, ExitStatus.LinkingError)
+                  case None =>
+                    val target = config0.output.map(AbsolutePath(_))
+                      .getOrElse(project.out.resolve(LinkedFileNameScalaNative))
+                    val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                    toolchain.link(config, project, main, target, state.logger).flatMap {
+                      case Success(_) =>
+                        state.withInfo(s"Generated native binary '$target'")
+                      case Failure(ex) =>
+                        state.logger.trace(ex)
+                        val msg = s"Native linking failed with '${ex.getMessage}'"
+                        state.withError(msg, ExitStatus.LinkingError)
+                    }
                 }
 
               case None => missingScalaNativeToolchain(state, project)
@@ -349,7 +366,7 @@ object Interpreter {
 
     state.build.getProjectFor(cmd.project) match {
       case None =>
-        Task(reportMissing(cmd.project :: Nil, state))
+        Task.now(reportMissing(cmd.project :: Nil, state))
 
       case Some(project) =>
         project.platform match {
@@ -378,7 +395,7 @@ object Interpreter {
     val (projects, missing) = lookupProjects(cmd.project, state)
     if (missing.isEmpty)
       Tasks.clean(state, projects, cmd.isolated).map(_.mergeStatus(ExitStatus.Ok))
-    else Task(reportMissing(missing, state))
+    else Task.now(reportMissing(missing, state))
   }
 
   private def run(cmd: Commands.Run, state: State, sequential: Boolean): Task[State] = {
@@ -389,7 +406,7 @@ object Interpreter {
         def doRun(state: State): Task[State] = {
           compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
             cmd.main.orElse(getMainClass(state, project)) match {
-              case None => Task(state.mergeStatus(ExitStatus.RunError))
+              case None => Task.now(state.mergeStatus(ExitStatus.RunError))
               case Some(mainClass) =>
                 val args = cmd.args.toArray
                 val cwd = cmd.cliOptions.common.workingPath
@@ -398,20 +415,32 @@ object Interpreter {
                   case Platform.Native(config0) =>
                     project.nativeToolchain match {
                       case Some(toolchain) =>
-                        val config =
-                          config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                        toolchain.run(state, config, project, cwd, mainClass, args)
+                        config0.output.flatMap(Tasks.reasonOfInvalidPath(_)) match {
+                          case Some(msg) => state.withError(msg, ExitStatus.LinkingError)
+                          case None =>
+                            val target = config0.output.map(AbsolutePath(_))
+                              .getOrElse(project.out.resolve(LinkedFileNameScalaNative))
+                            val config =
+                              config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                            toolchain.run(state, config, project, cwd, mainClass, target, args)
+                        }
                       case None => missingScalaNativeToolchain(state, project)
                     }
                   case Platform.Js(config0) =>
                     project.jsToolchain match {
                       case Some(toolchain) =>
-                        val config =
-                          config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-                        toolchain.run(state, config, project, cwd, mainClass, args)
+                        config0.output.flatMap(Tasks.reasonOfInvalidPath(_, ".js")) match {
+                          case Some(msg) => state.withError(msg, ExitStatus.LinkingError)
+                          case None =>
+                            val target = config0.output.map(AbsolutePath(_))
+                              .getOrElse(project.out.resolve(LinkedFileNameScalaJs))
+                            val config =
+                              config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
+                            toolchain.run(state, config, project, cwd, mainClass, target, args)
+                        }
                       case None => missingScalaJsToolchain(state, project)
                     }
-                  case _ => Tasks.run(state, project, cwd, mainClass, args.toArray)
+                  case _ => Tasks.run(state, project, cwd, mainClass, args)
                 }
             }
           }
@@ -421,7 +450,7 @@ object Interpreter {
         else doRun(state)
 
       case None =>
-        Task(reportMissing(cmd.project :: Nil, state))
+        Task.now(reportMissing(cmd.project :: Nil, state))
     }
   }
 
