@@ -115,7 +115,7 @@ object Bloop extends ExternalModule {
         sbt = Config.Sbt.empty,
         test = testConfig(),
         platform = platform(),
-        compileSetup = compileSetup(),
+        compileSetup = compileSetup,
         resolution = Config.Resolution.empty
       )
     }
