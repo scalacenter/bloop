@@ -325,7 +325,4 @@ object BloopBspServices {
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
-
-  // We need to use an exception to stop the server because lsp4s doesn't give us something better
-  private[bloop] case class BloopExitGracefully(code: Int) extends Exception
 }
