@@ -250,6 +250,7 @@ val allBloopReleases = List(
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
+  s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd"
