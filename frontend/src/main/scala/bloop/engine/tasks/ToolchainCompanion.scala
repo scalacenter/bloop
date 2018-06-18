@@ -39,9 +39,9 @@ abstract class ToolchainCompanion[Toolchain] {
    */
   def resolveToolchain(platform: Config.Platform, logger: Logger): Toolchain = {
     val (artifactName, toolchain) = platform match {
-      case Config.Platform.Js(config) => (artifactNameFrom(config.version), config.toolchain)
-      case Config.Platform.Native(config) => (artifactNameFrom(config.version), config.toolchain)
-      case Config.Platform.Jvm(_) =>
+      case Config.Platform.Js(config, _) => (artifactNameFrom(config.version), config.toolchain)
+      case Config.Platform.Native(config, _) => (artifactNameFrom(config.version), config.toolchain)
+      case Config.Platform.Jvm(_, _) =>
         throw new IllegalArgumentException("Fatal programming error: JVM toolchain does not exist.")
     }
 

@@ -63,23 +63,24 @@ object Config {
   sealed abstract class Platform(val name: String) {
     type Config <: PlatformConfig
     def config: Config
+    def mainClass: Option[String]
   }
 
   object Platform {
-    private[bloop] val default: Platform = Jvm(JvmConfig.empty)
+    private[bloop] val default: Platform = Jvm(JvmConfig.empty, None)
 
     object Js { val name: String = "js" }
-    case class Js(override val config: JsConfig) extends Platform(Js.name) {
+    case class Js(override val config: JsConfig, override val mainClass: Option[String]) extends Platform(Js.name) {
       type Config = JsConfig
     }
 
     object Jvm { val name: String = "jvm" }
-    case class Jvm(override val config: JvmConfig) extends Platform(Jvm.name) {
+    case class Jvm(override val config: JvmConfig, override val mainClass: Option[String]) extends Platform(Jvm.name) {
       type Config = JvmConfig
     }
 
     object Native { val name: String = "native" }
-    case class Native(override val config: NativeConfig) extends Platform(Native.name) {
+    case class Native(override val config: NativeConfig, override val mainClass: Option[String]) extends Platform(Native.name) {
       type Config = NativeConfig
     }
 
@@ -242,7 +243,7 @@ object Config {
       val classesDir = Files.createTempFile("classes", "test")
       classesDir.toFile.deleteOnExit()
 
-      val platform = Platform.Jvm(JvmConfig(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil))
+      val platform = Platform.Jvm(JvmConfig(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil), Some("module.Main"))
       val project = Project(
         "dummy-project",
         workingDirectory,

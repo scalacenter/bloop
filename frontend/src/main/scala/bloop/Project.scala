@@ -131,7 +131,7 @@ object Project {
     }
 
     val javaEnv = project.platform match {
-      case Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions)) =>
+      case Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions), _) =>
         val jvmHome = home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
         JavaEnv(jvmHome, jvmOptions.toArray)
       case _ => JavaEnv.default

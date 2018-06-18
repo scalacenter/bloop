@@ -129,7 +129,8 @@ object MojoImplementation {
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
-        val platform = Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList))
+        val mainClass = if (launcher.getMainClass().isEmpty) None else Some(launcher.getMainClass())
+        val platform = Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass)
         val resolution = Config.Resolution.empty
         val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, analysisOut, classesDir, `scala`, java, sbt, test, platform, compileSetup, resolution)
         Config.File(Config.File.LatestVersion, project)

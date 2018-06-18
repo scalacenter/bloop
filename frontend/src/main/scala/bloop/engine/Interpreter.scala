@@ -285,7 +285,7 @@ object Interpreter {
 
   private def missingScalaNativeToolchain(state: State, project: Project): Task[State] = {
     val artifactName = project.platform match {
-      case Config.Platform.Native(config) => ScalaNativeToolchain.artifactNameFrom(config.version)
+      case Config.Platform.Native(config, _) => ScalaNativeToolchain.artifactNameFrom(config.version)
       case _ => sys.error(s"Fatal error: Scala Native project ${project.name} does not have a JavaScript configuration. Report upstream.")
     }
 
@@ -295,7 +295,7 @@ object Interpreter {
 
   private def missingScalaJsToolchain(state: State, project: Project): Task[State] = {
     val artifactName = project.platform match {
-      case Config.Platform.Js(config) => ScalaJsToolchain.artifactNameFrom(config.version)
+      case Config.Platform.Js(config, _) => ScalaJsToolchain.artifactNameFrom(config.version)
       case _ => sys.error(s"Fatal error: Scala.js project ${project.name} does not have a JavaScript configuration. Report upstream.")
     }
 
@@ -308,7 +308,7 @@ object Interpreter {
 
     def doJsRun(project: Project, config0: Config.JsConfig)(state: State): Task[State] = {
       compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
-        cmd.main.orElse(getMainClass(state, project)) match {
+        getMainClass(state, project, cmd.main) match {
           case None => Task.now(state)
           case Some(main) =>
             project.jsToolchain match {
@@ -337,7 +337,7 @@ object Interpreter {
 
     def doNativeRun(project: Project, config0: Config.NativeConfig)(state: State): Task[State] = {
       compileAnd(state, project, reporter, false, sequential, "`link`") { state =>
-        cmd.main.orElse(getMainClass(state, project)) match {
+        getMainClass(state, project, cmd.main) match {
           case None => Task.now(state)
           case Some(main) =>
             project.nativeToolchain match {
@@ -370,16 +370,16 @@ object Interpreter {
 
       case Some(project) =>
         project.platform match {
-          case Platform.Native(config) =>
+          case Platform.Native(config, _) =>
             if (cmd.watch) watch(project, state, doNativeRun(project, config))
             else doNativeRun(project, config)(state)
 
-          case Platform.Js(config) =>
+          case Platform.Js(config, _) =>
             if (cmd.watch) watch(project, state, doJsRun(project, config))
             else doJsRun(project, config)(state)
 
-          case Platform.Jvm(_) =>
-            val msg = s"Cannot link JVM project ${project.name}. `link` is only available for Scala Native and Scala.js projects"
+          case Platform.Jvm(_, _) =>
+            val msg = s"Cannot link JVM project ${project.name}. `link` is only available for Scala Native and Scala.js projects."
             state.withError(msg, ExitStatus.InvalidCommandLineOption)
         }
     }
@@ -405,14 +405,14 @@ object Interpreter {
       case Some(project) =>
         def doRun(state: State): Task[State] = {
           compileAnd(state, project, reporter, false, sequential, "`run`") { state =>
-            cmd.main.orElse(getMainClass(state, project)) match {
+            getMainClass(state, project, cmd.main) match {
               case None => Task.now(state.mergeStatus(ExitStatus.RunError))
               case Some(mainClass) =>
                 val args = cmd.args.toArray
                 val cwd = cmd.cliOptions.common.workingPath
 
                 project.platform match {
-                  case Platform.Native(config0) =>
+                  case Platform.Native(config0, _) =>
                     project.nativeToolchain match {
                       case Some(toolchain) =>
                         config0.output.flatMap(Tasks.reasonOfInvalidPath(_)) match {
@@ -426,7 +426,7 @@ object Interpreter {
                         }
                       case None => missingScalaNativeToolchain(state, project)
                     }
-                  case Platform.Js(config0) =>
+                  case Platform.Js(config0, _) =>
                     project.jsToolchain match {
                       case Some(toolchain) =>
                         config0.output.flatMap(Tasks.reasonOfInvalidPath(_, ".js")) match {
@@ -462,7 +462,8 @@ object Interpreter {
     state.mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 
-  private def getMainClass(state: State, project: Project): Option[String] = {
+  /** @param userMainClass User-supplied main class */
+  private def getMainClass(state: State, project: Project, userMainClass: Option[String]): Option[String] = {
     Tasks.findMainClasses(state, project) match {
       case Array() =>
         state.logger.error(s"No main classes were found in the project '${project.name}'")
@@ -470,11 +471,33 @@ object Interpreter {
       case Array(main) =>
         Some(main)
       case mainClasses =>
-        val eol = System.lineSeparator
-        val message = s"""Several main classes were found. Specify one of:
-                         |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
-        state.logger.error(message)
-        None
+        def listClasses() = {
+          val eol = System.lineSeparator
+          val message =
+            s"""Available main classes:
+               |${mainClasses.mkString(" * ", s"$eol * ", "")}""".stripMargin
+          state.logger.error(message)
+          None
+        }
+
+        val configMainClass = project.platform.mainClass
+
+        if (userMainClass.isDefined) {
+          if (mainClasses.contains(userMainClass.get)) userMainClass
+          else {
+            state.logger.error(s"Provided main class $userMainClass was not found in project '${project.name}'")
+            listClasses()
+          }
+        } else if (configMainClass.isDefined) {
+          if (mainClasses.contains(configMainClass.get)) configMainClass
+          else {
+            state.logger.error(s"Default main class ${configMainClass.get} was not found in project '${project.name}'")
+            listClasses()
+          }
+        } else {
+          state.logger.error(s"No main classes were configured for project '${project.name}'")
+          listClasses()
+        }
     }
   }
 }
