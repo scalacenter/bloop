@@ -172,6 +172,26 @@ class BloopLoggerSpec {
 
   }
 
+  @Test
+  def testFilter: Unit = {
+    val expectedMessage = "this-filter-is-logged"
+    runAndCheck { logger =>
+      logger.debug("this-is-not-logged")
+
+      val filterLogger = logger.withFilter(msg =>  msg.contains("filter"))
+      filterLogger.debug(expectedMessage)
+    } { (outMsgs, errMsgs) =>
+      assertTrue("Nothing should have been logged to stdout.", outMsgs.isEmpty)
+      assertEquals(1, errMsgs.length.toLong)
+      assertTrue("Logged message should have debug level.", isDebug(errMsgs(0)))
+      assertTrue(s"Logged message should contain '$expectedMessage'",
+        errMsgs(0).contains(expectedMessage))
+    }
+
+  }
+
+
+
   private def isWarn(msg: String): Boolean = msg.contains("[W]")
   private def isError(msg: String): Boolean = msg.contains("[E]")
   private def isDebug(msg: String): Boolean = msg.contains("[D]")

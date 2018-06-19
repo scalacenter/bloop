@@ -33,7 +33,7 @@ final class BloopLogger(
   override def asDiscrete: Logger =
     if (debugCount > 0) new BloopLogger(name, out, err, verboseFilter, debugCount - 1) else this
   override def asVerbose: Logger = new BloopLogger(name, out, err, verboseFilter, debugCount + 1)
-
+  def withFilter(filter: String => Boolean): Logger = new BloopLogger(name, out, err, filter, debugCount)
 
   @scala.annotation.tailrec
   private def trace(prefix: String, exception: Throwable): Unit = {
