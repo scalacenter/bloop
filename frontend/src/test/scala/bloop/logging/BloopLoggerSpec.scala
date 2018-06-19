@@ -114,8 +114,8 @@ class BloopLoggerSpec {
     val bos1 = new ByteArrayOutputStream
     val ps1 = new PrintStream(bos1)
 
-    val l0 = BloopLogger.at("l0", ps0, ps0)
-    val l1 = BloopLogger.at("l1", ps1, ps1)
+    val l0 = BloopLogger.at("l0", ps0, ps0, msg => false)
+    val l1 = BloopLogger.at("l1", ps1, ps1, msg => false)
 
     l0.info("info0")
     l1.info("info1")
@@ -135,12 +135,12 @@ class BloopLoggerSpec {
 
     val bos0 = new ByteArrayOutputStream
     val ps0 = new PrintStream(bos0)
-    val l0 = BloopLogger.at(loggerName, ps0, ps0)
+    val l0 = BloopLogger.at(loggerName, ps0, ps0, msg => false)
     l0.info("info0")
 
     val bos1 = new ByteArrayOutputStream
     val ps1 = new PrintStream(bos1)
-    val l1 = BloopLogger.at(loggerName, ps1, ps1)
+    val l1 = BloopLogger.at(loggerName, ps1, ps1, msg => false)
     l1.info("info1")
 
     val msgs0 = convertAndReadAllFrom(bos0)
@@ -189,7 +189,7 @@ class BloopLoggerSpec {
     val err = new PrintStream(errStream)
 
     val loggerName = UUID.randomUUID().toString
-    val logger = BloopLogger.at(loggerName, out, err)
+    val logger = BloopLogger.at(loggerName, out, err, msg => false)
     op(logger)
 
     val outMessages = convertAndReadAllFrom(outStream)
