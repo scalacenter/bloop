@@ -1,7 +1,7 @@
 package bloop.testing
 
 import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Interpreter, Run}
 import bloop.logging.RecordingLogger
@@ -10,7 +10,7 @@ import bloop.tasks.TestUtil
 class TestOptionsSpec {
   final val ProjectName = "with-tests"
 
-  @Test
+  @Test @Ignore
   def exclusionsInTestOptionsAreRespected(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
@@ -27,7 +27,7 @@ class TestOptionsSpec {
       messages.contains(needle))
   }
 
-  @Test
+  @Test @Ignore
   def testOptionsArePassed(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
@@ -61,4 +61,14 @@ class TestOptionsSpec {
 
     assertTrue("Junit test options are ignored!", !messages.contains(missingNeedle4))
   }
+
+  @Test
+  def checkTestReport(): Unit = {
+    val logger = new RecordingLogger
+    val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
+    val action = Run(Commands.Test(ProjectName))
+    val newState = TestUtil.blockingExecute(action, state)
+    logger.dump()
+  }
+
 }
