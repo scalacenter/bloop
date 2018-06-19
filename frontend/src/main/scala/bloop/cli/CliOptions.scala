@@ -14,6 +14,9 @@ case class CliOptions(
     version: Boolean = false,
     @HelpMessage("If set, print out debugging information to stderr.")
     verbose: Boolean = false,
+    @ExtraName("f")
+    @HelpMessage("If set, print debug messages that contain given string.")
+    filter: String = "",
     @Recurse common: CommonOptions = CommonOptions.default,
 )
 
