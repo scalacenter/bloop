@@ -12,12 +12,14 @@ import com.martiansoftware.nailgun.NGCommunicator
  * @param name The name of this logger.
  * @param out  The stream to use to write `INFO` and `WARN` level messages.
  * @param err  The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
+ * @param colorOutput  print with or without color.
  */
 final class BloopLogger(
     override val name: String,
     out: PrintStream,
     err: PrintStream,
-    private val debugCount: Int
+    private val debugCount: Int,
+    colorOutput: Boolean
 ) extends Logger {
 
   override def ansiCodesSupported() = true
@@ -29,8 +31,8 @@ final class BloopLogger(
 
   override def isVerbose: Boolean = debugCount > 0
   override def asDiscrete: Logger =
-    if (debugCount > 0) new BloopLogger(name, out, err, debugCount - 1) else this
-  override def asVerbose: Logger = new BloopLogger(name, out, err, debugCount + 1)
+    if (debugCount > 0) new BloopLogger(name, out, err, debugCount - 1, colorOutput) else this
+  override def asVerbose: Logger = new BloopLogger(name, out, err, debugCount + 1, colorOutput)
 
   @scala.annotation.tailrec
   private def trace(prefix: String, exception: Throwable): Unit = {
@@ -52,20 +54,28 @@ final class BloopLogger(
     out.println(line)
   }
 
-  private def printWarning(line: String): Unit = {
-    out.println(s"${RESET}${YELLOW}[W]${RESET} $line")
+   private def colored(color: String, msg: String): String = {
+     if (colorOutput)
+        s"${RESET}${color}$msg${RESET}"
+     else
+       msg
+   }
+
+
+   private def printWarning(line: String): Unit = {
+    out.println(s"${colored(YELLOW, "[W]")} $line")
   }
 
   private def printError(line: String): Unit = {
-    err.println(s"${RESET}${RED}[E]${RESET} $line")
+    err.println(s"${colored(RED, "[E]")} $line")
   }
 
   private def printTrace(line: String): Unit = {
-    err.println(s"${RESET}${CYAN}[T]${RESET} $line")
+    err.println(s"${colored(CYAN, "[T]")} $line")
   }
 
   private def printDebug(line: String): Unit = {
-    err.println(s"${RESET}${GREEN}[D]${RESET} $line")
+    err.println(s"${colored(GREEN, "[D]")} $line")
   }
 }
 
@@ -80,8 +90,8 @@ object BloopLogger {
    * @param isVerbose Tells whether the logger is verbose or not.
    * @return A `BloopLogger` whose output will be written in the specified streams.
    */
-  def at(name: String, out: PrintStream, err: PrintStream, isVerbose: Boolean): BloopLogger =
-    new BloopLogger(name, out, err, if (isVerbose) 1 else 0)
+  def at(name: String, out: PrintStream, err: PrintStream, isVerbose: Boolean, colorOutput: Boolean): BloopLogger =
+    new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput )
 
   /**
    * Instantiates a new `BloopLogger` using the specified streams.
@@ -91,8 +101,8 @@ object BloopLogger {
    * @param err  The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
    * @return A `BloopLogger` whose output will be written in the specified streams.
    */
-  def at(name: String, out: PrintStream, err: PrintStream): BloopLogger =
-    at(name, out, err, false)
+  def at(name: String, out: PrintStream, err: PrintStream, colorOutput: Boolean): BloopLogger =
+    at(name, out, err, false, colorOutput)
 
   /**
    * Instantiates a new `BloopLogger` that writes to stdout and stderr.
@@ -101,6 +111,6 @@ object BloopLogger {
    * @return A `BloopLogger` writing to stdout and stderr. Calling this method is equivalent to
    *         calling `at(name, System.out, System.err)`.
    */
-  def default(name: String): BloopLogger = at(name, System.out, System.err)
+  def default(name: String): BloopLogger = at(name, System.out, System.err, false)
 
 }

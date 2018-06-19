@@ -229,7 +229,7 @@ object Cli {
     val commonOpts = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
     val logger =
-      BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose)
+      BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose, !cliOptions.noColor)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
     if (Files.exists(configDirectory.underlying)) {

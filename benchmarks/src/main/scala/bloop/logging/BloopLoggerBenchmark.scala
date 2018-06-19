@@ -6,7 +6,7 @@ import org.openjdk.jmh.annotations.Benchmark
 
 object BloopLoggerBenchmark {
   private val devnull = new PrintStream(_ => ())
-  val logger = BloopLogger.at("benchmark", devnull, devnull)
+  val logger = BloopLogger.at("benchmark", devnull, devnull, false)
 }
 
 class BloopLoggerBenchmark {

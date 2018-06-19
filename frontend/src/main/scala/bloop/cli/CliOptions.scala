@@ -14,6 +14,8 @@ case class CliOptions(
     version: Boolean = false,
     @HelpMessage("If set, print out debugging information to stderr.")
     verbose: Boolean = false,
+    @HelpMessage("If set, do not color output.")
+    noColor: Boolean = false,
     @Recurse common: CommonOptions = CommonOptions.default,
 )
 
