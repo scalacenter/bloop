@@ -87,7 +87,6 @@ object Config {
   }
 
   sealed trait PlatformConfig
-
   case class JvmConfig(home: Option[Path], options: List[String]) extends PlatformConfig
   object JvmConfig { private[bloop] val empty = JvmConfig(None, Nil) }
 
@@ -110,12 +109,13 @@ object Config {
       mode: LinkerMode,
       kind: ModuleKindJS,
       emitSourceMaps: Boolean,
+      output: Option[Path],
       toolchain: List[Path]
   ) extends PlatformConfig
 
   object JsConfig {
     private[bloop] val empty: JsConfig =
-      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, Nil)
+      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, Nil)
   }
 
   /**
@@ -136,18 +136,19 @@ object Config {
       clangpp: Path,
       toolchain: List[Path],
       options: NativeOptions,
-      linkStubs: Boolean
+      linkStubs: Boolean,
+      output: Option[Path]
   ) extends PlatformConfig
 
   object NativeConfig {
     // FORMAT: OFF
-    private[bloop] val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false)
+    private[bloop] val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false, None)
     // FORMAT: ON
   }
 
-  case class NativeOptions(linker: List[String], compiler: List[String])
+  case class NativeOptions(linker: List[String], compiler: List[String], output: Option[Path])
   object NativeOptions {
-    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil)
+    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil, None)
   }
 
   case class Checksum(

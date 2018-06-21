@@ -178,7 +178,7 @@ object Commands {
       watch: Boolean = false,
       @ExtraName("o")
       @HelpMessage(
-        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
+        "Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`.")
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand

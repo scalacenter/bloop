@@ -25,19 +25,15 @@ object JsBridge {
   }
 
   private def isJarFile(path: Path): Boolean = path.toString.endsWith(".jar")
+
   def link(
       config: JsConfig,
       project: Project,
       mainClass: String,
+      target: Path,
       logger: BloopLogger
-  ): Path = {
-    val outputPath = project.out.underlying
-    val target = project.out.resolve("out.js")
-
-    val enableOptimizer = config.mode match {
-      case LinkerMode.Debug => false
-      case LinkerMode.Release => true
-    }
+  ): Unit = {
+    val enableOptimizer = config.mode == LinkerMode.Release
 
     val semantics = config.mode match {
       case LinkerMode.Debug => Semantics.Defaults
@@ -79,7 +75,5 @@ object JsBridge {
       output = AtomicWritableFileVirtualJSFile(target.toFile),
       logger = new Logger(logger)
     )
-
-    target.underlying
   }
 }

@@ -23,6 +23,7 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
    * @param project   The project to link
    * @param config    The configuration for Scala.js
    * @param mainClass The fully qualified main class name
+   * @param target    The output file path
    * @param logger    The logger to use
    * @return The absolute path to the generated JavaScript file
    */
@@ -30,15 +31,15 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
       config: JsConfig,
       project: Project,
       mainClass: String,
+      target: AbsolutePath,
       logger: Logger
-  ): Task[Try[AbsolutePath]] = {
+  ): Task[Try[Unit]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalajs.JsBridge")
-    val paramTypes = classOf[JsConfig] :: classOf[Project] :: classOf[String] :: classOf[Logger] :: Nil
+    val paramTypes = classOf[JsConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
 
     val method = bridgeClazz.getMethod("link", paramTypes: _*)
-    Task(method.invoke(null, config, project, mainClass, logger)).materialize.map {
-      _.collect { case path: Path => AbsolutePath(path) }
-    }
+    Task(method.invoke(null, config, project, mainClass, target.underlying, logger)
+      .asInstanceOf[Unit]).materialize
   }
 
   /**
@@ -49,6 +50,7 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
    * @param config    The configuration for Scala.js
    * @param cwd       The working directory in which to start the process
    * @param mainClass The fully qualified main class name
+   * @param target    The output file path
    * @param args      The arguments to pass to the program
    * @return A task that compiles and run the project
    */
@@ -58,11 +60,12 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
       project: Project,
       cwd: AbsolutePath,
       mainClass: String,
+      target: AbsolutePath,
       args: Array[String]
   ): Task[State] = {
-    link(config, project, mainClass, state.logger).flatMap {
-      case Success(jsOut) =>
-        val cmd = "node" +: jsOut.syntax +: args
+    link(config, project, mainClass, target, state.logger).flatMap {
+      case Success(_) =>
+        val cmd = "node" +: target.syntax +: args
         Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
           val exitStatus = Forker.exitStatus(exitCode)
           state.mergeStatus(exitStatus)
