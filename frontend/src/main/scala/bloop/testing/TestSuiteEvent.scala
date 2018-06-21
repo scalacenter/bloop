@@ -101,7 +101,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
     logger.info("===============================================")
     logger.info(s"Total duration: ${TimeFormat.printUntilHours(suitesDuration)}")
 
-    if (suitesPassed == 0) {
+    if (suitesTotal == 0) {
       logger.info(s"No test suites were run.")
     } else if (suitesPassed == suitesTotal) {
       logger.info(s"All $suitesPassed test suites passed.")

@@ -357,9 +357,9 @@ object Tasks {
 
       /* Intercept test failures to set the correct error code */
       val failureHandler = new LoggingEventHandler(state.logger) {
-        override def report(): Unit = super.report()
+        override def report(): Unit = testEventHandler.report()
         override def handle(event: TestSuiteEvent): Unit = {
-          super.handle(event)
+          testEventHandler.handle(event)
           event match {
             case TestSuiteEvent.Results(_, ev)
                 if ev.exists(e => TestFailedStatus.contains(e.status())) =>
