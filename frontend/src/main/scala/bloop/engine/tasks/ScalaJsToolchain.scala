@@ -21,10 +21,10 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
    * Compile down to JavaScript using Scala.js' toolchain.
    *
    * @param project   The project to link
-   * @param config    The configuration for Scalajs
+   * @param config    The configuration for Scala.js
    * @param mainClass The fully qualified main class name
    * @param logger    The logger to use
-   * @return The absolute path to the generated JS source.
+   * @return The absolute path to the generated JavaScript file
    */
   def link(
       config: JsConfig,
@@ -42,15 +42,15 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
   }
 
   /**
-   * Compile `project` to a Javascript and run it.
+   * Compile `project` to a JavaScript and run it.
    *
-   * @param state    The current state of Bloop.
-   * @param project  The project to link.
-   * @param config  The configuration for Scalajs.
-   * @param cwd      The working directory in which to start the process.
-   * @param main     The fully qualified main class name.
-   * @param args     The arguments to pass to the program.
-   * @return A task that compiles and run the project.
+   * @param state     The current state of Bloop
+   * @param project   The project to link
+   * @param config    The configuration for Scala.js
+   * @param cwd       The working directory in which to start the process
+   * @param mainClass The fully qualified main class name
+   * @param args      The arguments to pass to the program
+   * @return A task that compiles and run the project
    */
   def run(
       state: State,
@@ -69,7 +69,7 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
         }
       case Failure(ex) =>
         Task {
-          state.logger.error("Couldn't create JS output.")
+          state.logger.error("Could not generate JavaScript file")
           state.logger.trace(ex)
           state.mergeStatus(ExitStatus.LinkingError)
         }
@@ -88,6 +88,6 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
   override def artifactNameFrom(version: String): String = {
     if (version.startsWith("0.6")) BuildInfo.jsBridge06
     else if (version.startsWith("1.0")) BuildInfo.jsBridge10
-    else sys.error(s"Expected supported Scalajs version instead of ${version}")
+    else sys.error(s"Expected compatible Scala.js version [0.6, 1.0], $version given")
   }
 }

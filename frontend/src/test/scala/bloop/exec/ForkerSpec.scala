@@ -116,7 +116,7 @@ class ForkerSpec {
         }
         val exitStatus = Forker.exitStatus(exitCode)
         assertEquals(ExitStatus.RunError, exitStatus)
-        assert(messages.exists(expected), s"Couldn't find expected error messages in $messages")
+        assert(messages.exists(expected), s"Could not find expected error messages in $messages")
     }
   }
 
@@ -128,7 +128,7 @@ class ForkerSpec {
       case (exitCode, messages) =>
         val expected = "info" -> s"CWD: ${cwd.toRealPath()}"
         assertEquals(0, exitCode.toLong)
-        assert(messages.contains(expected), s"$messages didn't contain $expected.")
+        assert(messages.contains(expected), s"$messages did not contain $expected")
     }
   }
 

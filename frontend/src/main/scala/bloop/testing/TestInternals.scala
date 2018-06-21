@@ -96,7 +96,7 @@ object TestInternals {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
-    logger.debug("Starting forked test execution.")
+    logger.debug("Starting forked test execution...")
 
     // Make sure that we cache the resolution of the test agent JAR and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
@@ -202,7 +202,7 @@ object TestInternals {
     } catch {
       case _: ClassNotFoundException => None
       case NonFatal(t) =>
-        logger.report(s"The initialisation of test framework $fqn failed!", t)
+        logger.report(s"Initialisation of test framework $fqn failed", t)
         None
     }
   }

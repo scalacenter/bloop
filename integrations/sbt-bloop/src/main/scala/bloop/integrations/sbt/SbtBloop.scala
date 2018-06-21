@@ -45,10 +45,10 @@ object BloopKeys {
   val bloopIsMetaBuild: SettingKey[Boolean] =
     settingKey[Boolean]("Is this a meta build?")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
-    settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir.")
+    settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir")
   val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
     settingKey[Option[Set[String]]](
-      "The classifiers that will be exported with `updateClassifiers`.")
+      "The classifiers that will be exported with `updateClassifiers`")
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopManagedResourceDirectories: SettingKey[Seq[File]] =
@@ -66,11 +66,11 @@ object BloopKeys {
   val bloopGenerate: sbt.TaskKey[Option[File]] =
     taskKey[Option[File]]("Generate bloop configuration files for this project")
   val bloopAnalysisOut: SettingKey[Option[File]] =
-    settingKey[Option[File]]("User-defined location for the incremental analysis file.")
+    settingKey[Option[File]]("User-defined location for the incremental analysis file")
   val bloopScalaJSStage: SettingKey[Option[String]] =
-    settingKey[Option[String]]("Scalajs independent definition of `scalaJSStage`.")
+    settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
-    settingKey[Option[String]]("Scalajs independent definition of `scalaJSModuleKind`.")
+    settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
 }
 
 object BloopDefaults {
@@ -107,7 +107,7 @@ object BloopDefaults {
         case Right(cmd) => cmd()
         case Left(msg) => throw sys.error(s"Invalid programmatic input:\n$msg")
       }
-      nextState.remainingCommands.toList match {
+      nextState.remainingCommands match {
         case Nil => nextState
         case head :: tail => runCommand(head, nextState.copy(remainingCommands = tail))
       }
@@ -141,8 +141,8 @@ object BloopDefaults {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       List(
-        BloopKeys.bloopScalaJSStage := findOutScalajsStage.value,
-        BloopKeys.bloopScalaJSModuleKind := findOutScalajsModuleKind.value,
+        BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
+        BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.checksums in Keys.update := Vector("sha1"),
         Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
@@ -170,7 +170,7 @@ object BloopDefaults {
    * are sbt plugins in the build they trigger the compilation of all the modules.
    * We do no-op when there is indeed an sbt plugin in the build. */
   lazy val discoveredSbtPluginsSettings: Seq[Def.Setting[_]] = List(
-    Keys.discoveredSbtPlugins := (Def.taskDyn {
+    Keys.discoveredSbtPlugins := Def.taskDyn {
       if (!Keys.sbtPlugin.value) Def.task(PluginDiscovery.emptyDiscoveredNames)
       else {
         currentCommandFromState(Keys.state.value) match {
@@ -184,22 +184,22 @@ object BloopDefaults {
           case None => Def.task(PluginDiscovery.discoverSourceAll(Keys.compile.value))
         }
       }
-    }).value
+    }.value
   )
 
   private final val ScalaNativePluginLabel = "scala.scalanative.sbtplugin.ScalaNativePlugin"
   private final val ScalaJsPluginLabel = "org.scalajs.sbtplugin.ScalaJSPlugin"
 
-  private final val ScalajsFastOpt = "fastopt"
-  private final val ScalajsFullOpt = "fullopt"
+  private final val ScalaJsFastOpt = "fastopt"
+  private final val ScalaJsFullOpt = "fullopt"
 
   private final val NoJSModule = "NoModule"
   private final val CommonJSModule = "CommonJSModule"
 
   /**
    * Create a "proxy" for a setting that will allow us to inspect its value even though
-   * its not accessed from the same classloader. This is required to access scalajs
-   * settings whose return type is scalajs specific and only lives in their classloader.
+   * its not accessed from the same classloader. This is required to access Scala.js
+   * settings whose return type is Scala.js-specific and only lives in their classloader.
    * Returns none if the key wasn't found with the id and type of class passed in.
    */
   def proxyForSetting(id: String, `class`: Class[_]): Def.Initialize[Option[AnyRef]] = {
@@ -207,14 +207,14 @@ object BloopDefaults {
     toAnyRefSettingKey(id, stageManifest).?
   }
 
-  lazy val findOutScalajsStage: Def.Initialize[Option[String]] = Def.settingDyn {
+  lazy val findOutScalaJsStage: Def.Initialize[Option[String]] = Def.settingDyn {
     try {
       val stageClass = Class.forName("org.scalajs.sbtplugin.Stage")
       val stageSetting = proxyForSetting("scalaJSStage", stageClass)
       Def.setting {
         stageSetting.value.toString match {
-          case "Some(FastOpt)" => Some(ScalajsFastOpt)
-          case "Some(FullOpt)" => Some(ScalajsFullOpt)
+          case "Some(FastOpt)" => Some(ScalaJsFastOpt)
+          case "Some(FullOpt)" => Some(ScalaJsFullOpt)
           case _ => None
         }
       }
@@ -223,7 +223,7 @@ object BloopDefaults {
     }
   }
 
-  lazy val findOutScalajsModuleKind: Def.Initialize[Option[String]] = Def.settingDyn {
+  lazy val findOutScalaJsModuleKind: Def.Initialize[Option[String]] = Def.settingDyn {
     try {
       val stageClass = Class.forName("core.tools.linker.backend.ModuleKind")
       val stageSetting = proxyForSetting("scalaJSModuleKind", stageClass)
@@ -306,10 +306,9 @@ object BloopDefaults {
       import scala.collection.JavaConverters._
       val data = Keys.settingsData.value
       val thisProjectRef = Keys.thisProjectRef.value
-      val productDirs = (new java.util.LinkedHashSet[Task[File]]).asScala
       val eligibleConfigs = activeProjectConfigs.filter { c =>
         val configKey = ConfigKey.configurationToKey(c)
-        val eligibleKey = (BloopKeys.bloopGenerate in (thisProjectRef, configKey))
+        val eligibleKey = BloopKeys.bloopGenerate in (thisProjectRef, configKey)
         eligibleKey.get(data) match {
           case Some(t) =>
             // Sbt seems to return tasks for the extended configurations (looks like a big bug)
@@ -381,8 +380,8 @@ object BloopDefaults {
       case LocalProject(project) => project
       // Not sure about these three:
       case LocalRootProject => "root"
-      case ProjectRef(build, project) => project
-      case RootProject(build) => "root"
+      case ProjectRef(_, project) => project
+      case RootProject(_) => "root"
     }
 
     dependency.configuration match {
@@ -500,7 +499,7 @@ object BloopDefaults {
   def findVersion(deps: Seq[ModuleID], org: String): Option[String] = {
     def isPlugin(d: ModuleID, org: String) =
       d.configurations.toList.contains(CompilerPluginConfig) && d.organization == org
-    deps.filter(isPlugin(_, org)).headOption.map(_.revision)
+    deps.find(isPlugin(_, org)).map(_.revision)
   }
 
   private val isWindows: Boolean =
@@ -545,23 +544,23 @@ object BloopDefaults {
       }
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
       Def.task {
-        val emptyScalajs = Config.JsConfig.empty
-        val scalajsVersion = findVersion(libraryDeps, "org.scala-js").getOrElse(emptyScalajs.version)
-        val scalajsStage = BloopKeys.bloopScalaJSStage.value match {
-          case Some(ScalajsFastOpt) => Config.LinkerMode.Debug
-          case Some(ScalajsFullOpt) => Config.LinkerMode.Release
-          case _ => emptyScalajs.mode
+        val emptyScalaJs = Config.JsConfig.empty
+        val scalaJsVersion = findVersion(libraryDeps, "org.scala-js").getOrElse(emptyScalaJs.version)
+        val scalaJsStage = BloopKeys.bloopScalaJSStage.value match {
+          case Some(ScalaJsFastOpt) => Config.LinkerMode.Debug
+          case Some(ScalaJsFullOpt) => Config.LinkerMode.Release
+          case _ => emptyScalaJs.mode
         }
 
-        val scalajsModule = BloopKeys.bloopScalaJSModuleKind.value match {
+        val scalaJsModule = BloopKeys.bloopScalaJSModuleKind.value match {
           case Some(NoJSModule) => Config.ModuleKindJS.NoModule
           case Some(CommonJSModule) => Config.ModuleKindJS.CommonJSModule
-          case _ => emptyScalajs.kind
+          case _ => emptyScalaJs.kind
         }
 
-        val scalajsEmitSourceMaps =
-          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalajs.emitSourceMaps)
-        val jsConfig = Config.JsConfig(scalajsVersion, scalajsStage, scalajsModule, scalajsEmitSourceMaps, emptyScalajs.toolchain)
+        val scalaJsEmitSourceMaps =
+          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
+        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, emptyScalaJs.toolchain)
         Config.Platform.Js(jsConfig)
       }
     } else {
@@ -647,7 +646,6 @@ object BloopDefaults {
             Keys.testFrameworks.value
               .map(f => Config.TestFramework(f.implClassNames.toList))
               .toArray
-          val empty = (List.empty[String], List.empty[Config.TestArgument])
           val options = Keys.testOptions.value.foldLeft(Config.TestOptions.empty) {
             case (options, sbt.Tests.Argument(framework0, args0)) =>
               val args = args0.toArray
@@ -656,7 +654,7 @@ object BloopDefaults {
             case (options, sbt.Tests.Exclude(tests)) =>
               options.copy(excludes = tests.toList ++ options.excludes)
             case (options, other: sbt.TestOption) =>
-              logger.info(s"Skipped test option '${other}' as it can only be used within sbt.")
+              logger.info(s"Skipped test option '$other' as it can only be used within sbt")
               options
           }
           Config.Test(frameworks, options)
@@ -717,7 +715,7 @@ object BloopDefaults {
           else outFile
         }
 
-        logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'.")
+        logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'")
         logger.success(s"Generated $userFriendlyConfigPath")
         Some(outFile)
       }
@@ -725,14 +723,14 @@ object BloopDefaults {
   }
 
   private final val allJson = sbt.GlobFilter("*.json")
-  private final val removeStaleProjects = { (allConfigDirs: Set[File]) =>
+  private final val removeStaleProjects = { allConfigDirs: Set[File] =>
     { (s: State, generatedFiles: Set[Option[File]]) =>
       val logger = s.globalLogging.full
       val allConfigs =
         allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
       allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
         sbt.IO.delete(configFile)
-        logger.warn(s"Removed stale $configFile.")
+        logger.warn(s"Removed stale $configFile")
       }
       s
     }
@@ -781,15 +779,15 @@ object BloopDefaults {
       val bloopProductDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       for ((dep, c) <- visited) {
         if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-          val classpathKey = (Keys.productDirectories in (dep, sbt.ConfigKey(c)))
+          val classpathKey = Keys.productDirectories in (dep, sbt.ConfigKey(c))
           productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
-          val bloopKey = (BloopKeys.bloopProductDirectories in (dep, sbt.ConfigKey(c)))
+          val bloopKey = BloopKeys.bloopProductDirectories in (dep, sbt.ConfigKey(c))
           bloopProductDirs += bloopKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
         }
       }
 
-      val generatedTask = (productDirs.toList.join).map(_.flatten.distinct).flatMap { a =>
-        (bloopProductDirs.toList.join).map(_.flatten.distinct).map { b =>
+      val generatedTask = productDirs.toList.join.map(_.flatten.distinct).flatMap { a =>
+        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b =>
           a.zip(b)
         }
       }

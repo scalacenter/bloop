@@ -57,7 +57,7 @@ class BasicNailgunSpec extends NailgunTest {
       val expectedProjects = "with-resources" :: "with-resources-test" :: Nil
 
       expectedProjects.foreach { proj =>
-        assertTrue(s"$messages didn't contain $proj'", messages.contains(("info", proj)))
+        assertTrue(s"$messages did not contain $proj'", messages.contains(("info", proj)))
       }
     }
   }
@@ -72,7 +72,7 @@ class BasicNailgunSpec extends NailgunTest {
       val messages = logger.getMessages()
       val needle = "Compiling"
 
-      assertTrue(s"${messages.mkString("\n")} didn't contain '$needle'", messages.exists {
+      assertTrue(s"${messages.mkString("\n")} did not contain '$needle'", messages.exists {
         case ("info", msg) => msg.contains(needle)
         case _ => false
       })
@@ -102,9 +102,9 @@ class BasicNailgunSpec extends NailgunTest {
     val serverInfos = rlogger.getMessages().filter(_._1 == "server-info").map(_._2)
     val timesCancelling = serverInfos.count(_.contains("Cancelling tasks..."))
     val timesCancelled = serverInfos.count(
-      _ == "File watching on 'with-resources' and dependent projects has been successfully cancelled.")
+      _ == "File watching on 'with-resources' and dependent projects has been successfully cancelled")
 
-    assertTrue(s"File watching cancellation happened $timesCancelled only!", timesCancelled == 2)
+    assertTrue(s"File watching cancellation happened $timesCancelled only", timesCancelled == 2)
     assertTrue(s"Bloop registered task cancellation only $timesCancelling", timesCancelling == 2)
   }
 
@@ -116,7 +116,7 @@ class BasicNailgunSpec extends NailgunTest {
       client.success("run", "with-resources")
       val messages = logger.getMessages()
       val needle = ("info", "OK")
-      assertTrue(s"${messages.mkString("\n")} didn't contain '$needle'", messages.contains(needle))
+      assertTrue(s"${messages.mkString("\n")} did not contain '$needle'", messages.contains(needle))
     }
   }
 
@@ -128,7 +128,7 @@ class BasicNailgunSpec extends NailgunTest {
       client.success("test", "-p", "with-resources")
       val messages = logger.getMessages()
       val needle = "- should be found"
-      assertTrue(s"${messages.mkString("\n")} didn't contain '$needle'", messages.exists {
+      assertTrue(s"${messages.mkString("\n")} did not contain '$needle'", messages.exists {
         case ("info", msg) => msg.contains(needle)
         case _ => false
       })
@@ -198,7 +198,7 @@ class BasicNailgunSpec extends NailgunTest {
         assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
       }
 
-      contains(s"Config directory does not exist: ${projectBase.resolve(wrongDirectory)}")
+      contains(s"Configuration directory does not exist: ${projectBase.resolve(wrongDirectory)}")
     }
   }
 
@@ -238,7 +238,7 @@ class BasicNailgunSpec extends NailgunTest {
 
       assertTrue("`logger1` received messages of `logger2`",
                  !msgs1.exists(_.startsWith("Projects loaded from")))
-      assertEquals("`logger` didn't receive verbose messages",
+      assertEquals("`logger` did not receive verbose messages",
                    3,
                    msgs1.count(_.startsWith(s"${debugPrefix}Elapsed:")).toLong)
       assertTrue("`logger2` received messages of `logger1`",

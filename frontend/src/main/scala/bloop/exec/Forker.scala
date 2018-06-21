@@ -18,20 +18,20 @@ import monix.execution.Cancelable
 import scala.concurrent.duration.FiniteDuration
 
 /**
- * Collects configuration to start a new program in a new process.
+ * Collects configuration to start a new program in a new process
  *
  * The name comes from a similar utility https://github.com/sshtools/forker.
  *
- * @param javaEnv   The configuration describing how to start the new JVM.
- * @param classpath The full classpath with which the code should be executed.
+ * @param javaEnv   The configuration describing how to start the new JVM
+ * @param classpath The full classpath with which the code should be executed
  */
 final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
 
   /**
-   * Creates a `ClassLoader` from the classpath of this `ForkProcess`.
+   * Creates a `ClassLoader` from the classpath of this `ForkProcess`
    *
    * @param parent A parent classloader
-   * @return A classloader constructed from the classpath of this `ForkProcess`.
+   * @return A classloader constructed from the classpath of this `ForkProcess`
    */
   def newClassLoader(parent: Option[ClassLoader]): ClassLoader = {
     val classpathEntries = classpath.map(_.underlying.toUri.toURL)
@@ -39,15 +39,15 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
   }
 
   /**
-   * Run the main function in class `className`, passing it `args`.
+   * Run the main function in class `className`, passing it `args`
    *
-   * @param cwd            The directory in which to start the forked JVM.
-   * @param mainClass      The fully qualified name of the class to run.
-   * @param args           The arguments to pass to the main method.
-   * @param logger         Where to log the messages from execution.
-   * @param opts           The options to run the program with.
-   * @param extraClasspath Paths to append to the classpath before running.
-   * @return 0 if the execution exited successfully, a non-zero number otherwise.
+   * @param cwd            The directory in which to start the forked JVM
+   * @param mainClass      The fully qualified name of the class to run
+   * @param args           The arguments to pass to the main method
+   * @param logger         Where to log the messages from execution
+   * @param opts           The options to run the program with
+   * @param extraClasspath Paths to append to the classpath before running
+   * @return 0 if the execution exited successfully, a non-zero number otherwise
    */
   def runMain(
       cwd: AbsolutePath,
@@ -88,11 +88,11 @@ object Forker {
   private final val EXIT_ERROR = 1
 
   /**
-   * Converts this exit code to an `ExitStatus`.
+   * Converts this exit code to an `ExitStatus`
    * If execution failed, `RunError` is returned. Otherwise, `Ok`.
    *
    * @param exitCode The exit code to convert
-   * @return The corresponding exit status.
+   * @return The corresponding exit status
    */
   def exitStatus(exitCode: Int): ExitStatus = {
     if (exitCode == EXIT_OK) ExitStatus.Ok
@@ -100,19 +100,19 @@ object Forker {
   }
 
   /**
-   * Runs `cmd` in a new process and logs the results. The exit code is returned.
+   * Runs `cmd` in a new process and logs the results. The exit code is returned
    *
-   * @param cwd    The directory in which to start the process.
-   * @param cmd    The command to run.
-   * @param logger Where to log the messages from execution.
-   * @param opts   The options to run the program with.
-   * @return The exit code of the process.
+   * @param cwd    The directory in which to start the process
+   * @param cmd    The command to run
+   * @param logger Where to log the messages from execution
+   * @param opts   The options to run the program with
+   * @return The exit code of the process
    */
   def run(cwd: AbsolutePath, cmd: Seq[String], logger: Logger, opts: CommonOptions): Task[Int] = {
     import scala.collection.JavaConverters.{propertiesAsScalaMap, mapAsJavaMapConverter}
     if (!Files.exists(cwd.underlying)) {
       Task {
-        logger.error(s"Couldn't start the process because '$cwd' doesn't exist.")
+        logger.error(s"Could not start the process because '$cwd' does not exist")
         Forker.EXIT_ERROR
       }
     } else {
@@ -133,7 +133,7 @@ object Forker {
           if (closed) {
             // Make sure that the gobbler never stays awake!
             if (gobbleInput != null) gobbleInput.cancel()
-            logger.debug("The process is closed; emptying out buffer.")
+            logger.debug("The process is closed. Emptying buffer...")
             val remaining = outBuilder.mkString
             if (!remaining.isEmpty)
               logger.info(remaining)
@@ -196,11 +196,11 @@ object Forker {
             process.destroy(true)
             process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
             if (process.isRunning) {
-              val msg = s"The cancellation couldn't destroy process ${process.getPID}."
+              val msg = s"The cancellation could not destroy process ${process.getPID}"
               opts.ngout.println(msg)
               logger.debug(msg)
             } else {
-              val msg = s"The run process ${process.getPID} has been closed."
+              val msg = s"The run process ${process.getPID} has been closed"
               opts.ngout.println(msg)
               logger.debug(msg)
             }
@@ -211,9 +211,9 @@ object Forker {
   }
 
   /**
-   * Return an array of lines from a process buffer and a no lines buffer.
+   * Return an array of lines from a process buffer and a no lines buffer
    *
-   * The no lines buffer keeps track of previous messages that didn't contain
+   * The no lines buffer keeps track of previous messages that did not contain
    * a new line, it is therefore mutated. The buffer is the logs that we just
    * received from our process.
    *
@@ -221,8 +221,8 @@ object Forker {
    * lines at the end. If there are several new lines in a message but the last
    * one doesn't, then we add the remaining to the string builder.
    *
-   * @param buffer The buffer that we receive from NuProcess.
-   * @param remaining The string builder bookkeeping remaining msgs without new lines.
+   * @param buffer The buffer that we receive from NuProcess
+   * @param remaining The string builder bookkeeping remaining messages without new lines
    * @return An array of new lines. It can be empty.
    */
   private[bloop] def linesFrom(buffer: ByteBuffer, remaining: StringBuilder): Array[String] = {

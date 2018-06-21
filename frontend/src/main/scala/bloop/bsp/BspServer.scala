@@ -35,16 +35,16 @@ object BspServer {
     cmd match {
       case Commands.WindowsLocalBsp(pipeName, _) =>
         val server = new NGWin32NamedPipeServerSocket(pipeName)
-        state.logger.debug(s"Waiting for a connection at pipe $pipeName")
+        state.logger.debug(s"Waiting for a connection at pipe $pipeName...")
         me.Task(WindowsLocal(pipeName, server)).doOnCancel(me.Task(server.close()))
       case Commands.UnixLocalBsp(socketFile, _) =>
         val server = new NGUnixDomainServerSocket(socketFile.toString)
-        state.logger.debug(s"Waiting for a connection at $socketFile")
+        state.logger.debug(s"Waiting for a connection at $socketFile...")
         me.Task(UnixLocal(socketFile, server)).doOnCancel(me.Task(server.close()))
-      case Commands.TcpBsp(address, portNumber, name) =>
+      case Commands.TcpBsp(address, portNumber, _) =>
         val socketAddress = new InetSocketAddress(address, portNumber)
         val server = new java.net.ServerSocket(portNumber, 10, address)
-        state.logger.debug(s"Waiting for a connection at $socketAddress")
+        state.logger.debug(s"Waiting for a connection at $socketAddress...")
         me.Task(Tcp(socketAddress, server)).doOnCancel(me.Task(server.close()))
     }
   }
@@ -78,9 +78,9 @@ object BspServer {
     import state.logger
     def startServer(handle: ConnectionHandle): me.Task[State] = {
       val connectionURI = uri(handle)
-      logger.debug(s"The server is starting to listen at ${connectionURI}")
+      logger.debug(s"The server is listening for incoming connections at $connectionURI...")
       val socket = handle.serverSocket.accept()
-      logger.info(s"Accepted incoming BSP client connection at ${connectionURI}.")
+      logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
       val exitStatus = Atomic(0)
       val in = socket.getInputStream

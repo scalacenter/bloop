@@ -41,7 +41,8 @@ abstract class ToolchainCompanion[Toolchain] {
     val (artifactName, toolchain) = platform match {
       case Config.Platform.Js(config) => (artifactNameFrom(config.version), config.toolchain)
       case Config.Platform.Native(config) => (artifactNameFrom(config.version), config.toolchain)
-      case Config.Platform.Jvm(_) => sys.error("Fatal programming error: missing jvm toolchain.")
+      case Config.Platform.Jvm(_) =>
+        throw new IllegalArgumentException("Fatal programming error: JVM toolchain does not exist.")
     }
 
     if (toolchain.nonEmpty) toToolchain(toolchain)
