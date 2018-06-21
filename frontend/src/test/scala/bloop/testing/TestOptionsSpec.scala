@@ -1,7 +1,7 @@
 package bloop.testing
 
 import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Interpreter, Run}
 import bloop.logging.RecordingLogger
@@ -10,7 +10,7 @@ import bloop.tasks.TestUtil
 class TestOptionsSpec {
   final val ProjectName = "with-tests"
 
-  @Test @Ignore
+  @Test
   def exclusionsInTestOptionsAreRespected(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
@@ -24,10 +24,12 @@ class TestOptionsSpec {
 
     assertTrue(s"""Message not found: $needle
                   |Logs: $messages""".stripMargin,
-      messages.contains(needle))
+               messages.contains(needle))
   }
 
-  @Test @Ignore
+  case class TestMsg(level: String, msg: String)
+
+  @Test
   def testOptionsArePassed(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
@@ -37,38 +39,27 @@ class TestOptionsSpec {
 
     // The levels won't be correct, and the messages won't match
     // because of output coloring if the test options are ignored.
-    val needle1 = ("info", "Test run started")
-    val needle2 = ("info", "Test hello.JUnitTest.myTest started")
-    val needle3 = ("debug", "Test hello.JUnitTest.myTest finished")
-    val missingNeedle4  = ("debug", "Framework-specific test options")
+    val needle1 = TestMsg("info", "Test run started")
+    val needle2 = TestMsg("info", "Test hello.JUnitTest.myTest started")
+    val needle3 = TestMsg("debug", "Test hello.JUnitTest.myTest finished")
+    val missingNeedle4 = ("debug", "Framework-specific test options")
     val messages = logger.getMessages
 
+    def assertMsgStartsWith(toTest: TestMsg) = {
+      assertTrue(
+        s"Message doesn't exist: $toTest;\nLogs: $messages",
+        messages.exists { case (level, msg) => level == toTest.level && msg.startsWith(toTest.msg) }
+      )
+    }
+
     assertEquals(newState.status, ExitStatus.Ok)
-
-    assertTrue(s"""Message not found: $needle1
-                  |Logs: $messages""".stripMargin,
-               messages.contains(needle1))
-    assertTrue(s"""Message not found: $needle2
-                  |Logs: $messages""".stripMargin,
-               messages.contains(needle1))
-    assertTrue(
-      s"""Message not found: $needle3
-         |Logs: $messages""".stripMargin,
-      messages.exists {
-        case (level, msg) => level == needle3._1 && msg.startsWith(needle3._2)
-      }
-    )
-
+    assertMsgStartsWith(needle1)
+    assertMsgStartsWith(needle2)
+    assertMsgStartsWith(needle3)
     assertTrue("Junit test options are ignored!", !messages.contains(missingNeedle4))
-  }
 
-  @Test
-  def checkTestReport(): Unit = {
-    val logger = new RecordingLogger
-    val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
-    val action = Run(Commands.Test(ProjectName))
-    val newState = TestUtil.blockingExecute(action, state)
-    logger.dump()
+    // Will need to be changed when the new test suite report format is merged
+    assertMsgStartsWith(TestMsg("info", "Total duration:"))
+    assertMsgStartsWith(TestMsg("info", "All 1 test suites passed"))
   }
-
 }
