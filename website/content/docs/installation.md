@@ -82,7 +82,8 @@ install the provided user service file:
 
 ```sh
 $ mkdir -p $HOME/.config/systemd/user
-$ cp $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+$ ln -s $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+$ systemctl --user daemon-reload
 $ systemctl --user enable bloop
 ```
 
