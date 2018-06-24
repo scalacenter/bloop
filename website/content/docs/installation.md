@@ -119,14 +119,14 @@ add an icon to your applications menu, depending on environment) you can do:
 
 ```sh
 $ mkdir -p $HOME/.local/share/applications
-$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
+$ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
 ```
 
 To add it to autostart:
 
 ```sh
 $ mkdir -p $HOME/.config/autostart
-$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
+$ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
 ```
 
 ## Generate configuration files for your project
