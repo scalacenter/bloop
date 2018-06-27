@@ -227,7 +227,8 @@ but we provide a desktop entry for people not using systemd.</p>
 install the provided user service file:</p>
 
 <pre><code class="language-sh">$ mkdir -p $HOME/.config/systemd/user
-$ cp $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+$ ln -s $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+$ systemctl --user daemon-reload
 $ systemctl --user enable bloop
 </code></pre>
 
@@ -259,13 +260,13 @@ specification and you are not using (or don&rsquo;t want to use) systemd.</p>
 add an icon to your applications menu, depending on environment) you can do:</p>
 
 <pre><code class="language-sh">$ mkdir -p $HOME/.local/share/applications
-$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
+$ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
 </code></pre>
 
 <p>To add it to autostart:</p>
 
 <pre><code class="language-sh">$ mkdir -p $HOME/.config/autostart
-$ cp $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
+$ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
 </code></pre>
 
 <h2 id="generate-configuration-files-for-your-project">Generate configuration files for your project</h2>
