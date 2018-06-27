@@ -6,7 +6,7 @@ import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import pl.project13.scala.sbt.JmhPlugin.JmhKeys
-import sbt.{AutoPlugin, BuildPaths, Compile, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
+import sbt.{AutoPlugin, BuildPaths, Compile, Def, Keys, PluginTrigger, Plugins, Task, TaskKey, ThisBuild}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -15,6 +15,7 @@ import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.PluginDiscovery
+import sbt.librarymanagement.MavenRepository
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -80,6 +81,8 @@ object BuildKeys {
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
+
+  val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -358,6 +361,24 @@ object BuildImplementation {
         Dependencies.mavenScalaPlugin
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
       ),
+    )
+
+    val gradlePluginBuildSettings: Seq[Def.Setting[_]] = List(
+      Keys.resolvers ++= List(
+        MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
+      ),
+      Keys.libraryDependencies ++= List(
+        Dependencies.gradleCore,
+        Dependencies.gradleToolingApi,
+        Dependencies.groovy
+      ),
+      Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
+      BuildKeys.fetchGradleApi := {
+        // TODO: we may want to fetch it to a custom unmanaged lib directory under build
+        val targetDir = (Keys.baseDirectory in Compile).value / "lib"
+        GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir)
+      },
+      Keys.compile.in(Compile) := Keys.compile.in(Compile).dependsOn(BuildKeys.fetchGradleApi).value
     )
 
     val millModuleBuildSettings: Seq[Def.Setting[_]] = List(

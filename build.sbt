@@ -154,6 +154,13 @@ val mavenBloop = project
   .settings(name := "maven-bloop", scalaVersion := Scala210Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
+val gradleBloop = project
+  .in(file("integrations") / "gradle-bloop")
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig212)
+  .settings(name := "gradle-bloop")
+  .settings(BuildDefaults.gradlePluginBuildSettings)
+
 val millBloop = project
   .in(integrations / "mill-bloop")
   .disablePlugins(ScriptedPlugin)
@@ -207,7 +214,7 @@ lazy val nativeBridge = project
   )
 
 val allProjects =
-  Seq(backend, benchmarks, frontend, jsonConfig210, jsonConfig212, sbtBloop013, sbtBloop10, mavenBloop, millBloop, nativeBridge, jsBridge06, jsBridge10)
+  Seq(backend, benchmarks, frontend, jsonConfig210, jsonConfig212, sbtBloop013, sbtBloop10, mavenBloop, gradleBloop, millBloop, nativeBridge, jsBridge06, jsBridge10)
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
@@ -234,6 +241,7 @@ addCommandAlias(
     s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
+    s"${gradleBloop.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
@@ -252,6 +260,7 @@ val allBloopReleases = List(
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
+  s"${gradleBloop.id}/$releaseEarlyCmd",
   s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
