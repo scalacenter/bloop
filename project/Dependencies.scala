@@ -30,7 +30,7 @@ object Dependencies {
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
-  val scalaJs06Version = "0.6.23"
+  val scalaJs06Version = "0.6.25"
   val scalaJs10Version = "1.0.0-M3"
   val millVersion = "0.2.6"
   val xxHashVersion = "1.3.0"
@@ -82,6 +82,8 @@ object Dependencies {
 
   val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
+  val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version
+  val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version
   val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version
   val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version

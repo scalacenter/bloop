@@ -46,7 +46,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
     case TestSuiteEvent.Info(message) => logger.info(message)
     case TestSuiteEvent.Debug(message) => logger.debug(message)
     case TestSuiteEvent.Trace(throwable) =>
-      logger.error("Test suite aborted.")
+      logger.error("Test suite aborted")
       logger.trace(throwable)
       suitesAborted += 1
       suitesTotal += 1
@@ -63,13 +63,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       val pending = events.count(_.status() == Status.Pending)
       val errors = events.count(_.status() == Status.Error)
 
-      // Log any exception that may have happened
-      events.iterator
-        .filter(_.throwable().isDefined)
-        .map(_.throwable().get())
-        .foreach(logger.trace)
-
-      logger.info(s"Execution took ${TimeFormat.printUntilHours(duration)}.")
+      logger.info(s"Execution took ${TimeFormat.printUntilHours(duration)}")
       val regularMetrics = List(
         testsTotal -> "tests",
         passed -> "passed",
@@ -85,12 +79,10 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       if (!testMetrics.isEmpty) logger.info(testMetrics)
 
       if (failureCount > 0) suitesFailed.append(testSuite)
+      else if (testsTotal <= 0) logger.info("No test suite was run")
       else {
-        if (testsTotal <= 0) logger.info("No test suite was run.")
-        else {
-          suitesPassed += 1
-          logger.info(s"All tests in ${testSuite} passed.")
-        }
+        suitesPassed += 1
+        logger.info(s"All tests in $testSuite passed")
       }
 
       logger.info("")

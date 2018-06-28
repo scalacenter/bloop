@@ -13,15 +13,19 @@ import monix.eval.Task
 import scala.util.Try
 
 final class ScalaJsToolchain private (classLoader: ClassLoader) {
-  private val paramTypes =
-    classOf[JsConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
+  private val paramTypesLink =
+    classOf[JsConfig] :: classOf[Project] :: classOf[Option[String]] :: classOf[Path] :: classOf[
+      Logger] :: Nil
+  private val paramTypesTestFrameworks =
+    classOf[Array[Array[String]]] :: classOf[Path] :: classOf[Path] :: classOf[Logger] :: Nil
 
   /**
    * Compile down to JavaScript using Scala.js' toolchain.
    *
    * @param project   The project to link
    * @param config    The configuration for Scala.js
-   * @param mainClass The fully qualified main class name
+   * @param mainClass The fully qualified main class name; can be left empty
+   *                 when linking test suites or JavaScript modules
    * @param target    The output file path
    * @param logger    The logger to use
    * @return The absolute path to the generated JavaScript file
@@ -29,19 +33,35 @@ final class ScalaJsToolchain private (classLoader: ClassLoader) {
   def link(
       config: JsConfig,
       project: Project,
-      mainClass: String,
+      mainClass: Option[String],
       target: AbsolutePath,
       logger: Logger
   ): Task[Try[Unit]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalajs.JsBridge")
-    val method = bridgeClazz.getMethod("link", paramTypes: _*)
+    val method = bridgeClazz.getMethod("link", paramTypesLink: _*)
     Task(
       method.invoke(null, config, project, mainClass, target.underlying, logger).asInstanceOf[Unit]
     ).materialize
   }
+
+  /**
+   * @param jsPath Path to test project's linked JavaScript file
+   */
+  def testFrameworks(frameworkNames: Array[Array[String]],
+                     jsPath: AbsolutePath,
+                     projectPath: AbsolutePath,
+                     logger: Logger): (Array[sbt.testing.Framework], ScalaJsToolchain.Dispose) = {
+    val bridgeClazz = classLoader.loadClass("bloop.scalajs.JsBridge")
+    val method = bridgeClazz.getMethod("testFrameworks", paramTypesTestFrameworks: _*)
+    method
+      .invoke(null, frameworkNames, jsPath.underlying, projectPath.underlying, logger)
+      .asInstanceOf[(Array[sbt.testing.Framework], ScalaJsToolchain.Dispose)]
+  }
 }
 
 object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
+  type Dispose = () => Unit
+
   override final val name: String = "Scala.js"
   override type Platform = Config.Platform.Js
 

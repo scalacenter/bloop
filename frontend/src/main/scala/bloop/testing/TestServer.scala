@@ -22,14 +22,15 @@ import scala.concurrent.Promise
 final class TestServer(
     logger: Logger,
     eventHandler: TestSuiteEventHandler,
-    discoveredTests: DiscoveredTests,
+    classLoader: ClassLoader,
+    discoveredTests: Map[sbt.testing.Framework, List[TaskDef]],
     args: List[Config.TestArgument],
     opts: CommonOptions
 ) {
 
   private val server = new ServerSocket(0)
-  private val frameworks = discoveredTests.tests.keys
-  private val tasks = discoveredTests.tests.values.flatten
+  private val frameworks = discoveredTests.keys
+  private val tasks = discoveredTests.values.flatten
 
   case class TestOrchestrator(startServer: Task[Unit], reporter: Task[Unit])
   val port = server.getLocalPort
@@ -82,7 +83,7 @@ final class TestServer(
           }
         }
 
-        val runner = TestInternals.getRunner(framework, fargs, discoveredTests.classLoader)
+        val runner = TestInternals.getRunner(framework, fargs, classLoader)
         os.writeObject(Array(framework.getClass.getCanonicalName))
         os.writeObject(runner.args)
         os.writeObject(runner.remoteArgs)
