@@ -10,11 +10,18 @@ import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
-import sbt.testing.{AnnotatedFingerprint, EventHandler, Fingerprint, SubclassFingerprint}
+import sbt.testing.{
+  AnnotatedFingerprint,
+  Event,
+  Fingerprint,
+  Framework,
+  Runner,
+  SubclassFingerprint,
+  TaskDef
+}
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
-import sbt.testing.Framework
 import xsbt.api.Discovered
 import xsbti.api.ClassLike
 import xsbti.compile.CompileAnalysis
@@ -81,18 +88,20 @@ object TestInternals {
   /**
    * Execute the test tasks in a forked JVM.
    *
-   * @param cwd              The directory in which to start the forked JVM.
-   * @param forker           Configuration for the forked JVM.
-   * @param discovered       The tests that were discovered.
-   * @param args             The test arguments to pass to the framework.
-   * @param testEventHandler Handler that reacts on messages from the testing frameworks.
-   * @param logger           Logger receiving test output.
-   * @param opts             The options to run the program with.
+   * @param cwd              The directory in which to start the forked JVM
+   * @param forker           Configuration for the forked JVM
+   * @param classLoader      The class loader used for discovering the tests
+   * @param discovered       The test tasks that were discovered, grouped by their `Framework`
+   * @param args             The test arguments to pass to the framework
+   * @param testEventHandler Handler that reacts on messages from the testing frameworks
+   * @param logger           Logger receiving test output
+   * @param opts             The options to run the program with
    */
   def execute(
       cwd: AbsolutePath,
       forker: Forker,
-      discovered: DiscoveredTests,
+      classLoader: ClassLoader,
+      discovered: Map[Framework, List[TaskDef]],
       args: List[Config.TestArgument],
       testEventHandler: TestSuiteEventHandler,
       logger: Logger,
@@ -103,7 +112,7 @@ object TestInternals {
     // Make sure that we cache the resolution of the test agent JAR and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
 
-    val server = new TestServer(logger, testEventHandler, discovered, args, opts)
+    val server = new TestServer(logger, testEventHandler, classLoader, discovered, args, opts)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
@@ -116,6 +125,31 @@ object TestInternals {
       .delayExecutionWith(listener.startServer)
       .executeOn(ExecutionContext.ioScheduler)
       .doOnCancel(Task(listenerHandle.cancel()))
+  }
+
+  /**
+   * Execute the test tasks without forking
+   *
+   * Used for Scala.js which already runs the tests in an external process
+   */
+  def executeWithoutForking(framework: Framework,
+                            taskDefs: Array[TaskDef],
+                            args: List[Config.TestArgument],
+                            logger: Logger): List[Event] = {
+    val runner = getRunner(framework, args, null)
+    val events = new mutable.ListBuffer[Event]
+
+    val tasks = new mutable.ListBuffer[sbt.testing.Task]
+    tasks ++= runner.tasks(taskDefs)
+
+    while (tasks.nonEmpty) {
+      val t = tasks.head
+      tasks.remove(0)
+      val next = t.execute(e => events.append(e), Array(logger))
+      tasks.prependAll(next)
+    }
+
+    events.toList
   }
 
   def loadFramework(l: ClassLoader, fqns: List[String], logger: Logger): Option[Framework] = {
@@ -153,7 +187,7 @@ object TestInternals {
       framework: Framework,
       args0: List[Config.TestArgument],
       testClassLoader: ClassLoader
-  ) = {
+  ): Runner = {
     val args = args0.toArray.flatMap(_.args)
     framework.runner(args, Array.empty, testClassLoader)
   }
