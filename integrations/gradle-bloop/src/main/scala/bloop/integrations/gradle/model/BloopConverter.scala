@@ -7,7 +7,11 @@ import bloop.config.Config
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.artifacts.{Configuration, ProjectDependency, ResolvedArtifact}
-import org.gradle.api.internal.tasks.compile.{CommandLineJavaCompilerArgumentsGenerator, DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
+import org.gradle.api.internal.tasks.compile.{
+  CommandLineJavaCompilerArgumentsGenerator,
+  DefaultJavaCompileSpec,
+  JavaCompilerArgumentsBuilder
+}
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
@@ -16,32 +20,33 @@ import org.gradle.api.{GradleException, Project}
 import scala.collection.JavaConverters._
 
 /**
-  * Conversion from Gradle's project model to Bloop's project model
-  * @param parameters User-provided customization parameters
-  */
-class GradleToBloop(parameters: BloopParameters) {
+ * Define the conversion from Gradle's project model to Bloop's project model.
+ * @param parameters Parameters provided by Gradle's user configuration
+ */
+final class BloopConverter(parameters: BloopParameters) {
 
   /**
-    * Converts a project's given source set to a Bloop project
-    *
-    * Bloop analysis output will be targetDir/project-name/project[-sourceSet].bin
-    *
-    * Output classes are generated to projectDir/build/classes/scala/sourceSetName to
-    * be compatible with Gradle.
-    *
-    * NOTE: Java classes will be also put into the above defined directory, not as with Gradle
-    *
-    * @param additionalDependencies Additional dependencies cannot be inferred from Gradle's object model
-    * @param project The Gradle project model
-    * @param sourceSet The source set to convert
-    * @param targetDir Target directory for bloop files
-    * @return Bloop configuration
-    */
-  def toBloopConfig(additionalDependencies: Set[String],
-                    project: Project,
-                    sourceSet: SourceSet,
-                    targetDir: File): Config.File = {
-
+   * Converts a project's given source set to a Bloop project
+   *
+   * Bloop analysis output will be targetDir/project-name/project[-sourceSet].bin
+   *
+   * Output classes are generated to projectDir/build/classes/scala/sourceSetName to
+   * be compatible with Gradle.
+   *
+   * NOTE: Java classes will be also put into the above defined directory, not as with Gradle
+   *
+   * @param strictProjectDependencies Additional dependencies cannot be inferred from Gradle's object model
+   * @param project The Gradle project model
+   * @param sourceSet The source set to convert
+   * @param targetDir Target directory for bloop files
+   * @return Bloop configuration
+   */
+  def toBloopConfig(
+      strictProjectDependencies: Set[String],
+      project: Project,
+      sourceSet: SourceSet,
+      targetDir: File
+  ): Config.File = {
     val configuration = project.getConfiguration(sourceSet.getCompileConfigurationName)
 
     val artifacts: Set[ResolvedArtifact] =
@@ -49,23 +54,24 @@ class GradleToBloop(parameters: BloopParameters) {
 
     val projectDependencies: Set[ProjectDependency] =
       configuration.getAllDependencies.asScala.collect { case dep: ProjectDependency => dep }.toSet
+    val projectDependenciesIds: Set[String] = projectDependencies.map { dep =>
+      val project = dep.getDependencyProject
+      getProjectName(project, project.getSourceSet(parameters.mainSourceSet))
+    }
 
-    val allDependencies: Set[String] =
-      projectDependencies
-        .map(dep => getProjectName(dep.getDependencyProject, dep.getDependencyProject.getSourceSet(parameters.mainSourceSet)))
-        .union(additionalDependencies)
+    // Strict project dependencies should have more priority than regular project dependencies
+    val allDependencies = strictProjectDependencies.union(projectDependenciesIds)
 
-    val nonProjectDependencyArtifacts: Set[ResolvedArtifact] = artifacts
-      .filter(resolvedArtifact => !isAProjectDependency(projectDependencies, resolvedArtifact))
+    val dependencyClasspath: Set[ResolvedArtifact] = artifacts
+      .filter(resolvedArtifact => !isProjectDependency(projectDependencies, resolvedArtifact))
 
-    val projectDependencyClassesDirs: Set[File] =
-      projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
+    val classpath: Array[Path] = {
+      val projectDependencyClassesDirs: Set[File] =
+        projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
+      dependencyClasspath.map(_.getFile).union(projectDependencyClassesDirs).map(_.toPath).toArray
+    }
 
-    val classpath: Array[Path] =
-      nonProjectDependencyArtifacts.map(_.getFile).union(projectDependencyClassesDirs)
-        .map(_.toPath)
-        .toArray
-
+    val resolution = Config.Resolution(dependencyClasspath.map(artifactToConfigModule).toList)
     val bloopProject = Config.Project(
       name = getProjectName(project, sourceSet),
       directory = project.getProjectDir.toPath,
@@ -81,7 +87,7 @@ class GradleToBloop(parameters: BloopParameters) {
       test = Config.Test(testFrameworks, defaultTestOptions), // TODO: make this configurable?
       platform = Config.Platform.default,
       compileSetup = Config.CompileSetup.empty, // TODO: make this configurable?
-      resolution = Config.Resolution(nonProjectDependencyArtifacts.map(artifactToConfigModule).toList)
+      resolution = resolution
     )
 
     Config.File(Config.File.LatestVersion, bloopProject)
@@ -106,11 +112,15 @@ class GradleToBloop(parameters: BloopParameters) {
   private def getSources(sourceSet: SourceSet): Array[Path] =
     sourceSet.getAllSource.asScala.map(_.toPath).toArray
 
-  private def isAProjectDependency(projectDependencies: Set[ProjectDependency], resolvedArtifact: ResolvedArtifact): Boolean = {
-    projectDependencies.exists(dep =>
-      dep.getGroup == resolvedArtifact.getModuleVersion.getId.getGroup &&
-        dep.getName == resolvedArtifact.getModuleVersion.getId.getName &&
-        dep.getVersion == resolvedArtifact.getModuleVersion.getId.getVersion
+  private def isProjectDependency(
+      projectDependencies: Set[ProjectDependency],
+      resolvedArtifact: ResolvedArtifact
+  ): Boolean = {
+    projectDependencies.exists(
+      dep =>
+        dep.getGroup == resolvedArtifact.getModuleVersion.getId.getGroup &&
+          dep.getName == resolvedArtifact.getModuleVersion.getId.getName &&
+          dep.getVersion == resolvedArtifact.getModuleVersion.getId.getVersion
     )
   }
 
@@ -120,19 +130,26 @@ class GradleToBloop(parameters: BloopParameters) {
       name = artifact.getName,
       version = artifact.getModuleVersion.getId.getVersion,
       configurations = None,
-      List(Config.Artifact(
-        name = artifact.getModuleVersion.getId.getName,
-        classifier = Option(artifact.getClassifier),
-        checksum = None,
-        path = artifact.getFile.toPath
-      ))
+      List(
+        Config.Artifact(
+          name = artifact.getModuleVersion.getId.getName,
+          classifier = Option(artifact.getClassifier),
+          checksum = None,
+          path = artifact.getFile.toPath
+        )
+      )
     )
   }
 
-  private def getScalaConfig(project: Project, sourceSet: SourceSet, artifacts: Set[ResolvedArtifact]): Config.Scala = {
+  private def getScalaConfig(
+      project: Project,
+      sourceSet: SourceSet,
+      artifacts: Set[ResolvedArtifact]
+  ): Config.Scala = {
+    val compilerName = parameters.compilerName
     val scalaCompilerArtifact = artifacts
-      .find(_.getName == parameters.compilerName)
-      .getOrElse(throw new GradleException(s"${parameters.compilerName} is not added as dependency"))
+      .find(_.getName == compilerName)
+      .getOrElse(throw new GradleException(s"${compilerName} is not added as dependency"))
     val scalaVersion = scalaCompilerArtifact.getModuleVersion.getId.getVersion
     val scalaGroup = scalaCompilerArtifact.getModuleVersion.getId.getGroup
 
@@ -194,7 +211,7 @@ class GradleToBloop(parameters: BloopParameters) {
     val additionalOptions: Set[String] =
       options.getAdditionalParameters.asScala.toSet
 
-    baseOptions union loggingPhases union additionalOptions
+    baseOptions.union(loggingPhases).union(additionalOptions)
   }
 
   private val scalaCheckFramework = Config.TestFramework(
@@ -206,27 +223,25 @@ class GradleToBloop(parameters: BloopParameters) {
     List(
       "org.scalatest.tools.Framework",
       "org.scalatest.tools.ScalaTestFramework"
-    ))
+    )
+  )
 
   private val specsFramework = Config.TestFramework(
     List(
       "org.specs.runner.SpecsFramework",
       "org.specs2.runner.Specs2Framework",
       "org.specs2.runner.SpecsFramework"
-    ))
+    )
+  )
 
   private val jUnitFramework = Config.TestFramework(
     List(
       "com.novocode.junit.JUnitFramework"
-    ))
-
-  private val testFrameworks: Array[Config.TestFramework] = Array(
-    scalaCheckFramework,
-    scalaTestFramework,
-    specsFramework,
-    jUnitFramework
+    )
   )
 
+  private val testFrameworks: Array[Config.TestFramework] =
+    Array(scalaCheckFramework, scalaTestFramework, specsFramework, jUnitFramework)
   private val defaultTestOptions =
     Config.TestOptions(Nil, List(Config.TestArgument(Array("-v", "-a"), Some(jUnitFramework))))
 }

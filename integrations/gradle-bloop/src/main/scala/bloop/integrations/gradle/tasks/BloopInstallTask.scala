@@ -4,69 +4,60 @@ import java.io.File
 import java.nio.file.Files
 
 import bloop.integrations.gradle.BloopParameters
-import bloop.integrations.gradle.model.GradleToBloop
+import bloop.integrations.gradle.model.BloopConverter
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.tasks.{SourceSet, TaskAction}
 import org.gradle.api.{DefaultTask, Project}
 
 /**
-  * Task to generate bloop's configuration JSONs
-  */
-class BloopInstallTask extends DefaultTask with TaskLogging {
+ * Define a Gradle task that generates bloop configuration files from a Gradle project.
+ *
+ * This part of the plugin is mainly in charge of handling source sets. Source sets are logical
+ * group of sources and resources ([[https://docs.gradle.org/current/dsl/org.gradle.api.tasks.SourceSet.html]]).
+ *
+ * Source sets are the equivalent of sbt configurations (approximately). The default java plugin
+ * adds two source sets by default (compile and test) [[https://docs.gradle.org/current/userguide/java_plugin.html]].
+ */
+final class BloopInstallTask extends DefaultTask with TaskLogging {
   private val project: Project = getProject
   private val parameters: BloopParameters = project.getExtension[BloopParameters]
+  private val converter = new BloopConverter(parameters)
 
   @TaskAction
   def run(): Unit = {
     val targetDir: File = parameters.targetDir
-
     info(s"Generating Bloop configuration to ${targetDir.getAbsolutePath}")
 
     if (!targetDir.exists()) {
-      debug(s"Creating target directory")
+      debug(s"Creating target directory ${targetDir}")
       Files.createDirectory(targetDir.toPath)
     }
 
     val mainSourceSet = project.getSourceSet(parameters.mainSourceSet)
     val otherSourceSets = project.allSourceSets.filter(_.getName != parameters.mainSourceSet)
 
-    val converter = new GradleToBloop(parameters)
+    // The 'main' source set maps to the raw project name (as all integrations do)
+    val mainProjectName = converter.getProjectName(project, mainSourceSet)
+    generateBloopConfiguration(mainProjectName, Set.empty, mainSourceSet, targetDir)
 
-    // The 'main' source set is generated first to targetDir/projectName.json
-    generateBloopConfiguration(
-      converter,
-      Set.empty,
-      mainSourceSet,
-      targetDir)
-
-    // All the other source sets are generated to targetDir/projectName-sourceSet.json with the main
-    // source set added as dependency
-    // NOTE: this dependency is hardcoded in the plugin currently, not inferred from Gradle's project model
+    // Generate the bloop configuration files for the rest of the source sets
     for (sourceSet <- otherSourceSets) {
-      generateBloopConfiguration(
-        converter,
-        Set(converter.getProjectName(project, mainSourceSet)),
-        sourceSet,
-        targetDir)
+      val projectName = converter.getProjectName(project, sourceSet)
+      // Hardcore an implicit dependency for every source set to the main source set (compile)
+      generateBloopConfiguration(projectName, Set(mainProjectName), sourceSet, targetDir)
     }
   }
 
-  private def generateBloopConfiguration(converter: GradleToBloop,
-                                         dependencies: Set[String],
-                                         sourceSet: SourceSet,
-                                         targetDir: File): Unit = {
-
-    val name = converter.getProjectName(project, sourceSet)
-    val targetFile = targetDir / s"$name.json"
-
-    info(s"Generating Bloop file ${targetFile.getAbsolutePath}...")
-
-    val bloopConfig = converter.toBloopConfig(
-      dependencies,
-      project,
-      sourceSet,
-      targetDir)
+  private def generateBloopConfiguration(
+      projectName: String,
+      projectDependencies: Set[String],
+      sourceSet: SourceSet,
+      targetDir: File
+  ): Unit = {
+    val targetFile = targetDir / s"$projectName.json"
+    // Let's keep the error message as similar to the one in the sbt plugin as possible
+    info(s"Generated ${targetFile.getAbsolutePath}")
+    val bloopConfig = converter.toBloopConfig(projectDependencies, project, sourceSet, targetDir)
     bloop.config.write(bloopConfig, targetFile.toPath)
   }
 }
-

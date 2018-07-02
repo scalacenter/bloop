@@ -40,11 +40,12 @@ object syntax {
 
     def createExtension[T](name: String, params: Object*)(implicit t: ClassTag[T]): Unit = {
       project.getExtensions.create(name, t.runtimeClass.asInstanceOf[Class[T]], params : _*)
+      ()
     }
 
-    def getExtension[T](implicit t: ClassTag[T]): T =
+    def getExtension[T](implicit t: ClassTag[T]): T = {
       project.getExtensions.getByType(t.runtimeClass.asInstanceOf[Class[T]])
-
+    }
   }
 
   /**
