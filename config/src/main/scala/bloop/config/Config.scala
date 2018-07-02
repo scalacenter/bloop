@@ -147,9 +147,9 @@ object Config {
     // FORMAT: ON
   }
 
-  case class NativeOptions(linker: List[String], compiler: List[String], output: Option[Path])
+  case class NativeOptions(linker: List[String], compiler: List[String])
   object NativeOptions {
-    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil, None)
+    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil)
   }
 
   case class Checksum(

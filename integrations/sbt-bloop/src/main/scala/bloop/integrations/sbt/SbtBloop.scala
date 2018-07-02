@@ -537,7 +537,7 @@ object BloopDefaults {
             case _ => emptyNative.mode
           }
 
-          val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions, None)
+          val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
           val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs, None)
           Config.Platform.Native(nativeConfig, None)
         }
