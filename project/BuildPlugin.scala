@@ -374,8 +374,6 @@ object BuildImplementation {
       ),
     )
 
-    // We need to do this if we want to put the logic here and not clutter build.sbt
-    private val mockBloopGenerate = TaskKey[Option[File]]("bloopGenerate")
     val gradlePluginBuildSettings: Seq[Def.Setting[_]] = List(
       Keys.resolvers ++= List(
         MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
@@ -386,17 +384,20 @@ object BuildImplementation {
         Dependencies.groovy
       ),
       Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
+      Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
       BuildKeys.fetchGradleApi := {
         val logger = Keys.streams.value.log
         // TODO: we may want to fetch it to a custom unmanaged lib directory under build
         val targetDir = (Keys.baseDirectory in Compile).value / "lib"
         GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
       },
-      mockBloopGenerate.in(Compile) :=
-        mockBloopGenerate.in(Compile).dependsOn(BuildKeys.fetchGradleApi).value,
-      Keys.compile.in(Compile) :=
-        Keys.compile.in(Compile).dependsOn(BuildKeys.fetchGradleApi).value
     )
+
+    lazy val unmanagedJarsWithGradleApi: Def.Initialize[Task[Keys.Classpath]] = Def.taskDyn {
+      val unmanagedJarsTask = Keys.unmanagedJars.in(Compile).taskValue
+      val _ = BuildKeys.fetchGradleApi.value
+      Def.task(unmanagedJarsTask.value)
+    }
 
     val millModuleBuildSettings: Seq[Def.Setting[_]] = List(
       Keys.libraryDependencies ++= List(

@@ -15,8 +15,7 @@ object GradleIntegration {
     if (!targetFile.exists()) {
       // This is one of these things that may be outdated if the whole process fails
       val url = new URL(s"https://services.gradle.org/distributions/gradle-$version-bin.zip")
-      logger.info(s"Fetching Gradle API version $version from $url")
-      logger.warn("This process may take a while...")
+      logger.info(s"Fetching Gradle API version $version from $url (may take a while...)")
       IO.withTemporaryDirectory { gradleDir =>
         IO.withTemporaryDirectory { dummyProjectDir =>
           // Unzip and write a dummy plugin definition to force Gradle to extract the plugin api
