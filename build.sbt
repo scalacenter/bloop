@@ -156,10 +156,19 @@ val mavenBloop = project
 
 val gradleBloop = project
   .in(file("integrations") / "gradle-bloop")
+  .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212)
   .settings(name := "gradle-bloop")
   .settings(BuildDefaults.gradlePluginBuildSettings)
+  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
+  .settings(
+    buildInfo in Compile := Nil,
+    // Only generate the build info for the tests
+    buildInfoKeys in Test := GradleInfoKeys,
+    buildInfoPackage in Test := "bloop.internal.build",
+    buildInfoObject in Test := "BloopGradleIntegration",
+  )
 
 val millBloop = project
   .in(integrations / "mill-bloop")
@@ -213,8 +222,22 @@ lazy val nativeBridge = project
     fork in Test := true,
   )
 
-val allProjects =
-  Seq(backend, benchmarks, frontend, jsonConfig210, jsonConfig212, sbtBloop013, sbtBloop10, mavenBloop, gradleBloop, millBloop, nativeBridge, jsBridge06, jsBridge10)
+val allProjects = Seq(
+  backend,
+  benchmarks,
+  frontend,
+  jsonConfig210,
+  jsonConfig212,
+  sbtBloop013,
+  sbtBloop10,
+  mavenBloop,
+  gradleBloop,
+  millBloop,
+  nativeBridge,
+  jsBridge06,
+  jsBridge10
+)
+
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
