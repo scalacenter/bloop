@@ -5,47 +5,59 @@ import sbt.io.syntax._
 import java.net.URL
 
 import sbt.internal.util.MessageOnlyException
+import sbt.util.Logger
 
 import scala.sys.process.Process
 
 object GradleIntegration {
-  def fetchGradleApi(version: String, targetDir: File): Unit = {
-    val targetFile = targetDir / s"gradle-api-$version.jar"
-
+  def fetchGradleApi(version: String, libDir: File, logger: Logger): Unit = {
+    val targetFile = libDir / s"gradle-api-$version.jar"
     if (!targetFile.exists()) {
+      // This is one of these things that may be outdated if the whole process fails
       val url = new URL(s"https://services.gradle.org/distributions/gradle-$version-bin.zip")
-      println(s"Fetching Gradle API version $version from $url")
+      logger.info(s"Fetching Gradle API version $version from $url")
+      logger.warn("This process may take a while...")
       IO.withTemporaryDirectory { gradleDir =>
         IO.withTemporaryDirectory { dummyProjectDir =>
+          // Unzip and write a dummy plugin definition to force Gradle to extract the plugin api
           IO.unzipURL(url, gradleDir)
-
-          IO.write(dummyProjectDir / "build.gradle",
-            """apply plugin: 'java'
-              |
-              |dependencies {
-              |  compile gradleApi()
-              |}
-              |
-              |task("printClassPath") << {
-              |  println project.sourceSets.test.runtimeClasspath.asPath
-              |}
-            """.stripMargin)
+          IO.write(dummyProjectDir / "build.gradle", DummyGradlePluginDefinition)
 
           val gradleExecutable: File = gradleDir / s"gradle-$version" / "bin" / "gradle"
           gradleExecutable.setExecutable(true)
 
-          println("Running gradle...")
-          val result: String = Process(Seq(gradleExecutable.getAbsolutePath, "printClassPath"), dummyProjectDir).!!
-          val jars = result.split(':')
-          val gradleApiJar = new File(jars.find(_.endsWith(s"gradle-api-$version.jar")).getOrElse(
-            throw new MessageOnlyException(s"Could not find gradle-api artifact in the generated class path: $result")))
+          logger.info("Extracting the api path from gradle...")
+          val result: String =
+            Process(Seq(gradleExecutable.getAbsolutePath, "printClassPath"), dummyProjectDir).!!
 
-          println(s"Copying Gradle API from: ${gradleApiJar.getAbsolutePath} to ${targetDir.getAbsolutePath}")
-          IO.copyFile(gradleApiJar, targetFile)
+          result.split(':').find(_.endsWith(s"gradle-api-$version.jar")) match {
+            case Some(gradleApi) =>
+              // Copy the api to the lib jar so that it's accessible for the compiler
+              val gradleApiJar = new File(gradleApi)
+              logger.info(
+                s"Copying Gradle API ${gradleApiJar.getAbsolutePath} -> ${libDir.getAbsolutePath}")
+              IO.copyFile(gradleApiJar, targetFile)
+            case None =>
+              throw new MessageOnlyException(
+                s"Fatal: could not find gradle-api artifact in the generated class path $result")
+          }
         }
       }
     } else {
-      println(s"Gradle API already exists in ${targetFile.getAbsolutePath}")
+      logger.debug(s"Gradle API already exists in ${targetFile.getAbsolutePath}")
     }
+  }
+
+  private final val DummyGradlePluginDefinition = {
+    """apply plugin: 'java'
+      |
+      |dependencies {
+      |  compile gradleApi()
+      |}
+      |
+      |task("printClassPath") << {
+      |  println project.sourceSets.test.runtimeClasspath.asPath
+      |}
+    """.stripMargin
   }
 }

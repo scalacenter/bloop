@@ -6,7 +6,18 @@ import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import pl.project13.scala.sbt.JmhPlugin.JmhKeys
-import sbt.{AutoPlugin, BuildPaths, Compile, Def, Keys, PluginTrigger, Plugins, Task, TaskKey, ThisBuild}
+import sbt.{
+  AutoPlugin,
+  BuildPaths,
+  Compile,
+  Def,
+  Keys,
+  PluginTrigger,
+  Plugins,
+  Task,
+  TaskKey,
+  ThisBuild
+}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -363,6 +374,8 @@ object BuildImplementation {
       ),
     )
 
+    // We need to do this if we want to put the logic here and not clutter build.sbt
+    private val mockBloopGenerate = TaskKey[Option[File]]("bloopGenerate")
     val gradlePluginBuildSettings: Seq[Def.Setting[_]] = List(
       Keys.resolvers ++= List(
         MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
@@ -374,11 +387,15 @@ object BuildImplementation {
       ),
       Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
       BuildKeys.fetchGradleApi := {
+        val logger = Keys.streams.value.log
         // TODO: we may want to fetch it to a custom unmanaged lib directory under build
         val targetDir = (Keys.baseDirectory in Compile).value / "lib"
-        GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir)
+        GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
       },
-      Keys.compile.in(Compile) := Keys.compile.in(Compile).dependsOn(BuildKeys.fetchGradleApi).value
+      mockBloopGenerate.in(Compile) :=
+        mockBloopGenerate.in(Compile).dependsOn(BuildKeys.fetchGradleApi).value,
+      Keys.compile.in(Compile) :=
+        Keys.compile.in(Compile).dependsOn(BuildKeys.fetchGradleApi).value
     )
 
     val millModuleBuildSettings: Seq[Def.Setting[_]] = List(
