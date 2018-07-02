@@ -26,8 +26,8 @@ object GradleIntegration {
           gradleExecutable.setExecutable(true)
 
           logger.info("Extracting the api path from gradle...")
-          val result: String =
-            Process(Seq(gradleExecutable.getAbsolutePath, "printClassPath"), dummyProjectDir).!!
+          val gradleCmd = Seq(gradleExecutable.getAbsolutePath, "--stacktrace", "printClassPath")
+          val result: String = Process(gradleCmd, dummyProjectDir).!!
 
           result.split(':').find(_.endsWith(s"gradle-api-$version.jar")) match {
             case Some(gradleApi) =>
