@@ -517,7 +517,7 @@ object BloopDefaults {
 
     // FORMAT: OFF
     if (pluginLabels.contains(ScalaNativePluginLabel)) {
-      if (isWindows) Def.task(Config.Platform.Native(Config.NativeConfig.empty))
+      if (isWindows) Def.task(Config.Platform.Native(Config.NativeConfig.empty, None))
       else {
         Def.task {
           // Add targetTriple to the config when the scala native plugin supports it
@@ -539,7 +539,7 @@ object BloopDefaults {
 
           val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
           val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs, None)
-          Config.Platform.Native(nativeConfig)
+          Config.Platform.Native(nativeConfig, None)
         }
       }
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
@@ -561,12 +561,12 @@ object BloopDefaults {
         val scalaJsEmitSourceMaps =
           ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
         val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, None, emptyScalaJs.toolchain)
-        Config.Platform.Js(jsConfig)
+        Config.Platform.Js(jsConfig, None)
       }
     } else {
       Def.task {
         val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
-        Config.Platform.Jvm(config)
+        Config.Platform.Jvm(config, None)
       }
     }
     // FORMAT: ON
