@@ -18,7 +18,7 @@ import org.gradle.api.{DefaultTask, Project}
  * Source sets are the equivalent of sbt configurations (approximately). The default java plugin
  * adds two source sets by default (compile and test) [[https://docs.gradle.org/current/userguide/java_plugin.html]].
  */
-final class BloopInstallTask extends DefaultTask with TaskLogging {
+class BloopInstallTask extends DefaultTask with TaskLogging {
   private val project: Project = getProject
   private val parameters: BloopParameters = project.getExtension[BloopParameters]
   private val converter = new BloopConverter(parameters)

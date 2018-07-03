@@ -21,7 +21,7 @@ import syntax._
  * }
  * }}}
  */
-final class BloopParameters(project: Project) {
+class BloopParameters(project: Project) {
   // targetDir
   private var targetDir_ : File = project.getRootProject.getProjectDir / ".bloop"
   def getTargetDir: File = targetDir_
