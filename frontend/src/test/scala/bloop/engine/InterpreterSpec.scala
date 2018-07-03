@@ -72,7 +72,7 @@ object InterpreterSpec {
     val inMemory = new ByteArrayOutputStream()
     val newOut = new PrintStream(inMemory)
     val loggerName = UUID.randomUUID().toString
-    val newLogger = BloopLogger.at(loggerName, newOut, newOut)
+    val newLogger = BloopLogger.at(loggerName, newOut, newOut, false)
     val defaultCli = CliOptions.default
     val newCommonOptions = state.commonOptions.copy(out = newOut)
     val newState = state.copy(logger = newLogger, commonOptions = newCommonOptions)

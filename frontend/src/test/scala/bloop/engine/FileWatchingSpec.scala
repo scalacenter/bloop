@@ -90,7 +90,7 @@ class FileWatchingSpec {
         val cliOptions0 = CliOptions.default
         val newOut = new PrintStream(bloopOut)
         val loggerName = UUID.randomUUID().toString
-        val newLogger = BloopLogger.at(loggerName, newOut, newOut)
+        val newLogger = BloopLogger.at(loggerName, newOut, newOut, false)
         val newState = state.copy(logger = newLogger)
         val commonOptions = cliOptions0.common.copy(out = newOut)
         val cliOptions = cliOptions0.copy(common = commonOptions)
@@ -137,7 +137,7 @@ class FileWatchingSpec {
         val cliOptions0 = CliOptions.default
         val newOut = new PrintStream(bloopOut)
         val loggerName = UUID.randomUUID().toString
-        val newLogger = BloopLogger.at(loggerName, newOut, newOut).asVerbose
+        val newLogger = BloopLogger.at(loggerName, newOut, newOut, false).asVerbose
         val newState = state.copy(logger = newLogger)
         val commonOptions1 = state.commonOptions.copy(out = newOut)
         val cliOptions = cliOptions0.copy(common = commonOptions1)
