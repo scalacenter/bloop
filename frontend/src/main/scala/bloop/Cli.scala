@@ -228,8 +228,12 @@ object Cli {
 
     val commonOpts = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
+    val filteringFunction: String => Boolean =
+      if (cliOptions.filter.isEmpty) msg => false
+      else msg => msg.contains(cliOptions.filter)
+
     val logger =
-      BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose)
+      BloopLogger.at(configDirectory.syntax, commonOpts.out, commonOpts.err, cliOptions.verbose, filteringFunction)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
     if (Files.exists(configDirectory.underlying)) {
