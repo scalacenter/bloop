@@ -37,6 +37,9 @@ object BuildPlugin extends AutoPlugin {
 
 object BuildKeys {
   import sbt.{Reference, RootProject, ProjectRef, BuildRef, file, uri}
+
+  final val Scala210Version = "2.10.7"
+
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -415,7 +418,7 @@ object BuildImplementation {
      */
     def publishDocAndSourceArtifact(info: Option[GitDescribeOutput], version: String): Boolean = {
       val isStable = info.map(_.dirtySuffix.value.isEmpty)
-      !isStable.map(stable => !stable || version.endsWith("-SNAPSHOT")).getOrElse(false)
+      !isStable.exists(stable => !stable || version.endsWith("-SNAPSHOT"))
     }
   }
 
