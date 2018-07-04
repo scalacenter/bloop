@@ -33,7 +33,7 @@ class ScalaNativeToolchainSpec {
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
     val action = Run(Commands.Link(project = "crossNative", optimize = Some(mode)))
-    val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
+    val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 3)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
     logger.getMessages.assertContain("Optimizing (release mode)", atLevel = "info")
