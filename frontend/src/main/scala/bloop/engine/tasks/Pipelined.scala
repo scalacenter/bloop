@@ -105,11 +105,7 @@ object Pipelined {
       val javaReady = inputs.javaReady
 
       val classpathOptions = project.classpathOptions
-      val compileOrder = project.compileSetup.order match {
-        case Config.Mixed => CompileOrder.Mixed
-        case Config.JavaThenScala => CompileOrder.JavaThenScala
-        case Config.ScalaThenJava => CompileOrder.ScalaThenJava
-      }
+      val compileOrder = project.compileOrder
 
       // Set the reporter based on the kind of logger to publish diagnostics
       val reporter = logger match {

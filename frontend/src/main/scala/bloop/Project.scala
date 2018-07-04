@@ -7,7 +7,7 @@ import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import xsbti.compile.ClasspathOptions
+import xsbti.compile.{ClasspathOptions, CompileOrder}
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import config.{Config, ConfigEncoderDecoders}
@@ -55,6 +55,12 @@ final case class Project(
       compileSetup.manageBootClasspath,
       compileSetup.filterLibraryFromClasspath
     )
+  }
+
+  val compileOrder: CompileOrder = compileSetup.order match {
+    case Config.Mixed => CompileOrder.Mixed
+    case Config.JavaThenScala => CompileOrder.JavaThenScala
+    case Config.ScalaThenJava => CompileOrder.ScalaThenJava
   }
 }
 

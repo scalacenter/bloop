@@ -95,12 +95,7 @@ object Tasks {
       val javacOptions = project.javacOptions.toArray
       val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
-
-      val compileOrder = project.compileSetup.order match {
-        case Config.Mixed => CompileOrder.Mixed
-        case Config.JavaThenScala => CompileOrder.JavaThenScala
-        case Config.ScalaThenJava => CompileOrder.ScalaThenJava
-      }
+      val compileOrder = project.compileOrder
 
       // Set the reporter based on the kind of logger to publish diagnostics
       val reporter = logger match {
@@ -431,14 +426,14 @@ object Tasks {
   }
 
   /**
-    * Runs the fully qualified class `className` in a Native or JavaScript `project`.
-    *
-    * @param state     The current state of Bloop.
-    * @param project   The project to run.
-    * @param cwd       The directory in which to start the forked run process.
-    * @param fqn       The fully qualified name of the main class.
-    * @param args      The arguments to pass to the main class.
-    */
+   * Runs the fully qualified class `className` in a Native or JavaScript `project`.
+   *
+   * @param state     The current state of Bloop.
+   * @param project   The project to run.
+   * @param cwd       The directory in which to start the forked run process.
+   * @param fqn       The fully qualified name of the main class.
+   * @param args      The arguments to pass to the main class.
+   */
   def runNativeOrJs(
       state: State,
       project: Project,
