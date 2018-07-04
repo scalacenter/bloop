@@ -1,6 +1,8 @@
 val Lichess = Integrations.Lichess
 val integrations = List(Lichess)
 
+ivyLoggingLevel in ThisBuild := UpdateLogging.Quiet
+
 val dummy = project
   .in(file("."))
   .aggregate(integrations: _*)

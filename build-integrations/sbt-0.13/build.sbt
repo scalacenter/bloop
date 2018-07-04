@@ -4,6 +4,8 @@ val ScalaScala = Integrations.ScalaScala
 val ScalaCenterVersions = Integrations.ScalaCenterVersions
 val integrations = List(ApacheSpark, LihaoyiUtest, ScalaScala, ScalaCenterVersions)
 
+ivyLoggingLevel in ThisBuild := UpdateLogging.Quiet
+
 val dummy = project
   .in(file("."))
   .aggregate(integrations: _*)
