@@ -104,21 +104,22 @@ object ConfigEncoderDecoders {
   private final val C = "config"
   private final val M = "mainClass"
 
+  val OptionStringEncoder = implicitly[RootEncoder[Option[String]]]
   implicit val platformEncoder: RootEncoder[Platform] = new RootEncoder[Platform] {
     override final def apply(platform: Platform): Json = platform match {
       case Platform.Jvm(config, mainClass) =>
         val configJson = jvmEncoder(config)
-        val mainClassJson = implicitly[RootEncoder[Option[String]]].apply(mainClass)
+        val mainClassJson = OptionStringEncoder.apply(mainClass)
         Json.fromFields(
           List((N, Json.fromString(Platform.Jvm.name)), (C, configJson), (M, mainClassJson)))
       case Platform.Js(config, mainClass) =>
         val configJson = jsEncoder(config)
-        val mainClassJson = implicitly[RootEncoder[Option[String]]].apply(mainClass)
+        val mainClassJson = OptionStringEncoder.apply(mainClass)
         Json.fromFields(
           List((N, Json.fromString(Platform.Js.name)), (C, configJson), (M, mainClassJson)))
       case Platform.Native(config, mainClass) =>
         val configJson = nativeEncoder(config)
-        val mainClassJson = implicitly[RootEncoder[Option[String]]].apply(mainClass)
+        val mainClassJson = OptionStringEncoder.apply(mainClass)
         Json.fromFields(
           List((N, Json.fromString(Platform.Native.name)), (C, configJson), (M, mainClassJson)))
     }

@@ -232,8 +232,8 @@ object Config {
         List(sourceFile),
         List("dummy-2"),
         List(scalaLibraryJar),
-        classesDir,
         outDir,
+        classesDir,
         Some(
           Scala(
             "org.scala-lang",
@@ -242,7 +242,7 @@ object Config {
             List("-warn"),
             List(),
             Some(outAnalysisFile),
-              Some(CompileSetup.empty)
+            Some(CompileSetup.empty)
           )),
         Some(Java(List("-version"))),
         Some(Sbt("1.1.0", Nil)),
