@@ -20,15 +20,15 @@ import ch.epfl.scala.{bsp => Bsp}
 final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
-    dependencies: Array[String],
+    dependencies: List[String],
     scalaInstance: ScalaInstance,
-    rawClasspath: Array[AbsolutePath],
+    rawClasspath: List[AbsolutePath],
     classpathOptions: ClasspathOptions,
     classesDir: AbsolutePath,
-    scalacOptions: Array[String],
-    javacOptions: Array[String],
-    sources: Array[AbsolutePath],
-    testFrameworks: Array[Config.TestFramework],
+    scalacOptions: List[String],
+    javacOptions: List[String],
+    sources: List[AbsolutePath],
+    testFrameworks: List[Config.TestFramework],
     testOptions: Config.TestOptions,
     javaEnv: JavaEnv,
     out: AbsolutePath,
@@ -46,7 +46,7 @@ final case class Project(
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
-  val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
+  val classpath: Array[AbsolutePath] = classesDir +: rawClasspath.toArray
 }
 
 object Project {
@@ -60,7 +60,7 @@ object Project {
   /** The maximum number of directory levels to traverse to find configuration files. */
   final val loadDepth: Int = 1
 
-  private def loadAllFiles(configRoot: AbsolutePath): Array[AbsolutePath] =
+  private def loadAllFiles(configRoot: AbsolutePath): List[AbsolutePath] =
     Paths.getAllFiles(configRoot, loadPattern, maxDepth = loadDepth)
 
   /**
@@ -102,7 +102,7 @@ object Project {
     val instance = {
       if (isEmpty) ScalaInstance.bloopScalaInstance(logger)
       else {
-        val scalaJars = scala.jars.map(AbsolutePath.apply).toArray
+        val scalaJars = scala.jars.map(AbsolutePath.apply)
         ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
       }
     }

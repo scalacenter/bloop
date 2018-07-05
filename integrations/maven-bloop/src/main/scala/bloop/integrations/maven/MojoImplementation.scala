@@ -58,7 +58,7 @@ object MojoImplementation {
       "com.novocode.junit.JUnitFramework"
     ))
 
-  private val testFrameworks: Array[Config.TestFramework] = Array(
+  private val testFrameworks: List[Config.TestFramework] = List(
     ScalaCheckFramework,
     ScalaTestFramework,
     SpecsFramework,
@@ -66,7 +66,7 @@ object MojoImplementation {
   )
 
   private val DefaultTestOptions =
-    Config.TestOptions(Nil, List(Config.TestArgument(Array("-v", "-a"), Some(JUnitFramework))))
+    Config.TestOptions(Nil, List(Config.TestArgument(List("-v", "-a"), Some(JUnitFramework))))
 
   def writeCompileAndTestConfiguration(mojo: BloopMojo, session: MavenSession, log: Log): Unit = {
     import scala.collection.JavaConverters._
@@ -76,7 +76,7 @@ object MojoImplementation {
     val project = mojo.getProject()
     val dependencies =
       session.getProjectDependencyGraph.getUpstreamProjects(project, true).asScala.toList
-    val dependencyNames = dependencies.map(_.getArtifactId()).toArray
+    val dependencyNames = dependencies.map(_.getArtifactId()).toList
 
     val configDir = mojo.getBloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
@@ -94,8 +94,8 @@ object MojoImplementation {
       }
 
     val compileSetup = mojo.getCompileSetup()
-    val allScalaJars = mojo.getAllScalaJars().map(abs).toArray
-    val scalacArgs = mojo.getScalacArgs().asScala.toArray
+    val allScalaJars = mojo.getAllScalaJars().map(abs).toList
+    val scalacArgs = mojo.getScalacArgs().asScala.toList
 
     def writeConfig(sourceDirs0: Seq[File],
                     classesDir0: File,
@@ -108,7 +108,7 @@ object MojoImplementation {
       val baseDirectory = abs(project.getBasedir())
       val out = baseDirectory.resolve("target")
       val analysisOut = out.resolve(Config.Project.analysisFileName(name))
-      val sourceDirs = sourceDirs0.map(abs).toArray
+      val sourceDirs = sourceDirs0.map(abs).toList
       val classesDir = abs(classesDir0)
       val classpath = {
         val projectDependencies = dependencies.flatMap { d =>
@@ -118,14 +118,14 @@ object MojoImplementation {
         }
 
         val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
-        (projectDependencies.map(u => abs(new File(u))) ++ cp).toArray
+        (projectDependencies.map(u => abs(new File(u))) ++ cp).toList
       }
 
       // FORMAT: OFF
       val config = {
         val sbt = Config.Sbt.empty
         val test = Config.Test(testFrameworks, DefaultTestOptions)
-        val java = Config.Java(mojo.getJavacArgs().asScala.toArray)
+        val java = Config.Java(mojo.getJavacArgs().asScala.toList)
         val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
           mojo.getScalaVersion(), scalacArgs, allScalaJars)
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))

@@ -10,7 +10,13 @@ import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
+import bloop.testing.{
+  DiscoveredTests,
+  LoggingEventHandler,
+  TestInternals,
+  TestSuiteEvent,
+  TestSuiteEventHandler
+}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
@@ -70,12 +76,12 @@ object Tasks {
     import state.{logger, compilerCache}
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
       val instance = project.scalaInstance
-      val sources = project.sources
+      val sources = project.sources.toArray
       val classpath = project.classpath
       val classesDir = project.classesDir
       val target = project.out
-      val scalacOptions = project.scalacOptions
-      val javacOptions = project.javacOptions
+      val scalacOptions = project.scalacOptions.toArray
+      val javacOptions = project.javacOptions.toArray
       val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
       // Set the reporter based on the kind of logger to publish diagnostics
@@ -285,22 +291,24 @@ object Tasks {
   ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
-    def foundFrameworks(frameworks: Array[Framework]) = frameworks.map(_.name).mkString(", ")
+    def foundFrameworks(frameworks: List[Framework]) = frameworks.map(_.name).mkString(", ")
 
     // Test arguments coming after `--` can only be used if only one mapping is found
-    def considerFrameworkArgs(frameworks: Array[Framework]) = {
+    def considerFrameworkArgs(frameworks: List[Framework]): List[Config.TestArgument] = {
       if (frameworkSpecificRawArgs.isEmpty) Nil
       else {
         frameworks match {
-          case Array(oneFramework) =>
-            val rawArgs = frameworkSpecificRawArgs.toArray
+          case Nil => Nil
+          case List(oneFramework) =>
+            val rawArgs = frameworkSpecificRawArgs
             val cls = oneFramework.getClass.getName()
             logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
             List(Config.TestArgument(rawArgs, Some(Config.TestFramework(List(cls)))))
-          case _ =>
+          case frameworks =>
+            val frameworkNames = foundFrameworks(frameworks)
             val ignoredArgs = frameworkSpecificRawArgs.mkString(" ")
             logger.warn(
-              s"Framework-specific test options '${ignoredArgs}' are ignored because several frameworks were found: ${foundFrameworks(frameworks)}")
+              s"Ignored CLI test options '${ignoredArgs}' can only be applied to one framework, found: $frameworkNames")
             Nil
         }
       }
@@ -410,7 +418,7 @@ object Tasks {
    * @param project The project for which to find the main classes.
    * @return An array containing all the main classes that were detected.
    */
-  def findMainClasses(state: State, project: Project): Array[String] = {
+  def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
     val analysis = state.results.lastSuccessfulResult(project).analysis().toOption match {
@@ -420,9 +428,9 @@ object Tasks {
         Analysis.empty
     }
 
-    val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses)
+    val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
     logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")
-    mainClasses.toArray
+    mainClasses
   }
 
   def reasonOfInvalidPath(output: Path): Option[String] = {
@@ -436,7 +444,7 @@ object Tasks {
   def reasonOfInvalidPath(output: Path, extension: String): Option[String] = {
     reasonOfInvalidPath(output).orElse {
       if (!output.toString.endsWith(extension))
-      // This is required for the Scala.js linker, otherwise it will throw an exception
+        // This is required for the Scala.js linker, otherwise it will throw an exception
         Some(s"The output path $output must have the extension '$extension'.")
       else None
     }
@@ -446,8 +454,10 @@ object Tasks {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
 
-  private[bloop] def discoverTests(analysis: CompileAnalysis,
-                                   frameworks: Array[Framework]): Map[Framework, List[TaskDef]] = {
+  private[bloop] def discoverTests(
+      analysis: CompileAnalysis,
+      frameworks: List[Framework]
+  ): Map[Framework, List[TaskDef]] = {
     import scala.collection.mutable
     val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
     val definitions = TestInternals.potentialTests(analysis)

@@ -216,22 +216,22 @@ object TestUtil {
     Files.createDirectories(tempDir)
 
     val target = classesDir(baseDir, name)
-    val depsTargets = (dependencies.map(classesDir(baseDir, _))).toArray.map(AbsolutePath.apply)
+    val depsTargets = (dependencies.map(classesDir(baseDir, _))).map(AbsolutePath.apply).toList
     val classpath = depsTargets ++ scalaInstance.allJars.map(AbsolutePath.apply)
-    val sourceDirectories = Array(AbsolutePath(srcs))
+    val sourceDirectories = List(AbsolutePath(srcs))
     writeSources(srcs, sources)
     Project(
       name = name,
       baseDirectory = AbsolutePath(baseDirectory),
-      dependencies = dependencies.toArray,
+      dependencies = dependencies.toList,
       scalaInstance = scalaInstance,
       rawClasspath = classpath,
       classpathOptions = ClasspathOptionsUtil.boot(),
       classesDir = AbsolutePath(target),
-      scalacOptions = Array.empty,
-      javacOptions = Array.empty,
+      scalacOptions = Nil,
+      javacOptions = Nil,
       sources = sourceDirectories,
-      testFrameworks = Array.empty,
+      testFrameworks = Nil,
       testOptions = Config.TestOptions.empty,
       javaEnv = javaEnv,
       out = AbsolutePath(baseDirectory), // This means nothing in tests

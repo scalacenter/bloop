@@ -32,7 +32,7 @@ object Bloop extends ExternalModule {
     def analysisOut(m: JavaModule) = out(m) / Config.Project.analysisFileName(name(m))
     def classes(m: JavaModule) = out(m) / "classes"
 
-    val javaConfig = module.javacOptions.map(opts => Config.Java(options = opts.toArray))
+    val javaConfig = module.javacOptions.map(opts => Config.Java(options = opts.toList))
 
     val scalaConfig = module match {
       case s: ScalaModule =>
@@ -45,8 +45,8 @@ object Bloop extends ExternalModule {
             organization = "org.scala-lang",
             name = "scala-compiler",
             version = s.scalaVersion(),
-            options = (s.scalacOptions() ++ pluginOptions).toArray,
-            jars = s.scalaCompilerClasspath().map(_.path.toNIO).toArray
+            options = (s.scalacOptions() ++ pluginOptions).toList,
+            jars = s.scalaCompilerClasspath().map(_.path.toNIO).toList
           )
         }
       case _ => T.task(Config.Scala.empty)
@@ -68,7 +68,7 @@ object Bloop extends ExternalModule {
             frameworks = m
               .testFrameworks()
               .map(f => Config.TestFramework(List(f)))
-              .toArray,
+              .toList,
             options = Config.TestOptions(
               excludes = List(),
               arguments = List()
@@ -104,9 +104,9 @@ object Bloop extends ExternalModule {
       Config.Project(
         name = name(module),
         directory = module.millSourcePath.toNIO,
-        sources = module.sources().map(_.path.toNIO).toArray,
-        dependencies = module.moduleDeps.map(name).toArray,
-        classpath = classpath().map(_.toNIO).toArray,
+        sources = module.sources().map(_.path.toNIO).toList,
+        dependencies = module.moduleDeps.map(name).toList,
+        classpath = classpath().map(_.toNIO).toList,
         out = out(module).toNIO,
         analysisOut = analysisOut(module).toNIO,
         classesDir = classes(module).toNIO,

@@ -465,11 +465,10 @@ object Interpreter {
   /** @param userMainClass User-supplied main class */
   private def getMainClass(state: State, project: Project, userMainClass: Option[String]): Option[String] = {
     Tasks.findMainClasses(state, project) match {
-      case Array() =>
+      case Nil =>
         state.logger.error(s"No main classes were found in the project '${project.name}'")
         None
-      case Array(main) =>
-        Some(main)
+      case List(main) => Some(main)
       case mainClasses =>
         def listClasses() = {
           val eol = System.lineSeparator

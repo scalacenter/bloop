@@ -35,7 +35,7 @@ class LoadProjectSpec {
     val logger = new RecordingLogger()
     val config0 = Config.File.dummyForTests
     val project = config0.project
-    val emptyScala = Config.Scala("", "", "", Array(), Array())
+    val emptyScala = Config.Scala("", "", "", Nil, Nil)
     val configWithNoScala = config0.copy(config0.version, project.copy(scala = emptyScala))
     val inferredInstance = Project.fromConfig(configWithNoScala, logger).scalaInstance
     assert(inferredInstance.version.nonEmpty)

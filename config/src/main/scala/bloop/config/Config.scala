@@ -4,18 +4,18 @@ import java.nio.file.{Files, Path, Paths}
 
 object Config {
   private final val emptyPath = Paths.get("")
-  case class Java(options: Array[String])
-  object Java { private[bloop] val empty = Java(Array()) }
+  case class Java(options: List[String])
+  object Java { private[bloop] val empty = Java(List()) }
 
   case class TestFramework(names: List[String])
   object TestFramework { private[bloop] val empty = TestFramework(Nil) }
-  case class TestArgument(args: Array[String], framework: Option[TestFramework])
-  object TestArgument { private[bloop] val empty = TestArgument(Array(), None) }
+  case class TestArgument(args: List[String], framework: Option[TestFramework])
+  object TestArgument { private[bloop] val empty = TestArgument(List(), None) }
   case class TestOptions(excludes: List[String], arguments: List[TestArgument])
   object TestOptions { private[bloop] val empty = TestOptions(Nil, Nil) }
 
-  case class Test(frameworks: Array[TestFramework], options: TestOptions)
-  object Test { private[bloop] val empty = Test(Array(), TestOptions.empty) }
+  case class Test(frameworks: List[TestFramework], options: TestOptions)
+  object Test { private[bloop] val empty = Test(List(), TestOptions.empty) }
 
   case class Sbt(
       sbtVersion: String,
@@ -52,12 +52,12 @@ object Config {
       organization: String,
       name: String,
       version: String,
-      options: Array[String],
-      jars: Array[Path]
+      options: List[String],
+      jars: List[Path]
   )
 
   object Scala {
-    private[bloop] val empty: Scala = Scala("", "", "", Array(), Array())
+    private[bloop] val empty: Scala = Scala("", "", "", List(), List())
   }
 
   sealed abstract class Platform(val name: String) {
@@ -195,9 +195,9 @@ object Config {
   case class Project(
       name: String,
       directory: Path,
-      sources: Array[Path],
-      dependencies: Array[String],
-      classpath: Array[Path],
+      sources: List[Path],
+      dependencies: List[String],
+      classpath: List[Path],
       out: Path,
       analysisOut: Path,
       classesDir: Path,
@@ -212,7 +212,7 @@ object Config {
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, Array(), Array(), Array(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Sbt.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
+    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Sbt.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -247,16 +247,16 @@ object Config {
       val project = Project(
         "dummy-project",
         workingDirectory,
-        Array(sourceFile),
-        Array("dummy-2"),
-        Array(scalaLibraryJar),
+        List(sourceFile),
+        List("dummy-2"),
+        List(scalaLibraryJar),
         classesDir,
         outDir,
         outAnalysisFile,
-        Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
-        Java(Array("-version")),
+        Scala("org.scala-lang", "scala-compiler", "2.12.4", List("-warn"), List()),
+        Java(List("-version")),
         Sbt("1.1.0", Nil),
-        Test(Array(), TestOptions(Nil, Nil)),
+        Test(List(), TestOptions(Nil, Nil)),
         platform,
         CompileSetup.empty,
         Resolution.empty
