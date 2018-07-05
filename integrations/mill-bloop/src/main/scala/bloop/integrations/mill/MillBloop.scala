@@ -24,16 +24,12 @@ object Bloop extends ExternalModule {
   implicit def millScoptEvaluatorReads[T] = new mill.main.EvaluatorScopt[T]()
 
   def genBloopConfig(bloopDir: Path, module: JavaModule): Task[Path] = {
-
     import bloop.config.Config
-
     def name(m: JavaModule) = m.millModuleSegments.render
     def out(m: JavaModule) = bloopDir / "out" / m.millModuleSegments.render
-    def analysisOut(m: JavaModule) = out(m) / Config.Project.analysisFileName(name(m))
     def classes(m: JavaModule) = out(m) / "classes"
 
-    val javaConfig = module.javacOptions.map(opts => Config.Java(options = opts.toList))
-
+    val javaConfig = module.javacOptions.map(opts => Some(Config.Java(options = opts.toList)))
     val scalaConfig = module match {
       case s: ScalaModule =>
         T.task {
@@ -41,15 +37,19 @@ object Bloop extends ExternalModule {
             s"-Xplugin:${pathRef.path}"
           }
 
-          Config.Scala(
-            organization = "org.scala-lang",
-            name = "scala-compiler",
-            version = s.scalaVersion(),
-            options = (s.scalacOptions() ++ pluginOptions).toList,
-            jars = s.scalaCompilerClasspath().map(_.path.toNIO).toList
+          Some(
+            Config.Scala(
+              organization = "org.scala-lang",
+              name = "scala-compiler",
+              version = s.scalaVersion(),
+              options = (s.scalacOptions() ++ pluginOptions).toList,
+              jars = s.scalaCompilerClasspath().map(_.path.toNIO).toList,
+              analysis = None,
+              setup = None
+            )
           )
         }
-      case _ => T.task(Config.Scala.empty)
+      case _ => T.task(None)
     }
 
     val platform = T.task {
@@ -57,25 +57,28 @@ object Bloop extends ExternalModule {
         Config.JvmConfig(
           home = T.ctx().env.get("JAVA_HOME").map(s => Path(s).toNIO),
           options = module.forkArgs().toList
-        ), mainClass = module.mainClass()
+        ),
+        mainClass = module.mainClass()
       )
     }
 
     val testConfig = module match {
       case m: TestModule =>
         T.task {
-          Config.Test(
-            frameworks = m
-              .testFrameworks()
-              .map(f => Config.TestFramework(List(f)))
-              .toList,
-            options = Config.TestOptions(
-              excludes = List(),
-              arguments = List()
+          Some(
+            Config.Test(
+              frameworks = m
+                .testFrameworks()
+                .map(f => Config.TestFramework(List(f)))
+                .toList,
+              options = Config.TestOptions(
+                excludes = List(),
+                arguments = List()
+              )
             )
           )
         }
-      case _ => T.task(Config.Test.empty)
+      case _ => T.task(None)
     }
 
     val ivyDepsClasspath =
@@ -91,14 +94,6 @@ object Bloop extends ExternalModule {
     }
 
     val classpath = T.task(transitiveClasspath(module)() ++ ivyDepsClasspath())
-    val compileSetup = Config.CompileSetup(
-      Config.Mixed,
-      addLibraryToBootClasspath = true,
-      addCompilerToClasspath = false,
-      addExtraJarsToClasspath = false,
-      manageBootClasspath = true,
-      filterLibraryFromClasspath = true
-    )
 
     val project = T.task {
       Config.Project(
@@ -108,15 +103,13 @@ object Bloop extends ExternalModule {
         dependencies = module.moduleDeps.map(name).toList,
         classpath = classpath().map(_.toNIO).toList,
         out = out(module).toNIO,
-        analysisOut = analysisOut(module).toNIO,
         classesDir = classes(module).toNIO,
         `scala` = scalaConfig(),
         java = javaConfig(),
-        sbt = Config.Sbt.empty,
+        sbt = None,
         test = testConfig(),
-        platform = platform(),
-        compileSetup = compileSetup,
-        resolution = Config.Resolution.empty
+        platform = Some(platform()),
+        resolution = None
       )
     }
 

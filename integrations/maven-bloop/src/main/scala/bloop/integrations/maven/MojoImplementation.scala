@@ -107,7 +107,7 @@ object MojoImplementation {
       val build = project.getBuild()
       val baseDirectory = abs(project.getBasedir())
       val out = baseDirectory.resolve("target")
-      val analysisOut = out.resolve(Config.Project.analysisFileName(name))
+      val analysisOut = None
       val sourceDirs = sourceDirs0.map(abs).toList
       val classesDir = abs(classesDir0)
       val classpath = {
@@ -123,16 +123,15 @@ object MojoImplementation {
 
       // FORMAT: OFF
       val config = {
-        val sbt = Config.Sbt.empty
-        val test = Config.Test(testFrameworks, DefaultTestOptions)
-        val java = Config.Java(mojo.getJavacArgs().asScala.toList)
-        val `scala` = Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(),
-          mojo.getScalaVersion(), scalacArgs, allScalaJars)
+        val sbt = None
+        val test = Some(Config.Test(testFrameworks, DefaultTestOptions))
+        val java = Some(Config.Java(mojo.getJavacArgs().asScala.toList))
+        val `scala` = Some(Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(), mojo.getScalaVersion(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
         val mainClass = if (launcher.getMainClass().isEmpty) None else Some(launcher.getMainClass())
-        val platform = Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass)
-        val resolution = Config.Resolution.empty
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, analysisOut, classesDir, `scala`, java, sbt, test, platform, compileSetup, resolution)
+        val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass))
+        val resolution = None
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, `scala`, java, sbt, test, platform, resolution)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

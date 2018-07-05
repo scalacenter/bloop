@@ -7,14 +7,13 @@ import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-import xsbti.compile.ClasspathOptions
+import xsbti.compile.{ClasspathOptions, ClasspathOptionsUtil}
 import _root_.monix.eval.Task
 import bloop.bsp.ProjectUris
 import config.{Config, ConfigEncoderDecoders}
 import config.Config.Platform
 import bloop.engine.ExecutionContext
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
-
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(
@@ -96,19 +95,19 @@ object Project {
   def fromConfig(file: Config.File, logger: Logger): Project = {
     val project = file.project
     val scala = project.`scala`
-    val isEmpty = scala.organization.isEmpty && scala.name.isEmpty && scala.version.isEmpty && scala.jars.isEmpty
 
     // Use the default Bloop scala instance if it's not a Scala project
     val instance = {
-      if (isEmpty) ScalaInstance.bloopScalaInstance(logger)
-      else {
-        val scalaJars = scala.jars.map(AbsolutePath.apply)
-        ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
+      scala match {
+        case Some(scala) =>
+          val scalaJars = scala.jars.map(AbsolutePath.apply)
+          ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
+        case None => ScalaInstance.bloopScalaInstance(logger)
       }
     }
 
     val classpathOptions = {
-      val setup = project.compileSetup
+      val setup = scala.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
       ClasspathOptions.of(
         setup.addLibraryToBootClasspath,
         setup.addCompilerToClasspath,
@@ -118,35 +117,28 @@ object Project {
       )
     }
 
-    val jsToolchain = project.platform match {
-      case platform: Config.Platform.Js =>
-        Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
-      case _ => None
+    val jsToolchain = project.platform.flatMap { platform =>
+      Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
     }
 
-    val nativeToolchain = project.platform match {
-      case platform: Config.Platform.Native =>
-        Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
-      case _ => None
+    val nativeToolchain = project.platform.flatMap { platform =>
+      Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
     }
 
     val javaEnv = project.platform match {
-      case Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions), _) =>
+      case Some(Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions), _)) =>
         val jvmHome = home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
         JavaEnv(jvmHome, jvmOptions.toArray)
       case _ => JavaEnv.default
     }
 
-    val sbt = project.sbt match {
-      case Config.Sbt.empty => None
-      case sbt => Some(sbt)
-    }
+    val sbt = project.sbt
+    val resolution = project.resolution
 
-    val resolution = project.resolution match {
-      case Config.Resolution.empty => None
-      case res => Some(res)
-    }
-
+    val out = AbsolutePath(project.out)
+    val analysisOut = scala
+      .flatMap(_.analysis.map(AbsolutePath.apply))
+      .getOrElse(out.resolve(Config.Project.analysisFileName(project.name)))
     Project(
       project.name,
       AbsolutePath(project.directory),
@@ -155,15 +147,15 @@ object Project {
       project.classpath.map(AbsolutePath.apply),
       classpathOptions,
       AbsolutePath(project.classesDir),
-      scala.options,
-      project.java.options,
+      scala.map(_.options).getOrElse(Nil),
+      project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
-      project.test.frameworks,
-      project.test.options,
+      project.test.map(_.frameworks).getOrElse(Nil),
+      project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       javaEnv,
       AbsolutePath(project.out),
-      AbsolutePath(project.analysisOut),
-      project.platform,
+      analysisOut,
+      project.platform.getOrElse(Config.Platform.default),
       jsToolchain,
       nativeToolchain,
       sbt,
@@ -177,10 +169,11 @@ object Project {
     val contents = new String(Files.readAllBytes(config.underlying), StandardCharsets.UTF_8)
     parser.parse(contents) match {
       case Left(failure) => throw failure
-      case Right(json) => ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
-        case Right(file) => Project.fromConfig(file, logger)
-        case Left(failure) => throw failure
-      }
+      case Right(json) =>
+        ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
+          case Right(file) => Project.fromConfig(file, logger)
+          case Left(failure) => throw failure
+        }
     }
   }
 }

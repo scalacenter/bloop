@@ -517,8 +517,10 @@ object BloopDefaults {
 
     // FORMAT: OFF
     if (pluginLabels.contains(ScalaNativePluginLabel)) {
-      if (isWindows) Def.task(Config.Platform.Native(Config.NativeConfig.empty, None))
-      else {
+      if (isWindows) {
+        // Default on jvm config because native is not supported in Windows yet
+        Def.task(Config.Platform.default)
+      } else {
         Def.task {
           // Add targetTriple to the config when the scala native plugin supports it
           val emptyNative = Config.NativeConfig.empty
@@ -680,7 +682,10 @@ object BloopDefaults {
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
         val allModules = mergeModules(binaryModules, sourceModules)
-        val resolution = Config.Resolution(onlyCompilationModules(allModules, classpath).toList)
+        val resolution = {
+          val modules = onlyCompilationModules(allModules, classpath).toList
+          if (modules.isEmpty) None else Some(Config.Resolution(modules))
+        }
 
         // Force source generators on this task manually
         Keys.managedSources.value
@@ -689,16 +694,15 @@ object BloopDefaults {
 
         // format: OFF
         val config = {
-          val java = Config.Java(javacOptions)
-          val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
-
           val c = Keys.classpathOptions.value
+          val java = Config.Java(javacOptions)
+          val analysisOut = None
           val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
-          val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
+          val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
 
-          val sbt = computeSbtMetadata.value.map(_.config).getOrElse(Config.Sbt.empty)
+          val sbt = computeSbtMetadata.value.map(_.config)
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, out, analysisOut, classesDir, `scala`, java, sbt, testOptions, platform, compileSetup, resolution)
+            classpath, out, classesDir, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON
