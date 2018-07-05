@@ -1,0 +1,20 @@
+image: "scalacenter/scala-gitlab:1.0"
+
+variables:
+  SCALA_CACHE_DIR: ".scala-cache"
+  GIT_SUBMODULE_STRATEGY: recursive
+  COURSIER_CACHE: "$SCALA_CACHE_DIR/coursier"
+  SBT: "sbt -Dsbt.global.base=$SCALA_CACHE_DIR/.sbtbase -Dsbt.boot.directory=$SCALA_CACHE_DIR/.sbtboot -Dsbt.ivy.home=$SCALA_CACHE_DIR/.ivy -Dsbt.global.staging=$SCALA_CACHE_DIR/.sbtstaging"
+
+cache:
+  key: "$CI_BUILD_REF_NAME" # contains either the branch or the tag, so it's caching per branch
+  untracked: true
+  paths:
+    - "$SCALA_CACHE_DIR"
+
+stages:
+  - test
+
+test:
+  script:
+    - $SBT integrationSetUpBloop
