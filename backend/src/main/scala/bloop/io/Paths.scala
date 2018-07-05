@@ -47,8 +47,8 @@ object Paths {
       base: AbsolutePath,
       pattern: String,
       maxDepth: Int = Int.MaxValue
-  ): Array[AbsolutePath] = {
-    val out = collection.mutable.ArrayBuffer.empty[AbsolutePath]
+  ): List[AbsolutePath] = {
+    val out = collection.mutable.ListBuffer.empty[AbsolutePath]
     val matcher = FileSystems.getDefault.getPathMatcher(pattern)
 
     val visitor = new FileVisitor[Path] {
@@ -71,7 +71,7 @@ object Paths {
 
     val opts = util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
     Files.walkFileTree(base.underlying, opts, maxDepth, visitor)
-    out.toArray
+    out.toList
   }
 
   /**

@@ -123,7 +123,7 @@ object TestInternals {
     }
   }
 
-  def getFingerprints(frameworks: Array[Framework])
+  def getFingerprints(frameworks: Seq[Framework])
     : (Set[PrintInfo[SubclassFingerprint]], Set[PrintInfo[AnnotatedFingerprint]]) = {
     val subclasses = mutable.Set.empty[PrintInfo[SubclassFingerprint]]
     val annotated = mutable.Set.empty[PrintInfo[AnnotatedFingerprint]]

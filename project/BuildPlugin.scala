@@ -243,7 +243,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "2.10",
+    BuildKeys.schemaVersion := "3.0",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.publishArtifact in Test := false,

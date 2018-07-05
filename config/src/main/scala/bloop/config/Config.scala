@@ -4,27 +4,19 @@ import java.nio.file.{Files, Path, Paths}
 
 object Config {
   private final val emptyPath = Paths.get("")
-  case class Java(options: Array[String])
-  object Java { private[bloop] val empty = Java(Array()) }
+  case class Java(options: List[String])
 
   case class TestFramework(names: List[String])
-  object TestFramework { private[bloop] val empty = TestFramework(Nil) }
-  case class TestArgument(args: Array[String], framework: Option[TestFramework])
-  object TestArgument { private[bloop] val empty = TestArgument(Array(), None) }
+  case class TestArgument(args: List[String], framework: Option[TestFramework])
   case class TestOptions(excludes: List[String], arguments: List[TestArgument])
-  object TestOptions { private[bloop] val empty = TestOptions(Nil, Nil) }
+  object TestOptions { val empty = TestOptions(Nil, Nil) }
 
-  case class Test(frameworks: Array[TestFramework], options: TestOptions)
-  object Test { private[bloop] val empty = Test(Array(), TestOptions.empty) }
+  case class Test(frameworks: List[TestFramework], options: TestOptions)
 
   case class Sbt(
       sbtVersion: String,
       autoImports: List[String]
   )
-
-  object Sbt {
-    private[bloop] val empty = Sbt("", Nil)
-  }
 
   sealed abstract class CompileOrder(val id: String)
   case object Mixed extends CompileOrder("mixed")
@@ -45,20 +37,18 @@ object Config {
   )
 
   object CompileSetup {
-    private[bloop] val empty: CompileSetup = CompileSetup(Mixed, true, false, false, true, true)
+    val empty: CompileSetup = CompileSetup(Mixed, true, false, false, true, true)
   }
 
   case class Scala(
       organization: String,
       name: String,
       version: String,
-      options: Array[String],
-      jars: Array[Path]
+      options: List[String],
+      jars: List[Path],
+      analysis: Option[Path],
+      setup: Option[CompileSetup]
   )
-
-  object Scala {
-    private[bloop] val empty: Scala = Scala("", "", "", Array(), Array())
-  }
 
   sealed abstract class Platform(val name: String) {
     type Config <: PlatformConfig
@@ -67,20 +57,23 @@ object Config {
   }
 
   object Platform {
-    private[bloop] val default: Platform = Jvm(JvmConfig.empty, None)
+    val default: Platform = Jvm(JvmConfig.empty, None)
 
     object Js { val name: String = "js" }
-    case class Js(override val config: JsConfig, override val mainClass: Option[String]) extends Platform(Js.name) {
+    case class Js(override val config: JsConfig, override val mainClass: Option[String])
+        extends Platform(Js.name) {
       type Config = JsConfig
     }
 
     object Jvm { val name: String = "jvm" }
-    case class Jvm(override val config: JvmConfig, override val mainClass: Option[String]) extends Platform(Jvm.name) {
+    case class Jvm(override val config: JvmConfig, override val mainClass: Option[String])
+        extends Platform(Jvm.name) {
       type Config = JvmConfig
     }
 
     object Native { val name: String = "native" }
-    case class Native(override val config: NativeConfig, override val mainClass: Option[String]) extends Platform(Native.name) {
+    case class Native(override val config: NativeConfig, override val mainClass: Option[String])
+        extends Platform(Native.name) {
       type Config = NativeConfig
     }
 
@@ -89,7 +82,7 @@ object Config {
 
   sealed trait PlatformConfig
   case class JvmConfig(home: Option[Path], options: List[String]) extends PlatformConfig
-  object JvmConfig { private[bloop] val empty = JvmConfig(None, Nil) }
+  object JvmConfig { val empty = JvmConfig(None, Nil) }
 
   sealed abstract class LinkerMode(val id: String)
   object LinkerMode {
@@ -115,8 +108,7 @@ object Config {
   ) extends PlatformConfig
 
   object JsConfig {
-    private[bloop] val empty: JsConfig =
-      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, Nil)
+    val empty: JsConfig = JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, Nil)
   }
 
   /**
@@ -143,13 +135,13 @@ object Config {
 
   object NativeConfig {
     // FORMAT: OFF
-    private[bloop] val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false, None)
+    val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false, None)
     // FORMAT: ON
   }
 
   case class NativeOptions(linker: List[String], compiler: List[String])
   object NativeOptions {
-    private[bloop] val empty: NativeOptions = NativeOptions(Nil, Nil)
+    val empty: NativeOptions = NativeOptions(Nil, Nil)
   }
 
   case class Checksum(
@@ -157,20 +149,12 @@ object Config {
       digest: String
   )
 
-  object Checksum {
-    private[bloop] val empty: Checksum = Checksum("", "")
-  }
-
   case class Artifact(
       name: String,
       classifier: Option[String],
       checksum: Option[Checksum],
       path: Path
   )
-
-  object Artifact {
-    private[bloop] val empty: Artifact = Artifact("", None, None, emptyPath)
-  }
 
   case class Module(
       organization: String,
@@ -188,31 +172,25 @@ object Config {
       modules: List[Module]
   )
 
-  object Resolution {
-    private[bloop] val empty: Resolution = Resolution(Nil)
-  }
-
   case class Project(
       name: String,
       directory: Path,
-      sources: Array[Path],
-      dependencies: Array[String],
-      classpath: Array[Path],
+      sources: List[Path],
+      dependencies: List[String],
+      classpath: List[Path],
       out: Path,
-      analysisOut: Path,
       classesDir: Path,
-      `scala`: Scala,
-      java: Java,
-      sbt: Sbt,
-      test: Test,
-      platform: Platform,
-      compileSetup: CompileSetup,
-      resolution: Resolution
+      `scala`: Option[Scala],
+      java: Option[Java],
+      sbt: Option[Sbt],
+      test: Option[Test],
+      platform: Option[Platform],
+      resolution: Option[Resolution]
   )
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, Array(), Array(), Array(), emptyPath, emptyPath, emptyPath, Scala.empty, Java.empty, Sbt.empty, Test.empty, Platform.default, CompileSetup.empty, Resolution.empty)
+    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -243,23 +221,34 @@ object Config {
       val classesDir = Files.createTempFile("classes", "test")
       classesDir.toFile.deleteOnExit()
 
-      val platform = Platform.Jvm(JvmConfig(Some(Paths.get("/usr/lib/jvm/java-8-jdk")), Nil), Some("module.Main"))
+      val platform = {
+        val jdkPath = Paths.get("/usr/lib/jvm/java-8-jdk")
+        Platform.Jvm(JvmConfig(Some(jdkPath), Nil), Some("module.Main"))
+      }
+
       val project = Project(
         "dummy-project",
         workingDirectory,
-        Array(sourceFile),
-        Array("dummy-2"),
-        Array(scalaLibraryJar),
-        classesDir,
+        List(sourceFile),
+        List("dummy-2"),
+        List(scalaLibraryJar),
         outDir,
-        outAnalysisFile,
-        Scala("org.scala-lang", "scala-compiler", "2.12.4", Array("-warn"), Array()),
-        Java(Array("-version")),
-        Sbt("1.1.0", Nil),
-        Test(Array(), TestOptions(Nil, Nil)),
-        platform,
-        CompileSetup.empty,
-        Resolution.empty
+        classesDir,
+        Some(
+          Scala(
+            "org.scala-lang",
+            "scala-compiler",
+            "2.12.4",
+            List("-warn"),
+            List(),
+            Some(outAnalysisFile),
+            Some(CompileSetup.empty)
+          )),
+        Some(Java(List("-version"))),
+        Some(Sbt("1.1.0", Nil)),
+        Some(Test(List(), TestOptions(Nil, Nil))),
+        Some(platform),
+        Some(Resolution(Nil))
       )
 
       File(LatestVersion, project)

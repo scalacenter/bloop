@@ -69,7 +69,7 @@ checkSourceAndDocs in ThisBuild := {
   val fooConfigContents = new String(Files.readAllBytes(fooConfig.toPath))
   val fooBloopFile: Config.File = fromFile(fooConfigContents)
 
-  val modules = fooBloopFile.project.resolution.modules
+  val modules = fooBloopFile.project.resolution.get.modules
   assert(modules.nonEmpty, "Modules are empty!")
   val modulesEmpty = modules.map(m => m -> m.artifacts.nonEmpty)
   assert(modulesEmpty.forall(_._2), s"Modules ${modulesEmpty.filter(!_._2).map(_._1).mkString(", ")} have empty artifacts!")

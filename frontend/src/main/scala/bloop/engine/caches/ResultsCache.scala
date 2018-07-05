@@ -85,13 +85,12 @@ object ResultsCache {
   }
 
   def loadAsync(build: Build, cwd: AbsolutePath, logger: Logger): Task[ResultsCache] = {
-    import java.nio.file.Files
     import sbt.internal.inc.FileAnalysisStore
     import bloop.util.JavaCompat.EnrichOptional
 
     def fetchPreviousResult(p: Project): Task[Compiler.Result] = {
       val analysisFile = p.analysisOut
-      if (Files.exists(analysisFile.underlying)) {
+      if (analysisFile.exists) {
         Task {
           val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
           contents match {

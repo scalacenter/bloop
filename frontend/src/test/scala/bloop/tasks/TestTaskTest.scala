@@ -78,7 +78,7 @@ class TestTaskTest(
     fork.newClassLoader(Some(TestInternals.filteredLoader))
   }
 
-  private def frameworks(classLoader: ClassLoader): Array[Framework] = {
+  private def frameworks(classLoader: ClassLoader): List[Framework] = {
     testProject.testFrameworks.flatMap(f =>
       TestInternals.loadFramework(classLoader, f.names, testState.logger))
   }

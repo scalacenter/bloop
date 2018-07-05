@@ -84,14 +84,14 @@ object ScalaInstance {
   def apply(scalaOrg: String,
             scalaName: String,
             scalaVersion: String,
-            allJars: Array[AbsolutePath],
+            allJars: Seq[AbsolutePath],
             logger: Logger): ScalaInstance = {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
       def newInstance = {
         logger.debug(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")
         jarsKey.foreach(p => logger.debug(s"  => $p"))
-        new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile))
+        new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile).toArray)
       }
 
       val nonExistingJars = allJars.filter(j => !Files.exists(j.underlying))
@@ -130,7 +130,7 @@ object ScalaInstance {
       BloopScalaInfo.scalaOrganization,
       ScalacCompilerName,
       BloopScalaInfo.scalaVersion,
-      BloopScalaInfo.scalaJars.iterator.map(AbsolutePath(_)).toArray,
+      BloopScalaInfo.scalaJars.map(AbsolutePath(_)),
       logger
     )
   }

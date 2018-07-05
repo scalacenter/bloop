@@ -397,10 +397,10 @@ object BloopDefaults {
    * the classes directory in the scalac option parameter.
    */
   def replaceScalacOptionsPaths(
-      opts: Array[String],
+      opts: List[String],
       internalClasspath: Seq[(File, File)],
       logger: Logger
-  ): Array[String] = {
+  ): List[String] = {
     internalClasspath.foldLeft(opts) {
       case (scalacOptions, (oldClassesDir, newClassesDir)) =>
         val old1 = oldClassesDir.toString
@@ -464,7 +464,7 @@ object BloopDefaults {
     }.distinct
   }
 
-  def onlyCompilationModules(ms: Seq[Config.Module], classpath: Array[Path]): Seq[Config.Module] = {
+  def onlyCompilationModules(ms: Seq[Config.Module], classpath: List[Path]): Seq[Config.Module] = {
     val classpathFiles = classpath.filter(p => Files.exists(p) && !Files.isDirectory(p))
     if (classpathFiles.isEmpty) Nil
     else {
@@ -517,8 +517,10 @@ object BloopDefaults {
 
     // FORMAT: OFF
     if (pluginLabels.contains(ScalaNativePluginLabel)) {
-      if (isWindows) Def.task(Config.Platform.Native(Config.NativeConfig.empty, None))
-      else {
+      if (isWindows) {
+        // Default on jvm config because native is not supported in Windows yet
+        Def.task(Config.Platform.default)
+      } else {
         Def.task {
           // Add targetTriple to the config when the scala native plugin supports it
           val emptyNative = Config.NativeConfig.empty
@@ -614,7 +616,7 @@ object BloopDefaults {
           val configDependencies =
             eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c))
           // The distinct here is important to make sure that there are no repeated project deps
-          (classpathProjectDependencies ++ configDependencies).distinct.toArray
+          (classpathProjectDependencies ++ configDependencies).distinct.toList
         }
 
         // Aggregates are considered to be dependencies too for the sake of user-friendliness
@@ -627,10 +629,10 @@ object BloopDefaults {
         val scalaName = "scala-compiler"
         val scalaVersion = Keys.scalaVersion.value
         val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
-        val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toArray
+        val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toList
 
         val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
-        val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toArray
+        val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
 
         /* This is a best-effort to export source directories + stray source files that
          * are not contained in them. Source directories are superior over source files because
@@ -638,17 +640,17 @@ object BloopDefaults {
         val sources = {
           val sourceDirs = Keys.sourceDirectories.value.map(_.toPath)
           val sourceFiles = pruneSources(sourceDirs, Keys.sources.value.map(_.toPath))
-          (sourceDirs ++ sourceFiles).toArray
+          (sourceDirs ++ sourceFiles).toList
         }
 
         val testOptions = {
           val frameworks =
             Keys.testFrameworks.value
               .map(f => Config.TestFramework(f.implClassNames.toList))
-              .toArray
+              .toList
           val options = Keys.testOptions.value.foldLeft(Config.TestOptions.empty) {
             case (options, sbt.Tests.Argument(framework0, args0)) =>
-              val args = args0.toArray
+              val args = args0.toList
               val framework = framework0.map(f => Config.TestFramework(f.implClassNames.toList))
               options.copy(arguments = Config.TestArgument(args, framework) :: options.arguments)
             case (options, sbt.Tests.Exclude(tests)) =>
@@ -660,9 +662,9 @@ object BloopDefaults {
           Config.Test(frameworks, options)
         }
 
-        val javacOptions = Keys.javacOptions.value.toArray
+        val javacOptions = Keys.javacOptions.value.toList
         val scalacOptions = {
-          val options = Keys.scalacOptions.value.toArray
+          val options = Keys.scalacOptions.value.toList
           val internalClasspath = BloopKeys.bloopInternalClasspath.value
           replaceScalacOptionsPaths(options, internalClasspath, logger)
         }
@@ -680,7 +682,10 @@ object BloopDefaults {
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
         val allModules = mergeModules(binaryModules, sourceModules)
-        val resolution = Config.Resolution(onlyCompilationModules(allModules, classpath).toList)
+        val resolution = {
+          val modules = onlyCompilationModules(allModules, classpath).toList
+          if (modules.isEmpty) None else Some(Config.Resolution(modules))
+        }
 
         // Force source generators on this task manually
         Keys.managedSources.value
@@ -689,16 +694,15 @@ object BloopDefaults {
 
         // format: OFF
         val config = {
-          val java = Config.Java(javacOptions)
-          val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars)
-
           val c = Keys.classpathOptions.value
+          val java = Config.Java(javacOptions)
+          val analysisOut = None
           val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
-          val analysisOut = out.resolve(Config.Project.analysisFileName(projectName))
+          val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
 
-          val sbt = computeSbtMetadata.value.map(_.config).getOrElse(Config.Sbt.empty)
+          val sbt = computeSbtMetadata.value.map(_.config)
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, out, analysisOut, classesDir, `scala`, java, sbt, testOptions, platform, compileSetup, resolution)
+            classpath, out, classesDir, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON
