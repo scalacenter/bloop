@@ -58,7 +58,7 @@ val jsonConfig210 = project
   .settings(
     name := "bloop-config",
     target := (file("config") / "target" / "json-config-2.10").getAbsoluteFile,
-    scalaVersion := "2.10.7",
+    scalaVersion := Scala210Version,
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
@@ -130,9 +130,11 @@ val benchmarks = project
     skip in publish := true,
   )
 
+val integrations = file("integrations")
+
 lazy val sbtBloop10 = project
   .enablePlugins(ScriptedPlugin)
-  .in(file("integrations") / "sbt-bloop")
+  .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
   .settings(sbtPluginSettings("1.1.4", jsonConfig212))
   .dependsOn(jsonConfig212)
@@ -140,20 +142,20 @@ lazy val sbtBloop10 = project
 // Let's remove scripted for 0.13, we only test 1.0
 lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
-  .in(file("integrations") / "sbt-bloop")
-  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig210).value)
+  .in(integrations / "sbt-bloop")
+  .settings(scalaVersion := Scala210Version)
   .settings(sbtPluginSettings("0.13.17", jsonConfig210))
   .dependsOn(jsonConfig210)
 
 val mavenBloop = project
-  .in(file("integrations") / "maven-bloop")
+  .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212)
-  .settings(name := "maven-bloop")
+  .dependsOn(jsonConfig210)
+  .settings(name := "maven-bloop", scalaVersion := Scala210Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
 val millBloop = project
-  .in(file("integrations") / "mill-bloop")
+  .in(integrations / "mill-bloop")
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212)
   .settings(name := "mill-bloop")
