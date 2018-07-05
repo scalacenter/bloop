@@ -160,7 +160,7 @@ val gradleBloop = project
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212)
   .settings(name := "gradle-bloop")
-  .settings(BuildDefaults.gradlePluginBuildSettings)
+  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(
     buildInfo in Compile := Nil,
