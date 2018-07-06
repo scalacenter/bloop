@@ -157,7 +157,7 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
-      @ExtraName("o")
+      @ExtraName("O")
       @HelpMessage(
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
       optimize: Option[OptimizerConfig] = None,
@@ -176,7 +176,7 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
-      @ExtraName("o")
+      @ExtraName("O")
       @HelpMessage(
         "Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`.")
       optimize: Option[OptimizerConfig] = None,
