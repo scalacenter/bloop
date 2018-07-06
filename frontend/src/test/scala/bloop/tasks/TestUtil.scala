@@ -224,7 +224,7 @@ object TestUtil {
       name = name,
       baseDirectory = AbsolutePath(baseDirectory),
       dependencies = dependencies.toList,
-      scalaInstance = scalaInstance,
+      scalaInstance = Some(scalaInstance),
       rawClasspath = classpath,
       classpathOptions = ClasspathOptionsUtil.boot(),
       classesDir = AbsolutePath(target),

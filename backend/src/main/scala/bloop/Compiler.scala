@@ -53,9 +53,7 @@ object Compiler {
     }
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      val uniqueSources = inputs.sources.distinct
-      // Get all the source files in the directories that may be present in `sources`
-      val sources = uniqueSources.flatMap(src => Paths.getAllFiles(src, "glob:**.{scala,java}")).distinct
+      val sources = inputs.sources // Sources are all files
       val classesDir = inputs.classesDir.toFile
       val classpath = inputs.classpath.map(_.toFile)
 

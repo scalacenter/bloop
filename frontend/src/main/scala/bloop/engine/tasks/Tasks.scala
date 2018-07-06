@@ -7,7 +7,7 @@ import bloop.config.Config
 import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, Leaf, Parent, State}
 import bloop.exec.Forker
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
 import bloop.testing.{
@@ -17,12 +17,14 @@ import bloop.testing.{
   TestSuiteEvent,
   TestSuiteEventHandler
 }
-import bloop.{CompileInputs, Compiler, Project}
+import bloop.{CompileInputs, Compiler, Project, ScalaInstance}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
+import sbt.internal.inc.javac.JavaNoPosition
 import sbt.testing._
 import xsbt.api.Discovery
+import xsbti.Severity
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
@@ -74,9 +76,13 @@ object Tasks {
       excludeRoot: Boolean = false
   ): Task[State] = {
     import state.{logger, compilerCache}
-    def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
-      val instance = project.scalaInstance
-      val sources = project.sources.toArray
+    def toInputs(
+        project: Project,
+        instance: ScalaInstance,
+        sources: Array[AbsolutePath],
+        config: ReporterConfig,
+        result: PreviousResult
+    ) = {
       val classpath = project.classpath
       val classesDir = project.classesDir
       val target = project.out
@@ -98,9 +104,36 @@ object Tasks {
     }
 
     def compile(project: Project): Compiler.Result = {
-      logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
-      val previous = state.results.lastSuccessfulResult(project)
-      Compiler.compile(toInputs(project, reporterConfig, previous))
+      def err(msg: String): Problem =
+        Problem(-1, Severity.Error, msg, JavaNoPosition, "")
+
+      val sources = project.sources.distinct
+      val javaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.java")).distinct
+      val scalaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.scala")).distinct
+      val uniqueSources = (javaSources ++ scalaSources).toArray
+      project.scalaInstance match {
+        case Some(instance) =>
+          logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
+          val previous = state.results.lastSuccessfulResult(project)
+          Compiler.compile(toInputs(project, instance, uniqueSources, reporterConfig, previous))
+        case None =>
+          val addScalaConfiguration = err(
+            "Add Scala configuration to the project. If that doesn't fix it, report it upstream")
+          // Either return empty result or report
+          (scalaSources, javaSources) match {
+            case (Nil, Nil) => Compiler.Result.Empty
+            case (xs: List[AbsolutePath], Nil) =>
+              // Let's notify users there is no Scala configuration for a project with Scala sources
+              val msg =
+                s"Failed to compile project '${project.name}: found Scala sources but project is missing Scala configuration.'"
+              Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
+            case _ =>
+              // If Java sources exist, we cannot compile them without an instance
+              val msg =
+                s"Failed to compile '${project.name}'s Java sources because the default Scala instance couldn't be created."
+              Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
+          }
+      }
     }
 
     def failed(results: List[(Project, Compiler.Result)]): List[Project] = {
@@ -217,19 +250,27 @@ object Tasks {
    * @param noRoot  If false, include `project` on the classpath. Do not include it otherwise.
    * @return The new state of Bloop.
    */
-  def console(state: State,
-              project: Project,
-              config: ReporterConfig,
-              noRoot: Boolean): Task[State] = Task {
-    val scalaInstance = project.scalaInstance
-    val classpath = project.classpath
-    val classpathFiles = classpath.map(_.underlying.toFile).toSeq
-    state.logger.debug(s"Setting up the console classpath with ${classpathFiles.mkString(", ")}")
-    val loader = ClasspathUtilities.makeLoader(classpathFiles, scalaInstance)
-    val compiler = state.compilerCache.get(scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
-    val classpathOptions = ClasspathOptionsUtil.repl
-    val options = project.scalacOptions :+ "-Xnojline"
-    compiler.console(classpathFiles, options, classpathOptions, "", "", state.logger)(Some(loader))
+  def console(
+      state: State,
+      project: Project,
+      config: ReporterConfig,
+      noRoot: Boolean
+  ): Task[State] = Task {
+    import state.logger
+    project.scalaInstance match {
+      case Some(instance) =>
+        val classpath = project.classpath
+        val entries = classpath.map(_.underlying.toFile).toSeq
+        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")
+        val loader = ClasspathUtilities.makeLoader(entries, instance)
+        val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
+        val opts = ClasspathOptionsUtil.repl
+        val options = project.scalacOptions :+ "-Xnojline"
+        // We should by all means add better error handling here!
+        compiler.console(entries, options, opts, "", "", state.logger)(Some(loader))
+      case None => logger.error(s"Missing Scala configuration on project '${project.name}'")
+    }
+
     state
   }
 
