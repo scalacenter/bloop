@@ -92,13 +92,13 @@ object Pipelined {
 
       val project = inputs.project
       val instance = project.scalaInstance
-      val sources = project.sources
+      val sources = project.sources.toArray
       val classpath = project.classpath
       val picklepath = inputs.picklepath
       val classesDir = project.classesDir
       val target = project.out
-      val scalacOptions = project.scalacOptions
-      val javacOptions = project.javacOptions
+      val scalacOptions = project.scalacOptions.toArray
+      val javacOptions = project.javacOptions.toArray
       val cwd = state.build.origin.getParent
       val pickleReady = inputs.pickleReady
       val javaReady = inputs.javaReady
