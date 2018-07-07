@@ -225,7 +225,7 @@ object TestUtil {
       baseDirectory = AbsolutePath(baseDirectory),
       dependencies = dependencies.toList,
       scalaInstance = scalaInstance,
-      rawClasspath = classpath,
+      rawClasspath = classpath.toArray,
       compileSetup = Config.CompileSetup.empty,
       classesDir = AbsolutePath(target),
       scalacOptions = Nil,
