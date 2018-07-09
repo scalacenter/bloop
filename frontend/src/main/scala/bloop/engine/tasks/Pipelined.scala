@@ -141,8 +141,7 @@ object Pipelined {
             case Compiler.Result.NotOk(_) =>
               inputs.pickleReady.completeExceptionally(FailPromise)
             case result =>
-              if (result != Compiler.Result.Empty)
-                logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
+              logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
               inputs.pickleReady.completeExceptionally(CompletePromise)
           }
         }
@@ -239,7 +238,7 @@ object Pipelined {
             case Leaf(project) =>
               Task(new CompletableFuture[URI]()).flatMap { cf =>
                 val t = compile(PipelineInputs(project, Nil, cf, Task.now(true)))
-                val running = t.runAsync(ExecutionContext.scheduler)
+                val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                 timingDeps += (project -> Nil)
                 Task
                   .fromFuture(cf.asScala)
@@ -281,7 +280,7 @@ object Pipelined {
                     timingDeps += (project -> pickleProjects)
 
                     val t = compile(PipelineInputs(project, picklepath, cf, javaReady))
-                    val running = t.runAsync(ExecutionContext.scheduler)
+                    val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     Task
                       .fromFuture(cf.asScala)
                       .materialize
