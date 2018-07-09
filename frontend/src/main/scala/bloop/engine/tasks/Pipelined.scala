@@ -229,19 +229,18 @@ object Pipelined {
       }
     }
 
-    import ExecutionContext.compilationContext
     def loop(dag: Dag[Project]): CompileTask = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>
           val task = dag match {
             case Leaf(project) =>
-              Task(new CompletableFuture[URI]()).flatMap { cf =>
+              Task.now(new CompletableFuture[URI]()).flatMap { cf =>
                 val t = compile(PipelineInputs(project, Nil, cf, Task.now(true)))
                 val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                 timingDeps += (project -> Nil)
                 Task
-                  .fromFuture(cf.asScala)
+                  .deferFutureAction(c => cf.asScala(c))
                   .materialize
                   .map(u => Leaf((project, (u, Task.fromFuture(running)))))
               }
@@ -263,7 +262,7 @@ object Pipelined {
                       .mkString("  -> ", "\n  -> ", "\n")}")
                   }
 
-                  Task(new CompletableFuture[URI]()).flatMap { cf =>
+                  Task.now(new CompletableFuture[URI]()).flatMap { cf =>
                     // Signals whether Java compilation can proceed or not.
                     val javaReady = {
                       Task
@@ -282,7 +281,7 @@ object Pipelined {
                     val t = compile(PipelineInputs(project, picklepath, cf, Task.now(true)))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     Task
-                      .fromFuture(cf.asScala)
+                      .deferFutureAction(c => cf.asScala(c))
                       .materialize
                       .map(u => Parent((project, (u, Task.fromFuture(running))), results))
                   }
