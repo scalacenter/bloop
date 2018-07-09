@@ -279,7 +279,7 @@ object Pipelined {
                     val pickleProjects = dfss.map(_._1).distinct
                     timingDeps += (project -> pickleProjects)
 
-                    val t = compile(PipelineInputs(project, picklepath, cf, javaReady))
+                    val t = compile(PipelineInputs(project, picklepath, cf, Task.now(true)))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     Task
                       .fromFuture(cf.asScala)
