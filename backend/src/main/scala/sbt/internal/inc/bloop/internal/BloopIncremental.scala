@@ -3,6 +3,7 @@ package sbt.internal.inc.bloop.internal
 
 import java.io.File
 import java.net.URI
+import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import monix.eval.Task
@@ -24,7 +25,7 @@ object BloopIncremental {
       output: Output,
       log: Logger,
       options: IncOptions,
-      picklePromise: Option[CompletableFuture[URI]]
+      picklePromise: CompletableFuture[Optional[URI]]
   ): Task[(Boolean, Analysis)] = {
     def getExternalAPI(lookup: Lookup): (File, String) => Option[AnalyzedClass] = { (_: File, binaryClassName: String) =>
       lookup.lookupAnalysis(binaryClassName) flatMap {

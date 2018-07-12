@@ -3,6 +3,7 @@ package sbt.internal.inc.bloop
 
 import java.io.File
 import java.net.URI
+import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import monix.eval.Task
@@ -62,7 +63,7 @@ object BloopZincCompiler {
       skip,
       incrementalCompilerOptions,
       extraOptions,
-      picklePromise.toOption,
+      picklePromise,
       startJavaCompilation
     )(logger)
   }
@@ -87,7 +88,7 @@ object BloopZincCompiler {
       skip: Boolean = false,
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
-      picklePromise: Option[CompletableFuture[URI]],
+      picklePromise: CompletableFuture[Optional[URI]],
       startJavaCompilation: Task[Boolean]
   )(implicit logger: Logger): Task[CompileResult] = {
     val prev = previousAnalysis match {

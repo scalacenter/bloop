@@ -30,7 +30,7 @@ case class CompileInputs(
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     reporter: Reporter,
-    pickleReceiver: Option[CompletableFuture[URI]],
+    pickleReceiver: Option[CompletableFuture[Optional[URI]]],
     startJavaCompilation: Task[Boolean],
     logger: Logger
 )
@@ -103,8 +103,10 @@ object Compiler {
       val receiver = compileInputs.pickleReceiver
       val setup =
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
-      if (!receiver.isDefined) setup
-      else setup.withPicklePromise(InterfaceUtil.toOptional(receiver))
+      receiver match {
+        case Some(receiver) => setup.withPicklePromise(receiver)
+        case None => setup
+      }
     }
 
     val start = System.nanoTime()
