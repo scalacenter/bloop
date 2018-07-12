@@ -71,6 +71,10 @@ object Bloop extends CaseApp[CliOptions] {
         val action = Run(Commands.Compile(projectName), Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
+      case Array("compile", "--pipelined", projectName1) =>
+        val action = Run(Commands.Compile(projectName1, pipelined = true), Exit(ExitStatus.Ok))
+        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+
       case Array("compile", projectName1, projectName2) =>
         val action = Run(Commands.Compile(projectName1), Run(Commands.Compile(projectName2), Exit(ExitStatus.Ok)))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
