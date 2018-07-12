@@ -7,9 +7,9 @@ import java.util.Optional
 import monix.eval.Task
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
 import sbt.internal.inc.javac.AnalyzingJavaCompiler
-import sbt.internal.inc.{Analysis, AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler}
+import sbt.internal.inc.{Analysis, AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler, ScalaInstance}
 import sbt.util.Logger
-import xsbti.AnalysisCallback
+import xsbti.{AnalysisCallback, CompileFailed}
 import xsbti.compile.{ClassFileManager, CompileOrder, DependencyChanges, IncToolOptions, MultipleOutput, SingleOutput}
 
 /**
@@ -77,7 +77,9 @@ final class BloopHighLevelCompiler(scalac: AnalyzingCompiler, javac: AnalyzingJa
         val cargs = new CompilerArguments(scalac.scalaInstance, config.classpathOptions)
         val args = cargs.apply(Nil, classpath, None, setup.options.scalacOptions).toArray
         timed("Scala compilation", logger) {
-          scalac.compileAndSetUpPicklepath(sources.toArray, config.picklepath.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+          val isDotty = ScalaInstance.isDotty(scalac.scalaInstance.actualVersion())
+          if (isDotty) scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+          else scalac.compileAndSetUpPicklepath(sources.toArray, config.picklepath.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
         }
       }
     }
@@ -92,7 +94,13 @@ final class BloopHighLevelCompiler(scalac: AnalyzingCompiler, javac: AnalyzingJa
             config.incOptions.useCustomizedFileManager()
           )
           val javaOptions = setup.options.javacOptions.toArray[String]
-          javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
+          try javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
+          catch {
+            case f: CompileFailed =>
+              // Intercept and report manually because https://github.com/sbt/zinc/issues/520
+              config.reporter.printSummary()
+              throw f
+          }
         }
       }
     }

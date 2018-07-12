@@ -8,10 +8,11 @@ import org.junit.Assert.assertTrue
 import org.junit.experimental.categories.Category
 import bloop.ScalaInstance
 import bloop.cli.Commands
+import bloop.config.Config
 import bloop.engine.tasks.Tasks
 import bloop.engine.{Run, State}
 import bloop.exec.JavaEnv
-import bloop.logging.RecordingLogger
+import bloop.logging.{Logger, RecordingLogger}
 import bloop.tasks.TestUtil.{
   RootProject,
   checkAfterCleanCompilation,
@@ -41,6 +42,74 @@ class CompilationTaskTest {
       val targetProject = getProject(RootProject, state)
       assertTrue(hasPreviousResult(targetProject, state))
     }
+  }
+
+  def scalaInstance2124(logger: Logger): ScalaInstance = ScalaInstance.resolve(
+    "org.scala-lang",
+    "scala-compiler",
+    "2.12.4",
+    logger
+  )
+
+  @Test
+  def compileScalaAndJava(): Unit = {
+    val logger = new RecordingLogger
+    val dependencies = Map.empty[String, Set[String]]
+    val structures = Map(
+      RootProject -> Map("A.scala" -> "object A", "B.java" -> "public class B {}"))
+
+    checkAfterCleanCompilation(
+      structures,
+      dependencies,
+      scalaInstance = scalaInstance2124(logger),
+      useSiteLogger = Some(logger),
+      order = Config.JavaThenScala
+    )(_ => ())
+
+    val errors = TestUtil.errorsFromLogger(logger)
+    assert(errors.size == 0)
+  }
+
+  @Test
+  def compileAndDetectJavaErrors(): Unit = {
+    val logger = new RecordingLogger
+    val dependencies = Map.empty[String, Set[String]]
+    val structures = Map(
+      RootProject -> Map("A.scala" -> "class A", "B.java" -> "public class B extends A {}")
+    )
+
+    checkAfterCleanCompilation(
+      structures,
+      dependencies,
+      scalaInstance = scalaInstance2124(logger),
+      useSiteLogger = Some(logger),
+      order = Config.JavaThenScala
+    )(_ => ())
+
+    val errors = TestUtil.errorsFromLogger(logger)
+    assert(errors.size == 3)
+    assert(errors.exists(_.contains("cannot find symbol")))
+  }
+
+  @Test
+  def compileAndDetectScalaErrors(): Unit = {
+    val logger = new RecordingLogger
+    val dependencies = Map.empty[String, Set[String]]
+    val structures = Map(RootProject -> Map("A.scala" -> "abject A"))
+
+    checkAfterCleanCompilation(
+      structures,
+      dependencies,
+      scalaInstance = scalaInstance2124(logger),
+      useSiteLogger = Some(logger)
+    )(_ => ())
+
+    val errors = TestUtil.errorsFromLogger(logger)
+
+    assert(
+      errors.exists(_.contains("expected class or object definition")),
+      "Missing compiler errors"
+    )
   }
 
   @Test
@@ -245,7 +314,7 @@ class CompilationTaskTest {
     checkAfterCleanCompilation(structures,
                                dependencies,
                                scalaInstance = scalaInstance,
-                               quiet = true)(_ => ())
+                               quiet = false)(_ => ())
   }
 
   @Test
