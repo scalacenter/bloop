@@ -10,15 +10,14 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Dag, Exit, Interpreter, Run}
+import bloop.engine.{Dag, Exit, Run}
 import bloop.exec.JavaEnv
 import bloop.Project
 import bloop.config.Config
 import bloop.io.AbsolutePath
-import xsbti.compile.ClasspathOptionsUtil
 
 object IntegrationTestSuite {
-  val projects = TestUtil.testProjectsIndex.filterKeys(_.contains("frontend")).map(_._2).toArray.map(Array.apply(_))
+  val projects = TestUtil.testProjectsIndex.filterKeys(_.contains("akka")).map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
@@ -44,6 +43,7 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
     bool(sys.props.getOrElse("run.community.build", "false"))
+    true
   }
 
   @Test
@@ -103,7 +103,7 @@ class IntegrationTestSuite(testDirectory: Path) {
     }
 
     val action =
-      Run(Commands.Compile(projectToCompile.name, incremental = true), Exit(ExitStatus.Ok))
+      Run(Commands.Compile(projectToCompile.name, incremental = true, pipelined = true), Exit(ExitStatus.Ok))
     val state1 = TestUtil.blockingExecute(action, state)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",

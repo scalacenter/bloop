@@ -1,19 +1,19 @@
 package bloop.engine.tasks
 
-import java.io.File
 import java.net.URI
+import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import bloop.cli.ExitStatus
-import bloop.config.Config
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent, State}
 import bloop.io.AbsolutePath
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
-import bloop.monix.Java8Compat.{JavaCompletableFutureUtils, ScalaFutureUtils}
-import xsbti.compile.{ClasspathOptions, ClasspathOptionsUtil, CompileOrder, PreviousResult}
+import bloop.monix.Java8Compat.JavaCompletableFutureUtils
+import sbt.util.InterfaceUtil
+import xsbti.compile.PreviousResult
 
 import scala.util.{Failure, Success, Try}
 
@@ -21,7 +21,7 @@ object Pipelined {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
-  private type IntermediateResult = (Try[URI], Task[Compiler.Result])
+  private type IntermediateResult = (Try[Optional[URI]], Task[Compiler.Result])
   private type ICompileResult = (Project, IntermediateResult)
   private type CompileResult = (Project, Compiler.Result)
   private type CompileTask = Task[Dag[ICompileResult]]
@@ -49,7 +49,7 @@ object Pipelined {
   case class PipelineInputs(
       project: Project,
       picklepath: List[URI],
-      pickleReady: CompletableFuture[URI],
+      pickleReady: CompletableFuture[Optional[URI]],
       javaReady: Task[Boolean]
   )
 
@@ -136,13 +136,23 @@ object Pipelined {
       Compiler.compile(toInputs(inputs, reporterConfig, previous)).map { result =>
         // Do some book-keeping before returning the result to the caller
         endTimings += (project -> System.currentTimeMillis())
+
         if (!inputs.pickleReady.isDone) {
+          // Complete the pickle future to avoid deadlocks in case something is off
           result match {
             case Compiler.Result.NotOk(_) =>
               inputs.pickleReady.completeExceptionally(FailPromise)
             case result =>
               logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
               inputs.pickleReady.completeExceptionally(CompletePromise)
+          }
+        } else {
+          // Report if the pickle ready was correctly completed by the compiler
+          InterfaceUtil.toOption(inputs.pickleReady.get) match {
+            case Some(result) =>
+              logger.debug(s"Project ${project.name} compiled with pipelined compilation.")
+            case None =>
+              logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
           }
         }
 
@@ -177,6 +187,7 @@ object Pipelined {
               case (p, t) =>
                 logger.error(s"Unexpected error when compiling ${p.name}: '${t.getMessage}'")
                 // Make a better job here at reporting any throwable that happens during compilation
+                t.printStackTrace()
                 logger.trace(t)
             }
 
@@ -235,7 +246,7 @@ object Pipelined {
         case None =>
           val task = dag match {
             case Leaf(project) =>
-              Task.now(new CompletableFuture[URI]()).flatMap { cf =>
+              Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                 val t = compile(PipelineInputs(project, Nil, cf, Task.now(true)))
                 val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                 timingDeps += (project -> Nil)
@@ -252,7 +263,10 @@ object Pipelined {
                 if (failed.isEmpty) {
                   // No need to sort in topological order -- no clash of symbol can happen.
                   val dfss = results.map(Dag.dfs(_)).flatten
-                  val picklepath = dfss.map(_._2._1.toOption).flatten.distinct
+                  val picklepath = dfss
+                    .map(_._2._1.toOption.map(o => InterfaceUtil.toOption(o)).flatten)
+                    .flatten
+                    .distinct
 
                   if (logger.isVerbose) {
                     val pickleProjects = dfss.map(_._1).distinct
@@ -262,7 +276,7 @@ object Pipelined {
                       .mkString("  -> ", "\n  -> ", "\n")}")
                   }
 
-                  Task.now(new CompletableFuture[URI]()).flatMap { cf =>
+                  Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                     // Signals whether Java compilation can proceed or not.
                     val javaReady = {
                       Task
@@ -278,7 +292,7 @@ object Pipelined {
                     val pickleProjects = dfss.map(_._1).distinct
                     timingDeps += (project -> pickleProjects)
 
-                    val t = compile(PipelineInputs(project, picklepath, cf, Task.now(true)))
+                    val t = compile(PipelineInputs(project, picklepath, cf, javaReady))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     Task
                       .deferFutureAction(c => cf.asScala(c))
