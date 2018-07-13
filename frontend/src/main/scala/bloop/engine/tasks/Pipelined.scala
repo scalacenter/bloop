@@ -21,8 +21,13 @@ object Pipelined {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
-  private type IntermediateResult = (Try[Optional[URI]], Task[Compiler.Result])
-  private type ICompileResult = (Project, IntermediateResult)
+  private case class CompileProducts(
+      pickleURI: Try[Optional[URI]],
+      javaSources: List[String],
+      result: Task[Compiler.Result]
+  )
+
+  private type ICompileResult = (Project, CompileProducts)
   private type CompileResult = (Project, Compiler.Result)
   private type CompileTask = Task[Dag[ICompileResult]]
 
@@ -165,7 +170,9 @@ object Pipelined {
       toCompileTask(dag, compile(_), logger).flatMap { partialResults0 =>
         val partialResults = Dag.dfs(partialResults0)
         val futureFullResults = Task.gatherUnordered(
-          partialResults.map { case (p, (_, futureResult)) => futureResult.map(res => (p, res)) }
+          partialResults.map {
+            case (p, CompileProducts(_, _, futureResult)) => futureResult.map(res => (p, res))
+          }
         )
 
         futureFullResults.map { results =>
@@ -232,10 +239,10 @@ object Pipelined {
 
     def blockedBy(dag: Dag[ICompileResult]): Option[Project] = {
       dag match {
-        case Leaf((_, (_: Success[_], _))) => None
-        case Leaf((_, ((Failure(CompletePromise) | Success(_)), _))) => None
+        case Leaf((_, CompileProducts(_: Success[_], _, _))) => None
+        case Leaf((_, CompileProducts((Failure(CompletePromise) | Success(_)), _, _))) => None
         case Leaf((project, _)) => Some(project)
-        case Parent((_, ((Failure(CompletePromise) | Success(_)), _)), _) => None
+        case Parent((_, CompileProducts((Failure(CompletePromise) | Success(_)), _, _)), _) => None
         case Parent((project, _), _) => Some(project)
       }
     }
@@ -253,7 +260,7 @@ object Pipelined {
                 Task
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
-                  .map(u => Leaf((project, (u, Task.fromFuture(running)))))
+                  .map(u => Leaf((project, CompileProducts(u, Nil, Task.fromFuture(running)))))
               }
 
             case Parent(project, dependencies) =>
@@ -264,7 +271,7 @@ object Pipelined {
                   // No need to sort in topological order -- no clash of symbol can happen.
                   val dfss = results.map(Dag.dfs(_)).flatten
                   val picklepath = dfss
-                    .map(_._2._1.toOption.map(o => InterfaceUtil.toOption(o)).flatten)
+                    .map(_._2.pickleURI.toOption.map(o => InterfaceUtil.toOption(o)).flatten)
                     .flatten
                     .distinct
 
@@ -280,7 +287,7 @@ object Pipelined {
                     // Signals whether Java compilation can proceed or not.
                     val javaReady = {
                       Task
-                        .gatherUnordered(dfss.map(t => t._2._2.map(r => t._1 -> r)))
+                        .gatherUnordered(dfss.map(t => t._2.result.map(r => t._1 -> r)))
                         .map { rs =>
                           rs.collect {
                             case (_, r @ Compiler.Result.NotOk(_)) => r
@@ -294,15 +301,17 @@ object Pipelined {
 
                     val t = compile(PipelineInputs(project, picklepath, cf, javaReady))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                    val futureRunning = Task.fromFuture(running)
                     Task
                       .deferFutureAction(c => cf.asScala(c))
                       .materialize
-                      .map(u => Parent((project, (u, Task.fromFuture(running))), results))
+                      .map(u => Parent((project, CompileProducts(u, Nil, futureRunning)), results))
                   }
                 } else {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent((project, (Failure(BlockURI), blocked)), results))
+                  val blockedResult = CompileProducts(Failure(BlockURI), Nil, blocked)
+                  Task.now(Parent((project, blockedResult), results))
                 }
               }
           }
