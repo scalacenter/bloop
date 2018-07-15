@@ -17,7 +17,7 @@ import bloop.config.Config
 import bloop.io.AbsolutePath
 
 object IntegrationTestSuite {
-  val projects = TestUtil.testProjectsIndex.filterKeys(_.contains("akka")).map(_._2).toArray.map(Array.apply(_))
+  val projects = TestUtil.testProjectsIndex.filterKeys(_.contains("frontend")).map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
@@ -50,6 +50,7 @@ class IntegrationTestSuite(testDirectory: Path) {
   def compileProject: Unit = {
     if (!isCommunityBuildEnabled) () else compileProject0
   }
+
 
   def compileProject0: Unit = {
     val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName, identity)
@@ -103,7 +104,7 @@ class IntegrationTestSuite(testDirectory: Path) {
     }
 
     val action =
-      Run(Commands.Compile(projectToCompile.name, incremental = true, pipelined = true), Exit(ExitStatus.Ok))
+      Run(Commands.Compile(projectToCompile.name, incremental = true), Exit(ExitStatus.Ok))
     val state1 = TestUtil.blockingExecute(action, state)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",
