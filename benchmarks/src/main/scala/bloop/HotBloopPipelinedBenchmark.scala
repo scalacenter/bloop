@@ -46,7 +46,7 @@ class HotBloopPipelinedBenchmark {
 
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
-      "-Xms2G",
+      "-Xms1G",
       findMaxHeap(project),
       "-XX:ReservedCodeCacheSize=128m",
       "-jar",
