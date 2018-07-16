@@ -7,6 +7,7 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import monix.eval.Task
+import monix.execution.Scheduler
 import sbt.internal.inc.{Analysis, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger, Reporter}
 import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
@@ -103,7 +104,7 @@ object BloopZincCompiler {
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
         val setup = config.currentSetup
-        val compiler = BloopHighLevelCompiler(config, logger)
+        val compiler = BloopHighLevelCompiler(config, picklePromise, logger)
         val equiv = MiniSetupUtil.equivCompileSetup
         val equivPairs = MiniSetupUtil.equivPairs
         val lookup = new LookupImpl(config, previousSetup)

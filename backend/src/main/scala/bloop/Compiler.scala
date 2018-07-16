@@ -82,7 +82,7 @@ object Compiler {
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
         .withPicklepath(inputs.picklepath)
-        .withScalacOptions(inputs.scalacOptions ++ Array("-Youtline", "-Ystop-after:picklergen"))
+        .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)
@@ -105,7 +105,7 @@ object Compiler {
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
       receiver match {
         case Some(receiver) => setup.withPicklePromise(receiver)
-        case None => setup
+        case None => setup.withPicklePromise(new CompletableFuture[Optional[URI]]())
       }
     }
 
