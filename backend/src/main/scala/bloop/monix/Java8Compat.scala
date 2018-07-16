@@ -20,9 +20,9 @@ import java.util.concurrent.{CancellationException, CompletableFuture, Completio
 import java.util.function.BiFunction
 
 import monix.execution.cancelables.SingleAssignmentCancelable
-import monix.execution.{Cancelable, CancelableFuture}
 import monix.execution.misc.NonFatal
 import monix.execution.schedulers.TrampolinedRunnable
+import monix.execution.{Cancelable, CancelableFuture}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
