@@ -82,7 +82,7 @@ object Compiler {
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
         .withPicklepath(inputs.picklepath)
-        .withScalacOptions(inputs.scalacOptions ++ Array("-Youtline"))
+        .withScalacOptions(inputs.scalacOptions ++ Array("-Youtline", "-Ystop-after:picklergen"))
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)

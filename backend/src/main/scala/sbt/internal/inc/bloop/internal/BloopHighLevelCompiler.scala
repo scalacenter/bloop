@@ -78,7 +78,8 @@ final class BloopHighLevelCompiler(scalac: AnalyzingCompiler, javac: AnalyzingJa
         val args = cargs.apply(Nil, classpath, None, setup.options.scalacOptions).toArray
         timed("Scala compilation", logger) {
           val isDotty = ScalaInstance.isDotty(scalac.scalaInstance.actualVersion())
-          if (isDotty) scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+          val normalSetup = isDotty || config.picklepath.isEmpty
+          if (normalSetup) scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
           else scalac.compileAndSetUpPicklepath(sources.toArray, config.picklepath.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
         }
       }
