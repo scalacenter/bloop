@@ -127,7 +127,9 @@ object Compiler {
         Result.Success(compileInputs.reporter, result, elapsed)
       case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems(), None, elapsed)
       case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)
-      case Failure(t: Throwable) => Result.Failed(Array.empty, Some(t), elapsed)
+      case Failure(t: Throwable) =>
+        t.printStackTrace()
+        Result.Failed(Array.empty, Some(t), elapsed)
     }
   }
 }
