@@ -108,13 +108,20 @@ final class BloopHighLevelCompiler(
 
           import bloop.monix.Java8Compat.JavaCompletableFutureUtils
           val scalacOptions = setup.options.scalacOptions
+          val action = Task.deferFutureAction(s => promise.asScala(s))
           firstCompilation
-            .flatMap(_ => Task.deferFutureAction(scheduler => promise.asScala(scheduler)))
+            .flatMap(_ => action)
             .flatMap { pickleURI =>
               InterfaceUtil.toOption(pickleURI) match {
                 case Some(pickleURI) =>
+                  val groups: List[Seq[File]] = {
+                    val groupSize = scalaSources.size / Runtime.getRuntime().availableProcessors()
+                    if (groupSize == 0) List(scalaSources)
+                    else scalaSources.grouped(groupSize).toList
+                  }
+
                   Task.gatherUnordered(
-                    scalaSources.sliding(10).toList.map { scalaSourceGroup =>
+                    groups.map { scalaSourceGroup =>
                       Task {
                         timed("Scala compilation (second pass)", logger) {
                           val sourceGroup = {
@@ -135,7 +142,7 @@ final class BloopHighLevelCompiler(
         def compileSequentially: Task[Unit] = Task {
           val scalacOptions = setup.options.scalacOptions
           val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
-          timed("Scala compilation (first pass)", logger) {
+          timed("Scala compilation", logger) {
             compileSources(sources, scalacOptions, config.picklepath)
           }
         }
@@ -207,7 +214,7 @@ object BloopHighLevelCompiler {
 
   def prepareOptsForOutlining(opts: Array[String]): Array[String] = {
     val newOpts = opts.filterNot(o => NonFriendlyCompileOptions.contains(o) || o.startsWith("-Xlint"))
-    OutlineCompileOptions ++ newOpts
+    newOpts ++ OutlineCompileOptions
   }
 
   def apply(
