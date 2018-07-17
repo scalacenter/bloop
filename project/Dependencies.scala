@@ -21,7 +21,7 @@ object Dependencies {
   val ipcsocketVersion = "1.0.0"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
-  val nuprocessVersion = "1.2.3"
+  val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
   val scalaJs06Version = "0.6.23"
