@@ -196,12 +196,12 @@ object Tasks {
    *
    * @param state   The current state of Bloop.
    * @param targets The projects to clean.
-   * @param isolated Do not run clean for dependencies.
+   * @param includeDeps Do not run clean for dependencies.
    * @return The new state of Bloop after cleaning.
    */
-  def clean(state: State, targets: List[Project], isolated: Boolean): Task[State] = Task {
+  def clean(state: State, targets: List[Project], includeDeps: Boolean): Task[State] = Task {
     val allTargetsToClean =
-      if (isolated) targets
+      if (!includeDeps) targets
       else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
     val newResults = state.results.cleanSuccessful(allTargetsToClean)
     state.copy(results = newResults)
@@ -275,7 +275,7 @@ object Tasks {
    * @param state The current state of Bloop.
    * @param project The project for which to run the tests.
    * @param cwd      The directory in which to start the forked JVM.
-   * @param isolated Do not run the tests for the dependencies of `project`.
+   * @param includeDependencies Run test in the dependencies of `project`.
    * @param testFilter A function from a fully qualified class name to a Boolean, indicating whether
    *                   a test must be included.
    * @return The new state of Bloop.
@@ -284,7 +284,7 @@ object Tasks {
       state: State,
       project: Project,
       cwd: AbsolutePath,
-      isolated: Boolean,
+      includeDependencies: Boolean,
       frameworkSpecificRawArgs: List[String],
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler
@@ -315,7 +315,8 @@ object Tasks {
     }
 
     var failure = false
-    val projectsToTest = if (isolated) List(project) else Dag.dfs(state.build.getDagFor(project))
+    val projectsToTest =
+      if (!includeDependencies) List(project) else Dag.dfs(state.build.getDagFor(project))
     val testTasks = projectsToTest.map { project =>
       val projectName = project.name
       val forker = Forker(project.javaEnv, project.classpath)
