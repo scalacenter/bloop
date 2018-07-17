@@ -13,6 +13,7 @@ import bloop.cli.Commands.{CompilingCommand, LinkingCommand}
 import bloop.config.Config
 import bloop.engine.Feedback.XMessageString
 import monix.eval.Task
+import sbt.internal.inc.bloop.CompileMode
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -125,11 +126,16 @@ object Interpreter {
       else Tasks.clean(state0, state0.build.projects, true)
     }
 
+    val compilerMode: CompileMode.ConfigurableMode = {
+      if (cmd.parallel) CompileMode.Parallel(cmd.parallelBatches.number)
+      else CompileMode.Sequential
+    }
+
     val compileTask = {
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       if (cmd.pipelined)
-        Pipelined.compile(state0, project, config, deduplicateFailures, excludeRoot)
-      else Tasks.compile(state0, project, config, deduplicateFailures, excludeRoot)
+        Pipelined.compile(state0, project, config, deduplicateFailures, compilerMode, excludeRoot)
+      else Tasks.compile(state0, project, config, deduplicateFailures, compilerMode, excludeRoot)
     }
 
     compileTask.map(_.mergeStatus(ExitStatus.Ok))

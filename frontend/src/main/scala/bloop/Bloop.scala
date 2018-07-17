@@ -13,7 +13,6 @@ import bloop.cli.CliParsers.{
 import bloop.engine.{Action, Build, Exit, Interpreter, NoPool, Print, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
-import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
 import caseapp.{CaseApp, RemainingArgs}
 import jline.console.ConsoleReader

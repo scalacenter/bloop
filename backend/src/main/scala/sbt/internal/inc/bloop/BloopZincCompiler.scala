@@ -7,7 +7,6 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import monix.eval.Task
-import monix.execution.Scheduler
 import sbt.internal.inc.{Analysis, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger, Reporter}
 import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
@@ -25,8 +24,7 @@ object BloopZincCompiler {
    * @param in An instance of [[xsbti.compile.Inputs]] that collect all the
    *           inputs required to run the compiler (from sources and classpath,
    *           to compilation order, previous results, current setup, etc).
-   * @param startJavaCompilation An task that completes whenever java can start
-   *                            to compile.
+   * @param compileMode The compiler mode in which compilation needs to run.
    * @param logger An instance of [[xsbti.Logger]] to log Zinc output.
    *
    * @return An instance of [[xsbti.compile.CompileResult]] that holds
@@ -35,7 +33,11 @@ object BloopZincCompiler {
    *         compilations that depend on the same inputs, check its api and its
    *         field [[xsbti.compile.CompileAnalysis]].
    */
-  def compile(in: Inputs, startJavaCompilation: Task[Boolean], logger: Logger): Task[CompileResult] = {
+  def compile(
+      in: Inputs,
+      compileMode: CompileMode,
+      logger: Logger
+  ): Task[CompileResult] = {
     val config = in.options()
     val setup = in.setup()
     import config._
@@ -65,7 +67,7 @@ object BloopZincCompiler {
       incrementalCompilerOptions,
       extraOptions,
       picklePromise,
-      startJavaCompilation
+      compileMode
     )(logger)
   }
 
@@ -90,7 +92,7 @@ object BloopZincCompiler {
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
       picklePromise: CompletableFuture[Optional[URI]],
-      startJavaCompilation: Task[Boolean]
+      compileMode: CompileMode
   )(implicit logger: Logger): Task[CompileResult] = {
     val prev = previousAnalysis match {
       case Some(previous) => previous
@@ -104,7 +106,7 @@ object BloopZincCompiler {
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
         val setup = config.currentSetup
-        val compiler = BloopHighLevelCompiler(config, picklePromise, logger)
+        val compiler = BloopHighLevelCompiler(config, logger)
         val equiv = MiniSetupUtil.equivCompileSetup
         val equivPairs = MiniSetupUtil.equivPairs
         val lookup = new LookupImpl(config, previousSetup)
@@ -118,7 +120,7 @@ object BloopZincCompiler {
         }
 
         // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, startJavaCompilation)
+        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
         BloopIncremental.compile(srcsSet, lookup, compile, analysis, output, logger, config.incOptions, picklePromise).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
