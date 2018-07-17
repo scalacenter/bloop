@@ -198,7 +198,7 @@ object Interpreter {
           val cwd = cmd.cliOptions.common.workingPath
           compileAnd(state, project, reporterConfig, false, sequential, "`test`") { state =>
             val testEventHandler = new LoggingEventHandler(state.logger)
-            Tasks.test(state, project, cwd, cmd.isolated, cmd.args, testFilter, testEventHandler)
+            Tasks.test(state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, testEventHandler)
           }
         }
         if (cmd.watch) watch(project, state, doTest _)
@@ -394,7 +394,7 @@ object Interpreter {
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
     val (projects, missing) = lookupProjects(cmd.project, state)
     if (missing.isEmpty)
-      Tasks.clean(state, projects, cmd.isolated).map(_.mergeStatus(ExitStatus.Ok))
+      Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
     else Task.now(reportMissing(missing, state))
   }
 

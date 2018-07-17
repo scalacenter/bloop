@@ -73,8 +73,9 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The projects to clean.")
       project: List[String] = Nil,
-      @HelpMessage("Do not run clean for dependencies. By default, false.")
-      isolated: Boolean = false,
+      @ExtraName("propagate")
+      @HelpMessage("Run clean for the project's dependencies. By default, false.")
+      includeDependencies: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends RawCommand
 
@@ -116,8 +117,9 @@ object Commands {
       @ExtraName("p")
       @HelpMessage("The project to test (will be inferred from remaining cli args).")
       project: String = "",
-      @HelpMessage("Do not run tests for dependencies. By default, false.")
-      isolated: Boolean = false,
+      @ExtraName("propagate")
+      @HelpMessage("Run tests for the project dependencies. By default, false.")
+      includeDependencies: Boolean = false,
       @ExtraName("o")
       @HelpMessage("The list of test suite filters to test for only.")
       only: List[String] = Nil,
