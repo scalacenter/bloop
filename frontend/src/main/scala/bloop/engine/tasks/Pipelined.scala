@@ -6,12 +6,12 @@ import java.util.concurrent.CompletableFuture
 
 import bloop.cli.ExitStatus
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent, State}
-import bloop.io.AbsolutePath
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
+import sbt.internal.inc.bloop.{CompileMode, JavaSignal}
 import sbt.util.InterfaceUtil
 import xsbti.compile.PreviousResult
 
@@ -26,6 +26,15 @@ object Pipelined {
       javaSources: List[String],
       result: Task[Compiler.Result]
   )
+
+  private object CanProceedCompilation {
+    def unapply(products: CompileProducts): Boolean = {
+      products match {
+        case CompileProducts((Failure(CompletePromise) | Success(_)), _, _) => true
+        case _ => false
+      }
+    }
+  }
 
   private type ICompileResult = (Project, CompileProducts)
   private type CompileResult = (Project, Compiler.Result)
@@ -55,9 +64,10 @@ object Pipelined {
       project: Project,
       picklepath: List[URI],
       pickleReady: CompletableFuture[Optional[URI]],
-      javaReady: Task[Boolean]
+      javaSignal: Task[JavaSignal]
   )
 
+  // A series of non-leaking exceptions that we use internally in the implementation of pipelining
   private object FailPromise extends RuntimeException("Promise completed after compilation error")
   private object CompletePromise extends RuntimeException("Promise completed after compilation")
   private object BlockURI extends RuntimeException("URI cannot complete: compilation is blocked")
@@ -83,19 +93,15 @@ object Pipelined {
       project: Project,
       reporterConfig: ReporterConfig,
       sequentialCompilation: Boolean,
-      excludeRoot: Boolean = false
+      compileMode: CompileMode.ConfigurableMode,
+      excludeRoot: Boolean
   ): Task[State] = {
-    import state.{build, logger, compilerCache}
+    import state.{logger, compilerCache}
     def toInputs(
         inputs: PipelineInputs,
         config: ReporterConfig,
         result: PreviousResult
-    ) = {
-      def pruneClasspath(project: Project): Array[AbsolutePath] = {
-        val toPrune = build.projects.map(_.classesDir).toSet
-        project.classpath.filter(p => !toPrune.contains(p))
-      }
-
+    ): CompileInputs = {
       val project = inputs.project
       val instance = project.scalaInstance
       val sources = project.sources.toArray
@@ -107,7 +113,6 @@ object Pipelined {
       val javacOptions = project.javacOptions.toArray
       val cwd = state.build.origin.getParent
       val pickleReady = inputs.pickleReady
-      val javaReady = inputs.javaReady
 
       val classpathOptions = project.classpathOptions
       val compileOrder = project.compileOrder
@@ -120,8 +125,15 @@ object Pipelined {
         case _ => new LogReporter(logger, cwd, identity, config)
       }
 
+      val mode = compileMode match {
+        case CompileMode.Parallel(batches) =>
+          CompileMode.ParallelAndPipelined(batches, pickleReady, inputs.javaSignal)
+        case CompileMode.Sequential =>
+          CompileMode.Pipelined(pickleReady, inputs.javaSignal)
+      }
+
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, picklepath.toArray, classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, Some(pickleReady), javaReady, logger)
+      CompileInputs(instance, compilerCache, sources, classpath, picklepath.toArray, classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, mode, logger)
       // FORMAT: ON
     }
 
@@ -179,15 +191,6 @@ object Pipelined {
           val failures = failed(results).distinct
           val newState = state.copy(results = state.results.addResults(results))
           if (failures.isEmpty) {
-            startTimings.map {
-              case (k, startMs) =>
-                val endMs = endTimings.get(k).get
-                val allTimingDeps = timingDeps.get(k).get.map(d => endTimings.get(d).get)
-                val hypotheticalEnd = if (allTimingDeps.isEmpty) startMs else allTimingDeps.max
-                val duration = (endMs - startMs)
-                val saved = (hypotheticalEnd - startMs)
-                logger.info(s"Project ${k.name} compiled in ${duration}ms; and saved ${saved}ms")
-            }
             newState.copy(status = ExitStatus.Ok)
           } else {
             exceptions(results).foreach {
@@ -240,9 +243,9 @@ object Pipelined {
     def blockedBy(dag: Dag[ICompileResult]): Option[Project] = {
       dag match {
         case Leaf((_, CompileProducts(_: Success[_], _, _))) => None
-        case Leaf((_, CompileProducts((Failure(CompletePromise) | Success(_)), _, _))) => None
+        case Leaf((_, CanProceedCompilation())) => None
         case Leaf((project, _)) => Some(project)
-        case Parent((_, CompileProducts((Failure(CompletePromise) | Success(_)), _, _)), _) => None
+        case Parent((_, CanProceedCompilation()), _) => None
         case Parent((project, _), _) => Some(project)
       }
     }
@@ -254,7 +257,8 @@ object Pipelined {
           val task = dag match {
             case Leaf(project) =>
               Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
-                val t = compile(PipelineInputs(project, Nil, cf, Task.now(true)))
+                val t = compile(
+                  PipelineInputs(project, Nil, cf, Task.now(JavaSignal.ContinueCompilation)))
                 val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                 timingDeps += (project -> Nil)
                 Task
@@ -285,21 +289,20 @@ object Pipelined {
 
                   Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                     // Signals whether Java compilation can proceed or not.
-                    val javaReady = {
+                    val javaSignal = {
                       Task
                         .gatherUnordered(dfss.map(t => t._2.result.map(r => t._1 -> r)))
                         .map { rs =>
-                          rs.collect {
-                            case (_, r @ Compiler.Result.NotOk(_)) => r
-                            case (_, r @ Compiler.Result.Blocked(_)) => r
-                          }.isEmpty
+                          val projects = rs.collect { case (p, Compiler.Result.NotOk(_)) => p.name }
+                          if (projects.isEmpty) JavaSignal.ContinueCompilation
+                          else JavaSignal.FailFastCompilation(projects)
                         }
                     }
 
                     val pickleProjects = dfss.map(_._1).distinct
                     timingDeps += (project -> pickleProjects)
 
-                    val t = compile(PipelineInputs(project, picklepath, cf, javaReady))
+                    val t = compile(PipelineInputs(project, picklepath, cf, javaSignal))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     val futureRunning = Task.fromFuture(running)
                     Task

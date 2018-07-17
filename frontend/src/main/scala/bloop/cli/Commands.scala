@@ -6,9 +6,8 @@ import java.nio.file.Path
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
-import caseapp.{ArgsName, CommandName, ExtraName, HelpMessage, Hidden, Recurse}
+import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.CommandMessages
-import cats.Show
 
 object Commands {
 
@@ -33,6 +32,8 @@ object Commands {
     def reporter: ReporterKind
     def incremental: Boolean
     def pipelined: Boolean
+    def parallel: Boolean
+    def parallelBatches: ParallelBatches
   }
 
   sealed trait LinkingCommand extends CompilingCommand {
@@ -72,7 +73,7 @@ object Commands {
 
   case class Configure(
       @ExtraName("parallelism")
-      @HelpMessage("Set the number of threads used for parallel compilation and test execution.")
+      @HelpMessage("Set the number of threads used for test execution.")
       threads: Int = ExecutionContext.executor.getCorePoolSize,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
@@ -106,6 +107,7 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 
+  private lazy val DefaultBatches: ParallelBatches = ParallelBatches.Default
   case class Compile(
       @ExtraName("p")
       @HelpMessage("The project to compile (will be inferred from remaining cli args).")
@@ -114,6 +116,11 @@ object Commands {
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
       pipelined: Boolean = false,
+      @HelpMessage("Parallelize the compilation of modules in your build. By default, false.")
+      parallel: Boolean = false,
+      @HelpMessage(
+        s"Pick how many workers will compile every project in parallel. By default, ${ParallelBatches.Default.number}.")
+      parallelBatches: ParallelBatches = ParallelBatches.Default,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")
@@ -132,6 +139,11 @@ object Commands {
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
       pipelined: Boolean = false,
+      @HelpMessage("Parallelize the compilation of modules in your build. By default, false.")
+      parallel: Boolean = false,
+      @HelpMessage(
+        s"Pick how many workers will compile every project in parallel. By default, ${ParallelBatches.Default.number}.")
+      parallelBatches: ParallelBatches = ParallelBatches.Default,
       @ExtraName("o")
       @HelpMessage("The list of test suite filters to test for only.")
       only: List[String] = Nil,
@@ -153,6 +165,11 @@ object Commands {
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
       pipelined: Boolean = false,
+      @HelpMessage("Parallelize the compilation of modules in your build. By default, false.")
+      parallel: Boolean = false,
+      @HelpMessage(
+        s"Pick how many workers will compile every project in parallel. By default, ${ParallelBatches.Default.number}.")
+      parallelBatches: ParallelBatches = ParallelBatches.Default,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
@@ -172,6 +189,11 @@ object Commands {
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
       pipelined: Boolean = false,
+      @HelpMessage("Parallelize the compilation of modules in your build. By default, false.")
+      parallel: Boolean = false,
+      @HelpMessage(
+        s"Pick how many workers will compile every project in parallel. By default, ${ParallelBatches.Default.number}.")
+      parallelBatches: ParallelBatches = ParallelBatches.Default,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("The arguments to pass in to the main class.")
@@ -197,6 +219,11 @@ object Commands {
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
       pipelined: Boolean = false,
+      @HelpMessage("Parallelize the compilation of modules in your build. By default, false.")
+      parallel: Boolean = false,
+      @HelpMessage(
+        s"Pick how many workers will compile every project in parallel. By default, ${ParallelBatches.Default.number}.")
+      parallelBatches: ParallelBatches = ParallelBatches.Default,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")

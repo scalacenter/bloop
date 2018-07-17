@@ -5,16 +5,15 @@ import xsbti.T2
 import java.util.Optional
 import java.io.File
 import java.net.URI
-import java.util.concurrent.CompletableFuture
 
 import bloop.internal.Ecosystem
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import bloop.reporter.Reporter
-import sbt.internal.inc.bloop.BloopZincCompiler
+import sbt.internal.inc.bloop.{BloopZincCompiler, CompileMode}
 import sbt.internal.inc.{FreshCompilerCache, Locate}
-import sbt.util.InterfaceUtil
 import _root_.monix.eval.Task
+import sbt.internal.inc.bloop.internal.StopPipelining
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -30,8 +29,7 @@ case class CompileInputs(
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     reporter: Reporter,
-    pickleReceiver: Option[CompletableFuture[Optional[URI]]],
-    startJavaCompilation: Task[Boolean],
+    mode: CompileMode,
     logger: Logger
 )
 
@@ -54,6 +52,13 @@ object Compiler {
     final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
         extends Result
 
+    object Ok {
+      def unapply(result: Result): Option[Result] = result match {
+        case s @ (Success(_, _, _) | Empty) => Some(s)
+        case _ => None
+      }
+    }
+
     object NotOk {
       def unapply(result: Result): Option[Result] = result match {
         case f @ (Failed(_, _, _) | Cancelled(_) | Blocked(_)) => Some(f)
@@ -72,7 +77,8 @@ object Compiler {
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
       val uniqueSources = inputs.sources.distinct
       // Get all the source files in the directories that may be present in `sources`
-      val sources = uniqueSources.flatMap(src => Paths.getAllFiles(src, "glob:**.{scala,java}")).distinct
+      val sources =
+        uniqueSources.flatMap(src => Paths.getAllFiles(src, "glob:**.{scala,java}")).distinct
       val classesDir = inputs.classesDir.toFile
       val classpath = inputs.classpath.map(_.toFile)
 
@@ -100,12 +106,12 @@ object Compiler {
         else Ecosystem.supportDotty(IncOptions.create())
       }
       val progress = Optional.empty[CompileProgress]
-      val receiver = compileInputs.pickleReceiver
       val setup =
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
-      receiver match {
-        case Some(receiver) => setup.withPicklePromise(receiver)
-        case None => setup.withPicklePromise(new CompletableFuture[Optional[URI]]())
+      compileInputs.mode match {
+        case CompileMode.Pipelined(pickleUri, _) => setup.withPicklePromise(pickleUri)
+        case CompileMode.ParallelAndPipelined(_, pickleUri, _) => setup.withPicklePromise(pickleUri)
+        case _ => setup
       }
     }
 
@@ -114,17 +120,16 @@ object Compiler {
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
-    val javaSignal = compileInputs.startJavaCompilation
 
     // We don't want nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
 
     import scala.util.{Success, Failure}
-    BloopZincCompiler.compile(inputs, javaSignal, compileInputs.logger).materialize.map {
-      case Success(result0) =>
-        val result =
-          PreviousResult.of(Optional.of(result0.analysis()), Optional.of(result0.setup()))
-        Result.Success(compileInputs.reporter, result, elapsed)
+    BloopZincCompiler.compile(inputs, compileInputs.mode, compileInputs.logger).materialize.map {
+      case Success(result) =>
+        val prev = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+        Result.Success(compileInputs.reporter, prev, elapsed)
+      case Failure(f: StopPipelining) => Result.Blocked(f.failedProjectNames)
       case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems(), None, elapsed)
       case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)
       case Failure(t: Throwable) =>

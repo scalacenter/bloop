@@ -19,17 +19,12 @@ import bloop.testing.{
 }
 import bloop.{CompileInputs, Compiler, Project}
 import monix.eval.Task
+import sbt.internal.inc.bloop.CompileMode
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbt.api.Discovery
-import xsbti.compile.{
-  ClasspathOptionsUtil,
-  CompileAnalysis,
-  CompileOrder,
-  MiniSetup,
-  PreviousResult
-}
+import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
   private val TestFailedStatus: Set[Status] =
@@ -73,8 +68,7 @@ object Tasks {
    * @param project        The project to compile.
    * @param reporterConfig Configuration of the compilation messages reporter.
    * @param deduplicateFailedCompilation Don't compile a target if it has failed in the same compile run.
-   * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise,
-   *                       also compile `project`.
+   * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise, includ `project`.
    * @return The new state of Bloop after compilation.
    */
   def compile(
@@ -82,7 +76,8 @@ object Tasks {
       project: Project,
       reporterConfig: ReporterConfig,
       deduplicateFailedCompilation: Boolean,
-      excludeRoot: Boolean = false
+      compileMode: CompileMode.ConfigurableMode,
+      excludeRoot: Boolean
   ): Task[State] = {
     import state.{logger, compilerCache}
     def toInputs(project: Project, config: ReporterConfig, result: PreviousResult) = {
@@ -106,7 +101,7 @@ object Tasks {
       }
 
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, None, Task.now(true), logger)
+      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, compileMode, logger)
       // FORMAT: ON
     }
 
@@ -172,9 +167,9 @@ object Tasks {
 
     def blockedBy(dag: Dag[CompileResult]): Option[Project] = {
       dag match {
-        case Leaf(CompileResult(_, _: Compiler.Result.Success)) => None
+        case Leaf(CompileResult(_, Compiler.Result.Ok(_))) => None
         case Leaf(CompileResult(project, _)) => Some(project)
-        case Parent(CompileResult(_, _: Compiler.Result.Success), _) => None
+        case Parent(CompileResult(_, Compiler.Result.Ok(_)), _) => None
         case Parent(CompileResult(project, _), _) => Some(project)
       }
     }
