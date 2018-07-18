@@ -2,7 +2,7 @@
 <html lang="en-us">
 
 <head>
-  <meta name="generator" content="Hugo 0.44" />
+  <meta name="generator" content="Hugo 0.30.2" />
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -238,8 +238,8 @@ headingSelector: 'h2'
 <h3 id="examples">Examples</h3>
 
 <ul>
-<li><samp>bloop clean foobar &ndash;propagate</samp></li>
 <li><samp>bloop clean foobar</samp></li>
+<li><samp>bloop clean foobar &ndash;propagate</samp></li>
 </ul>
 
 <h2 id="bloop-compile"><code>bloop compile</code></h2>
@@ -268,10 +268,10 @@ headingSelector: 'h2'
 <h3 id="examples-1">Examples</h3>
 
 <ul>
-<li><samp>bloop compile foobar &ndash;reporter scalac</samp></li>
-<li><samp>bloop compile foobar &ndash;reporter bloop</samp></li>
-<li><samp>bloop compile foobar -w</samp></li>
 <li><samp>bloop compile foobar</samp></li>
+<li><samp>bloop compile foobar -w</samp></li>
+<li><samp>bloop compile foobar &ndash;reporter bloop</samp></li>
+<li><samp>bloop compile foobar &ndash;reporter scalac</samp></li>
 </ul>
 
 <h2 id="bloop-configure"><code>bloop configure</code></h2>
@@ -315,8 +315,8 @@ headingSelector: 'h2'
 <h3 id="examples-2">Examples</h3>
 
 <ul>
-<li><samp>bloop console foobar &ndash;exclude-root</samp></li>
 <li><samp>bloop console foobar</samp></li>
+<li><samp>bloop console foobar &ndash;exclude-root</samp></li>
 </ul>
 
 <h2 id="bloop-help"><code>bloop help</code></h2>
@@ -362,11 +362,11 @@ headingSelector: 'h2'
 <h3 id="examples-3">Examples</h3>
 
 <ul>
-<li><samp>bloop link foobar &ndash;main com.acme.Main -w</samp></li>
-<li><samp>bloop link foobar -O release -w</samp></li>
-<li><samp>bloop link foobar -O debug -w</samp></li>
-<li><samp>bloop link foobar &ndash;main com.acme.Main</samp></li>
 <li><samp>bloop link foobar</samp></li>
+<li><samp>bloop link foobar &ndash;main com.acme.Main</samp></li>
+<li><samp>bloop link foobar -O debug -w</samp></li>
+<li><samp>bloop link foobar -O release -w</samp></li>
+<li><samp>bloop link foobar &ndash;main com.acme.Main -w</samp></li>
 </ul>
 
 <h2 id="bloop-projects"><code>bloop projects</code></h2>
@@ -389,8 +389,8 @@ headingSelector: 'h2'
 <h3 id="examples-4">Examples</h3>
 
 <ul>
-<li><samp>bloop projects &ndash;dot-graph</samp></li>
 <li><samp>bloop projects</samp></li>
+<li><samp>bloop projects &ndash;dot-graph</samp></li>
 </ul>
 
 <h2 id="bloop-run"><code>bloop run</code></h2>
@@ -423,10 +423,10 @@ headingSelector: 'h2'
 <h3 id="examples-5">Examples</h3>
 
 <ul>
-<li><samp>bloop run foobar -m com.acme.Main -O release -w</samp></li>
-<li><samp>bloop run foobar -O debug &ndash; arg1</samp></li>
-<li><samp>bloop run foobar -m com.acme.Main &ndash; arg1 arg2</samp></li>
 <li><samp>bloop run foobar</samp></li>
+<li><samp>bloop run foobar -m com.acme.Main &ndash; arg1 arg2</samp></li>
+<li><samp>bloop run foobar -O debug &ndash; arg1</samp></li>
+<li><samp>bloop run foobar -m com.acme.Main -O release -w</samp></li>
 </ul>
 
 <h2 id="bloop-test"><code>bloop test</code></h2>
@@ -459,11 +459,11 @@ headingSelector: 'h2'
 <h3 id="examples-6">Examples</h3>
 
 <ul>
-<li><samp>bloop test foobar &ndash;only com.acme.StringSpecification</samp></li>
-<li><samp>bloop test foobar &ndash;propagate -w</samp></li>
-<li><samp>bloop test foobar &ndash;propagate</samp></li>
-<li><samp>bloop test foobar -w</samp></li>
 <li><samp>bloop test foobar</samp></li>
+<li><samp>bloop test foobar -w</samp></li>
+<li><samp>bloop test foobar &ndash;propagate</samp></li>
+<li><samp>bloop test foobar &ndash;propagate -w</samp></li>
+<li><samp>bloop test foobar &ndash;only com.acme.StringSpecification</samp></li>
 </ul>
 
 
