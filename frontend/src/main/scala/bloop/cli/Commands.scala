@@ -63,8 +63,7 @@ object Commands {
   ) extends RawCommand
 
   case class Configure(
-      @ExtraName("parallelism")
-      @HelpMessage("Set the number of threads used for parallel compilation and test execution.")
+      @HelpMessage("Set the number of threads used to compile and test all projects.")
       threads: Int = ExecutionContext.executor.getCorePoolSize,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
