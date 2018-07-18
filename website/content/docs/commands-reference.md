@@ -8,301 +8,302 @@ bref = "An explanation of all the commands that Bloop provides"
 toc = true
 +++
 
-## `bloop projects`
+## `bloop about`
 
-This commands displays all the projects that have been loaded from the current working directory:
-
-```
-$ bloop projects
-Projects loaded from '/Users/martin/foobar/.bloop':
- * foobar
- * foobar-test
-```
-
-This command can also be used to generate `dot` graph: <sample>
-
-## `bloop compile`
-
-This command takes care of starting compilation for a project and all of its dependencies.
-
-The supported options are:
+### Usage
 
 <dl>
-  <dt><code>-p</code> or <code>--project</code></dt>
-  <dd>
-    <p>Select the project to compile. This argument is required, but will be inferred if it's a remaining CLI args.</p>
-    <p><em>example:</em> <samp>bloop compile foobar</samp></p>
-    <p><em>example:</em> <samp>bloop compile -p foobar</samp></p>
-  </dd>
-
-  <dt><code>--incremental</code></dt>
-  <dd>
-    <p>
-      Whether to compile the project incrementally. Defaults to <code>true</code>. If this option is
-      set to false, then the compiler will recompile all the sources.
-    </p>
-    <p><em>example:</em> <samp>bloop compile foobar --incremental=false</samp></p>
-  </dd>
-
-  <dt><code>--reporter</code></dt>
-  <dd>
-    <p>
-      The error reporter to use. By default, Bloop's error reporter is used. The possible choices
-      are <code>bloop</code> and <code>scalac</code>.
-    </p>
-    <p><em>example:</em> <samp>bloop compile foobar --reporter scalac</samp>
-  </dd>
-
-  <dt><code>--watch</code></dt>
-  <dd>
-    <p>
-      Whether to re-run the command when the projects' files are modified. Each time one of the
-      file of the project, or of the dependencies of the project, is modified, the
-      <code>compile</code> command will be issued again, automatically.
-    </p>
-    <p><em>example:</em> <samp>bloop compile foobar --watch</samp></p>
-  </dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
 </dl>
 
-## `bloop test`
 
-This command runs the tests for one or more projects.
+## `bloop autocomplete`
 
-The supported options are:
+### Usage
 
 <dl>
-  <dt><code>-p</code> or <code>--project</code></dt>
-  <dd>
-    <p>Select the project to test. This argument is required, but will be inferred if it's a remaining CLI args.</p>
-    <p><em>example:</em> <samp>bloop test foobar</samp></p>
-    <p><em>example:</em> <samp>bloop test -p foobar</samp></p>
-  </dd>
-
-  <dt><code>--isolated</code></dt>
-  <dd>
-    <p>
-      Whether to run the tests only for the specified project, not including its dependencies. By
-      default, the tests are run for the dependencies of the specified project and the project.
-    </p>
-    <p><em>example:</em> <samp>bloop test foobar --isolated</samp></p>
-  </dd>
-
-  <dt><code>--reporter</code></dt>
-  <dd>
-    <p>
-      The error reporter to use. By default, Bloop's error reporter is use. The possible choices
-      are <code>bloop</code> and <code>scalac</code>.
-    </p>
-    <p><em>example:</em> <samp>bloop test foobar --reporter scalac</samp>
-  </dd>
-
-  <dt><code>--watch</code></dt>
-  <dd>
-    <p>
-      Whether to re-run the command when the projects' files are modified. Each time one of the
-      file of the project, or of the dependencies of the project, is modified, the
-      <code>test</code> command will be issued again, automatically.
-    </p>
-    <p><em>example:</em> <samp>bloop test foobar --watch</samp></p>
-  </dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+  <dt><code>--mode</code> (type: <code>mode</code>)</dt>
+  <dt><code>--format</code> (type: <code>"bash" | "zsh"</code>)</dt>
+  <dt><code>--command</code> (type: <code>string?</code>)</dt>
+  <dt><code>--project</code> (type: <code>string?</code>)</dt>
 </dl>
 
-## `bloop run`
-
-This command is used to run the code of your project. It requires having at least one runnable class
-in your project.
-
-The supported options are:
-
-<dl>
-  <dt><code>-p</code> or <code>--project</code></dt>
-  <dd>
-    <p>Select the project to run. This argument is required, but will be inferred if it's a remaining CLI args.</p>
-    <p><em>example:</em> <samp>bloop run foobar</samp></p>
-    <p><em>example:</em> <samp>bloop run -p foobar</samp></p>
-  </dd>
-
-  <dt><code>-m</code> or <code>--main</code></dt>
-  <dd>
-    <p>
-      The fully qualified class name of the class to run. Leave blank to let Bloop select
-      automatically the class to run.
-    </p>
-    <p><em>example:</em> <samp>bloop run foobar --main com.acme.Main</samp></p>
-  </dd>
-
-  <dt><code>--reporter</code></dt>
-  <dd>
-    <p>
-      The error reporter to use. By default, Bloop's error reporter is use. The possible choices
-      are <code>bloop</code> and <code>scalac</code>.
-    </p>
-    <p><em>example:</em> <samp>bloop run foobar --reporter scalac</samp>
-  </dd>
-
-  <dt><code>--args</code></dt>
-  <dd>
-    <p>
-      The arguments to pass to the <code>main()</code> function of the application. it is possible
-      to specify this option more than once to pass several parameters.
-    </p>
-    <p><em>example:</em> <samp>bloop run foobar --args hello --args world</samp>
-  </dd>
-
-  <dt><code>--watch</code></dt>
-  <dd>
-    <p>
-      Whether to re-run the command when the projects' files are modified. Each time one of the
-      file of the project, or of the dependencies of the project, is modified, the
-      <code>run</code> command will be issued again, automatically.
-    </p>
-    <p><em>example:</em> <samp>bloop run foobar --watch</samp></p>
-  </dd>
-</dl>
-
-## `bloop console`
-
-`bloop console` starts a Scala REPL with your project and its dependencies on the classpath.
-
-The following options are supported:
-
-<dl>
-  <dt><code>-p</code> or <code>--project</code></dt>
-  <dd>
-    <p>Select the project for which to start the console. This argument is required, but will be inferred if it's a remaining CLI args.</p>
-    <p><em>example:</em> <samp>bloop console foobar</samp></p>
-    <p><em>example:</em> <samp>bloop console -p foobar</samp></p>
-  </dd>
-
-  <dt><code>--reporter</code></dt>
-  <dd>
-    <p>
-      The error reporter to use. By default, Bloop's error reporter is use. The possible choices
-      are <code>bloop</code> and <code>scalac</code>.
-    </p>
-    <p><em>example:</em> <samp>bloop console foobar --reporter scalac</samp>
-  </dd>
-
-  <dt><code>--exclude-root</code></dt>
-  <dd>
-    <p>
-      Use this argument to start the console with all the dependencies of your project on the
-      classpath, but not the project itself.
-    </p>
-    <p><em>example:</em> <samp>bloop console foobar --exclude-root</samp>
-  </dd>
-</dl>
-
-## `bloop clean`
-
-This command is used to remove the results of the compilation.
-
-The following options are supported:
-
-<dl>
-  <dt><code>-p</code> or <code>--project</code></dt>
-  <dd>
-    <p>Select the project to clean. This argument is required.</p>
-    <p><em>example:</em> <samp>bloop clean -p foobar</samp></p>
-    <p><em>example:</em> <samp>bloop clean foobar</samp></p>
-    <p><em>example:</em> <samp>bloop clean -p foobar foobar-test</samp></p>
-    <p><em>example:</em> <samp>bloop clean foobar foobar-test biz</samp></p>
-  </dd>
-
-  <dt><code>--isolated</code></dt>
-  <dd>
-    <p>
-      Set this option if only the specified project should be cleaned, excluding its dependencies.
-    </p>
-    <p><em>example:</em> <samp>bloop clean -p foobar --isolated</samp>
-  </dd>
-</dl>
-
-## `bloop configure`
-
-This command is used to configure the behavior of the Bloop server.
-
-The following options are supported:
-
-<dl>
-  <dt><code>--threads</code> or <code>--parallelism</code></dt>
-  <dd>
-    <p>
-      Configures the maximum number of threads that Bloop should use when doing tasks in
-      parallel. The default is the number of processors on the machine.
-    </p>
-    <p><em>example:</em> <samp>bloop configure --threads 8</samp></p>
-  </dd>
-</dl>
 
 ## `bloop bsp`
 
-This command is used to start the <abbr title="Build Server Protocol">BSP</abbr> server.
-You can check a specification of BSP <a href="https://github.com/scalacenter/bsp">here</a>.
-
-The following options are supported:
+### Usage
 
 <dl>
-  <dt><code>--p</code> or <code>--protocol</code></dt>
-  <dd>
-    <p>
-      The connection protocol that the server should use. Defaults to <code>local</code>.
-    </p>
-    <p>
-      The accepted values are <code>local</code> and <code>tcp</code>
-    </p>
-    <p>
-      <span class="label warning">Note</span>
-      when using the `tcp` protocol, the `--socket` option must be set, too.
-    </p>
-    <p><em>example:</em> <samp>bloop bsp --protocol tcp</samp></p>
-  </dd>
-
-  <dt><code>--h</code> or <code>--host</code></dt>
-  <dd>
-    <p>
-      The hostname of the server.
-    </p>
-    <p>
-      <span class="label warning">Note</span>
-      this option can only be set when the `--protocol` is set to `tcp`.
-    </p>
-    <p><em>example:</em> <samp>bloop bsp --protocol tcp --host my-server.com</p>
-  </dd>
-
-  <dt><code>--port</code></dt>
-  <dd>
-    <p>
-      The port on which the server is listening. Defaults to <code>5001</code>
-    </p>
-    <p>
-      <span class="label warning">Note</span>
-      this option can only be set when the `--protocol` is set to `tcp`.
-    </p>
-    <p><em>example:</em> <samp>bloop bsp --protocol tcp --port 65001</p>
-  </dd>
-
-  <dt><code>-s</code> or <code>--socket</code></dt>
-  <dd>
-    <p>
-      The path to the UNIX socket file. Ignored if OS is not Unix (Linux, OSX, *bsd).
-    </p>
-    <p>
-      <span class="label warning">Note</span>
-      this option can only be set when the `--protocol` is set to `local`. You can specify the pipe name as well if you aim to support Windows too.
-    </p>
-    <p><em>example:</em> <samp>bloop bsp --socket /var/run/bsp</p>
-  </dd>
-
-  <dt><code>--pn</code> or <code>--pipename</code></dt>
-  <dd>
-    <p>
-      The name of the Windows communication pipe. Ignored if OS is not Windows.
-    </p>
-    <p>
-      <span class="label warning">Note</span>
-      this option can only be set when the `--protocol` is set to `local`. You can specify the UNIX socket path if you aim to support UNIX systems too.
-    </p>
-    <p><em>example:</em> <samp>bloop bsp --protocol local --pipename /var/run/bsp</p>
-  </dd>
+  <dt><code>--protocol</code> or <code>-p</code> (type: <code>protocol</code>)</dt>
+  <dd><p>The connection protocol for the bsp server. By default, local.</p></dd>
+  <dt><code>--host</code> or <code>-h</code> (type: <code>string</code>)</dt>
+  <dd><p>The server host for the bsp server (TCP only).</p></dd>
+  <dt><code>--port</code> (type: <code>int</code>)</dt>
+  <dd><p>The port for the bsp server (TCP only).</p></dd>
+  <dt><code>--socket</code> or <code>-s</code> (type: <code>path?</code>)</dt>
+  <dd><p>A path to a socket file to communicate through Unix sockets (local only).</p></dd>
+  <dt><code>--pipe-name</code> or <code>--pn</code> (type: <code>string?</code>)</dt>
+  <dd><p>A path to a new existing socket file to communicate through Unix sockets (local only).</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
 </dl>
+
+
+## `bloop clean`
+
+### Usage
+
+<dl>
+  <dt><code>--project</code> or <code>-p</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to clean.</p></dd>
+  <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
+  <dd><p>Run clean for the project's dependencies. By default, false.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop clean foobar --propagate</samp>
+  * <samp>bloop clean foobar</samp>
+
+## `bloop compile`
+
+### Usage
+
+<dl>
+  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
+  <dd><p>The project to compile (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
+  <dd><p>Compile the project incrementally. By default, true.</p></dd>
+  <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
+  <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
+  <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop compile foobar --reporter scalac</samp>
+  * <samp>bloop compile foobar --reporter bloop</samp>
+  * <samp>bloop compile foobar -w</samp>
+  * <samp>bloop compile foobar</samp>
+
+## `bloop configure`
+
+### Usage
+
+<dl>
+  <dt><code>--threads</code> (type: <code>int</code>)</dt>
+  <dd><p>Set the number of threads used to compile and test all projects.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+
+## `bloop console`
+
+### Usage
+
+<dl>
+  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
+  <dd><p>The project to run the console at (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
+  <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--exclude-root</code> (type: <code>bool</code>)</dt>
+  <dd><p>Start up the console compiling only the target project's dependencies.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop console foobar --exclude-root</samp>
+  * <samp>bloop console foobar</samp>
+
+## `bloop help`
+
+### Usage
+
+<dl>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+
+## `bloop link`
+
+### Usage
+
+<dl>
+  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
+  <dd><p>The project to run (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--main</code> or <code>-m</code> (type: <code>string?</code>)</dt>
+  <dd><p>The main class to link. Leave unset to let bloop select automatically.</p></dd>
+  <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
+  <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, run the command whenever projects' source files change.</p></dd>
+  <dt><code>--optimize</code> or <code>-O</code> (type: <code>"debug" | "release"?</code>)</dt>
+  <dd><p>Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop link foobar --main com.acme.Main -w</samp>
+  * <samp>bloop link foobar -O release -w</samp>
+  * <samp>bloop link foobar -O debug -w</samp>
+  * <samp>bloop link foobar --main com.acme.Main</samp>
+  * <samp>bloop link foobar</samp>
+
+## `bloop projects`
+
+### Usage
+
+<dl>
+  <dt><code>--dot-graph</code> or <code>--dot</code> (type: <code>bool</code>)</dt>
+  <dd><p>Print out a dot graph you can pipe into `dot`. By default, false.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop projects --dot-graph</samp>
+  * <samp>bloop projects</samp>
+
+## `bloop run`
+
+### Usage
+
+<dl>
+  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
+  <dd><p>The project to run (will be inferred from remaining cli args). Requires Node.js to be in $PATH for Scala.js.</p></dd>
+  <dt><code>--main</code> or <code>-m</code> (type: <code>string?</code>)</dt>
+  <dd><p>The main class to run. Leave unset to let bloop select automatically.</p></dd>
+  <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
+  <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--args</code> (type: <code>string*</code>)</dt>
+  <dd><p>The arguments to pass in to the main class.</p></dd>
+  <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, run the command whenever projects' source files change.</p></dd>
+  <dt><code>--optimize</code> or <code>-O</code> (type: <code>"debug" | "release"?</code>)</dt>
+  <dd><p>If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop run foobar -m com.acme.Main -O release -w</samp>
+  * <samp>bloop run foobar -O debug -- arg1</samp>
+  * <samp>bloop run foobar -m com.acme.Main -- arg1 arg2</samp>
+  * <samp>bloop run foobar</samp>
+
+## `bloop test`
+
+### Usage
+
+<dl>
+  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
+  <dd><p>The project to test (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
+  <dd><p>Run tests for the project dependencies. By default, false.</p></dd>
+  <dt><code>--only</code> or <code>-o</code> (type: <code>string*</code>)</dt>
+  <dd><p>The list of test suite filters to test for only.</p></dd>
+  <dt><code>--args</code> (type: <code>string*</code>)</dt>
+  <dd><p>The arguments to pass in to the test framework.</p></dd>
+  <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
+  <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
+  <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
+  <dd><p>File path to the bloop config directory.</p></dd>
+  <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print the about section at the beginning of the execution.</p></dd>
+  <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, print out debugging information to stderr.</p></dd>
+  <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
+  <dd><p>If set, do not color output.</p></dd>
+</dl>
+
+### Examples
+
+  * <samp>bloop test foobar --only com.acme.StringSpecification</samp>
+  * <samp>bloop test foobar --propagate -w</samp>
+  * <samp>bloop test foobar --propagate</samp>
+  * <samp>bloop test foobar -w</samp>
+  * <samp>bloop test foobar</samp>

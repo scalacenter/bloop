@@ -23,8 +23,7 @@ case class CommonOptions(
     @Hidden err: PrintStream = System.err,
     @Hidden ngout: PrintStream = System.out,
     @Hidden ngerr: PrintStream = System.err,
-    @Hidden env: CommonOptions.PrettyProperties = CommonOptions.currentEnv,
-    threads: Int = ExecutionContext.nCPUs
+    @Hidden env: CommonOptions.PrettyProperties = CommonOptions.currentEnv
 ) {
   def workingPath: AbsolutePath = AbsolutePath(workingDirectory)
 }

@@ -16,14 +16,14 @@ object CliParsers {
     ArgParser.instance[InputStream]("stdin")(_ => Right(System.in))
   implicit val printStreamRead: ArgParser[PrintStream] =
     ArgParser.instance[PrintStream]("stdout")(_ => Right(System.out))
-  implicit val pathParser: ArgParser[Path] = ArgParser.instance("A filepath parser") {
+  implicit val pathParser: ArgParser[Path] = ArgParser.instance("path") {
     case supposedPath: String =>
       val toPath = Try(Paths.get(supposedPath)).toEither
       toPath.left.map(t => s"The provided path ${supposedPath} is not valid: '${t.getMessage()}'.")
   }
 
   implicit val completionFormatRead: ArgParser[completion.Format] = {
-    ArgParser.instance[completion.Format]("format") {
+    ArgParser.instance[completion.Format]("\"bash\" | \"zsh\"") {
       case "bash" => Right(completion.BashFormat)
       case "zsh" => Right(completion.ZshFormat)
       case w00t => Left(s"Unrecognized format: $w00t")
@@ -31,7 +31,7 @@ object CliParsers {
   }
 
   implicit val optimizerConfigRead: ArgParser[OptimizerConfig] = {
-    ArgParser.instance[OptimizerConfig]("optimize") {
+    ArgParser.instance[OptimizerConfig]("\"debug\" | \"release\"") {
       case "debug" => Right(OptimizerConfig.Debug)
       case "release" => Right(OptimizerConfig.Release)
       case w00t => Left(s"Unrecognized optimizer config: $w00t")

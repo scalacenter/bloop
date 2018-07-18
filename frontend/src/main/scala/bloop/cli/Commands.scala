@@ -6,7 +6,7 @@ import java.nio.file.Path
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
-import caseapp.{ArgsName, CommandName, ExtraName, HelpMessage, Hidden, Recurse}
+import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
 import caseapp.core.CommandMessages
 
 object Commands {
@@ -56,7 +56,6 @@ object Commands {
   ) extends RawCommand
 
   case class Projects(
-      @ExtraName("dot")
       @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
       dotGraph: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
@@ -80,18 +79,14 @@ object Commands {
 
   @CommandName("bsp")
   case class Bsp(
-      @ExtraName("p")
       @HelpMessage("The connection protocol for the bsp server. By default, local.")
       protocol: BspProtocol = BspProtocol.Local,
-      @ExtraName("h")
       @HelpMessage("The server host for the bsp server (TCP only).")
       host: String = "127.0.0.1",
       @HelpMessage("The port for the bsp server (TCP only).")
       port: Int = 5101,
-      @ExtraName("s")
       @HelpMessage("A path to a socket file to communicate through Unix sockets (local only).")
       socket: Option[Path] = None,
-      @ExtraName("pn")
       @HelpMessage(
         "A path to a new existing socket file to communicate through Unix sockets (local only).")
       pipeName: Option[String] = None,
