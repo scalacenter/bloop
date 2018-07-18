@@ -11,7 +11,7 @@ object CommandsDocGenerator {
     def generateHTML(commandExamples: Map[String, Seq[String]]): Seq[String] = {
       CliParsers.CommandsMessages.messages.map {
         case (commandName, messages) =>
-          val examples = commandExamples.getOrElse(commandName, Nil).map { example =>
+          val examples = commandExamples.getOrElse(commandName, Nil).reverse.map { example =>
             s"  * <samp>$example</samp>"
           }
 

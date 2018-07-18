@@ -91,8 +91,8 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop clean foobar --propagate</samp>
   * <samp>bloop clean foobar</samp>
+  * <samp>bloop clean foobar --propagate</samp>
 
 ## `bloop compile`
 
@@ -119,10 +119,10 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop compile foobar --reporter scalac</samp>
-  * <samp>bloop compile foobar --reporter bloop</samp>
-  * <samp>bloop compile foobar -w</samp>
   * <samp>bloop compile foobar</samp>
+  * <samp>bloop compile foobar -w</samp>
+  * <samp>bloop compile foobar --reporter bloop</samp>
+  * <samp>bloop compile foobar --reporter scalac</samp>
 
 ## `bloop configure`
 
@@ -165,8 +165,8 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop console foobar --exclude-root</samp>
   * <samp>bloop console foobar</samp>
+  * <samp>bloop console foobar --exclude-root</samp>
 
 ## `bloop help`
 
@@ -211,11 +211,11 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop link foobar --main com.acme.Main -w</samp>
-  * <samp>bloop link foobar -O release -w</samp>
-  * <samp>bloop link foobar -O debug -w</samp>
-  * <samp>bloop link foobar --main com.acme.Main</samp>
   * <samp>bloop link foobar</samp>
+  * <samp>bloop link foobar --main com.acme.Main</samp>
+  * <samp>bloop link foobar -O debug -w</samp>
+  * <samp>bloop link foobar -O release -w</samp>
+  * <samp>bloop link foobar --main com.acme.Main -w</samp>
 
 ## `bloop projects`
 
@@ -236,8 +236,8 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop projects --dot-graph</samp>
   * <samp>bloop projects</samp>
+  * <samp>bloop projects --dot-graph</samp>
 
 ## `bloop run`
 
@@ -268,10 +268,10 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop run foobar -m com.acme.Main -O release -w</samp>
-  * <samp>bloop run foobar -O debug -- arg1</samp>
-  * <samp>bloop run foobar -m com.acme.Main -- arg1 arg2</samp>
   * <samp>bloop run foobar</samp>
+  * <samp>bloop run foobar -m com.acme.Main -- arg1 arg2</samp>
+  * <samp>bloop run foobar -O debug -- arg1</samp>
+  * <samp>bloop run foobar -m com.acme.Main -O release -w</samp>
 
 ## `bloop test`
 
@@ -302,8 +302,8 @@ toc = true
 
 ### Examples
 
-  * <samp>bloop test foobar --only com.acme.StringSpecification</samp>
-  * <samp>bloop test foobar --propagate -w</samp>
-  * <samp>bloop test foobar --propagate</samp>
-  * <samp>bloop test foobar -w</samp>
   * <samp>bloop test foobar</samp>
+  * <samp>bloop test foobar -w</samp>
+  * <samp>bloop test foobar --propagate</samp>
+  * <samp>bloop test foobar --propagate -w</samp>
+  * <samp>bloop test foobar --only com.acme.StringSpecification</samp>
