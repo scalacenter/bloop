@@ -79,12 +79,13 @@ final class BloopHighLevelCompiler(
     logInputs(logger, javaSources.size, scalaSources.size, outputDirs)
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (batches: Option[Int], fireJavaCompilation: Task[JavaSignal]) = compileMode match {
-      case CompileMode.Sequential => (None, Task.now(JavaSignal.ContinueCompilation))
-      case CompileMode.Parallel(batches) => (Some(batches), Task.now(JavaSignal.ContinueCompilation))
-      case CompileMode.Pipelined(_, fireJavaCompilation) => (None, fireJavaCompilation)
-      case CompileMode.ParallelAndPipelined(batches, _, fireJavaCompilation) =>
-        (Some(batches), fireJavaCompilation)
+    val (pipeline: Boolean, batches: Option[Int], fireJavaCompilation: Task[JavaSignal]) = {
+      compileMode match {
+        case CompileMode.Sequential => (false, None, Task.now(JavaSignal.ContinueCompilation))
+        case CompileMode.Parallel(batches) => (false, Some(batches), Task.now(JavaSignal.ContinueCompilation))
+        case CompileMode.Pipelined(_, fireJavaCompilation) => (true, None, fireJavaCompilation)
+        case CompileMode.ParallelAndPipelined(batches, _, fireJavaCompilation) => (true, Some(batches), fireJavaCompilation)
+      }
     }
 
     val compileScala: Task[Unit] = {
@@ -100,7 +101,8 @@ final class BloopHighLevelCompiler(
             picklepath: Seq[URI]
         ): Unit = {
           val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
-          val normalSetup = isDotty || picklepath.isEmpty
+          // Dotty doesn't yet support pipelining
+          val normalSetup = isDotty || !pipeline
           if (normalSetup) scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
           else scalac.compileAndSetUpPicklepath(sources.toArray, picklepath.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
         }
