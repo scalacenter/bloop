@@ -235,7 +235,7 @@ final class BloopHighLevelCompiler(
 
 object BloopHighLevelCompiler {
   private val OutlineCompileOptions: Array[String] =
-    Array("-Ygen-pickler", "-Youtline", "-Ystop-after:picklergen")
+    Array("-Ygenerate-pickles", "-Youtline", "-Ystop-after:picklergen")
   private val NonFriendlyCompileOptions: Array[String] =
     Array("-Ywarn-dead-code", "-Ywarn-numeric-widen", "-Ywarn-value-discard", "-Ywarn-unused-import")
 

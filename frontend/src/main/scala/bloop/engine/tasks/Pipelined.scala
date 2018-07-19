@@ -109,7 +109,7 @@ object Pipelined {
       val picklepath = inputs.picklepath
       val classesDir = project.classesDir
       val target = project.out
-      val scalacOptions = project.scalacOptions.toArray ++ Array("-Ygen-pickler")
+      val scalacOptions = project.scalacOptions.toArray ++ Array("-Ygenerate-pickles")
       val javacOptions = project.javacOptions.toArray
       val cwd = state.build.origin.getParent
       val pickleReady = inputs.pickleReady
