@@ -9,6 +9,7 @@ import org.openjdk.jmh.annotations._
 
 import bloop.tasks.TestUtil
 
+@State(Scope.Benchmark)
 abstract class HotBloopBenchmarkBase {
   val bloopCompileFlags: Option[String]
 
