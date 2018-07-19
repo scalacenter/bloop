@@ -7,10 +7,11 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import monix.eval.Task
-import sbt.internal.inc.{Analysis, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
+import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger, Reporter}
 import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
 import sbt.internal.inc.bloop.internal.{BloopHighLevelCompiler, BloopIncremental}
+import sbt.util.InterfaceUtil
 import xsbti.compile._
 
 object BloopZincCompiler {
@@ -100,7 +101,7 @@ object BloopZincCompiler {
     }
 
     // format: off
-    val configTask = Task.eval(MixedAnalyzingCompiler.makeConfig(scalaCompiler, javaCompiler, sources.toSeq, classpath, picklepath, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra))
+    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, picklepath, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra)
     // format: on
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
@@ -125,6 +126,62 @@ object BloopZincCompiler {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }
+    }
+  }
+
+  def configureAnalyzingCompiler(
+      scalac: xsbti.compile.ScalaCompiler,
+      javac: xsbti.compile.JavaCompiler,
+      sources: Seq[File],
+      classpath: Seq[File],
+      picklepath: Seq[URI],
+      output: Output,
+      cache: GlobalsCache,
+      progress: Option[CompileProgress] = None,
+      options: Seq[String] = Nil,
+      javacOptions: Seq[String] = Nil,
+      classpathOptions: ClasspathOptions,
+      previousAnalysis: CompileAnalysis,
+      previousSetup: Option[MiniSetup],
+      perClasspathEntryLookup: PerClasspathEntryLookup,
+      reporter: Reporter,
+      compileOrder: CompileOrder = CompileOrder.Mixed,
+      skip: Boolean = false,
+      incrementalCompilerOptions: IncOptions,
+      extra: List[(String, String)]
+  ): Task[CompileConfiguration] = {
+    val lookup = incrementalCompilerOptions.externalHooks().getExternalLookup
+    ClasspathHashing.hash(classpath).map { classpathHashes =>
+      val compileSetup = MiniSetup.of(
+        output,
+        MiniOptions.of(
+          classpathHashes.toArray,
+          options.toArray,
+          javacOptions.toArray
+        ),
+        scalac.scalaInstance.actualVersion,
+        compileOrder,
+        incrementalCompilerOptions.storeApis(),
+        (extra map InterfaceUtil.t2).toArray
+      )
+
+      MixedAnalyzingCompiler.config(
+        sources,
+        classpath,
+        classpathOptions,
+        picklepath,
+        compileSetup,
+        progress,
+        previousAnalysis,
+        previousSetup,
+        perClasspathEntryLookup,
+        scalac,
+        javac,
+        reporter,
+        skip,
+        cache,
+        incrementalCompilerOptions
+      )
     }
   }
 }
