@@ -72,6 +72,27 @@ val jsonConfig210 = project
     }
   )
 
+val jsonConfig211 = project
+  .in(file("config"))
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-config",
+    target := (file("config") / "target" / "json-config-2.11").getAbsoluteFile,
+    scalaVersion := "2.11.12",
+    // We compile in both so that the maven integration can be tested locally
+    publishLocal := publishLocal.dependsOn(publishM2).value,
+    libraryDependencies ++= {
+      List(
+        Dependencies.circeParser,
+        Dependencies.circeCore,
+        Dependencies.circeGeneric,
+        compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+        Dependencies.scalacheck % Test,
+      )
+    }
+  )
+
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
 val jsonConfig212 = project
   .in(file("config"))
@@ -160,8 +181,27 @@ val gradleBloop = project
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212)
   .settings(name := "gradle-bloop")
+  .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile)
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
+  .settings(
+    buildInfo in Compile := Nil,
+    // Only generate the build info for the tests
+    buildInfoKeys in Test := GradleInfoKeys,
+    buildInfoPackage in Test := "bloop.internal.build",
+    buildInfoObject in Test := "BloopGradleIntegration",
+  )
+
+val gradleBloop211 = project
+  .in(file("integrations") / "gradle-bloop")
+  .enablePlugins(BuildInfoPlugin)
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig211)
+  .settings(name := "gradle-bloop")
+  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
+  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
+  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
+  .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile)
   .settings(
     buildInfo in Compile := Nil,
     // Only generate the build info for the tests
@@ -227,11 +267,13 @@ val allProjects = Seq(
   benchmarks,
   frontend,
   jsonConfig210,
+  jsonConfig211,
   jsonConfig212,
   sbtBloop013,
   sbtBloop10,
   mavenBloop,
   gradleBloop,
+  gradleBloop211,
   millBloop,
   nativeBridge,
   jsBridge06,
@@ -260,11 +302,13 @@ addCommandAlias(
   "install",
   Seq(
     s"${jsonConfig210.id}/$publishLocalCmd",
+    s"${jsonConfig211.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
     s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${gradleBloop.id}/$publishLocalCmd",
+    s"${gradleBloop211.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
@@ -279,11 +323,13 @@ val allBloopReleases = List(
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
   s"${jsonConfig210.id}/$releaseEarlyCmd",
+  s"${jsonConfig211.id}/$releaseEarlyCmd",
   s"${jsonConfig212.id}/$releaseEarlyCmd",
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
   s"${gradleBloop.id}/$releaseEarlyCmd",
+  s"${gradleBloop211.id}/$releaseEarlyCmd",
   s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
