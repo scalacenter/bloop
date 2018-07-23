@@ -2,7 +2,8 @@
 # Only test sbt-bloop 1.x because of bug in `^`
 matrix:
   SBT_RUN:
-    - sbt "benchmarks/compile" \
+    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+          "benchmarks/compile" \
           "millBloop/compile" \
           "jsonConfig210/test" \
           "jsonConfig212/test" \
@@ -15,17 +16,20 @@ matrix:
           "docs/makeSite"
 
   SBT_RUN_BENCHMARKS_AND_SCRIPTED:
-    - sbt "sbtBloop10/scripted" \
+    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+          "sbtBloop10/scripted" \
           "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
 
   SBT_PUBLISH:
-    - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
+    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+          "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           "docs/ghpagesPushSite" \
           "releaseBloop"
 
   SBT_RELEASE:
-    - sbt "frontend/updateHomebrewFormula" \
+    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+          "frontend/updateHomebrewFormula" \
           "frontend/githubRelease"
   OS:
     - windows
@@ -76,7 +80,6 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
-      - ./bin/add-coursier.sh
       - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
       - ${SBT_RUN}; ./bin/ci-clean-cache.sh
 
@@ -91,7 +94,6 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
-      - ./bin/add-coursier.sh
       - ${SBT_RUN_BENCHMARKS_AND_SCRIPTED}; ./bin/ci-clean-cache.sh
 
   build_windows:
@@ -122,7 +124,6 @@ pipeline:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
-      - ./bin/add-coursier.sh
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
       - ${SBT_PUBLISH}
@@ -142,7 +143,6 @@ pipeline:
         OPS: basic
     commands:
       - export DRONE_DIR="/drone"
-      - ./bin/add-coursier.sh
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${SBT_RELEASE}
 
