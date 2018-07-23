@@ -1,8 +1,8 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
 # Only test sbt-bloop 1.x because of bug in `^`
 matrix:
-  SBT_RUN:
-    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+  TEST_BLOOP:
+    - bin/sbt-ci.sh \
           "benchmarks/compile" \
           "millBloop/compile" \
           "jsonConfig210/test" \
@@ -15,20 +15,20 @@ matrix:
           "frontend/test" \
           "docs/makeSite"
 
-  SBT_RUN_BENCHMARKS_AND_SCRIPTED:
-    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+  RUN_BENCHMARKS_AND_SCRIPTED:
+    - bin/sbt-ci.sh \
           "sbtBloop10/scripted" \
           "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
 
-  SBT_PUBLISH:
-    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+  PUBLISH_ARTIFACTS:
+    - bin/sbt-ci.sh \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           "docs/ghpagesPushSite" \
           "releaseBloop"
 
-  SBT_RELEASE:
-    - sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot \
+  RELEASE_GITHUB_BREW:
+    - bin/sbt-ci.sh \
           "frontend/updateHomebrewFormula" \
           "frontend/githubRelease"
   OS:
@@ -81,7 +81,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
       - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
-      - ${SBT_RUN}; ./bin/ci-clean-cache.sh
+      - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
     image: scalacenter/scala-docs:1.3
@@ -94,7 +94,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
-      - ${SBT_RUN_BENCHMARKS_AND_SCRIPTED}; ./bin/ci-clean-cache.sh
+      - ${RUN_BENCHMARKS_AND_SCRIPTED}
 
   build_windows:
     group: build
@@ -126,8 +126,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
-      - ${SBT_PUBLISH}
-      - ./bin/ci-clean-cache.sh
+      - ${PUBLISH_ARTIFACTS}
 
   release:
     image: scalacenter/scala-docs:1.3
@@ -144,7 +143,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
-      - ${SBT_RELEASE}
+      - ${RELEASE_GITHUB_BREW}
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache
