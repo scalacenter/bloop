@@ -49,4 +49,13 @@ class BloopParameters(project: Project) {
   def setCompilerName(value: String): Unit = {
     compilerName_ = value
   }
+
+  // standard library name
+  private var stdLibName_ : String = "scala-library"
+  def getStdLibName: String = stdLibName_
+  def stdLibName: String = getStdLibName
+  def stdLibName(value: String): Unit = setStdLibName(value)
+  def setStdLibName(value: String): Unit = {
+    stdLibName_ = value
+  }
 }

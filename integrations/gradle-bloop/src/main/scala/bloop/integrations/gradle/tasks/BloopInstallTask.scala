@@ -9,6 +9,8 @@ import bloop.integrations.gradle.syntax._
 import org.gradle.api.tasks.{SourceSet, TaskAction}
 import org.gradle.api.{DefaultTask, Project}
 
+import scala.util.{Failure, Success}
+
 /**
  * Define a Gradle task that generates bloop configuration files from a Gradle project.
  *
@@ -38,13 +40,13 @@ class BloopInstallTask extends DefaultTask with TaskLogging {
 
     // The 'main' source set maps to the raw project name (as all integrations do)
     val mainProjectName = converter.getProjectName(project, mainSourceSet)
-    generateBloopConfiguration(mainProjectName, Set.empty, mainSourceSet, targetDir)
+    generateBloopConfiguration(mainProjectName, Set.empty, mainSourceSet, targetDir, true)
 
     // Generate the bloop configuration files for the rest of the source sets
     for (sourceSet <- otherSourceSets) {
       val projectName = converter.getProjectName(project, sourceSet)
       // Hardcore an implicit dependency for every source set to the main source set (compile)
-      generateBloopConfiguration(projectName, Set(mainProjectName), sourceSet, targetDir)
+      generateBloopConfiguration(projectName, Set(mainProjectName), sourceSet, targetDir, false)
     }
   }
 
@@ -52,12 +54,19 @@ class BloopInstallTask extends DefaultTask with TaskLogging {
       projectName: String,
       projectDependencies: Set[String],
       sourceSet: SourceSet,
-      targetDir: File
+      targetDir: File,
+      mandatory: Boolean
   ): Unit = {
     val targetFile = targetDir / s"$projectName.json"
     // Let's keep the error message as similar to the one in the sbt plugin as possible
     info(s"Generated ${targetFile.getAbsolutePath}")
-    val bloopConfig = converter.toBloopConfig(projectDependencies, project, sourceSet, targetDir)
-    bloop.config.write(bloopConfig, targetFile.toPath)
+    converter.toBloopConfig(projectDependencies, project, sourceSet, targetDir) match {
+      case Failure(reason) if mandatory =>
+        throw reason
+      case Failure(reason) =>
+        info(s"Skipping ${project.getName}/${sourceSet.getName} because: $reason")
+      case Success(bloopConfig) =>
+        bloop.config.write(bloopConfig, targetFile.toPath)
+    }
   }
 }
