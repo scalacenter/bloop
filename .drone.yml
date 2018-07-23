@@ -81,9 +81,6 @@ pipeline:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
       - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
-      - cat /drone/.sbt/1.0/staging/bloop-integrations-3.0.csv
-      - cat /drone/.sbt/1.0/staging/integrations-cache/in-cache
-      - cat /drone/.sbt/1.0/staging/integrations-cache/out-cache
       - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
