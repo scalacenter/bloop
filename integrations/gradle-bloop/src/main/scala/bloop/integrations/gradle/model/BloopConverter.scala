@@ -40,33 +40,32 @@ final class BloopConverter(parameters: BloopParameters) {
    * @return Bloop configuration
    */
   def toBloopConfig(
-      strictProjectDependencies: Set[String],
+      strictProjectDependencies: List[String],
       project: Project,
       sourceSet: SourceSet,
       targetDir: File
   ): Try[Config.File] = {
     val configuration = project.getConfiguration(sourceSet.getCompileConfigurationName)
+    val artifacts: List[ResolvedArtifact] =
+      configuration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
 
-    val artifacts: Set[ResolvedArtifact] =
-      configuration.getResolvedConfiguration.getResolvedArtifacts.asScala.toSet
-
-    val projectDependencies: Set[ProjectDependency] =
-      configuration.getAllDependencies.asScala.collect { case dep: ProjectDependency => dep }.toSet
-    val projectDependenciesIds: Set[String] = projectDependencies.map { dep =>
+    // We cannot turn this into a set directly because we need the topological order for correctness
+    val projectDependencies: List[ProjectDependency] =
+      configuration.getAllDependencies.asScala.collect { case dep: ProjectDependency => dep }.toList
+    val projectDependenciesIds = projectDependencies.map { dep =>
       val project = dep.getDependencyProject
       getProjectName(project, project.getSourceSet(parameters.mainSourceSet))
     }
 
     // Strict project dependencies should have more priority than regular project dependencies
-    val allDependencies = strictProjectDependencies.union(projectDependenciesIds)
-
-    val dependencyClasspath: Set[ResolvedArtifact] = artifacts
+    val allDependencies = strictProjectDependencies ++ projectDependenciesIds
+    val dependencyClasspath: List[ResolvedArtifact] = artifacts
       .filter(resolvedArtifact => !isProjectDependency(projectDependencies, resolvedArtifact))
 
-    val classpath: Array[Path] = {
-      val projectDependencyClassesDirs: Set[File] =
+    val classpath: List[Path] = {
+      val projectDependencyClassesDirs =
         projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
-      dependencyClasspath.map(_.getFile).union(projectDependencyClassesDirs).map(_.toPath).toArray
+      (projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile)).map(_.toPath).toList
     }
 
     for {
@@ -76,18 +75,16 @@ final class BloopConverter(parameters: BloopParameters) {
         name = getProjectName(project, sourceSet),
         directory = project.getProjectDir.toPath,
         sources = getSources(sourceSet),
-        dependencies = allDependencies.toArray,
+        dependencies = allDependencies.toList,
         classpath = classpath,
         out = project.getBuildDir.toPath,
-        analysisOut = getAnalysisOut(project, sourceSet, targetDir).toPath,
         classesDir = getClassesDir(project, sourceSet).toPath,
         `scala` = scalaConfig,
         java = getJavaConfig(project, sourceSet),
-        sbt = Config.Sbt.empty,
-        test = Config.Test(testFrameworks, defaultTestOptions), // TODO: make this configurable?
-        platform = Config.Platform.default,
-        compileSetup = Config.CompileSetup.empty, // TODO: make this configurable?
-        resolution = resolution
+        sbt = None,
+        test = Some(Config.Test(testFrameworks, defaultTestOptions)), // TODO: make this configurable?
+        platform = None,
+        resolution = Some(resolution)
       )
     } yield Config.File(Config.File.LatestVersion, bloopProject)
   }
@@ -103,16 +100,11 @@ final class BloopConverter(parameters: BloopParameters) {
   private def getClassesDir(project: Project, sourceSet: SourceSet): File =
     project.getBuildDir / "classes" / "scala" / sourceSet.getName
 
-  private def getAnalysisOut(project: Project, sourceSet: SourceSet, targetDir: File): File = {
-    val name = getProjectName(project, sourceSet)
-    targetDir / project.getName / s"$name-analysis.bin"
-  }
-
-  private def getSources(sourceSet: SourceSet): Array[Path] =
-    sourceSet.getAllSource.asScala.map(_.toPath).toArray
+  private def getSources(sourceSet: SourceSet): List[Path] =
+    sourceSet.getAllSource.asScala.map(_.toPath).toList
 
   private def isProjectDependency(
-      projectDependencies: Set[ProjectDependency],
+      projectDependencies: List[ProjectDependency],
       resolvedArtifact: ResolvedArtifact
   ): Boolean = {
     projectDependencies.exists(
@@ -143,52 +135,53 @@ final class BloopConverter(parameters: BloopParameters) {
   private def getScalaConfig(
       project: Project,
       sourceSet: SourceSet,
-      artifacts: Set[ResolvedArtifact]
-  ): Try[Config.Scala] = {
+      artifacts: List[ResolvedArtifact]
+  ): Try[Option[Config.Scala]] = {
+    def isJavaOnly: Boolean = sourceSet.getAllSource.asScala.forall(!_.getName.endsWith(".scala"))
+
     // Finding the compiler group and version from the standard Scala library added as dependency
-    val stdLibName = parameters.stdLibName
-    val result = artifacts
-      .find(_.getName == stdLibName) match {
+    artifacts.find(_.getName == parameters.stdLibName) match {
       case Some(stdLibArtifact) =>
         val scalaVersion = stdLibArtifact.getModuleVersion.getId.getVersion
-        val scalaGroup = stdLibArtifact.getModuleVersion.getId.getGroup
-
+        val scalaOrg = stdLibArtifact.getModuleVersion.getId.getGroup
         val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
         val scalaCompileTask = project.getTask[ScalaCompile](scalaCompileTaskName)
+
         if (scalaCompileTask != null) {
-          val compilerClasspath = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toArray
-
+          val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
           val opts = scalaCompileTask.getScalaCompileOptions
-          val compilerOptions = optionSet(opts).toArray
+          val options = optionSet(opts).toList
+          val compilerName = parameters.compilerName
 
-          Success(Config.Scala(
-            scalaGroup,
-            parameters.compilerName,
-            scalaVersion,
-            compilerOptions,
-            compilerClasspath
-          ))
+          // Use the compile setup and analysis out defaults, Gradle doesn't expose its customization
+          Success(
+            Some(
+              Config.Scala(scalaOrg, compilerName, scalaVersion, options, scalaJars, None, None)
+            )
+          )
         } else {
-          Failure(new GradleException(s"$scalaCompileTaskName task is missing from ${project.getName}"))
+          if (isJavaOnly) Success(None)
+          else {
+            // This is a heavy error on Gradle's side, but we will only report it in Scala projects
+            Failure(
+              new GradleException(s"$scalaCompileTaskName task is missing from ${project.getName}")
+            )
+          }
         }
+
+      case None if isJavaOnly => Success(None)
       case None =>
-        Failure(new GradleException(s"$stdLibName is not added as dependency to ${project.getName}/${sourceSet.getName}. Artifacts: ${artifacts.map(_.getName).mkString("\n")}"))
-    }
-
-    result.recoverWith { case failure =>
-        val isJavaOnly = sourceSet.getAllSource.asScala.forall(!_.getName.endsWith(".scala"))
-
-        if (isJavaOnly) {
-          // For projects where we don't actually have any .scala files we go with an empty scala
-          // configuration to be able to compile Java-only project dependencies
-          Success(Config.Scala.empty)
-        } else {
-          Failure(failure)
-        }
+        val target = s" project ${project.getName}/${sourceSet.getName}"
+        val artifactNames = artifacts.map(_.getName).mkString("\n")
+        Failure(
+          new GradleException(
+            s"Expected Scala standard library in classpath of $target that contains Scala sources. Found artifacts:\n$artifactNames."
+          )
+        )
     }
   }
 
-  private def getJavaConfig(project: Project, sourceSet: SourceSet): Config.Java = {
+  private def getJavaConfig(project: Project, sourceSet: SourceSet): Option[Config.Java] = {
     val javaCompileTaskName = sourceSet.getCompileTaskName("java")
     val javaCompileTask = project.getTask[JavaCompile](javaCompileTaskName)
     val opts = javaCompileTask.getOptions
@@ -201,9 +194,10 @@ final class BloopConverter(parameters: BloopParameters) {
       .includeClasspath(false)
       .includeSourceFiles(false)
       .includeLauncherOptions(false)
-    val args = builder.build().asScala.toArray
+    val args = builder.build().asScala.toList
 
-    Config.Java(args)
+    // Always return a java configuration (this cannot hurt us)
+    Some(Config.Java(args))
   }
 
   private def ifEnabled[T](option: Boolean)(value: T): Option[T] =
@@ -269,8 +263,8 @@ final class BloopConverter(parameters: BloopParameters) {
     )
   )
 
-  private val testFrameworks: Array[Config.TestFramework] =
-    Array(scalaCheckFramework, scalaTestFramework, specsFramework, jUnitFramework)
+  private val testFrameworks: List[Config.TestFramework] =
+    List(scalaCheckFramework, scalaTestFramework, specsFramework, jUnitFramework)
   private val defaultTestOptions =
-    Config.TestOptions(Nil, List(Config.TestArgument(Array("-v", "-a"), Some(jUnitFramework))))
+    Config.TestOptions(Nil, List(Config.TestArgument(List("-v", "-a"), Some(jUnitFramework))))
 }
