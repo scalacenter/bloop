@@ -434,7 +434,6 @@ object BuildImplementation {
     val cacheDirectory = file(stagingBase) / "integrations-cache"
 
     val buildFiles = Set(
-      buildIndexFile,
       buildIntegrationsBase / "sbt-0.13" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-0.13-2" / "build.sbt",

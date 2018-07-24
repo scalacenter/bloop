@@ -1,8 +1,9 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
 # Only test sbt-bloop 1.x because of bug in `^`
 matrix:
-  SBT_RUN:
-    - sbt "benchmarks/compile" \
+  TEST_BLOOP:
+    - bin/sbt-ci.sh \
+          "benchmarks/compile" \
           "millBloop/compile" \
           "jsonConfig210/test" \
           "jsonConfig212/test" \
@@ -14,18 +15,21 @@ matrix:
           "frontend/test" \
           "docs/makeSite"
 
-  SBT_RUN_BENCHMARKS_AND_SCRIPTED:
-    - sbt "sbtBloop10/scripted" \
+  RUN_BENCHMARKS_AND_SCRIPTED:
+    - bin/sbt-ci.sh \
+          "sbtBloop10/scripted" \
           "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
 
-  SBT_PUBLISH:
-    - sbt "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
+  PUBLISH_ARTIFACTS:
+    - bin/sbt-ci.sh \
+          "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           "docs/ghpagesPushSite" \
           "releaseBloop"
 
-  SBT_RELEASE:
-    - sbt "frontend/updateHomebrewFormula" \
+  RELEASE_GITHUB_BREW:
+    - bin/sbt-ci.sh \
+          "frontend/updateHomebrewFormula" \
           "frontend/githubRelease"
   OS:
     - windows
@@ -76,9 +80,8 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
-      - ./bin/add-coursier.sh
       - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
-      - ${SBT_RUN}; ./bin/ci-clean-cache.sh
+      - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
     image: scalacenter/scala-docs:1.3
@@ -91,8 +94,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
-      - ./bin/add-coursier.sh
-      - ${SBT_RUN_BENCHMARKS_AND_SCRIPTED}; ./bin/ci-clean-cache.sh
+      - ${RUN_BENCHMARKS_AND_SCRIPTED}
 
   build_windows:
     group: build
@@ -122,11 +124,9 @@ pipeline:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
-      - ./bin/add-coursier.sh
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
-      - ${SBT_PUBLISH}
-      - ./bin/ci-clean-cache.sh
+      - ${PUBLISH_ARTIFACTS}
 
   release:
     image: scalacenter/scala-docs:1.3
@@ -142,9 +142,8 @@ pipeline:
         OPS: basic
     commands:
       - export DRONE_DIR="/drone"
-      - ./bin/add-coursier.sh
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
-      - ${SBT_RELEASE}
+      - ${RELEASE_GITHUB_BREW}
 
   rebuild_cache:
     image: appleboy/drone-sftp-cache
