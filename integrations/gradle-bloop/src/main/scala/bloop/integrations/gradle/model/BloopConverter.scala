@@ -222,7 +222,11 @@ final class BloopConverter(parameters: BloopParameters) {
         .map(phase => s"-Ylog:$phase")
 
     val additionalOptions: Set[String] =
-      mergeEncodingOption(options.getAdditionalParameters.asScala.toList).toSet
+      if (options.getAdditionalParameters != null) {
+        mergeEncodingOption(options.getAdditionalParameters.asScala.toList).toSet
+      } else {
+        Set.empty
+      }
 
     baseOptions.union(loggingPhases).union(additionalOptions)
   }

@@ -5,6 +5,10 @@ import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+import bloop.config.Config
+import bloop.config.ConfigEncoderDecoders._
+import io.circe._, io.circe.parser._
+
 import org.gradle.testkit.runner.{BuildResult, GradleRunner}
 import org.gradle.testkit.runner.TaskOutcome._
 import org.junit._
@@ -17,6 +21,7 @@ class SimpleFunctionalTests {
   private val gradleVersion: String = "4.8.1"
 
   private val testProjectDir_ = new TemporaryFolder()
+
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
   @Test def pluginCanBeApplied(): Unit = {
@@ -63,6 +68,83 @@ class SimpleFunctionalTests {
         .build()
 
     assertTrue(result.getOutput.lines.contains("bloopInstall"))
+  }
+
+  @Test def worksWithScala211Project(): Unit = {
+    worksWithGivenScalaVersion("2.11.12")
+  }
+
+  @Test def worksWithScala212Project(): Unit = {
+    worksWithGivenScalaVersion("2.12.6")
+  }
+
+  private def worksWithGivenScalaVersion(version: String): Unit = {
+
+    val buildFile = testProjectDir.newFile("build.gradle")
+    writeBuildScript(buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: "$version"
+         |}
+      """.stripMargin)
+
+    createHelloWorldSource()
+
+    GradleRunner.create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName+".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    assertTrue(resultConfig.project.`scala`.isDefined)
+    assertEquals(version, resultConfig.project.`scala`.get.version)
+  }
+
+  private def createHelloWorldSource(): Unit = {
+    val srcDir = testProjectDir.newFolder("src", "main", "scala")
+    val srcFile = new File(srcDir, "Hello.scala")
+    val src =
+      """
+        |object Hello {
+        |  def main(args: Array[String]): Unit = {
+        |    println("Hello")
+        |  }
+        |}
+      """.stripMargin
+    Files.write(srcFile.toPath, src.getBytes(StandardCharsets.UTF_8))
+    ()
+  }
+
+  private def readValidBloopConfig(file: File): Config.File = {
+    assertTrue("The bloop project file exists", file.exists())
+    parse(new String(Files.readAllBytes(file.toPath), StandardCharsets.UTF_8)) match {
+      case Left(failure) =>
+        throw new AssertionError(s"Failed to parse ${file.getAbsolutePath}: $failure")
+      case Right(json) =>
+        json.as[Config.File] match {
+          case Left(failure) =>
+            throw new AssertionError(s"Failed to decode ${file.getAbsolutePath}: $failure")
+          case Right(result) =>
+            result
+        }
+    }
   }
 
   private def getClasspath: List[File] =
