@@ -150,7 +150,7 @@ final class BloopConverter(parameters: BloopParameters) {
         if (scalaCompileTask != null) {
           val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
           val opts = scalaCompileTask.getScalaCompileOptions
-          val options = optionSet(opts).toList
+          val options = optionList(opts).toList
           val compilerName = parameters.compilerName
 
           // Use the compile setup and analysis out defaults, Gradle doesn't expose its customization
@@ -203,7 +203,7 @@ final class BloopConverter(parameters: BloopParameters) {
   private def ifEnabled[T](option: Boolean)(value: T): Option[T] =
     if (option) Some(value) else None
 
-  private def optionSet(options: ScalaCompileOptions): Set[String] = {
+  private def optionList(options: ScalaCompileOptions): List[String] = {
     // based on ZincScalaCompilerArgumentsGenerator
     val baseOptions: Set[String] = Seq(
       ifEnabled(options.isDeprecation)("-deprecation"),
@@ -228,7 +228,8 @@ final class BloopConverter(parameters: BloopParameters) {
         Set.empty
       }
 
-    baseOptions.union(loggingPhases).union(additionalOptions)
+    val optionSet = baseOptions.union(loggingPhases).union(additionalOptions)
+    splitEncodingOption(optionSet.toList)
   }
 
   private def mergeEncodingOption(values: List[String]): List[String] =
@@ -239,6 +240,15 @@ final class BloopConverter(parameters: BloopParameters) {
         value :: mergeEncodingOption(rest)
       case Nil =>
         Nil
+    }
+
+  private def splitEncodingOption(values: List[String]): List[String] =
+    values.flatMap { value =>
+      if (value.startsWith("-encoding ")) {
+        value.split(' ').toList
+      } else {
+        List(value)
+      }
     }
 
   private val scalaCheckFramework = Config.TestFramework(

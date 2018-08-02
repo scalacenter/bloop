@@ -78,6 +78,52 @@ class SimpleFunctionalTests {
     worksWithGivenScalaVersion("2.12.6")
   }
 
+  @Test def encodingOptionGeneratedCorrectly(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    writeBuildScript(buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.6'
+         |}
+         |
+         |tasks.withType(ScalaCompile) {
+         |	scalaCompileOptions.additionalParameters = ["-deprecation", "-unchecked", "-encoding", "utf8"]
+         |}
+         |
+      """.stripMargin)
+
+    createHelloWorldSource()
+
+    GradleRunner.create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName+".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    println(resultConfig.project.`scala`.get.options)
+    assertArrayEquals(
+      Array.apply[Object]("-deprecation", "-unchecked", "-encoding", "utf8"),
+      resultConfig.project.`scala`.get.options.toArray[Object]
+    )
+  }
+
   private def worksWithGivenScalaVersion(version: String): Unit = {
 
     val buildFile = testProjectDir.newFile("build.gradle")
