@@ -15,8 +15,8 @@ import scala.collection.JavaConverters._
  * time uses the resolved artifacts and the source sets to set up the associated bloopInstall
  * tasks's input dependencies.
  */
-class ConfigureBloopInstallTask extends DefaultTask with TaskLogging {
-  private val project: Project = getProject
+class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
+  override val project: Project = getProject
   private val parameters: BloopParameters = project.getExtension[BloopParameters]
 
   /** The install task to set runtime, automatically set at plugin application */
@@ -26,17 +26,21 @@ class ConfigureBloopInstallTask extends DefaultTask with TaskLogging {
   def run(): Unit = {
     installTask match {
       case Some(task) =>
-        project.allSourceSets.foreach(addSourceSetAsInputs(task, _))
-
         // bloopInstall also depends on all the properties on the 'bloop' parameters
         task.getInputs.property("targetDir", parameters)
         task.getInputs.property("mainSourceSet", parameters)
         task.getInputs.property("compilerName", parameters)
-        ()
+
+        if (canRunBloop) {
+          // Guard to avoid accessing java-related information (source sets) for non-Java projects
+          project.allSourceSets.foreach(addSourceSetAsInputs(task, _))
+        }
       case None =>
         throw new GradleException(
           "installTask property must be specified on configureBloopInstall task")
     }
+
+    ()
   }
 
   /**

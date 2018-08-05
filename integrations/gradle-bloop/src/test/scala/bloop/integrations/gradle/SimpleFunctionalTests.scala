@@ -132,6 +132,40 @@ class SimpleFunctionalTests {
     )
   }
 
+  @Test def generateConfigFileForNonJavaNonScalaProjects(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldJavaSource()
+
+    val result = GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    assertTrue(result.getOutput.contains("Ignoring 'bloopInstall' on non-Scala and non-Java project"))
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+    assertTrue(!bloopFile.exists())
+  }
+
   @Test def generateConfigFileForJavaOnlyProjects(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     writeBuildScript(
@@ -141,7 +175,7 @@ class SimpleFunctionalTests {
          |  id 'bloop'
          |}
          |
-         |apply plugin: 'scala'
+         |apply plugin: 'java'
          |apply plugin: 'bloop'
          |
          |repositories {
@@ -166,6 +200,8 @@ class SimpleFunctionalTests {
 
     val resultConfig = readValidBloopConfig(bloopFile)
     assertTrue(!resultConfig.project.`scala`.isDefined)
+    assertTrue(resultConfig.project.classpath.isEmpty)
+    assertTrue(resultConfig.project.dependencies.isEmpty)
   }
 
   private def worksWithGivenScalaVersion(version: String): Unit = {
@@ -207,6 +243,8 @@ class SimpleFunctionalTests {
 
     assertTrue(resultConfig.project.`scala`.isDefined)
     assertEquals(version, resultConfig.project.`scala`.get.version)
+    assertTrue(resultConfig.project.classpath.nonEmpty)
+    assertTrue(resultConfig.project.dependencies.isEmpty)
   }
 
   private def createHelloWorldJavaSource(): Unit = {

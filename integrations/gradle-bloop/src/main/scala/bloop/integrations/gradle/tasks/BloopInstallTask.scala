@@ -20,13 +20,20 @@ import scala.util.{Failure, Success}
  * Source sets are the equivalent of sbt configurations (approximately). The default java plugin
  * adds two source sets by default (compile and test) [[https://docs.gradle.org/current/userguide/java_plugin.html]].
  */
-class BloopInstallTask extends DefaultTask with TaskLogging {
-  private val project: Project = getProject
+class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
+  override val project: Project = getProject
   private val parameters: BloopParameters = project.getExtension[BloopParameters]
   private val converter = new BloopConverter(parameters)
 
   @TaskAction
   def run(): Unit = {
+    if (canRunBloop) runBloopPlugin()
+    else {
+      info(s"Ignoring 'bloopInstall' on non-Scala and non-Java project '${project.getName}'")
+    }
+  }
+
+  def runBloopPlugin(): Unit = {
     val targetDir: File = parameters.targetDir
     info(s"Generating Bloop configuration to ${targetDir.getAbsolutePath}")
 

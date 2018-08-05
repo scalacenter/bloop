@@ -82,7 +82,7 @@ val jsonConfig211 = project
     scalaVersion := Scala211Version,
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
-    // We compile in both so that the maven integration can be tested locally
+    // We compile in both so that the gradle integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(
@@ -104,7 +104,6 @@ val jsonConfig212 = project
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
     target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
     scalaVersion := Keys.scalaVersion.in(backend).value,
-    // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(

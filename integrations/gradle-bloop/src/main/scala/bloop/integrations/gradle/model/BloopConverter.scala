@@ -101,7 +101,7 @@ final class BloopConverter(parameters: BloopParameters) {
     project.getBuildDir / "classes" / "scala" / sourceSet.getName
 
   private def getSources(sourceSet: SourceSet): List[Path] =
-    sourceSet.getAllSource.asScala.map(_.toPath).toList
+    sourceSet.getAllSource.getSrcDirs.asScala.map(_.toPath).toList
 
   private def isProjectDependency(
       projectDependencies: List[ProjectDependency],
@@ -137,7 +137,10 @@ final class BloopConverter(parameters: BloopParameters) {
       sourceSet: SourceSet,
       artifacts: List[ResolvedArtifact]
   ): Try[Option[Config.Scala]] = {
-    def isJavaOnly: Boolean = !sourceSet.getAllSource.asScala.forall(_.getName.endsWith(".scala"))
+    def isJavaOnly: Boolean = {
+      val allSourceFiles = sourceSet.getAllSource.getFiles.asScala.toList
+      !allSourceFiles.filter(f => f.exists && f.isFile).exists(_.getName.endsWith(".scala"))
+    }
 
     // Finding the compiler group and version from the standard Scala library added as dependency
     artifacts.find(_.getName == parameters.stdLibName) match {
@@ -147,8 +150,7 @@ final class BloopConverter(parameters: BloopParameters) {
         val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
         val scalaCompileTask = project.getTask[ScalaCompile](scalaCompileTaskName)
 
-        // The scala task is present even in Java-only projects
-        if (scalaCompileTask != null && !isJavaOnly) {
+        if (scalaCompileTask != null) {
           val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
           val opts = scalaCompileTask.getScalaCompileOptions
           val options = optionList(opts).toList
@@ -172,11 +174,13 @@ final class BloopConverter(parameters: BloopParameters) {
 
       case None if isJavaOnly => Success(None)
       case None =>
-        val target = s" project ${project.getName}/${sourceSet.getName}"
-        val artifactNames = artifacts.map(_.getName).mkString("\n")
+        val target = s"project ${project.getName}/${sourceSet.getName}"
+        val artifactNames =
+          if (artifacts.isEmpty) ""
+          else s" Found artifacts:\n${artifacts.map(_.getFile.toString).mkString("\n")}"
         Failure(
           new GradleException(
-            s"Expected Scala standard library in classpath of $target that contains Scala sources. Found artifacts:\n$artifactNames."
+            s"Expected Scala standard library in classpath of $target that defines Scala sources.$artifactNames"
           )
         )
     }
