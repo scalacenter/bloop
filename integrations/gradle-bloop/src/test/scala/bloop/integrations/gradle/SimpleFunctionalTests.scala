@@ -26,7 +26,8 @@ class SimpleFunctionalTests {
 
   @Test def pluginCanBeApplied(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    writeBuildScript(buildFile,
+    writeBuildScript(
+      buildFile,
       """
         |plugins {
         |  id 'bloop'
@@ -34,10 +35,12 @@ class SimpleFunctionalTests {
         |
         |apply plugin: 'scala'
         |apply plugin: 'bloop'
-      """.stripMargin)
+      """.stripMargin
+    )
 
     val result: BuildResult =
-      GradleRunner.create()
+      GradleRunner
+        .create()
         .withGradleVersion(gradleVersion)
         .withProjectDir(testProjectDir.getRoot)
         .withPluginClasspath(getClasspath.asJava)
@@ -49,7 +52,8 @@ class SimpleFunctionalTests {
 
   @Test def bloopInstallTaskAdded(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    writeBuildScript(buildFile,
+    writeBuildScript(
+      buildFile,
       """
         |plugins {
         |  id 'bloop'
@@ -57,10 +61,12 @@ class SimpleFunctionalTests {
         |
         |apply plugin: 'scala'
         |apply plugin: 'bloop'
-      """.stripMargin)
+      """.stripMargin
+    )
 
     val result: BuildResult =
-      GradleRunner.create()
+      GradleRunner
+        .create()
         .withGradleVersion(gradleVersion)
         .withProjectDir(testProjectDir.getRoot)
         .withPluginClasspath(getClasspath.asJava)
@@ -80,7 +86,8 @@ class SimpleFunctionalTests {
 
   @Test def encodingOptionGeneratedCorrectly(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    writeBuildScript(buildFile,
+    writeBuildScript(
+      buildFile,
       s"""
          |plugins {
          |  id 'bloop'
@@ -101,11 +108,13 @@ class SimpleFunctionalTests {
          |	scalaCompileOptions.additionalParameters = ["-deprecation", "-unchecked", "-encoding", "utf8"]
          |}
          |
-      """.stripMargin)
+      """.stripMargin
+    )
 
-    createHelloWorldSource()
+    createHelloWorldScalaSource()
 
-    GradleRunner.create()
+    GradleRunner
+      .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
       .withPluginClasspath(getClasspath.asJava)
@@ -113,21 +122,56 @@ class SimpleFunctionalTests {
       .build()
 
     val projectName = testProjectDir.getRoot.getName
-    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName+".json")
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
 
     val resultConfig = readValidBloopConfig(bloopFile)
 
-    println(resultConfig.project.`scala`.get.options)
     assertArrayEquals(
       Array.apply[Object]("-deprecation", "-unchecked", "-encoding", "utf8"),
       resultConfig.project.`scala`.get.options.toArray[Object]
     )
   }
 
-  private def worksWithGivenScalaVersion(version: String): Unit = {
-
+  @Test def generateConfigFileForJavaOnlyProjects(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    writeBuildScript(buildFile,
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldJavaSource()
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+    assertTrue(!resultConfig.project.`scala`.isDefined)
+  }
+
+  private def worksWithGivenScalaVersion(version: String): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    writeBuildScript(
+      buildFile,
       s"""
          |plugins {
          |  id 'bloop'
@@ -143,11 +187,13 @@ class SimpleFunctionalTests {
          |dependencies {
          |  compile group: 'org.scala-lang', name: 'scala-library', version: "$version"
          |}
-      """.stripMargin)
+      """.stripMargin
+    )
 
-    createHelloWorldSource()
+    createHelloWorldScalaSource()
 
-    GradleRunner.create()
+    GradleRunner
+      .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
       .withPluginClasspath(getClasspath.asJava)
@@ -155,7 +201,7 @@ class SimpleFunctionalTests {
       .build()
 
     val projectName = testProjectDir.getRoot.getName
-    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName+".json")
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
 
     val resultConfig = readValidBloopConfig(bloopFile)
 
@@ -163,7 +209,22 @@ class SimpleFunctionalTests {
     assertEquals(version, resultConfig.project.`scala`.get.version)
   }
 
-  private def createHelloWorldSource(): Unit = {
+  private def createHelloWorldJavaSource(): Unit = {
+    val srcDir = testProjectDir.newFolder("src", "main", "java")
+    val srcFile = new File(srcDir, "Hello.java")
+    val src =
+      """
+        |public class java {
+        |    public static void main(String[] args) {
+        |        System.out.println("Hello World");
+        |    }
+        |}
+      """.stripMargin
+    Files.write(srcFile.toPath, src.getBytes(StandardCharsets.UTF_8))
+    ()
+  }
+
+  private def createHelloWorldScalaSource(): Unit = {
     val srcDir = testProjectDir.newFolder("src", "main", "scala")
     val srcFile = new File(srcDir, "Hello.scala")
     val src =
@@ -193,9 +254,13 @@ class SimpleFunctionalTests {
     }
   }
 
-  private def getClasspath: List[File] =
-    classOf[BloopPlugin].getClassLoader.asInstanceOf[URLClassLoader].getURLs.toList.map(url => new File(url.getFile))
-
+  private def getClasspath: List[File] = {
+    classOf[BloopPlugin].getClassLoader
+      .asInstanceOf[URLClassLoader]
+      .getURLs
+      .toList
+      .map(url => new File(url.getFile))
+  }
 
   private def writeBuildScript(buildFile: File, contents: String): Unit = {
     Files.write(buildFile.toPath, contents.getBytes(StandardCharsets.UTF_8))

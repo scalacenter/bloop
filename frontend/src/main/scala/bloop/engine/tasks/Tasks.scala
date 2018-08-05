@@ -122,15 +122,15 @@ object Tasks {
           // Either return empty result or report
           (scalaSources, javaSources) match {
             case (Nil, Nil) => Compiler.Result.Empty
-            case (xs: List[AbsolutePath], Nil) =>
+            case (_: List[AbsolutePath], Nil) =>
               // Let's notify users there is no Scala configuration for a project with Scala sources
               val msg =
-                s"Failed to compile project '${project.name}: found Scala sources but project is missing Scala configuration.'"
+                s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
               Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
-            case _ =>
-              // If Java sources exist, we cannot compile them without an instance
+            case (Nil, _: List[AbsolutePath]) =>
+              // If Java sources exist, we cannot compile them without an instance, fail fast!
               val msg =
-                s"Failed to compile '${project.name}'s Java sources because the default Scala instance couldn't be created."
+                s"Failed to compile ${project.name}'s Java sources because the default Scala instance couldn't be created."
               Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
           }
       }

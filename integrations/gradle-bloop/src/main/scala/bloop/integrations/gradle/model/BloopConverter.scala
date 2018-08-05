@@ -137,7 +137,7 @@ final class BloopConverter(parameters: BloopParameters) {
       sourceSet: SourceSet,
       artifacts: List[ResolvedArtifact]
   ): Try[Option[Config.Scala]] = {
-    def isJavaOnly: Boolean = sourceSet.getAllSource.asScala.forall(!_.getName.endsWith(".scala"))
+    def isJavaOnly: Boolean = !sourceSet.getAllSource.asScala.forall(_.getName.endsWith(".scala"))
 
     // Finding the compiler group and version from the standard Scala library added as dependency
     artifacts.find(_.getName == parameters.stdLibName) match {
@@ -147,7 +147,8 @@ final class BloopConverter(parameters: BloopParameters) {
         val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
         val scalaCompileTask = project.getTask[ScalaCompile](scalaCompileTaskName)
 
-        if (scalaCompileTask != null) {
+        // The scala task is present even in Java-only projects
+        if (scalaCompileTask != null && !isJavaOnly) {
           val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
           val opts = scalaCompileTask.getScalaCompileOptions
           val options = optionList(opts).toList
