@@ -5,7 +5,7 @@ set -o nounset
 # I don't trust $DRONE_COMMIT_MESSAGE here, it's had problems in the future
 if git log -1 --pretty=%B --no-merges | grep DOCS > /dev/null 2>&1; then
   echo "Found DOCS in commit message, the CI will only update the docs site."
-  if [[ ! -z "$PUBLISH_DOCS" ]]; then
+  if [[ "$DRONE_BUILD_EVENT" != "pull_request" && "$DRONE_BRANCH" == "master" ]]; then
     if ! sbt -sbt-dir /drone/.sbt/1.0 -sbt-boot /drone/.sbt/boot docs/ghpagesPushSite; then
       exit 1
     fi
