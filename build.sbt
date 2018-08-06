@@ -178,9 +178,12 @@ val mavenBloop = project
 
 val gradleBloop = project
   .in(file("integrations") / "gradle-bloop")
+  .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig211)
   .settings(name := "gradle-bloop")
+  .settings(BuildDefaults.gradlePluginBuildSettings)
+  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
   .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile)
   .settings(
@@ -201,14 +204,7 @@ lazy val gradleBloopTests = project
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212).value)
   .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile)
-  .settings(
-    skip in publish := true,
-    buildInfo in Compile := Nil,
-    // Only generate the build info for the tests
-    buildInfoKeys in Test := GradleInfoKeys,
-    buildInfoPackage in Test := "bloop.internal.build",
-    buildInfoObject in Test := "BloopGradleIntegration",
-  )
+  .settings(skip in publish := true)
 
 val millBloop = project
   .in(integrations / "mill-bloop")
