@@ -31,12 +31,13 @@ class LoadProjectSpec {
   }
 
   @Test def LoadJavaProject(): Unit = {
-    // Make sure that when no scala setup is configured the project load succeeds
+    // Make sure that when no scala setup is configured the project load succeeds (and the default instance is used)
     val logger = new RecordingLogger()
     val config0 = Config.File.dummyForTests
     val project = config0.project
     val configWithNoScala = config0.copy(config0.version, project.copy(scala = None))
     val inferredInstance = Project.fromConfig(configWithNoScala, logger).scalaInstance
-    assert(inferredInstance.version.nonEmpty)
+    assert(inferredInstance.isDefined)
+    assert(inferredInstance.get.version.nonEmpty)
   }
 }

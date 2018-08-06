@@ -7,7 +7,7 @@ class JsonSpec {
   def parseConfig(jsonConfig: String): Config.File = {
     import io.circe.parser
     import ConfigEncoderDecoders._
-    val parsed = parser.parse(jsonConfig).getOrElse(sys.error("error parsing"))
+    val parsed = parser.parse(jsonConfig).right.getOrElse(sys.error("error parsing"))
     allDecoder.decodeJson(parsed) match {
       case Right(parsedConfig) => parsedConfig
       case Left(failure) => throw failure

@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.{Compiler, Project}
+import bloop.{Compiler, Project, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
@@ -188,8 +188,7 @@ final class BloopBspServices(
   private def toBuildTargetId(project: Project): bsp.BuildTargetIdentifier =
     bsp.BuildTargetIdentifier(project.bspUri)
 
-  def toScalaBuildTarget(project: Project): bsp.ScalaBuildTarget = {
-    val instance = project.scalaInstance
+  def toScalaBuildTarget(instance: ScalaInstance): bsp.ScalaBuildTarget = {
     val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
     bsp.ScalaBuildTarget(
       scalaOrganization = instance.organization,
@@ -213,7 +212,7 @@ final class BloopBspServices(
             else bsp.BuildTargetKind.Library
           }
           val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
-          val extra = Some(encodeScalaBuildTarget(toScalaBuildTarget(p)))
+          val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(i)))
           val capabilities = bsp.BuildTargetCapabilities(
             canCompile = true,
             canTest = true,

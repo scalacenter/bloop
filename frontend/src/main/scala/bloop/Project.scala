@@ -20,7 +20,7 @@ final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
     dependencies: List[String],
-    scalaInstance: ScalaInstance,
+    scalaInstance: Option[ScalaInstance],
     rawClasspath: List[AbsolutePath],
     classpathOptions: ClasspathOptions,
     classesDir: AbsolutePath,
@@ -96,15 +96,14 @@ object Project {
     val project = file.project
     val scala = project.`scala`
 
-    // Use the default Bloop scala instance if it's not a Scala project
-    val instance = {
-      scala match {
-        case Some(scala) =>
-          val scalaJars = scala.jars.map(AbsolutePath.apply)
-          ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
-        case None => ScalaInstance.bloopScalaInstance(logger)
+    // Use the default Bloop scala instance if it's not a Scala project or if Scala jars are empty
+    val instance = scala.flatMap { scala =>
+      if (scala.jars.isEmpty) None
+      else {
+        val scalaJars = scala.jars.map(AbsolutePath.apply)
+        Some(ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger))
       }
-    }
+    }.orElse(ScalaInstance.scalaInstanceFromBloop(logger))
 
     val classpathOptions = {
       val setup = scala.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)

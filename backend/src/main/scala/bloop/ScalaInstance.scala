@@ -2,12 +2,14 @@ package bloop
 
 import java.io.File
 import java.net.URLClassLoader
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Properties
 
 import bloop.internal.build.BloopScalaInfo
 import bloop.logging.Logger
+
+import scala.util.control.NonFatal
 
 final class ScalaInstance private (
     val organization: String,
@@ -123,16 +125,59 @@ object ScalaInstance {
     instancesById.computeIfAbsent(instanceId, _ => resolveInstance)
   }
 
-  /** Returns the default scala instance that is used in bloop's classloader. */
-  def bloopScalaInstance(logger: Logger): ScalaInstance = {
-    // This should be changed in the unlikely event the bloop codebase compiles with dotty
-    ScalaInstance(
-      BloopScalaInfo.scalaOrganization,
-      ScalacCompilerName,
-      BloopScalaInfo.scalaVersion,
-      BloopScalaInfo.scalaJars.map(AbsolutePath(_)),
-      logger
-    )
+  private[this] var cachedBloopScalaInstance: Option[ScalaInstance] = null
+
+  /**
+    * Returns the default scala instance that is used in bloop's classloader.
+    *
+    * A Scala instance is always required to compile with Zinc. As a result,
+    * Java projects that have no Scala configuration and want to be able to
+    * re-use Zinc's Javac infrastructure for incremental compilation need to
+    * have a dummy Scala instance available.
+    *
+    * This method is responsible for creating this dummy Scala instance. The
+    * instance is fully functional and the jars for the instance come from Bloop
+    * class loader which depends on all the Scala jars. Here we get the jars that are
+    * usually used in scala jars from the protected domain of every class.
+    *
+    * This could not work in case a user has set a strict security manager in the
+    * environment in which Bloop is running at. However, this is unlikely because
+    * Bloop will run on different machines that normal production-ready machines.
+    * In these machines, security managers don't usually exist and if they do don't
+    * happen to be so strict as to prevent getting the location from the protected
+    * domain.
+    */
+  def scalaInstanceFromBloop(logger: Logger): Option[ScalaInstance] = {
+    def findLocationForClazz(clazz: Class[_]): Option[Path] = {
+      try Some(Paths.get(clazz.getProtectionDomain.getCodeSource.getLocation.toURI))
+      catch { case NonFatal(_) => None }
+    }
+
+    if (cachedBloopScalaInstance != null) {
+      cachedBloopScalaInstance
+    } else {
+      val instance = {
+        for {
+          scalaLibraryJar <- findLocationForClazz(scala.Predef.getClass)
+          scalaReflectJar <- findLocationForClazz(classOf[scala.reflect.api.Trees])
+          scalaCompilerJar <- findLocationForClazz(scala.tools.nsc.Main.getClass)
+          scalaXmlJar <- findLocationForClazz(classOf[scala.xml.Node])
+          jlineJar <- findLocationForClazz(classOf[jline.console.ConsoleReader])
+        } yield {
+          val jars = List(scalaLibraryJar, scalaReflectJar, scalaCompilerJar, scalaXmlJar, jlineJar)
+          ScalaInstance(
+            BloopScalaInfo.scalaOrganization,
+            ScalacCompilerName,
+            BloopScalaInfo.scalaVersion,
+            jars.map(AbsolutePath(_)),
+            logger
+          )
+        }
+      }
+
+      cachedBloopScalaInstance = instance
+      instance
+    }
   }
 
   def getVersion(loader: ClassLoader): String = {

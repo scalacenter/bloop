@@ -20,7 +20,7 @@ class DagSpec {
 
   // format: OFF
   def dummyProject(name: String, dependencies: List[String]): Project =
-    Project(name, dummyPath, dependencies, dummyInstance, Nil, classpathOptions, dummyPath, Nil,
+    Project(name, dummyPath, dependencies, Some(dummyInstance), Nil, classpathOptions, dummyPath, Nil,
       Nil, Nil, Nil, Config.TestOptions.empty, JavaEnv.default, dummyPath, dummyPath,
       Config.Platform.default, None, None, None, None)
   // format: ON

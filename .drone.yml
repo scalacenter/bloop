@@ -4,15 +4,19 @@ matrix:
   TEST_BLOOP:
     - bin/sbt-ci.sh \
           "benchmarks/compile" \
-          "millBloop/compile" \
           "jsonConfig210/test" \
+          "jsonConfig211/test" \
           "jsonConfig212/test" \
+          "millBloop/compile" \
+          "mavenBloop/compile" \
+          "gradleBloop/compile" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
           "nativeBridge/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
           "frontend/test" \
+          "gradleBloopTests/test" \
           "docs/makeSite"
 
   RUN_BENCHMARKS_AND_SCRIPTED:

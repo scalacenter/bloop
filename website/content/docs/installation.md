@@ -38,7 +38,7 @@ Homebrew also automatically installs completions for zsh and Bash.
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
-<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M10</span>/install.py | python
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0</span>/install.py | python
 </code></pre>
 
 The installation script will also install:
@@ -151,7 +151,7 @@ The sbt plugin is available for both sbt `0.13` and `1.x`. To install it, add
 the following to your `project/plugins.sbt`:
 
 
-<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M10</span>"</span>)</code></pre>
+<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0</span>"</span>)</code></pre>
 
 
 Once sbt is configured, you can run `bloopInstall` to generate the Bloop configuration:
@@ -177,14 +177,81 @@ bloopAggregateSourceDependencies in Global := true
 
 <span class="label warning">Note</span> that `bloopAggregateSourceDependencies` has to be scoped globally.
 
-### Maven
+### Gradle <span class="label focus upper">Help Wanted</span>
+
+Gradle users that code with Bloop will not only get faster compilation
+times, but also better incremental compilation due to the fact that the
+latest Gradle version uses Scala's incremental compiler from three years
+ago (0.13.x) and the new 1.x version has gone through [a lot of
+significant
+improvements](https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html).
+
+#### Install the plugin in your build
+
+The gradle plugin is published in Maven Central and it's only available for the latest Bloop
+versions. Add it in your build file (`build.gradle`) with:
+
+<pre><code class="language-groovy">buildscript {
+  repositories {
+    // Add here whatever repositories you're already using
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath 'ch.epfl.scala:gradle-bloop_2.11:1.0.0+29-f5cc9259'
+  }
+}
+</code></pre>
+
+Then, apply it in all the projects of your build with:
+
+```groovy
+allprojects {
+  apply plugin 'bloop'
+}
+```
+
+Or just apply it per project with:
+
+```groovy
+apply plugin 'bloop'
+```
+
+<span class="label warning">Note</span> If you apply Bloop in a non-Scala or non-Java project, Bloop will not generate anything.
+
+#### Generate configuration files in Gradle
+
+```bash
+$ ./gradlew bloopInstall
+```
+
+If the command fails and you want to diagnose what's going on, you can run `./gradlew bloopInstall -Si` instead.
+
+### Maven <span class="label focus upper">Help Wanted</span>
 
 To generate Bloop's configuration using Maven, run (from your project directory):
 
-<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.10:<span class="latest-version">1.0.0-M10+75-405896f4</span>:bloopInstall
+<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.10:<span class="latest-version">1.0.0</span>:bloopInstall
 </code></pre>
 
-<span class="label warning">Useful</span> You can remove the version number from the mvn command to fetch the latest Bloop release from master.
+The plugin is labelled as "Help Wanted" because there are a few integration
+issues that are not being actively worked on. If you're a Maven user and
+you think you can help improve its quality, come over our
+[Gitter channel]() and have a look at [open issues].
+
+
+### Mill <span class="label focus upper">Help Wanted</span>
+
+Add the plugin to your build by importing it at the top of your build file `build.sc`:
+
+<pre><code class="language-sh">import $ivy.`ch.epfl.scala::mill-bloop:<span class="latest-version">1.0.0</span>`
+</code></pre>
+
+Then run `bloopInstall` from the mill command-line:
+
+```bash
+mill bloop.integrations.mill.Bloop/install
+```
 
 ### Start bloop
 
@@ -213,7 +280,7 @@ $ bloop about
 
     bloop-frontend is made with love at the Scala Center <3
 
-    Bloop-frontend version    `1.0.0-M2+14-7134b34d`
+    Bloop-frontend version    `1.0.0`
     Zinc version     `1.0.0-X8+510-660ed3cb`
     Scala version    `2.12.4`
 

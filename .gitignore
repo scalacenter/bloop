@@ -19,3 +19,4 @@ target/
 # Ensime's config and cache
 .ensime
 .ensime_cache/
+integrations/gradle-bloop/lib
