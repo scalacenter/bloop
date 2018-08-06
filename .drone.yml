@@ -130,6 +130,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
+      - export PUBLISH_DOCS=true
       - ${PUBLISH_ARTIFACTS}
 
   release:
