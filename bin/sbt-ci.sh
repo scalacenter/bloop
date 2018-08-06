@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -o nounset
 
+
 # I don't trust $DRONE_COMMIT_MESSAGE here, it's had problems in the future
 if git log -1 --pretty=%B --no-merges | grep DOCS > /dev/null 2>&1; then
   echo "Found DOCS in commit message, the CI will only update the docs site."
