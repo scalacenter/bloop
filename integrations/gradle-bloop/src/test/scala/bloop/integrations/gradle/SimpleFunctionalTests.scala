@@ -3,12 +3,12 @@ package bloop.integrations.gradle
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 import bloop.config.Config
 import bloop.config.ConfigEncoderDecoders._
-import io.circe._, io.circe.parser._
-
+import io.circe._
+import io.circe.parser._
 import org.gradle.testkit.runner.{BuildResult, GradleRunner}
 import org.gradle.testkit.runner.TaskOutcome._
 import org.junit._
@@ -84,6 +84,94 @@ class SimpleFunctionalTests {
     worksWithGivenScalaVersion("2.12.6")
   }
 
+  @Test def worksWithSeveralScalaProjects(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a")
+    val buildDirB = testProjectDir.newFolder("b")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile project(':a')
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a'
+        |include 'b'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(buildDirA, "package x; trait A")
+    createHelloWorldScalaSource(buildDirB, "package x; trait B extends A")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"${projectName}.json")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopB = new File(bloopDir, "b.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopBTest = new File(bloopDir, "b-test.json")
+
+    assertFalse(bloopNone.exists())
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+    val configATest = readValidBloopConfig(bloopATest)
+    val configBTest = readValidBloopConfig(bloopBTest)
+    assertTrue(configA.project.`scala`.exists(_.version == "2.12.6"))
+    assertTrue(configB.project.`scala`.exists(_.version == "2.12.6"))
+    assertTrue(configB.project.dependencies == List("a"))
+    assertTrue(configATest.project.dependencies == List("a"))
+    assertTrue(configBTest.project.dependencies.sorted == List("a", "b"))
+  }
+
   @Test def encodingOptionGeneratedCorrectly(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     writeBuildScript(
@@ -111,7 +199,7 @@ class SimpleFunctionalTests {
       """.stripMargin
     )
 
-    createHelloWorldScalaSource()
+    createHelloWorldScalaSource(testProjectDir.getRoot)
 
     GradleRunner
       .create()
@@ -160,7 +248,8 @@ class SimpleFunctionalTests {
       .withArguments("bloopInstall", "-Si")
       .build()
 
-    assertTrue(result.getOutput.contains("Ignoring 'bloopInstall' on non-Scala and non-Java project"))
+    assertTrue(
+      result.getOutput.contains("Ignoring 'bloopInstall' on non-Scala and non-Java project"))
     val projectName = testProjectDir.getRoot.getName
     val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
     assertTrue(!bloopFile.exists())
@@ -226,7 +315,7 @@ class SimpleFunctionalTests {
       """.stripMargin
     )
 
-    createHelloWorldScalaSource()
+    createHelloWorldScalaSource(testProjectDir.getRoot)
 
     GradleRunner
       .create()
@@ -262,18 +351,22 @@ class SimpleFunctionalTests {
     ()
   }
 
-  private def createHelloWorldScalaSource(): Unit = {
-    val srcDir = testProjectDir.newFolder("src", "main", "scala")
-    val srcFile = new File(srcDir, "Hello.scala")
-    val src =
-      """
-        |object Hello {
-        |  def main(args: Array[String]): Unit = {
-        |    println("Hello")
-        |  }
-        |}
-      """.stripMargin
-    Files.write(srcFile.toPath, src.getBytes(StandardCharsets.UTF_8))
+  private final val HelloWorldSource: String = {
+    """
+      |object Hello {
+      |  def main(args: Array[String]): Unit = {
+      |    println("Hello")
+      |  }
+      |}
+    """.stripMargin
+  }
+
+  private def createHelloWorldScalaSource(projectDir: File, source: String = ""): Unit = {
+    val contents = if (source.isEmpty) HelloWorldSource else source
+    val srcDir = projectDir.toPath.resolve("src").resolve("main").resolve("scala")
+    Files.createDirectories(srcDir)
+    val srcFile = srcDir.resolve("Hello.scala")
+    Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
     ()
   }
 
