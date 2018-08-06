@@ -25,7 +25,7 @@ matrix:
           "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
 
   PUBLISH_ARTIFACTS:
-    - bin/sbt-ci.sh \
+    - bin/sbt-ci-publish.sh \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           "docs/ghpagesPushSite" \
