@@ -69,14 +69,11 @@ final class BloopConverter(parameters: BloopParameters) {
      * use to our own classes 'bloop' directory in the build directory. */
     val classesDir = (project.getBuildDir / "classes" / "bloop" / sourceSet.getName).toPath
 
+    // Don't `sourceSet.getRuntimeClasspath`, it contains project entries that Bloop is responsible to add
     val classpath: List[Path] = {
-      // A side effect of calling the runtime classpath is the generation of sources/resources
-      val paths = sourceSet.getRuntimeClasspath.asScala.toList.map(_.toPath)
-
-      // Remove Scala and Java classes directory from classpath (this is added by Zinc in bloop)
-      val javaClassesDir = (project.getBuildDir / "classes" / "java" / sourceSet.getName).toPath
-      val scalaClassesDir = (project.getBuildDir / "classes" / "scala" / sourceSet.getName).toPath
-      paths.filter(p => p != javaClassesDir && p != scalaClassesDir)
+      val projectDependencyClassesDirs =
+        projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
+      (projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile)).map(_.toPath).toList
     }
 
     for {

@@ -123,7 +123,7 @@ class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.typelevel:cats-core_2.12:1.2.0'
          |  compile project(':a')
          |}
       """.stripMargin
@@ -167,6 +167,16 @@ class ConfigGenerationSuite {
     assertTrue(configB.project.dependencies == List("a"))
     assertTrue(configATest.project.dependencies == List("a"))
     assertTrue(configBTest.project.dependencies.sorted == List("a", "b"))
+
+    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
+      config.project.classpath.exists(_.toString.contains(entryName))
+
+    assertTrue(hasClasspathEntryName(configA, "scala-library"))
+    assertTrue(hasClasspathEntryName(configB, "scala-library"))
+    assertTrue(hasClasspathEntryName(configATest, "scala-library"))
+    assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
+    assertTrue(hasClasspathEntryName(configB, "cats-core"))
+    assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
   }
 
   @Test def encodingOptionGeneratedCorrectly(): Unit = {
@@ -289,8 +299,7 @@ class ConfigGenerationSuite {
     val projectConfig = readValidBloopConfig(projectFile)
     assertFalse(projectConfig.project.`scala`.isDefined)
     assertTrue(projectConfig.project.dependencies.isEmpty)
-    val classpath = projectConfig.project.classpath
-    assertTrue(classpath.size == 1 && classpath.exists(_.toString.contains("resources/main")))
+    assertTrue(projectConfig.project.classpath.isEmpty)
 
     val projectTestConfig = readValidBloopConfig(projectTestFile)
     assertFalse(projectConfig.project.`scala`.isDefined)
