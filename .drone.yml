@@ -5,6 +5,7 @@ matrix:
     - bin/sbt-ci.sh \
           "benchmarks/compile" \
           "jsonConfig210/test" \
+          "jsonConfig211/test" \
           "jsonConfig212/test" \
           "millBloop/compile" \
           "mavenBloop/compile" \
