@@ -67,13 +67,12 @@ final class BloopConverter(parameters: BloopParameters) {
      * directory for Scala and Java projects, whereas Bloop doesn't (it inherited this design from
      * sbt). Therefore, to avoid any compilation/test/run issue between Gradle and Bloop, we just
      * use to our own classes 'bloop' directory in the build directory. */
-    val classesDir = (project.getBuildDir / "classes" / "bloop" / sourceSet.getName).toPath
-
-    // Don't `sourceSet.getRuntimeClasspath`, it contains project entries that Bloop is responsible to add
+    val classesDir = getClassesDir(project, sourceSet)
     val classpath: List[Path] = {
+      // Cannot use `sourceSet.getRuntimeClasspath` because returns jars of subprojects, need dirs!
       val projectDependencyClassesDirs =
         projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
-      (projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile)).map(_.toPath).toList
+      (projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile.toPath)).toList
     }
 
     for {
@@ -105,8 +104,8 @@ final class BloopConverter(parameters: BloopParameters) {
     }
   }
 
-  private def getClassesDir(project: Project, sourceSet: SourceSet): File =
-    project.getBuildDir / "classes" / "scala" / sourceSet.getName
+  private def getClassesDir(project: Project, sourceSet: SourceSet): Path =
+    (project.getBuildDir / "classes" / "bloop" / sourceSet.getName).toPath
 
   private def getSources(sourceSet: SourceSet): List[Path] =
     sourceSet.getAllSource.getSrcDirs.asScala.map(_.toPath).toList
@@ -207,7 +206,7 @@ final class BloopConverter(parameters: BloopParameters) {
       .includeClasspath(false)
       .includeSourceFiles(false)
       .includeLauncherOptions(false)
-    val args = builder.build().asScala.toList
+    val args = builder.build().asScala.toList.filter(_.nonEmpty)
 
     // Always return a java configuration (this cannot hurt us)
     Some(Config.Java(args))

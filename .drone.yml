@@ -16,6 +16,7 @@ matrix:
           "jsBridge06/test" \
           "jsBridge10/test" \
           "frontend/test" \
+          "gradleBloopTests/test" \
           "docs/makeSite"
 
   RUN_BENCHMARKS_AND_SCRIPTED:

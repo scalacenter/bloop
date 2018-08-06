@@ -127,7 +127,7 @@ object Tasks {
               val msg =
                 s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
               Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
-            case (Nil, _: List[AbsolutePath]) =>
+            case (_, _: List[AbsolutePath]) =>
               // If Java sources exist, we cannot compile them without an instance, fail fast!
               val msg =
                 s"Failed to compile ${project.name}'s Java sources because the default Scala instance couldn't be created."

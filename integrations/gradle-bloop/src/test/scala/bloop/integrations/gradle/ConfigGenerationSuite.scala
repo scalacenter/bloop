@@ -5,8 +5,14 @@ import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+import bloop.Project
+import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.ConfigEncoderDecoders._
+import bloop.engine.{Build, Run, State}
+import bloop.io.AbsolutePath
+import bloop.logging.BloopLogger
+import bloop.tasks.{CompilationHelpers, TestUtil}
 import io.circe.parser._
 import org.gradle.testkit.runner.{BuildResult, GradleRunner}
 import org.gradle.testkit.runner.TaskOutcome._
@@ -138,8 +144,8 @@ class ConfigGenerationSuite {
       """.stripMargin
     )
 
-    createHelloWorldScalaSource(buildDirA, "package x; trait A")
-    createHelloWorldScalaSource(buildDirB, "package x; trait B extends A")
+    createHelloWorldScalaSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaSource(buildDirB, "package y { trait B extends x.A }")
 
     GradleRunner
       .create()
@@ -177,6 +183,8 @@ class ConfigGenerationSuite {
     assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
     assertTrue(hasClasspathEntryName(configB, "cats-core"))
     assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
+
+    assertTrue(compileBloopProject("b", bloopDir).status.isOk)
   }
 
   @Test def encodingOptionGeneratedCorrectly(): Unit = {
@@ -304,6 +312,23 @@ class ConfigGenerationSuite {
     val projectTestConfig = readValidBloopConfig(projectTestFile)
     assertFalse(projectConfig.project.`scala`.isDefined)
     assertTrue(projectTestConfig.project.dependencies == List(projectName))
+    assertTrue(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
+  }
+
+  def loadBloopState(configDir: File): State = {
+    val logger = BloopLogger.default(configDir.toString())
+    assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
+    val configDirectory = AbsolutePath(configDir)
+    val loadedProjects = Project.eagerLoadFromDir(configDirectory, logger)
+    val build = Build(configDirectory, loadedProjects)
+    State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+  }
+
+  def compileBloopProject(projectName: String, bloopDir: File, verbose: Boolean = false): State = {
+    val state0 = loadBloopState(bloopDir)
+    val state = if (verbose) state0.copy(logger = state0.logger.asVerbose) else state0
+    val action = Run(Commands.Compile(project = projectName))
+    TestUtil.blockingExecute(action, state0)
   }
 
   private def worksWithGivenScalaVersion(version: String): Unit = {
@@ -339,14 +364,19 @@ class ConfigGenerationSuite {
       .build()
 
     val projectName = testProjectDir.getRoot.getName
-    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+    val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
+    val configFile = readValidBloopConfig(projectFile)
+    val configTestFile = readValidBloopConfig(projectTestFile)
 
-    val resultConfig = readValidBloopConfig(bloopFile)
+    assertTrue(configFile.project.`scala`.isDefined)
+    assertEquals(version, configFile.project.`scala`.get.version)
+    assertTrue(configFile.project.classpath.nonEmpty)
+    assertTrue(configFile.project.dependencies.isEmpty)
 
-    assertTrue(resultConfig.project.`scala`.isDefined)
-    assertEquals(version, resultConfig.project.`scala`.get.version)
-    assertTrue(resultConfig.project.classpath.nonEmpty)
-    assertTrue(resultConfig.project.dependencies.isEmpty)
+    assertTrue(configTestFile.project.dependencies == List(projectName))
+    assertTrue(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
   }
 
   private def createHelloWorldJavaSource(): Unit = {
@@ -354,7 +384,7 @@ class ConfigGenerationSuite {
     val srcFile = new File(srcDir, "Hello.java")
     val src =
       """
-        |public class java {
+        |public class Hello {
         |    public static void main(String[] args) {
         |        System.out.println("Hello World");
         |    }
@@ -378,7 +408,7 @@ class ConfigGenerationSuite {
     val contents = if (source.isEmpty) HelloWorldSource else source
     val srcDir = projectDir.toPath.resolve("src").resolve("main").resolve("scala")
     Files.createDirectories(srcDir)
-    val srcFile = srcDir.resolve("Hello.scala")
+    val srcFile = srcDir.resolve("Source1.scala")
     Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
     ()
   }
