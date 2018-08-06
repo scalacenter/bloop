@@ -177,14 +177,14 @@ bloopAggregateSourceDependencies in Global := true
 
 <span class="label warning">Note</span> that `bloopAggregateSourceDependencies` has to be scoped globally.
 
-### Maven <span class="label focus upper">Under development</span>
+### Gradle <span class="label focus upper">Help Wanted</span>
 
-To generate Bloop's configuration using Maven, run (from your project directory):
-
-<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.10:<span class="latest-version">1.0.0</span>:bloopInstall
-</code></pre>
-
-### Gradle <span class="label focus upper">Under development</span>
+Gradle users that code with Bloop will not only get faster compilation
+times, but also better incremental compilation due to the fact that the
+latest Gradle version uses Scala's incremental compiler from three years
+ago (0.13.x) and the new 1.x version has gone through [a lot of
+significant
+improvements](https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html).
 
 #### Install the plugin in your build
 
@@ -227,7 +227,20 @@ $ ./gradlew bloopInstall
 
 If the command fails and you want to diagnose what's going on, you can run `./gradlew bloopInstall -Si` instead.
 
-### Mill <span class="label focus upper">Under development</span>
+### Maven <span class="label focus upper">Help Wanted</span>
+
+To generate Bloop's configuration using Maven, run (from your project directory):
+
+<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.10:<span class="latest-version">1.0.0</span>:bloopInstall
+</code></pre>
+
+The plugin is labelled as "Help Wanted" because there are a few integration
+issues that are not being actively worked on. If you're a Maven user and
+you think you can help improve its quality, come over our
+[Gitter channel]() and have a look at [open issues].
+
+
+### Mill <span class="label focus upper">Help Wanted</span>
 
 Add the plugin to your build by importing it at the top of your build file `build.sc`:
 
