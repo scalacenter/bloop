@@ -184,7 +184,7 @@ start it manually.</p>
 
 <p>Install bloop in other platforms (Windows, Unix, *bsd) via our python script:</p>
 
-<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0-M10</span>/install.py | python
+<pre><code class="language-sh">$ curl -L https://github.com/scalacenter/bloop/releases/download/v<span class="latest-version">1.0.0</span>/install.py | python
 </code></pre>
 
 <p>The installation script will also install:</p>
@@ -290,7 +290,7 @@ not check it into your version control system.</p>
 <p>The sbt plugin is available for both sbt <code>0.13</code> and <code>1.x</code>. To install it, add
 the following to your <code>project/plugins.sbt</code>:</p>
 
-<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0-M10</span>"</span>)</code></pre>
+<pre><code class="language-scala hljs scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"<span class="latest-version">1.0.0</span>"</span>)</code></pre>
 
 <p>Once sbt is configured, you can run <code>bloopInstall</code> to generate the Bloop configuration:</p>
 
@@ -313,14 +313,76 @@ The configuration files contain the information of the sbt build at the moment o
 
 <p><span class="label warning">Note</span> that <code>bloopAggregateSourceDependencies</code> has to be scoped globally.</p>
 
-<h3 id="maven">Maven</h3>
+<h3 id="gradle-span-class-label-focus-upper-help-wanted-span">Gradle <span class="label focus upper">Help Wanted</span></h3>
+
+<p>Gradle users that code with Bloop will not only get faster compilation
+times, but also better incremental compilation due to the fact that the
+latest Gradle version uses Scala&rsquo;s incremental compiler from three years
+ago (0.13.x) and the new 1.x version has gone through <a href="https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html">a lot of
+significant
+improvements</a>.</p>
+
+<h4 id="install-the-plugin-in-your-build">Install the plugin in your build</h4>
+
+<p>The gradle plugin is published in Maven Central and it&rsquo;s only available for the latest Bloop
+versions. Add it in your build file (<code>build.gradle</code>) with:</p>
+
+<pre><code class="language-groovy">buildscript {
+  repositories {
+    // Add here whatever repositories you're already using
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath 'ch.epfl.scala:gradle-bloop_2.11:1.0.0+29-f5cc9259'
+  }
+}
+</code></pre>
+
+<p>Then, apply it in all the projects of your build with:</p>
+
+<pre><code class="language-groovy">allprojects {
+  apply plugin 'bloop'
+}
+</code></pre>
+
+<p>Or just apply it per project with:</p>
+
+<pre><code class="language-groovy">apply plugin 'bloop'
+</code></pre>
+
+<p><span class="label warning">Note</span> If you apply Bloop in a non-Scala or non-Java project, Bloop will not generate anything.</p>
+
+<h4 id="generate-configuration-files-in-gradle">Generate configuration files in Gradle</h4>
+
+<pre><code class="language-bash">$ ./gradlew bloopInstall
+</code></pre>
+
+<p>If the command fails and you want to diagnose what&rsquo;s going on, you can run <code>./gradlew bloopInstall -Si</code> instead.</p>
+
+<h3 id="maven-span-class-label-focus-upper-help-wanted-span">Maven <span class="label focus upper">Help Wanted</span></h3>
 
 <p>To generate Bloop&rsquo;s configuration using Maven, run (from your project directory):</p>
 
-<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.10:<span class="latest-version">1.0.0-M10+75-405896f4</span>:bloopInstall
+<pre><code class="language-sh">$ mvn ch.epfl.scala:maven-bloop_2.10:<span class="latest-version">1.0.0</span>:bloopInstall
 </code></pre>
 
-<p><span class="label warning">Useful</span> You can remove the version number from the mvn command to fetch the latest Bloop release from master.</p>
+<p>The plugin is labelled as &ldquo;Help Wanted&rdquo; because there are a few integration
+issues that are not being actively worked on. If you&rsquo;re a Maven user and
+you think you can help improve its quality, come over our
+[Gitter channel]() and have a look at [open issues].</p>
+
+<h3 id="mill-span-class-label-focus-upper-help-wanted-span">Mill <span class="label focus upper">Help Wanted</span></h3>
+
+<p>Add the plugin to your build by importing it at the top of your build file <code>build.sc</code>:</p>
+
+<pre><code class="language-sh">import $ivy.`ch.epfl.scala::mill-bloop:<span class="latest-version">1.0.0</span>`
+</code></pre>
+
+<p>Then run <code>bloopInstall</code> from the mill command-line:</p>
+
+<pre><code class="language-bash">mill bloop.integrations.mill.Bloop/install
+</code></pre>
 
 <h3 id="start-bloop">Start bloop</h3>
 
@@ -347,7 +409,7 @@ than the Homebrew formula in Mac OS. You can run the server with the bloop CLI:<
 
     bloop-frontend is made with love at the Scala Center &lt;3
 
-    Bloop-frontend version    `1.0.0-M2+14-7134b34d`
+    Bloop-frontend version    `1.0.0`
     Zinc version     `1.0.0-X8+510-660ed3cb`
     Scala version    `2.12.4`
 
