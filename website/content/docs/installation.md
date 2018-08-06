@@ -180,12 +180,11 @@ bloopAggregateSourceDependencies in Global := true
 
 ### Gradle <span class="label focus upper">Help Wanted</span>
 
-Gradle users that code with Bloop will not only get faster compilation
+Gradle users that install Bloop will not only get faster compilation
 times, but also better incremental compilation due to the fact that the
-latest Gradle version uses Scala's incremental compiler from three years
-ago (0.13.x) and the new 1.x version has gone through [a lot of
-significant
-improvements](https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html).
+Gradle 4.8.x uses a three years old version of Zinc (Scala's incremental compiler)
+which [misses out on a lot of improvements with regards to performance and correctness
+in 1.x](https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html).
 
 #### Install the plugin in your build
 
