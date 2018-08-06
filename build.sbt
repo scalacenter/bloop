@@ -187,6 +187,7 @@ val gradleBloop = project
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
   .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile)
   .settings(
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211)).value,
     buildInfo in Compile := Nil,
     // Only generate the build info for the tests
     buildInfoKeys in Test := GradleInfoKeys,

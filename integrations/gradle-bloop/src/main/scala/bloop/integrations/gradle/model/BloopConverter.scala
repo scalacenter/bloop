@@ -33,7 +33,7 @@ final class BloopConverter(parameters: BloopParameters) {
    *
    * NOTE: Java classes will be also put into the above defined directory, not as with Gradle
    *
-   * @param strictProjectDependencies Additional dependencies cannot be inferred from Gradle's object model
+   * @param strictProjectDependencies Additional dependencies that cannot be inferred from Gradle's object model
    * @param project The Gradle project model
    * @param sourceSet The source set to convert
    * @param targetDir Target directory for bloop files
@@ -52,20 +52,31 @@ final class BloopConverter(parameters: BloopParameters) {
     // We cannot turn this into a set directly because we need the topological order for correctness
     val projectDependencies: List[ProjectDependency] =
       configuration.getAllDependencies.asScala.collect { case dep: ProjectDependency => dep }.toList
-    val projectDependenciesIds = projectDependencies.map { dep =>
-      val project = dep.getDependencyProject
-      getProjectName(project, project.getSourceSet(parameters.mainSourceSet))
-    }
-
-    // Strict project dependencies should have more priority than regular project dependencies
-    val allDependencies = strictProjectDependencies ++ projectDependenciesIds
     val dependencyClasspath: List[ResolvedArtifact] = artifacts
       .filter(resolvedArtifact => !isProjectDependency(projectDependencies, resolvedArtifact))
 
+    // Strict project dependencies should have more priority than regular project dependencies
+    val allDependencies: List[String] = {
+      strictProjectDependencies ++ projectDependencies.map { dep =>
+        val project = dep.getDependencyProject
+        getProjectName(project, project.getSourceSet(parameters.mainSourceSet))
+      }
+    }
+
+    /* The classes directory is independent from Gradle's because Gradle has a different classes
+     * directory for Scala and Java projects, whereas Bloop doesn't (it inherited this design from
+     * sbt). Therefore, to avoid any compilation/test/run issue between Gradle and Bloop, we just
+     * use to our own classes 'bloop' directory in the build directory. */
+    val classesDir = (project.getBuildDir / "classes" / "bloop" / sourceSet.getName).toPath
+
     val classpath: List[Path] = {
-      val projectDependencyClassesDirs =
-        projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
-      (projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile)).map(_.toPath).toList
+      // A side effect of calling the runtime classpath is the generation of sources/resources
+      val paths = sourceSet.getRuntimeClasspath.asScala.toList.map(_.toPath)
+
+      // Remove Scala and Java classes directory from classpath (this is added by Zinc in bloop)
+      val javaClassesDir = (project.getBuildDir / "classes" / "java" / sourceSet.getName).toPath
+      val scalaClassesDir = (project.getBuildDir / "classes" / "scala" / sourceSet.getName).toPath
+      paths.filter(p => p != javaClassesDir && p != scalaClassesDir)
     }
 
     for {
@@ -78,7 +89,7 @@ final class BloopConverter(parameters: BloopParameters) {
         dependencies = allDependencies.toList,
         classpath = classpath,
         out = project.getBuildDir.toPath,
-        classesDir = getClassesDir(project, sourceSet).toPath,
+        classesDir = classesDir,
         `scala` = scalaConfig,
         java = getJavaConfig(project, sourceSet),
         sbt = None,

@@ -3,11 +3,10 @@ package bloop.integrations.gradle
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import bloop.config.Config
 import bloop.config.ConfigEncoderDecoders._
-import io.circe._
 import io.circe.parser._
 import org.gradle.testkit.runner.{BuildResult, GradleRunner}
 import org.gradle.testkit.runner.TaskOutcome._
@@ -17,11 +16,9 @@ import org.junit.rules.TemporaryFolder
 
 import scala.collection.JavaConverters._
 
-class SimpleFunctionalTests {
+class ConfigGenerationSuite {
   private val gradleVersion: String = "4.8.1"
-
   private val testProjectDir_ = new TemporaryFolder()
-
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
   @Test def pluginCanBeApplied(): Unit = {
@@ -285,12 +282,19 @@ class SimpleFunctionalTests {
       .build()
 
     val projectName = testProjectDir.getRoot.getName
-    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+    val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
 
-    val resultConfig = readValidBloopConfig(bloopFile)
-    assertTrue(!resultConfig.project.`scala`.isDefined)
-    assertTrue(resultConfig.project.classpath.isEmpty)
-    assertTrue(resultConfig.project.dependencies.isEmpty)
+    val projectConfig = readValidBloopConfig(projectFile)
+    assertFalse(projectConfig.project.`scala`.isDefined)
+    assertTrue(projectConfig.project.dependencies.isEmpty)
+    val classpath = projectConfig.project.classpath
+    assertTrue(classpath.size == 1 && classpath.exists(_.toString.contains("resources/main")))
+
+    val projectTestConfig = readValidBloopConfig(projectTestFile)
+    assertFalse(projectConfig.project.`scala`.isDefined)
+    assertTrue(projectTestConfig.project.dependencies == List(projectName))
   }
 
   private def worksWithGivenScalaVersion(version: String): Unit = {
