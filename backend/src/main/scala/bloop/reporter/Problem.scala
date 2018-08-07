@@ -25,7 +25,7 @@ object Problem {
     override def toString: String = s"$errors errors, $warnings warnings"
   }
 
-  def count(problems: Array[xsbti.Problem]): DiagnosticsCount = {
+  def count(problems: List[xsbti.Problem]): DiagnosticsCount = {
     // Compute the count manually because `count` returns an `Int`, not a `Long`
     var errors = 0L
     var warnings = 0L

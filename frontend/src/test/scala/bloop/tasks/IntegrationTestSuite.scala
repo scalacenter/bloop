@@ -17,7 +17,7 @@ import bloop.config.Config
 import bloop.io.AbsolutePath
 
 object IntegrationTestSuite {
-  val projects = TestUtil.testProjectsIndex.filterKeys(_.contains("akka")).map(_._2).toArray.map(Array.apply(_))
+  val projects = TestUtil.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
@@ -45,7 +45,6 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
     bool(sys.props.getOrElse("run.community.build", "false"))
-    true
   }
 
   @Test
@@ -71,7 +70,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           baseDirectory = AbsolutePath(testDirectory),
           dependencies = previousProjects.map(_.name),
           scalaInstance = previousProjects.head.scalaInstance,
-          rawClasspath = Array.empty,
+          rawClasspath = Nil,
           compileSetup = Config.CompileSetup.empty,
           classesDir = classesDir,
           scalacOptions = Nil,

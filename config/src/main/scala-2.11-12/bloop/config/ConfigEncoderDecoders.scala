@@ -26,7 +26,7 @@ object ConfigEncoderDecoders {
 
   implicit val compileOrderDecoder: Decoder[CompileOrder] = new Decoder[CompileOrder] {
     override def apply(c: HCursor): Result[CompileOrder] = {
-      c.as[String].flatMap {
+      c.as[String].right.flatMap {
         case Mixed.id => Right(Mixed)
         case JavaThenScala.id => Right(JavaThenScala)
         case ScalaThenJava.id => Right(ScalaThenJava)
@@ -47,7 +47,7 @@ object ConfigEncoderDecoders {
 
   implicit val linkerModeDecoder: Decoder[LinkerMode] = new Decoder[LinkerMode] {
     override def apply(c: HCursor): Result[LinkerMode] = {
-      c.as[String].flatMap {
+      c.as[String].right.flatMap {
         case Debug.id => Right(Debug)
         case Release.id => Right(Release)
         case _ =>
@@ -66,7 +66,7 @@ object ConfigEncoderDecoders {
 
   implicit val moduleKindJsDecoder: Decoder[ModuleKindJS] = new Decoder[ModuleKindJS] {
     override def apply(c: HCursor): Result[ModuleKindJS] = {
-      c.as[String].flatMap {
+      c.as[String].right.flatMap {
         case ModuleKindJS.NoModule.id => Right(ModuleKindJS.NoModule)
         case ModuleKindJS.CommonJSModule.id => Right(ModuleKindJS.CommonJSModule)
         case _ =>
@@ -121,15 +121,15 @@ object ConfigEncoderDecoders {
   implicit val platformDecoder: Decoder[Platform] = new Decoder[Platform] {
     private final val C = "config"
     override def apply(c: HCursor): Result[Platform] = {
-      c.downField(N).as[String].flatMap {
-        case Platform.Jvm.name => c.get[JvmConfig](C).flatMap(config =>
-          c.get[List[String]](M).map(mainClass =>
+      c.downField(N).as[String].right.flatMap {
+        case Platform.Jvm.name => c.get[JvmConfig](C).right.flatMap(config =>
+          c.get[List[String]](M).right.map(mainClass =>
             Platform.Jvm(config, mainClass.headOption)))
-        case Platform.Js.name => c.get[JsConfig](C).flatMap(config =>
-          c.get[List[String]](M).map(mainClass =>
+        case Platform.Js.name => c.get[JsConfig](C).right.flatMap(config =>
+          c.get[List[String]](M).right.map(mainClass =>
             Platform.Js(config, mainClass.headOption)))
-        case Platform.Native.name => c.get[NativeConfig](C).flatMap(config =>
-          c.get[List[String]](M).map(mainClass =>
+        case Platform.Native.name => c.get[NativeConfig](C).right.flatMap(config =>
+          c.get[List[String]](M).right.map(mainClass =>
             Platform.Native(config, mainClass.headOption)))
         case _ =>
           val msg = s"Expected platform ${Platform.All.map(s => s"'$s'").mkString(", ")})"

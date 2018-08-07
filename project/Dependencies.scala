@@ -18,6 +18,8 @@ object Dependencies {
   val mavenApiVersion = "3.5.2"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
+  val gradleVersion = "3.0"
+  val groovyVersion = "2.5.0"
   val ipcsocketVersion = "1.0.0"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
@@ -56,6 +58,12 @@ object Dependencies {
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
+
+  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
+  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
+  val gradleDependencyManagement = "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
+  val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
+  val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
 
   val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion

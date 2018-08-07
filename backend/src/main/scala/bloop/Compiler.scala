@@ -47,7 +47,7 @@ object Compiler {
     final case object Empty extends Result
     final case class Blocked(on: List[String]) extends Result
     final case class Cancelled(elapsed: Long) extends Result
-    final case class Failed(problems: Array[xsbti.Problem], t: Option[Throwable], elapsed: Long)
+    final case class Failed(problems: List[xsbti.Problem], t: Option[Throwable], elapsed: Long)
         extends Result
     final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
         extends Result
@@ -75,10 +75,7 @@ object Compiler {
     }
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      val uniqueSources = inputs.sources.distinct
-      // Get all the source files in the directories that may be present in `sources`
-      val sources =
-        uniqueSources.flatMap(src => Paths.getAllFiles(src, "glob:**.{scala,java}")).distinct
+      val sources = inputs.sources // Sources are all files
       val classesDir = inputs.classesDir.toFile
       val classpath = inputs.classpath.map(_.toFile)
 
@@ -130,11 +127,11 @@ object Compiler {
         val prev = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
         Result.Success(compileInputs.reporter, prev, elapsed)
       case Failure(f: StopPipelining) => Result.Blocked(f.failedProjectNames)
-      case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems(), None, elapsed)
+      case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems().toList, None, elapsed)
       case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)
       case Failure(t: Throwable) =>
         t.printStackTrace()
-        Result.Failed(Array.empty, Some(t), elapsed)
+        Result.Failed(Nil, Some(t), elapsed)
     }
   }
 }

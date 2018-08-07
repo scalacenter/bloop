@@ -20,8 +20,8 @@ final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
     dependencies: List[String],
-    scalaInstance: ScalaInstance,
-    rawClasspath: Array[AbsolutePath],
+    scalaInstance: Option[ScalaInstance],
+    rawClasspath: List[AbsolutePath],
     compileSetup: Config.CompileSetup,
     classesDir: AbsolutePath,
     scalacOptions: List[String],
@@ -45,7 +45,7 @@ final case class Project(
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
-  val classpath: Array[AbsolutePath] = classesDir +: rawClasspath
+  val classpath: Array[AbsolutePath] = (classesDir :: rawClasspath).toArray
 
   val classpathOptions: ClasspathOptions = {
     ClasspathOptions.of(
@@ -112,15 +112,14 @@ object Project {
     val project = file.project
     val scala = project.`scala`
 
-    // Use the default Bloop scala instance if it's not a Scala project
-    val instance = {
-      scala match {
-        case Some(scala) =>
-          val scalaJars = scala.jars.map(AbsolutePath.apply)
-          ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
-        case None => ScalaInstance.bloopScalaInstance(logger)
+    // Use the default Bloop scala instance if it's not a Scala project or if Scala jars are empty
+    val instance = scala.flatMap { scala =>
+      if (scala.jars.isEmpty) None
+      else {
+        val scalaJars = scala.jars.map(AbsolutePath.apply)
+        Some(ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger))
       }
-    }
+    }.orElse(ScalaInstance.scalaInstanceFromBloop(logger))
 
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val jsToolchain = project.platform.flatMap { platform =>
@@ -150,7 +149,7 @@ object Project {
       AbsolutePath(project.directory),
       project.dependencies,
       instance,
-      project.classpath.map(AbsolutePath.apply).toArray,
+      project.classpath.map(AbsolutePath.apply),
       setup,
       AbsolutePath(project.classesDir),
       scala.map(_.options).getOrElse(Nil),

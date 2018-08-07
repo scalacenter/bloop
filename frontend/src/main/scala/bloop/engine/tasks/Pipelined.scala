@@ -6,13 +6,16 @@ import java.util.concurrent.CompletableFuture
 
 import bloop.cli.ExitStatus
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent, State}
+import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.{CompileInputs, Compiler, Project}
+import bloop.{CompileInputs, Compiler, Project, ScalaInstance}
 import monix.eval.Task
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
 import sbt.internal.inc.bloop.{CompileMode, JavaSignal}
+import sbt.internal.inc.javac.JavaNoPosition
 import sbt.util.InterfaceUtil
+import xsbti.Severity
 import xsbti.compile.PreviousResult
 
 import scala.util.{Failure, Success, Try}
@@ -99,11 +102,11 @@ object Pipelined {
     import state.{logger, compilerCache}
     def toInputs(
         inputs: PipelineInputs,
+        instance: ScalaInstance,
         config: ReporterConfig,
         result: PreviousResult
     ): CompileInputs = {
       val project = inputs.project
-      val instance = project.scalaInstance
       val sources = project.sources.toArray
       val classpath = project.classpath
       val picklepath = inputs.picklepath
@@ -150,30 +153,60 @@ object Pipelined {
       logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
       startTimings += (project -> System.currentTimeMillis())
       val previous = state.results.lastSuccessfulResult(project)
-      Compiler.compile(toInputs(inputs, reporterConfig, previous)).map { result =>
-        // Do some book-keeping before returning the result to the caller
-        endTimings += (project -> System.currentTimeMillis())
 
-        if (!inputs.pickleReady.isDone) {
-          // Complete the pickle future to avoid deadlocks in case something is off
-          result match {
-            case Compiler.Result.NotOk(_) =>
-              inputs.pickleReady.completeExceptionally(FailPromise)
-            case result =>
-              logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-              inputs.pickleReady.completeExceptionally(CompletePromise)
+      def runCompile(instance: ScalaInstance) = {
+        Compiler.compile(toInputs(inputs, instance, reporterConfig, previous)).map { result =>
+          // Do some book-keeping before returning the result to the caller
+          endTimings += (project -> System.currentTimeMillis())
+
+          if (!inputs.pickleReady.isDone) {
+            // Complete the pickle future to avoid deadlocks in case something is off
+            result match {
+              case Compiler.Result.NotOk(_) =>
+                inputs.pickleReady.completeExceptionally(FailPromise)
+              case result =>
+                logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
+                inputs.pickleReady.completeExceptionally(CompletePromise)
+            }
+          } else {
+            // Report if the pickle ready was correctly completed by the compiler
+            InterfaceUtil.toOption(inputs.pickleReady.get) match {
+              case Some(result) =>
+                logger.debug(s"Project ${project.name} compiled with pipelined compilation.")
+              case None =>
+                logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
+            }
           }
-        } else {
-          // Report if the pickle ready was correctly completed by the compiler
-          InterfaceUtil.toOption(inputs.pickleReady.get) match {
-            case Some(result) =>
-              logger.debug(s"Project ${project.name} compiled with pipelined compilation.")
-            case None =>
-              logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-          }
+
+          result
         }
+      }
 
-        result
+      val sources = project.sources.distinct
+      val javaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.java")).distinct
+      val scalaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.scala")).distinct
+      val uniqueSources = (javaSources ++ scalaSources).toArray
+
+      def err(msg: String): Problem = Problem(-1, Severity.Error, msg, JavaNoPosition, "")
+      project.scalaInstance match {
+        case Some(instance) => runCompile(instance)
+        case None =>
+          val addScalaConfiguration = err(
+            "Add Scala configuration to the project. If that doesn't fix it, report it upstream")
+          // Either return empty result or report
+          (scalaSources, javaSources) match {
+            case (Nil, Nil) => Task.now(Compiler.Result.Empty)
+            case (_: List[AbsolutePath], Nil) =>
+              // Let's notify users there is no Scala configuration for a project with Scala sources
+              val msg =
+                s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
+              Task.now(Compiler.Result.Failed(List(err(msg), addScalaConfiguration), None, 1))
+            case (_, _: List[AbsolutePath]) =>
+              // If Java sources exist, we cannot compile them without an instance, fail fast!
+              val msg =
+                s"Failed to compile ${project.name}'s Java sources because the default Scala instance couldn't be created."
+              Task.now(Compiler.Result.Failed(List(err(msg), addScalaConfiguration), None, 1))
+          }
       }
     }
 

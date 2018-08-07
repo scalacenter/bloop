@@ -25,7 +25,7 @@ val `bloop-build` = project
       val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
         baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / s"scala-${Keys.scalaBinaryVersion.value}",
+        baseDir / "config" / "src" / "main" / "scala-2.11-12",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )

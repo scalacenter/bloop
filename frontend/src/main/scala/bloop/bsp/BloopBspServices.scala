@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.{Compiler, Project}
+import bloop.{Compiler, Project, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
@@ -146,7 +146,7 @@ final class BloopBspServices(
         case (action, project) => Run(Commands.Compile(project.name), action)
       }
 
-      def reportError(p: Project, problems: Array[Problem], elapsedMs: Long): String = {
+      def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
         val count = bloop.reporter.Problem.count(problems)
         s"${p.name} [${elapsedMs}ms] (errors ${count.errors}, warnings ${count.warnings})"
       }
@@ -192,8 +192,7 @@ final class BloopBspServices(
   private def toBuildTargetId(project: Project): bsp.BuildTargetIdentifier =
     bsp.BuildTargetIdentifier(project.bspUri)
 
-  def toScalaBuildTarget(project: Project): bsp.ScalaBuildTarget = {
-    val instance = project.scalaInstance
+  def toScalaBuildTarget(instance: ScalaInstance): bsp.ScalaBuildTarget = {
     val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
     bsp.ScalaBuildTarget(
       scalaOrganization = instance.organization,
@@ -217,7 +216,7 @@ final class BloopBspServices(
             else bsp.BuildTargetKind.Library
           }
           val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
-          val extra = Some(encodeScalaBuildTarget(toScalaBuildTarget(p)))
+          val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(i)))
           val capabilities = bsp.BuildTargetCapabilities(
             canCompile = true,
             canTest = true,
@@ -277,7 +276,7 @@ final class BloopBspServices(
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
-              classpath = project.classpath.iterator.map(e => bsp.Uri(e.toBspUri)).toList,
+              classpath = project.classpath.map(e => bsp.Uri(e.toBspUri)).toList,
               classDirectory = bsp.Uri(project.classesDir.toBspUri)
             )
         }.toList

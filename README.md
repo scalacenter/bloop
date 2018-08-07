@@ -42,7 +42,7 @@ Bloop's documentation lives in [our website](https://scalacenter.github.io/bloop
 The people that can merge pull requests are:
 
 1. [Paweł Bartkiewicz](https://github.com/tues)
-1. [Ruben Berenguel](https://github.com/Duhemm)
+1. [Ruben Berenguel](https://github.com/rberenguel)
 1. [Martin Duhem](https://github.com/Duhemm)
 1. [Jorge Vicente Cantero](https://github.com/jvican)
 1. You? :smile: Follow our [CONTRIBUTING guide](https://scalacenter.github.io/bloop/docs/developer-documentation/).

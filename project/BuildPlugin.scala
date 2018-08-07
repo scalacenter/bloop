@@ -6,7 +6,7 @@ import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import pl.project13.scala.sbt.JmhPlugin.JmhKeys
-import sbt.{AutoPlugin, BuildPaths, Compile, Def, Keys, PluginTrigger, Plugins, Task, ThisBuild}
+import sbt.{AutoPlugin, BuildPaths, Def, Keys, PluginTrigger, Plugins, State, Task, ThisBuild, uri}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -14,7 +14,8 @@ import sbt.util.FileFunction
 import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
-import sbt.internal.PluginDiscovery
+import sbt.internal.BuildLoader
+import sbt.librarymanagement.MavenRepository
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -39,6 +40,8 @@ object BuildKeys {
   import sbt.{Reference, RootProject, ProjectRef, BuildRef, file, uri}
 
   final val Scala210Version = "2.10.7"
+  final val Scala211Version = "2.11.12"
+  final val Scala212Version = "2.12.6"
 
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
@@ -78,8 +81,12 @@ object BuildKeys {
   val buildIntegrationsIndex =
     Def.taskKey[File]("A csv index with complete information about our integrations.")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
+
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
+
+  val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
+  val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -91,12 +98,8 @@ object BuildKeys {
   )
 
   val integrationTestSettings: Seq[Def.Setting[_]] = List(
-    integrationStagingBase := {
-      // Use the default staging directory, we don't care.
-      val state = Keys.state.value
-      val globalBase = sbt.BuildPaths.getGlobalBase(state)
-      sbt.BuildPaths.getStagingDirectory(state, globalBase)
-    },
+    integrationStagingBase :=
+      BuildImplementation.BuildDefaults.getStagingDirectory(Keys.state.value),
     buildIntegrationsIndex := {
       val staging = integrationStagingBase.value
       staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
@@ -116,7 +119,7 @@ object BuildKeys {
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
   )
 
-  import sbtbuildinfo.BuildInfoKey
+  import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
   final val BloopBackendInfoKeys: List[BuildInfoKey] = {
     val scalaJarsKey =
       BuildInfoKey.map(Keys.scalaInstance) { case (_, i) => "scalaJars" -> i.allJars.toList }
@@ -156,6 +159,16 @@ object BuildKeys {
     commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridge06Key, jsBridge10Key)
   }
 
+  val GradleInfoKeys: List[BuildInfoKey] = List(
+    BuildInfoKey.map(Keys.state) {
+      case (_, state) =>
+        val integrationDirs = state
+          .get(gradleIntegrationDirs)
+          .getOrElse(sys.error("Fatal: integration dirs for gradle were not computed"))
+        "integrationDirs" -> integrationDirs
+    }
+  )
+
   import sbtassembly.{AssemblyKeys, MergeStrategy}
   val assemblySettings: Seq[Def.Setting[_]] = List(
     Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
@@ -183,7 +196,6 @@ object BuildKeys {
     Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishLocal in jsonConfig).value
   )
 
-  import sbtbuildinfo.BuildInfoKeys
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
     BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in dep),
@@ -246,6 +258,7 @@ object BuildImplementation {
     BuildKeys.schemaVersion := "3.0",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
+    Keys.onLoad := BuildDefaults.bloopOnLoad.value,
     Keys.publishArtifact in Test := false,
     Pgp.pgpPublicRing := {
       if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
@@ -261,7 +274,7 @@ object BuildImplementation {
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := "2.12.6",
+    Keys.scalaVersion := BuildKeys.Scala212Version,
     Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
@@ -341,6 +354,28 @@ object BuildImplementation {
   final val jvmOptions = "-Xmx4g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
+    private final val kafka =
+      uri("git://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
+
+    /** This onLoad hook will clone any repository required for the build tool integration tests.
+     * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
+    val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
+      Keys.onLoad.value.andThen { state =>
+        val staging = getStagingDirectory(state)
+        // Side-effecting operation to clone kafka if it hasn't been cloned yet
+        sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
+          case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
+          case None => state.log.error("Kafka git reference is invalid and cannot be cloned"); state
+        }
+      }
+    }
+
+    def getStagingDirectory(state: State): File = {
+      // Use the default staging directory, we don't care if the user changed it.
+      val globalBase = sbt.BuildPaths.getGlobalBase(state)
+      sbt.BuildPaths.getStagingDirectory(state, globalBase)
+    }
+
     import sbt.librarymanagement.Artifact
     import ch.epfl.scala.sbt.maven.MavenPluginKeys
     val mavenPluginBuildSettings: Seq[Def.Setting[_]] = List(
@@ -359,6 +394,39 @@ object BuildImplementation {
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
       ),
     )
+
+    import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
+    val gradlePluginBuildSettings: Seq[Def.Setting[_]] = {
+      sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
+        Keys.resolvers ++= List(
+          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
+        ),
+        Keys.libraryDependencies ++= List(
+          Dependencies.gradleCore,
+          Dependencies.gradleToolingApi,
+          Dependencies.groovy
+        ),
+        Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
+        Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
+        BuildKeys.fetchGradleApi := {
+          val logger = Keys.streams.value.log
+          // TODO: we may want to fetch it to a custom unmanaged lib directory under build
+          val targetDir = (Keys.baseDirectory in Compile).value / "lib"
+          GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
+        },
+        // Only generate for tests (they are not published and can contain user-dependent data)
+        BuildInfoKeys.buildInfo in Compile := Nil,
+        BuildInfoKeys.buildInfoKeys in Test := BuildKeys.GradleInfoKeys,
+        BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
+        BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration",
+      )
+    }
+
+    lazy val unmanagedJarsWithGradleApi: Def.Initialize[Task[Keys.Classpath]] = Def.taskDyn {
+      val unmanagedJarsTask = Keys.unmanagedJars.in(Compile).taskValue
+      val _ = BuildKeys.fetchGradleApi.value
+      Def.task(unmanagedJarsTask.value)
+    }
 
     val millModuleBuildSettings: Seq[Def.Setting[_]] = List(
       Keys.libraryDependencies ++= List(
@@ -434,7 +502,6 @@ object BuildImplementation {
     val cacheDirectory = file(stagingBase) / "integrations-cache"
 
     val buildFiles = Set(
-      buildIndexFile,
       buildIntegrationsBase / "sbt-0.13" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-0.13-2" / "build.sbt",
