@@ -367,7 +367,9 @@ object BloopDefaults {
             logger.warn(Feedback.unknownConfigurations(project, unknown, ref))
             s"${ref.project}-test"
         }
-      case None => projectNameFromString(ref.project, configuration)
+      case None =>
+        // If no configuration, default is `Compile` dependency (see scripted tests `cross-compile-test-configuration`)
+        projectNameFromString(ref.project, Compile)
     }
   }
 
@@ -615,6 +617,9 @@ object BloopDefaults {
             project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
           val configDependencies =
             eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c))
+          /*println(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")
+            println(s"[${projectName}] Dependencies from configurations ${configDependencies}")*/
+
           // The distinct here is important to make sure that there are no repeated project deps
           (classpathProjectDependencies ++ configDependencies).distinct.toList
         }

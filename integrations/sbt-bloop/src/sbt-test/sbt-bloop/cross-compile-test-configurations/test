@@ -1,6 +1,7 @@
 > bar/test:compile
 > baz/compile
 > woo/test:compile
+-> yay/test:compile
 > bloopInstall
 > checkBloopFile
 $ copy-file changes/export-jars.sbt export-jars.sbt

@@ -12,10 +12,17 @@ unmanagedSourceDirectories in Compile ++= {
   val bloopBaseDir = root.getParentFile.getParentFile.getAbsoluteFile
   val integrationsMainDir = bloopBaseDir / "integrations"
   val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
+  val scalaDependentDir = {
+    val scalaVersion = Keys.scalaBinaryVersion.value
+    if (scalaVersion == "2.10")
+      bloopBaseDir / "config" / "src" / "main" / s"scala-${Keys.scalaBinaryVersion.value}"
+    else bloopBaseDir / "config" / "src" / "main" / s"scala-2.11-12"
+  }
+
   List(
     root / "src" / "main" / "scala",
     bloopBaseDir / "config" / "src" / "main" / "scala",
-    bloopBaseDir / "config" / "src" / "main" / s"scala-${Keys.scalaBinaryVersion.value}",
+    scalaDependentDir,
     pluginMainDir / "scala",
     pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
   )
