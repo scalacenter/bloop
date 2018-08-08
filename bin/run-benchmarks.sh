@@ -34,18 +34,31 @@ usage() {
 }
 
 main() {
+    # This ensures we cannot run benchmarks concurrently (& there are no stale benchmark processes)
+    (
+      set -o pipefail
+      (ps -C java -o pid && echo "A java process was found running.") | tee "$LOG_FILE"
+    )
+
+    # Delete the directory to start afresh (mkdir it)
+    echo "Deleting $BLOOP_HOME"
+    rm -rf "$BLOOP_HOME"
+    echo "Creating $BLOOP_HOME"
     mkdir -p "$BLOOP_HOME"
 
     JMH_CMD="$BLOOP_JMH_RUNNER"
-    TEMP_DIR=$(mktemp -d)
     SBT_COMMANDS=""
 
-    pushd "$TEMP_DIR"
+    pushd "$BLOOP_HOME"
 
     git clone "$BLOOP_REPO" .
+    echo "git fetch origin $BLOOP_REFERENCE"
     git fetch origin "$BLOOP_REFERENCE"
     git checkout -qf FETCH_HEAD
     git submodule update --init --recursive
+
+    echo "Setting up the machine before benchmarks..."
+    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set
 
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
@@ -79,10 +92,14 @@ main() {
         SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD $benchmark"
     done
 
-    sbt -no-colors "$SBT_COMMANDS" | tee "$LOG_FILE"
-
-    popd
-    rm -rf "$TEMP_DIR"
+    if ! sbt -no-colors "$SBT_COMMANDS" | tee "$LOG_FILE"; then
+      popd
+      echo "BENCHMARKS FAILED."
+      exit 1
+    else
+      popd
+      echo "FINISHED OK."
+    fi
 }
 
 while [ "$1" != "" ]; do
