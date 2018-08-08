@@ -2,13 +2,15 @@
 set -o pipefail
 
 BLOOP_DEFAULT_REFERENCE="master"
-BLOOP_SMALL_JMH_OPTIONS="-wi 10 -i 10 -f3 -t1"
-BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f2 -t1"
+BLOOP_SMALL_JMH_OPTIONS="-wi 15 -i 10 -f1 -t1"
+BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
 BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
+BLOOP_GIGANTIC_JMH_OPTIONS="-wi 10 -i 5 -f1 -t1"
 
 BLOOP_REFERENCE="$BLOOP_DEFAULT_REFERENCE"
 BLOOP_JMH_RUNNER="benchmarks/jmh:run"
 BLOOP_HOME="$HOME/bloop-benchmarks"
+BLOOP_LOGS_DIR="$HOME/bloop-logs"
 BLOOP_REPO="https://github.com/scalacenter/bloop.git"
 
 usage() {
@@ -46,6 +48,9 @@ main() {
     echo "Creating $BLOOP_HOME"
     mkdir -p "$BLOOP_HOME"
 
+    # Create logs dir if it doesn't exist
+    mkdir -p "$BLOOP_LOGS_DIR"
+
     JMH_CMD="$BLOOP_JMH_RUNNER"
     SBT_COMMANDS=""
 
@@ -72,33 +77,36 @@ main() {
     done
 
     SBT_BLOOP_BENCHMARKS=(
+      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
       "$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=akka -p projectName=akka"
+      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=spark -p projectName=examples"
       # "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
-      # "$BLOOP_LARGE_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
     )
 
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
         SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
     done
 
-    BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
-    for benchmark in "${BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD $benchmark"
-    done
+    #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
+    #for benchmark in "${BLOOP_BENCHMARKS[@]}"; do
+    #    SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD $benchmark"
+    #done
 
+    TARGET_LOG_FILE="$BLOOP_LOGS_DIR/benchmarks-$(date --iso-8601=seconds).log"
     if ! sbt -no-colors "$SBT_COMMANDS" | tee "$LOG_FILE"; then
       popd
-      echo "BENCHMARKS FAILED."
+      cp "$LOG_FILE" "$TARGET_LOG_FILE"
+      echo "BENCHMARKS FAILED. Log file is $TARGET_LOG_FILE"
       exit 1
     else
+      cp "$LOG_FILE" "$TARGET_LOG_FILE"
       popd
-      echo "FINISHED OK."
+      echo "FINISHED OK. Log file is $TARGET_LOG_FILE"
     fi
 }
 
