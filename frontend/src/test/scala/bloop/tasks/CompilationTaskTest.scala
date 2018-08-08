@@ -1,10 +1,11 @@
 package bloop.tasks
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import org.junit.Test
-import org.junit.Assert.assertTrue
+import org.junit.Assert.{assertFalse, assertTrue}
 import org.junit.experimental.categories.Category
 import bloop.ScalaInstance
 import bloop.cli.Commands
@@ -36,11 +37,29 @@ class CompilationTaskTest {
 
   @Test
   def compileAnEmptyProject = {
+    val logger = new RecordingLogger
     val projectStructures = Map(RootProject -> Map.empty[String, String])
     val dependencies = Map.empty[String, Set[String]]
-    checkAfterCleanCompilation(projectStructures, dependencies, quiet = true) { (state: State) =>
+    checkAfterCleanCompilation(
+      projectStructures,
+      dependencies,
+      quiet = true,
+      useSiteLogger = Some(logger)
+    ) { state =>
       val targetProject = getProject(RootProject, state)
+      assertTrue(state.status.isOk)
+      // Result is empty even if compilation didn't contain any Scala source files
       assertTrue(hasPreviousResult(targetProject, state))
+
+      // Make sure that no Scala source files are ever compiled if they don't show up in project sources
+      val newSourcePath = state.build.origin.resolve("Z.scala")
+      Files.write(newSourcePath.underlying, "object A".getBytes(StandardCharsets.UTF_8))
+
+      // Let's compile the root project again, we should have no more logs
+      val newState = TestUtil.blockingExecute(Run(Commands.Compile(RootProject)), state)
+      assertTrue(newState.status.isOk)
+      assertTrue(hasPreviousResult(targetProject, newState))
+      assertFalse(logger.getMessages.exists(_._2.contains("Compiling")))
     }
   }
 
@@ -110,6 +129,35 @@ class CompilationTaskTest {
       errors.exists(_.contains("expected class or object definition")),
       "Missing compiler errors"
     )
+  }
+
+  @Test
+  def compileAndDetectInvalidScalacFlags(): Unit = {
+    val logger = new RecordingLogger
+    val dependencies = Map.empty[String, Set[String]]
+    val structures = Map(RootProject -> Map("A.scala" -> "object A"))
+
+    checkAfterCleanCompilation(
+      structures,
+      dependencies,
+      scalaInstance = scalaInstance2124(logger),
+      useSiteLogger = Some(logger)
+    ) { state =>
+      assertTrue(state.status.isOk)
+
+      // The project successfully compiled with no flags, let's add a wrong flag and see it fail
+      val newProjects =
+        state.build.projects.map(p => p.copy(scalacOptions = "-Ytyper-degug" :: p.scalacOptions))
+      val newState = state.copy(build = state.build.copy(projects = newProjects))
+      val erroneousState = TestUtil.blockingExecute(Run(Commands.Compile(RootProject)), newState)
+      assertFalse(erroneousState.status.isOk)
+
+      val errors = TestUtil.errorsFromLogger(logger)
+      assert(
+        errors.exists(_.contains("bad option: '-Ytyper-degug'")),
+        "Missing compiler errors about scalac flgg"
+      )
+    }
   }
 
   @Test
