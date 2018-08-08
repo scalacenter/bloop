@@ -63,7 +63,7 @@ main() {
     git submodule update --init --recursive
 
     echo "Setting up the machine before benchmarks..."
-    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set || exit 1
+    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" check || exit 1
 
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
