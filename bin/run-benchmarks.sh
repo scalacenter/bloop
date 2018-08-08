@@ -37,7 +37,7 @@ main() {
     # This ensures we cannot run benchmarks concurrently (& there are no stale benchmark processes)
     (
       set -o pipefail
-      (ps -C java -o pid && echo "A java process was found running.") | tee "$LOG_FILE"
+      ((ps -C java -o pid && echo "A java process was found running.") | tee "$LOG_FILE") || exit 1
     )
 
     # Delete the directory to start afresh (mkdir it)
@@ -58,7 +58,7 @@ main() {
     git submodule update --init --recursive
 
     echo "Setting up the machine before benchmarks..."
-    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set
+    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set || exit 1
 
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
