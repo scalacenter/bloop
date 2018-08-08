@@ -81,7 +81,7 @@ main() {
       "$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=spark -p projectName=examples"
+      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
       # "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
