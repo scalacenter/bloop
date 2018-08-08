@@ -41,7 +41,7 @@ final class SourceWatcher private (
     val allPaths = (files ++ dirs).asJava
     var watchingEnabled: Boolean = true
     val watcher = DirectoryWatcher.create(
-      allPaths,
+      dirs.asJava,
       new DirectoryChangeListener {
         // Define `isWatching` just for correctness
         override def isWatching: Boolean = watchingEnabled
@@ -65,6 +65,21 @@ final class SourceWatcher private (
       },
       slf4jLogger
     )
+
+    // By using the internal `register` we can watch the parents of the source files non-recursively
+    val parentDirectories = files.map(_.getParent).distinct
+    parentDirectories.foreach { dir =>
+      if (logger.isVerbose) {
+        // Log the reason why we're wathing this directory in a quick and dirty fashion
+        files.find(_.getParent == dir) match {
+          case Some(file) => logger.debug(s"Watching ${dir} because of $file")
+          case None => logger.debug(s"Watching ${dir} because a source file asked for it.")
+        }
+      }
+
+      // Register the directory to be watched in a non-recursive fashion
+      watcher.register(dir, false)
+    }
 
     // Use Java's completable future because we can stop/complete it from the cancelable
     val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
