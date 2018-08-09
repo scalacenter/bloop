@@ -5,7 +5,7 @@ import java.io.File
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.{Project, Task}
+import org.gradle.api.{Project, Task, GradleException}
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
@@ -36,7 +36,7 @@ object syntax {
         project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.getByName(name)
       } catch {
         case NonFatal(e) =>
-          throw new RuntimeException(s"Could not find java plugin convention for $project with plugins $plugins", e)
+          throw new GradleException(s"Could not find java plugin convention for $project with plugins $plugins", e)
       }
     }
 
