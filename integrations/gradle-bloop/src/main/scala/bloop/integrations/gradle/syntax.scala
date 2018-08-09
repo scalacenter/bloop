@@ -8,8 +8,8 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.{Project, Task}
 
 import scala.collection.JavaConverters._
-
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
 
 object syntax {
 
@@ -31,7 +31,13 @@ object syntax {
     }
 
     def getSourceSet(name: String): SourceSet = {
-      project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.getByName(name)
+      val plugins = project.getConvention.getPlugins
+      try {
+        project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.getByName(name)
+      } catch {
+        case NonFatal(e) =>
+          throw new RuntimeException(s"Could not find java plugin convention for $project with plugins $plugins", e)
+      }
     }
 
     def allSourceSets: Set[SourceSet] = {
