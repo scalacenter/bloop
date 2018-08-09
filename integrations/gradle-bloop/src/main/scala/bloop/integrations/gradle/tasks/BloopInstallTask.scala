@@ -5,6 +5,7 @@ import java.nio.file.Files
 
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.model.BloopConverter
+import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.tasks.{SourceSet, TaskAction}
 import org.gradle.api.{DefaultTask, Project}
@@ -52,14 +53,14 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
     // Generate the bloop configuration files for the rest of the source sets
     for (sourceSet <- otherSourceSets) {
       val projectName = converter.getProjectName(project, sourceSet)
-      // Hardcore an implicit dependency for every source set to the main source set (compile)
-      generateBloopConfiguration(projectName, List(mainProjectName), sourceSet, targetDir, false)
+      // Hardcode an implicit dependency for every source set to the main source set (compile)
+      generateBloopConfiguration(projectName, List(SourceSetDep(mainProjectName, converter.getClassesDir(project, mainSourceSet))), sourceSet, targetDir, false)
     }
   }
 
   private def generateBloopConfiguration(
       projectName: String,
-      projectDependencies: List[String],
+      projectDependencies: List[SourceSetDep],
       sourceSet: SourceSet,
       targetDir: File,
       mandatory: Boolean
