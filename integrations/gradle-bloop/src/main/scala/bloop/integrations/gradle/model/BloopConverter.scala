@@ -46,7 +46,7 @@ final class BloopConverter(parameters: BloopParameters) {
       sourceSet: SourceSet,
       targetDir: File
   ): Try[Config.File] = {
-    val configuration = project.getConfiguration(sourceSet.getCompileConfigurationName)
+    val configuration = project.getConfiguration(sourceSet.getCompileClasspathConfigurationName)
     val artifacts: List[ResolvedArtifact] =
       configuration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
 
