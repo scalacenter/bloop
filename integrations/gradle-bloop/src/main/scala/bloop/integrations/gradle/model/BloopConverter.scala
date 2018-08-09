@@ -51,7 +51,9 @@ final class BloopConverter(parameters: BloopParameters) {
 
     // We cannot turn this into a set directly because we need the topological order for correctness
     val projectDependencies: List[ProjectDependency] =
-      configuration.getAllDependencies.asScala.collect { case dep: ProjectDependency => dep }.toList
+      configuration.getAllDependencies.asScala.collect {
+        case dep: ProjectDependency if dep.getDependencyProject.getConvention.getPlugins.containsKey("java") => dep
+      }.toList
     val dependencyClasspath: List[ResolvedArtifact] = artifacts
       .filter(resolvedArtifact => !isProjectDependency(projectDependencies, resolvedArtifact))
 
