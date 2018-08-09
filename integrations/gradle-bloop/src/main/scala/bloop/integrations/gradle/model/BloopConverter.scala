@@ -235,32 +235,41 @@ final class BloopConverter(parameters: BloopParameters) {
 
     val additionalOptions: Set[String] =
       if (options.getAdditionalParameters != null) {
-        mergeEncodingOption(options.getAdditionalParameters.asScala.toList).toSet
+        mergeFlags(options.getAdditionalParameters.asScala.toList).toSet
       } else {
         Set.empty
       }
 
     val optionSet = baseOptions.union(loggingPhases).union(additionalOptions)
-    splitEncodingOption(optionSet.toList)
+    // sorting here only to make tests deterministic
+    splitFlags(optionSet.toList.sorted)
   }
 
-  private def mergeEncodingOption(values: List[String]): List[String] =
+  private val flagSeparator = '\u0000'
+  private val flagSeparatorString = s"$flagSeparator"
+
+  private def mergeFlags(values: List[String]): List[String] =
     values match {
-      case "-encoding" :: charset :: rest =>
-        s"-encoding $charset" :: mergeEncodingOption(rest)
       case value :: rest =>
-        value :: mergeEncodingOption(rest)
+        val (args, flags) = splitFlagArgs(rest)
+        (value :: args).mkString(flagSeparatorString) :: mergeFlags(flags)
       case Nil =>
         Nil
     }
 
-  private def splitEncodingOption(values: List[String]): List[String] =
+  private def splitFlagArgs(strings: List[String]): (List[String], List[String]) =
+    strings match {
+      case arg :: rest if !arg.startsWith("-") =>
+        val (args, flags) = splitFlagArgs(rest)
+        (arg :: args, flags)
+
+      case _ =>
+        (Nil, strings)
+    }
+
+  private def splitFlags(values: List[String]): List[String] =
     values.flatMap { value =>
-      if (value.startsWith("-encoding ")) {
-        value.split(' ').toList
-      } else {
-        List(value)
-      }
+      value.split(flagSeparator)
     }
 
   private val scalaCheckFramework = Config.TestFramework(
