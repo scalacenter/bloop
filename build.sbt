@@ -180,31 +180,16 @@ val gradleBloop = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig211)
+  .dependsOn(jsonConfig212, frontend % "test->test")
+  .settings(testSettings)
   .settings(name := "gradle-bloop")
   .settings(BuildDefaults.gradlePluginBuildSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
-  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
-  .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile)
-  .settings(
-    sourceDirectories in Test := Nil,
-    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211)).value,
-    test in Test := Def.task {
-      Keys.streams.value.log.error("Run 'gradleBloopTests/test' instead to test the gradle plugin.")
-    },
-  )
-
-// Gradle tests are defined in 2.12 project because we need to pull in frontend % Test
-lazy val gradleBloopTests = project
-  .in(file("integrations") / "gradle-bloop")
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212, frontend % "test->test")
-  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
-  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212).value)
   .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile)
-  .settings(skip in publish := true)
+  .settings(
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value,
+  )
 
 val millBloop = project
   .in(integrations / "mill-bloop")
@@ -269,7 +254,6 @@ val allProjects = Seq(
   sbtBloop10,
   mavenBloop,
   gradleBloop,
-  gradleBloopTests,
   millBloop,
   nativeBridge,
   jsBridge06,
