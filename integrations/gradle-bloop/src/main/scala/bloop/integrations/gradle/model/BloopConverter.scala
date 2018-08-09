@@ -98,11 +98,16 @@ final class BloopConverter(parameters: BloopParameters) {
 
   def getProjectName(project: Project, sourceSet: SourceSet): String = {
     if (sourceSet.getName == parameters.mainSourceSet) {
-      project.getName
+      projectPathName(project)
     } else {
-      s"${project.getName}-${sourceSet.getName}"
+      s"${projectPathName(project)}-${sourceSet.getName}"
     }
   }
+
+  // project.getName is not unique; for subprojects :a:b and :c:b it's "b" for both.
+  private def projectPathName(project: Project): String =
+    if (project == project.getRootProject) project.getName
+    else project.getPath.stripMargin(':').replace(':', '-')
 
   private def getClassesDir(project: Project, sourceSet: SourceSet): Path =
     (project.getBuildDir / "classes" / "bloop" / sourceSet.getName).toPath
