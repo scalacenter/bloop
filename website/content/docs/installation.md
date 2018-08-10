@@ -34,6 +34,24 @@ $ brew services start bloop
 
 Homebrew also automatically installs completions for zsh and Bash.
 
+## Nixos (Unofficial)
+
+Bloop is available on the unstable channel of nixos. Install it via:
+
+```sh
+nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
+nix-channel --update
+nix-env -iA nixos-unstable.bloop
+```
+
+The service does not start automatically. You can start it with:
+
+```sh
+systemctl --user start bloop
+```
+
+Nixos is not officially supported and therefore may not be up-to-date with the latest version.
+
 ## Other platforms
 
 Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
