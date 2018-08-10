@@ -79,6 +79,7 @@ object ReleaseUtils {
        |      bash_completion.install "bin/bash/bloop"
        |      File.delete("bin/blp-coursier")
        |      FileUtils.mkdir_p("log/bloop/")
+       |      FileUtils.chmod_R 0777, "log"
        |
        |      prefix.install "bin"
        |      prefix.install "log"
