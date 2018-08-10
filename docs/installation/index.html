@@ -180,6 +180,22 @@ start it manually.</p>
 
 <p>Homebrew also automatically installs completions for zsh and Bash.</p>
 
+<h2 id="nixos-unofficial">Nixos (Unofficial)</h2>
+
+<p>Bloop is available on the unstable channel of nixos. Install it via:</p>
+
+<pre><code class="language-sh">nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
+nix-channel --update
+nix-env -iA nixos-unstable.bloop
+</code></pre>
+
+<p>The service does not start automatically. You can start it with:</p>
+
+<pre><code class="language-sh">systemctl --user start bloop
+</code></pre>
+
+<p>Nixos is not officially supported and therefore may not be up-to-date with the latest version.</p>
+
 <h2 id="other-platforms">Other platforms</h2>
 
 <p>Install bloop in other platforms (Windows, Unix, *bsd) via our python script:</p>
