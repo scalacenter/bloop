@@ -89,7 +89,7 @@ main() {
     )
 
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Bloop|BloopNoIncremental)Benchmark.* $benchmark"
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopNoIncrementalBenchmark.* $benchmark"
     done
 
     #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
