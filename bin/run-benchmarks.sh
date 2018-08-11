@@ -68,8 +68,8 @@ main() {
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
     SCALAC_SBT_BLOOP_BENCHMARKS=(
-      #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
-      #"$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
+      "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files"
     )
 
     for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"; do
@@ -77,15 +77,14 @@ main() {
     done
 
     SBT_BLOOP_BENCHMARKS=(
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
-      "$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
-      # "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
+      #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
+      #"$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
+      #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
+      #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
     )
 
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
