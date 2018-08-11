@@ -233,35 +233,41 @@ final class BloopConverter(parameters: BloopParameters) {
         .getOrElse(Set.empty)
         .map(phase => s"-Ylog:$phase")
 
-    val additionalOptions: Set[String] =
-      if (options.getAdditionalParameters != null) {
-        mergeEncodingOption(options.getAdditionalParameters.asScala.toList).toSet
-      } else {
-        Set.empty
-      }
+    val additionalOptions: Set[String] = {
+      val opts = options.getAdditionalParameters
+      if (opts == null) Set.empty
+      else fuseOptionsWithArguments(opts.asScala.toList).toSet
+    }
 
-    val optionSet = baseOptions.union(loggingPhases).union(additionalOptions)
-    splitEncodingOption(optionSet.toList)
+    // Sort compiler flags to get a deterministic order when extracting the project
+    splitFlags(baseOptions.union(loggingPhases).union(additionalOptions).toList.sorted)
   }
 
-  private def mergeEncodingOption(values: List[String]): List[String] =
-    values match {
-      case "-encoding" :: charset :: rest =>
-        s"-encoding $charset" :: mergeEncodingOption(rest)
-      case value :: rest =>
-        value :: mergeEncodingOption(rest)
-      case Nil =>
-        Nil
+  private final val argumentSpaceSeparator = '\u0000'
+  private final val argumentSpace = argumentSpaceSeparator.toString
+  private def fuseOptionsWithArguments(scalacOptions: List[String]): List[String] = {
+    scalacOptions match {
+      case scalacOption :: rest =>
+        val (args, remaining) = nextArgsAndRemaining(rest)
+        val fused = (scalacOption :: args).mkString(argumentSpace)
+        fused :: fuseOptionsWithArguments(remaining)
+      case Nil => Nil
     }
+  }
 
-  private def splitEncodingOption(values: List[String]): List[String] =
-    values.flatMap { value =>
-      if (value.startsWith("-encoding ")) {
-        value.split(' ').toList
-      } else {
-        List(value)
-      }
+  private def nextArgsAndRemaining(scalacOptions: List[String]): (List[String], List[String]) = {
+    scalacOptions match {
+      case arg :: rest if !arg.startsWith("-") =>
+        val (args, flags) = nextArgsAndRemaining(rest)
+        (arg :: args, flags)
+      // If next option starts with '-', then no scalac option is left to process
+      case _ => (Nil, scalacOptions)
     }
+  }
+
+  private def splitFlags(values: List[String]): List[String] = {
+    values.flatMap(value => value.split(argumentSpaceSeparator))
+  }
 
   private val scalaCheckFramework = Config.TestFramework(
     List(
