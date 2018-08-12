@@ -176,6 +176,7 @@ class HotBloopNoIncrementalBenchmark {
       "-Dbloop.zinc.disabled=true",
       "-Xms2G",
       findMaxHeap(project),
+      "-XX:+UseShenandoahGC", // It will be ignored by all JVMs except the one it has it
       "-XX:ReservedCodeCacheSize=128m",
       "-jar",
       bloopJarPath,

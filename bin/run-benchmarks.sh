@@ -88,9 +88,9 @@ main() {
     )
 
     JAVA_HOMES=(
-      "/usr/lib/jvm/java-10-oracle/bin/java"
+      #"/usr/lib/jvm/java-10-oracle/bin/java"
       "/usr/lib/jvm/java-8-shenandoah/bin/java"
-      "/usr/lib/jvm/java-8-oracle/bin/java"
+      #"/usr/lib/jvm/java-8-oracle/bin/java"
       #"/usr/lib/jvm/java-8-graal-ee"
     )
 
@@ -98,11 +98,7 @@ main() {
       #SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
 
       for java_home in "${JAVA_HOMES[@]}"; do
-        if [[ "$java_home" == *"shenandoah"* ]]; then
-          SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home -jvmArgs -XX:+UseShenandoahGC"
-        else
-          SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
-        fi
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
       done
     done
 
