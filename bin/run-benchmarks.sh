@@ -68,17 +68,17 @@ main() {
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
     SCALAC_SBT_BLOOP_BENCHMARKS=(
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files"
+      #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files"
     )
 
     for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotScalacBenchmark.* $benchmark"
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot.*Benchmark.* $benchmark"
     done
 
     SBT_BLOOP_BENCHMARKS=(
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
-      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
+      "$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
       #"$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
@@ -87,8 +87,23 @@ main() {
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
     )
 
+    JAVA_HOMES=(
+      "/usr/lib/jvm/java-10-oracle"
+      "/usr/lib/jvm/java-8-shenandoah"
+      "/usr/lib/jvm/java-8-oracle"
+      #"/usr/lib/jvm/java-8-graal-ee"
+    )
+
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopNoIncrementalBenchmark.* $benchmark"
+      #SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
+
+      for java_home in "${JAVA_HOMES[@]}"; do
+        if [[ "$java_home" == *"shenandoah"* ]]; then
+          SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
+        else
+          SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home -jvmArgs -XX:+UseShenandoahGC"
+        fi
+      done
     done
 
     #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
