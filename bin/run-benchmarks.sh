@@ -68,12 +68,12 @@ main() {
     SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
 
     SCALAC_SBT_BLOOP_BENCHMARKS=(
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=mini-better-files -p projectName=mini-better-files"
     )
 
     for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot.*Benchmark.* $benchmark"
+        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotScalacBenchmark.* $benchmark"
     done
 
     SBT_BLOOP_BENCHMARKS=(
