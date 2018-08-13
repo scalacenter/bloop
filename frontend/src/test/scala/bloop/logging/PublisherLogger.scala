@@ -23,6 +23,8 @@ final class PublisherLogger(
       messages.add((key, value))
       observer.onNext((key, value))
     }
+
+    ()
   }
 
   import scala.collection.JavaConverters._

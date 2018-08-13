@@ -167,7 +167,7 @@ class FileWatchingSpec {
     }
 
     val t = Task.zip2(Task.fromFuture(testFuture), checkTests).doOnCancel(Task(testFuture.cancel()))
-    TestUtil.blockOnTask(t, 20)
+    TestUtil.blockOnTask(t, 20.toLong)
     ()
   }
 

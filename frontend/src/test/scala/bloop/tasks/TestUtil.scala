@@ -77,7 +77,7 @@ object TestUtil {
     Interpreter.execute(a, Task.now(state))
   }
 
-  def blockOnTask[T](task: Task[T], seconds: Int): T = {
+  def blockOnTask[T](task: Task[T], seconds: Long): T = {
     val duration = Duration(seconds, TimeUnit.SECONDS)
     val handle = task.runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
