@@ -4,6 +4,7 @@ import java.io.IOException
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.TimeUnit
 
 import bloop.cli.Commands
 import bloop.config.Config
@@ -73,8 +74,14 @@ object TestUtil {
   }
 
   def interpreterTask(a: Action, state: State): Task[State] = {
-    Interpreter
-      .execute(a, Task.now(state))
+    Interpreter.execute(a, Task.now(state))
+  }
+
+  def blockOnTask[T](task: Task[T], seconds: Long): T = {
+    val duration = Duration(seconds, TimeUnit.SECONDS)
+    val handle = task.runAsync(ExecutionContext.scheduler)
+    try Await.result(handle, duration)
+    catch { case NonFatal(t) => handle.cancel(); throw t }
   }
 
   def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {

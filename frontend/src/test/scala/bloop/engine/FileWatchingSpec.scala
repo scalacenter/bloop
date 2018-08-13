@@ -1,198 +1,174 @@
 package bloop.engine
 
-import java.io.{ByteArrayOutputStream, PrintStream}
-import java.nio.file.{Files, Path, Paths}
-import java.util.UUID
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import bloop.Project
-import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.logging.BloopLogger
+import bloop.cli.Commands
+import bloop.logging.{Logger, PublisherLogger}
 import bloop.exec.JavaEnv
+import bloop.io.AbsolutePath
 import bloop.io.Paths.delete
 import bloop.tasks.{CompilationHelpers, TestUtil}
-import bloop.tasks.TestUtil.{RootProject, noPreviousResult, withState}
+import bloop.tasks.TestUtil.{RootProject, withState}
 import monix.eval.Task
 import monix.execution.Scheduler
+import monix.reactive.{MulticastStrategy, Observable}
 import org.junit.Test
 import org.junit.experimental.categories.Category
+import org.junit.Assert.assertTrue
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 @Category(Array(classOf[bloop.FastTests]))
 class FileWatchingSpec {
-  @scala.annotation.tailrec
-  final def readCompilingLines(target: Int, msg: String, out: ByteArrayOutputStream): Int = {
-    Thread.sleep(100) // Wait 150ms for the OS's file system
-    val allContents = out.toString("UTF-8")
-    val allLines = allContents.split(System.lineSeparator())
-    val compiled = allLines.count(_.replaceAll("\u001B\\[[;\\d]*m", "").contains(msg))
-    if (compiled == target) compiled
-    else readCompilingLines(target, msg, out)
-  }
-
-  // We have here our own artificial sources
   object ArtificialSources {
     val `A.scala` = "package p0\ntrait A"
     val `B.scala` = "package p1\ntrait B"
     val `C.scala` = "package p2\nclass C extends p0.A with p1.B"
   }
 
-  def addNonExistingSources(project: Project): Project = {
-    val currentSources = project.sources
-    currentSources.headOption match {
-      case Some(source) =>
-        val fakeSource = source.getParent.resolve("fake-source-dir-scala")
-        project.copy(sources = currentSources ++ Array(fakeSource))
-      case None => project
-    }
-  }
-
-  type FileWatchingContext = (State, Project, ByteArrayOutputStream)
-  def testFileWatcher(state0: State, projectName: String)(
-      workerAction: FileWatchingContext => Unit,
-      testAction: (FileWatchingContext, Thread) => Unit): Unit = {
-    import scala.concurrent.Await
-    import scala.concurrent.duration
-    implicit val scheduler = ExecutionContext.scheduler
-    val projects0 = state0.build.projects
-    val rootProject0 = projects0
-      .find(_.name == projectName)
-      .getOrElse(sys.error(s"Project $projectName could not be found!"))
-    // Add non-existing sources on purpose to the project to ensure it doesn't crash
-    val rootProject = addNonExistingSources(rootProject0)
-    val cleanAction = Run(Commands.Clean(rootProject.name :: Nil), Exit(ExitStatus.Ok))
-    val state = TestUtil.blockingExecute(cleanAction, state0)
-    val projects = state.build.projects
-    assert(projects.forall(p => noPreviousResult(p, state)))
-
-    // The worker thread runs the watched compilation
-    val bloopOut = new ByteArrayOutputStream()
-    val ctx: FileWatchingContext = (state, rootProject, bloopOut)
-    val workerThread = new Thread { override def run(): Unit = workerAction(ctx) }
-    val testFuture = scala.concurrent.Future { testAction(ctx, workerThread) }
-    try Await.ready(testFuture, duration.Duration(15, duration.SECONDS))
-    catch { case t: Throwable => println(s"LOGS WERE ${bloopOut.toString("UTF-8")}"); throw t }
-    ()
-  }
-
   @Test
-  def watchCompile(): Unit = {
+  def testFileWatchingForCompile(): Unit = {
     val structures = Map(
       "parent0" -> Map("A.scala" -> ArtificialSources.`A.scala`),
       "parent1" -> Map("B.scala" -> ArtificialSources.`B.scala`),
       RootProject -> Map("C.scala" -> ArtificialSources.`C.scala`)
     )
 
-    val workerAction: FileWatchingContext => Unit = {
-      case (state, project, bloopOut) =>
-        val cliOptions0 = CliOptions.default
-        val newOut = new PrintStream(bloopOut)
-        val loggerName = UUID.randomUUID().toString
-        val newLogger = BloopLogger.at(loggerName, newOut, newOut, false)
-        val newState = state.copy(logger = newLogger)
-        val commonOptions = cliOptions0.common.copy(out = newOut)
-        val cliOptions = cliOptions0.copy(common = commonOptions)
-        val cmd = Commands.Compile(project.name, watch = true, cliOptions = cliOptions)
-        TestUtil.blockingExecute(Run(cmd), newState)
-        ()
-    }
-
-    val testAction: (FileWatchingContext, Thread) => Unit = {
-      case ((state, project, bloopOut), workerThread) =>
-        // Start the compilation
-        workerThread.start()
-        // Wait for #1 compilation to finish
-        readCompilingLines(3, "Compiling 1 Scala source to", bloopOut)
-        // Let's wait half a second so that file watching mode is enabled
-        Thread.sleep(1500)
-
-        // Write the contents of a new file to force recompilation
-        val newSource = project.sources.head.resolve("D.scala").underlying
-        Files.write(newSource, "object ForceRecompilation {}".getBytes("UTF-8"))
-        // Wait for #2 compilation to finish
-        readCompilingLines(4, "Compiling 1 Scala source to", bloopOut)
-        // Finish source file watching
-        workerThread.interrupt()
-    }
-
     val dependencies = Map(RootProject -> Set("parent0", "parent1"))
     val instance = CompilationHelpers.scalaInstance
-    val javaEnv = JavaEnv.default
-    withState(structures, dependencies, scalaInstance = instance, javaEnv = javaEnv) {
+    withState(structures, dependencies, scalaInstance = instance, javaEnv = JavaEnv.default) {
       (state: State) =>
-        testFileWatcher(state, RootProject)(workerAction, testAction)
+        val load = (logger: Logger) => state.copy(logger = logger)
+        val cmd = Run(Commands.Compile(RootProject, watch = true))
+        val signalMsg = "Done compiling."
+        val messagesToCheck = List(
+          "Compiling 2 Scala sources to" -> 1,
+          "Compiling 1 Scala source to" -> 4
+        )
+
+        checkFileWatchingIteration(load, RootProject, cmd, signalMsg, messagesToCheck)
     }
   }
 
   @Test
-  def watchTest(): Unit = {
-    val TestProjectName = "with-tests"
-    val testProject = s"$TestProjectName-test"
-    val state = TestUtil.loadTestProject(TestProjectName)
+  def testFileWatchingForTests(): Unit = {
+    val targetProject = "with-tests-test"
+    val load = (logger: Logger) => TestUtil.loadTestProject("with-tests").copy(logger = logger)
+    val runTest = Run(Commands.Test(targetProject, watch = true))
+    val messagesToCheck = List(
+      "Compiling 1 Scala source to" -> 3,
+      "Compiling 7 Scala sources to" -> 1,
+      "is very personal" -> 3,
+      "+ Greeting.is personal: OK" -> 3,
+      "- should be very personal" -> 3,
+      "Total for specification Specs2Test" -> 3
+    )
 
-    val workerAction: FileWatchingContext => Unit = {
-      case (state, project, bloopOut) =>
-        val cliOptions0 = CliOptions.default
-        val newOut = new PrintStream(bloopOut)
-        val loggerName = UUID.randomUUID().toString
-        val newLogger = BloopLogger.at(loggerName, newOut, newOut, false).asVerbose
-        val newState = state.copy(logger = newLogger)
-        val commonOptions1 = state.commonOptions.copy(out = newOut)
-        val cliOptions = cliOptions0.copy(common = commonOptions1)
-        val cmd = Commands.Test(project.name, watch = true, cliOptions = cliOptions)
-        TestUtil.blockingExecute(Run(cmd), newState)
-        ()
+    val signalMsg = "Test server has been successfully closed."
+    checkFileWatchingIteration(load, targetProject, runTest, signalMsg, messagesToCheck)
+  }
+
+  /**
+   * Adds non-existing source files and single source files to the project to make sure
+   * that the file watcher handles them correctly. Source files/dirs that don't exist must
+   * be ignored, and single source files that do exist require the watching of its parent.
+   */
+  private def addNonExistingAndSingleFileSourceTo(project: Project): (Project, AbsolutePath) = {
+    val currentSources = project.sources
+    currentSources.headOption match {
+      case Some(source) =>
+        val fakeSource = source.getParent.resolve("fake-source-dir-scala")
+        val singleFile = project.baseDirectory.resolve("x.scala")
+        Files.write(singleFile.underlying, "trait X".getBytes(StandardCharsets.UTF_8))
+        project.copy(sources = currentSources ++ List(fakeSource, singleFile)) -> singleFile
+      case None => sys.error(s"Project ${project.name} has no source directories/files!")
+    }
+  }
+
+  private def numberDirsOf(project: Project, state: State): Int = {
+    val reachable = Dag.dfs(state.build.getDagFor(project))
+    val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying).toList
+    allSources.filter { p =>
+      val s = p.toString
+      Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java")
+    }.length
+  }
+
+  private def checkFileWatchingIteration(
+      load: Logger => State,
+      targetProject: String,
+      commandToRun: Action,
+      signalMsg: String,
+      targetMessages: List[(String, Int)],
+      debug: Boolean = false
+  ): Unit = {
+    import ExecutionContext.ioScheduler
+    val (observer, observable) =
+      Observable.multicast[(String, String)](MulticastStrategy.publish)(ioScheduler)
+    val logger = new PublisherLogger(observer, debug = debug)
+
+    // Let's modify the project to add special sources to check the right behaviour of the watcher
+    val (state, singleFile) = {
+      val state0 = load(logger)
+      val (project, singleFile) = addNonExistingAndSingleFileSourceTo(
+        state0.build.getProjectFor(targetProject).get)
+      val newProjects =
+        state0.build.projects.mapConserve(p => if (p.name == targetProject) project else p)
+      state0.copy(build = state0.build.copy(projects = newProjects)) -> singleFile
     }
 
-    val testAction: (FileWatchingContext, Thread) => Unit = {
-      case ((state, project, bloopOut), workerThread) =>
-        // Start the compilation
-        workerThread.start()
-
-        val reachable = Dag.dfs(state.build.getDagFor(project))
-        val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying).toList
-        val existingProjectSources = allSources.filter { p =>
-          val s = p.toString
-          Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java")
+    val project = state.build.getProjectFor(targetProject).get
+    val targetMsg = s"Watching ${numberDirsOf(project, state)}"
+    def isIterationOver(observable: Observable[(String, String)], iteration: Int): Task[Unit] = {
+      observable
+        .existsL {
+          case (level, msg) => level == "info" && msg.contains(targetMsg)
         }
-
-        // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
-        val newSource = project.sources.head.resolve("D.scala")
-        if (Files.exists(newSource.underlying)) delete(newSource)
-
-        val dirsToWatch = existingProjectSources.length
-
-        // Wait for #1 compilation to finish
-        readCompilingLines(1, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 6 Scala sources to", bloopOut)
-        readCompilingLines(1, "+ is very personal", bloopOut)
-        readCompilingLines(1, "+ Greeting.is personal: OK", bloopOut)
-        readCompilingLines(1, "- should be very personal", bloopOut)
-        readCompilingLines(1, "Total for specification Specs2Test", bloopOut)
-        readCompilingLines(2, "Test server has been successfully closed.", bloopOut)
-        readCompilingLines(1,
-                           s"Watching $dirsToWatch directories... (press C-c to interrupt)",
-                           bloopOut)
-
-        // Write the contents of a source back to the same source
-        Files.write(newSource.underlying, "object ForceRecompilation {}".getBytes("UTF-8"))
-
-        // Wait for #2 compilation to finish
-        readCompilingLines(2, "Compiling 1 Scala source to", bloopOut)
-        readCompilingLines(1, "Compiling 6 Scala sources to", bloopOut)
-        readCompilingLines(2, "+ is very personal", bloopOut)
-        readCompilingLines(2, "+ Greeting.is personal: OK", bloopOut)
-        readCompilingLines(2, "- should be very personal", bloopOut)
-        readCompilingLines(2, "Total for specification Specs2Test", bloopOut)
-        readCompilingLines(4, "Test server has been successfully closed.", bloopOut)
-
-        // Finish source file watching
-        workerThread.interrupt()
+        .map { success =>
+          if (success) ()
+          else sys.error(s"Missing '$targetMsg' in iteration $iteration")
+        }
     }
 
-    testFileWatcher(state, testProject)(workerAction, testAction)
+    // Deletion doesn't trigger recompilation -- done to avoid file from previous test run
+    val existingSourceDir = project.sources.collectFirst { case d if d.exists => d }.get
+    val newSource = existingSourceDir.resolve("D.scala")
+    if (Files.exists(newSource.underlying)) delete(newSource)
+
+    val runTest = TestUtil.interpreterTask(commandToRun, state)
+    val testFuture = runTest.runAsync(ExecutionContext.scheduler)
+
+    val checkTests = isIterationOver(observable, 1).flatMap { _ =>
+      // Ugly, but we need to wait a little bit here so that file watching is active
+      Thread.sleep(200)
+
+      // Write the contents of a source back to the same source and force another test execution
+      //Files.write(singleFile.underlying, "object Hello".getBytes("UTF-8"))
+      Files.write(newSource.underlying, "object ForceRecompilation {}".getBytes("UTF-8"))
+
+      isIterationOver(observable, 2).flatMap { _ =>
+        // Write the contents of a source back to the same source and force another test execution
+        Files.write(singleFile.underlying, "object ForceRecompilation2 {}".getBytes("UTF-8"))
+
+        isIterationOver(observable, 3).map { _ =>
+          testFuture.cancel()
+          val infos = logger.filterMessageByLabel("info")
+          targetMessages.foreach {
+            case (msg, count) =>
+              val times = infos.count(_.contains(msg))
+              assertTrue(s"Predicate '$msg' found $times times, expected $count", times == count)
+          }
+        }
+      }
+    }
+
+    val t = Task.zip2(Task.fromFuture(testFuture), checkTests).doOnCancel(Task(testFuture.cancel()))
+    TestUtil.blockOnTask(t, 20.toLong)
+    ()
   }
 
   @Test
