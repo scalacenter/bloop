@@ -28,7 +28,7 @@ object Dependencies {
   val scalaNativeVersion = "0.3.7"
   val scalaJs06Version = "0.6.23"
   val scalaJs10Version = "1.0.0-M3"
-  val millVersion = "0.2.3"
+  val millVersion = "0.2.6"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
