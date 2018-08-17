@@ -272,6 +272,8 @@ Then run `bloopInstall` from the mill command-line:
 mill bloop.integrations.mill.Bloop/install
 ```
 
+Note that the plugin will always be built for the latest Mill version, older versions may not be supported.
+
 ### Start bloop
 
 Before using the bloop client, you need to start the Bloop server. There is usually only one bloop server running in a machine.
