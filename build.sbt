@@ -176,19 +176,35 @@ val mavenBloop = project
   .settings(name := "maven-bloop", scalaVersion := Scala210Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
-val gradleBloop = project
+val gradleBloop211 = project
+  .in(file("integrations") / "gradle-bloop")
+  .enablePlugins(BuildInfoPlugin)
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig211)
+  .settings(name := "gradle-bloop")
+  .settings(BuildDefaults.gradlePluginBuildSettings)
+  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
+  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
+  .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile)
+  .settings(
+    sourceDirectories in Test := Nil,
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211)).value,
+    test in Test := Def.task {
+      Keys.streams.value.log.error("Run 'gradleBloopTests/test' instead to test the gradle plugin.")
+    },
+  )
+
+lazy val gradleBloop212 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212, frontend % "test->test")
-  .settings(testSettings)
-  .settings(name := "gradle-bloop")
-  .settings(BuildDefaults.gradlePluginBuildSettings)
+  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212).value)
   .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile)
   .settings(
-    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value,
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value
   )
 
 val millBloop = project
@@ -253,7 +269,8 @@ val allProjects = Seq(
   sbtBloop013,
   sbtBloop10,
   mavenBloop,
-  gradleBloop,
+  gradleBloop211,
+  gradleBloop212,
   millBloop,
   nativeBridge,
   jsBridge06,
@@ -287,7 +304,8 @@ addCommandAlias(
     s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
-    s"${gradleBloop.id}/$publishLocalCmd",
+    s"${gradleBloop211.id}/$publishLocalCmd",
+    s"${gradleBloop212.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
@@ -307,7 +325,8 @@ val allBloopReleases = List(
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
-  s"${gradleBloop.id}/$releaseEarlyCmd",
+  s"${gradleBloop211.id}/$releaseEarlyCmd",
+  s"${gradleBloop212.id}/$releaseEarlyCmd",
   s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
