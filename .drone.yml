@@ -9,14 +9,15 @@ matrix:
           "jsonConfig212/test" \
           "millBloop/compile" \
           "mavenBloop/compile" \
-          "gradleBloop/compile" \
+          "gradleBloop211/compile" \
+          "gradleBloop212/compile" \
           "frontend/integrationSetUpBloop" \
           "backend/test" \
           "nativeBridge/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
           "frontend/test" \
-          "gradleBloopTests/test" \
+          "gradleBloop212/test" \
           "docs/makeSite"
 
   RUN_BENCHMARKS_AND_SCRIPTED:

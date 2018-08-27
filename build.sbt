@@ -176,7 +176,7 @@ val mavenBloop = project
   .settings(name := "maven-bloop", scalaVersion := Scala210Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
-val gradleBloop = project
+val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
@@ -194,8 +194,7 @@ val gradleBloop = project
     },
   )
 
-// Gradle tests are defined in 2.12 project because we need to pull in frontend % Test
-lazy val gradleBloopTests = project
+lazy val gradleBloop212 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
@@ -204,7 +203,9 @@ lazy val gradleBloopTests = project
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212).value)
   .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile)
-  .settings(skip in publish := true)
+  .settings(
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value
+  )
 
 val millBloop = project
   .in(integrations / "mill-bloop")
@@ -268,8 +269,8 @@ val allProjects = Seq(
   sbtBloop013,
   sbtBloop10,
   mavenBloop,
-  gradleBloop,
-  gradleBloopTests,
+  gradleBloop211,
+  gradleBloop212,
   millBloop,
   nativeBridge,
   jsBridge06,
@@ -303,7 +304,8 @@ addCommandAlias(
     s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
-    s"${gradleBloop.id}/$publishLocalCmd",
+    s"${gradleBloop211.id}/$publishLocalCmd",
+    s"${gradleBloop212.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
@@ -323,7 +325,8 @@ val allBloopReleases = List(
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
-  s"${gradleBloop.id}/$releaseEarlyCmd",
+  s"${gradleBloop211.id}/$releaseEarlyCmd",
+  s"${gradleBloop212.id}/$releaseEarlyCmd",
   s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
