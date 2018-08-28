@@ -332,6 +332,99 @@ class ConfigGenerationSuite {
     assertTrue(!bloopFile.exists())
   }
 
+  @Test def generateConfigFileForNonJavaNonScalaProjectDependencies(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a")
+    val buildDirB = testProjectDir.newFolder("b")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |configurations {
+         |  foo
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.typelevel:cats-core_2.12:1.2.0'
+         |  compile(project(path: ':a',  configuration: 'foo'))
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects-nonjava-dep'
+        |include ':a'
+        |include ':b'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(buildDirB, "package y { trait B }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"$projectName.json")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopB = new File(bloopDir, "b.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopBTest = new File(bloopDir, "b-test.json")
+
+    assertFalse(bloopNone.exists())
+    assertFalse(bloopA.exists())
+    assertFalse(bloopATest.exists())
+    val configB = readValidBloopConfig(bloopB)
+    val configBTest = readValidBloopConfig(bloopBTest)
+    assertTrue(configB.project.`scala`.exists(_.version == "2.12.6"))
+    assertEquals(Nil, configB.project.dependencies)
+    assertEquals(List("b"), configBTest.project.dependencies)
+
+    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
+      config.project.classpath.exists(_.toString.contains(entryName))
+
+    assertTrue(hasClasspathEntryName(configB, "scala-library"))
+    assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
+    assertTrue(hasClasspathEntryName(configB, "cats-core"))
+    assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
+
+    assertTrue(compileBloopProject("b", bloopDir).status.isOk)
+  }
+
   @Test def generateConfigFileForJavaOnlyProjects(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     writeBuildScript(
