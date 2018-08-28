@@ -42,7 +42,7 @@ private final class BloopNameHashing(log: Logger, options: IncOptions, profiler:
    * @param lookup The lookup instance to query classpath and analysis information.
    * @param previous The last analysis file known of this project.
    * @param doCompile A function that compiles a project and returns an analysis file.
-   * @param classfileManager The manager that takes care of class files in compilation.
+   * @param manager The manager that takes care of class files in compilation.
    * @param cycleNum The counter of incremental compiler cycles.
    * @return A fresh analysis file after all the incremental compiles have been run.
    */
@@ -54,7 +54,7 @@ private final class BloopNameHashing(log: Logger, options: IncOptions, profiler:
       lookup: ExternalLookup,
       previous: Analysis,
       compileTask: (Set[File], DependencyChanges) => Task[Analysis],
-      classfileManager: ClassFileManager,
+      manager: ClassFileManager,
       cycleNum: Int
   ): Task[Analysis] = {
     if (invalidatedClasses.isEmpty && initialChangedSources.isEmpty) Task.now(previous)
@@ -68,55 +68,81 @@ private final class BloopNameHashing(log: Logger, options: IncOptions, profiler:
       val invalidatedSources =
         mapInvalidationsToSources(classesToRecompile, initialChangedSources, allSources, previous)
 
-      compileTask(invalidatedSources, binaryChanges).flatMap { current =>
-        // Return immediate analysis as all sources have been recompiled
-        if (invalidatedSources == allSources) Task.now(current)
-        else {
-          val recompiledClasses: Set[String] = {
-            // Represents classes detected as changed externally and internally (by a previous cycle)
-            classesToRecompile ++
-              // Maps the changed sources by the user to class names we can count as invalidated
-              initialChangedSources.flatMap(previous.relations.classNames) ++
-              initialChangedSources.flatMap(current.relations.classNames)
+      recompileClasses(invalidatedSources, binaryChanges, previous, compileTask, manager).flatMap {
+        current =>
+          // Return immediate analysis as all sources have been recompiled
+          if (invalidatedSources == allSources) Task.now(current)
+          else {
+            val recompiledClasses: Set[String] = {
+              // Represents classes detected as changed externally and internally (by a previous cycle)
+              classesToRecompile ++
+                // Maps the changed sources by the user to class names we can count as invalidated
+                initialChangedSources.flatMap(previous.relations.classNames) ++
+                initialChangedSources.flatMap(current.relations.classNames)
+            }
+
+            val newApiChanges =
+              detectAPIChanges(recompiledClasses,
+                               previous.apis.internalAPI,
+                               current.apis.internalAPI)
+            debug("\nChanges:\n" + newApiChanges)
+            val nextInvalidations = invalidateAfterInternalCompilation(
+              current.relations,
+              newApiChanges,
+              recompiledClasses,
+              cycleNum >= options.transitiveStep,
+              IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
+            )
+
+            val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
+
+            profiler.registerCycle(
+              invalidatedClasses,
+              invalidatedByPackageObjects,
+              initialChangedSources,
+              invalidatedSources,
+              recompiledClasses,
+              newApiChanges,
+              nextInvalidations,
+              continue
+            )
+
+            entrypoint(
+              if (continue) nextInvalidations else Set.empty,
+              Set.empty,
+              allSources,
+              IncrementalCommon.emptyChanges,
+              lookup,
+              current,
+              compileTask,
+              manager,
+              cycleNum + 1
+            )
           }
-
-          val newApiChanges =
-            detectAPIChanges(recompiledClasses, previous.apis.internalAPI, current.apis.internalAPI)
-          debug("\nChanges:\n" + newApiChanges)
-          val nextInvalidations = invalidateAfterInternalCompilation(
-            current.relations,
-            newApiChanges,
-            recompiledClasses,
-            cycleNum >= options.transitiveStep,
-            IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
-          )
-
-          val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
-
-          profiler.registerCycle(
-            invalidatedClasses,
-            invalidatedByPackageObjects,
-            initialChangedSources,
-            invalidatedSources,
-            recompiledClasses,
-            newApiChanges,
-            nextInvalidations,
-            continue
-          )
-
-          entrypoint(
-            if (continue) nextInvalidations else Set.empty,
-            Set.empty,
-            allSources,
-            IncrementalCommon.emptyChanges,
-            lookup,
-            current,
-            compileTask,
-            classfileManager,
-            cycleNum + 1
-          )
-        }
       }
+    }
+  }
+
+  def recompileClasses(
+      sources: Set[File],
+      binaryChanges: DependencyChanges,
+      previous: Analysis,
+      compileTask: (Set[File], DependencyChanges) => Task[Analysis],
+      classfileManager: ClassFileManager
+  ): Task[Analysis] = {
+    val pruned =
+      IncrementalCommon.pruneClassFilesOfInvalidations(sources, previous, classfileManager)
+    debug("********* Pruned: \n" + pruned.relations + "\n*********")
+    compileTask(sources, binaryChanges).map { fresh =>
+      debug("********* Fresh: \n" + fresh.relations + "\n*********")
+
+      /* This is required for both scala compilation and forked java compilation, despite
+       *  being redundant for the most common Java compilation (using the local compiler). */
+      classfileManager.generated(fresh.relations.allProducts.toArray)
+
+      val merged = pruned ++ fresh
+      debug("********* Merged: \n" + merged.relations + "\n*********")
+      merged
     }
   }
 }

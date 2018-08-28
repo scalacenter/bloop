@@ -106,26 +106,50 @@ object BloopZincCompiler {
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
-        import MiniSetupUtil.{equivPairs, equivOpts0, equivScalacOptions, equivCompileSetup}
-        val setup = config.currentSetup
+        val setOfSources = sources.toSet
         val compiler = BloopHighLevelCompiler(config, logger)
-        val equiv = equivCompileSetup(equivOpts0(equivScalacOptions(incrementalOptions.ignoredScalacOptions)))
         val lookup = new LookupImpl(config, previousSetup)
-        val srcsSet = sources.toSet
-        val analysis = previousSetup match {
-          case Some(previous) => // Return an empty analysis if values of extra have changed
-            if (equiv.equiv(previous, setup)) prev
-            else if (!equivPairs.equiv(previous.extra, setup.extra)) Analysis.empty
-            else Incremental.prune(srcsSet, prev)
-          case None => Incremental.prune(srcsSet, prev)
-        }
+        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev)
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(srcsSet, lookup, compile, analysis, output, logger, config.incOptions, picklePromise).map {
+        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, config.incOptions, picklePromise).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }
+    }
+  }
+
+  /**
+    * Invalidates the analysis file to be used depending if the setup is the same or not.
+    *
+    * This logic used to be in `compileInternal` in
+    * [[sbt.internal.inc.IncrementalCompilerImpl.compileInternal]], but we've moved it here
+    * to reason more accurately about it.
+    *
+    * @param setup The current setup that we use to compile.
+    * @param previousSetup The previous setup, [[None]] if first compilation.
+    * @param ignoredScalacOptions The scalac options we should ignore for equivalence.
+    * @param sources The sources with which we prune the analysis file.
+    * @param previousAnalysis The analysis from the previous compilation.
+    * @return An analysis, either empty if the setups are not the same, pruned or the previous analysis.
+    */
+  def invalidateAnalysisFromSetup(
+      setup: MiniSetup,
+      previousSetup: Option[MiniSetup],
+      ignoredScalacOptions: Array[String],
+      sources: Set[File],
+      previousAnalysis: CompileAnalysis
+  ): CompileAnalysis = {
+    // Need wildcard import b/c otherwise `scala.math.Equiv.universal` is used and returns false
+    import MiniSetupUtil._
+    val equiv = equivCompileSetup(equivOpts0(equivScalacOptions(ignoredScalacOptions)))
+    previousSetup match {
+      case Some(previous) => // Return an empty analysis if values of extra have changed
+        if (equiv.equiv(previous, setup)) previousAnalysis
+        else if (!equivPairs.equiv(previous.extra, setup.extra)) Analysis.empty
+        else Incremental.prune(sources, previousAnalysis)
+      case None => Incremental.prune(sources, previousAnalysis)
     }
   }
 

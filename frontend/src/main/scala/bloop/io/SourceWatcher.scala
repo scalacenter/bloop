@@ -38,48 +38,36 @@ final class SourceWatcher private (
       Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(
         ExecutionContext.ioScheduler)
 
-    val allPaths = (files ++ dirs).asJava
     var watchingEnabled: Boolean = true
-    val watcher = DirectoryWatcher.create(
-      dirs.asJava,
-      new DirectoryChangeListener {
-        // Define `isWatching` just for correctness
-        override def isWatching: Boolean = watchingEnabled
+    val listener = new DirectoryChangeListener {
+      override def isWatching: Boolean = watchingEnabled
 
-        // Make sure that errors on the file watcher are reported back
-        override def onException(e: Exception, logger: org.slf4j.Logger): Unit = {
-          logger.error(s"File watching threw an exception: ${e.getMessage}")
-          // Enable back when https://github.com/scalacenter/bloop/issues/433 is done
-          //logger.trace(e)
-        }
-
-        override def onEvent(event: DirectoryChangeEvent): Unit = {
-          val targetFile = event.path()
-          val targetPath = targetFile.toFile.getAbsolutePath()
-          if (Files.isRegularFile(targetFile) &&
-              (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
-            observer.onNext(event)
-            ()
-          }
-        }
-      },
-      slf4jLogger
-    )
-
-    // By using the internal `register` we can watch the parents of the source files non-recursively
-    val parentDirectories = files.map(_.getParent).distinct
-    parentDirectories.foreach { dir =>
-      if (logger.isVerbose) {
-        // Log the reason why we're wathing this directory in a quick and dirty fashion
-        files.find(_.getParent == dir) match {
-          case Some(file) => logger.debug(s"Watching ${dir} because of $file")
-          case None => logger.debug(s"Watching ${dir} because a source file asked for it.")
-        }
+      // Make sure that errors on the file watcher are reported back
+      override def onException(e: Exception): Unit = {
+        slf4jLogger.error(s"File watching threw an exception: ${e.getMessage}")
+        // Enable tracing when https://github.com/scalacenter/bloop/issues/433 is done
+        //logger.trace(e)
       }
 
-      // Register the directory to be watched in a non-recursive fashion
-      watcher.register(dir, false)
+      override def onEvent(event: DirectoryChangeEvent): Unit = {
+        val targetFile = event.path()
+        val targetPath = targetFile.toFile.getAbsolutePath()
+        if (Files.isRegularFile(targetFile) &&
+            (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
+          observer.onNext(event)
+          ()
+        }
+      }
     }
+
+    val watcher = DirectoryWatcher
+      .builder()
+      .paths(dirs.asJava)
+      .files(files.asJava)
+      .logger(slf4jLogger)
+      .listener(listener)
+      .fileHashing(true)
+      .build();
 
     // Use Java's completable future because we can stop/complete it from the cancelable
     val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)

@@ -131,11 +131,11 @@ object Interpreter {
       else CompileMode.Sequential
     }
 
-    val compileTask = {
+    val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       if (cmd.pipelined)
-        Pipelined.compile(state0, project, config, deduplicateFailures, compilerMode, excludeRoot)
-      else Tasks.compile(state0, project, config, deduplicateFailures, compilerMode, excludeRoot)
+        Pipelined.compile(state, project, config, deduplicateFailures, compilerMode, excludeRoot)
+      else Tasks.compile(state, project, config, deduplicateFailures, compilerMode, excludeRoot)
     }
 
     compileTask.map(_.mergeStatus(ExitStatus.Ok))
@@ -199,8 +199,8 @@ object Interpreter {
           val testFilter = TestInternals.parseFilters(cmd.only)
           val cwd = cmd.cliOptions.common.workingPath
           compileAnd(cmd, state, project, false, sequential, "`test`") { state =>
-            val testEventHandler = new LoggingEventHandler(state.logger)
-            Tasks.test(state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, testEventHandler)
+            val handler = new LoggingEventHandler(state.logger)
+            Tasks.test( state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, handler)
           }
         }
 
@@ -301,7 +301,8 @@ object Interpreter {
           case None =>
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
             toolchain.link(config, project, mainClass, target, state.logger) map {
-              case scala.util.Success(_) => state
+              case scala.util.Success(_) =>
+                state.withInfo(s"Generated JavaScript file '${target.syntax}'")
               case scala.util.Failure(t) =>
                 val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
                 state.withError(msg, ExitStatus.LinkingError).withTrace(t)
@@ -329,7 +330,8 @@ object Interpreter {
           case None =>
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
             toolchain.link(config, project, mainClass, target, state.logger) map {
-              case scala.util.Success(_) => state
+              case scala.util.Success(_) =>
+                state.withInfo(s"Generated native binary '${target.syntax}'")
               case scala.util.Failure(t) =>
                 val msg = Feedback.failedToLink(project, ScalaNativeToolchain.name, t)
                 state.withError(msg, ExitStatus.LinkingError).withTrace(t)

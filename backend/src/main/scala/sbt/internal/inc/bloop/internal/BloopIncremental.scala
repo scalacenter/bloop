@@ -18,7 +18,7 @@ object BloopIncremental {
   type CompileFunction =
     (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
   def compile(
-      sources: Set[File],
+      sources: Iterable[File],
       lookup: Lookup,
       compile: CompileFunction,
       previous0: CompileAnalysis,
@@ -50,7 +50,7 @@ object BloopIncremental {
   }
 
   def compileIncremental(
-      sources: Set[File],
+      sources: Iterable[File],
       lookup: Lookup,
       previous: Analysis,
       current: ReadStamps,
@@ -71,9 +71,9 @@ object BloopIncremental {
       result
     }
 
+    val setOfSources = sources.toSet
     val incremental = new BloopNameHashing(log, options, profiler.profileRun)
-
-    val initialChanges = incremental.detectInitialChanges(sources, previous, current, lookup)
+    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray
       val modifiedClasses = initialChanges.external.allModified.toArray
@@ -101,7 +101,7 @@ object BloopIncremental {
         } yield callback.get
       }
 
-      try incremental.entrypoint(initialInvClasses, initialInvSources, sources, binaryChanges, lookup, previous, doCompile, classfileManager, 1)
+      try incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, classfileManager, 1)
       catch { case e: Throwable => classfileManager.complete(false); throw e }
     }
 

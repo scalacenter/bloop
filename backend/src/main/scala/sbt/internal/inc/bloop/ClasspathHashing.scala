@@ -1,7 +1,7 @@
 package sbt.internal.inc.bloop
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.{Files, NoSuchFileException}
 import java.util.concurrent.ConcurrentHashMap
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 
@@ -42,21 +42,27 @@ object ClasspathHashing {
       if (!file.exists()) Task.now(emptyFileHash(file))
       else {
         Task {
-          // `readAttributes` needs to be guarded by `file.exists()`, otherwise it fails
-          val attrs = Files.readAttributes(file.toPath, classOf[BasicFileAttributes])
-          if (attrs.isDirectory) emptyFileHash(file)
-          else {
-            val currentMetadata =
-              (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
-            Option(cacheMetadataJar.get(file)) match {
-              case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
-              case _ => genFileHash(file, currentMetadata)
+          try {
+            // `readAttributes` needs to be guarded by `file.exists()`, otherwise it fails
+            val attrs = Files.readAttributes(file.toPath, classOf[BasicFileAttributes])
+            if (attrs.isDirectory) emptyFileHash(file)
+            else {
+              val currentMetadata =
+                (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
+              Option(cacheMetadataJar.get(file)) match {
+                case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
+                case _ => genFileHash(file, currentMetadata)
+              }
             }
+          } catch {
+            // Exception can be thrown if between `file.exists` and `readAttributes` a file is gone
+            case _: NoSuchFileException => emptyFileHash(file)
           }
         }
       }
     }
 
-    Task.gatherUnordered(classpath.map(fromCacheOrHash(_)))
+    // Use gather instead of gather unordered to return results in the right input order
+    Task.gather(classpath.map(fromCacheOrHash(_)))
   }
 }

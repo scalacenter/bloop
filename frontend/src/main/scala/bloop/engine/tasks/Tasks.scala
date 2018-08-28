@@ -1,5 +1,6 @@
 package bloop.engine.tasks
 
+import java.io.File
 import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
@@ -10,13 +11,7 @@ import bloop.exec.Forker
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.testing.{
-  DiscoveredTests,
-  LoggingEventHandler,
-  TestInternals,
-  TestSuiteEvent,
-  TestSuiteEventHandler
-}
+import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import bloop.{CompileInputs, Compiler, Project, ScalaInstance}
 import monix.eval.Task
 import sbt.internal.inc.bloop.CompileMode

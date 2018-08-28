@@ -5,7 +5,7 @@ import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import org.junit.Test
-import org.junit.Assert.{assertFalse, assertTrue}
+import org.junit.Assert.{assertFalse, assertTrue, assertEquals}
 import org.junit.experimental.categories.Category
 import bloop.ScalaInstance
 import bloop.cli.Commands
@@ -161,7 +161,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileWithScala2124 = {
+  def compileWithScala2124(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
       ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)
@@ -169,7 +169,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileWithScala2123 = {
+  def compileWithScala2123(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
       ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3", logger)
@@ -177,7 +177,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileWithScala21111 = {
+  def compileWithScala21111(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
       ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)
@@ -185,7 +185,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileTwoProjectsWithADependency = {
+  def compileTwoProjectsWithADependency(): Unit = {
     val projectsStructure = Map(
       "parent" -> Map("A.scala" -> ArtificialSources.`A.scala`),
       RootProject -> Map("B.scala" -> ArtificialSources.`B.scala`)
@@ -193,30 +193,46 @@ class CompilationTaskTest {
 
     val dependencies = Map(RootProject -> Set("parent"))
     checkAfterCleanCompilation(projectsStructure, dependencies, quiet = true) { (state: State) =>
-      state.build.projects.foreach { p =>
-        assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
-      }
+      ensureCompilationInAllTheBuild(state)
     }
   }
 
   @Test
-  def compileOneProjectWithTwoDependencies = {
+  def compileOneProjectWithTwoDependencies(): Unit = {
     val projectsStructure = Map(
       "parent0" -> Map("A.scala" -> ArtificialSources.`A.scala`),
       "parent1" -> Map("B2.scala" -> ArtificialSources.`B2.scala`),
       RootProject -> Map("C.scala" -> ArtificialSources.`C.scala`)
     )
 
+    val logger = new RecordingLogger
     val dependencies = Map(RootProject -> Set("parent0", "parent1"))
-    checkAfterCleanCompilation(projectsStructure, dependencies, quiet = true) { (state: State) =>
-      state.build.projects.foreach { p =>
-        assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
-      }
+    checkAfterCleanCompilation(
+      projectsStructure,
+      dependencies,
+      useSiteLogger = Some(logger),
+      quiet = true
+    ) { (state: State) =>
+      assertTrue(state.status.isOk)
+      ensureCompilationInAllTheBuild(state)
+      assertEquals(logger.compilingInfos.size.toLong, 3.toLong)
+
+      val rootProject = state.build.getProjectFor(RootProject).get
+      val sourceC = rootProject.sources.head.resolve("C.scala").underlying
+      assert(Files.exists(sourceC))
+      Files.write(sourceC, "package p2; class C".getBytes)
+
+      val action = Run(Commands.Compile(RootProject, incremental = true))
+      val state2 = TestUtil.blockingExecute(action, state)
+
+      assertTrue(state2.status.isOk)
+      ensureCompilationInAllTheBuild(state2)
+      assertEquals(logger.compilingInfos.size.toLong, 4.toLong)
     }
   }
 
   @Test
-  def unnecessaryProjectsAreNotCompiled = {
+  def unnecessaryProjectsAreNotCompiled(): Unit = {
     val projectsStructures = Map(
       "parent" -> Map("A.scala" -> ArtificialSources.`A.scala`),
       "unrelated" -> Map("B2.scala" -> ArtificialSources.`B2.scala`),
@@ -236,7 +252,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def noResultWhenCompilationFails = {
+  def noResultWhenCompilationFails(): Unit = {
     val projectsStructure = Map(RootProject -> Map("Error.scala" -> "iwontcompile"))
     checkAfterCleanCompilation(projectsStructure, Map.empty, failure = true) { (state: State) =>
       state.build.projects.foreach { p =>
@@ -246,7 +262,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileJavaProjectDependingOnScala: Unit = {
+  def compileJavaProjectDependingOnScala(): Unit = {
     object Sources {
       val `A.scala` = "package foo; object Greeting { def greeting: String = \"Hello, World!\" }"
       val `B.java` =
@@ -290,7 +306,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileDiamondLikeStructure = {
+  def compileDiamondLikeStructure(): Unit = {
     object Sources {
       val `A.scala` = "package p0\nclass A"
       val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
@@ -313,9 +329,7 @@ class CompilationTaskTest {
                    "C" -> Set("A"),
                    "D" -> Set("B", "C"))
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
-      val compilingInfos =
-        logger.getMessages.filter(m => m._1 == "info" && m._2.contains("Compiling "))
-      assert(compilingInfos.size == 5, "Bloop compiled more projects than necessary!")
+      assertEquals(logger.compilingInfos.size.toLong, 5.toLong)
       state.build.projects.foreach { p =>
         assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
       }
@@ -323,7 +337,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileRepeatedSubTreeInProjects = {
+  def compileRepeatedSubTreeInProjects(): Unit = {
     object Sources {
       val `A.scala` = "package p0\nclass A"
       val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
@@ -346,12 +360,8 @@ class CompilationTaskTest {
                    "C" -> Set("B", "A"),
                    "D" -> Set("B", "A"))
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
-      val compilingInfos =
-        logger.getMessages.filter(m => m._1 == "info" && m._2.contains("Compiling "))
-      assert(compilingInfos.size == 5, "Bloop compiled more projects than necessary!")
-      state.build.projects.foreach { p =>
-        assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
-      }
+      assertEquals(logger.compilingInfos.size.toLong, 5.toLong)
+      ensureCompilationInAllTheBuild(state)
     }
   }
 
@@ -366,7 +376,7 @@ class CompilationTaskTest {
   }
 
   @Test
-  def failSequentialCompilation = {
+  def failSequentialCompilation(): Unit = {
     object Sources {
       val `A.scala` = "package p0\nclass A extends NonExistentClass"
       val `B.scala` = "package p1\nimport p0.A\nclass B extends A"
@@ -394,6 +404,8 @@ class CompilationTaskTest {
         val projectB = getProject("B", state)
         val action = Run(Commands.Compile("B"), Run(Commands.Compile("C")))
         val compiledState = TestUtil.blockingExecute(action, state)
+
+        // Check that A failed to compile and that `C` was skipped
         val msgs = logger.getMessages
         assert(msgs.exists(m => m._1 == "error" && m._2.contains("'A' failed to compile.")))
         val targetMsg = s"Skipping compilation of project 'C'; dependent 'A' failed to compile."
@@ -402,19 +414,18 @@ class CompilationTaskTest {
   }
 
   @Test
-  def compileWithDotty080RC1: Unit = {
+  def compileWithDotty080RC1(): Unit = {
     val logger = new RecordingLogger()
     val scalaInstance =
       ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.8", "0.8.0-RC1", logger)
     val structures = Map(RootProject -> Map("Dotty.scala" -> ArtificialSources.`Dotty.scala`))
     checkAfterCleanCompilation(structures, Map.empty, scalaInstance = scalaInstance) { state =>
-      val projects = state.build.projects
-      assert(projects.forall(p => hasPreviousResult(p, state)))
+      ensureCompilationInAllTheBuild(state)
     }
   }
 
   @Test
-  def incrementalAnalysisOutFile: Unit = {
+  def writeAnalysisFileByDefault(): Unit = {
     val testProject = "with-resources"
     val logger = new RecordingLogger()
     val state = TestUtil.loadTestProject(testProject).copy(logger = logger)
@@ -427,5 +438,11 @@ class CompilationTaskTest {
 
     val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
     assertTrue(Files.exists(analysisOutFile.underlying))
+  }
+
+  def ensureCompilationInAllTheBuild(state: State): Unit = {
+    state.build.projects.foreach { p =>
+      assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
+    }
   }
 }
