@@ -10,6 +10,7 @@ import org.gradle.api
 import org.gradle.api.{GradleException, Project}
 import org.gradle.api.artifacts.{ProjectDependency, ResolvedArtifact}
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
+import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
@@ -52,7 +53,8 @@ final class BloopConverter(parameters: BloopParameters) {
     // We cannot turn this into a set directly because we need the topological order for correctness
     val projectDependencies: List[ProjectDependency] =
       configuration.getAllDependencies.asScala.collect {
-        case dep: ProjectDependency if dep.getDependencyProject.getConvention.getPlugins.containsKey("java") => dep
+        case dep: ProjectDependency if dep.getDependencyProject.getConvention.findPlugin(classOf[JavaPluginConvention]) != null =>
+          dep
       }.toList
     val dependencyClasspath: List[ResolvedArtifact] = artifacts
       .filter(resolvedArtifact => !isProjectDependency(projectDependencies, resolvedArtifact))
