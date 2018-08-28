@@ -14,7 +14,7 @@ object Dependencies {
   val sbtTestAgentVersion = "1.0.4"
   val junitVersion = "0.11"
   val graphvizVersion = "0.2.2"
-  val directoryWatcherVersion = "0.5.2-a1c0e21c"
+  val directoryWatcherVersion = "0.5.2-eade9dbe"
   val mavenApiVersion = "3.5.2"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
@@ -28,7 +28,7 @@ object Dependencies {
   val scalaNativeVersion = "0.3.7"
   val scalaJs06Version = "0.6.23"
   val scalaJs10Version = "1.0.0-M3"
-  val millVersion = "0.2.3"
+  val millVersion = "0.2.6"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -51,7 +51,7 @@ object Dependencies {
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
-  val directoryWatcher = "me.vican.jorge" %% "directory-watcher-better-files" % directoryWatcherVersion
+  val directoryWatcher = "me.vican.jorge" % "directory-watcher" % directoryWatcherVersion
 
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
