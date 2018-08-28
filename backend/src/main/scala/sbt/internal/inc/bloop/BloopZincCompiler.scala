@@ -106,10 +106,10 @@ object BloopZincCompiler {
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
+        import MiniSetupUtil.{equivPairs, equivOpts0, equivScalacOptions, equivCompileSetup}
         val setup = config.currentSetup
         val compiler = BloopHighLevelCompiler(config, logger)
-        val equiv = MiniSetupUtil.equivCompileSetup
-        val equivPairs = MiniSetupUtil.equivPairs
+        val equiv = equivCompileSetup(equivOpts0(equivScalacOptions(incrementalOptions.ignoredScalacOptions)))
         val lookup = new LookupImpl(config, previousSetup)
         val srcsSet = sources.toSet
         val analysis = previousSetup match {

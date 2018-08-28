@@ -7,12 +7,12 @@ import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import monix.eval.Task
-import sbt.internal.inc.{Analysis, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
+import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
 import sbt.util.Logger
 import xsbti.AnalysisCallback
 import xsbti.api.AnalyzedClass
 import xsbti.compile.analysis.{ReadStamps, Stamp}
-import xsbti.compile.{ClassFileManager, CompileAnalysis, DependencyChanges, IncOptions, Output}
+import xsbti.compile._
 
 object BloopIncremental {
   type CompileFunction =
@@ -57,7 +57,9 @@ object BloopIncremental {
       compile: CompileFunction,
       callbackBuilder: AnalysisCallbackImpl.Builder,
       log: sbt.util.Logger,
-      options: IncOptions
+      options: IncOptions,
+      // TODO(jvican): Enable profiling of the invalidation algorithm down the road
+      profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     def manageClassfiles[T](options: IncOptions)(run: ClassFileManager => T): T = {
       import sbt.internal.inc.{ClassFileManager => ClassFileManagerImpl}
@@ -69,15 +71,17 @@ object BloopIncremental {
       result
     }
 
-    val incremental = new BloopNameHashing(log, options)
-    val initialChanges = incremental.changedInitial(sources, previous, current, lookup)
+    val incremental = new BloopNameHashing(log, options, profiler.profileRun)
+
+    val initialChanges = incremental.detectInitialChanges(sources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray
       val modifiedClasses = initialChanges.external.allModified.toArray
       def isEmpty = modifiedBinaries.isEmpty && modifiedClasses.isEmpty
     }
+    val (initialInvClasses, initialInvSources) =
+      incremental.invalidateInitial(previous.relations, initialChanges)
 
-    val (initialInvClasses, initialInvSources) = incremental.invalidateInitial(previous.relations, initialChanges)
     if (initialInvClasses.nonEmpty || initialInvSources.nonEmpty) {
       if (initialInvSources == sources) incremental.log.debug("All sources are invalidated.")
       else {

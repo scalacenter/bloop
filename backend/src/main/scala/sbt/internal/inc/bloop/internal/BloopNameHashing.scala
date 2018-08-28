@@ -1,4 +1,3 @@
-// scalafmt: { maxColumn = 250 }
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
@@ -7,7 +6,6 @@ import monix.eval.Task
 import sbt.internal.inc._
 import sbt.util.Logger
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
-import sbt.internal.inc.IncrementalNameHashingImpl
 
 /**
  * Defines Bloop's version of `IncrementalNameHashing` that extends Zinc's original
@@ -16,104 +14,109 @@ import sbt.internal.inc.IncrementalNameHashingImpl
  * The policy of this class is to serve as a wrapper of Zinc's incremental algorithm
  * but any change meant to improve the precision of it *must be* implemented in Zinc.
  *
- * This class serves two main purposes (now and in the future):
- *
- * 1. Allows for the instrumentation of several parts of the algorithm. This will
- *    prove useful when we want to collect dependency data and explain why an
- *    incremental compilation took place; or to display better logs with Bloop's
- *    knowledge of the build graph (see https://github.com/scalacenter/bloop/issues/386)
- *
- * 2. To allow the implementation of a Monix task-based Zinc frontend that allows
- *    us to express the invalidation logic in terms of tasks.
- *
- *    This is required for a solid implementation of pipelined compilation that has
- *    different semantics for Scala and Java compilation, depending on the order.
- *    (Java compilation needs to block on upstream compiles, whereas Scala
- *    compilation can safely proceed). We want to express this without an explicit
- *    blocking so that we don't waste CPU time waiting on some other futures to finish.
- *
- * Note: As some of the implementation is private or final, we need to copy-paste
- * it here so that we can change its interface.
+ * This class allows the implementation of a Monix task-based Zinc frontend that allows
+ * us to express the invalidation logic in terms of tasks. This is required for a solid
+ * implementation of pipelined compilation.
  *
  * @param log The logger in which the invalidation algorithm will log stuff.
  * @param options The incremental compiler options.
+ * @param profiler The profiler used for the incremental invalidation algorithm.
  */
-private final class BloopNameHashing(log: Logger, options: IncOptions) extends IncrementalNameHashingImpl(log, options) {
+private final class BloopNameHashing(log: Logger, options: IncOptions, profiler: RunProfiler)
+    extends IncrementalNameHashingCommon(log, options, profiler) {
+
+  /**
+   * Compile a project as many times as it is required incrementally. This logic is the start
+   * point of the incremental compiler and the place where all the invalidation logic happens.
+   *
+   * The current logic does merge the compilation step and the analysis step, by making them
+   * execute sequentially. There are cases where, for performance reasons, build tools and
+   * users of Zinc may be interested in separating the two. If this is the case, the user needs
+   * to reimplement this logic by copy pasting this logic and relying on the utils defined
+   * in `IncrementalCommon`.
+   *
+   * @param invalidatedClasses The invalidated classes either initially or by a previous cycle.
+   * @param initialChangedSources The initial changed sources by the user, empty if previous cycle.
+   * @param allSources All the sources defined in the project and compiled in the first iteration.
+   * @param binaryChanges The initially detected changes derived from [[InitialChanges]].
+   * @param lookup The lookup instance to query classpath and analysis information.
+   * @param previous The last analysis file known of this project.
+   * @param doCompile A function that compiles a project and returns an analysis file.
+   * @param classfileManager The manager that takes care of class files in compilation.
+   * @param cycleNum The counter of incremental compiler cycles.
+   * @return A fresh analysis file after all the incremental compiles have been run.
+   */
   def entrypoint(
-      invalidatedRaw: Set[String],
-      modifiedSrcs: Set[File],
+      invalidatedClasses: Set[String],
+      initialChangedSources: Set[File],
       allSources: Set[File],
       binaryChanges: DependencyChanges,
       lookup: ExternalLookup,
       previous: Analysis,
       compileTask: (Set[File], DependencyChanges) => Task[Analysis],
-      manager: ClassFileManager,
+      classfileManager: ClassFileManager,
       cycleNum: Int
   ): Task[Analysis] = {
-    if (invalidatedRaw.isEmpty && modifiedSrcs.isEmpty) Task.now(previous)
+    if (invalidatedClasses.isEmpty && initialChangedSources.isEmpty) Task.now(previous)
     else {
-      val invalidatedClassNames = invalidateClassNames(invalidatedRaw, previous)
-      val invalidatedClassesSources = invalidatedClassNames.flatMap(previous.relations.definesClass)
-      val sourcesToRecompile = expandSources(invalidatedClassesSources ++ modifiedSrcs, allSources)
-      val prunedAnalysis = Incremental.prune(sourcesToRecompile, previous, manager)
-      debug("********* Pruned: \n" + prunedAnalysis.relations + "\n*********")
+      // Compute all the invalidated classes by aggregating invalidated package objects
+      val invalidatedByPackageObjects =
+        invalidatedPackageObjects(invalidatedClasses, previous.relations, previous.apis)
+      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects
 
-      compileTask(sourcesToRecompile, binaryChanges).flatMap { freshAnalysis =>
-        // Merge the analysis after the compilation succeeds
-        val freshRelations = freshAnalysis.relations
-        manager.generated(freshRelations.allProducts.toArray) // Required only for scalac, see Zinc
-        debug(s"********* Fresh: \n ${freshRelations}\n*********")
-        val newAnalysis = prunedAnalysis ++ freshAnalysis
-        debug(s"********* Merged: \n${newAnalysis.relations}\n*********")
+      // Computes which source files are mapped to the invalidated classes and recompile them
+      val invalidatedSources =
+        mapInvalidationsToSources(classesToRecompile, initialChangedSources, allSources, previous)
 
-        if (sourcesToRecompile == allSources) Task.now(newAnalysis)
+      compileTask(invalidatedSources, binaryChanges).flatMap { current =>
+        // Return immediate analysis as all sources have been recompiled
+        if (invalidatedSources == allSources) Task.now(current)
         else {
-          val previousRelations = previous.relations
-          val newRelations = newAnalysis.relations
+          val recompiledClasses: Set[String] = {
+            // Represents classes detected as changed externally and internally (by a previous cycle)
+            classesToRecompile ++
+              // Maps the changed sources by the user to class names we can count as invalidated
+              initialChangedSources.flatMap(previous.relations.classNames) ++
+              initialChangedSources.flatMap(current.relations.classNames)
+          }
 
-          // Map back to classes to find out removed, added or renamed classes
-          val classesFromPreviousAnalysis = modifiedSrcs.flatMap(previousRelations.classNames)
-          val classesFromNewAnalysis = modifiedSrcs.flatMap(newRelations.classNames)
-          val recompiledClasses =
-            invalidatedClassNames ++ classesFromPreviousAnalysis ++ classesFromNewAnalysis
+          val newApiChanges =
+            detectAPIChanges(recompiledClasses, previous.apis.internalAPI, current.apis.internalAPI)
+          debug("\nChanges:\n" + newApiChanges)
+          val nextInvalidations = invalidateAfterInternalCompilation(
+            current.relations,
+            newApiChanges,
+            recompiledClasses,
+            cycleNum >= options.transitiveStep,
+            IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
+          )
 
-          val mapToOldAPI = previous.apis.internalAPI _
-          val mapToNewAPI = newAnalysis.apis.internalAPI _
-          val incChanges = changedIncremental(recompiledClasses, mapToOldAPI, mapToNewAPI)
+          val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
 
-          debug(s"\nChanges:\n${incChanges}")
-          val classToSourceMapper = new ClassToSourceMapper(previousRelations, newRelations)
-          val newInvalidatedClassNames = invalidateIncremental(newRelations, newAnalysis.apis, incChanges, recompiledClasses, cycleNum >= options.transitiveStep, classToSourceMapper.isDefinedInScalaSrc)
+          profiler.registerCycle(
+            invalidatedClasses,
+            invalidatedByPackageObjects,
+            initialChangedSources,
+            invalidatedSources,
+            recompiledClasses,
+            newApiChanges,
+            nextInvalidations,
+            continue
+          )
 
-          val allInvalidatedClassNames =
-            if (!lookup.shouldDoIncrementalCompilation(newInvalidatedClassNames, newAnalysis)) Set.empty[String]
-            else newInvalidatedClassNames
-
-          entrypoint(allInvalidatedClassNames, Set.empty, allSources, emptyChanges, lookup, newAnalysis, compileTask, manager, cycleNum + 1)
+          entrypoint(
+            if (continue) nextInvalidations else Set.empty,
+            Set.empty,
+            allSources,
+            IncrementalCommon.emptyChanges,
+            lookup,
+            current,
+            compileTask,
+            classfileManager,
+            cycleNum + 1
+          )
         }
       }
     }
-  }
-
-  private[this] def emptyChanges: DependencyChanges = new DependencyChanges {
-    val modifiedBinaries = new Array[File](0)
-    val modifiedClasses = new Array[String](0)
-    def isEmpty = true
-  }
-
-  def invalidateClassNames(alreadyInvalidated: Set[String], previous: Analysis): Set[String] = {
-    val invalidatedPackageObjects =
-      this.invalidatedPackageObjects(alreadyInvalidated, previous.relations, previous.apis)
-    if (invalidatedPackageObjects.nonEmpty)
-      log.debug(s"Invalidated package objects: $invalidatedPackageObjects")
-    alreadyInvalidated ++ invalidatedPackageObjects
-  }
-
-  def expandSources(invalidated: Set[File], all: Set[File]): Set[File] = {
-    val recompileAllFraction = options.recompileAllFraction
-    if (invalidated.size > all.size * recompileAllFraction) {
-      log.debug("Recompiling all " + all.size + " sources: invalidated sources (" + invalidated.size + ") exceeded " + (recompileAllFraction * 100.0) + "% of all sources")
-      all ++ invalidated // need the union because all doesn't contain removed sources
-    } else invalidated
   }
 }

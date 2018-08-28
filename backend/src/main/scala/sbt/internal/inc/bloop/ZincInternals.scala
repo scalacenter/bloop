@@ -61,13 +61,18 @@ object ZincInternals {
     s"$id$binSeparator${scalaVersion}__$javaClassVersion"
   }
 
-  case class LineRange(start: Int, end: Int)
-  def rangeFromPosition(position: Position): Option[LineRange] = {
-    position match {
-      case impl: DiagnosticsReporter.PositionImpl =>
-        // We are forced to use int here because lsp diagnostics only take ints
-        impl.startPosition.flatMap(s => impl.endPosition.map(e => LineRange(s.toInt, e.toInt)))
-      case _ => None
+  import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
+  object ZincExistsPos {
+    def unapply(position: Position): Option[(Int, Int)] = {
+      position.startLine.toOption.flatMap(startLine =>
+        position.startColumn().toOption.map(startColumn => (startLine, startColumn)))
+    }
+  }
+
+  object ZincRangePos {
+    def unapply(position: Position): Option[(Int, Int)] = {
+      position.endLine.toOption.flatMap(endLine =>
+        position.endColumn().toOption.map(endColumn => (endLine, endColumn)))
     }
   }
 
