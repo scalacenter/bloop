@@ -182,7 +182,10 @@ class ConfigGenerationSuite {
     assertTrue(hasClasspathEntryName(configATest, "scala-library"))
     assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
     assertTrue(hasClasspathEntryName(configB, "cats-core"))
+    assertTrue(hasClasspathEntryName(configB, "/a/build/classes/bloop/main"))
     assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
+    assertTrue(hasClasspathEntryName(configBTest, "/a/build/classes/bloop/main"))
+    assertTrue(hasClasspathEntryName(configBTest, "/b/build/classes/bloop/main"))
 
     assertTrue(compileBloopProject("b", bloopDir).status.isOk)
   }
