@@ -19,6 +19,7 @@ import sbt.testing.Framework
 import bloop.engine.tasks.Tasks
 import bloop.testing.{DiscoveredTests, NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
+import sbt.internal.inc.bloop.CompileMode
 import xsbti.compile.CompileAnalysis
 
 import scala.concurrent.Await
@@ -34,7 +35,8 @@ object TestTaskTest {
     val target = s"$TestProjectName-test"
     val state0 = TestUtil.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
-    val compileTask = Tasks.compile(state0, project, ReporterConfig.defaultFormat, false)
+    val format = ReporterConfig.defaultFormat
+    val compileTask = Tasks.compile(state0, project, format, false, CompileMode.Sequential, false)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.lastSuccessfulResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
@@ -58,7 +60,7 @@ class TestTaskTest(
 ) {
 
   @Test
-  def testSuffixCanBeOmitted (): Unit = {
+  def testSuffixCanBeOmitted(): Unit = {
     val expectedName = testProject.name
     val withoutSuffix = Tasks.pickTestProject(expectedName.stripSuffix("-test"), testState)
     val withSuffix = Tasks.pickTestProject(expectedName, testState)
@@ -151,7 +153,7 @@ class TestTaskTest(
   }
 
   @Test
-  def testsAreDetected (): Unit = {
+  def testsAreDetected(): Unit = {
     TestUtil.quietIfSuccess(testState.logger) { logger =>
       val config = processRunnerConfig
       val classLoader = testLoader(config)

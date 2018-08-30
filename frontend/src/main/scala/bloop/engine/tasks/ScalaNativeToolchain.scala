@@ -2,19 +2,18 @@ package bloop.engine.tasks
 
 import java.nio.file.Path
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 import bloop.Project
-import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
-import bloop.engine.State
-import bloop.exec.Forker
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import monix.eval.Task
 
-class ScalaNativeToolchain private (classLoader: ClassLoader) {
+final class ScalaNativeToolchain private (classLoader: ClassLoader) {
+  private val paramTypes =
+    classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
 
   /**
    * Compile down to native binary using Scala Native's toolchain.
@@ -33,55 +32,30 @@ class ScalaNativeToolchain private (classLoader: ClassLoader) {
       logger: Logger
   ): Task[Try[Unit]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalanative.NativeBridge")
-    val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
     val nativeLinkMeth = bridgeClazz.getMethod("nativeLink", paramTypes: _*)
 
     // The Scala Native toolchain expects to receive the module class' name
     val fullEntry = if (mainClass.endsWith("$")) mainClass else mainClass + "$"
-    Task(nativeLinkMeth.invoke(null, config, project, fullEntry, target.underlying, logger)
-      .asInstanceOf[Unit]).materialize
-  }
-
-  /**
-   * Link `project` to a native binary and run it.
-   *
-   * @param state     The current state of Bloop.
-   * @param config    The native configuration to use.
-   * @param project   The project to link.
-   * @param cwd       The working directory in which to start the process.
-   * @param mainClass The fully qualified main class name.
-   * @param args      The arguments to pass to the program.
-   * @return A task that links and run the project.
-   */
-  def run(
-      state: State,
-      config: NativeConfig,
-      project: Project,
-      cwd: AbsolutePath,
-      mainClass: String,
-      target: AbsolutePath,
-      args: Array[String]
-  ): Task[State] = {
-    link(config, project, mainClass, target, state.logger).flatMap {
-      case Success(_) =>
-        val cmd = target.syntax +: args
-        Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
-          val exitStatus = Forker.exitStatus(exitCode)
-          state.mergeStatus(exitStatus)
-        }
-      case Failure(ex) =>
-        Task {
-          state.logger.error("Couldn't create native binary.")
-          state.logger.trace(ex)
-          state.mergeStatus(ExitStatus.LinkingError)
-        }
-    }
+    Task {
+      nativeLinkMeth
+        .invoke(null, config, project, fullEntry, target.underlying, logger)
+        .asInstanceOf[Unit]
+    }.materialize
   }
 }
 
 object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
+  override final val name: String = "Scala Native"
   override type Platform = Config.Platform.Native
   override def artifactNameFrom(version: String): String = BuildInfo.nativeBridge
+
+  private final val DefaultNativeTarget = "out"
+  def linkTargetFrom(config: NativeConfig, out: AbsolutePath): AbsolutePath = {
+    config.output match {
+      case Some(p) => AbsolutePath(p)
+      case None => out.resolve(DefaultNativeTarget)
+    }
+  }
 
   override def apply(classLoader: ClassLoader): ScalaNativeToolchain =
     new ScalaNativeToolchain(classLoader)

@@ -45,21 +45,20 @@ final class BspLogger private (
   }
 
   def diagnostic(problem: Problem): Unit = {
+    import sbt.util.InterfaceUtil.toOption
     val message = problem.message
-    val sourceFile = DefaultReporterFormat.toOption(problem.position.sourceFile())
-    val rangeAndUri = DefaultReporterFormat
-      .position(problem.position)
-      .flatMap(p => sourceFile.map(f => (p, f)))
+    val problemPos = problem.position
+    val sourceFile = toOption(problemPos.sourceFile())
 
-    rangeAndUri match {
-      case Some((pos0, file)) =>
-        val pos = ZincInternals.rangeFromPosition(problem.position) match {
-          case Some(lineRange) =>
-            val start = bsp.Position(pos0.line, lineRange.start)
-            val end = bsp.Position(pos0.line, lineRange.end)
+    (problemPos, sourceFile) match {
+      case (ZincInternals.ZincExistsPos(startLine, startColumn), Some(file)) =>
+        val pos = problem.position match {
+          case ZincInternals.ZincRangePos(endLine, endColumn) =>
+            val start = bsp.Position(startLine, startColumn)
+            val end = bsp.Position(endLine, endColumn)
             bsp.Range(start, end)
-          case None =>
-            val pos = bsp.Position(pos0.line, pos0.column)
+          case _ =>
+            val pos = bsp.Position(startLine, startColumn)
             bsp.Range(pos, pos)
         }
 
@@ -73,7 +72,7 @@ final class BspLogger private (
         val diagnostic = bsp.Diagnostic(pos, Some(severity), None, None, message, None)
         val diagnostics = bsp.PublishDiagnosticsParams(uri, None, List(diagnostic))
         Build.publishDiagnostics.notify(diagnostics)
-      case None =>
+      case _ =>
         problem.severity match {
           case Severity.Error => error(message)
           case Severity.Warn => warn(message)

@@ -1,13 +1,15 @@
 package sbt.internal.inc.bloop
 
+import java.io.File
 import java.nio.file.Files
 
 import bloop.ScalaInstance
 import bloop.io.AbsolutePath
 import xsbti.{ComponentProvider, Position}
 import sbt.internal.inc.ZincComponentCompiler
-import sbt.internal.inc.javac.DiagnosticsReporter
+import sbt.internal.inc.javac.{AnalyzingJavaCompiler, DiagnosticsReporter}
 import sbt.librarymanagement.{Configurations, ModuleID}
+import xsbti.compile.{ClasspathOptions, JavaCompiler}
 
 object ZincInternals {
   def latestVersion: String = ZincComponentCompiler.incrementalVersion
@@ -59,13 +61,29 @@ object ZincInternals {
     s"$id$binSeparator${scalaVersion}__$javaClassVersion"
   }
 
-  case class LineRange(start: Int, end: Int)
-  def rangeFromPosition(position: Position): Option[LineRange] = {
-    position match {
-      case impl: DiagnosticsReporter.PositionImpl =>
-        // We are forced to use int here because lsp diagnostics only take ints
-        impl.startPosition.flatMap(s => impl.endPosition.map(e => LineRange(s.toInt, e.toInt)))
-      case _ => None
+  import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
+  object ZincExistsPos {
+    def unapply(position: Position): Option[(Int, Int)] = {
+      position.startLine.toOption.flatMap(startLine =>
+        position.startColumn().toOption.map(startColumn => (startLine, startColumn)))
     }
+  }
+
+  object ZincRangePos {
+    def unapply(position: Position): Option[(Int, Int)] = {
+      position.endLine.toOption.flatMap(endLine =>
+        position.endColumn().toOption.map(endColumn => (endLine, endColumn)))
+    }
+  }
+
+  def instantiateJavaCompiler(
+      javac: xsbti.compile.JavaCompiler,
+      classpath: Seq[File],
+      instance: xsbti.compile.ScalaInstance,
+      cpOptions: ClasspathOptions,
+      lookup: (String => Option[File]),
+      searchClasspath: Seq[File]
+  ): JavaCompiler = {
+    new AnalyzingJavaCompiler(javac, classpath, instance, cpOptions, lookup, searchClasspath)
   }
 }

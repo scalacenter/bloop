@@ -30,6 +30,22 @@ object CliParsers {
     }
   }
 
+  implicit val parallelBatchesRead: ArgParser[ParallelBatches] = {
+    ArgParser.instance[ParallelBatches]("parallel batches") {
+      case s: String =>
+        val int: Either[String, Int] = {
+          try Right(s.toInt)
+          catch { case _: NumberFormatException => Left(s"Malformed integer: $s") }
+        }
+
+        int.flatMap { i =>
+          if (i > 0) Right(ParallelBatches(i))
+          else Left(s"The number of parallel batches needs to greater than 0.")
+        }
+
+    }
+  }
+
   implicit val optimizerConfigRead: ArgParser[OptimizerConfig] = {
     ArgParser.instance[OptimizerConfig]("\"debug\" | \"release\"") {
       case "debug" => Right(OptimizerConfig.Debug)

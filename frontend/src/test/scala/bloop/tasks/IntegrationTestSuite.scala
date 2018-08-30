@@ -10,18 +10,19 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Dag, Exit, Interpreter, Run}
+import bloop.engine.{Dag, Exit, Run}
 import bloop.exec.JavaEnv
 import bloop.Project
 import bloop.config.Config
 import bloop.io.AbsolutePath
-import xsbti.compile.ClasspathOptionsUtil
 
 object IntegrationTestSuite {
   val projects = TestUtil.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
 
   @Parameters
   def data() = {
+    //Arrays.asList(Array(Array((java.nio.file.Paths.get("/Users/jvican/Code/Atlas/.bloop"))): _*))
+
     Arrays.asList(projects: _*)
   }
 }
@@ -51,6 +52,7 @@ class IntegrationTestSuite(testDirectory: Path) {
     if (!isCommunityBuildEnabled) () else compileProject0
   }
 
+
   def compileProject0: Unit = {
     val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName, identity)
     val (initialState, projectToCompile) = getModuleToCompile(testDirectory) match {
@@ -69,7 +71,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           dependencies = previousProjects.map(_.name),
           scalaInstance = previousProjects.head.scalaInstance,
           rawClasspath = Nil,
-          classpathOptions = ClasspathOptionsUtil.boot(),
+          compileSetup = Config.CompileSetup.empty,
           classesDir = classesDir,
           scalacOptions = Nil,
           javacOptions = Nil,
@@ -103,7 +105,7 @@ class IntegrationTestSuite(testDirectory: Path) {
     }
 
     val action =
-      Run(Commands.Compile(projectToCompile.name, incremental = true), Exit(ExitStatus.Ok))
+      Run(Commands.Compile(projectToCompile.name, incremental = true, pipelined = false), Exit(ExitStatus.Ok))
     val state1 = TestUtil.blockingExecute(action, state)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",

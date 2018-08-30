@@ -4,9 +4,11 @@ import bloop.Project
 import bloop.io.{AbsolutePath, FileTracker}
 import bloop.logging.Logger
 
-final case class Build private (origin: AbsolutePath,
-                                projects: List[Project],
-                                tracker: FileTracker) {
+final case class Build private (
+    origin: AbsolutePath,
+    projects: List[Project],
+    tracker: FileTracker
+) {
 
   private val stringToProjects: Map[String, Project] = projects.map(p => p.name -> p).toMap
   private[bloop] val dags: List[Dag[Project]] = Dag.fromMap(stringToProjects)

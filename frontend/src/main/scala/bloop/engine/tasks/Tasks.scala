@@ -1,5 +1,6 @@
 package bloop.engine.tasks
 
+import java.io.File
 import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
@@ -10,15 +11,10 @@ import bloop.exec.Forker
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.BspLogger
 import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
-import bloop.testing.{
-  DiscoveredTests,
-  LoggingEventHandler,
-  TestInternals,
-  TestSuiteEvent,
-  TestSuiteEventHandler
-}
+import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import bloop.{CompileInputs, Compiler, Project, ScalaInstance}
 import monix.eval.Task
+import sbt.internal.inc.bloop.CompileMode
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.internal.inc.javac.JavaNoPosition
@@ -51,8 +47,12 @@ object Tasks {
         case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
         case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
         case Compiler.Result.Blocked(on) => s"${project.name} (blocked on ${on.mkString(", ")})"
-        case Compiler.Result.Failed(problems, ms) =>
-          s"${project.name} (failed with ${Problem.count(problems)}, ${ms}ms)"
+        case Compiler.Result.Failed(problems, t, ms) =>
+          val extra = t match {
+            case Some(t) => s"exception '${t.getMessage}', "
+            case None => ""
+          }
+          s"${project.name} (failed with ${Problem.count(problems)}, $extra${ms}ms)"
       }
     }
   }
@@ -64,16 +64,17 @@ object Tasks {
    * @param state          The current state of Bloop.
    * @param project        The project to compile.
    * @param reporterConfig Configuration of the compilation messages reporter.
-   * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise,
-   *                       also compile `project`.
+   * @param deduplicateFailedCompilation Don't compile a target if it has failed in the same compile run.
+   * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise, includ `project`.
    * @return The new state of Bloop after compilation.
    */
   def compile(
       state: State,
       project: Project,
       reporterConfig: ReporterConfig,
-      sequentialCompilation: Boolean,
-      excludeRoot: Boolean = false
+      deduplicateFailedCompilation: Boolean,
+      compileMode: CompileMode.ConfigurableMode,
+      excludeRoot: Boolean
   ): Task[State] = {
     import state.{logger, compilerCache}
     def toInputs(
@@ -90,6 +91,8 @@ object Tasks {
       val javacOptions = project.javacOptions.toArray
       val classpathOptions = project.classpathOptions
       val cwd = state.build.origin.getParent
+      val compileOrder = project.compileOrder
+
       // Set the reporter based on the kind of logger to publish diagnostics
       val reporter = logger match {
         case bspLogger: BspLogger =>
@@ -99,11 +102,11 @@ object Tasks {
       }
 
       // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, classesDir, target, scalacOptions, javacOptions, classpathOptions, result, reporter, logger)
+      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, compileMode, logger)
       // FORMAT: ON
     }
 
-    def compile(project: Project): Compiler.Result = {
+    def compile(project: Project): Task[Compiler.Result] = {
       def err(msg: String): Problem =
         Problem(-1, Severity.Error, msg, JavaNoPosition, "")
 
@@ -116,22 +119,23 @@ object Tasks {
           logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
           val previous = state.results.lastSuccessfulResult(project)
           Compiler.compile(toInputs(project, instance, uniqueSources, reporterConfig, previous))
+
         case None =>
           val addScalaConfiguration = err(
             "Add Scala configuration to the project. If that doesn't fix it, report it upstream")
           // Either return empty result or report
           (scalaSources, javaSources) match {
-            case (Nil, Nil) => Compiler.Result.Empty
+            case (Nil, Nil) => Task.now(Compiler.Result.Empty)
             case (_: List[AbsolutePath], Nil) =>
               // Let's notify users there is no Scala configuration for a project with Scala sources
               val msg =
                 s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
-              Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
+              Task.now(Compiler.Result.Failed(List(err(msg), addScalaConfiguration), None, 1))
             case (_, _: List[AbsolutePath]) =>
               // If Java sources exist, we cannot compile them without an instance, fail fast!
               val msg =
                 s"Failed to compile ${project.name}'s Java sources because the default Scala instance couldn't be created."
-              Compiler.Result.Failed(Array(err(msg), addScalaConfiguration), 1)
+              Task.now(Compiler.Result.Failed(List(err(msg), addScalaConfiguration), None, 1))
           }
       }
     }
@@ -159,7 +163,7 @@ object Tasks {
       }
     }
 
-    if (!sequentialCompilation) triggerCompile
+    if (!deduplicateFailedCompilation) triggerCompile
     else {
       // Check dependent projects didn't fail in previous sequential compile
       val allDependencies = Dag.dfs(dag).toSet
@@ -185,16 +189,16 @@ object Tasks {
    */
   private def toCompileTask(
       dag: Dag[Project],
-      compile: Project => Compiler.Result
+      compile: Project => Task[Compiler.Result]
   ): CompileTask = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
     def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
 
     def blockedBy(dag: Dag[CompileResult]): Option[Project] = {
       dag match {
-        case Leaf(CompileResult(_, _: Compiler.Result.Success)) => None
+        case Leaf(CompileResult(_, Compiler.Result.Ok(_))) => None
         case Leaf(CompileResult(project, _)) => Some(project)
-        case Parent(CompileResult(_, _: Compiler.Result.Success), _) => None
+        case Parent(CompileResult(_, Compiler.Result.Ok(_)), _) => None
         case Parent(CompileResult(project, _), _) => Some(project)
       }
     }
@@ -204,13 +208,14 @@ object Tasks {
         case Some(task) => task
         case None =>
           val task = dag match {
-            case Leaf(project) => Task(Leaf(CompileResult(project, compile(project))))
+            case Leaf(project) => compile(project).map(res => Leaf(CompileResult(project, res)))
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { results =>
                 val failed = results.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) Task(Parent(CompileResult(project, compile(project)), results))
-                else {
+                if (failed.isEmpty) {
+                  compile(project).map(res => Parent(CompileResult(project, res), results))
+                } else {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blocked = Compiler.Result.Blocked(failed.map(_.name))
                   Task.now(Parent(CompileResult(project, blocked), results))
@@ -246,14 +251,12 @@ object Tasks {
    *
    * @param state   The current state of Bloop.
    * @param project The project for which to start the REPL.
-   * @param config  Configuration of the compilation messages reporter.
    * @param noRoot  If false, include `project` on the classpath. Do not include it otherwise.
    * @return The new state of Bloop.
    */
   def console(
       state: State,
       project: Project,
-      config: ReporterConfig,
       noRoot: Boolean
   ): Task[State] = Task {
     import state.logger
@@ -439,15 +442,37 @@ object Tasks {
    * @param fqn       The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    */
-  def run(state: State,
-          project: Project,
-          cwd: AbsolutePath,
-          fqn: String,
-          args: Array[String]): Task[State] = {
+  def runJVM(state: State,
+             project: Project,
+             cwd: AbsolutePath,
+             fqn: String,
+             args: Array[String]): Task[State] = {
     val classpath = project.classpath
     val processConfig = Forker(project.javaEnv, classpath)
     val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
     runTask.map { exitCode =>
+      val exitStatus = Forker.exitStatus(exitCode)
+      state.mergeStatus(exitStatus)
+    }
+  }
+
+  /**
+   * Runs the fully qualified class `className` in a Native or JavaScript `project`.
+   *
+   * @param state     The current state of Bloop.
+   * @param project   The project to run.
+   * @param cwd       The directory in which to start the forked run process.
+   * @param fqn       The fully qualified name of the main class.
+   * @param args      The arguments to pass to the main class.
+   */
+  def runNativeOrJs(
+      state: State,
+      project: Project,
+      cwd: AbsolutePath,
+      fqn: String,
+      args: Array[String]
+  ): Task[State] = {
+    Forker.run(cwd, args, state.logger, state.commonOptions).map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
       state.mergeStatus(exitStatus)
     }

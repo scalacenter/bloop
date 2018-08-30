@@ -59,4 +59,8 @@ final class RecordingLogger(
        |${getMessages.map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
      """.stripMargin
   }
+
+  /** Returns all the infos detected about the state of compilation */
+  def compilingInfos: List[String] =
+    getMessages.iterator.filter(m => m._1 == "info" && m._2.contains("Compiling ")).map(_._2).toList
 }
