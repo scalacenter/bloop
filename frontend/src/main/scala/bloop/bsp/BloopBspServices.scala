@@ -146,7 +146,7 @@ final class BloopBspServices(
         case (action, project) => Run(Commands.Compile(project.name), action)
       }
 
-      def reportError(p: Project, problems: Array[Problem], elapsedMs: Long): String = {
+      def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
         val count = bloop.reporter.Problem.count(problems)
         s"${p.name} [${elapsedMs}ms] (errors ${count.errors}, warnings ${count.warnings})"
       }
@@ -161,8 +161,12 @@ final class BloopBspServices(
               case Compiler.Result.Cancelled(_) => Nil
               case Compiler.Result.Blocked(_) => Nil
               case Compiler.Result.Success(_, _, _) => Nil
-              case Compiler.Result.Failed(problems, elapsed) =>
-                List(reportError(p, problems, elapsed))
+              case Compiler.Result.Failed(problems, t, elapsed) =>
+                val acc = List(reportError(p, problems, elapsed))
+                t match {
+                  case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc
+                  case None => acc
+                }
             }
         }
 
@@ -272,7 +276,7 @@ final class BloopBspServices(
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
-              classpath = project.classpath.iterator.map(e => bsp.Uri(e.toBspUri)).toList,
+              classpath = project.classpath.map(e => bsp.Uri(e.toBspUri)).toList,
               classDirectory = bsp.Uri(project.classesDir.toBspUri)
             )
         }.toList

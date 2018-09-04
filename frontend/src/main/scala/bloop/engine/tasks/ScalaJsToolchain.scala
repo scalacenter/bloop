@@ -15,7 +15,9 @@ import monix.eval.Task
 
 import scala.util.{Failure, Success, Try}
 
-class ScalaJsToolchain private (classLoader: ClassLoader) {
+final class ScalaJsToolchain private (classLoader: ClassLoader) {
+  private val paramTypes =
+    classOf[JsConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
 
   /**
    * Compile down to JavaScript using Scala.js' toolchain.
@@ -35,57 +37,27 @@ class ScalaJsToolchain private (classLoader: ClassLoader) {
       logger: Logger
   ): Task[Try[Unit]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalajs.JsBridge")
-    val paramTypes = classOf[JsConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
-
     val method = bridgeClazz.getMethod("link", paramTypes: _*)
-    Task(method.invoke(null, config, project, mainClass, target.underlying, logger)
-      .asInstanceOf[Unit]).materialize
+    Task(
+      method.invoke(null, config, project, mainClass, target.underlying, logger).asInstanceOf[Unit]
+    ).materialize
   }
-
-  /**
-   * Compile `project` to a JavaScript and run it.
-   *
-   * @param state     The current state of Bloop
-   * @param project   The project to link
-   * @param config    The configuration for Scala.js
-   * @param cwd       The working directory in which to start the process
-   * @param mainClass The fully qualified main class name
-   * @param target    The output file path
-   * @param args      The arguments to pass to the program
-   * @return A task that compiles and run the project
-   */
-  def run(
-      state: State,
-      config: JsConfig,
-      project: Project,
-      cwd: AbsolutePath,
-      mainClass: String,
-      target: AbsolutePath,
-      args: Array[String]
-  ): Task[State] = {
-    link(config, project, mainClass, target, state.logger).flatMap {
-      case Success(_) =>
-        val cmd = "node" +: target.syntax +: args
-        Forker.run(cwd, cmd, state.logger, state.commonOptions).map { exitCode =>
-          val exitStatus = Forker.exitStatus(exitCode)
-          state.mergeStatus(exitStatus)
-        }
-      case Failure(ex) =>
-        Task {
-          state.logger.error("Could not generate JavaScript file")
-          state.logger.trace(ex)
-          state.mergeStatus(ExitStatus.LinkingError)
-        }
-    }
-  }
-
 }
 
 object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
+  override final val name: String = "Scala.js"
   override type Platform = Config.Platform.Js
 
   override def apply(classLoader: ClassLoader): ScalaJsToolchain =
     new ScalaJsToolchain(classLoader)
+
+  private final val DefaultJsTarget = "out.js"
+  def linkTargetFrom(config: JsConfig, out: AbsolutePath): AbsolutePath = {
+    config.output match {
+      case Some(p) => AbsolutePath(p)
+      case None => out.resolve(DefaultJsTarget)
+    }
+  }
 
   /** The artifact name of this toolchain. */
   override def artifactNameFrom(version: String): String = {

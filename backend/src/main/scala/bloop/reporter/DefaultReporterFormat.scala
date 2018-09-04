@@ -8,13 +8,6 @@ import scala.compat.Platform.EOL
 object DefaultReporterFormat extends (ConfigurableReporter => ReporterFormat) {
   override def apply(reporter: ConfigurableReporter): DefaultReporterFormat =
     new DefaultReporterFormat(reporter)
-
-  case class Position(line: Int, column: Int)
-
-  def toOption[T](m: java.util.Optional[T]): Option[T] = if (m.isPresent) Some(m.get) else None
-  def position(position: xsbti.Position): Option[Position] = {
-    toOption(position.line).flatMap(l => toOption(position.pointer).map(c => Position(l, c)))
-  }
 }
 
 /**

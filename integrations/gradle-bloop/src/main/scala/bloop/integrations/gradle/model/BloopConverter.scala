@@ -5,6 +5,7 @@ import java.nio.file.Path
 
 import bloop.config.Config
 import bloop.integrations.gradle.BloopParameters
+import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
 import org.gradle.api
 import org.gradle.api.{GradleException, Project}
@@ -41,7 +42,7 @@ final class BloopConverter(parameters: BloopParameters) {
    * @return Bloop configuration
    */
   def toBloopConfig(
-      strictProjectDependencies: List[String],
+      strictProjectDependencies: List[SourceSetDep],
       project: Project,
       sourceSet: SourceSet,
       targetDir: File
@@ -61,7 +62,7 @@ final class BloopConverter(parameters: BloopParameters) {
 
     // Strict project dependencies should have more priority than regular project dependencies
     val allDependencies: List[String] = {
-      strictProjectDependencies ++ projectDependencies.map { dep =>
+      strictProjectDependencies.map(_.bloopModuleName) ++ projectDependencies.map { dep =>
         val project = dep.getDependencyProject
         getProjectName(project, project.getSourceSet(parameters.mainSourceSet))
       }
@@ -75,8 +76,11 @@ final class BloopConverter(parameters: BloopParameters) {
     val classpath: List[Path] = {
       // Cannot use `sourceSet.getRuntimeClasspath` because returns jars of subprojects, need dirs!
       val projectDependencyClassesDirs =
-        projectDependencies.map(dep => getClassesDir(dep.getDependencyProject, sourceSet))
-      (projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile.toPath)).toList
+        projectDependencies.map { dep =>
+          val project = dep.getDependencyProject
+          getClassesDir(project, project.getSourceSet(parameters.mainSourceSet))
+        }
+      (strictProjectDependencies.map(_.classesDir) ++ projectDependencyClassesDirs ++ dependencyClasspath.map(_.getFile.toPath)).toList
     }
 
     for {
@@ -108,7 +112,7 @@ final class BloopConverter(parameters: BloopParameters) {
     }
   }
 
-  private def getClassesDir(project: Project, sourceSet: SourceSet): Path =
+  def getClassesDir(project: Project, sourceSet: SourceSet): Path =
     (project.getBuildDir / "classes" / "bloop" / sourceSet.getName).toPath
 
   private def getSources(sourceSet: SourceSet): List[Path] =
@@ -303,4 +307,8 @@ final class BloopConverter(parameters: BloopParameters) {
     List(scalaCheckFramework, scalaTestFramework, specsFramework, jUnitFramework)
   private val defaultTestOptions =
     Config.TestOptions(Nil, List(Config.TestArgument(List("-v", "-a"), Some(jUnitFramework))))
+}
+
+object BloopConverter {
+  case class SourceSetDep(bloopModuleName: String, classesDir: Path)
 }

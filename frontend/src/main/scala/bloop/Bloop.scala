@@ -13,7 +13,6 @@ import bloop.cli.CliParsers.{
 import bloop.engine.{Action, Build, Exit, Interpreter, NoPool, Print, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
-import bloop.io.Timer.timed
 import bloop.logging.BloopLogger
 import caseapp.{CaseApp, RemainingArgs}
 import jline.console.ConsoleReader
@@ -69,6 +68,23 @@ object Bloop extends CaseApp[CliOptions] {
 
       case Array("compile", projectName) =>
         val action = Run(Commands.Compile(projectName), Exit(ExitStatus.Ok))
+        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+
+      case Array("compile", "--pipelined", projectName1) =>
+        val action =
+          Run(Commands.Compile(projectName1, pipelined = true, parallel = false))
+        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+
+      case Array("compile", "--parallel", projectName1) =>
+        val action = Run(Commands.Compile(projectName1, pipelined = false, parallel = true))
+        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+
+      case Array("compile", "--pipelined-parallel", projectName1) =>
+        val action = Run(Commands.Compile(projectName1, pipelined = true, parallel = true))
+        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+
+      case Array("compile", projectName1, projectName2) =>
+        val action = Run(Commands.Compile(projectName1), Run(Commands.Compile(projectName2)))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("console", projectName) =>

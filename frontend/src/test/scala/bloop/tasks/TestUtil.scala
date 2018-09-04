@@ -1,13 +1,12 @@
 package bloop.tasks
 
-import java.io.IOException
-import java.nio.charset.{Charset, StandardCharsets}
+import java.nio.charset.Charset
 import java.nio.file._
-import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.Commands
 import bloop.config.Config
+import bloop.config.Config.CompileOrder
 import bloop.engine.{Action, Build, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
@@ -16,8 +15,6 @@ import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
 import monix.eval.Task
-import monix.execution.Cancelable
-import xsbti.compile.ClasspathOptionsUtil
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -25,7 +22,9 @@ import scala.util.control.NonFatal
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
+
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
+
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
 
   def getProject(name: String, state: State): Project =
@@ -34,6 +33,7 @@ object TestUtil {
   def getBaseFromConfigDir(configDir: Path): Path = configDir.getParent.getParent
 
   val RootProject = "target-project"
+
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
@@ -42,24 +42,25 @@ object TestUtil {
       javaEnv: JavaEnv = JavaEnv.default,
       quiet: Boolean = false,
       failure: Boolean = false,
-      useSiteLogger: Option[Logger] = None)(afterCompile: State => Unit = (_ => ())) = {
-    withState(structures, dependencies, scalaInstance = scalaInstance, javaEnv = javaEnv) {
-      (state: State) =>
-        def action(state0: State): Unit = {
-          val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
-          // Check that this is a clean compile!
-          val projects = state.build.projects
-          assert(projects.forall(p => noPreviousResult(p, state)))
-          val project = getProject(rootProjectName, state)
-          val action = Run(Commands.Compile(rootProjectName, incremental = true))
-          val compiledState = TestUtil.blockingExecute(action, state)
-          afterCompile(compiledState)
-        }
+      useSiteLogger: Option[Logger] = None,
+      order: CompileOrder = Config.Mixed
+  )(afterCompile: State => Unit = (_ => ())) = {
+    withState(structures, dependencies, scalaInstance, javaEnv, order) { (state: State) =>
+      def action(state0: State): Unit = {
+        val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
+        // Check that this is a clean compile!
+        val projects = state.build.projects
+        assert(projects.forall(p => noPreviousResult(p, state)))
+        val project = getProject(rootProjectName, state)
+        val action = Run(Commands.Compile(rootProjectName, incremental = true))
+        val compiledState = TestUtil.blockingExecute(action, state)
+        afterCompile(compiledState)
+      }
 
-        val logger = state.logger
-        if (quiet) quietIfSuccess(logger)(newLogger => action(state.copy(logger = newLogger)))
-        else if (failure) quietIfError(logger)(newLogger => action(state.copy(logger = newLogger)))
-        else action(state)
+      val logger = state.logger
+      if (quiet) quietIfSuccess(logger)(newLogger => action(state.copy(logger = newLogger)))
+      else if (failure) quietIfError(logger)(newLogger => action(state.copy(logger = newLogger)))
+      else action(state)
     }
   }
 
@@ -96,13 +97,17 @@ object TestUtil {
   def quietIfError[T](logger: Logger)(op: BufferedLogger => T): T = {
     val bufferedLogger = BufferedLogger(logger.asVerbose)
     try op(bufferedLogger)
-    catch { case ex: Throwable => bufferedLogger.clear(); throw ex }
+    catch {
+      case ex: Throwable => bufferedLogger.clear(); throw ex
+    }
   }
 
   def quietIfSuccess[T](logger: Logger)(op: BufferedLogger => T): T = {
     val bufferedLogger = BufferedLogger(logger.asVerbose)
     try op(bufferedLogger)
-    catch { case ex: Throwable => bufferedLogger.flush(); throw ex }
+    catch {
+      case ex: Throwable => bufferedLogger.flush(); throw ex
+    }
   }
 
   private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
@@ -191,13 +196,14 @@ object TestUtil {
       projectStructures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
       scalaInstance: ScalaInstance,
-      javaEnv: JavaEnv
+      javaEnv: JavaEnv,
+      order: CompileOrder = Config.Mixed
   )(op: State => T): T = {
     withTemporaryDirectory { temp =>
       val projects = projectStructures.map {
         case (name, sources) =>
           val projectDependencies = dependencies.getOrElse(name, Set.empty)
-          makeProject(temp, name, sources, projectDependencies, scalaInstance, javaEnv)
+          makeProject(temp, name, sources, projectDependencies, scalaInstance, javaEnv, order)
       }
       val logger = BloopLogger.default(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
@@ -208,15 +214,19 @@ object TestUtil {
 
   def noPreviousResult(project: Project, state: State): Boolean =
     !hasPreviousResult(project, state)
+
   def hasPreviousResult(project: Project, state: State): Boolean =
     state.results.lastSuccessfulResult(project).analysis().isPresent
 
-  def makeProject(baseDir: Path,
-                  name: String,
-                  sources: Map[String, String],
-                  dependencies: Set[String],
-                  scalaInstance: ScalaInstance,
-                  javaEnv: JavaEnv): Project = {
+  def makeProject(
+      baseDir: Path,
+      name: String,
+      sources: Map[String, String],
+      dependencies: Set[String],
+      scalaInstance: ScalaInstance,
+      javaEnv: JavaEnv,
+      compileOrder: CompileOrder = Config.Mixed
+  ): Project = {
     val baseDirectory = projectDir(baseDir, name)
     val (srcs, classes) = makeProjectStructure(baseDir, name)
     val tempDir = baseDirectory.resolve("tmp")
@@ -233,7 +243,7 @@ object TestUtil {
       dependencies = dependencies.toList,
       scalaInstance = Some(scalaInstance),
       rawClasspath = classpath,
-      classpathOptions = ClasspathOptionsUtil.boot(),
+      compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
       classesDir = AbsolutePath(target),
       scalacOptions = Nil,
       javacOptions = Nil,
@@ -281,4 +291,6 @@ object TestUtil {
     finally delete(AbsolutePath(temp))
   }
 
+  def errorsFromLogger(logger: RecordingLogger): List[String] =
+    logger.getMessages.iterator.filter(_._1 == "error").map(_._2).toList
 }

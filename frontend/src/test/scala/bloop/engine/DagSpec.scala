@@ -14,13 +14,13 @@ import xsbti.compile.ClasspathOptionsUtil
 class DagSpec {
 
   private val logger = new RecordingLogger
-  private val classpathOptions = ClasspathOptionsUtil.boot()
+  private val compileOptions = Config.CompileSetup.empty
   private val dummyInstance = CompilationHelpers.scalaInstance
   private val dummyPath = bloop.io.AbsolutePath("/tmp/non-existing")
 
   // format: OFF
   def dummyProject(name: String, dependencies: List[String]): Project =
-    Project(name, dummyPath, dependencies, Some(dummyInstance), Nil, classpathOptions, dummyPath, Nil,
+    Project(name, dummyPath, dependencies, Some(dummyInstance), Nil, compileOptions, dummyPath, Nil,
       Nil, Nil, Nil, Config.TestOptions.empty, JavaEnv.default, dummyPath, dummyPath,
       Config.Platform.default, None, None, None, None)
   // format: ON
