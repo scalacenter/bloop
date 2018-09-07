@@ -5,7 +5,7 @@ object Integrations {
   val SbtSbt = RootProject(
     uri("git://github.com/scalacenter/sbt.git#9d60c11e6bbd09f4b7e3976a7bc4a5888f96ca37"))
   val GuardianFrontend = RootProject(
-    uri("git://github.com/scalacenter/frontend.git#674c77745cb0d3959a04f90b2d9d57fdb8723c64"))
+    uri("git://github.com/scalacenter/frontend.git#fd8da1929d8a3bd39ca6027ffba6c0850e036ce3"))
   val MiniBetterFiles = RootProject(uri(
     "git://github.com/scalacenter/mini-better-files.git#0ed848993a2fd5a36e4366b5efb9c68dce958fc2"))
   val WithResources = RootProject(
