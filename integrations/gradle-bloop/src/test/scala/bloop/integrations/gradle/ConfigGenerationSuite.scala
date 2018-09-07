@@ -91,8 +91,10 @@ class ConfigGenerationSuite {
     val buildSettings = testProjectDir.newFile("settings.gradle")
     val buildDirA = testProjectDir.newFolder("a")
     val buildDirB = testProjectDir.newFolder("b")
+    val buildDirC = testProjectDir.newFolder("c")
     val buildFileA = new File(buildDirA, "build.gradle")
     val buildFileB = new File(buildDirB, "build.gradle")
+    val buildFileC = new File(buildDirC, "build.gradle")
 
     writeBuildScript(
       buildFileA,
@@ -129,8 +131,29 @@ class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.typelevel:cats-core_2.12:1.2.0'
+         |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
          |  compile project(':a')
+         |  implementation(project(':c'))
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileC,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
          |}
       """.stripMargin
     )
@@ -141,11 +164,13 @@ class ConfigGenerationSuite {
         |rootProject.name = 'scala-multi-projects'
         |include 'a'
         |include 'b'
+        |include 'c'
       """.stripMargin
     )
 
     createHelloWorldScalaSource(buildDirA, "package x { trait A }")
-    createHelloWorldScalaSource(buildDirB, "package y { trait B extends x.A }")
+    createHelloWorldScalaSource(buildDirB, "package y { trait B extends x.A { println(new z.C) } }")
+    createHelloWorldScalaSource(buildDirC, "package z { class C }")
 
     GradleRunner
       .create()
@@ -160,32 +185,43 @@ class ConfigGenerationSuite {
     val bloopNone = new File(bloopDir, s"${projectName}.json")
     val bloopA = new File(bloopDir, "a.json")
     val bloopB = new File(bloopDir, "b.json")
+    val bloopC = new File(bloopDir, "c.json")
     val bloopATest = new File(bloopDir, "a-test.json")
     val bloopBTest = new File(bloopDir, "b-test.json")
+    val bloopCTest = new File(bloopDir, "c-test.json")
 
     assertFalse(bloopNone.exists())
     val configA = readValidBloopConfig(bloopA)
     val configB = readValidBloopConfig(bloopB)
+    val configC = readValidBloopConfig(bloopC)
     val configATest = readValidBloopConfig(bloopATest)
     val configBTest = readValidBloopConfig(bloopBTest)
+    val configCTest = readValidBloopConfig(bloopCTest)
     assertTrue(configA.project.`scala`.exists(_.version == "2.12.6"))
     assertTrue(configB.project.`scala`.exists(_.version == "2.12.6"))
-    assertTrue(configB.project.dependencies == List("a"))
+    assertTrue(configC.project.`scala`.exists(_.version == "2.12.6"))
+    assertTrue(configB.project.dependencies.sorted == List("a", "c"))
     assertTrue(configATest.project.dependencies == List("a"))
-    assertTrue(configBTest.project.dependencies.sorted == List("a", "b"))
+    assertTrue(configBTest.project.dependencies.sorted == List("a", "b", "c"))
+    assertTrue(configCTest.project.dependencies == List("c"))
 
     def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
       config.project.classpath.exists(_.toString.contains(entryName))
 
     assertTrue(hasClasspathEntryName(configA, "scala-library"))
     assertTrue(hasClasspathEntryName(configB, "scala-library"))
+    assertTrue(hasClasspathEntryName(configC, "scala-library"))
     assertTrue(hasClasspathEntryName(configATest, "scala-library"))
     assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
+    assertTrue(hasClasspathEntryName(configCTest, "scala-library"))
+    assertTrue(hasClasspathEntryName(configCTest, "/c/build/classes/bloop/main"))
     assertTrue(hasClasspathEntryName(configB, "cats-core"))
     assertTrue(hasClasspathEntryName(configB, "/a/build/classes/bloop/main"))
+    assertTrue(hasClasspathEntryName(configB, "/c/build/classes/bloop/main"))
     assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
     assertTrue(hasClasspathEntryName(configBTest, "/a/build/classes/bloop/main"))
     assertTrue(hasClasspathEntryName(configBTest, "/b/build/classes/bloop/main"))
+    assertTrue(hasClasspathEntryName(configBTest, "/c/build/classes/bloop/main"))
 
     assertTrue(compileBloopProject("b", bloopDir).status.isOk)
   }
