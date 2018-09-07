@@ -103,11 +103,11 @@ object Pipelined {
     def toInputs(
         inputs: PipelineInputs,
         instance: ScalaInstance,
+        sources: Array[AbsolutePath],
         config: ReporterConfig,
         result: PreviousResult
     ): CompileInputs = {
       val project = inputs.project
-      val sources = project.sources.toArray
       val classpath = project.classpath
       val picklepath = inputs.picklepath
       val classesDir = project.classesDir
@@ -154,8 +154,8 @@ object Pipelined {
       startTimings += (project -> System.currentTimeMillis())
       val previous = state.results.lastSuccessfulResult(project)
 
-      def runCompile(instance: ScalaInstance) = {
-        Compiler.compile(toInputs(inputs, instance, reporterConfig, previous)).map { result =>
+      def runCompile(instance: ScalaInstance, sources: Array[AbsolutePath]) = {
+        Compiler.compile(toInputs(inputs, instance, sources, reporterConfig, previous)).map { result =>
           // Do some book-keeping before returning the result to the caller
           endTimings += (project -> System.currentTimeMillis())
 
@@ -189,7 +189,7 @@ object Pipelined {
 
       def err(msg: String): Problem = Problem(-1, Severity.Error, msg, JavaNoPosition, "")
       project.scalaInstance match {
-        case Some(instance) => runCompile(instance)
+        case Some(instance) => runCompile(instance, uniqueSources)
         case None =>
           val addScalaConfiguration = err(
             "Add Scala configuration to the project. If that doesn't fix it, report it upstream")
