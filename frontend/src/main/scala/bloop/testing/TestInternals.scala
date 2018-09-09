@@ -147,6 +147,9 @@ object TestInternals {
       tasks.prependAll(next)
     }
 
+    val summary = runner.done()
+    if (summary.nonEmpty) logger.info(s"Summary: $summary")
+
     events.toList
   }
 
