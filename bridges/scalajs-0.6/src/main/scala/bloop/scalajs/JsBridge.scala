@@ -96,10 +96,10 @@ object JsBridge {
 
   /** @return (list of frameworks, function to close test adapter) */
   def testFrameworks(
-      frameworkNames: Array[Array[String]],
+      frameworkNames: List[List[String]],
       jsPath: Path,
       projectPath: Path,
-      logger: BloopLogger): (Array[sbt.testing.Framework], () => Unit) = {
+      logger: BloopLogger): (List[sbt.testing.Framework], () => Unit) = {
     // TODO It would be cleaner if the CWD of the Node process could be set
     val quotedPath = projectPath.toString.replaceAll("'", "\\'")
 
@@ -120,9 +120,8 @@ object JsBridge {
     val config = TestAdapter.Config().withLogger(new Logger(logger))
     val adapter = new TestAdapter(env, config)
     val result = adapter
-      .loadFrameworks(frameworkNames.map(_.toList).toList)
+      .loadFrameworks(frameworkNames)
       .flatMap(_.toList)
-      .toArray
 
     (result, () => adapter.close())
   }
