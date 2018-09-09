@@ -613,7 +613,8 @@ object BloopDefaults {
 
         val scalaJsEmitSourceMaps =
           ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
-        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, None, emptyScalaJs.toolchain)
+        val jsdom = false
+        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, emptyScalaJs.toolchain)
         Config.Platform.Js(jsConfig, None)
       }
     } else {
