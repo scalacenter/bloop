@@ -7,11 +7,11 @@ import org.scalajs.core.tools.io.IRFileCache.IRContainer
 import org.scalajs.core.tools.io.{
   AtomicWritableFileVirtualJSFile,
   FileVirtualBinaryFile,
+  FileVirtualJSFile,
   FileVirtualScalaJSIRFile,
-  VirtualJSFile,
-  VirtualJarFile,
   MemVirtualJSFile,
-  FileVirtualJSFile
+  VirtualJSFile,
+  VirtualJarFile
 }
 import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
 import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
@@ -22,6 +22,7 @@ import org.scalajs.core.tools.jsdep.ResolvedJSDependency
 import org.scalajs.core.tools.linker.backend.ModuleKind
 import org.scalajs.core.tools.sem.Semantics
 import org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv
+import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.testadapter.TestAdapter
 
 object JsBridge {
@@ -94,34 +95,42 @@ object JsBridge {
     )
   }
 
+  private class CustomDomNodeEnv(config: JSDOMNodeJSEnv.Config, initFiles: Seq[MemVirtualJSFile])
+      extends JSDOMNodeJSEnv(config) {
+    protected override def customInitFiles(): Seq[VirtualJSFile] = initFiles
+  }
+
+  private class CustomNodeEnv(config: NodeJSEnv.Config, initFiles: Seq[MemVirtualJSFile])
+      extends NodeJSEnv(config) {
+    protected override def customInitFiles(): Seq[VirtualJSFile] = initFiles
+  }
+
   /** @return (list of frameworks, function to close test adapter) */
   def testFrameworks(
       frameworkNames: List[List[String]],
       jsPath: Path,
       projectPath: Path,
-      logger: BloopLogger): (List[sbt.testing.Framework], () => Unit) = {
+      logger: BloopLogger,
+      jsdom: java.lang.Boolean): (List[sbt.testing.Framework], () => Unit) = {
     // TODO It would be cleaner if the CWD of the Node process could be set
     val quotedPath = projectPath.toString.replaceAll("'", "\\'")
-
-    class MyEnv(config: JSDOMNodeJSEnv.Config) extends JSDOMNodeJSEnv(config) {
-      protected override def customInitFiles(): Seq[VirtualJSFile] =
-        Seq(
-          new MemVirtualJSFile("changePath.js")
-            .withContent(s"require('process').chdir('$quotedPath');"))
-    }
+    val customScripts = Seq(
+      new MemVirtualJSFile("changePath.js")
+        .withContent(s"require('process').chdir('$quotedPath');"))
 
     val nodeModules = projectPath.resolve("node_modules").toString
     logger.debug("Node.js module path: " + nodeModules)
+    val env = Map("NODE_PATH" -> nodeModules)
 
-    val env = new MyEnv(
-      JSDOMNodeJSEnv.Config().withEnv(Map("NODE_PATH" -> nodeModules))
-    ).loadLibs(Seq(ResolvedJSDependency.minimal(new FileVirtualJSFile(jsPath.toFile))))
+    val nodeEnv =
+      if (!jsdom) new CustomNodeEnv(NodeJSEnv.Config().withEnv(env), customScripts)
+      else new CustomDomNodeEnv(JSDOMNodeJSEnv.Config().withEnv(env), customScripts)
 
     val config = TestAdapter.Config().withLogger(new Logger(logger))
-    val adapter = new TestAdapter(env, config)
-    val result = adapter
-      .loadFrameworks(frameworkNames)
-      .flatMap(_.toList)
+    val adapter = new TestAdapter(
+      nodeEnv.loadLibs(Seq(ResolvedJSDependency.minimal(new FileVirtualJSFile(jsPath.toFile)))),
+      config)
+    val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
 
     (result, () => adapter.close())
   }
