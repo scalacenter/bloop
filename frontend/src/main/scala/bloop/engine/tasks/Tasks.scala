@@ -161,11 +161,12 @@ object Tasks {
           if (!success) None
           else {
             logger.debug(s"Resolving test frameworks: ${project.testFrameworks.map(_.names)}")
-            val (frameworks, dispose) = project.jsToolchain.get.testFrameworks(
-              project.testFrameworks.map(_.names),
-              target,
-              project.baseDirectory,
-              logger)
+            val (frameworks, dispose) =
+              project.jsToolchain.get.testFrameworks(project.testFrameworks.map(_.names),
+                                                     target,
+                                                     project.baseDirectory,
+                                                     logger,
+                                                     config.jsdom)
             Some(DiscoveredTestFrameworks.Js(frameworks, dispose))
           }
         }

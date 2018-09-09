@@ -18,7 +18,6 @@ import bloop.io.AbsolutePath
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.{CompilationTask, Tasks}
-import bloop.testing.{DiscoveredTests, NoopEventHandler, TestInternals}
 import bloop.engine.tasks.Tasks
 import bloop.testing.{NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
