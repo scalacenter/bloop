@@ -14,7 +14,7 @@ anyone who would like to contribute to Bloop.
 ## Improving the docs
 
 Our documentation infrastructure uses the [Hugo](http://gohugo.io/) static site
-generator, together with a custom version of the [Kube](kube.elemnts.org/)
+generator, together with a custom version of the [Kube](https://kube.elemnts.org/)
 theme. The docs live in the `website/` folder in our repository.
 
 If you want to make changes to the theme or how the documents are organised (think html or css), head to Scala Center's fork of [Kube](https://github.com/scalacenter/kube) to make the changes and make a pull request.
