@@ -86,6 +86,9 @@ object Dependencies {
   val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version
   val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version
   val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version
+  val scalaJsEnvs10 = "org.scala-js" %% "scalajs-js-envs" % scalaJs10Version
+  val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % scalaJs10Version
+  val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version
   val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
