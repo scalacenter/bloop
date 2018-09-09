@@ -299,8 +299,6 @@ object Tasks {
                     logger.trace(t)
                     Task.now(ExitStatus.TestExecutionError)
                 } finally {
-                  // TODO It seems that dispose() is called too early
-                  //      It logs: [W] TestAdapter.close() was called. Incomplete runs: Set(0, 5, 10, 1, 6, 9, 2, 7, 3, 11, 8, 4)
                   dispose()
                 }
               }
