@@ -13,6 +13,11 @@ object Feedback {
   def expectedMainClass(project: Project): String =
     s"Expected a main class via command-line or in the configuration of project '${project.name}'"
 
+  def missingScalaInstance(project: Project): String =
+    s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
+  def missingInstanceForJavaCompilation(project: Project): String =
+    s"Failed to compile Java sources in ${project.name}: default Zinc Scala instance couldn't be created!"
+
   def failedToLink(project: Project, linker: String, t: Throwable): String =
     s"Failed to link $linker project '${project.name}': '${t.getMessage}'"
   def missingLinkArtifactFor(project: Project, artifactName: String, linker: String): String =

@@ -1,233 +1,25 @@
 package bloop.engine.tasks
 
-import java.io.File
 import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.engine.caches.ResultsCache
-import bloop.engine.{Dag, Leaf, Parent, State}
+import bloop.engine.{Dag, State}
 import bloop.exec.Forker
-import bloop.io.{AbsolutePath, Paths}
-import bloop.logging.BspLogger
-import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
+import bloop.io.AbsolutePath
 import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
-import bloop.{CompileInputs, Compiler, Project, ScalaInstance}
+import bloop.Project
 import monix.eval.Task
-import sbt.internal.inc.bloop.CompileMode
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
-import sbt.internal.inc.javac.JavaNoPosition
 import sbt.testing._
 import xsbt.api.Discovery
-import xsbti.Severity
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
 object Tasks {
   private val TestFailedStatus: Set[Status] =
     Set(Status.Failure, Status.Error, Status.Canceled)
-
-  private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
-  private def currentTime: String = dateFormat.format(new java.util.Date())
-
-  private case class CompileResult(project: Project, result: Compiler.Result) {
-    // Cache hash code here so that `Dag.toDotGraph` doesn't recompute it all the time
-    override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
-  }
-
-  private type CompileTask = Task[Dag[CompileResult]]
-
-  import scalaz.Show
-  private final implicit val showCompileTask: Show[CompileResult] = new Show[CompileResult] {
-    private def seconds(ms: Double): String = s"${ms}ms"
-    override def shows(r: CompileResult): String = {
-      val project = r.project
-      r.result match {
-        case Compiler.Result.Empty => s"${project.name} (empty)"
-        case Compiler.Result.Cancelled(ms) => s"${project.name} (cancelled, lasted ${ms}ms)"
-        case Compiler.Result.Success(_, _, ms) => s"${project.name} (success ${ms}ms)"
-        case Compiler.Result.Blocked(on) => s"${project.name} (blocked on ${on.mkString(", ")})"
-        case Compiler.Result.Failed(problems, t, ms) =>
-          val extra = t match {
-            case Some(t) => s"exception '${t.getMessage}', "
-            case None => ""
-          }
-          s"${project.name} (failed with ${Problem.count(problems)}, $extra${ms}ms)"
-      }
-    }
-  }
-
-  /**
-   * Performs incremental compilation of the dependencies of `project`, including `project` if
-   * `excludeRoot` is `false`, excluding it otherwise.
-   *
-   * @param state          The current state of Bloop.
-   * @param project        The project to compile.
-   * @param reporterConfig Configuration of the compilation messages reporter.
-   * @param deduplicateFailedCompilation Don't compile a target if it has failed in the same compile run.
-   * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise, includ `project`.
-   * @return The new state of Bloop after compilation.
-   */
-  def compile(
-      state: State,
-      project: Project,
-      reporterConfig: ReporterConfig,
-      deduplicateFailedCompilation: Boolean,
-      compileMode: CompileMode.ConfigurableMode,
-      excludeRoot: Boolean
-  ): Task[State] = {
-    import state.{logger, compilerCache}
-    def toInputs(
-        project: Project,
-        instance: ScalaInstance,
-        sources: Array[AbsolutePath],
-        config: ReporterConfig,
-        result: PreviousResult
-    ) = {
-      val classpath = project.classpath
-      val classesDir = project.classesDir
-      val target = project.out
-      val scalacOptions = project.scalacOptions.toArray
-      val javacOptions = project.javacOptions.toArray
-      val classpathOptions = project.classpathOptions
-      val cwd = state.build.origin.getParent
-      val compileOrder = project.compileOrder
-
-      // Set the reporter based on the kind of logger to publish diagnostics
-      val reporter = logger match {
-        case bspLogger: BspLogger =>
-          // Don't show errors in reverse order, log as they come!
-          new BspReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
-        case _ => new LogReporter(logger, cwd, identity, config)
-      }
-
-      // FORMAT: OFF
-      CompileInputs(instance, compilerCache, sources, classpath, Array(), classesDir, target, scalacOptions, javacOptions, compileOrder, classpathOptions, result, reporter, compileMode, logger)
-      // FORMAT: ON
-    }
-
-    def compile(project: Project): Task[Compiler.Result] = {
-      def err(msg: String): Problem =
-        Problem(-1, Severity.Error, msg, JavaNoPosition, "")
-
-      val sources = project.sources.distinct
-      val javaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.java")).distinct
-      val scalaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.scala")).distinct
-      val uniqueSources = (javaSources ++ scalaSources).toArray
-      project.scalaInstance match {
-        case Some(instance) =>
-          logger.debug(s"Scheduled compilation of '$project' starting at $currentTime.")
-          val previous = state.results.lastSuccessfulResult(project)
-          Compiler.compile(toInputs(project, instance, uniqueSources, reporterConfig, previous))
-
-        case None =>
-          val addScalaConfiguration = err(
-            "Add Scala configuration to the project. If that doesn't fix it, report it upstream")
-          // Either return empty result or report
-          (scalaSources, javaSources) match {
-            case (Nil, Nil) => Task.now(Compiler.Result.Empty)
-            case (_: List[AbsolutePath], Nil) =>
-              // Let's notify users there is no Scala configuration for a project with Scala sources
-              val msg =
-                s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
-              Task.now(Compiler.Result.Failed(List(err(msg), addScalaConfiguration), None, 1))
-            case (_, _: List[AbsolutePath]) =>
-              // If Java sources exist, we cannot compile them without an instance, fail fast!
-              val msg =
-                s"Failed to compile ${project.name}'s Java sources because the default Scala instance couldn't be created."
-              Task.now(Compiler.Result.Failed(List(err(msg), addScalaConfiguration), None, 1))
-          }
-      }
-    }
-
-    def failed(results: List[(Project, Compiler.Result)]): List[Project] = {
-      results.collect {
-        case (p, _: Compiler.Result.Cancelled) => p
-        case (p, _: Compiler.Result.Failed) => p
-      }
-    }
-
-    val dag = state.build.getDagFor(project)
-    def triggerCompile: Task[State] = {
-      toCompileTask(dag, compile(_)).map { results0 =>
-        if (logger.isVerbose)
-          logger.debug(Dag.toDotGraph(results0))
-        val results = Dag.dfs(results0).map(r => (r.project, r.result))
-        val failures = failed(results).distinct
-        val newState = state.copy(results = state.results.addResults(results))
-        if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
-        else {
-          failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
-          newState.copy(status = ExitStatus.CompilationError)
-        }
-      }
-    }
-
-    if (!deduplicateFailedCompilation) triggerCompile
-    else {
-      // Check dependent projects didn't fail in previous sequential compile
-      val allDependencies = Dag.dfs(dag).toSet
-      val dependentResults =
-        state.results.allResults.filter(pr => allDependencies.contains(pr._1))
-      val failedDependentProjects = failed(dependentResults.toList)
-      if (!failedDependentProjects.isEmpty) {
-        val failedProjects = failedDependentProjects.map(p => s"'${p.name}'").mkString(", ")
-        logger.warn(
-          s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
-        Task.now(state.copy(status = ExitStatus.CompilationError))
-      } else triggerCompile
-    }
-  }
-
-  /**
-   * Turns a dag of projects into a task that returns a dag of compilation results
-   * that can then be used to debug the evaluation of the compilation within Monix
-   * and access the compilation results received from Zinc.
-   *
-   * @param dag The dag of projects to be compiled.
-   * @return A task that returns a dag of compilation results.
-   */
-  private def toCompileTask(
-      dag: Dag[Project],
-      compile: Project => Task[Compiler.Result]
-  ): CompileTask = {
-    val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
-    def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
-
-    def blockedBy(dag: Dag[CompileResult]): Option[Project] = {
-      dag match {
-        case Leaf(CompileResult(_, Compiler.Result.Ok(_))) => None
-        case Leaf(CompileResult(project, _)) => Some(project)
-        case Parent(CompileResult(_, Compiler.Result.Ok(_)), _) => None
-        case Parent(CompileResult(project, _), _) => Some(project)
-      }
-    }
-
-    def loop(dag: Dag[Project]): CompileTask = {
-      tasks.get(dag) match {
-        case Some(task) => task
-        case None =>
-          val task = dag match {
-            case Leaf(project) => compile(project).map(res => Leaf(CompileResult(project, res)))
-            case Parent(project, dependencies) =>
-              val downstream = dependencies.map(loop)
-              Task.gatherUnordered(downstream).flatMap { results =>
-                val failed = results.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) {
-                  compile(project).map(res => Parent(CompileResult(project, res), results))
-                } else {
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Compiler.Result.Blocked(failed.map(_.name))
-                  Task.now(Parent(CompileResult(project, blocked), results))
-                }
-              }
-          }
-          register(dag, task.memoize)
-      }
-    }
-
-    loop(dag)
-  }
 
   /**
    * Cleans the previous results of the projects specified in `targets`.

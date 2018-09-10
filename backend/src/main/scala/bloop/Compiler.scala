@@ -7,12 +7,12 @@ import java.io.File
 import java.net.URI
 
 import bloop.internal.Ecosystem
-import bloop.io.{AbsolutePath, Paths}
-import bloop.logging.Logger
+import bloop.io.AbsolutePath
 import bloop.reporter.Reporter
 import sbt.internal.inc.bloop.{BloopZincCompiler, CompileMode}
 import sbt.internal.inc.{FreshCompilerCache, Locate}
 import _root_.monix.eval.Task
+import bloop.util.CacheHashCode
 import sbt.internal.inc.bloop.internal.StopPipelining
 
 case class CompileInputs(
@@ -29,8 +29,7 @@ case class CompileInputs(
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     reporter: Reporter,
-    mode: CompileMode,
-    logger: Logger
+    mode: CompileMode
 )
 
 object Compiler {
@@ -44,13 +43,22 @@ object Compiler {
 
   sealed trait Result
   object Result {
-    final case object Empty extends Result
-    final case class Blocked(on: List[String]) extends Result
-    final case class Cancelled(elapsed: Long) extends Result
-    final case class Failed(problems: List[xsbti.Problem], t: Option[Throwable], elapsed: Long)
-        extends Result
-    final case class Success(reporter: Reporter, previous: PreviousResult, elapsed: Long)
-        extends Result
+    final case object Empty extends Result with CacheHashCode
+    final case class Blocked(on: List[String]) extends Result with CacheHashCode
+    final case class Cancelled(elapsed: Long) extends Result with CacheHashCode
+    final case class GlobalError(problem: String) extends Result with CacheHashCode
+
+    final case class Success(
+        reporter: Reporter,
+        previous: PreviousResult,
+        elapsed: Long
+    ) extends Result with CacheHashCode
+
+    final case class Failed(
+        problems: List[xsbti.Problem],
+        t: Option[Throwable],
+        elapsed: Long
+    ) extends Result with CacheHashCode
 
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
@@ -124,10 +132,11 @@ object Compiler {
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
 
     import scala.util.{Success, Failure}
-    BloopZincCompiler.compile(inputs, compileInputs.mode, compileInputs.logger).materialize.map {
+    val logger = compileInputs.reporter.logger
+    BloopZincCompiler.compile(inputs, compileInputs.mode, logger).materialize.map {
       case Success(result) =>
-        val prev = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-        Result.Success(compileInputs.reporter, prev, elapsed)
+        val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+        Result.Success(compileInputs.reporter, res, elapsed)
       case Failure(f: StopPipelining) => Result.Blocked(f.failedProjectNames)
       case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems().toList, None, elapsed)
       case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)

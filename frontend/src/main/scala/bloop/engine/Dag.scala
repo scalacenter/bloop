@@ -1,17 +1,14 @@
 package bloop.engine
 
 import bloop.Project
+import bloop.util.CacheHashCode
 import scalaz.Show
 
 sealed trait Dag[T]
 
-final case class Leaf[T](value: T) extends Dag[T] {
-  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
-}
+final case class Leaf[T](value: T) extends Dag[T] with CacheHashCode
 
-final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T] {
-  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
-}
+final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T] with CacheHashCode
 
 object Dag {
   class RecursiveCycle(path: List[Project])
@@ -140,6 +137,16 @@ object Dag {
     }
 
     loop(dags.toSet, targets)
+  }
+
+
+  def directDependencies[T](dag: List[Dag[T]]): List[T] = {
+    dag.foldLeft(List.empty[T]) {
+      case (acc, dag) => dag match {
+        case Leaf(value) => value :: acc
+        case Parent(value, _) => value :: acc
+      }
+    }
   }
 
   def dfs[T](dag: Dag[T]): List[T] = {
