@@ -6,7 +6,7 @@ import bloop.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.{Logger, Slf4jAdapter}
-import bloop.monix.FoldLeftAsyncConsumer
+import monix.reactive.internal.consumers.bloop.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType
@@ -97,9 +97,7 @@ final class SourceWatcher private (
       }
     }
 
-    observable
-      .consumeWith(fileEventConsumer)
-      .doOnCancel(Task(watchCancellation.cancel()))
+    fileEventConsumer(observable).doOnCancel(Task(watchCancellation.cancel()))
   }
 
   def notifyWatch(): Unit = {
