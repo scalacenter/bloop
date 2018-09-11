@@ -13,19 +13,21 @@ import monix.execution.{ExecutionModel, UncaughtExceptionReporter}
 import monix.execution.schedulers.ExecutorScheduler
 
 object ExecutionContext {
-  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors() + 1
-
-  // This inlines the implementation of `Executors.newFixedThreadPool` to avoid losing the type
-  private[bloop] val executor: ThreadPoolExecutor =
-    new ThreadPoolExecutor(nCPUs, nCPUs, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue());
+  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors()
 
   import monix.execution.Scheduler
   implicit lazy val bspScheduler: Scheduler = Scheduler {
-    // TODO: Revisit this.
     java.util.concurrent.Executors.newFixedThreadPool(4)
   }
 
-  implicit lazy val scheduler: Scheduler = Scheduler(executor)
+  implicit lazy val scheduler: Scheduler = {
+    Scheduler.forkJoin(
+      nCPUs,
+      nCPUs * 2,
+      name = "bloop-computation",
+      executionModel = ExecutionModel.AlwaysAsyncExecution
+    )
+  }
 
   val ioReporter = UncaughtExceptionReporter.LogExceptionsToStandardErr
   lazy val ioExecutor: ThreadPoolExecutor = {
