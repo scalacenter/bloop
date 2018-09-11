@@ -5,7 +5,7 @@ BLOOP_DEFAULT_REFERENCE="master"
 BLOOP_SMALL_JMH_OPTIONS="-wi 15 -i 10 -f1 -t1"
 BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
 BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
-BLOOP_GIGANTIC_JMH_OPTIONS="-wi 10 -i 5 -f1 -t1"
+BLOOP_GIGANTIC_JMH_OPTIONS="-wi 5 -i 5 -f1 -t1"
 
 BLOOP_REFERENCE="$BLOOP_DEFAULT_REFERENCE"
 BLOOP_JMH_RUNNER="benchmarks/jmh:run"
@@ -82,9 +82,9 @@ main() {
       "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
     )
 
     JAVA_HOMES=(
