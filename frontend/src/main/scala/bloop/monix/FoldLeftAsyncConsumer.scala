@@ -1,4 +1,4 @@
-package bloop.monix
+package monix.reactive.internal.consumers.bloop
 
 import monix.eval.{Callback, Task}
 import monix.execution.Ack.{Continue, Stop}
@@ -12,10 +12,10 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
 // Fork of `FoldLeftAsyncConsumer` from Monix
-final class FoldLeftAsyncConsumer[A, R](
+final class FoldLeftAsyncConsumer[-A, +R](
     initial: () => R,
     f: (R, A) => Task[R]
-) extends Consumer[A, R] {
+) extends ((Observable[A]) => Task[R]) with Serializable { self =>
 
   def createSubscriber(cb: Callback[R], s: Scheduler): (Subscriber[A], AssignableCancelable) = {
     val cancelables = new ListBuffer[Cancelable]()
@@ -30,10 +30,10 @@ final class FoldLeftAsyncConsumer[A, R](
         try {
           val task = f(state, elem).transform(update => {
             state = update
-            Continue: Continue
+            Continue
           }, error => {
             onError(error)
-            Stop: Stop
+            Stop
           })
 
           val future = task.runAsync
@@ -67,17 +67,16 @@ final class FoldLeftAsyncConsumer[A, R](
     (out, cancelable)
   }
 
-  override def apply(source: Observable[A]): Task[R] = {
+  final def apply(source: Observable[A]): Task[R] = {
     Task.create[R] { (scheduler, cb) =>
       val (out, consumerSubscription) = createSubscriber(cb, scheduler)
       val sourceSubscription = source.subscribe(out)
       CompositeCancelable(sourceSubscription, consumerSubscription)
     }
   }
-
 }
 
 object FoldLeftAsyncConsumer {
-  def consume[S, A](initial: => S)(f: (S, A) => Task[S]): Consumer[A, S] =
+  def consume[S, A](initial: => S)(f: (S, A) => Task[S]): FoldLeftAsyncConsumer[A, S] =
     new FoldLeftAsyncConsumer[A, S](initial _, f)
 }

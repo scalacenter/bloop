@@ -292,7 +292,7 @@ object Pipelined {
               Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                 val t = compile(
                   PipelineInputs(project, Nil, cf, Task.now(JavaSignal.ContinueCompilation)))
-                val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                val running = t.executeAsync.runAsync(ExecutionContext.scheduler)
                 timingDeps += (project -> Nil)
                 Task
                   .deferFutureAction(c => cf.asScala(c))
@@ -336,7 +336,7 @@ object Pipelined {
                     timingDeps += (project -> pickleProjects)
 
                     val t = compile(PipelineInputs(project, picklepath, cf, javaSignal))
-                    val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                    val running = t.executeAsync.runAsync(ExecutionContext.scheduler)
                     val futureRunning = Task.fromFuture(running)
                     Task
                       .deferFutureAction(c => cf.asScala(c))

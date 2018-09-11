@@ -21,7 +21,7 @@ object Dependencies {
   val gradleVersion = "3.0"
   val groovyVersion = "2.5.0"
   val ipcsocketVersion = "1.0.0"
-  val monixVersion = "2.3.3"
+  val monixVersion = "3.0.0-RC1"
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
