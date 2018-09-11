@@ -25,7 +25,7 @@ object ExecutionContext {
       nCPUs,
       nCPUs,
       name = "bloop-computation",
-      executionModel = ExecutionModel.AlwaysAsyncExecution
+      executionModel = ExecutionModel.Default
     )
   }
 
