@@ -141,6 +141,7 @@ class HotParallelBloopBenchmark extends HotBloopBenchmarkBase {
 @Fork(value = 3)
 class HotPipelinedParallelBloopBenchmark extends HotBloopBenchmarkBase {
   override val bloopCompileFlags: Option[String] = Some("--pipelined-parallel")
+}
 
 @State(Scope.Benchmark)
 class HotBloopNoIncrementalBenchmark {

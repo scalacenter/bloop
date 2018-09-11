@@ -95,11 +95,11 @@ main() {
     )
 
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      #SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
+      SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
 
-      for java_home in "${JAVA_HOMES[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
-      done
+      #for java_home in "${JAVA_HOMES[@]}"; do
+      #  SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
+      #done
     done
 
     #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
