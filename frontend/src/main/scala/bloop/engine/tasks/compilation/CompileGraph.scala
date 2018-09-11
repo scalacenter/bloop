@@ -34,6 +34,7 @@ object CompileGraph {
   def traverse(
       dag: Dag[Project],
       compile: Inputs => Task[Compiler.Result],
+      pipeline: Boolean,
       logger: Logger
   ): CompileTask = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
@@ -69,10 +70,15 @@ object CompileGraph {
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
-                  val results = dagResults.flatMap(Dag.dfs(_)).distinct
-                  val picklepath = results.flatMap {
-                    case s: PartialSuccess => InterfaceUtil.toOption(s.pickleURI)
-                    case _: PartialFailure => None
+                  val picklepath = {
+                    if (!pipeline) Nil
+                    else {
+                      val results = dagResults.flatMap(Dag.dfs(_)).distinct
+                      results.flatMap {
+                        case s: PartialSuccess => InterfaceUtil.toOption(s.pickleURI)
+                        case _: PartialFailure => None
+                      }
+                    }
                   }
 
                   Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>

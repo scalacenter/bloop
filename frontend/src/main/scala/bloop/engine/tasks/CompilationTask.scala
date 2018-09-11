@@ -114,7 +114,7 @@ object CompilationTask {
 
     val dag = state.build.getDagFor(project)
     def triggerCompile: Task[State] = {
-      CompileGraph.traverse(dag, compile(_), logger).flatMap { partialResultDag =>
+      CompileGraph.traverse(dag, compile(_), pipeline, logger).flatMap { partialResultDag =>
         val partialResults = Dag.dfs(partialResultDag)
         Task.gatherUnordered(partialResults.map(_.toFinalResult)).map { results =>
           val failures = results.collect {
