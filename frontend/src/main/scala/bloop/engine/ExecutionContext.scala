@@ -23,7 +23,7 @@ object ExecutionContext {
   implicit lazy val scheduler: Scheduler = {
     Scheduler.forkJoin(
       nCPUs,
-      nCPUs * 2,
+      nCPUs,
       name = "bloop-computation",
       executionModel = ExecutionModel.AlwaysAsyncExecution
     )
