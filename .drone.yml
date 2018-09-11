@@ -20,6 +20,11 @@ matrix:
           "gradleBloop212/test" \
           "docs/makeSite"
 
+  RUN_COMMUNITY_BUILD_EXTRA:
+    - bin/sbt-ci.sh \
+          "frontend/integrationSetUpBloop" \
+          "frontend/testOnly bloop.tasks.IntegrationTestSuite"
+
   RUN_BENCHMARKS_AND_SCRIPTED:
     - bin/sbt-ci.sh \
           "sbtBloop10/scripted" \
@@ -41,6 +46,7 @@ matrix:
     - linux
   OPS:
     - basic
+    - community-build
     - extra
 
 clone:
@@ -85,7 +91,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
-      - . bin/detect-community-build.sh # We need to source it for the env variable to be exported
+      - . bin/detect-community-build.sh # Source it because it exports variables
       - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
@@ -100,6 +106,21 @@ pipeline:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
       - ${RUN_BENCHMARKS_AND_SCRIPTED}
+
+#  run_community_pipelined:
+#    image: scalacenter/scala-docs:1.3
+#    group: build
+#    when:
+#      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+#      matrix:
+#        OS: linux
+#        OPS: community-build
+#    commands:
+#      - export DRONE_DIR="/drone"
+#      - export PIPELINE_COMMUNITY_BUILD="true"
+#      - git log | head -n 20
+#      - . bin/detect-community-build.sh # Source it because it exports variables
+#      - ${RUN_COMMUNITY_BUILD_EXTRA}
 
   build_windows:
     group: build

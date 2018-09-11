@@ -32,7 +32,12 @@ object IntegrationTestSuite {
 class IntegrationTestSuite(testDirectory: Path) {
   val integrationTestName = TestUtil.getBaseFromConfigDir(testDirectory).getFileName.toString
 
-  def isCommunityBuildEnabled: Boolean = {
+  val isCommunityBuildEnabled: Boolean =
+    isEnvironmentEnabled(List("RUN_COMMUNITY_BUILD", "run.community.build"), "false")
+  val isPipeliningEnabled: Boolean =
+    isEnvironmentEnabled(List("PIPELINE_COMMUNITY_BUILD", "pipeline.community.build"), "false")
+
+  private def isEnvironmentEnabled(keys: List[String], default: String): Boolean = {
     import scala.util.Try
     def bool(v: String): Boolean = {
       Try(java.lang.Boolean.parseBoolean(v)) match {
@@ -43,15 +48,20 @@ class IntegrationTestSuite(testDirectory: Path) {
       }
     }
 
-    bool(sys.env.getOrElse("RUN_COMMUNITY_BUILD", "false")) ||
-    bool(sys.props.getOrElse("run.community.build", "false"))
+    keys.exists(k => bool(sys.env.getOrElse(k, default)))
   }
 
   @Test
   def compileProject: Unit = {
-    if (!isCommunityBuildEnabled) () else compileProject0
+    if (!isCommunityBuildEnabled)
+      println(s"Skipping ${testDirectory} (community build is disabled)")
+    else {
+      if (isPipeliningEnabled) println(s"*** PIPELINING COMPILATION FOR ${testDirectory} ***")
+      else println(s"*** NORMAL COMPILATION FOR ${testDirectory} ***")
+      // After reporting the state of the execution, compile the projects accordingly.
+      compileProject0
+    }
   }
-
 
   def compileProject0: Unit = {
     val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName, identity)
@@ -104,8 +114,16 @@ class IntegrationTestSuite(testDirectory: Path) {
                  TestUtil.noPreviousResult(p, state))
     }
 
-    val action =
-      Run(Commands.Compile(projectToCompile.name, incremental = true, pipelined = false), Exit(ExitStatus.Ok))
+    val enablePipelining = isPipeliningEnabled
+    val action = Run(
+      Commands.Compile(
+        projectToCompile.name,
+        incremental = true,
+        pipelined = isPipeliningEnabled
+      ),
+      Exit(ExitStatus.Ok)
+    )
+
     val state1 = TestUtil.blockingExecute(action, state)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",
