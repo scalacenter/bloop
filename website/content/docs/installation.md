@@ -334,6 +334,8 @@ the configuration directory that `sbt-bloop` wrote the configuration files to
 
 Once the installation is ready, let's try everything with a first compile.
 
+**Please note that you should run the bloop command from your project directory.**
+
 ```sh
 $ bloop compile foo
 Compiling 2 Scala sources to '/my-project/foo/target/classes'...
