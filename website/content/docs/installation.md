@@ -316,6 +316,8 @@ foo
 foo-test
 ```
 
+**Please note that you should run the bloop command from your project directory.**
+
 Running `bloop projects` should give you a list of all the projects that
 bloop has detected in that configuration directory. If you get none, you can check which configuration directory is bloop loading the projects from with:
 
