@@ -99,8 +99,10 @@ object Compiler {
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = {
-        if (!compileInputs.scalaInstance.isDotty) IncOptions.create()
-        else Ecosystem.supportDotty(IncOptions.create())
+        val disableIncremental = java.lang.Boolean.getBoolean("bloop.zinc.disabled")
+        val opts = IncOptions.create().withEnabled(!disableIncremental)
+        if (!compileInputs.scalaInstance.isDotty) opts
+        else Ecosystem.supportDotty(opts)
       }
       val progress = Optional.empty[CompileProgress]
       val setup =

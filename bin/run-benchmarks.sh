@@ -82,14 +82,24 @@ main() {
       "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
-      # "$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=compiler"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       "$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
     )
 
+    JAVA_HOMES=(
+      "/usr/lib/jvm/java-10-oracle/bin/java"
+      "/usr/lib/jvm/java-8-shenandoah/bin/java"
+      "/usr/lib/jvm/java-8-oracle/bin/java"
+      "/usr/lib/jvm/java-8-graal-ee/bin/java"
+    )
+
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
+      SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
+
+      #for java_home in "${JAVA_HOMES[@]}"; do
+      #  SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
+      #done
     done
 
     #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
