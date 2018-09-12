@@ -70,9 +70,10 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 
+  private[bloop] final val DefaultThreadNumber = 0
   case class Configure(
-      @HelpMessage("Set the number of threads used to compile and test all projects.")
-      threads: Int = ExecutionContext.executor.getCorePoolSize,
+      @HelpMessage("(deprecated) Set the number of threads used to compile and test all projects.")
+      threads: Int = 0,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 

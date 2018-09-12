@@ -202,7 +202,7 @@ object Interpreter {
           val cwd = cmd.cliOptions.common.workingPath
           compileAnd(cmd, state, project, false, sequential, "`test`") { state =>
             val handler = new LoggingEventHandler(state.logger)
-            Tasks.test( state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, handler)
+            Tasks.test(state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, handler)
           }
         }
 
@@ -276,9 +276,11 @@ object Interpreter {
   }
 
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
-    if (cmd.threads != ExecutionContext.executor.getCorePoolSize)
-      State.setCores(state, cmd.threads)
-    else state
+    if (cmd.threads == Commands.DefaultThreadNumber) state
+    else {
+      // Don't support dynamic thread configuration because underlying thread pools sometimes can't
+      state.withWarn(s"Dynamic thread configuration has been deprecated and is a no-op.")
+    }
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {

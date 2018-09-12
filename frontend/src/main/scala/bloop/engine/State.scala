@@ -61,27 +61,6 @@ object State {
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
 
-  /**
-   * Sets up the cores for the execution context to be used for compiling and testing the project.
-   *
-   * The execution context is for now global and it's reused across different states.
-   * When the number of threads that can be used is changed by the user, all the states
-   * of the builds are affected. This is the most reasonable way to do it since, I believe,
-   * having a thread pool per build state can end up being too expensive (this, however,
-   * must be tested and benchmarked in order to be truth, and that's left for the future).
-   *
-   * The following implementation relies that the thread pool we get is backed up by the
-   * executor in `ExecutionContext`. If this invariant changes, this implementation must
-   * change, as explained in `ExecutionContext`.
-   *
-   * The implementation of this method is forcibly mutable.
-   */
-  def setCores(state: State, threads: Int): State = {
-    state.logger.info(s"Reconfiguring the number of bloop threads to $threads.")
-    ExecutionContext.executor.setCorePoolSize(threads)
-    state
-  }
-
   import bloop.Project
   import bloop.io.AbsolutePath
 
@@ -114,6 +93,7 @@ object State {
     def withTrace(t: Throwable): State = { s.logger.trace(t); s }
     def withDebug(msg: String): State = { s.logger.debug(msg); s }
     def withInfo(msg: String): State = { s.logger.info(msg); s }
+    def withWarn(msg: String): State = { s.logger.warn(msg); s }
     def withError(msg: String): State = withError(msg, ExitStatus.UnexpectedError)
     def withError(msg: String, t: Throwable): State =
       withError(msg, ExitStatus.UnexpectedError).withTrace(t)
