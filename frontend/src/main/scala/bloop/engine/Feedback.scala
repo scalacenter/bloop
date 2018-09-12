@@ -31,7 +31,7 @@ object Feedback {
     s"""Missing configuration directory in $configDirectory.
        |
        |  1. Did you run bloop outside of the working directory of your build?
-       |     If so, change your current directory or point to your build directory via `--config-dir`.
+       |     If so, change your current directory or point directly to your `.bloop` directory via `--config-dir`.
        |
        |  2. Did you forget to generate configuration files for your build?
        |     Check the installation instructions https://scalacenter.github.io/bloop/docs/installation/
