@@ -2,6 +2,7 @@ package bloop.nailgun
 
 import java.util.concurrent.TimeUnit
 
+import bloop.io.AbsolutePath
 import bloop.bsp.BspServer
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
@@ -198,7 +199,8 @@ class BasicNailgunSpec extends NailgunTest {
         assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
       }
 
-      contains(s"Configuration directory does not exist: ${projectBase.resolve(wrongDirectory)}")
+      val configDirectory = AbsolutePath(projectBase.resolve(wrongDirectory))
+      contains(bloop.engine.Feedback.missingConfigDirectory(configDirectory))
     }
   }
 
