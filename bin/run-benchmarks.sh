@@ -94,8 +94,9 @@ main() {
       "/usr/lib/jvm/java-8-graal-ee/bin/java"
     )
 
+    ASYNC_PROF_OPTS="-prof jmh.extras.Async:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;flameGraphOpts=--minwidth,2;verbose=true"
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark"
+      SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark $ASYNC_PROF_OPTS"
       #SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
 
       #for java_home in "${JAVA_HOMES[@]}"; do

@@ -134,7 +134,6 @@ object TestUtil {
   def getConfigDirForBenchmark(name: String): Path = {
     testProjectsIndex
       .get(name)
-      .map(a => a.getParent)
       .orElse(localBenchmarksIndex.get(name))
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
