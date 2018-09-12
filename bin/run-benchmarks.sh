@@ -52,7 +52,7 @@ main() {
     mkdir -p "$BLOOP_LOGS_DIR"
 
     JMH_CMD="$BLOOP_JMH_RUNNER"
-    SBT_COMMANDS=""
+    SBT_COMMANDS=()
 
     pushd "$BLOOP_HOME"
 
@@ -65,7 +65,7 @@ main() {
     echo "Setting up the machine before benchmarks..."
     /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns -nf -nl -ni || exit 1
 
-    SBT_COMMANDS="$SBT_COMMANDS;integrationSetUpBloop"
+    SBT_COMMANDS+=("integrationSetUpBloop")
 
     SCALAC_SBT_BLOOP_BENCHMARKS=(
       #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
@@ -73,7 +73,7 @@ main() {
     )
 
     for benchmark in "${SCALAC_SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot.*Benchmark.* $benchmark"
+      SBT_COMMANDS+=("$JMH_CMD .*Hot.*Benchmark.* $benchmark")
     done
 
     SBT_BLOOP_BENCHMARKS=(
@@ -94,23 +94,23 @@ main() {
       "/usr/lib/jvm/java-8-graal-ee/bin/java"
     )
 
-    ASYNC_PROF_OPTS="-prof jmh.extras.Async:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;flameGraphOpts=--minwidth,2;verbose=true"
+    ASYNC_PROF_OPTS="-prof jmh.extras.Async:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;verbose=true;event=cpu;"
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark $ASYNC_PROF_OPTS"
-      #SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark"
+      SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark $ASYNC_PROF_OPTS")
+      #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
 
       #for java_home in "${JAVA_HOMES[@]}"; do
-      #  SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home"
+      #  SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home")
       #done
     done
 
     #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")
     #for benchmark in "${BLOOP_BENCHMARKS[@]}"; do
-    #    SBT_COMMANDS="$SBT_COMMANDS;$JMH_CMD $benchmark"
+    #    SBT_COMMANDS+=("$JMH_CMD $benchmark")
     #done
 
     TARGET_LOG_FILE="$BLOOP_LOGS_DIR/benchmarks-$(date --iso-8601=seconds).log"
-    if ! sbt -no-colors "$SBT_COMMANDS" | tee "$LOG_FILE"; then
+    if ! sbt -no-colors "${SBT_COMMANDS[@]}" | tee "$LOG_FILE"; then
       popd
       cp "$LOG_FILE" "$TARGET_LOG_FILE"
       echo "BENCHMARKS FAILED. Log file is $TARGET_LOG_FILE"
