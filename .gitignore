@@ -20,3 +20,6 @@ target/
 .ensime
 .ensime_cache/
 integrations/gradle-bloop/lib
+
+# OS-specific
+.DS_Store
