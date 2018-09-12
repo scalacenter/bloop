@@ -48,7 +48,7 @@ object CompilationTask {
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
           val (scalacOptions, mode) = {
-            if (!pipeline) ((GeneratePicklesFlag :: project.scalacOptions).toArray, compileMode)
+            if (!pipeline) (project.scalacOptions.toArray, compileMode)
             else {
               val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
               val mode = compileMode match {
