@@ -2,7 +2,6 @@ package bloop.engine.tasks
 
 import java.nio.file.Path
 
-import scala.util.Try
 import bloop.Project
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
@@ -10,6 +9,8 @@ import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import monix.eval.Task
+
+import scala.util.Try
 
 final class ScalaNativeToolchain private (classLoader: ClassLoader) {
   private val paramTypes =

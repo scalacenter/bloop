@@ -161,6 +161,7 @@ final class BloopBspServices(
               case Compiler.Result.Cancelled(_) => Nil
               case Compiler.Result.Blocked(_) => Nil
               case Compiler.Result.Success(_, _, _) => Nil
+              case Compiler.Result.GlobalError(problem) => List(problem)
               case Compiler.Result.Failed(problems, t, elapsed) =>
                 val acc = List(reportError(p, problems, elapsed))
                 t match {

@@ -3,17 +3,14 @@ package bloop.engine.tasks
 import java.nio.file.Path
 
 import bloop.Project
-import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.config.Config.JsConfig
-import bloop.engine.State
-import bloop.exec.Forker
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import monix.eval.Task
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 final class ScalaJsToolchain private (classLoader: ClassLoader) {
   private val paramTypes =

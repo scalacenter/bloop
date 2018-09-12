@@ -14,6 +14,7 @@ import config.{Config, ConfigEncoderDecoders}
 import config.Config.Platform
 import bloop.engine.ExecutionContext
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.util.CacheHashCode
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(
@@ -37,9 +38,8 @@ final case class Project(
     nativeToolchain: Option[ScalaNativeToolchain],
     sbt: Option[Config.Sbt],
     resolution: Option[Config.Resolution]
-) {
+) extends CacheHashCode {
   override def toString: String = s"$name"
-  override val hashCode: Int = scala.util.hashing.MurmurHash3.productHash(this)
 
   /** The bsp uri associated with this project. */
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))

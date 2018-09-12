@@ -16,7 +16,7 @@ import bloop.exec.{Forker, JavaEnv}
 import bloop.io.AbsolutePath
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{CompilationTask, Tasks}
 import bloop.testing.{DiscoveredTests, NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
 import sbt.internal.inc.bloop.CompileMode
@@ -36,7 +36,8 @@ object TestTaskTest {
     val state0 = TestUtil.loadTestProject(TestProjectName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
     val format = ReporterConfig.defaultFormat
-    val compileTask = Tasks.compile(state0, project, format, false, CompileMode.Sequential, false)
+    val compileTask =
+      CompilationTask.compile(state0, project, format, false, CompileMode.Sequential, false, false)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.lastSuccessfulResult(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
