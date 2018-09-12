@@ -94,7 +94,8 @@ main() {
       "/usr/lib/jvm/java-8-graal-ee/bin/java"
     )
 
-    ASYNC_PROF_OPTS="-prof jmh.extras.Async:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;verbose=true;event=cpu;"
+    pidFile=$(mktemp /tmp/pid.XXXXXX)
+    ASYNC_PROF_OPTS="-p pidFile=$pidFile -prof pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;verbose=true;event=cpu;pidFile=$pidFile;"
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
       SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark $ASYNC_PROF_OPTS")
       #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
