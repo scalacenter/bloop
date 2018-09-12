@@ -80,6 +80,8 @@ object BuildKeys {
     Def.taskKey[Unit]("Generate the bloop config for integration tests.")
   val buildIntegrationsIndex =
     Def.taskKey[File]("A csv index with complete information about our integrations.")
+  val localBenchmarksIndex =
+    Def.taskKey[File]("A csv index with complete information about our benchmarks (for local use).")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
 
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -103,6 +105,9 @@ object BuildKeys {
     buildIntegrationsIndex := {
       val staging = integrationStagingBase.value
       staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
+    },
+    localBenchmarksIndex := {
+      new File(System.getProperty("user.dir"), ".local-benchmarks")
     },
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,
@@ -154,6 +159,7 @@ object BuildKeys {
       Keys.scalaVersion,
       Keys.sbtVersion,
       buildIntegrationsIndex,
+      localBenchmarksIndex,
       nailgunClientLocation
     )
     commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridge06Key, jsBridge10Key)

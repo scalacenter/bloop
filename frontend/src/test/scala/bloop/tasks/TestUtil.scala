@@ -111,16 +111,32 @@ object TestUtil {
   }
 
   private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
-  private[bloop] lazy val testProjectsIndex: Map[String, Path] = {
-    if (Files.exists(integrationsIndexPath)) {
+  private final val benchmarksIndexPath = BuildInfo.localBenchmarksIndex.toPath
+
+  private[bloop] lazy val testProjectsIndex = indexFromPath(integrationsIndexPath, false)
+  private[bloop] lazy val localBenchmarksIndex = indexFromPath(benchmarksIndexPath, true)
+  private[bloop] def indexFromPath(
+      target: Path,
+      allowMissing: Boolean
+  ): Map[String, Path] = {
+    if (Files.exists(target)) {
       import scala.collection.JavaConverters._
-      val lines = Files.readAllLines(integrationsIndexPath).asScala
+      val lines = Files.readAllLines(target).asScala
       val entries = lines.map(line => line.split(",").toList)
       entries.map {
         case List(key, value) => key -> Paths.get(value)
         case _ => sys.error(s"Malformed index file: ${lines.mkString(System.lineSeparator)}")
       }.toMap
-    } else sys.error(s"Missing integration index at ${integrationsIndexPath}!")
+    } else if (!allowMissing) sys.error(s"Missing integration index at ${target}!")
+    else Map.empty
+  }
+
+  def getConfigDirForBenchmark(name: String): Path = {
+    testProjectsIndex
+      .get(name)
+      .map(a => a.getParent)
+      .orElse(localBenchmarksIndex.get(name))
+      .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
   def getBloopConfigDir(name: String): Path = {
@@ -129,13 +145,16 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-  def loadTestProject(name: String,
-                      transformProjects: List[Project] => List[Project] = identity): State =
-    loadTestProject(getBloopConfigDir(name), name, transformProjects)
+  def loadTestProject(
+      name: String,
+      transformProjects: List[Project] => List[Project] = identity
+  ): State = loadTestProject(getBloopConfigDir(name), name, transformProjects)
 
-  def loadTestProject(configDir: Path,
-                      name: String,
-                      transformProjects: List[Project] => List[Project]): State = {
+  def loadTestProject(
+      configDir: Path,
+      name: String,
+      transformProjects: List[Project] => List[Project]
+  ): State = {
     val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
@@ -165,11 +184,12 @@ object TestUtil {
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
     val projectsStructure = Map(cmd.project -> namedSources)
     val javaEnv = JavaEnv.default
-    checkAfterCleanCompilation(projectsStructure,
-                               noDependencies,
-                               rootProjectName = cmd.project,
-                               javaEnv = javaEnv,
-                               quiet = true) { state =>
+    checkAfterCleanCompilation(
+      projectsStructure,
+      noDependencies,
+      rootProjectName = cmd.project,
+      javaEnv = javaEnv,
+      quiet = true) { state =>
       runAndCheck(state, cmd)(check)
     }
   }

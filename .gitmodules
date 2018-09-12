@@ -10,7 +10,6 @@
 	path = benchmark-bridge
 	url = https://github.com/scalacenter/compiler-benchmark
 	branch = bloop-updated-2
-  ignore = dirty
 [submodule "bsp"]
 	path = bsp
 	url = https://github.com/scalacenter/bsp.git

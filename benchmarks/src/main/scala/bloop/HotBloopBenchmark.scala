@@ -35,8 +35,8 @@ abstract class HotBloopBenchmarkBase {
   }
 
   @Setup(Level.Trial) def spawn(): Unit = {
-    val configDir = TestUtil.getBloopConfigDir(project)
-    val base = configDir.getParent.getParent
+    val configDir = TestUtil.getConfigDirForBenchmark(project)
+    val base = configDir.getParent
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 
@@ -167,8 +167,8 @@ class HotBloopNoIncrementalBenchmark {
   }
 
   @Setup(Level.Trial) def spawn(): Unit = {
-    val configDir = TestUtil.getBloopConfigDir(project)
-    val base = configDir.getParent.getParent
+    val configDir = TestUtil.getConfigDirForBenchmark(project)
+    val base = configDir.getParent
     val bloopJarPath = System.getProperty("bloop.jar")
     if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
 
