@@ -75,7 +75,10 @@ abstract class HotBloopBenchmarkBase {
     if (pidFile.nonEmpty) {
       val pid = ForkedAsyncProfiler.getPidOfProcess(bloopProcess)
       if (pid == -1) sys.error("PID could not be found! Async profiler cannot be used.")
-      else Files.write(Paths.get(pidFile), pid.toString.getBytes())
+      else {
+        //println(s"Writing ${pid} to ${pidFile}")
+        Files.write(Paths.get(pidFile), pid.toString.getBytes())
+      }
     }
 
     processOutputReader = new BufferedReader(new InputStreamReader(bloopProcess.getInputStream))

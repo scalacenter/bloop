@@ -162,7 +162,7 @@ public class ForkedAsyncProfiler implements InternalProfiler {
     if (!started && iterationParams.getType() == IterationType.MEASUREMENT) {
       try {
         if (this.pid == -1) {
-          this.pid = Long.getLong(new String(Files.readAllBytes(this.pidFile)));
+          this.pid = Long.parseLong(new String(Files.readAllBytes(this.pidFile)));
         }
         String threadOpt = this.threads ? ",threads" : "";
         profilerCommand(String.format("start,event=%s%s,framebuf=%d,interval=%d", event, threadOpt, framebuf, interval));
