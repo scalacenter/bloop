@@ -200,7 +200,7 @@ class BasicNailgunSpec extends NailgunTest {
       }
 
       val configDirectory = AbsolutePath(projectBase.resolve(wrongDirectory))
-      contains(bloop.engine.Feedback.missingConfigDirectory(configDirectory))
+      contains(s"Missing configuration directory in $configDirectory")
     }
   }
 
