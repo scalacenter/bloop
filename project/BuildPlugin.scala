@@ -204,7 +204,15 @@ object BuildKeys {
 
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
-    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in dep),
+    BuildInfoKeys.buildInfoKeys := {
+      val fullClasspathFiles = BuildInfoKey.map(Keys.fullClasspathAsJars.in(sbt.Compile).in(dep)) {
+        case (key, value) => ("fullCompilationClasspath", value.toList.map(_.data))
+      }
+      Seq[BuildInfoKey](
+        Keys.resourceDirectory in sbt.Test in dep,
+        fullClasspathFiles
+      )
+    },
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
@@ -222,14 +230,9 @@ object BuildKeys {
           .getOrElse("")),
         "-DbloopVersion=" + Keys.version.in(dep).value,
         "-DbloopRef=" + refOf(Keys.version.in(dep).value),
-        "-Dbloop.jar=" + AssemblyKeys.assemblyOutputPath.in(AssemblyKeys.assembly).in(dep).value,
         "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
-    },
-    Keys.run in JmhKeys.Jmh :=
-      (Keys.run in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated,
-    Keys.runMain in JmhKeys.Jmh :=
-      (Keys.runMain in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated
+    }
   )
 
   import com.typesafe.sbt.site.SitePlugin.{autoImport => SiteKeys}

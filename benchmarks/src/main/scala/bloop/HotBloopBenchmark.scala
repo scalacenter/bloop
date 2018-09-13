@@ -40,11 +40,11 @@ abstract class HotBloopBenchmarkBase {
     case _ => "-Xmx2G"
   }
 
+  import bloop.benchmarks.BuildInfo
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = TestUtil.getConfigDirForBenchmark(project)
     val base = configDir.getParent
-    val bloopJarPath = System.getProperty("bloop.jar")
-    if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
+    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
 
     val jvmArgs = {
       val defaultJvmArgs = List(
@@ -58,8 +58,9 @@ abstract class HotBloopBenchmarkBase {
     }
 
     val allArgs = jvmArgs ++ List(
-      "-jar",
-      bloopJarPath,
+      "-cp",
+      bloopClasspath,
+      "bloop.Bloop",
       "--config-dir",
       configDir.toAbsolutePath.toString
     )
