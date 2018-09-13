@@ -78,7 +78,7 @@ object JsBridge {
     val jarFiles = classpath.filter(isJarFile).map(toIrJar)
     val scalajsIRFiles = jarFiles.flatMap(_.jar.sjsirFiles)
     val initializers =
-      mainClass.toList.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main"))
+      mainClass.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main")).toList
     val jsConfig = StandardLinker
       .Config()
       .withOptimizer(enableOptimizer)
