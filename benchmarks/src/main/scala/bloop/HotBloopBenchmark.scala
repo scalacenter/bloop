@@ -123,8 +123,18 @@ abstract class HotBloopBenchmarkBase {
   }
 
   @TearDown(Level.Trial) def terminate(): Unit = {
-    processOutputReader.close()
-    bloopProcess.destroyForcibly()
+    if (pidFile.isEmpty) {
+      processOutputReader.close()
+      bloopProcess.destroyForcibly()
+    } else {
+      // Async profiler needs alive PID to close jattach, so only close process at the very end
+      Runtime.getRuntime.addShutdownHook(new Thread() {
+        override def run(): Unit = {
+          processOutputReader.close()
+          bloopProcess.destroyForcibly()
+        }
+      })
+    }
     ()
   }
 }
