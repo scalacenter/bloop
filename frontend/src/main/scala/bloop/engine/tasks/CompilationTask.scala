@@ -33,7 +33,7 @@ object CompilationTask {
       project: Project,
       reporterConfig: ReporterConfig,
       sequentialCompilation: Boolean,
-      compileMode: CompileMode.ConfigurableMode,
+      userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
       excludeRoot: Boolean
   ): Task[State] = {
@@ -42,16 +42,18 @@ object CompilationTask {
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val project = graphInputs.project
       sourcesAndInstanceFrom(project) match {
-        case Left(earlyResult) => Task.now(earlyResult)
+        case Left(earlyResult) =>
+          graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
+          Task.now(earlyResult)
         case Right(SourcesAndInstance(sources, instance)) =>
           val previous = state.results.lastSuccessfulResult(project)
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
-          val (scalacOptions, mode) = {
-            if (!pipeline) (project.scalacOptions.toArray, compileMode)
+          val (scalacOptions, compileMode) = {
+            if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
             else {
               val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
-              val mode = compileMode match {
+              val mode = userCompileMode match {
                 case CompileMode.Sequential =>
                   CompileMode.Pipelined(graphInputs.pickleReady, graphInputs.javaSignal)
                 case CompileMode.Parallel(batches) =>
@@ -167,7 +169,11 @@ object CompilationTask {
     val uniqueSources = (javaSources ++ scalaSources).toArray
 
     project.scalaInstance match {
-      case Some(instance) => Right(SourcesAndInstance(uniqueSources, instance))
+      case Some(instance) =>
+        (scalaSources, javaSources) match {
+          case (Nil, Nil) => Left(Compiler.Result.Empty)
+          case _ => Right(SourcesAndInstance(uniqueSources, instance))
+        }
       case None =>
         (scalaSources, javaSources) match {
           case (Nil, Nil) => Left(Compiler.Result.Empty)
