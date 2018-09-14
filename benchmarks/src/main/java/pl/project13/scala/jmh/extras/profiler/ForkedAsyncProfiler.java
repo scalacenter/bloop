@@ -170,6 +170,10 @@ public class ForkedAsyncProfiler implements InternalProfiler {
         if (this.pid == -1) {
           this.pid = Long.parseLong(new String(Files.readAllBytes(this.pidFile)));
         }
+        if (outputDir == null) {
+          outputDir = createTempDir(benchmarkParams.id().replaceAll("/", "-"));
+        }
+
         String threadOpt = this.threads ? ",threads" : "";
         String jfrOpt = this.jfr ? ",jfr,file=" + jfrFile().toAbsolutePath().toString() : "";
         profilerCommand(String.format("start,event=%s%s%s,framebuf=%d,interval=%d", event, jfrOpt, threadOpt, framebuf, interval));
@@ -185,9 +189,6 @@ public class ForkedAsyncProfiler implements InternalProfiler {
     if (iterationParams.getType() == IterationType.MEASUREMENT) {
       measurementIterationCount += 1;
       if (measurementIterationCount == iterationParams.getCount()) {
-        if (outputDir == null) {
-          outputDir = createTempDir(benchmarkParams.id().replaceAll("/", "-"));
-        }
         if (jfr) {
           Path jfrDump = jfrFile();
           generated.add(jfrDump);
