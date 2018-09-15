@@ -77,9 +77,14 @@ object ReleaseUtils {
        |      system "python3", "install.py", "--dest", "bin", "--version", version
        |      zsh_completion.install "bin/zsh/_bloop"
        |      bash_completion.install "bin/bash/bloop"
+       |
        |      File.delete("bin/blp-coursier")
+       |
+       |      # We need to create these files manually here, because otherwise launchd
+       |      # will create them with owner set to `root` (see the plist file below).
        |      FileUtils.mkdir_p("log/bloop/")
-       |      FileUtils.chmod_R 0777, "log"
+       |      FileUtils.touch("log/bloop/bloop.out.log")
+       |      FileUtils.touch("log/bloop/bloop.err.log")
        |
        |      prefix.install "bin"
        |      prefix.install "log"
