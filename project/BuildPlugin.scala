@@ -80,6 +80,8 @@ object BuildKeys {
     Def.taskKey[Unit]("Generate the bloop config for integration tests.")
   val buildIntegrationsIndex =
     Def.taskKey[File]("A csv index with complete information about our integrations.")
+  val localBenchmarksIndex =
+    Def.taskKey[File]("A csv index with complete information about our benchmarks (for local use).")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
 
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -103,6 +105,9 @@ object BuildKeys {
     buildIntegrationsIndex := {
       val staging = integrationStagingBase.value
       staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
+    },
+    localBenchmarksIndex := {
+      new File(System.getProperty("user.dir"), ".local-benchmarks")
     },
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,
@@ -154,6 +159,7 @@ object BuildKeys {
       Keys.scalaVersion,
       Keys.sbtVersion,
       buildIntegrationsIndex,
+      localBenchmarksIndex,
       nailgunClientLocation
     )
     commonKeys ++ List(zincKey, developersKey, nativeBridgeKey, jsBridge06Key, jsBridge10Key)
@@ -198,7 +204,15 @@ object BuildKeys {
 
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
-    BuildInfoKeys.buildInfoKeys := Seq[BuildInfoKey](Keys.resourceDirectory in sbt.Test in dep),
+    BuildInfoKeys.buildInfoKeys := {
+      val fullClasspathFiles = BuildInfoKey.map(Keys.fullClasspathAsJars.in(sbt.Compile).in(dep)) {
+        case (key, value) => ("fullCompilationClasspath", value.toList.map(_.data))
+      }
+      Seq[BuildInfoKey](
+        Keys.resourceDirectory in sbt.Test in dep,
+        fullClasspathFiles
+      )
+    },
     BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
     Keys.javaOptions ++= {
       def refOf(version: String) = {
@@ -216,14 +230,9 @@ object BuildKeys {
           .getOrElse("")),
         "-DbloopVersion=" + Keys.version.in(dep).value,
         "-DbloopRef=" + refOf(Keys.version.in(dep).value),
-        "-Dbloop.jar=" + AssemblyKeys.assemblyOutputPath.in(AssemblyKeys.assembly).in(dep).value,
         "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
-    },
-    Keys.run in JmhKeys.Jmh :=
-      (Keys.run in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated,
-    Keys.runMain in JmhKeys.Jmh :=
-      (Keys.runMain in JmhKeys.Jmh).dependsOn(AssemblyKeys.assembly.in(dep)).evaluated
+    }
   )
 
   import com.typesafe.sbt.site.SitePlugin.{autoImport => SiteKeys}

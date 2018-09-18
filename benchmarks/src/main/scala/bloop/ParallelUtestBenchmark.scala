@@ -2,8 +2,9 @@ package bloop
 
 import java.io._
 import java.util.concurrent.TimeUnit
-import bloop.tasks.TestUtil
 
+import bloop.benchmarks.BuildInfo
+import bloop.tasks.TestUtil
 import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
 
@@ -27,16 +28,16 @@ class ParallelUtestBenchmark {
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = TestUtil.getBloopConfigDir("utest")
     val base = configDir.getParent.getParent
-    val bloopJarPath = System.getProperty("bloop.jar")
-    if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
+    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
 
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
       "-Xms1G",
       "-Xmx2G",
       "-XX:ReservedCodeCacheSize=128m",
-      "-jar",
-      bloopJarPath,
+      "-cp",
+      bloopClasspath,
+      "bloop.Bloop",
       "--config-dir",
       configDir.toAbsolutePath.toString
     )
@@ -110,16 +111,16 @@ class SequentialUtestBenchmark {
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = TestUtil.getBloopConfigDir("utest")
     val base = configDir.getParent.getParent
-    val bloopJarPath = System.getProperty("bloop.jar")
-    if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
+    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
 
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
       "-Xms1G",
       "-Xmx2G",
       "-XX:ReservedCodeCacheSize=128m",
-      "-jar",
-      bloopJarPath,
+      "-cp",
+      bloopClasspath,
+      "bloop.Bloop",
       "--config-dir",
       configDir.toAbsolutePath.toString
     )
@@ -193,16 +194,16 @@ class PipelinedUtestBenchmark {
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = TestUtil.getBloopConfigDir("utest")
     val base = configDir.getParent.getParent
-    val bloopJarPath = System.getProperty("bloop.jar")
-    if (bloopJarPath == null) sys.error("System property -Dbloop.jar absent")
+    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
 
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
       "-Xms1G",
       "-Xmx2G",
       "-XX:ReservedCodeCacheSize=128m",
-      "-jar",
-      bloopJarPath,
+      "-cp",
+      bloopClasspath,
+      "bloop.Bloop",
       "--config-dir",
       configDir.toAbsolutePath.toString
     )
