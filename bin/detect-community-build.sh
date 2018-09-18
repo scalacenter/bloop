@@ -5,10 +5,21 @@ set -e
 MONITOR_REPO="scalacenter/bloop"
 PR="$DRONE_PULL_REQUEST"
 
+pr_has_label () {
+  curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "'"$1"'" )) | .[].name' > /dev/null 2>&1
+}
+
 if [[ "$PR" ]]; then
-  if curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "community build" )) | .[].name' > /dev/null 2>&1 ; then
+  if pr_has_label "community build"; then
     export RUN_COMMUNITY_BUILD=true
     echo "The community build will run for pull request $PR."
+  elif [[ "$PIPELINE_COMMUNITY_BUILD" == "true" ]]; then
+    if pr_has_label "build pipelining"; then
+      export RUN_COMMUNITY_BUILD=true
+      echo "The pipelined community build will run for pull request $PR."
+    else
+      echo "The pipelined community build will not run for pull request $PR."
+    fi
   else
     echo "The community build will not run for pull request $PR."
   fi
