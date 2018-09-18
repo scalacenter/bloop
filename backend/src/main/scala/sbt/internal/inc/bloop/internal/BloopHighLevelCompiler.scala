@@ -205,7 +205,6 @@ final class BloopHighLevelCompiler(
             case f: CompileFailed =>
               // Intercept and report manually because https://github.com/sbt/zinc/issues/520
               config.reporter.printSummary()
-              // Don't complete with the exception, the graph will already short circuit compilation
               completeJava.completeExceptionally(f)
               throw f
           }
