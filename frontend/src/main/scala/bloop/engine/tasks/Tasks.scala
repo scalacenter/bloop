@@ -162,7 +162,7 @@ object Tasks {
       logger.debug(s"Found frameworks: ${foundFrameworks(frameworks)}")
 
       val frameworkArgs = considerFrameworkArgs(frameworks)
-      val lastCompileResult = state.results.lastSuccessfulResult(project)
+      val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
       val analysis = lastCompileResult.analysis().toOption.getOrElse {
         logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
         Analysis.empty
@@ -280,7 +280,7 @@ object Tasks {
   def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
-    val analysis = state.results.lastSuccessfulResult(project).analysis().toOption match {
+    val analysis = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption match {
       case Some(analysis: Analysis) => analysis
       case _ =>
         logger.warn(s"`Run` is triggered but no compilation detected from '${project.name}'.")

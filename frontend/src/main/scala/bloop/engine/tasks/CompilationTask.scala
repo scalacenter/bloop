@@ -44,9 +44,10 @@ object CompilationTask {
       sourcesAndInstanceFrom(project) match {
         case Left(earlyResult) =>
           graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
+          graphInputs.transitiveJavaCompilersCompleted.complete(())
           Task.now(earlyResult)
-        case Right(SourcesAndInstance(sources, instance)) =>
-          val previous = state.results.lastSuccessfulResult(project)
+        case Right(SourcesAndInstance(sources, instance, javaOnly)) =>
+          val previous = state.results.lastSuccessfulResultOrEmpty(project)
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
           val (scalacOptions, compileMode) = {
@@ -55,11 +56,16 @@ object CompilationTask {
               val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
               val mode = userCompileMode match {
                 case CompileMode.Sequential =>
-                  CompileMode.Pipelined(graphInputs.pickleReady, graphInputs.javaSignal)
+                  CompileMode.Pipelined(
+                    graphInputs.pickleReady,
+                    graphInputs.transitiveJavaCompilersCompleted,
+                    graphInputs.javaSignal,
+                  )
                 case CompileMode.Parallel(batches) =>
                   CompileMode.ParallelAndPipelined(
                     batches,
                     graphInputs.pickleReady,
+                    graphInputs.transitiveJavaCompilersCompleted,
                     graphInputs.javaSignal
                   )
               }
@@ -96,7 +102,7 @@ object CompilationTask {
                 case Compiler.Result.NotOk(_) =>
                   graphInputs.pickleReady.completeExceptionally(CompileExceptions.FailPromise)
                 case result =>
-                  if (pipeline)
+                  if (pipeline && !javaOnly)
                     logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
                   graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
               }
@@ -159,7 +165,12 @@ object CompilationTask {
     }
   }
 
-  private case class SourcesAndInstance(sources: Array[AbsolutePath], instance: ScalaInstance)
+  private case class SourcesAndInstance(
+      sources: Array[AbsolutePath],
+      instance: ScalaInstance,
+      javaOnly: Boolean
+  )
+
   private def sourcesAndInstanceFrom(
       project: Project
   ): Either[Compiler.Result, SourcesAndInstance] = {
@@ -172,7 +183,8 @@ object CompilationTask {
       case Some(instance) =>
         (scalaSources, javaSources) match {
           case (Nil, Nil) => Left(Compiler.Result.Empty)
-          case _ => Right(SourcesAndInstance(uniqueSources, instance))
+          case (Nil, _ :: _) => Right(SourcesAndInstance(uniqueSources, instance, true))
+          case _ => Right(SourcesAndInstance(uniqueSources, instance, false))
         }
       case None =>
         (scalaSources, javaSources) match {

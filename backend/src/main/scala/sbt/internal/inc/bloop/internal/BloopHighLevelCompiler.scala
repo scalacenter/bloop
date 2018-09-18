@@ -15,6 +15,8 @@ import sbt.util.{InterfaceUtil, Logger}
 import xsbti.{AnalysisCallback, CompileFailed}
 import xsbti.compile.{ClassFileManager, CompileOrder, DependencyChanges, IncOptions, IncToolOptions, MultipleOutput, Output, SingleOutput}
 
+import scala.util.control.NonFatal
+
 /**
  *
  * Defines a high-level compiler after [[sbt.internal.inc.MixedAnalyzingCompiler]], with the
@@ -36,6 +38,12 @@ final class BloopHighLevelCompiler(
 ) {
   private[this] final val setup = config.currentSetup
   private[this] final val classpath = config.classpath.map(_.getAbsoluteFile)
+
+  private[this] val JavaCompleted: CompletableFuture[Unit] = {
+    val cf = new CompletableFuture[Unit]()
+    cf.complete(())
+    cf
+  }
 
   /**
    * Compile
@@ -79,12 +87,12 @@ final class BloopHighLevelCompiler(
     logInputs(logger, javaSources.size, scalaSources.size, outputDirs)
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (pipeline: Boolean, batches: Option[Int], fireJavaCompilation: Task[JavaSignal]) = {
+    val (pipeline: Boolean, batches: Option[Int], completeJava: CompletableFuture[Unit], fireJavaCompilation: Task[JavaSignal]) = {
       compileMode match {
-        case CompileMode.Sequential => (false, None, Task.now(JavaSignal.ContinueCompilation))
-        case CompileMode.Parallel(batches) => (false, Some(batches), Task.now(JavaSignal.ContinueCompilation))
-        case CompileMode.Pipelined(_, fireJavaCompilation) => (true, None, fireJavaCompilation)
-        case CompileMode.ParallelAndPipelined(batches, _, fireJavaCompilation) => (true, Some(batches), fireJavaCompilation)
+        case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation))
+        case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation))
+        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation) => (true, None, completeJava, fireJavaCompilation)
+        case CompileMode.ParallelAndPipelined(batches, _, completeJava, fireJavaCompilation) => (true, Some(batches), completeJava, fireJavaCompilation)
       }
     }
 
@@ -100,11 +108,19 @@ final class BloopHighLevelCompiler(
             callback: AnalysisCallback,
             picklepath: Seq[URI]
         ): Unit = {
-          val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
-          // Dotty doesn't yet support pipelining
-          val normalSetup = isDotty || !pipeline
-          if (normalSetup) scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
-          else scalac.compileAndSetUpPicklepath(sources.toArray, picklepath.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+          try {
+            val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
+            // Dotty doesn't yet support pipelining
+            val normalSetup = isDotty || !pipeline
+            if (normalSetup) scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+            else scalac.compileAndSetUpPicklepath(sources.toArray, picklepath.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+          } catch {
+            case NonFatal(t) =>
+              // If scala compilation happens, complete the java promise so that it doesn't block
+              if (!completeJava.isDone)
+                completeJava.completeExceptionally(t)
+              throw t
+          }
         }
 
         def compileInParallel(batches: Int): Task[Unit] = {
@@ -170,19 +186,27 @@ final class BloopHighLevelCompiler(
 
     // Note that we only start Java compilation when the task `startJavaCompilation` signals it
     val compileJava: Task[Unit] = Task {
-      if (javaSources.isEmpty) ()
-      else {
+      if (javaSources.isEmpty) {
+        if (!completeJava.isDone)
+          completeJava.complete(())
+      } else {
         timed("Java compilation + analysis", logger) {
           val incToolOptions = IncToolOptions.of(
             Optional.of(classfileManager),
             config.incOptions.useCustomizedFileManager()
           )
           val javaOptions = setup.options.javacOptions.toArray[String]
-          try javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
-          catch {
+          try {
+            javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
+            if (!completeJava.isDone)
+              completeJava.complete(())
+            ()
+          } catch {
             case f: CompileFailed =>
               // Intercept and report manually because https://github.com/sbt/zinc/issues/520
               config.reporter.printSummary()
+              // Don't complete with the exception, the graph will already short circuit compilation
+              completeJava.completeExceptionally(f)
               throw f
           }
         }

@@ -52,13 +52,15 @@ object Compiler {
         reporter: Reporter,
         previous: PreviousResult,
         elapsed: Long
-    ) extends Result with CacheHashCode
+    ) extends Result
+        with CacheHashCode
 
     final case class Failed(
         problems: List[xsbti.Problem],
         t: Option[Throwable],
         elapsed: Long
-    ) extends Result with CacheHashCode
+    ) extends Result
+        with CacheHashCode
 
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
@@ -115,9 +117,12 @@ object Compiler {
       val progress = Optional.empty[CompileProgress]
       val setup =
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
+      // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
       compileInputs.mode match {
-        case CompileMode.Pipelined(pickleUri, _) => setup.withPicklePromise(pickleUri)
-        case CompileMode.ParallelAndPipelined(_, pickleUri, _) => setup.withPicklePromise(pickleUri)
+        case CompileMode.Pipelined(pickleUri, _, _) =>
+          setup.withPicklePromise(pickleUri)
+        case CompileMode.ParallelAndPipelined(_, pickleUri, _, _) =>
+          setup.withPicklePromise(pickleUri)
         case _ => setup
       }
     }

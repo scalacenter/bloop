@@ -2,6 +2,7 @@ package bloop.engine.tasks.compilation
 
 import java.net.URI
 import java.util.Optional
+import java.util.concurrent.CompletableFuture
 
 import bloop.{Compiler, Project}
 import bloop.reporter.Problem
@@ -29,12 +30,14 @@ object PartialCompileResult {
       project: Project,
       pickleURI: Try[Optional[URI]],
       javaSources: List[String],
-      result: Task[Compiler.Result]): PartialCompileResult = {
+      completeJava: CompletableFuture[Unit],
+      result: Task[Compiler.Result]
+  ): PartialCompileResult = {
     pickleURI match {
       case scala.util.Success(opt) =>
-        PartialSuccess(project, opt, javaSources, result)
+        PartialSuccess(project, opt, javaSources, completeJava, result)
       case scala.util.Failure(CompileExceptions.CompletePromise) =>
-        PartialSuccess(project, Optional.empty(), javaSources, result)
+        PartialSuccess(project, Optional.empty(), javaSources, completeJava, result)
       case scala.util.Failure(t) =>
         PartialFailure(project, t, javaSources, result)
     }
@@ -53,6 +56,7 @@ case class PartialSuccess(
     project: Project,
     pickleURI: Optional[URI],
     javaSources: List[String],
+    completeJava: CompletableFuture[Unit],
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
     with CacheHashCode

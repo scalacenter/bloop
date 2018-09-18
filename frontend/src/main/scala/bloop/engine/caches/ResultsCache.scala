@@ -36,8 +36,12 @@ final class ResultsCache private (
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
-  def lastSuccessfulResult(project: Project): PreviousResult =
-    successful.getOrElse(project, ResultsCache.EmptyResult)
+  def lastSuccessfulResultOrEmpty(project: Project): PreviousResult =
+    lastSuccessfulResult(project).getOrElse(ResultsCache.EmptyResult)
+
+  /** Returns an optional last succesful result. */
+  private[bloop] def lastSuccessfulResult(project: Project): Option[PreviousResult] =
+    successful.get(project)
 
   /** Returns the latest compilation result if present, empty otherwise. */
   def latestResult(project: Project): Compiler.Result =
@@ -61,6 +65,8 @@ final class ResultsCache private (
     result match {
       case s: Compiler.Result.Success =>
         new ResultsCache(newAll, successful + (project -> s.previous), logger)
+      case Compiler.Result.Empty =>
+        new ResultsCache(newAll, successful + (project -> ResultsCache.EmptyResult), logger)
       case r => new ResultsCache(newAll, successful, logger)
     }
   }

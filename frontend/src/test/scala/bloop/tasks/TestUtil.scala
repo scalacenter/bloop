@@ -235,7 +235,7 @@ object TestUtil {
     !hasPreviousResult(project, state)
 
   def hasPreviousResult(project: Project, state: State): Boolean =
-    state.results.lastSuccessfulResult(project).analysis().isPresent
+    state.results.lastSuccessfulResult(project).isDefined
 
   def makeProject(
       baseDir: Path,
