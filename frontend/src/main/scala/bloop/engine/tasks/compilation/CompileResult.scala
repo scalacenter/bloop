@@ -8,6 +8,7 @@ import bloop.{Compiler, Project}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 import monix.eval.Task
+import sbt.internal.inc.bloop.JavaSignal
 
 import scala.util.Try
 
@@ -30,7 +31,7 @@ object PartialCompileResult {
       project: Project,
       pickleURI: Try[Optional[URI]],
       javaSources: List[String],
-      completeJava: CompletableFuture[Unit],
+      completeJava: Task[JavaSignal],
       result: Task[Compiler.Result]
   ): PartialCompileResult = {
     pickleURI match {
@@ -56,7 +57,7 @@ case class PartialSuccess(
     project: Project,
     pickleURI: Optional[URI],
     javaSources: List[String],
-    completeJava: CompletableFuture[Unit],
+    completeJava: Task[JavaSignal],
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
     with CacheHashCode
