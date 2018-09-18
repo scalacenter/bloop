@@ -189,6 +189,7 @@ final class BloopHighLevelCompiler(
       if (javaSources.isEmpty) {
         if (!completeJava.isDone)
           completeJava.complete(())
+        ()
       } else {
         timed("Java compilation + analysis", logger) {
           val incToolOptions = IncToolOptions.of(
