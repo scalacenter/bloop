@@ -50,7 +50,7 @@ object TestUtil {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
         // Check that this is a clean compile!
         val projects = state.build.projects
-        assert(projects.forall(p => noPreviousResult(p, state)))
+        assert(projects.forall(p => noPreviousAnalysis(p, state)))
         val project = getProject(rootProjectName, state)
         val action = Run(Commands.Compile(rootProjectName, incremental = true))
         val compiledState = TestUtil.blockingExecute(action, state)
@@ -231,11 +231,11 @@ object TestUtil {
     }
   }
 
-  def noPreviousResult(project: Project, state: State): Boolean =
-    !hasPreviousResult(project, state)
+  def noPreviousAnalysis(project: Project, state: State): Boolean =
+    !state.results.lastSuccessfulResultOrEmpty(project).analysis().isPresent
 
   def hasPreviousResult(project: Project, state: State): Boolean =
-    state.results.lastSuccessfulResult(project).analysis().isPresent
+    state.results.lastSuccessfulResult(project).isDefined
 
   def makeProject(
       baseDir: Path,

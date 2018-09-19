@@ -13,6 +13,8 @@ import monix.eval.Task
 import sbt.internal.inc.bloop.JavaSignal
 import sbt.util.InterfaceUtil
 
+import scala.util.{Success, Failure, Try}
+
 object CompileGraph {
   type CompileTask = Task[Dag[PartialCompileResult]]
 
@@ -20,6 +22,7 @@ object CompileGraph {
       project: Project,
       picklepath: List[URI],
       pickleReady: CompletableFuture[Optional[URI]],
+      transitiveJavaCompilersCompleted: CompletableFuture[Unit],
       javaSignal: Task[JavaSignal]
   )
 
@@ -44,8 +47,11 @@ object CompileGraph {
     else normalTraversal(dag, compile, logger)
   }
 
-  private final val ContinueJavaCompilation = Task.now(JavaSignal.ContinueCompilation)
-  private final val NoPickleURI = scala.util.Failure(CompileExceptions.CompletePromise)
+  private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
+  private final val NoPickleURI = Failure(CompileExceptions.CompletePromise)
+  private final val JavaCompleted = {
+    val cf = new CompletableFuture[Unit](); cf.complete(()); cf
+  }
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     dag match {
@@ -88,9 +94,9 @@ object CompileGraph {
           val task: Task[Dag[PartialCompileResult]] = dag match {
             case Leaf(project) =>
               val cf = new CompletableFuture[Optional[URI]]()
-              compile(Inputs(project, Nil, cf, ContinueJavaCompilation)).map {
+              compile(Inputs(project, Nil, cf, JavaCompleted, JavaContinue)).map {
                 case Compiler.Result.Ok(res) =>
-                  Leaf(PartialSuccess(project, Optional.empty(), Nil, Task.now(res)))
+                  Leaf(PartialSuccess(project, Optional.empty(), Nil, JavaContinue, Task.now(res)))
                 case res => Leaf(toPartialFailure(project, res))
               }
 
@@ -100,9 +106,11 @@ object CompileGraph {
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
                   val cf = new CompletableFuture[Optional[URI]]()
-                  compile(Inputs(project, Nil, cf, ContinueJavaCompilation)).map {
+                  compile(Inputs(project, Nil, cf, JavaCompleted, JavaContinue)).map {
                     case Compiler.Result.Ok(res) =>
-                      val partial = PartialSuccess(project, Optional.empty(), Nil, Task.now(res))
+                      val noUri = Optional.empty[URI]()
+                      val partial =
+                        PartialSuccess(project, noUri, Nil, JavaContinue, Task.now(res))
                       Parent(partial, dagResults)
                     case res => Parent(toPartialFailure(project, res), dagResults)
                   }
@@ -145,13 +153,19 @@ object CompileGraph {
           val task = dag match {
             case Leaf(project) =>
               Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
-                val t =
-                  compile(Inputs(project, Nil, cf, Task.now(JavaSignal.ContinueCompilation)))
-                val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                val jcf = new CompletableFuture[Unit]()
+                val t = compile(Inputs(project, Nil, cf, jcf, JavaContinue))
+                val running =
+                  Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
+                val javaSignal = Task.deferFutureAction(jcf.asScala(_)).materialize.map {
+                  case Success(_) => JavaSignal.ContinueCompilation
+                  case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
+                }
+
                 Task
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
-                  .map(u => Leaf(PartialCompileResult(project, u, Nil, Task.fromFuture(running))))
+                  .map(u => Leaf(PartialCompileResult(project, u, Nil, javaSignal, running)))
               }
 
             case Parent(project, dependencies) =>
@@ -159,35 +173,44 @@ object CompileGraph {
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
+                  val results = dagResults.flatMap(Dag.dfs(_)).distinct
                   val picklepath = {
-                    val results = dagResults.flatMap(Dag.dfs(_)).distinct
                     results.flatMap {
                       case s: PartialSuccess => InterfaceUtil.toOption(s.pickleURI)
-                      case _: PartialFailure => None
+                      case _: PartialFailure => None // It cannot ever happen if `failed.isEmpty`
+                    }
+                  }
+
+                  // Signals whether java compilation can proceed or not
+                  val javaSignal: Task[JavaSignal] = aggregateJavaSignals {
+                    results.map {
+                      case s: PartialSuccess => s.completeJava
+                      // It cannot ever happen if `failed.isEmpty`, so just return dummy value
+                      case f: PartialFailure => Task.now(JavaSignal.ContinueCompilation)
                     }
                   }
 
                   Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
-                    // Signals whether Java compilation can proceed or not.
-                    val javaSignal = Task.now(JavaSignal.ContinueCompilation)
-                    /*                    val javaSignal = {
-                      Task
-                        .gatherUnordered(dfss.map(t => t._2.result.map(r => t._1 -> r)))
-                        .map { rs =>
-                          val projects = rs.collect { case (p, Compiler.Result.NotOk(_)) => p.name }
-                          if (projects.isEmpty) JavaSignal.ContinueCompilation
-                          else JavaSignal.FailFastCompilation(projects)
-                        }
-                    }*/
-
-                    val t = compile(Inputs(project, picklepath, cf, javaSignal))
+                    val jcf = new CompletableFuture[Unit]()
+                    val t = compile(Inputs(project, picklepath, cf, jcf, javaSignal))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
-                    val futureRunning = Task.fromFuture(running)
+                    val ongoing = Task.fromFuture(running)
+                    val completeJavaTask = javaSignal.flatMap {
+                      case JavaSignal.ContinueCompilation =>
+                        Task.deferFutureAction(jcf.asScala(_)).materialize.map {
+                          case Success(_) => JavaSignal.ContinueCompilation
+                          case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
+                        }
+                      case f @ JavaSignal.FailFastCompilation(_) => Task.now(f)
+                    }
+
                     Task
                       .deferFutureAction(c => cf.asScala(c))
                       .materialize
-                      .map(u =>
-                        Parent(PartialCompileResult(project, u, Nil, futureRunning), dagResults))
+                      .map { u =>
+                        val res = PartialCompileResult(project, u, Nil, completeJavaTask, ongoing)
+                        Parent(res, dagResults)
+                      }
                   }
                 } else {
                   // Register the name of the projects we're blocked on (intransitively)
@@ -201,5 +224,20 @@ object CompileGraph {
     }
 
     loop(dag)
+  }
+
+  private def aggregateJavaSignals(xs: List[Task[JavaSignal]]): Task[JavaSignal] = {
+    Task
+      .gatherUnordered(xs)
+      .map { ys =>
+        ys.foldLeft(JavaSignal.ContinueCompilation: JavaSignal) {
+          case (JavaSignal.ContinueCompilation, JavaSignal.ContinueCompilation) =>
+            JavaSignal.ContinueCompilation
+          case (f: JavaSignal.FailFastCompilation, JavaSignal.ContinueCompilation) => f
+          case (JavaSignal.ContinueCompilation, f: JavaSignal.FailFastCompilation) => f
+          case (JavaSignal.FailFastCompilation(ps), JavaSignal.FailFastCompilation(ps2)) =>
+            JavaSignal.FailFastCompilation(ps ::: ps2)
+        }
+      }
   }
 }

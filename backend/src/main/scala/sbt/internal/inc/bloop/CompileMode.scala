@@ -25,12 +25,14 @@ object CompileMode {
 
   final case class Pipelined(
       pickleURI: CompletableFuture[Optional[URI]],
+      completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal]
   ) extends CompileMode
 
   final case class ParallelAndPipelined(
       batches: Int,
       pickleURI: CompletableFuture[Optional[URI]],
+      completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal]
   ) extends CompileMode
 }

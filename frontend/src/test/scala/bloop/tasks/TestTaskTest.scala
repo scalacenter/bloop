@@ -39,7 +39,7 @@ object TestTaskTest {
     val compileTask =
       CompilationTask.compile(state0, project, format, false, CompileMode.Sequential, false, false)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
-    val result = state.results.lastSuccessfulResult(project).analysis().toOption
+    val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
   }

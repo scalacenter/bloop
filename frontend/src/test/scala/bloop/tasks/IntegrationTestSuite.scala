@@ -111,7 +111,7 @@ class IntegrationTestSuite(testDirectory: Path) {
     reachable.foreach(removeClassFiles)
     reachable.foreach { p =>
       assertTrue(s"Project `$integrationTestName/${p.name}` is already compiled.",
-                 TestUtil.noPreviousResult(p, state))
+                 TestUtil.noPreviousAnalysis(p, state))
     }
 
     val enablePipelining = isPipeliningEnabled

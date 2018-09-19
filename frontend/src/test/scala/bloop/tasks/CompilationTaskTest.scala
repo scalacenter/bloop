@@ -19,7 +19,7 @@ import bloop.tasks.TestUtil.{
   checkAfterCleanCompilation,
   getProject,
   hasPreviousResult,
-  noPreviousResult
+  noPreviousAnalysis
 }
 
 import scala.concurrent.duration.FiniteDuration
@@ -243,7 +243,7 @@ class CompilationTaskTest {
     checkAfterCleanCompilation(projectsStructures, dependencies, quiet = true) { (state: State) =>
       // The unrelated project should not have been compiled
       assertTrue(s"Project `unrelated` was compiled",
-                 noPreviousResult(getProject("unrelated", state), state))
+                 noPreviousAnalysis(getProject("unrelated", state), state))
       assertTrue(s"Project `parent` was not compiled",
                  hasPreviousResult(getProject("parent", state), state))
       assertTrue(s"Project `RootProject` was not compiled",
@@ -256,7 +256,7 @@ class CompilationTaskTest {
     val projectsStructure = Map(RootProject -> Map("Error.scala" -> "iwontcompile"))
     checkAfterCleanCompilation(projectsStructure, Map.empty, failure = true) { (state: State) =>
       state.build.projects.foreach { p =>
-        assertTrue(s"${p.name} has a compilation result", noPreviousResult(p, state))
+        assertTrue(s"${p.name} has a compilation result", noPreviousAnalysis(p, state))
       }
     }
   }
@@ -297,7 +297,7 @@ class CompilationTaskTest {
     checkAfterCleanCompilation(projectsStructures, dependencies, quiet = true) { (state: State) =>
       // The unrelated project should not have been compiled
       assertTrue(s"Project `unrelated` was compiled",
-                 noPreviousResult(getProject("unrelated", state), state))
+                 noPreviousAnalysis(getProject("unrelated", state), state))
       assertTrue(s"Project `parent` was not compiled",
                  hasPreviousResult(getProject("parent", state), state))
       assertTrue(s"Project `RootProject` was not compiled",
@@ -399,7 +399,7 @@ class CompilationTaskTest {
         val state = state0.copy(logger = logger)
         // Check that this is a clean compile!
         val projects = state.build.projects
-        assert(projects.forall(p => noPreviousResult(p, state)))
+        assert(projects.forall(p => noPreviousAnalysis(p, state)))
         val projectA = getProject("A", state)
         val projectB = getProject("B", state)
         val action = Run(Commands.Compile("B"), Run(Commands.Compile("C")))

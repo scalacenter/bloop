@@ -33,7 +33,7 @@ object CompilationTask {
       project: Project,
       reporterConfig: ReporterConfig,
       sequentialCompilation: Boolean,
-      compileMode: CompileMode.ConfigurableMode,
+      userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
       excludeRoot: Boolean
   ): Task[State] = {
@@ -42,22 +42,30 @@ object CompilationTask {
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val project = graphInputs.project
       sourcesAndInstanceFrom(project) match {
-        case Left(earlyResult) => Task.now(earlyResult)
-        case Right(SourcesAndInstance(sources, instance)) =>
-          val previous = state.results.lastSuccessfulResult(project)
+        case Left(earlyResult) =>
+          graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
+          graphInputs.transitiveJavaCompilersCompleted.complete(())
+          Task.now(earlyResult)
+        case Right(SourcesAndInstance(sources, instance, javaOnly)) =>
+          val previous = state.results.lastSuccessfulResultOrEmpty(project)
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
-          val (scalacOptions, mode) = {
-            if (!pipeline) (project.scalacOptions.toArray, compileMode)
+          val (scalacOptions, compileMode) = {
+            if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
             else {
               val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
-              val mode = compileMode match {
+              val mode = userCompileMode match {
                 case CompileMode.Sequential =>
-                  CompileMode.Pipelined(graphInputs.pickleReady, graphInputs.javaSignal)
+                  CompileMode.Pipelined(
+                    graphInputs.pickleReady,
+                    graphInputs.transitiveJavaCompilersCompleted,
+                    graphInputs.javaSignal,
+                  )
                 case CompileMode.Parallel(batches) =>
                   CompileMode.ParallelAndPipelined(
                     batches,
                     graphInputs.pickleReady,
+                    graphInputs.transitiveJavaCompilersCompleted,
                     graphInputs.javaSignal
                   )
               }
@@ -94,7 +102,7 @@ object CompilationTask {
                 case Compiler.Result.NotOk(_) =>
                   graphInputs.pickleReady.completeExceptionally(CompileExceptions.FailPromise)
                 case result =>
-                  if (pipeline)
+                  if (pipeline && !javaOnly)
                     logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
                   graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
               }
@@ -157,7 +165,12 @@ object CompilationTask {
     }
   }
 
-  private case class SourcesAndInstance(sources: Array[AbsolutePath], instance: ScalaInstance)
+  private case class SourcesAndInstance(
+      sources: Array[AbsolutePath],
+      instance: ScalaInstance,
+      javaOnly: Boolean
+  )
+
   private def sourcesAndInstanceFrom(
       project: Project
   ): Either[Compiler.Result, SourcesAndInstance] = {
@@ -167,7 +180,12 @@ object CompilationTask {
     val uniqueSources = (javaSources ++ scalaSources).toArray
 
     project.scalaInstance match {
-      case Some(instance) => Right(SourcesAndInstance(uniqueSources, instance))
+      case Some(instance) =>
+        (scalaSources, javaSources) match {
+          case (Nil, Nil) => Left(Compiler.Result.Empty)
+          case (Nil, _ :: _) => Right(SourcesAndInstance(uniqueSources, instance, true))
+          case _ => Right(SourcesAndInstance(uniqueSources, instance, false))
+        }
       case None =>
         (scalaSources, javaSources) match {
           case (Nil, Nil) => Left(Compiler.Result.Empty)
