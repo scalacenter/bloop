@@ -2,12 +2,14 @@ package bloop.tasks
 
 import java.nio.charset.Charset
 import java.nio.file._
+import java.nio.file.attribute.FileTime
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
-import bloop.engine.{Action, Build, ExecutionContext, Interpreter, Run, State}
+import bloop.data.{Origin, Project}
+import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.{Project, ScalaInstance}
 import bloop.io.AbsolutePath
@@ -158,7 +160,7 @@ object TestUtil {
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = transformProjects(Project.eagerLoadFromDir(configDirectory, logger))
+    val loadedProjects = transformProjects(BuildLoader.loadSynchronously(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
     state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
@@ -237,6 +239,9 @@ object TestUtil {
   def hasPreviousResult(project: Project, state: State): Boolean =
     state.results.lastSuccessfulResult(project).isDefined
 
+  private[bloop] def syntheticOriginFor(path: AbsolutePath): Origin =
+    Origin(path, FileTime.fromMillis(0), 1)
+
   def makeProject(
       baseDir: Path,
       name: String,
@@ -246,6 +251,7 @@ object TestUtil {
       javaEnv: JavaEnv,
       compileOrder: CompileOrder = Config.Mixed
   ): Project = {
+    val origin = syntheticOriginFor(AbsolutePath(baseDir))
     val baseDirectory = projectDir(baseDir, name)
     val (srcs, classes) = makeProjectStructure(baseDir, name)
     val tempDir = baseDirectory.resolve("tmp")
@@ -277,7 +283,8 @@ object TestUtil {
       jsToolchain = None,
       nativeToolchain = None,
       sbt = None,
-      resolution = None
+      resolution = None,
+      origin = origin
     )
   }
 

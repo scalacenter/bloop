@@ -1,9 +1,8 @@
 package bloop.cli.completion
 
 import caseapp.core.{Arg, CommandMessages}
-
-import bloop.Project
 import bloop.cli.{BspProtocol, ReporterKind}
+import bloop.data.Project
 
 object BashFormat extends Format {
   override def showProject(project: Project): Some[String] = {

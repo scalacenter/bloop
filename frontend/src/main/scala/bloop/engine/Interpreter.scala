@@ -8,9 +8,9 @@ import bloop.config.Config.Platform
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompilationTask, ScalaJsToolchain, ScalaNativeToolchain, Tasks}
-import bloop.Project
 import bloop.cli.Commands.{CompilingCommand, LinkingCommand}
 import bloop.config.Config
+import bloop.data.Project
 import bloop.engine.Feedback.XMessageString
 import monix.eval.Task
 import sbt.internal.inc.bloop.CompileMode

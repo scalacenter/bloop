@@ -1,16 +1,8 @@
 package bloop
 
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{
-  OptionsParser,
-  inputStreamRead,
-  pathParser,
-  printStreamRead,
-  propertiesParser,
-  coParser,
-  cliParser
-}
-import bloop.engine.{Action, Build, Exit, Interpreter, NoPool, Print, Run, State}
+import bloop.cli.CliParsers.{OptionsParser, cliParser, coParser, inputStreamRead, pathParser, printStreamRead, propertiesParser}
+import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
@@ -31,7 +23,7 @@ object Bloop extends CaseApp[CliOptions] {
     logger.warn(
       "The Bloop shell provides less features, is not supported and can be removed without notice.")
     logger.warn("Please refer to our documentation for more information.")
-    val projects = Project.eagerLoadFromDir(configDirectory, logger)
+    val projects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, projects)
     val state = State(build, NoPool, options.common, logger)
     run(state, options)

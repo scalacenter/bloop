@@ -2,8 +2,8 @@ package bloop.engine
 
 import java.util.concurrent.TimeUnit
 
-import bloop.Project
 import bloop.config.Config
+import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
@@ -22,8 +22,8 @@ class LoadProjectSpec {
         .getOrElse(sys.error("The lichess project doesn't exist in the integrations index!"))
     }
 
-    val t = Project
-      .lazyLoadFromDir(configDir, logger)
+    val t = BuildLoader
+      .load(configDir, logger)
       .map(ps => Dag.fromMap(ps.map(p => p.name -> p).toMap))
     try TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(t)
     catch { case t: Throwable => logger.dump(); throw t }
@@ -36,7 +36,8 @@ class LoadProjectSpec {
     val config0 = Config.File.dummyForTests
     val project = config0.project
     val configWithNoScala = config0.copy(config0.version, project.copy(scala = None))
-    val inferredInstance = Project.fromConfig(configWithNoScala, logger).scalaInstance
+    val origin = TestUtil.syntheticOriginFor(AbsolutePath.completelyUnsafe(""))
+    val inferredInstance = Project.fromConfig(configWithNoScala, origin, logger).scalaInstance
     assert(inferredInstance.isDefined)
     assert(inferredInstance.get.version.nonEmpty)
   }

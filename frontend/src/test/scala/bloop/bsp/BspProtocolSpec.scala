@@ -5,7 +5,7 @@ import java.nio.file.Files
 import bloop.Project
 import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, CliOptions, Commands}
-import bloop.engine.Run
+import bloop.engine.{BuildLoader, Run}
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
 import bloop.logging.{RecordingLogger, Slf4jAdapter}
@@ -120,8 +120,8 @@ class BspProtocolSpec {
             case Left(error) => Left(error)
             case Right(sources) =>
               val fetchedSources = sources.items.flatMap(i => i.uris.map(_.value))
-              val expectedSources = Project
-                .eagerLoadFromDir(configDir, logger.underlying)
+              val expectedSources = BuildLoader
+                .loadSynchronously(configDir, logger.underlying)
                 .flatMap(_.sources.map(s => bsp.Uri(s.underlying.toUri).value))
               val msg = s"Expected != Fetched, $expectedSources != $fetchedSources"
               val same = expectedSources.sorted.sameElements(fetchedSources.sorted)
@@ -158,8 +158,8 @@ class BspProtocolSpec {
             case Left(error) => Left(error)
             case Right(options) =>
               val uriOptions = options.items.map(i => (i.target.uri.value, i)).sortBy(_._1)
-              val expectedUriOptions = Project
-                .eagerLoadFromDir(configDir, logger.underlying)
+              val expectedUriOptions = BuildLoader
+                .loadSynchronously(configDir, logger.underlying)
                 .map(p => (p.bspUri.value, p))
                 .sortBy(_._1)
 

@@ -1,7 +1,7 @@
 package bloop.engine.caches
 
-import bloop.engine.State
-import bloop.io.{AbsolutePath, FileTracker}
+import bloop.engine.{Build, BuildLoader, State}
+import bloop.io.AbsolutePath
 import java.util.concurrent.ConcurrentHashMap
 
 import bloop.cli.ExitStatus
@@ -41,17 +41,25 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
    * @return The state associated with `from`, or the newly computed state.
    */
   def addIfMissing(from: AbsolutePath, computeBuild: AbsolutePath => Task[State]): Task[State] = {
-    def computeAndSave: Task[State] = computeBuild(from).map(s => { cache.put(from, s); s })
-
     Option(cache.get(from)) match {
       case Some(state) =>
-        state.build.changed(state.logger) match {
-          case FileTracker.Unchanged(None) => Task.now(state)
-          case FileTracker.Unchanged(Some(t)) =>
-            Task.now(state.copy(build = state.build.copy(tracker = t)))
-          case FileTracker.Changed => computeAndSave
+        import state.logger
+        state.build.checkForChange(logger).flatMap {
+          case Build.ReturnPreviousState => Task.now(state)
+          case Build.UpdateState(createdOrModified, deleted) =>
+            BuildLoader.loadBuildFromConfigurationFiles(from, createdOrModified, logger).map {
+              newProjects =>
+                val currentProjects = state.build.projects
+                val toRemove = deleted.toSet ++ newProjects.map(_.origin.path)
+                val untouched =
+                  currentProjects.collect { case p if !toRemove.contains(p.origin.path) => p }
+                val newBuild = state.build.copy(projects = untouched ++ newProjects)
+                val newState = state.copy(build = newBuild)
+                cache.put(from, newState)
+                newState
+            }
         }
-      case None => computeAndSave
+      case None => computeBuild(from).map(s => { cache.put(from, s); s })
     }
   }
 

@@ -1,9 +1,8 @@
 package bloop.cli.completion
 
 import caseapp.core.{Arg, CommandMessages}
-
-import bloop.Project
 import bloop.cli.{BspProtocol, ReporterKind}
+import bloop.data.Project
 
 /** Format for autocompletion with zsh */
 object ZshFormat extends Format {

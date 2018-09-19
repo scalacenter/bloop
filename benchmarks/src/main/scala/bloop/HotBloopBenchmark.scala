@@ -132,6 +132,7 @@ abstract class HotBloopBenchmarkBase {
         override def run(): Unit = {
           processOutputReader.close()
           bloopProcess.destroyForcibly()
+          ()
         }
       })
     }

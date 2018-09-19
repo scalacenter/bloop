@@ -2,6 +2,7 @@ package bloop.engine
 
 import bloop.CompilerCache
 import bloop.cli.{CommonOptions, ExitStatus}
+import bloop.data.Project
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
 import bloop.logging.Logger
@@ -60,8 +61,6 @@ object State {
     val compilerCache = getCompilerCache(logger)
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
-
-  import bloop.Project
   import bloop.io.AbsolutePath
 
   /**
@@ -80,7 +79,7 @@ object State {
       logger: Logger
   ): Task[State] = {
     val cached = State.stateCache.addIfMissing(configDir, path => {
-      Project.lazyLoadFromDir(configDir, logger).map { projects =>
+      BuildLoader.load(configDir, logger).map { projects =>
         val build: Build = Build(configDir, projects)
         State(build, pool, opts, logger)
       }

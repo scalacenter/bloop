@@ -1,7 +1,8 @@
-package bloop
+package bloop.data
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.attribute.FileTime
 
 import scala.util.Try
 import bloop.exec.JavaEnv
@@ -9,12 +10,13 @@ import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import _root_.monix.eval.Task
+import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
-import config.{Config, ConfigEncoderDecoders}
-import config.Config.Platform
+import bloop.config.{Config, ConfigEncoderDecoders}
+import bloop.config.Config.Platform
 import bloop.engine.ExecutionContext
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.util.CacheHashCode
+import bloop.util.ByteHasher
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(
@@ -37,9 +39,11 @@ final case class Project(
     jsToolchain: Option[ScalaJsToolchain],
     nativeToolchain: Option[ScalaNativeToolchain],
     sbt: Option[Config.Sbt],
-    resolution: Option[Config.Resolution]
-) extends CacheHashCode {
+    resolution: Option[Config.Resolution],
+    origin: Origin
+) {
   override def toString: String = s"$name"
+  override val hashCode: Int = origin.hash
 
   /** The bsp uri associated with this project. */
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
@@ -65,61 +69,23 @@ final case class Project(
 }
 
 object Project {
-  final implicit val ps: scalaz.Show[Project] = new scalaz.Show[Project] {
-    override def shows(f: Project): String = f.name
-  }
+  final implicit val ps: scalaz.Show[Project] =
+    new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
-  /** The pattern used to find configuration files */
-  final val loadPattern: String = "glob:**.json"
-
-  /** The maximum number of directory levels to traverse to find configuration files. */
-  final val loadDepth: Int = 1
-
-  private def loadAllFiles(configRoot: AbsolutePath): List[AbsolutePath] =
-    Paths.getAllFiles(configRoot, loadPattern, maxDepth = loadDepth)
-
-  /**
-   * Load all the projects from `config` in a parallel, lazy fashion via monix Task.
-   *
-   * @param configRoot The base directory from which to load the projects.
-   * @param logger The logger that collects messages about project loading.
-   * @return The list of loaded projects.
-   */
-  def lazyLoadFromDir(configRoot: AbsolutePath, logger: Logger): Task[List[Project]] = {
-    // TODO: We're not handling projects with duplicated names here.
-    val configFiles = loadAllFiles(configRoot)
-    logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
-    val all = configFiles.iterator.map(configFile => Task(fromFile(configFile, logger))).toList
-    Task.gatherUnordered(all).executeOn(ExecutionContext.scheduler)
-  }
-
-  /**
-   * Load all the projects from `config` in an eager fashion.
-   *
-   * Useful only for testing purposes, it's the counterpart of [[lazyLoadFromDir()]].
-   *
-   * @param configRoot The base directory from which to load the projects.
-   * @param logger The logger that collects messages about project loading.
-   * @return The list of loaded projects.
-   */
-  def eagerLoadFromDir(configRoot: AbsolutePath, logger: Logger): List[Project] = {
-    val configFiles = loadAllFiles(configRoot)
-    logger.debug(s"Loading ${configFiles.length} projects from '${configRoot.syntax}'...")
-    configFiles.iterator.map(configFile => fromFile(configFile, logger)).toList
-  }
-
-  def fromConfig(file: Config.File, logger: Logger): Project = {
+  def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
     val project = file.project
     val scala = project.`scala`
 
     // Use the default Bloop scala instance if it's not a Scala project or if Scala jars are empty
-    val instance = scala.flatMap { scala =>
-      if (scala.jars.isEmpty) None
-      else {
-        val scalaJars = scala.jars.map(AbsolutePath.apply)
-        Some(ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger))
+    val instance = scala
+      .flatMap { scala =>
+        if (scala.jars.isEmpty) None
+        else {
+          val scalaJars = scala.jars.map(AbsolutePath.apply)
+          Some(ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger))
+        }
       }
-    }.orElse(ScalaInstance.scalaInstanceFromBloop(logger))
+      .orElse(ScalaInstance.scalaInstanceFromBloop(logger))
 
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val jsToolchain = project.platform.flatMap { platform =>
@@ -144,6 +110,7 @@ object Project {
     val analysisOut = scala
       .flatMap(_.analysis.map(AbsolutePath.apply))
       .getOrElse(out.resolve(Config.Project.analysisFileName(project.name)))
+
     Project(
       project.name,
       AbsolutePath(project.directory),
@@ -164,19 +131,20 @@ object Project {
       jsToolchain,
       nativeToolchain,
       sbt,
-      resolution
+      resolution,
+      origin
     )
   }
 
-  def fromFile(config: AbsolutePath, logger: Logger): Project = {
+  def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
     import _root_.io.circe.parser
-    logger.debug(s"Loading project from '$config'")
-    val contents = new String(Files.readAllBytes(config.underlying), StandardCharsets.UTF_8)
+    logger.debug(s"Loading project from '${origin.path}'")
+    val contents = new String(bytes, StandardCharsets.UTF_8)
     parser.parse(contents) match {
       case Left(failure) => throw failure
       case Right(json) =>
         ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
-          case Right(file) => Project.fromConfig(file, logger)
+          case Right(file) => Project.fromConfig(file, origin, logger)
           case Left(failure) => throw failure
         }
     }

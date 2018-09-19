@@ -8,7 +8,7 @@ import bloop.tasks.TestUtil
 import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
-import bloop.Project
+import bloop.data.Project
 import bloop.engine.tasks.ScalaNativeToolchain
 import org.junit.Assert.assertTrue
 import org.junit.Test

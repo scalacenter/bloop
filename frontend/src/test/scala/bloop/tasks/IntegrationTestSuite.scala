@@ -12,7 +12,7 @@ import org.junit.runners.Parameterized.Parameters
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Dag, Exit, Run}
 import bloop.exec.JavaEnv
-import bloop.Project
+import bloop.data.Project
 import bloop.config.Config
 import bloop.io.AbsolutePath
 
@@ -95,7 +95,8 @@ class IntegrationTestSuite(testDirectory: Path) {
           jsToolchain = None,
           nativeToolchain = None,
           sbt = None,
-          resolution = None
+          resolution = None,
+          origin = TestUtil.syntheticOriginFor(state0.build.origin)
         )
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
