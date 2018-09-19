@@ -106,7 +106,8 @@ def download(url, target):
         with open(target, "wb") as file:
             copyfileobj(socket, file, BUFFER_SIZE)
         socket.close()
-    except IOError:
+    except IOError as e:
+        print(e)
         print("Couldn't download %s, please try again." % url)
         sys.exit(1)
 
