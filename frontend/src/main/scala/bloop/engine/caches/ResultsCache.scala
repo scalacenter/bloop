@@ -90,6 +90,9 @@ object ResultsCache {
   private[ResultsCache] final val EmptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
+  private[bloop] def forTests(logger: Logger): ResultsCache =
+    new ResultsCache(Map.empty, Map.empty, logger)
+
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
     val handle = loadAsync(build, cwd, logger).runAsync(ExecutionContext.ioScheduler)
     Await.result(handle, Duration.Inf)
