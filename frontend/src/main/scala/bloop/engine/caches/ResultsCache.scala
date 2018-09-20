@@ -2,7 +2,8 @@ package bloop.engine.caches
 
 import java.util.Optional
 
-import bloop.{Compiler, Project}
+import bloop.Compiler
+import bloop.data.Project
 import bloop.Compiler.Result
 import bloop.engine.tasks.compilation.FinalCompileResult
 import bloop.engine.{Build, ExecutionContext}

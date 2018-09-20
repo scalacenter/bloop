@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import bloop.Project
+import bloop.data.Project
 import bloop.cli.Commands
 import bloop.logging.{Logger, PublisherLogger}
 import bloop.exec.JavaEnv

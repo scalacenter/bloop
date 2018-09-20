@@ -1,6 +1,6 @@
-package bloop
-package util
+package bloop.util
 
+import bloop.data.Project
 import scala.collection.mutable
 
 object TopologicalSort {

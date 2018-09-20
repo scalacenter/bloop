@@ -9,7 +9,8 @@ import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import bloop.Project
+
+import bloop.data.Project
 import bloop.cli.CommonOptions
 import bloop.engine.{ExecutionContext, State}
 import bloop.exec.{Forker, JavaEnv}

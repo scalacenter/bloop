@@ -4,12 +4,11 @@ import org.junit.{Assert, Test}
 import org.junit.experimental.categories.Category
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
-import bloop.Project
+import bloop.data.Project
 import bloop.config.Config
 import bloop.data.Project
 import bloop.tasks.{CompilationHelpers, TestUtil}
 import guru.nidi.graphviz.parse.Parser
-import xsbti.compile.ClasspathOptionsUtil
 
 @Category(Array(classOf[bloop.FastTests]))
 class DagSpec {

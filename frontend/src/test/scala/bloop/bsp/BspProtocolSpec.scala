@@ -2,7 +2,7 @@ package bloop.bsp
 
 import java.nio.file.Files
 
-import bloop.Project
+import bloop.data.Project
 import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, CliOptions, Commands}
 import bloop.engine.{BuildLoader, Run}

@@ -5,13 +5,14 @@ import java.nio.file._
 import java.nio.file.attribute.FileTime
 import java.util.concurrent.TimeUnit
 
+import bloop.data.Project
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
 import bloop.data.{Origin, Project}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
-import bloop.{Project, ScalaInstance}
+import bloop.ScalaInstance
 import bloop.io.AbsolutePath
 import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo

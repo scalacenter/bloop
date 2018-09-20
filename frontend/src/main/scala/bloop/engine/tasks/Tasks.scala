@@ -9,7 +9,7 @@ import bloop.engine.{Dag, State}
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
-import bloop.Project
+import bloop.data.Project
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities

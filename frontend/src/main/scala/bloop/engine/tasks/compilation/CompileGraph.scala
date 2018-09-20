@@ -4,11 +4,12 @@ import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
+import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
 import bloop.logging.Logger
-import bloop.{Compiler, Project}
+import bloop.Compiler
 import monix.eval.Task
 import sbt.internal.inc.bloop.JavaSignal
 import sbt.util.InterfaceUtil
