@@ -104,6 +104,17 @@ class CleanTaskSpec {
     )
 
   @Test
+  def cleansAllProjectsByDefault: Unit =
+    cleanAndCheck(
+      Set(
+        "foo" -> Set.empty,
+        "bar" -> Set.empty
+      ),
+      Commands.Clean(Nil),
+      Set("foo", "bar")
+    )
+
+  @Test
   def errorsOnMissingProjects: Unit =
     cleanAndCheck(
       Set(
