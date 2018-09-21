@@ -2,7 +2,7 @@ package bloop.engine.tasks
 
 import java.nio.file.Path
 
-import bloop.Project
+import bloop.data.Project
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
 import bloop.internal.build.BuildInfo

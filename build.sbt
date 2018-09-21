@@ -47,7 +47,8 @@ val backend = project
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent,
       Dependencies.monix,
-      Dependencies.directoryWatcher
+      Dependencies.directoryWatcher,
+      Dependencies.xxHashLibrary,
     )
   )
 

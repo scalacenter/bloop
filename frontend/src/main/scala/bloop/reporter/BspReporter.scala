@@ -1,6 +1,6 @@
 package bloop.reporter
 
-import bloop.Project
+import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.logging.BspLogger
 import xsbti.Position

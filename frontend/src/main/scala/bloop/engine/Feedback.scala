@@ -1,6 +1,5 @@
 package bloop.engine
-
-import bloop.Project
+import bloop.data.Project
 import bloop.io.AbsolutePath
 
 object Feedback {

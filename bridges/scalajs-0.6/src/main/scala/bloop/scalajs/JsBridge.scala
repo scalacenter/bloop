@@ -4,16 +4,11 @@ import scala.collection.JavaConverters._
 import java.nio.file.{Files, Path}
 
 import org.scalajs.core.tools.io.IRFileCache.IRContainer
-import org.scalajs.core.tools.io.{
-  AtomicWritableFileVirtualJSFile,
-  FileVirtualBinaryFile,
-  FileVirtualScalaJSIRFile,
-  VirtualJarFile
-}
+import org.scalajs.core.tools.io.{AtomicWritableFileVirtualJSFile, FileVirtualBinaryFile, FileVirtualScalaJSIRFile, VirtualJarFile}
 import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
 import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
-import bloop.Project
 import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
+import bloop.data.Project
 import bloop.logging.{Logger => BloopLogger}
 import org.scalajs.core.tools.linker.backend.ModuleKind
 import org.scalajs.core.tools.sem.Semantics

@@ -2,7 +2,7 @@ package bloop.io
 
 import java.nio.file.{Files, Path}
 
-import bloop.Project
+import bloop.data.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.{Logger, Slf4jAdapter}

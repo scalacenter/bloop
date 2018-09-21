@@ -2,9 +2,9 @@ package bloop.engine.tasks.compilation
 
 import java.net.URI
 import java.util.Optional
-import java.util.concurrent.CompletableFuture
 
-import bloop.{Compiler, Project}
+import bloop.data.Project
+import bloop.Compiler
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 import monix.eval.Task

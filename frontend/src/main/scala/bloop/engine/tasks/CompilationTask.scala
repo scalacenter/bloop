@@ -1,12 +1,13 @@
 package bloop.engine.tasks
 
 import bloop.cli.ExitStatus
+import bloop.data.Project
 import bloop.engine._
-import bloop.engine.tasks.compilation.{CompileGraph, FinalCompileResult, CompileExceptions}
+import bloop.engine.tasks.compilation.{CompileExceptions, CompileGraph, FinalCompileResult}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter._
-import bloop.{CompileInputs, Compiler, Project, ScalaInstance}
+import bloop.{CompileInputs, Compiler, ScalaInstance}
 import monix.eval.Task
 import sbt.internal.inc.bloop.CompileMode
 import sbt.util.InterfaceUtil
@@ -175,8 +176,8 @@ object CompilationTask {
       project: Project
   ): Either[Compiler.Result, SourcesAndInstance] = {
     val sources = project.sources.distinct
-    val javaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.java")).distinct
-    val scalaSources = sources.flatMap(src => Paths.getAllFiles(src, "glob:**.scala")).distinct
+    val javaSources = sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.java")).distinct
+    val scalaSources = sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.scala")).distinct
     val uniqueSources = (javaSources ++ scalaSources).toArray
 
     project.scalaInstance match {

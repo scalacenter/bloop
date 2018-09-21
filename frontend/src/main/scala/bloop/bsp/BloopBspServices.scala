@@ -4,8 +4,9 @@ import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.{Compiler, Project, ScalaInstance}
+import bloop.{Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus}
+import bloop.data.Project
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspLogger

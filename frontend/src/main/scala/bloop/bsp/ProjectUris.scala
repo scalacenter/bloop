@@ -2,7 +2,7 @@ package bloop.bsp
 
 import java.net.URI
 
-import bloop.Project
+import bloop.data.Project
 import bloop.engine.State
 import bloop.io.AbsolutePath
 

@@ -5,7 +5,7 @@ import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.Project
+import bloop.data.Project
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.ConfigEncoderDecoders._
@@ -19,6 +19,7 @@ import org.gradle.testkit.runner.TaskOutcome._
 import org.junit._
 import org.junit.Assert._
 import org.junit.rules.TemporaryFolder
+import bloop.engine.BuildLoader
 
 import scala.collection.JavaConverters._
 
@@ -513,7 +514,7 @@ class ConfigGenerationSuite {
     val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = Project.eagerLoadFromDir(configDirectory, logger)
+    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects)
     State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
   }

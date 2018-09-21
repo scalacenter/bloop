@@ -3,8 +3,8 @@ package bloop.scalajs
 import java.nio.file.Path
 
 import org.scalajs.io.AtomicWritableFileVirtualJSFile
-import bloop.Project
 import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
+import bloop.data.Project
 import bloop.io.Paths
 import bloop.logging.{Logger => BloopLogger}
 import org.scalajs.linker.irio.{FileScalaJSIRContainer, FileVirtualScalaJSIRFile, IRFileCache}
@@ -49,7 +49,7 @@ object JsBridge {
 
     val sourceIRs = {
       val classpathDirs = project.classpath.filter(_.isDirectory)
-      val sjsirFiles = classpathDirs.flatMap(d => Paths.getAllFiles(d, "glob:**.sjsir")).distinct
+      val sjsirFiles = classpathDirs.flatMap(d => Paths.pathFilesUnder(d, "glob:**.sjsir")).distinct
       sjsirFiles.map(s => FileVirtualScalaJSIRFile(s.underlying.toFile))
     }
 
