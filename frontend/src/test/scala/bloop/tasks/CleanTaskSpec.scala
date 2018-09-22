@@ -50,7 +50,7 @@ class CleanTaskSpec {
         case (project, deps) => dummyProject(buildPath, project, deps)
       }
       val build = Build(buildPath, projects.toList)
-      val results = projects.foldLeft(ResultsCache.forTests(logger)) { (cache, project) =>
+      val results = projects.foldLeft(ResultsCache.forTests) { (cache, project) =>
         cache.addResult(project, Compiler.Result.Empty)
       }
       val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)

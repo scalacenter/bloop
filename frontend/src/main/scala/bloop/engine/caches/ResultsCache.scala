@@ -28,12 +28,10 @@ import scala.concurrent.duration.Duration
  *
  * @param all The map of projects to latest compilation results.
  * @param successful The map of all projects to latest successful compilation results.
- * @param logger A logger.
  */
 final class ResultsCache private (
     all: Map[Project, Compiler.Result],
-    successful: Map[Project, PreviousResult],
-    logger: Logger
+    successful: Map[Project, PreviousResult]
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
@@ -58,17 +56,17 @@ final class ResultsCache private (
   def cleanSuccessful(projects: List[Project]): ResultsCache = {
     // Remove all the successful results from the cache.
     val newSuccessful = successful.filterKeys(p => !projects.contains(p))
-    new ResultsCache(all, newSuccessful, logger)
+    new ResultsCache(all, newSuccessful)
   }
 
   def addResult(project: Project, result: Compiler.Result): ResultsCache = {
     val newAll = all + (project -> result)
     result match {
       case s: Compiler.Result.Success =>
-        new ResultsCache(newAll, successful + (project -> s.previous), logger)
+        new ResultsCache(newAll, successful + (project -> s.previous))
       case Compiler.Result.Empty =>
-        new ResultsCache(newAll, successful + (project -> ResultsCache.EmptyResult), logger)
-      case r => new ResultsCache(newAll, successful, logger)
+        new ResultsCache(newAll, successful + (project -> ResultsCache.EmptyResult))
+      case r => new ResultsCache(newAll, successful)
     }
   }
 
@@ -90,8 +88,8 @@ object ResultsCache {
   private[ResultsCache] final val EmptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  private[bloop] def forTests(logger: Logger): ResultsCache =
-    new ResultsCache(Map.empty, Map.empty, logger)
+  private[bloop] val forTests: ResultsCache =
+    new ResultsCache(Map.empty, Map.empty)
 
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
     val handle = loadAsync(build, cwd, logger).runAsync(ExecutionContext.ioScheduler)
@@ -129,7 +127,7 @@ object ResultsCache {
 
     val all = build.projects.map(p => fetchPreviousResult(p).map(r => p -> r))
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
-      val cache = new ResultsCache(Map.empty, Map.empty, logger)
+      val cache = new ResultsCache(Map.empty, Map.empty)
       cache.addResults(projectResults)
     }
   }

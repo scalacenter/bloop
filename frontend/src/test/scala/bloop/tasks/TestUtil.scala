@@ -54,7 +54,6 @@ object TestUtil {
         // Check that this is a clean compile!
         val projects = state.build.projects
         assert(projects.forall(p => noPreviousAnalysis(p, state)))
-        val project = getProject(rootProjectName, state)
         val action = Run(Commands.Compile(rootProjectName, incremental = true))
         val compiledState = TestUtil.blockingExecute(action, state)
         afterCompile(compiledState)
@@ -206,10 +205,8 @@ object TestUtil {
   def runAndCheck(state: State, cmd: Commands.CompilingCommand)(
       check: List[(String, String)] => Unit): Unit = {
     val recordingLogger = new RecordingLogger
-    val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)
     val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
-    val project = getProject(cmd.project, recordingState)
     TestUtil.blockingExecute(Run(cmd), recordingState)
     check(recordingLogger.getMessages)
   }
