@@ -76,7 +76,7 @@ toc = true
 
 <dl>
   <dt><code>--project</code> or <code>-p</code> (type: <code>string*</code>)</dt>
-  <dd><p>The projects to clean.</p></dd>
+  <dd><p>The projects to clean (you can specify multiple). By default, all.</p></dd>
   <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
   <dd><p>Run clean for the project's dependencies. By default, false.</p></dd>
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
@@ -91,7 +91,9 @@ toc = true
 
 ### Examples
 
+  * <samp>bloop clean</samp>
   * <samp>bloop clean foobar</samp>
+  * <samp>bloop clean foobar baz</samp>
   * <samp>bloop clean foobar --propagate</samp>
 
 ## `bloop compile`

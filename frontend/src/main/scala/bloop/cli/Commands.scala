@@ -79,7 +79,7 @@ object Commands {
 
   case class Clean(
       @ExtraName("p")
-      @HelpMessage("The projects to clean.")
+      @HelpMessage("The projects to clean (you can specify multiple). By default, all.")
       project: List[String] = Nil,
       @ExtraName("propagate")
       @HelpMessage("Run clean for the project's dependencies. By default, false.")

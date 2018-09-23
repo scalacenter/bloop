@@ -54,7 +54,6 @@ object TestUtil {
         // Check that this is a clean compile!
         val projects = state.build.projects
         assert(projects.forall(p => noPreviousAnalysis(p, state)))
-        val project = getProject(rootProjectName, state)
         val action = Run(Commands.Compile(rootProjectName, incremental = true))
         val compiledState = TestUtil.blockingExecute(action, state)
         afterCompile(compiledState)
@@ -206,10 +205,8 @@ object TestUtil {
   def runAndCheck(state: State, cmd: Commands.CompilingCommand)(
       check: List[(String, String)] => Unit): Unit = {
     val recordingLogger = new RecordingLogger
-    val recordingStream = ProcessLogger.toOutputStream(recordingLogger.info _)
     val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
-    val project = getProject(cmd.project, recordingState)
     TestUtil.blockingExecute(Run(cmd), recordingState)
     check(recordingLogger.getMessages)
   }
@@ -225,7 +222,7 @@ object TestUtil {
       val projects = projectStructures.map {
         case (name, sources) =>
           val projectDependencies = dependencies.getOrElse(name, Set.empty)
-          makeProject(temp, name, sources, projectDependencies, scalaInstance, javaEnv, order)
+          makeProject(temp, name, sources, projectDependencies, Some(scalaInstance), javaEnv, order)
       }
       val logger = BloopLogger.default(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
@@ -248,7 +245,7 @@ object TestUtil {
       name: String,
       sources: Map[String, String],
       dependencies: Set[String],
-      scalaInstance: ScalaInstance,
+      scalaInstance: Option[ScalaInstance],
       javaEnv: JavaEnv,
       compileOrder: CompileOrder = Config.Mixed
   ): Project = {
@@ -260,14 +257,15 @@ object TestUtil {
 
     val target = classesDir(baseDir, name)
     val depsTargets = (dependencies.map(classesDir(baseDir, _))).map(AbsolutePath.apply).toList
-    val classpath = depsTargets ++ scalaInstance.allJars.map(AbsolutePath.apply)
+    val allJars = scalaInstance.map(_.allJars.map(AbsolutePath.apply)).getOrElse(Array.empty)
+    val classpath = depsTargets ++ allJars
     val sourceDirectories = List(AbsolutePath(srcs))
     writeSources(srcs, sources)
     Project(
       name = name,
       baseDirectory = AbsolutePath(baseDirectory),
       dependencies = dependencies.toList,
-      scalaInstance = Some(scalaInstance),
+      scalaInstance = scalaInstance,
       rawClasspath = classpath,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
       classesDir = AbsolutePath(target),

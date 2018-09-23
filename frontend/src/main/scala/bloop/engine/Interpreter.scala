@@ -293,10 +293,14 @@ object Interpreter {
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
-    val (projects, missing) = lookupProjects(cmd.project, state)
-    if (missing.isEmpty)
-      Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
-    else Task.now(reportMissing(missing, state))
+    if (cmd.project.isEmpty)
+      Tasks.clean(state, state.build.projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
+    else {
+      val (projects, missing) = lookupProjects(cmd.project, state)
+      if (missing.isEmpty)
+        Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
+      else Task.now(reportMissing(missing, state))
+    }
   }
 
   private def linkWithScalaJs(
