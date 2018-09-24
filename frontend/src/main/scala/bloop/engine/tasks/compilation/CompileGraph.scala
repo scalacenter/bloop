@@ -14,7 +14,7 @@ import monix.eval.Task
 import sbt.internal.inc.bloop.JavaSignal
 import sbt.util.InterfaceUtil
 
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success}
 
 object CompileGraph {
   type CompileTask = Task[Dag[PartialCompileResult]]
@@ -158,7 +158,7 @@ object CompileGraph {
                 val t = compile(Inputs(project, Nil, cf, jcf, JavaContinue))
                 val running =
                   Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
-                val javaSignal = Task.deferFutureAction(jcf.asScala(_)).materialize.map {
+                val completeJavaTask = Task.deferFutureAction(jcf.asScala(_)).materialize.map {
                   case Success(_) => JavaSignal.ContinueCompilation
                   case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
                 }
@@ -166,7 +166,7 @@ object CompileGraph {
                 Task
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
-                  .map(u => Leaf(PartialCompileResult(project, u, Nil, javaSignal, running)))
+                  .map(u => Leaf(PartialCompileResult(project, u, Nil, completeJavaTask, running)))
               }
 
             case Parent(project, dependencies) =>
@@ -196,13 +196,15 @@ object CompileGraph {
                     val t = compile(Inputs(project, picklepath, cf, jcf, javaSignal))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     val ongoing = Task.fromFuture(running)
-                    val completeJavaTask = javaSignal.flatMap {
-                      case JavaSignal.ContinueCompilation =>
-                        Task.deferFutureAction(jcf.asScala(_)).materialize.map {
+                    val completeJavaTask = {
+                      Task
+                        .deferFutureAction(jcf.asScala(_))
+                        .materialize
+                        .map {
                           case Success(_) => JavaSignal.ContinueCompilation
                           case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
                         }
-                      case f @ JavaSignal.FailFastCompilation(_) => Task.now(f)
+                        .memoize
                     }
 
                     Task
