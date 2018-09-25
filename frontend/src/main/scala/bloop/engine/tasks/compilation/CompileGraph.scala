@@ -161,7 +161,7 @@ object CompileGraph {
                 val completeJavaTask = Task.deferFutureAction(jcf.asScala(_)).materialize.map {
                   case Success(_) => JavaSignal.ContinueCompilation
                   case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
-                }
+                }.memoize
 
                 Task
                   .deferFutureAction(c => cf.asScala(c))

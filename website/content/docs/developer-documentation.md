@@ -64,8 +64,10 @@ definitions exist and are up-to-date with the following sbt task:
 > frontend/integrationSetUpBloop
 ```
 
-This will clone several open source projects and use the sbt-bloop plugin to
-generate the build definitions. Then, run tests with:
+This will clone Bloop's community build on your sbt staging directory and will
+generate the corresponding build definitions for them. This process can take
+a while (and look like it's stuck), so please be patient and let sbt clone all
+the projects. When the process is over, you can run the tests with:
 
 ```
 > frontend/test
