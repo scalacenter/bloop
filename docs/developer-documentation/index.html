@@ -179,7 +179,19 @@ process.</p>
 
 <h2 id="opening-up-our-sbt-build">Opening up our sbt build</h2>
 
-<p>Bloop builds with sbt. Run sbt in the base directory to load the project.</p>
+<p>Bloop builds with sbt and uses git submodules. To avoid getting cryptic errors like
+&ldquo;No project &lsquo;compilation&rsquo; in &lsquo;file:///Users/ashwinraja/Development/bloop/benchmark-bridge/&lsquo;&rdquo;
+you need to clone the repository and initialize the submodules <em>before</em> you run sbt.</p>
+
+<p>If you haven&rsquo;t yet cloned bloop, run the following commands:</p>
+
+<pre><code class="language-sh">$ git clone --recursive https://github.com/scalacenter/bloop.git
+$ cd bloop
+$ sbt
+</code></pre>
+
+<p>If you forgot to initialize git submodules, run <code>git submodule update --init</code> in the bloop
+repository.</p>
 
 <h2 id="building-bloop-locally">Building Bloop locally</h2>
 
