@@ -32,6 +32,12 @@ process.
 
 Bloop builds with sbt. Run sbt in the base directory to load the project.
 
+```sh
+$ git clone --recursive https://github.com/scalacenter/bloop.git
+$ cd bloop
+$ sbt
+```
+
 ## Building Bloop locally
 
 The following sequence of commands is sufficient to build Bloop, publish it
