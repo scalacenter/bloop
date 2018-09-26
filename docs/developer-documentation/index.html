@@ -211,6 +211,16 @@ $ grep 'val coursierVersion' project/Dependencies.scala # copy this version numb
 $ bin/install.py --dest $HOME/.bloop --nailgun &lt;nailgun-commit-sha&gt; --coursier &lt;coursier-version&gt; --version &lt;version&gt;
 </code></pre>
 
+<h3 id="installing-bloop-locally-in-osx-brew">Installing bloop locally in OSX (brew)</h3>
+
+<p>If you use brew to install and manage Bloop&rsquo;s different versions and want to
+try a new local version, the <code>install</code> sbt command will also publish a local
+ruby formula you can use with:</p>
+
+<p><code>brew upgrade --build-from-source ${PATH_TO_LOCAL_HOMEBREW_FORMULA}</code></p>
+
+<p>Assuming the new installed version is an upgrade.</p>
+
 <h2 id="running-our-test-suite">Running our test suite</h2>
 
 <p>Bloop has a rich integration test suite that requires build definitions to
@@ -229,15 +239,15 @@ generate the build definitions. Then, run tests with:</p>
 <pre><code>&gt; frontend/test
 </code></pre>
 
-<h2 id="running-our-community-build">Running our community build</h2>
+<h2 id="running-the-community-build">Running the community build</h2>
 
-<p>A community build is a collection of builds for which we test against on every
-major change in bloop. It helps us keep track of potential regressions in both
-correctness and performance.</p>
+<p>A community build is a collection of builds we test against on every
+significant change in bloop. It helps us keep track of potential regressions in
+both correctness and performance.</p>
 
-<p>Right now, our community build counts with several sbt 0.13 and 1.0 builds. As
-running the community, build takes a while, it&rsquo;s run only before releases and
-on major breaking changes.</p>
+<p>Right now, our community build counts with many important sbt 0.13 and 1.0
+projects in the Scala community. As running the community build takes a while,
+it&rsquo;s run only before releases and on major breaking changes.</p>
 
 <h3 id="running-the-community-build-on-a-pull-request">Running the community build on a pull request</h3>
 
@@ -252,7 +262,7 @@ environment variable before running the tests locally.</p>
 $ sbt &quot;frontend/testOnly bloop.tasks.IntegrationTestSuite&quot;
 </code></pre>
 
-<h2 id="running-our-benchmarks">Running our benchmarks</h2>
+<h2 id="running-benchmarks">Running benchmarks</h2>
 
 <p>Bloop features a benchmark suite to measure how fast Bloop is to perform
 several operations (loading projects for instance), as well as other benchmark
@@ -275,13 +285,13 @@ benchmark results and displays them on graphs. At this time, it is only accessib
 within EPFL&rsquo;s network.</li>
 </ul>
 
-<h3 id="running-the-benchmarks-on-a-pull-request">Running the benchmarks on a pull request</h3>
+<h3 id="running-benchmarks-on-a-pull-request">Running benchmarks on a pull request</h3>
 
 <p>Schedule the benchmarks in a given pull request by adding a comment that
 contains &ldquo;test performance please&rdquo;. <a href="https://github.com/bloopoid">bloopoid</a>
 will then kick in and confirm your request.</p>
 
-<h3 id="running-the-benchmarks-locally">Running the benchmarks locally</h3>
+<h3 id="running-benchmarks-locally">Running benchmarks locally</h3>
 
 <p><code>bin/run-benchmarks.sh</code> builds a specified version of Bloop (via CLI) and runs
 the benchmarks for it. Run it to execute the benchmark suite locally, but keep
