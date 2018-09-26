@@ -64,6 +64,16 @@ $ grep 'val coursierVersion' project/Dependencies.scala # copy this version numb
 $ bin/install.py --dest $HOME/.bloop --nailgun <nailgun-commit-sha> --coursier <coursier-version> --version <version>
 ```
 
+### Installing bloop locally in OSX (brew)
+
+If you use brew to install and manage Bloop's different versions and want to
+try a new local version, the `install` sbt command will also publish a local
+ruby formula you can use with:
+
+`brew upgrade --build-from-source ${PATH_TO_LOCAL_HOMEBREW_FORMULA}`
+
+Assuming the new installed version is an upgrade.
+
 ## Running our test suite
 
 Bloop has a rich integration test suite that requires build definitions to
@@ -84,15 +94,15 @@ generate the build definitions. Then, run tests with:
 > frontend/test
 ```
 
-## Running our community build
+## Running the community build
 
-A community build is a collection of builds for which we test against on every
-major change in bloop. It helps us keep track of potential regressions in both
-correctness and performance.
+A community build is a collection of builds we test against on every
+significant change in bloop. It helps us keep track of potential regressions in
+both correctness and performance.
 
-Right now, our community build counts with several sbt 0.13 and 1.0 builds. As
-running the community, build takes a while, it's run only before releases and
-on major breaking changes.
+Right now, our community build counts with many important sbt 0.13 and 1.0
+projects in the Scala community. As running the community build takes a while,
+it's run only before releases and on major breaking changes.
 
 ### Running the community build on a pull request
 
@@ -108,7 +118,7 @@ $ export RUN_COMMUNITY_BUILD=true
 $ sbt "frontend/testOnly bloop.tasks.IntegrationTestSuite"
 ```
 
-## Running our benchmarks
+## Running benchmarks
 
 Bloop features a benchmark suite to measure how fast Bloop is to perform
 several operations (loading projects for instance), as well as other benchmark
@@ -129,13 +139,13 @@ Our benchmark infrastructure is composed of several pieces:
    benchmark results and displays them on graphs. At this time, it is only accessible from
    within EPFL's network.
 
-### Running the benchmarks on a pull request
+### Running benchmarks on a pull request
 
 Schedule the benchmarks in a given pull request by adding a comment that
 contains "test performance please". [bloopoid](https://github.com/bloopoid)
 will then kick in and confirm your request.
 
-### Running the benchmarks locally
+### Running benchmarks locally
 
 `bin/run-benchmarks.sh` builds a specified version of Bloop (via CLI) and runs
 the benchmarks for it. Run it to execute the benchmark suite locally, but keep

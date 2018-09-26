@@ -53,19 +53,39 @@ object ReleaseUtils {
     cachedWrite(Set(installScript.value)).head
   }
 
+  /* Defines an origin where the left is a path to a local file and the right a tag name. */
+  type FormulaOrigin = Either[File, String]
+
   /**
    * The content of the Homebrew Formula to install the version of Bloop that we're releasing.
    *
    * @param version The version of Bloop that we're releasing (usually `Keys.version.value`)
-   * @param tagName The name of the tag that we're releasing
+   * @param origin The origin where we install the homebrew formula from.
    * @param installSha The SHA-256 of the versioned installation script.
    */
-  def formulaContent(version: String, tagName: String, installSha: String): String = {
+  def formulaContent(version: String, origin: FormulaOrigin, installSha: String, local: Boolean): String = {
+    val url = {
+      origin match {
+        case Left(f) => s"""url "file://${f.getAbsolutePath}""""
+        case Right(tagName) =>
+          s"""url "https://github.com/scalacenter/bloop/releases/download/$tagName/install.py""""
+      }
+    }
+
+    val pythonInvocation = {
+      if (!local) """system "python3", "install.py", "--dest", "bin", "--version", version"""
+      else {
+        val cwd = sys.props("user.dir")
+        val ivyHome = new File(sys.props("user.home")) / ".ivy2/"
+        s"""system "python3", "install.py", "--dest", "bin", "--version", version, "--ivy-home", "$ivyHome", "--bloop-home", "$cwd""""
+      }
+    }
+
     s"""class Bloop < Formula
        |  desc "Bloop gives you fast edit/compile/test workflows for Scala."
        |  homepage "https://github.com/scalacenter/bloop"
        |  version "$version"
-       |  url "https://github.com/scalacenter/bloop/releases/download/$tagName/install.py"
+       |  $url
        |  sha256 "$installSha"
        |  bottle :unneeded
        |
@@ -74,7 +94,7 @@ object ReleaseUtils {
        |
        |  def install
        |      mkdir "bin"
-       |      system "python3", "install.py", "--dest", "bin", "--version", version
+       |      ${pythonInvocation}
        |      zsh_completion.install "bin/zsh/_bloop"
        |      bash_completion.install "bin/bash/bloop"
        |
@@ -117,6 +137,19 @@ object ReleaseUtils {
        |end""".stripMargin
   }
 
+  val createLocalHomebrewFormula = Def.task {
+    val logger = Keys.streams.value.log
+    val version = Keys.version.value
+    val versionDir = Keys.target.value / version
+    val targetLocalFormula = versionDir / "Bloop.rb"
+    val installScript = versionedInstallScript.value
+    val installSha = sha256(installScript)
+    val contents = formulaContent(version, Left(installScript), installSha, true)
+    if (!versionDir.exists()) IO.createDirectory(versionDir)
+    IO.write(targetLocalFormula, contents)
+    logger.info(s"Local formula created in ${targetLocalFormula.getAbsolutePath}")
+  }
+
   /** Generate the new Homebrew formula, a new tag and push all that in our Homebrew tap */
   val updateHomebrewFormula = Def.task {
     val buildBase = BuildKeys.buildBase.value
@@ -136,7 +169,7 @@ object ReleaseUtils {
         homebrewRepo =>
           val formulaFileName = "bloop.rb"
           val commitMessage = s"Updating to Bloop $tagName"
-          val content = formulaContent(version, tagName, installSha)
+          val content = formulaContent(version, Right(tagName), installSha, false)
           IO.write(homebrewBase / formulaFileName, content)
           val changed = formulaFileName :: Nil
           GitUtils.commitChangesIn(homebrewRepo,

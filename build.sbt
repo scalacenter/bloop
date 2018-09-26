@@ -311,7 +311,8 @@ addCommandAlias(
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
-    s"${jsBridge10.id}/$publishLocalCmd"
+    s"${jsBridge10.id}/$publishLocalCmd",
+    "createLocalHomebrewFormula"
   ).mkString(";", ";", "")
 )
 
