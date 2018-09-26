@@ -4,11 +4,11 @@ from __future__ import print_function
 
 import argparse
 import os
-from os.path import expanduser, isdir, isfile, join
+from os.path import expanduser, isdir, isfile, join, dirname, abspath
 from subprocess import CalledProcessError, check_call
 import sys
 import re
-from shutil import copyfileobj
+from shutil import copyfileobj, copyfile
 
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
@@ -57,7 +57,14 @@ parser.add_argument(
     required=not CUSTOMIZED_SCRIPT,
     default=COURSIER_VERSION,
     help="Version number for the coursier client if not already installed.")
+parser.add_argument(
+    '--ivy-home',
+    help="Tell the location of the ivy home.")
+parser.add_argument(
+    '--bloop-home',
+    help="Tell the location of the ivy home.")
 args = parser.parse_args()
+is_local = args.ivy_home is not None
 
 BLOOP_INSTALLATION_TARGET = args.dest
 BLOOP_VERSION = args.version
@@ -115,6 +122,10 @@ def download_and_install(url, target, permissions=0o644):
     download(url, target)
     os.chmod(target, permissions)
 
+def copy_and_install(origin, target, permissions=0o644):
+    copyfile(origin, target)
+    os.chmod(target, permissions)
+
 def replace_template_variables(template):
     return template.replace("__BLOOP_INSTALLATION_TARGET__", BLOOP_INSTALLATION_TARGET)
 
@@ -130,13 +141,24 @@ def download_and_install_template(url, target, permissions=0o644):
 
 def coursier_bootstrap(target, main):
     try:
-        check_call([
-            "java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
-            "-r", "bintray:scalameta/maven",
-            "-r", "bintray:scalacenter/releases",
-            "-r", "https://oss.sonatype.org/content/repositories/staging",
-            "-o", target, "-f", "--standalone", "--main", main
-        ])
+        from os.path import expanduser
+        ivy_home = expanduser("~") + "/.ivy2/"
+
+        if is_local:
+            check_call([
+                "java", "-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+                "-r", "bintray:scalameta/maven",
+                "-r", "bintray:scalacenter/releases",
+                "-o", target, "-f", "--standalone", "--main", main
+            ])
+        else:
+            check_call([
+                "java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+                "-r", "bintray:scalameta/maven",
+                "-r", "bintray:scalacenter/releases",
+                "-r", "https://oss.sonatype.org/content/repositories/staging",
+                "-o", target, "-f", "--standalone", "--main", main
+            ])
     except CalledProcessError as e:
         print("Coursier couldn't create %s. Please report an issue." % target)
         print("Command: %s" % e.cmd)
@@ -163,17 +185,34 @@ print("Installed bloop server in '%s'" % BLOOP_SERVER_TARGET)
 download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET, 0o755)
 print("Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET)
 
-download_and_install(ZSH_COMPLETION_URL, ZSH_COMPLETION_TARGET, 0o755)
-print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
+if is_local:
+    if args.bloop_home is None:
+        print("Fatal error: --bloop-home expected for local installation")
+        sys.exit(1)
 
-download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET, 0o755)
-print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+    # The bloop rb is created under the relative path 'frontend/target/Bloop.rb'
+    local_zsh = join(join(join(args.bloop_home, "etc"), "zsh"), "_bloop")
+    local_bash = join(join(join(args.bloop_home, "etc"), "bash"), "bloop")
 
-download_and_install_template(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
-print("Installed systemd service in '%s'" % SYSTEMD_SERVICE_TARGET)
+    copy_and_install(local_zsh, ZSH_COMPLETION_TARGET, 0o755)
+    print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 
-download_and_install_template(XDG_APPLICATION_URL, XDG_APPLICATION_TARGET, 0o755)
-print("Installed XDG desktop entry in '%s'" % XDG_APPLICATION_TARGET)
+    copy_and_install(local_bash, BASH_COMPLETION_TARGET, 0o755)
+    print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+else:
+    download_and_install(ZSH_COMPLETION_URL, ZSH_COMPLETION_TARGET, 0o755)
+    print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 
-download_and_install(XDG_ICON_URL, XDG_ICON_TARGET)
-print("Installed icon in '%s'" % XDG_ICON_TARGET)
+    download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET, 0o755)
+    print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+
+if not is_local:
+    # Only copy these if we're not installing it locally
+    download_and_install_template(SYSTEMD_SERVICE_URL, SYSTEMD_SERVICE_TARGET)
+    print("Installed systemd service in '%s'" % SYSTEMD_SERVICE_TARGET)
+
+    download_and_install_template(XDG_APPLICATION_URL, XDG_APPLICATION_TARGET, 0o755)
+    print("Installed XDG desktop entry in '%s'" % XDG_APPLICATION_TARGET)
+
+    download_and_install(XDG_ICON_URL, XDG_ICON_TARGET)
+    print("Installed icon in '%s'" % XDG_ICON_TARGET)

@@ -86,6 +86,7 @@ object BuildKeys {
 
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
+  val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
   val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
@@ -121,7 +122,7 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
-    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
+    createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
