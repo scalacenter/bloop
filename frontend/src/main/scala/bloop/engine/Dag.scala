@@ -3,11 +3,15 @@ import bloop.data.Project
 import bloop.util.CacheHashCode
 import scalaz.Show
 
+import scala.collection.mutable.ListBuffer
+
 sealed trait Dag[T]
 
 final case class Leaf[T](value: T) extends Dag[T] with CacheHashCode
 
 final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T] with CacheHashCode
+
+final case class Aggregate[T](dags: List[Dag[T]]) extends Dag[T] with CacheHashCode
 
 object Dag {
   class RecursiveCycle(path: List[Project])
@@ -77,6 +81,7 @@ object Dag {
           case Leaf(value) => None
           case Parent(value, children) if targets.contains(value) => aggregate(dag)
           case Parent(value, children) => dagFor(children, targets)
+          case Aggregate(dags) => dagFor(dags, targets)
         }
     }
   }
@@ -85,6 +90,7 @@ object Dag {
     dag match {
       case leaf: Leaf[T] => List(leaf)
       case p @ Parent(value, children) => p :: children.flatMap(transitive)
+      case Aggregate(dags) => dags.flatMap(transitive)
     }
   }
 
@@ -131,6 +137,7 @@ object Dag {
               subsumed.++=(transitiveChildren)
               acc.--(transitiveChildren).+(value)
             case Parent(_, children) => loop(children.toSet, targets) ++ acc
+            case Aggregate(dags) => loop(dags.toSet, targets)
           }
       }
     }
@@ -138,29 +145,37 @@ object Dag {
     loop(dags.toSet, targets)
   }
 
-
   def directDependencies[T](dag: List[Dag[T]]): List[T] = {
     dag.foldLeft(List.empty[T]) {
-      case (acc, dag) => dag match {
-        case Leaf(value) => value :: acc
-        case Parent(value, _) => value :: acc
-      }
+      case (acc, dag) =>
+        dag match {
+          case Leaf(value) => value :: acc
+          case Parent(value, _) => value :: acc
+          case Aggregate(dags) => directDependencies(dags)
+        }
     }
   }
 
   def dfs[T](dag: Dag[T]): List[T] = {
-    def loop(dag: Dag[T], acc: List[T]): List[T] = {
-      dag match {
-        case Leaf(value) => value :: acc
-        case Parent(value, children) =>
-          children.foldLeft(value :: acc) { (acc, child) =>
-            loop(child, acc)
-          }
+    val visited = scala.collection.mutable.HashSet[Dag[T]]()
+    val buffer = new ListBuffer[T]()
+    def loop(dag: Dag[T]): Unit = {
+      if (visited.contains(dag)) () // We're already in the buffer
+      else {
+        visited.add(dag)
+        dag match {
+          case Leaf(value) => buffer.+=(value)
+          case Aggregate(dags) =>
+            dags.foreach(loop(_))
+          case Parent(value, children) =>
+            buffer.+=(value)
+            children.foreach(loop(_))
+        }
       }
     }
 
-    // Inefficient, but really who cares?
-    loop(dag, Nil).distinct.reverse
+    loop(dag)
+    buffer.result()
   }
 
   def toDotGraph[T](dag: Dag[T])(implicit Show: Show[T]): String = {
@@ -173,11 +188,13 @@ object Dag {
         case None =>
           val shows = dag match {
             case Leaf(value) => List(Show.shows(value))
+            case Aggregate(dags) => dags.map(recordEdges).flatten
             case Parent(value, dependencies) =>
               val downstream = dependencies.map(recordEdges).flatten
-              val prettyPrintedDeps = dependencies.map {
-                case Leaf(value) => Show.shows(value)
-                case Parent(value, _) => Show.shows(value)
+              val prettyPrintedDeps = dependencies.flatMap {
+                case Leaf(value) => List(Show.shows(value))
+                case Parent(value, _) => List(Show.shows(value))
+                case Aggregate(dags) => Nil
               }
               val target = Show.shows(value)
               prettyPrintedDeps.map(dep => s""""$dep" -> "$target";""") ++ downstream

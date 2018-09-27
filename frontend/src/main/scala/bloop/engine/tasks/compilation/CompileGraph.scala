@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture
 import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
-import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
+import bloop.engine._
 import bloop.logging.Logger
 import bloop.Compiler
 import monix.eval.Task
@@ -55,11 +55,36 @@ object CompileGraph {
   }
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
+    def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
+      results match {
+        case Nil => None
+        case result :: rest => result match {
+          case PartialEmpty => None
+          case _: PartialSuccess => None
+          case f: PartialFailure => Some(f.project)
+          case fs: PartialFailures => blockedFromResults(results)
+        }
+      }
+    }
+
     dag match {
       case Leaf(_: PartialSuccess) => None
-      case Leaf(result) => Some(result.project)
+      case Leaf(f: PartialFailure) => Some(f.project)
+      case Leaf(fs: PartialFailures) => blockedFromResults(fs.failures)
+      case Leaf(PartialEmpty) => None
       case Parent(_: PartialSuccess, _) => None
-      case Parent(result, _) => Some(result.project)
+      case Parent(f: PartialFailure, _) => Some(f.project)
+      case Parent(fs: PartialFailures, _) => blockedFromResults(fs.failures)
+      case Parent(PartialEmpty, _) => None
+      case Aggregate(dags) =>
+        dags.foldLeft(None: Option[Project]) {
+          case (acc, dag) =>
+            acc match {
+              case Some(_) => acc
+              case None => blockedBy(dag)
+            }
+
+        }
     }
   }
 
@@ -99,6 +124,19 @@ object CompileGraph {
                 case Compiler.Result.Ok(res) =>
                   Leaf(PartialSuccess(project, Optional.empty(), Nil, JavaContinue, Task.now(res)))
                 case res => Leaf(toPartialFailure(project, res))
+              }
+
+            case Aggregate(dags) =>
+              val downstream = dags.map(loop)
+              Task.gatherUnordered(downstream).flatMap { dagResults =>
+                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
+                if (failed.isEmpty) Task.now(Parent(PartialEmpty, dagResults))
+                else {
+                  val failures = Dag.directDependencies(dagResults)
+                  // Register the name of the projects we're blocked on (intransitively)
+                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                  Task.now(Parent(PartialFailures(failures, blocked), dagResults))
+                }
               }
 
             case Parent(project, dependencies) =>
@@ -169,6 +207,19 @@ object CompileGraph {
                   .map(u => Leaf(PartialCompileResult(project, u, Nil, javaSignal, running)))
               }
 
+            case Aggregate(dags) =>
+              val downstream = dags.map(loop)
+              Task.gatherUnordered(downstream).flatMap { dagResults =>
+                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
+                if (failed.isEmpty) Task.now(Parent(PartialEmpty, dagResults))
+                else {
+                  val failures = Dag.directDependencies(dagResults)
+                  // Register the name of the projects we're blocked on (intransitively)
+                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                  Task.now(Parent(PartialFailures(failures, blocked), dagResults))
+                }
+              }
+
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
@@ -178,7 +229,9 @@ object CompileGraph {
                   val picklepath = {
                     results.flatMap {
                       case s: PartialSuccess => InterfaceUtil.toOption(s.pickleURI)
-                      case _: PartialFailure => None // It cannot ever happen if `failed.isEmpty`
+                      case PartialEmpty => None
+                      case _: PartialFailure => None
+                      case _: PartialFailures => None
                     }
                   }
 
@@ -186,8 +239,10 @@ object CompileGraph {
                   val javaSignal: Task[JavaSignal] = aggregateJavaSignals {
                     results.map {
                       case s: PartialSuccess => s.completeJava
+                      case PartialEmpty => Task.now(JavaSignal.ContinueCompilation)
                       // It cannot ever happen if `failed.isEmpty`, so just return dummy value
-                      case f: PartialFailure => Task.now(JavaSignal.ContinueCompilation)
+                      case _: PartialFailure => Task.now(JavaSignal.ContinueCompilation)
+                      case _: PartialFailures => Task.now(JavaSignal.ContinueCompilation)
                     }
                   }
 

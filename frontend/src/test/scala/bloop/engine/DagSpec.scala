@@ -43,10 +43,12 @@ class DagSpec {
   private def checkParent(d: Dag[Project], p: Project) = d match {
     case Parent(p2, _) => assert(p2 == p, s"$p2 is not $p")
     case Leaf(f) => sys.error(s"$p is a leaf!")
+    case Aggregate(dags) => sys.error(s"$p is an aggregate")
   }
 
   private def checkLeaf(d: Dag[Project], p: Project) = d match {
     case Parent(p, _) => sys.error(s"$p is a parent!")
+    case Aggregate(dags) => sys.error(s"$p is an aggregate")
     case Leaf(f) => assert(f == p, s"$f is not $p")
   }
 
