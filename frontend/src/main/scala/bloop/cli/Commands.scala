@@ -27,7 +27,7 @@ object Commands {
   sealed trait RawCommand extends Command
 
   sealed trait CompilingCommand extends RawCommand {
-    def project: String
+    def project: List[String] // FIXME: name change to "projects"?
     def reporter: ReporterKind
     def incremental: Boolean
     def pipeline: Boolean
@@ -103,8 +103,8 @@ object Commands {
   private lazy val DefaultBatches: ParallelBatches = ParallelBatches.Default
   case class Compile(
       @ExtraName("p")
-      @HelpMessage("The project to compile (will be inferred from remaining cli args).")
-      project: String = "",
+      @HelpMessage("The projects to compile (will be inferred from remaining cli args).")
+      project: List[String] = Nil,
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
@@ -119,8 +119,8 @@ object Commands {
 
   case class Test(
       @ExtraName("p")
-      @HelpMessage("The project to test (will be inferred from remaining cli args).")
-      project: String = "",
+      @HelpMessage("The projects to test (will be inferred from remaining cli args).")
+      project: List[String] = Nil,
       @ExtraName("propagate")
       @HelpMessage("Run tests for the project dependencies. By default, false.")
       includeDependencies: Boolean = false,
@@ -143,7 +143,7 @@ object Commands {
 
   case class Console(
       @ExtraName("p")
-      @HelpMessage("The project to run the console at (will be inferred from remaining cli args).")
+      @HelpMessage("The projects to run the console at (will be inferred from remaining cli args).")
       project: String = "",
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,

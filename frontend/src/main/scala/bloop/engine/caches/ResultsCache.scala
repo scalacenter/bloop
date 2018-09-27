@@ -5,7 +5,7 @@ import java.util.Optional
 import bloop.Compiler
 import bloop.data.Project
 import bloop.Compiler.Result
-import bloop.engine.tasks.compilation.FinalCompileResult
+import bloop.engine.tasks.compilation.{FinalCompileResult, FinalEmptyResult, FinalNormalCompileResult}
 import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
@@ -74,16 +74,21 @@ final class ResultsCache private (
   def addResults(ps: List[(Project, Compiler.Result)]): ResultsCache =
     ps.foldLeft(this) { case (rs, (p, r)) => rs.addResult(p, r) }
 
-  def addFinalResults(ps: List[FinalCompileResult]): ResultsCache =
-    ps.foldLeft(this) { case (rs, FinalCompileResult(b, r, _)) => rs.addResult(b.project, r) }
+  def addFinalResults(ps: List[FinalCompileResult]): ResultsCache = {
+    ps.foldLeft(this) {
+      case (rs, FinalNormalCompileResult(b, r)) => rs.addResult(b.project, r)
+      case (rs, FinalEmptyResult) => rs
+    }
+  }
 
-  override def toString: String =
+  override def toString: String = {
     s"""ResultsCache(
        |  all = ${all.mkString(", ")}
        |
        |  successful = ${successful.mkString(", ")}
        |)
      """.stripMargin
+  }
 }
 
 object ResultsCache {
