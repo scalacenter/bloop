@@ -325,8 +325,51 @@ object BloopDefaults {
     }
   }
 
-  def projectNameFromString(name: String, configuration: Configuration): String =
-    if (configuration == Compile) name else s"$name-${configuration.name}"
+  /**
+   * Keep a map of all the project names registered in this build load.
+   *
+   * This map is populated in [[bloopInstall]] before [[bloopGenerate]] is run,
+   * which means that by the time [[projectNameFromString]] runs this map will
+   * already contain an updated list of all the projects in the build.
+   *
+   * This information is paramount so that we don't generate a project with
+   * the same name of a valid user-facing project. For example, if a user
+   * defines two projects named `foo` and `foo-test`, we need to make sure
+   * that the test configuration for `foo`, mapped to `foo-test` does not collide
+   * with the compile configuration of `foo-test`.
+   */
+  private final val allProjectNames = new scala.collection.mutable.HashSet[String]()
+
+  /** Cache any replacement that has happened to a project name. */
+  private final val projectNameReplacements =
+    new java.util.concurrent.ConcurrentHashMap[String, String]()
+
+  def projectNameFromString(name: String, configuration: Configuration, logger: Logger): String = {
+    if (configuration == Compile) name
+    else {
+      val supposedName = s"$name-${configuration.name}"
+      // Let's check if the default name (with no append of anything) is not used by another project
+      if (!allProjectNames.contains(supposedName)) supposedName
+      else {
+        val existingReplacement = projectNameReplacements.get(supposedName)
+        if (existingReplacement != null) existingReplacement
+        else {
+          // Use `+` instead of `-` as separator and report the user about the change
+          val newUnambiguousName = s"$name+${configuration.name}"
+          projectNameReplacements.computeIfAbsent(
+            supposedName,
+            new java.util.function.Function[String, String] {
+              override def apply(supposedName: String): String = {
+                logger.warn(
+                  s"Derived target name '${supposedName}' already exists in the build, changing to ${newUnambiguousName}")
+                newUnambiguousName
+              }
+            }
+          )
+        }
+      }
+    }
+  }
 
   /**
    * Creates a project name from a classpath dependency and its configuration.
@@ -356,7 +399,7 @@ object BloopDefaults {
         )
 
         mapping(configuration.name) match {
-          case Nil => projectNameFromString(ref.project, configuration)
+          case Nil => projectNameFromString(ref.project, configuration, logger)
           case List(conf) if Compile.name == conf => ref.project
           case List(conf) if Test.name == conf => s"${ref.project}-test"
           case List(conf1, conf2) if Test.name == conf1 && Compile.name == conf2 =>
@@ -369,7 +412,7 @@ object BloopDefaults {
         }
       case None =>
         // If no configuration, default is `Compile` dependency (see scripted tests `cross-compile-test-configuration`)
-        projectNameFromString(ref.project, Compile)
+        projectNameFromString(ref.project, Compile, logger)
     }
   }
 
@@ -606,7 +649,7 @@ object BloopDefaults {
     if (isMetaBuild && configuration == Test) Def.task(None)
     else {
       Def.task {
-        val projectName = projectNameFromString(project.id, configuration)
+        val projectName = projectNameFromString(project.id, configuration, logger)
         val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
         val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
         val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
@@ -616,9 +659,9 @@ object BloopDefaults {
           val classpathProjectDependencies =
             project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
           val configDependencies =
-            eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c))
-          /*println(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")
-            println(s"[${projectName}] Dependencies from configurations ${configDependencies}")*/
+            eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c, logger))
+          /*          println(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")
+          println(s"[${projectName}] Dependencies from configurations ${configDependencies}")*/
 
           // The distinct here is important to make sure that there are no repeated project deps
           (classpathProjectDependencies ++ configDependencies).distinct.toList
@@ -626,7 +669,7 @@ object BloopDefaults {
 
         // Aggregates are considered to be dependencies too for the sake of user-friendliness
         val aggregates =
-          project.aggregate.map(agg => projectNameFromString(agg.project, configuration))
+          project.aggregate.map(agg => projectNameFromString(agg.project, configuration, logger))
         val dependenciesAndAggregates = dependencies ++ aggregates
 
         val bloopConfigDir = BloopKeys.bloopConfigDir.value
@@ -752,6 +795,12 @@ object BloopDefaults {
       sbt.inTasks(BloopKeys.bloopGenerate)
     )
 
+    // Clear the global map of available names and add the ones detected now
+    val loadedBuild = Keys.loadedBuild.value
+    allProjectNames.clear()
+    projectNameReplacements.clear()
+    allProjectNames.++=(loadedBuild.allProjectRefs.map(_._1.project))
+
     val allConfigDirs =
       BloopKeys.bloopConfigDir.?.all(sbt.ScopeFilter(sbt.inAnyProject))
         .map(_.flatMap(_.toList).toSet)
@@ -818,8 +867,9 @@ object BloopDefaults {
       val t = BloopKeys.bloopClassDirectory.value
       val dirs =
         Classpaths
-          .concatSettings(Keys.unmanagedResourceDirectories.in(configKey),
-                          BloopKeys.bloopManagedResourceDirectories.in(configKey))
+          .concatSettings(
+            Keys.unmanagedResourceDirectories.in(configKey),
+            BloopKeys.bloopManagedResourceDirectories.in(configKey))
           .value
       val s = Keys.streams.value
       val cacheStore = bloop.integrations.sbt.Compat.generateCacheFile(s, "copy-resources-bloop")

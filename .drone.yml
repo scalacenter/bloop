@@ -11,7 +11,8 @@ matrix:
           "mavenBloop/compile" \
           "gradleBloop211/compile" \
           "gradleBloop212/compile" \
-          "frontend/integrationSetUpBloop" \
+          "show schemaVersion" \
+          "integrationSetUpBloop" \
           "backend/test" \
           "nativeBridge/test" \
           "jsBridge06/test" \
@@ -22,7 +23,7 @@ matrix:
 
   RUN_COMMUNITY_BUILD_EXTRA:
     - bin/sbt-ci.sh \
-          "frontend/integrationSetUpBloop" \
+          "integrationSetUpBloop" \
           "frontend/testOnly bloop.tasks.IntegrationTestSuite"
 
   RUN_BENCHMARKS_AND_SCRIPTED:
@@ -48,7 +49,6 @@ matrix:
     - basic
     - community-build
     - extra
-
 clone:
   git:
     image: plugins/git
@@ -67,21 +67,20 @@ pipeline:
     commands:
       - ./bin/ci-clone.sh
 
-  restore_cache:
-    image: appleboy/drone-sftp-cache
-    when:
-      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
-      matrix:
-        OS: linux
-    secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
+  restore-cache:
+    image: drillster/drone-volume-cache
     restore: true
     mount:
       - /drone/.ivy2/cache
       - /drone/.coursier
       - /drone/.sbt
+      - /drone/.dodo
+    volumes:
+      - /cache:/cache
+    cache_key: [ DRONE_REPO_OWNER, DRONE_REPO_NAME, DRONE_BRANCH ]
 
   build:
-    image: scalacenter/scala-docs:1.3
+    image: scalacenter/scala-docs:1.4
     group: build
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
@@ -91,11 +90,12 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log | head -n 20
+      - . bin/set-up-dodo.sh # Source it because it exports variables
       - . bin/detect-community-build.sh # Source it because it exports variables
       - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
-    image: scalacenter/scala-docs:1.3
+    image: scalacenter/scala-docs:1.4
     group: build
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
@@ -104,11 +104,12 @@ pipeline:
         OPS: extra
     commands:
       - export DRONE_DIR="/drone"
+      - . bin/set-up-dodo.sh # Source it because it exports variables
       - git log | head -n 20
       - ${RUN_BENCHMARKS_AND_SCRIPTED}
 
   run_community_pipelined:
-    image: scalacenter/scala-docs:1.3
+    image: scalacenter/scala-docs:1.4
     group: build
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
@@ -118,13 +119,14 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - export PIPELINE_COMMUNITY_BUILD="true"
+      - . bin/set-up-dodo.sh # Source it because it exports variables
       - git log | head -n 20
       - . bin/detect-community-build.sh # Source it because it exports variables
       - ${RUN_COMMUNITY_BUILD_EXTRA}
 
   build_windows:
     group: build
-    image: scalacenter/scala-docs:1.0
+    image: scalacenter/scala-docs:1.4
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
       matrix:
@@ -135,7 +137,7 @@ pipeline:
       - ./bin/stream-jenkins-log.sh "bloop:$BLOOP_JENKINS_TOKEN"
 
   publish:
-    image: scalacenter/scala-docs:1.3
+    image: scalacenter/scala-docs:1.4
     secrets: [ sonatype_user, sonatype_password, pgp_password, bintray_user, bintray_pass, bloopoid_private_key ]
     volumes:
       - /scalacenter:/keys
@@ -150,12 +152,13 @@ pipeline:
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
+      - . bin/set-up-dodo.sh # Source it because it exports variables
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
       - ${PUBLISH_ARTIFACTS}
 
   release:
-    image: scalacenter/scala-docs:1.3
+    image: scalacenter/scala-docs:1.4
     secrets: [ bloopoid_github_token ]
     volumes:
       - /scalacenter:/keys
@@ -168,19 +171,23 @@ pipeline:
         OPS: basic
     commands:
       - export DRONE_DIR="/drone"
+      - . bin/set-up-dodo.sh # Source it because it exports variables
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${RELEASE_GITHUB_BREW}
 
-  rebuild_cache:
-    image: appleboy/drone-sftp-cache
+  rebuild-cache:
+    image: drillster/drone-volume-cache
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
       matrix:
         OS: linux
         OPS: basic
-    secrets: [ sftp_cache_username, sftp_cache_private_key, sftp_cache_server, sftp_cache_path ]
     rebuild: true
     mount:
       - /drone/.ivy2/cache
       - /drone/.coursier
       - /drone/.sbt
+      - /drone/.dodo
+    volumes:
+      - /cache:/cache
+    cache_key: [ DRONE_REPO_OWNER, DRONE_REPO_NAME, DRONE_BRANCH ]

@@ -1,5 +1,6 @@
 import Defaults.sbtPluginExtra
 
+
 val root = Option(System.getProperty("sbt.global.plugins"))
   .map(file(_).getAbsoluteFile)
   .getOrElse(sys.error("Missing `sbt.global.plugins`"))

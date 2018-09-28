@@ -214,22 +214,19 @@ final class BloopHighLevelCompiler(
     }
 
     val compilationTask = {
-      /* `Mixed` order defaults to `ScalaThenJava` behaviour.
-       * See https://github.com/sbt/zinc/issues/234. */
-      if (setup.order == CompileOrder.JavaThenScala) {
-        fireJavaCompilation.flatMap {
-          case JavaSignal.ContinueCompilation => compileJava.flatMap(_ => compileScala)
-          case JavaSignal.FailFastCompilation(failedProjects) =>
-            throw new StopPipelining(failedProjects)
-        }
-      } else {
-        compileScala.flatMap { _ =>
-          fireJavaCompilation.flatMap {
-            case JavaSignal.ContinueCompilation => compileJava
-            case JavaSignal.FailFastCompilation(failedProjects) =>
-              throw new StopPipelining(failedProjects)
+      // Complete the java exception if there are no java sources
+      if (javaSources.isEmpty)
+        completeJava.complete(())
+      fireJavaCompilation.flatMap {
+        case JavaSignal.ContinueCompilation =>
+          if (setup.order == CompileOrder.JavaThenScala) {
+            compileJava.flatMap(_ => compileScala)
+          } else {
+            compileScala.flatMap(_ => compileJava)
           }
-        }
+
+        case JavaSignal.FailFastCompilation(failedProjects) =>
+          throw new StopPipelining(failedProjects)
       }
     }
 

@@ -5,7 +5,6 @@ import java.io.File
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
-import pl.project13.scala.sbt.JmhPlugin.JmhKeys
 import sbt.{AutoPlugin, BuildPaths, Def, Keys, PluginTrigger, Plugins, State, Task, ThisBuild, uri}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
@@ -83,6 +82,7 @@ object BuildKeys {
   val localBenchmarksIndex =
     Def.taskKey[File]("A csv index with complete information about our benchmarks (for local use).")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
+  val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
 
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
@@ -111,6 +111,7 @@ object BuildKeys {
       new File(System.getProperty("user.dir"), ".local-benchmarks")
     },
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
+    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
     integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,
   )
 
@@ -265,7 +266,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "3.0",
+    BuildKeys.schemaVersion := "3.1-reload",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
@@ -510,12 +511,17 @@ object BuildImplementation {
     val schemaVersion = BuildKeys.schemaVersion.value
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
     val cacheDirectory = file(stagingBase) / "integrations-cache"
+    val targetSchemaVersion = Keys.target.value / "schema-version.json"
+    IO.write(targetSchemaVersion, schemaVersion)
 
     val buildFiles = Set(
+      targetSchemaVersion,
       buildIntegrationsBase / "sbt-0.13" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-0.13-2" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13-2" / "project" / "Integrations.scala",
+      buildIntegrationsBase / "sbt-0.13-3" / "build.sbt",
+      buildIntegrationsBase / "sbt-0.13-3" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-1.0" / "build.sbt",
       buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-1.0-2" / "build.sbt",
@@ -527,6 +533,16 @@ object BuildImplementation {
       FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { builds =>
         val isWindows: Boolean =
           System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+
+        if (!isWindows) {
+          // Twitter projects are not added to the community build under Windows
+          val cmd = "/bin/bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+          val dodoSetUp = Process(cmd, buildIntegrationsBase).!
+          if (dodoSetUp != 0)
+            throw new MessageOnlyException(
+              "Failed to publish locally dodo snapshots for twitter projects.")
+        }
+
         val globalPluginsBase = buildIntegrationsBase / "global"
         val globalSettingsBase = globalPluginsBase / "settings"
         val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
@@ -549,6 +565,10 @@ object BuildImplementation {
         if (exitGenerate0132 != 0)
           throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13 (2).")
 
+        val exitGenerate0133 = Process(cmd, buildIntegrationsBase / "sbt-0.13-3").!
+        if (exitGenerate0133 != 0)
+          throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13 (3).")
+
         val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
         if (exitGenerate10 != 0)
           throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0.")
@@ -556,6 +576,10 @@ object BuildImplementation {
         val exitGenerate102 = Process(cmd, buildIntegrationsBase / "sbt-1.0-2").!
         if (exitGenerate102 != 0)
           throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0 (2).")
+
+        val exitGenerate103 = Process(cmd, buildIntegrationsBase / "sbt-1.0-3").!
+        if (exitGenerate103 != 0)
+          throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0 (3).")
 
         Set(buildIndexFile)
       }

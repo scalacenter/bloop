@@ -17,12 +17,11 @@ import bloop.config.Config
 import bloop.io.AbsolutePath
 
 object IntegrationTestSuite {
-  val projects = TestUtil.testProjectsIndex.map(_._2).toArray.map(Array.apply(_))
-
   @Parameters
   def data() = {
-    //Arrays.asList(Array(Array((java.nio.file.Paths.get("/Users/jvican/Code/Atlas/.bloop"))): _*))
-
+    def filterIndex(index: Map[String, Path]): Map[String, Path] =
+      index//.filterKeys(!_.contains("scalatra"))
+    val projects = filterIndex(TestUtil.testProjectsIndex).map(_._2).toArray.map(Array.apply(_))
     Arrays.asList(projects: _*)
   }
 }

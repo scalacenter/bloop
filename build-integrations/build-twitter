@@ -1,0 +1,560 @@
+#!/bin/bash
+#set -euo pipefail
+
+#######################################################################
+# Script for building Twitter OSS libraries based on either their 
+# Github source or from locally checked out copies.
+#
+# See: print_usage function for usage
+#######################################################################
+VERSION="18.9.0"
+NAME="Dodo"
+
+UTIL_COMMANDS="./sbt +test:compile +publishLocal; ./sbt ++2.11.11 util-intellij/publishLocal"
+declare "util_name=util"
+declare "util_commands=$UTIL_COMMANDS"
+
+SCROOGE_CORE_COMMANDS="./sbt +scrooge-publish-local/publishLocal;./sbt ++2.10.6 scrooge-generator/publishLocal;./sbt ^^0.13.16 scrooge-sbt-plugin/publishLocal;./sbt \"project scrooge-sbt-plugin\" ^^1.1.4 publishLocal"
+
+declare "scroogecore_name=scrooge"
+declare "scroogecore_commands=$SCROOGE_CORE_COMMANDS"
+
+FINAGLE_COMMANDS="./sbt +test:compile +publishLocal"
+declare "finagle_name=finagle"
+declare "finagle_commands=$FINAGLE_COMMANDS"
+
+SCROOGE_COMMANDS="./sbt +test:compile scrooge-generator-tests/test:compile"
+declare "scrooge_name=scrooge"
+declare "scrooge_commands=$SCROOGE_COMMANDS"
+
+TWITTER_SERVER_COMMANDS="./sbt +test:compile +publishLocal"
+declare "twitterserver_name=twitter-server"
+declare "twitterserver_commands=$TWITTER_SERVER_COMMANDS"
+
+FINATRA_COMMANDS="./sbt +test:compile +publishLocal"
+declare "finatra_name=finatra"
+declare "finatra_commands=$FINATRA_COMMANDS"
+
+# Try to resolve sbt dependencies, useful for flaky repositories.
+SBT_UPDATE_COMMAND="./sbt update"
+# Run sbt clean
+SBT_CLEAN_COMMAND="./sbt clean"
+
+## To clean up run with "--clean-files" or remove:
+#   $DODO_DIRECTORY/caches
+#   $DODO_DIRECTORY/clones
+#   $DODO_DIRECTORY/builds
+DODO_DIRECTORY="$HOME/.dodo"
+cache_home=$DODO_DIRECTORY/caches
+clone_home=$DODO_DIRECTORY/clones
+build_home=$DODO_DIRECTORY/builds
+
+# Default ivy home
+DEFAULT_IVY_HOME="$HOME/.ivy2"
+# Allow for setting of ivy_home via an environment var: IVY_HOME.
+ivy_home=${IVY_HOME:-$DEFAULT_IVY_HOME}
+
+# Actual DAG list for building (order is important)
+projects=( "util" "scroogecore" "finagle" "scrooge" "twitter-server" "finatra" )
+# Validation project list
+project_list=( "util" "finagle" "scrooge" "twitter-server" "finatra" )
+
+# Initialize defaults
+build_all=false         # build all projects in the DAG list
+clean=false             # delete any sbt-launch.jar and run "sbt clean" before running other sbt commands.
+dry_run=false           # output but don't execute the build commands
+remote=true             # if we should build projects from remote Github URIs
+run_tests=true          # if we should run tests when building projects
+include_project=false   # include building the given project argument; useful for scripted testing of libraries
+offline=false           # if the build should use a downloaded sbt-launch jar; the url is given in the next param
+sbt_version=""          # [offline only] version of sbt-launch jar.
+proxy_url=""            # [offline only] download the sbt-launch jar from a given url
+sbt_jar=""              # [offline only] location of the downloaded sbt-launch jar.
+scala_version=""        # if set only build the projects with the given version (instead of cross-compiling with +)
+verbose=false           # prints build configuration options and other verbose statements
+trace=false             # set -x
+branch="develop"        # branch to clone for all libraries when building projects from remote Github URIs
+publish_m2=false        # also publish to the local ~/.m2 repository
+clean_files=false       # remove caches, e.g., $DODO_DIRECTORY/caches, $DODO_DIRECTORY/clones, $DODO_DIRECTORY/builds.
+
+# Retries a command on failure
+# @param $1 - the maximum number of attempts
+# @param $2 - the command to run
+function retry {
+    local max_attempts=$1; shift
+    local cmd=( "$@" )
+    local attempt=1
+
+    until eval "$cmd"
+    do
+        if (( attempt == max_attempts ))
+        then
+            log "info" "Command failed, max attempts: $max_attempts exceeded."
+            return 1
+        else
+            log "info" "Command failed. Retrying..."
+            ((attempt++))
+            sleep 1
+        fi
+    done
+}
+
+# Note: does not work if the message contains an array
+function log {
+    local severity=$1
+    local message=$2
+    local lowercaseSeverity=$(echo "$severity" | awk '{print tolower($0)}')
+    echo "[$lowercaseSeverity] $message"
+}
+
+function contains_project {
+  local element=$1
+  for project in "${project_list[@]}"; do [[ "$project" == "$element" ]] && return 0; done
+  return 1
+}
+
+function array_get { 
+    local array=$1 index=$2
+    local i="${array}_$index"
+    printf '%s' "${!i}"
+}
+
+ # clean ivy cache -- prevents using any previously resolved dependency over a locally built version.
+function clean_ivy {
+    local project=$1
+    local to_delete=()
+    
+    for current in "${project_list[@]}"; do
+        if [ "$current" = "$project" ]; then
+            break
+        else
+            to_delete+=("$current")
+        fi
+    done
+    to_delete+=("$project")
+    for artifact in "${to_delete[@]}"; do
+        local artifact_base="${ivy_home:?}/cache/com.twitter/${artifact}"
+        log "info" "Removing ivy resolution cache ${artifact_base}"
+        if [[ "$dry_run" != true ]]; then
+            rm -fr ${artifact_base}* > /dev/null 2>&1
+        fi
+    done
+}
+
+function sbt_update {
+    update_command="$SBT_UPDATE_COMMAND"
+    if [[ "$verbose" != true ]]; then
+        update_command="${update_command//.\/sbt /./sbt --warn }" # set sbt log level to warn
+    fi
+    # if we're offline we need to deal with the sbt-launch jar.
+    if [[ "$offline" = true ]]; then
+        update_command="cp $sbt_jar ./sbt-launch.jar;$update_command"
+    fi
+    log "info" "$update_command"
+    if [[ "$dry_run" != true ]]; then 
+        retry 3 "$update_command"
+    fi
+}
+
+function run_commands {
+    local project=$1
+    local project_name=$2
+    local commands=$3
+    commands_hash_replace="(stdin)= "
+    commands_hash=$(echo "$commands" | openssl dgst -md5)
+    commands_hash=${commands_hash//$commands_hash_replace/}
+
+    local build=true
+    if [[ "$remote" = true ]] && [[ -f "$build_home/$project/$commands_hash" ]]; then
+        # there's a cached build by commands hash file, check it
+        build_sha=$(cat "$build_home/$project/$commands_hash")
+        local_sha=$(latest_local_sha)
+        if [[ "$build_sha" == "$local_sha" ]]; then
+            build=false
+        fi
+    fi
+
+    if [[ "$build" = true ]]; then
+        local test_to_replace="test:compile"
+        if [[ "$run_tests" = true ]]; then
+            commands="${commands//$test_to_replace/test}"
+        fi
+        local publish_to_replace="+publishLocal"
+        if [[ "$publish_m2" = true ]]; then
+            if [[ "$project" == "scroogecore" ]]; then
+                # HACKY - the scroogecore command set is a different format than all the others and as such needs to be treated
+                # specially, or we need to do more complicated regex replacing.
+                commands="${commands//+scrooge-publish-local\/publishLocal/+scrooge-publish-local/publishLocal +scrooge-publish-local/publishM2}"
+                commands="${commands//scrooge-generator\/publishLocal/scrooge-generator/publishLocal scrooge-generator/publishM2}"
+                commands="${commands//scrooge-sbt-plugin\/publishLocal/scrooge-sbt-plugin/publishLocal scrooge-sbt-plugin/publishM2}"
+            else
+                commands="${commands//$publish_to_replace/+publishLocal +publishM2}"
+            fi
+        fi
+        # run sbt update (resolve dependencies)
+        sbt_update
+        # clean ivy caches
+        clean_ivy "$project"
+        # add "sbt clean" to commands
+        if [[ "$clean" == true ]]; then
+            commands="$SBT_CLEAN_COMMAND;$commands"
+        fi
+        # if we're offline we need to deal with the sbt-launch jar.
+        if [[ "$offline" = true ]]; then
+            commands="cp $sbt_jar ./sbt-launch.jar;$commands"
+        fi
+        # finally, run all commands
+        IFS=';' read -ra commandsArray <<< "$commands"
+        for command in "${commandsArray[@]}"; do
+            if [[ -n "$scala_version" ]]; then
+                if [[ $command != *"++"* ]]; then
+                    # if we were passed a scala version and the command doesn't already explicity set a scala version
+                    command="${command//+/}" # remove + for cross-compile
+                    command="${command//.\/sbt /./sbt ++$scala_version }" # add scala version
+                fi
+            fi
+            if [[ "$verbose" != true ]]; then
+                command="${command//.\/sbt /./sbt --warn }" # set sbt log level to warn
+            fi
+            log "info" "$command"
+            if [[ "$dry_run" != true ]]; then 
+                retry 3 "$command"
+            fi
+        done
+        record_build "$project" "$commands_hash"
+    else
+        log "info" "Using previously built results..."
+        log "info" " "
+        if [[ "$remote" = true ]]; then 
+            details="built-sha @ $(cat "$build_home/$project/$commands_hash")"
+            log "info" "--- $details ---"
+        fi
+    fi
+}
+
+# record a hash of the commands run against the SHA of the remote repo it ran against.
+function record_build {
+    if [[ "$remote" = true ]] && [[ "$dry_run" != true ]]; then
+        local project=$1
+        local commands_hash=$2
+        if [[  ! -f "$build_home/$project" ]]; then mkdir -p "$build_home/$project"; fi
+        latest_local_sha > "$build_home/$project/$commands_hash"
+    fi
+}
+
+# Assumes you are in the correct directory when you run this
+function latest_local_sha {
+    git rev-parse "$branch"
+}
+
+function record_latest_sha {
+    local project=$1
+    ## store the lastest SHA
+    latest_local_sha > "$cache_home/$project"
+}
+
+function clone {
+    if [[ "$remote" = true ]]; then
+        if [ ! -d "$clone_home/$project_name" ]; then
+            cd "$clone_home"
+            # doesn't yet exist clone and store SHA
+            log "info" "------------------------------------------------------------------------"
+            log "info" "Cloning $branch branch for repository: $project_name"
+            log "info" "------------------------------------------------------------------------"
+            git clone https://github.com/jvican/"$project_name".git --branch "$branch" --depth=1
+            cd "$clone_home/$project_name"
+            record_latest_sha "$project_name"
+            log "info" " "
+        else
+            cd "$clone_home/$project_name"
+            # are we in the branch we expect? 
+            local local_branch=$(git rev-parse --abbrev-ref HEAD)
+            if [[ "$local_branch" != "$branch" ]]; then
+                # need to re-clone with correct branch
+                log "info" "Requested branch: $branch is different than cached cloned branch: $local_branch. Deleting clone and re-cloning branch $branch."    
+                cd "$clone_home"; rm -fr "$project_name" > /dev/null 2>&1
+                git clone https://github.com/jvican/"$project_name".git --branch "$branch" --depth=1
+                cd "$clone_home/$project_name"
+                record_latest_sha "$project_name"
+            fi
+            # a clone already exists, last SHA should be cached; is it up to date?
+            local_sha=$(cat "$cache_home/$project_name")
+            remote_sha=$(git ls-remote https://github.com/jvican/"$project_name".git -- refs/heads/"$branch" | cut -f1)
+            if [[ "$local_sha" != "$remote_sha" ]]; then
+                log "info" "------------------------------------------------------------------------"
+                log "info" "Updating previously cloned $branch branch for repository: $project_name"
+                log "info" "------------------------------------------------------------------------"
+                # update clone and store SHA
+                cd "$clone_home/$project_name"
+                git pull
+                record_latest_sha "$project_name"
+            fi
+            log "info" " "
+        fi
+        cd "$clone_home"
+    fi
+}
+
+function build {    
+    local project=$1
+    local project_name="$(array_get ${project//-/} name)"
+    clone "$project_name"
+    # cd into project directory; run commands; cd back
+    cd "$project_name"
+    
+    details="local"
+    if [[ "$remote" = true ]]; then details="git-sha @ $(cat $cache_home/$project_name)"; fi
+    log "info" "------------------------------------------------------------------------"
+    log "info" "Building $project"
+    log "info" "------------------------------------------------------------------------"
+    log "info" " "
+    log "info" "--- $details ---"
+    log "info" " "
+    if [[ "$clean" = true ]] && [[ "$offline" = false ]]; then
+        # don't want to clean the jar if we're offline since we just downloaded it from a proxy
+        printf '[info] Cleaning sbt-launch.jar...'
+        rm -f sbt-launch.jar > /dev/null 2>&1
+        printf 'done.\n'
+    fi
+    run_commands "$project" "$project_name" "$(array_get ${project//-/} commands)"
+    cd - > /dev/null 2>&1
+}
+
+# When we are offline we need to be able to download an sbt-launch.jar from
+# an accessible URL (typically an internal repository).
+function download_sbt_launch_jar {
+    sbt_jar=$(pwd)/sbt-launch.jar
+    # clean up any previously downloaded sbt launch jar
+    if [ -f "$sbt_jar" ]; then
+        rm "$sbt_jar"
+    fi
+    # download new sbt launch jar
+    if [[ -z "$proxy_url" ]]; then
+        log "error" "No proxy url could be found for downloading the sbt-launch jar." >&2
+        print_usage >&2
+        exit 1
+    fi
+    local url="$proxy_url/org/scala-sbt/sbt-launch/${sbt_version}/sbt-launch.jar"
+    wget $url
+    sbt_jar=$(pwd)/sbt-launch.jar
+    ls -l "$sbt_jar"
+}
+
+function check_offline {
+    # if we're offline, download the sbt-launch.jar to use in building.
+    if [[ "$offline" = true ]]; then
+        download_sbt_launch_jar    
+    fi    
+}
+
+function build_projects {
+    local project=$1
+    local to_build=()
+    check_offline
+    
+    log "info" "Determining projects..."
+    # loop until we find the matching project or all
+    for current in "${projects[@]}"; do
+        if [ "$current" = "$project" ] && [[ "$build_all" != true ]]; then
+            break
+        else
+            to_build+=("$current")
+        fi
+    done
+    # if we're including the given project build it as well
+    if [[ "$include_project" = true ]] && [[ "$build_all" != true ]]; then
+        to_build+=("$project")
+    fi
+
+    # Start build of projects
+    local details=""
+    if [[ "$dry_run" = true ]]; then details=" (dry-run)"; fi
+    log "info" "------------------------------------------------------------------------"
+    log "info" "$NAME Build Order:$details"
+    if [ "${#to_build[@]}" -gt "0" ]; then
+        printf '[info]   %s\n' "${to_build[@]}"
+        for project in "${to_build[@]}"; do
+            build "$project"
+            log "info" " "
+        done
+    else
+        log "info" "  -- empty --"
+        log "info" " "
+    fi
+}
+
+function set_up {
+    if [[ "$clean_files" = true ]]; then
+        printf "[info] Cleaning %s caches..." "$NAME"
+        rm -fr "$cache_home"
+        rm -fr "$clone_home"
+        rm -fr "$build_home"
+        printf 'done.\n'
+    fi
+
+    if [[ "$remote" = true ]]; then
+        if [ ! -d "$cache_home" ]; then
+            mkdir -p "$cache_home"
+        fi
+        if [ ! -d "$clone_home" ]; then
+            mkdir -p "$clone_home"
+        fi
+        if [ ! -d "$build_home" ]; then
+            mkdir -p "$build_home"
+        fi
+    fi
+}
+
+function print_usage {
+    echo "USAGE: $0 --local --no-test --include --scala-version 2.12.4 <project>"
+    echo "Options:
+  --all             Build all projects in the DAG list (overrides --include). Default: false.
+  --clean           Delete any sbt-launch.jar and run \"sbt clean\" before running other sbt commands. Default: false.
+  --clean-files     Delete all $NAME caches, e.g., $DODO_DIRECTORY/caches, $DODO_DIRECTORY/clones, 
+                    and $DODO_DIRECTORY/builds. Default: false.
+  --include         Include building of the given project. Default: false.
+  --no-test         Do not run tests (will still compile tests via test:compile). 
+                    Default: false (run tests).
+  --scala-version   If set, do not cross-compile instead use this specific version for building all projects.
+                    Default: unset (cross-compile).
+  --clone-dir       Directory into which to clone remotes. Default: $HOME/.dodo/clones
+  --local           Build source from local filesystem instead of Github. 
+                    Default: false (use Github sources).
+  --branch          Branch to use when building from Github sources. Default: develop.
+  --proxy           Base URL from which to resolve artifacts when working offline, (e.g., the sbt-launch.jar),
+                    Example: --proxy https://my.internal.company.repo/sbt-repo. NOTE: you MUST set 
+                    --local and --sbt-version with this option. Default: unset.
+  --publish-m2      Also publish artifacts to the local ~/.m2 repository. Default: false.
+  --sbt-version     The sbt version to use when downloading the sbt launch jar. Default: unset.
+  --dry-run         Output, but do not execute the sbt build commands. If using remotes
+                    they will still be cloned. Default: false.
+  --verbose         Run in verbose mode. Default: false.
+  --trace           Run in trace mode. Note: extremely verbose. Default: false.
+  --help            Print usage."
+}
+
+function check_arg {
+    local arg=$1
+    if [[ $arg == --* ]]; then
+        log "error" "Unrecognized argument: $arg" >&2
+        print_usage >&2
+        exit 1
+    fi
+}
+
+function echo_set_options {
+    if [[ "$verbose" = true ]]; then
+        log "debug" "------------------------------------------------------------------------"
+        git_sha=$(git rev-parse HEAD)
+        current_date=$(date "+%YT%H:%M:%S%z")
+        log "debug" "Twitter $NAME $VERSION ($git_sha; $current_date)"
+        log "debug" ""
+        log "debug" "--- java version ---"
+        version=$(java -version 2>&1); version_lines=$(echo "$(java -version 2>&1)" | wc -l)     
+        i=1; while [ "$i" -le "$version_lines" ]; do
+            line=$(echo "$version" | head -n $i | tail -n 1)
+            log "debug" "  $line"
+            i=$(($i + 1))
+        done
+        log "debug" ""
+        log "debug" "--- options ---"
+        log "debug" "  clone remotes: $remote"
+        log "debug" "  branch: $branch"
+        log "debug" "  run tests: $run_tests"
+        log "debug" "  sbt clean: $clean"
+        log "debug" "  clean caches and sbt-launch.jar: $clean_files"
+        log "debug" "  include project: $include_project"
+        if [[ -n "$scala_version" ]]; then log "debug" "Configured scala version: $scala_version"; fi
+        if [[ "$offline" = true ]]; then
+            log "debug" "  offline mode: $offline"
+            log "debug" "  proxy url: $proxy_url"
+            log "debug" "  configured sbt version: $sbt_version"
+        fi
+        log "debug" "  publishM2: $publish_m2"
+        log "debug" ""
+    fi
+}
+
+# BEGIN: OPTION PARSING AND VALIDATION ------------------------------------------------------------------
+# check for openssl installed -- used for hashing build commands
+openssl_installed=$(which openssl)
+if [[ -z "$openssl_installed" ]]; then log "error" "OpenSSL required to run. Please install. On mac OSX, \"brew install openssl\" " >&2; exit 1; fi
+# check options
+if [[ -z "$@" ]]; then print_usage >&2; exit 1; fi
+# Simple option parsing. We could use getopts but rather use "long"
+# names only. And this is position-agnostic to the options, e.g.,
+# these options can occur before or after the main arguments.
+shift_count="0"
+for arg in "$@"; do
+  shift
+  case "$arg" in
+    "--all")            build_all=true ;;
+    "--clean")          clean=true ;;
+    "--include")        include_project=true ;;
+    "--no-test")        run_tests=false  ;;
+    "--scala-version")  scala_version=$1; ((shift_count+=1)) ;;
+    "--clone-dir")      clone_home=$1; ((shift_count+=1)) ;;
+    "--local")          remote=false ;;
+    "--branch")         branch=$1; ((shift_count+=1)) ;;
+    "--proxy")          offline=true;proxy_url=$1; ((shift_count+=1)) ;;
+    "--sbt-version")    sbt_version=$1; ((shift_count+=1)) ;;
+    "--dry-run")        dry_run=true ;;
+    "--publish-m2")     publish_m2=true ;;
+    "--clean-files")    clean_files=true ;;
+    "--verbose")        verbose=true ;;
+    "--trace")          trace=true ;;
+    "--help")           print_usage >&2; exit ;;
+    *)                  check_arg $arg;set -- "$@" "$arg"
+  esac
+done
+if [[ "$trace" = true ]]; then set -x; fi
+if [[ "$offline" = true ]] && [[ -z "$sbt_version" ]]; then
+    log "error" "Must supply an sbt version with \"--sbt-version\" when using \"--proxy URL\"." >&2
+    print_usage >&2
+    exit 1
+fi
+if [[ "$offline" = true ]] && [[ "$remote" = true ]]; then
+    log "error" "Cannot specify \"--proxy URL\" without also setting \"--local\"." >&2
+    print_usage >&2
+    exit 1
+fi
+# read and validate $project
+project="unset"
+if [[ "$build_all" != true ]]; then
+    if [[ -z "$@" ]]; then print_usage >&2; exit 1; fi
+     # need to shift by the number of params set above with values
+    if [[ "$shift_count" != "0" ]]; then shift $shift_count; fi
+    # Read in remaining option -- which should be the project name.
+    project="$1"
+    if ! contains_project "$project"; then
+        log "error" "Project must be one of: \"${project_list[*]}\"" >&2
+        print_usage >&2
+        exit 1
+    fi
+fi
+if [[ "$build_all" = true ]] && [[ "$include_project" = true ]]; then
+    log "warn" "Ignoring \"--include\" flag as \"--all\" was specified." >&2
+fi
+if [[ "$branch" != "develop" ]] && [[ "$branch" != "master" ]]; then
+    log "error" "Branch can only be one of 'develop' or 'master'." >&2
+    print_usage >&2
+    exit 1
+fi
+# END: OPTION PARSING AND VALIDATION --------------------------------------------------------------------
+
+# BEGIN: EXECUTE BUILD ----------------------------------------------------------------------------------
+SECONDS=0
+set_up
+echo_set_options
+build_projects "$project"
+
+duration=$SECONDS
+FORMATTED=$(date "+%YT%H:%M:%S%z")
+log "info" "------------------------------------------------------------------------"
+log "info" "BUILD SUCCESS"
+log "info" "------------------------------------------------------------------------"
+log "info" "Total time: $duration s"
+log "info" "Finished at: $FORMATTED"
+log "info" "Twitter $NAME version v$VERSION"
+log "info" "------------------------------------------------------------------------"
+# END: EXECUTE BUILD ------------------------------------------------------------------------------------
