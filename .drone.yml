@@ -11,7 +11,8 @@ matrix:
           "mavenBloop/compile" \
           "gradleBloop211/compile" \
           "gradleBloop212/compile" \
-          "frontend/integrationSetUpBloop" \
+          "show schemaVersion" \
+          "integrationSetUpBloop" \
           "backend/test" \
           "nativeBridge/test" \
           "jsBridge06/test" \
@@ -22,7 +23,7 @@ matrix:
 
   RUN_COMMUNITY_BUILD_EXTRA:
     - bin/sbt-ci.sh \
-          "frontend/integrationSetUpBloop" \
+          "integrationSetUpBloop" \
           "frontend/testOnly bloop.tasks.IntegrationTestSuite"
 
   RUN_BENCHMARKS_AND_SCRIPTED:

@@ -265,7 +265,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "3.2",
+    BuildKeys.schemaVersion := "3.1-reload",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
@@ -510,8 +510,11 @@ object BuildImplementation {
     val schemaVersion = BuildKeys.schemaVersion.value
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
     val cacheDirectory = file(stagingBase) / "integrations-cache"
+    val targetSchemaVersion = Keys.target.value / "schema-version.json"
+    IO.write(targetSchemaVersion, schemaVersion)
 
     val buildFiles = Set(
+      targetSchemaVersion,
       buildIntegrationsBase / "sbt-0.13" / "build.sbt",
       buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-0.13-2" / "build.sbt",
