@@ -32,7 +32,8 @@
         "bug",
         "doc",
         "ideas",
-        "review"
+        "review",
+        "question"
       ]
     },
     {
@@ -45,7 +46,8 @@
         "bug",
         "doc",
         "test",
-        "review"
+        "review",
+        "question"
       ]
     },
     {
@@ -132,6 +134,17 @@
       "contributions": [
         "code",
         "bug"
+      ]
+    },
+    {
+      "login": "lefou",
+      "name": "Tobias Roeser",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/1321393?v=4",
+      "profile": "https://twitter.com/TobiasRoeser",
+      "contributions": [
+        "question",
+        "code",
+        "plugin"
       ]
     }
   ]
