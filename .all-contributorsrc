@@ -1,0 +1,151 @@
+{
+  "projectName": "bloop",
+  "projectOwner": "scalacenter",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "Duhemm",
+      "name": "Martin Duhem",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/1765926?v=4",
+      "profile": "https://github.com/Duhemm",
+      "contributions": [
+        "code",
+        "bug",
+        "doc",
+        "ideas",
+        "review"
+      ]
+    },
+    {
+      "login": "jvican",
+      "name": "Jorge",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/2462974?v=4",
+      "profile": "http://jvican.github.com",
+      "contributions": [
+        "code",
+        "bug",
+        "doc",
+        "ideas",
+        "review",
+        "question"
+      ]
+    },
+    {
+      "login": "tues",
+      "name": "Paweł Bartkiewicz",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/1550710?v=4",
+      "profile": "https://github.com/tues",
+      "contributions": [
+        "code",
+        "bug",
+        "doc",
+        "test",
+        "review",
+        "question"
+      ]
+    },
+    {
+      "login": "tindzk",
+      "name": "Tim Nieradzik",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/196819?v=4",
+      "profile": "http://nieradzik.me/",
+      "contributions": [
+        "code",
+        "bug",
+        "doc",
+        "review"
+      ]
+    },
+    {
+      "login": "rberenguel",
+      "name": "Ruben Berenguel",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/2410938?v=4",
+      "profile": "http://www.mostlymaths.net",
+      "contributions": [
+        "code",
+        "bug",
+        "review"
+      ]
+    },
+    {
+      "login": "dsilvasc",
+      "name": "Daniel Silva",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/24484414?v=4",
+      "profile": "https://github.com/dsilvasc",
+      "contributions": [
+        "code",
+        "plugin",
+        "test"
+      ]
+    },
+    {
+      "login": "vigoo",
+      "name": "Daniel Vigovszky",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/2292489?v=4",
+      "profile": "https://github.com/vigoo",
+      "contributions": [
+        "code",
+        "plugin"
+      ]
+    },
+    {
+      "login": "propensive",
+      "name": "Jon Pretty",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/1024588?v=4",
+      "profile": "http://propensive.com/",
+      "contributions": [
+        "code",
+        "bug",
+        "doc"
+      ]
+    },
+    {
+      "login": "Baccata",
+      "name": "Olivier Mélois",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/4439335?v=4",
+      "profile": "https://github.com/Baccata",
+      "contributions": [
+        "code",
+        "bug",
+        "doc"
+      ]
+    },
+    {
+      "login": "valencik",
+      "name": "Andrew Valencik",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/5440389?v=4",
+      "profile": "https://github.com/valencik",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "msvaljek",
+      "name": "msvaljek",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/36041566?v=4",
+      "profile": "https://github.com/msvaljek",
+      "contributions": [
+        "code",
+        "bug"
+      ]
+    },
+    {
+      "login": "lefou",
+      "name": "Tobias Roeser",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/1321393?v=4",
+      "profile": "https://twitter.com/TobiasRoeser",
+      "contributions": [
+        "question",
+        "code",
+        "plugin"
+      ]
+    }
+  ]
+}
