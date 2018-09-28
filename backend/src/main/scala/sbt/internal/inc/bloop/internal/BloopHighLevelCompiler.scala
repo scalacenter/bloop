@@ -214,34 +214,19 @@ final class BloopHighLevelCompiler(
     }
 
     val compilationTask = {
-      if (javaSources.isEmpty) {
-        // There are no java sources, so no matter what the order is complete the promise asap!
+      // Complete the java exception if there are no java sources
+      if (javaSources.isEmpty)
         completeJava.complete(())
+      fireJavaCompilation.flatMap {
+        case JavaSignal.ContinueCompilation =>
+          if (setup.order == CompileOrder.JavaThenScala) {
+            compileJava.flatMap(_ => compileScala)
+          } else {
+            compileScala.flatMap(_ => compileJava)
+          }
 
-        // Now, let's only run Scala compilation synchronizing on the dependent javac
-        fireJavaCompilation.flatMap {
-          case JavaSignal.ContinueCompilation => compileScala
-          case JavaSignal.FailFastCompilation(failedProjects) =>
-            throw new StopPipelining(failedProjects)
-        }
-      } else {
-        /* `Mixed` order defaults to `ScalaThenJava` behaviour.
-         * See https://github.com/sbt/zinc/issues/234. */
-        if (setup.order == CompileOrder.JavaThenScala) {
-          fireJavaCompilation.flatMap {
-            case JavaSignal.ContinueCompilation => compileJava.flatMap(_ => compileScala)
-            case JavaSignal.FailFastCompilation(failedProjects) =>
-              throw new StopPipelining(failedProjects)
-          }
-        } else {
-          compileScala.flatMap { _ =>
-            fireJavaCompilation.flatMap {
-              case JavaSignal.ContinueCompilation => compileJava
-              case JavaSignal.FailFastCompilation(failedProjects) =>
-                throw new StopPipelining(failedProjects)
-            }
-          }
-        }
+        case JavaSignal.FailFastCompilation(failedProjects) =>
+          throw new StopPipelining(failedProjects)
       }
     }
 
