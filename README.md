@@ -51,11 +51,11 @@ Kudos to these wonderful people ([emoji key](https://github.com/kentcdodds/all-c
 Those contributors labelled with 👀 can review and merge pull requests.
 
 Do you fancy contributing? Talk to us in our [Gitter channel][gitter] and start
-contributing to our project by [reading our CONTRIBUTING guide][contributing].
+contributing to Bloop by [reading the CONTRIBUTING guide][contributing].
 
-This project is an official [Scala Center][scalacenter] project and follows the
-[Scala Code of Conduct][coc]. We are committed to providing a safe environment
-for everyone.
+`scalacenter/bloop` is an official [Scala Center][scalacenter] project and
+follows the [Scala Code of Conduct][coc]. We are committed to providing a safe
+environment for all contributors.
 
 [gitter]: https://github.com/scalacenter/bloop
 [contributing]: https://scalacenter.github.io/bloop/docs/developer-documentation/
