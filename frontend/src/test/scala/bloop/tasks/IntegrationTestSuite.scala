@@ -20,7 +20,7 @@ object IntegrationTestSuite {
   @Parameters
   def data() = {
     def filterIndex(index: Map[String, Path]): Map[String, Path] =
-      index//.filterKeys(!_.contains("scalatra"))
+      index//.filter(_._1.contains("frontend"))//.filterKeys(!_.contains("scalatra"))
     val projects = filterIndex(TestUtil.testProjectsIndex).map(_._2).toArray.map(Array.apply(_))
     Arrays.asList(projects: _*)
   }

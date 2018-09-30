@@ -42,9 +42,6 @@ final case class Project(
     resolution: Option[Config.Resolution],
     origin: Origin
 ) {
-  override def toString: String = s"$name"
-  override val hashCode: Int = origin.hash
-
   /** The bsp uri associated with this project. */
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
 
@@ -66,6 +63,16 @@ final case class Project(
     case Config.JavaThenScala => CompileOrder.JavaThenScala
     case Config.ScalaThenJava => CompileOrder.ScalaThenJava
   }
+
+  override def toString: String = s"$name"
+  override val hashCode: Int = origin.hash
+  override def equals(other: Any): Boolean = {
+    other match {
+      case other: Project => this.hashCode == other.hashCode
+      case _ => false
+    }
+  }
+
 }
 
 object Project {

@@ -10,6 +10,7 @@ import bloop.monix.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
 import bloop.logging.Logger
 import bloop.Compiler
+import bloop.io.AbsolutePath
 import monix.eval.Task
 import sbt.internal.inc.bloop.JavaSignal
 import sbt.util.InterfaceUtil
@@ -20,11 +21,12 @@ object CompileGraph {
   type CompileTask = Task[Dag[PartialCompileResult]]
 
   case class Inputs(
-      project: Project,
+      bundle: CompileBundle,
       picklepath: List[URI],
       pickleReady: CompletableFuture[Optional[URI]],
-      transitiveJavaCompilersCompleted: CompletableFuture[Unit],
-      javaSignal: Task[JavaSignal]
+      completeJava: CompletableFuture[Unit],
+      transitiveJavaSignal: Task[JavaSignal],
+      transitiveJavaSources: List[AbsolutePath]
   )
 
   /**
@@ -37,6 +39,7 @@ object CompileGraph {
    */
   def traverse(
       dag: Dag[Project],
+      setup: Project => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       pipeline: Boolean,
       logger: Logger
@@ -44,8 +47,8 @@ object CompileGraph {
     /* We use different traversals for normal and pipeline compilation because the
      * pipeline traversal has an small overhead (2-3%) for some projects. Check
      * https://benchs.scala-lang.org/dashboard/snapshot/sLrZTBfntTxMWiXJPtIa4DIrmT0QebYF */
-    if (pipeline) pipelineTraversal(dag, compile, logger)
-    else normalTraversal(dag, compile, logger)
+    if (pipeline) pipelineTraversal(dag, setup, compile, logger)
+    else normalTraversal(dag, setup, compile, logger)
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
@@ -57,9 +60,9 @@ object CompileGraph {
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     dag match {
       case Leaf(_: PartialSuccess) => None
-      case Leaf(result) => Some(result.project)
+      case Leaf(result) => Some(result.bundle.project)
       case Parent(_: PartialSuccess, _) => None
-      case Parent(result, _) => Some(result.project)
+      case Parent(result, _) => Some(result.bundle.project)
     }
   }
 
@@ -72,6 +75,7 @@ object CompileGraph {
    */
   private def normalTraversal(
       dag: Dag[Project],
+      setup: Project => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTask = {
@@ -85,8 +89,8 @@ object CompileGraph {
      * turn an actual compiler failure into a partial failure with a dummy
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
-    def toPartialFailure(project: Project, res: Compiler.Result): PartialFailure =
-      PartialFailure(project, CompileExceptions.FailPromise, Nil, Task.now(res))
+    def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure =
+      PartialFailure(bundle, CompileExceptions.FailPromise, Task.now(res))
 
     def loop(dag: Dag[Project]): CompileTask = {
       tasks.get(dag) match {
@@ -94,31 +98,32 @@ object CompileGraph {
         case None =>
           val task: Task[Dag[PartialCompileResult]] = dag match {
             case Leaf(project) =>
+              val bundle = setup(project)
               val cf = new CompletableFuture[Optional[URI]]()
-              compile(Inputs(project, Nil, cf, JavaCompleted, JavaContinue)).map {
+              compile(Inputs(bundle, Nil, cf, JavaCompleted, JavaContinue, Nil)).map {
                 case Compiler.Result.Ok(res) =>
-                  Leaf(PartialSuccess(project, Optional.empty(), Nil, JavaContinue, Task.now(res)))
-                case res => Leaf(toPartialFailure(project, res))
+                  Leaf(PartialSuccess(bundle, Optional.empty(), JavaContinue, Task.now(res)))
+                case res => Leaf(toPartialFailure(bundle, res))
               }
 
             case Parent(project, dependencies) =>
+              val bundle = setup(project)
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
                   val cf = new CompletableFuture[Optional[URI]]()
-                  compile(Inputs(project, Nil, cf, JavaCompleted, JavaContinue)).map {
+                  compile(Inputs(bundle, Nil, cf, JavaCompleted, JavaContinue, Nil)).map {
                     case Compiler.Result.Ok(res) =>
                       val noUri = Optional.empty[URI]()
-                      val partial =
-                        PartialSuccess(project, noUri, Nil, JavaContinue, Task.now(res))
+                      val partial = PartialSuccess(bundle, noUri, JavaContinue, Task.now(res))
                       Parent(partial, dagResults)
-                    case res => Parent(toPartialFailure(project, res), dagResults)
+                    case res => Parent(toPartialFailure(bundle, res), dagResults)
                   }
                 } else {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent(PartialFailure(project, BlockURI, Nil, blocked), dagResults))
+                  Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                 }
               }
           }
@@ -136,11 +141,13 @@ object CompileGraph {
    * implementation where the pickles are generated and the promise in [[Inputs]] completed.
    *
    * @param dag is the dag of projects.
-   * @param compile is the task we use to compile on every node.
+   * @param setup is the function that sets up the project on every node.
+   * @param compile is the function that compiles every node, returning a Task.
    * @return A task that returns a dag of compilation results.
    */
   private def pipelineTraversal(
       dag: Dag[Project],
+      setup: Project => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTask = {
@@ -154,46 +161,46 @@ object CompileGraph {
           val task = dag match {
             case Leaf(project) =>
               Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
+                val bundle = setup(project)
                 val jcf = new CompletableFuture[Unit]()
-                val t = compile(Inputs(project, Nil, cf, jcf, JavaContinue))
+                val t = compile(Inputs(bundle, Nil, cf, jcf, JavaContinue, Nil))
                 val running =
                   Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
-                val completeJavaTask = Task.deferFutureAction(jcf.asScala(_)).materialize.map {
-                  case Success(_) => JavaSignal.ContinueCompilation
-                  case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
-                }.memoize
+                val completeJavaTask = Task
+                  .deferFutureAction(jcf.asScala(_))
+                  .materialize
+                  .map {
+                    case Success(_) => JavaSignal.ContinueCompilation
+                    case Failure(_) => JavaSignal.FailFastCompilation(bundle.project.name)
+                  }
+                  .memoize
 
                 Task
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
-                  .map(u => Leaf(PartialCompileResult(project, u, Nil, completeJavaTask, running)))
+                  .map(u => Leaf(PartialCompileResult(bundle, u, completeJavaTask, running)))
               }
 
             case Parent(project, dependencies) =>
+              val bundle = setup(project)
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
-                  val results = dagResults.flatMap(Dag.dfs(_)).distinct
-                  val picklepath = {
-                    results.flatMap {
-                      case s: PartialSuccess => InterfaceUtil.toOption(s.pickleURI)
-                      case _: PartialFailure => None // It cannot ever happen if `failed.isEmpty`
-                    }
+                  val results: List[PartialSuccess] = {
+                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                    transitive.collect { case s: PartialSuccess => s }
                   }
 
                   // Signals whether java compilation can proceed or not
-                  val javaSignal: Task[JavaSignal] = aggregateJavaSignals {
-                    results.map {
-                      case s: PartialSuccess => s.completeJava
-                      // It cannot ever happen if `failed.isEmpty`, so just return dummy value
-                      case f: PartialFailure => Task.now(JavaSignal.ContinueCompilation)
-                    }
-                  }
+                  val javaSignal: Task[JavaSignal] =
+                    aggregateJavaSignals(results.map(_.completeJava))
 
+                  val transitiveJava = results.flatMap(_.bundle.javaSources)
                   Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                     val jcf = new CompletableFuture[Unit]()
-                    val t = compile(Inputs(project, picklepath, cf, jcf, javaSignal))
+                    val picklepath = results.flatMap(res => InterfaceUtil.toOption(res.pickleURI))
+                    val t = compile(Inputs(bundle, picklepath, cf, jcf, javaSignal, transitiveJava))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     val ongoing = Task.fromFuture(running)
                     val completeJavaTask = {
@@ -202,7 +209,7 @@ object CompileGraph {
                         .materialize
                         .map {
                           case Success(_) => JavaSignal.ContinueCompilation
-                          case Failure(_) => JavaSignal.FailFastCompilation(List(project.name))
+                          case Failure(_) => JavaSignal.FailFastCompilation(project.name)
                         }
                         .memoize
                     }
@@ -210,15 +217,15 @@ object CompileGraph {
                     Task
                       .deferFutureAction(c => cf.asScala(c))
                       .materialize
-                      .map { u =>
-                        val res = PartialCompileResult(project, u, Nil, completeJavaTask, ongoing)
+                      .map { uri =>
+                        val res = PartialCompileResult(bundle, uri, completeJavaTask, ongoing)
                         Parent(res, dagResults)
                       }
                   }
                 } else {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent(PartialFailure(project, BlockURI, Nil, blocked), dagResults))
+                  Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                 }
               }
           }

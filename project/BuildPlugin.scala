@@ -266,7 +266,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "3.1-reload",
+    BuildKeys.schemaVersion := "3.2",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,

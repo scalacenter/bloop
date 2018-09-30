@@ -1,5 +1,6 @@
 package sbt.internal.inc.bloop
 
+import java.io.File
 import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
@@ -26,13 +27,15 @@ object CompileMode {
   final case class Pipelined(
       pickleURI: CompletableFuture[Optional[URI]],
       completeJavaCompilation: CompletableFuture[Unit],
-      fireJavaCompilation: Task[JavaSignal]
+      fireJavaCompilation: Task[JavaSignal],
+      transitiveJavaSources: List[File],
   ) extends CompileMode
 
   final case class ParallelAndPipelined(
       batches: Int,
       pickleURI: CompletableFuture[Optional[URI]],
       completeJavaCompilation: CompletableFuture[Unit],
-      fireJavaCompilation: Task[JavaSignal]
+      fireJavaCompilation: Task[JavaSignal],
+      transitiveJavaSources: List[File],
   ) extends CompileMode
 }

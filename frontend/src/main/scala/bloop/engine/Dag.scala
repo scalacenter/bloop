@@ -138,13 +138,13 @@ object Dag {
     loop(dags.toSet, targets)
   }
 
-
   def directDependencies[T](dag: List[Dag[T]]): List[T] = {
     dag.foldLeft(List.empty[T]) {
-      case (acc, dag) => dag match {
-        case Leaf(value) => value :: acc
-        case Parent(value, _) => value :: acc
-      }
+      case (acc, dag) =>
+        dag match {
+          case Leaf(value) => value :: acc
+          case Parent(value, _) => value :: acc
+        }
     }
   }
 

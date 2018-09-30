@@ -3,7 +3,7 @@ package bloop.engine.tasks
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine._
-import bloop.engine.tasks.compilation.{CompileExceptions, CompileGraph, FinalCompileResult}
+import bloop.engine.tasks.compilation._
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter._
@@ -41,33 +41,37 @@ object CompilationTask {
     val cwd = state.build.origin.getParent
     import state.{logger, compilerCache}
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
-      val project = graphInputs.project
-      sourcesAndInstanceFrom(project) match {
+      val project = graphInputs.bundle.project
+      graphInputs.bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
           graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
-          graphInputs.transitiveJavaCompilersCompleted.complete(())
+          graphInputs.completeJava.complete(())
           Task.now(earlyResult)
-        case Right(SourcesAndInstance(sources, instance, javaOnly)) =>
+        case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
           val previous = state.results.lastSuccessfulResultOrEmpty(project)
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
           val (scalacOptions, compileMode) = {
             if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
             else {
+
+              val transitiveJavaSources = graphInputs.transitiveJavaSources.map(_.toFile)
               val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
               val mode = userCompileMode match {
                 case CompileMode.Sequential =>
                   CompileMode.Pipelined(
                     graphInputs.pickleReady,
-                    graphInputs.transitiveJavaCompilersCompleted,
-                    graphInputs.javaSignal,
+                    graphInputs.completeJava,
+                    graphInputs.transitiveJavaSignal,
+                    transitiveJavaSources
                   )
                 case CompileMode.Parallel(batches) =>
                   CompileMode.ParallelAndPipelined(
                     batches,
                     graphInputs.pickleReady,
-                    graphInputs.transitiveJavaCompilersCompleted,
-                    graphInputs.javaSignal
+                    graphInputs.completeJava,
+                    graphInputs.transitiveJavaSignal,
+                    transitiveJavaSources
                   )
               }
               (scalacOptions, mode)
@@ -77,7 +81,7 @@ object CompilationTask {
           val backendInputs = CompileInputs(
             instance,
             compilerCache,
-            sources,
+            sources.toArray,
             project.classpath,
             graphInputs.picklepath.toArray,
             project.classesDir,
@@ -121,10 +125,11 @@ object CompilationTask {
       }
     }
 
+    def setup(project: Project): CompileBundle = CompileBundle(project)
     val dag = state.build.getDagFor(project)
     def triggerCompile: Task[State] = {
-      CompileGraph.traverse(dag, compile(_), pipeline, logger).flatMap { partialResultDag =>
-        val partialResults = Dag.dfs(partialResultDag)
+      CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
+        val partialResults = Dag.dfs(partialDag)
         Task.gatherUnordered(partialResults.map(_.toFinalResult)).map { results =>
           val failures = results.collect {
             case FinalCompileResult(p, Compiler.Result.NotOk(_)) => p
@@ -134,15 +139,16 @@ object CompilationTask {
           if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
           else {
             results.foreach {
-              case FinalCompileResult(p, Compiler.Result.Failed(_, Some(t), _)) =>
-                logger.error(s"Unexpected error when compiling ${p.name}: '${t.getMessage}'")
+              case FinalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _)) =>
+                val project = bundle.project
+                logger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
                 // Make a better job here at reporting any throwable that happens during compilation
                 t.printStackTrace()
                 logger.trace(t)
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
-            failures.foreach(p => logger.error(s"'${p.name}' failed to compile."))
+            failures.foreach(b => logger.error(s"'${b.project.name}' failed to compile."))
             newState.copy(status = ExitStatus.CompilationError)
           }
         }
@@ -153,8 +159,7 @@ object CompilationTask {
     else {
       // Check dependent projects didn't fail in previous sequential compile
       val allDependencies = Dag.dfs(dag).toSet
-      val dependentResults =
-        state.results.allResults.filter(pr => allDependencies.contains(pr._1))
+      val dependentResults = state.results.allResults.filter(pr => allDependencies.contains(pr._1))
       val failedDependentProjects =
         dependentResults.collect { case (p, Compiler.Result.NotOk(_)) => p }
       if (!failedDependentProjects.isEmpty) {
@@ -163,40 +168,6 @@ object CompilationTask {
           s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
         Task.now(state.copy(status = ExitStatus.CompilationError))
       } else triggerCompile
-    }
-  }
-
-  private case class SourcesAndInstance(
-      sources: Array[AbsolutePath],
-      instance: ScalaInstance,
-      javaOnly: Boolean
-  )
-
-  private def sourcesAndInstanceFrom(
-      project: Project
-  ): Either[Compiler.Result, SourcesAndInstance] = {
-    val sources = project.sources.distinct
-    val javaSources = sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.java")).distinct
-    val scalaSources = sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.scala")).distinct
-    val uniqueSources = (javaSources ++ scalaSources).toArray
-
-    project.scalaInstance match {
-      case Some(instance) =>
-        (scalaSources, javaSources) match {
-          case (Nil, Nil) => Left(Compiler.Result.Empty)
-          case (Nil, _ :: _) => Right(SourcesAndInstance(uniqueSources, instance, true))
-          case _ => Right(SourcesAndInstance(uniqueSources, instance, false))
-        }
-      case None =>
-        (scalaSources, javaSources) match {
-          case (Nil, Nil) => Left(Compiler.Result.Empty)
-          case (_: List[AbsolutePath], Nil) =>
-            // Let's notify users there is no Scala configuration for a project with Scala sources
-            Left(Compiler.Result.GlobalError(Feedback.missingScalaInstance(project)))
-          case (_, _: List[AbsolutePath]) =>
-            // If Java sources exist, we cannot compile them without an instance, fail fast!
-            Left(Compiler.Result.GlobalError(Feedback.missingInstanceForJavaCompilation(project)))
-        }
     }
   }
 

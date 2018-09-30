@@ -13,57 +13,53 @@ import sbt.internal.inc.bloop.JavaSignal
 import scala.util.Try
 
 sealed trait CompileResult[+R] {
-  def project: Project
+  def bundle: CompileBundle
   def result: R
 }
 
 sealed trait PartialCompileResult extends CompileResult[Task[Compiler.Result]] {
-  def project: Project
-  def javaSources: List[String]
+  def bundle: CompileBundle
   def result: Task[Compiler.Result]
 
   def toFinalResult: Task[FinalCompileResult] =
-    result.map(res => FinalCompileResult(project, res))
+    result.map(res => FinalCompileResult(bundle, res))
 }
 
 object PartialCompileResult {
   def apply(
-      project: Project,
+      bundle: CompileBundle,
       pickleURI: Try[Optional[URI]],
-      javaSources: List[String],
       completeJava: Task[JavaSignal],
       result: Task[Compiler.Result]
   ): PartialCompileResult = {
     pickleURI match {
       case scala.util.Success(opt) =>
-        PartialSuccess(project, opt, javaSources, completeJava, result)
+        PartialSuccess(bundle, opt, completeJava, result)
       case scala.util.Failure(CompileExceptions.CompletePromise) =>
-        PartialSuccess(project, Optional.empty(), javaSources, completeJava, result)
+        PartialSuccess(bundle, Optional.empty(), completeJava, result)
       case scala.util.Failure(t) =>
-        PartialFailure(project, t, javaSources, result)
+        PartialFailure(bundle, t, result)
     }
   }
 }
 
 case class PartialFailure(
-    project: Project,
+    bundle: CompileBundle,
     exception: Throwable,
-    javaSources: List[String],
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
     with CacheHashCode
 
 case class PartialSuccess(
-    project: Project,
+    bundle: CompileBundle,
     pickleURI: Optional[URI],
-    javaSources: List[String],
     completeJava: Task[JavaSignal],
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
     with CacheHashCode
 
 case class FinalCompileResult(
-    project: Project,
+    bundle: CompileBundle,
     result: Compiler.Result
 ) extends CompileResult[Compiler.Result]
     with CacheHashCode
@@ -73,7 +69,7 @@ object FinalCompileResult {
   final implicit val showFinalResult: Show[FinalCompileResult] = new Show[FinalCompileResult] {
     private def seconds(ms: Double): String = s"${ms}ms"
     override def shows(r: FinalCompileResult): String = {
-      val projectName = r.project.name
+      val projectName = r.bundle.project.name
       r.result match {
         case Compiler.Result.Empty => s"${projectName} (empty)"
         case Compiler.Result.Cancelled(ms) => s"${projectName} (cancelled, lasted ${ms}ms)"
