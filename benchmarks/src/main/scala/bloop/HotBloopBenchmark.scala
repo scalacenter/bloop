@@ -157,25 +157,5 @@ class HotBloopBenchmark extends HotBloopBenchmarkBase {
 @Measurement(iterations = 10, time = 10, timeUnit = TimeUnit.SECONDS)
 @Fork(value = 3)
 class HotPipelinedBloopBenchmark extends HotBloopBenchmarkBase {
-  override val bloopCompileFlags: Option[String] = Some("--pipelined")
-}
-
-@State(Scope.Benchmark)
-@BenchmarkMode(Array(SampleTime))
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 10, time = 10, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 10, time = 10, timeUnit = TimeUnit.SECONDS)
-@Fork(value = 3)
-class HotParallelBloopBenchmark extends HotBloopBenchmarkBase {
-  override val bloopCompileFlags: Option[String] = Some("--parallel")
-}
-
-@State(Scope.Benchmark)
-@BenchmarkMode(Array(SampleTime))
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 10, time = 10, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 10, time = 10, timeUnit = TimeUnit.SECONDS)
-@Fork(value = 3)
-class HotPipelinedParallelBloopBenchmark extends HotBloopBenchmarkBase {
-  override val bloopCompileFlags: Option[String] = Some("--pipelined-parallel")
+  override val bloopCompileFlags: Option[String] = Some("--pipeline")
 }

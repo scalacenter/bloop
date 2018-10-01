@@ -119,7 +119,7 @@ class IntegrationTestSuite(testDirectory: Path) {
       Commands.Compile(
         projectToCompile.name,
         incremental = true,
-        pipelined = isPipeliningEnabled
+        pipeline = isPipeliningEnabled
       ),
       Exit(ExitStatus.Ok)
     )

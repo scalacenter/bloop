@@ -222,7 +222,7 @@ class PipelinedUtestBenchmark {
   def compile(): Unit = {
     issue(s"clean")
     awaitPrompt()
-    issue(s"compile --pipelined utestJS")
+    issue(s"compile --pipeline utestJS")
     awaitPrompt()
   }
 

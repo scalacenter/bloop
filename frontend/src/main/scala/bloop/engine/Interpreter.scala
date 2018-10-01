@@ -128,23 +128,16 @@ object Interpreter {
       else Tasks.clean(state0, state0.build.projects, true)
     }
 
-    val compilerMode: CompileMode.ConfigurableMode = {
-      if (cmd.parallel) CompileMode.Parallel(cmd.parallelBatches.number)
-      else CompileMode.Sequential
-    }
-
+    val compilerMode: CompileMode.ConfigurableMode = CompileMode.Sequential
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
-      /*      if (cmd.pipelined)
-        Pipelined.compile(state, project, config, deduplicateFailures, compilerMode, excludeRoot)
-      else Tasks.compile(state, project, config, deduplicateFailures, compilerMode, excludeRoot)*/
       CompilationTask.compile(
         state,
         project,
         config,
         deduplicateFailures,
         compilerMode,
-        cmd.pipelined,
+        cmd.pipeline,
         excludeRoot
       )
     }
