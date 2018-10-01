@@ -3,13 +3,13 @@ package bloop.tasks
 import java.util.concurrent.TimeUnit
 import java.util.{Arrays, Collection}
 
+import bloop.CompileMode
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-
 import bloop.data.Project
 import bloop.cli.CommonOptions
 import bloop.engine.{ExecutionContext, State}
@@ -20,7 +20,6 @@ import sbt.testing.Framework
 import bloop.engine.tasks.{CompilationTask, Tasks}
 import bloop.testing.{DiscoveredTests, NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
-import sbt.internal.inc.bloop.CompileMode
 import xsbti.compile.CompileAnalysis
 
 import scala.concurrent.Await

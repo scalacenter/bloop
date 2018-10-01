@@ -1,5 +1,6 @@
 package bloop.engine
 
+import bloop.CompileMode
 import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, ExitStatus, OptimizerConfig, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
@@ -13,8 +14,6 @@ import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.Feedback.XMessageString
 import monix.eval.Task
-import sbt.internal.inc.bloop.CompileMode
-
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
   def execute(action: Action, stateTask: Task[State]): Task[State] = {

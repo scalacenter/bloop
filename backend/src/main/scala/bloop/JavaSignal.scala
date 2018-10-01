@@ -1,4 +1,4 @@
-package sbt.internal.inc.bloop
+package bloop
 
 /**
  * Signals the Zinc internals whether Java compilation should be attempted or not.

@@ -9,7 +9,7 @@ import java.net.URI
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
 import bloop.reporter.Reporter
-import sbt.internal.inc.bloop.{BloopZincCompiler, CompileMode}
+import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, Locate}
 import _root_.monix.eval.Task
 import bloop.util.CacheHashCode

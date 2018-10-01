@@ -7,9 +7,8 @@ import bloop.engine.tasks.compilation._
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter._
-import bloop.{CompileInputs, Compiler, ScalaInstance}
+import bloop.{CompileInputs, CompileMode, Compiler, ScalaInstance}
 import monix.eval.Task
-import sbt.internal.inc.bloop.CompileMode
 import sbt.util.InterfaceUtil
 
 object CompilationTask {
@@ -55,7 +54,6 @@ object CompilationTask {
             if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
             else {
 
-              val transitiveJavaSources = graphInputs.transitiveJavaSources.map(_.toFile)
               val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
               val mode = userCompileMode match {
                 case CompileMode.Sequential =>
@@ -63,7 +61,8 @@ object CompilationTask {
                     graphInputs.pickleReady,
                     graphInputs.completeJava,
                     graphInputs.transitiveJavaSignal,
-                    transitiveJavaSources
+                    graphInputs.oracle,
+                    graphInputs.separateJavaAndScala
                   )
                 case CompileMode.Parallel(batches) =>
                   CompileMode.ParallelAndPipelined(
@@ -71,7 +70,8 @@ object CompilationTask {
                     graphInputs.pickleReady,
                     graphInputs.completeJava,
                     graphInputs.transitiveJavaSignal,
-                    transitiveJavaSources
+                    graphInputs.oracle,
+                    graphInputs.separateJavaAndScala
                   )
               }
               (scalacOptions, mode)

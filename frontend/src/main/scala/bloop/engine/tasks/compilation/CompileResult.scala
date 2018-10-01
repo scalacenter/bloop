@@ -2,13 +2,13 @@ package bloop.engine.tasks.compilation
 
 import java.net.URI
 import java.util.Optional
+import java.util.concurrent.CompletableFuture
 
 import bloop.data.Project
-import bloop.Compiler
+import bloop.{Compiler, JavaSignal}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 import monix.eval.Task
-import sbt.internal.inc.bloop.JavaSignal
 
 import scala.util.Try
 
@@ -29,14 +29,15 @@ object PartialCompileResult {
   def apply(
       bundle: CompileBundle,
       pickleURI: Try[Optional[URI]],
-      completeJava: Task[JavaSignal],
+      completeJava: CompletableFuture[Unit],
+      javaTrigger: Task[JavaSignal],
       result: Task[Compiler.Result]
   ): PartialCompileResult = {
     pickleURI match {
       case scala.util.Success(opt) =>
-        PartialSuccess(bundle, opt, completeJava, result)
+        PartialSuccess(bundle, opt, completeJava, javaTrigger, result)
       case scala.util.Failure(CompileExceptions.CompletePromise) =>
-        PartialSuccess(bundle, Optional.empty(), completeJava, result)
+        PartialSuccess(bundle, Optional.empty(), completeJava, javaTrigger, result)
       case scala.util.Failure(t) =>
         PartialFailure(bundle, t, result)
     }
@@ -53,7 +54,8 @@ case class PartialFailure(
 case class PartialSuccess(
     bundle: CompileBundle,
     pickleURI: Optional[URI],
-    completeJava: Task[JavaSignal],
+    completeJava: CompletableFuture[Unit],
+    javaTrigger: Task[JavaSignal],
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
     with CacheHashCode

@@ -1,3 +1,4 @@
+// scalafmt: { maxColumn = 120 }
 package bloop.engine.tasks.compilation
 
 import java.net.URI
@@ -9,10 +10,8 @@ import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
 import bloop.logging.Logger
-import bloop.Compiler
-import bloop.io.AbsolutePath
+import bloop.{Compiler, CompilerOracle, JavaSignal}
 import monix.eval.Task
-import sbt.internal.inc.bloop.JavaSignal
 import sbt.util.InterfaceUtil
 
 import scala.util.{Failure, Success}
@@ -26,7 +25,8 @@ object CompileGraph {
       pickleReady: CompletableFuture[Optional[URI]],
       completeJava: CompletableFuture[Unit],
       transitiveJavaSignal: Task[JavaSignal],
-      transitiveJavaSources: List[AbsolutePath]
+      oracle: CompilerOracle,
+      separateJavaAndScala: Boolean
   )
 
   /**
@@ -100,9 +100,9 @@ object CompileGraph {
             case Leaf(project) =>
               val bundle = setup(project)
               val cf = new CompletableFuture[Optional[URI]]()
-              compile(Inputs(bundle, Nil, cf, JavaCompleted, JavaContinue, Nil)).map {
+              compile(Inputs(bundle, Nil, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false)).map {
                 case Compiler.Result.Ok(res) =>
-                  Leaf(PartialSuccess(bundle, Optional.empty(), JavaContinue, Task.now(res)))
+                  Leaf(PartialSuccess(bundle, Optional.empty(), JavaCompleted, JavaContinue, Task.now(res)))
                 case res => Leaf(toPartialFailure(bundle, res))
               }
 
@@ -113,10 +113,10 @@ object CompileGraph {
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
                   val cf = new CompletableFuture[Optional[URI]]()
-                  compile(Inputs(bundle, Nil, cf, JavaCompleted, JavaContinue, Nil)).map {
+                  compile(Inputs(bundle, Nil, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false)).map {
                     case Compiler.Result.Ok(res) =>
                       val noUri = Optional.empty[URI]()
-                      val partial = PartialSuccess(bundle, noUri, JavaContinue, Task.now(res))
+                      val partial = PartialSuccess(bundle, noUri, JavaCompleted, JavaContinue, Task.now(res))
                       Parent(partial, dagResults)
                     case res => Parent(toPartialFailure(bundle, res), dagResults)
                   }
@@ -163,7 +163,7 @@ object CompileGraph {
               Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                 val bundle = setup(project)
                 val jcf = new CompletableFuture[Unit]()
-                val t = compile(Inputs(bundle, Nil, cf, jcf, JavaContinue, Nil))
+                val t = compile(Inputs(bundle, Nil, cf, jcf, JavaContinue, CompilerOracle.empty, true))
                 val running =
                   Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                 val completeJavaTask = Task
@@ -178,7 +178,7 @@ object CompileGraph {
                 Task
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
-                  .map(u => Leaf(PartialCompileResult(bundle, u, completeJavaTask, running)))
+                  .map(u => Leaf(PartialCompileResult(bundle, u, jcf, completeJavaTask, running)))
               }
 
             case Parent(project, dependencies) =>
@@ -194,13 +194,14 @@ object CompileGraph {
 
                   // Signals whether java compilation can proceed or not
                   val javaSignal: Task[JavaSignal] =
-                    aggregateJavaSignals(results.map(_.completeJava))
+                    aggregateJavaSignals(results.map(_.javaTrigger))
 
                   val transitiveJava = results.flatMap(_.bundle.javaSources)
+                  val oracle = CompilerOracle(results.map(r => (r.completeJava, r.bundle.javaSources)))
                   Task.now(new CompletableFuture[Optional[URI]]()).flatMap { cf =>
                     val jcf = new CompletableFuture[Unit]()
                     val picklepath = results.flatMap(res => InterfaceUtil.toOption(res.pickleURI))
-                    val t = compile(Inputs(bundle, picklepath, cf, jcf, javaSignal, transitiveJava))
+                    val t = compile(Inputs(bundle, picklepath, cf, jcf, javaSignal, oracle, true))
                     val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                     val ongoing = Task.fromFuture(running)
                     val completeJavaTask = {
@@ -218,7 +219,7 @@ object CompileGraph {
                       .deferFutureAction(c => cf.asScala(c))
                       .materialize
                       .map { uri =>
-                        val res = PartialCompileResult(bundle, uri, completeJavaTask, ongoing)
+                        val res = PartialCompileResult(bundle, uri, jcf, completeJavaTask, ongoing)
                         Parent(res, dagResults)
                       }
                   }

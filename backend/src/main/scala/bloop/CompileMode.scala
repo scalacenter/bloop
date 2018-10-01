@@ -1,11 +1,10 @@
-package sbt.internal.inc.bloop
+package bloop
 
-import java.io.File
+import _root_.monix.eval.Task
+
 import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
-
-import monix.eval.Task
 
 /**
  * Defines the mode in which compilation should run.
@@ -28,7 +27,8 @@ object CompileMode {
       pickleURI: CompletableFuture[Optional[URI]],
       completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal],
-      transitiveJavaSources: List[File],
+      oracle: CompilerOracle,
+      separateJavaAndScala: Boolean
   ) extends CompileMode
 
   final case class ParallelAndPipelined(
@@ -36,6 +36,7 @@ object CompileMode {
       pickleURI: CompletableFuture[Optional[URI]],
       completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal],
-      transitiveJavaSources: List[File],
+      oracle: CompilerOracle,
+      separateJavaAndScala: Boolean
   ) extends CompileMode
 }
