@@ -230,10 +230,13 @@ final class BloopHighLevelCompiler(
           }
         }
 
-        if (setup.order == CompileOrder.JavaThenScala) {
-          Task.gatherUnordered(List(compileJavaSynchronized, compileScala)).map(_ => ())
-        } else {
-          compileScala.flatMap(_ => compileJavaSynchronized)
+        if (javaSources.isEmpty) compileScala
+        else {
+          if (setup.order == CompileOrder.JavaThenScala) {
+            Task.gatherUnordered(List(compileJavaSynchronized, compileScala)).map(_ => ())
+          } else {
+            compileScala.flatMap(_ => compileJavaSynchronized)
+          }
         }
 /*      } else {
         fireJavaCompilation.flatMap {
