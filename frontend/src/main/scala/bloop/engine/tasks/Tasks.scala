@@ -133,19 +133,23 @@ object Tasks {
     def considerFrameworkArgs(frameworks: List[Framework]): List[Config.TestArgument] = {
       if (frameworkSpecificRawArgs.isEmpty) Nil
       else {
+        val cls = frameworks.map(f => f.getClass.getName)
         frameworks match {
           case Nil => Nil
-          case List(oneFramework) =>
+          case oneFramework :: Nil =>
             val rawArgs = frameworkSpecificRawArgs
-            val cls = oneFramework.getClass.getName()
             logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
-            List(Config.TestArgument(rawArgs, Some(Config.TestFramework(List(cls)))))
+            List(Config.TestArgument(rawArgs, Some(Config.TestFramework(cls))))
           case frameworks =>
             val frameworkNames = foundFrameworks(frameworks)
-            val ignoredArgs = frameworkSpecificRawArgs.mkString(" ")
-            logger.warn(
-              s"Ignored CLI test options '${ignoredArgs}' can only be applied to one framework, found: $frameworkNames")
-            Nil
+            val (sysProperties, ignoredArgs) = frameworkSpecificRawArgs.partition(s => s.startsWith("-D"))
+
+            if(sysProperties.isEmpty){
+              logger.warn(
+                s"Ignored CLI test options '${ignoredArgs}' can only be applied to one framework, found: $frameworkNames")
+              Nil
+            } else
+              List(Config.TestArgument(sysProperties, Some(Config.TestFramework(cls))))
         }
       }
     }
