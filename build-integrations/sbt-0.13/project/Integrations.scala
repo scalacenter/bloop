@@ -3,7 +3,7 @@ import sbt.{RootProject, uri}
 object Integrations {
 
   val ApacheSpark = RootProject(
-    uri("git://github.com/scalacenter/spark.git#4e037d614250b855915c28ac1e84471075293124"))
+    uri("git://github.com/scalacenter/spark.git#e626d416451534d9a817cc6a8efa4b898efc97ea"))
   val LihaoyiUtest = RootProject(
     uri("git://github.com/lihaoyi/utest.git#b5440d588d5b32c85f6e9392c63edd3d3fed3106"))
   val ScalaScala = RootProject(

@@ -6,9 +6,9 @@ import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
+import bloop.{CompileMode, CompilerOracle, JavaSignal}
 import monix.eval.Task
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
-import sbt.internal.inc.bloop.{BloopZincCompiler, CompileMode, JavaSignal}
 import sbt.internal.inc.javac.AnalyzingJavaCompiler
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler, ScalaInstance, Stamper, Stamps}
 import sbt.util.{InterfaceUtil, Logger}
@@ -87,20 +87,34 @@ final class BloopHighLevelCompiler(
     logInputs(logger, javaSources.size, scalaSources.size, outputDirs)
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (pipeline: Boolean, batches: Option[Int], completeJava: CompletableFuture[Unit], fireJavaCompilation: Task[JavaSignal]) = {
+    val (pipeline: Boolean, batches: Option[Int], completeJava: CompletableFuture[Unit], fireJavaCompilation: Task[JavaSignal], transitiveJavaSources: List[File], separateJavaAndScala: Boolean) = {
       compileMode match {
-        case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation))
-        case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation))
-        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation) => (true, None, completeJava, fireJavaCompilation)
-        case CompileMode.ParallelAndPipelined(batches, _, completeJava, fireJavaCompilation) => (true, Some(batches), completeJava, fireJavaCompilation)
+        case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
+        case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
+        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
+          (true, None, completeJava, fireJavaCompilation, oracle.getTransitiveJavaSourcesOfOngoingCompilations, separateJavaAndScala)
+        case CompileMode.ParallelAndPipelined(batches, _, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
+          (true, Some(batches), completeJava, fireJavaCompilation, oracle.getTransitiveJavaSourcesOfOngoingCompilations, separateJavaAndScala)
       }
     }
+
+    // Complete empty java promise if there are no java sources
+    if (javaSources.isEmpty && !completeJava.isDone)
+      completeJava.complete(())
 
     val compileScala: Task[Unit] = {
       if (scalaSources.isEmpty) Task.now(())
       else {
         val isDotty = ScalaInstance.isDotty(scalac.scalaInstance.actualVersion())
-        val sources = if (setup.order == CompileOrder.Mixed) includedSources else scalaSources
+        val sources = {
+          if (separateJavaAndScala) {
+            // No matter if it's scala->java or mixed, we populate java symbols from sources
+            includedSources ++ transitiveJavaSources.filterNot(_.getName == "routes.java")
+          } else {
+            if (setup.order == CompileOrder.Mixed) includedSources
+            else scalaSources
+          }
+        }
         val cargs = new CompilerArguments(scalac.scalaInstance, config.classpathOptions)
         def compileSources(
             sources: Seq[File],
@@ -184,53 +198,63 @@ final class BloopHighLevelCompiler(
       }
     }
 
-    // Note that we only start Java compilation when the task `startJavaCompilation` signals it
     val compileJava: Task[Unit] = Task {
-      if (javaSources.isEmpty) {
-        if (!completeJava.isDone)
-          completeJava.complete(())
-        ()
-      } else {
-        timed("Java compilation + analysis", logger) {
-          val incToolOptions = IncToolOptions.of(
-            Optional.of(classfileManager),
-            config.incOptions.useCustomizedFileManager()
-          )
-          val javaOptions = setup.options.javacOptions.toArray[String]
-          try {
-            javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
-            if (!completeJava.isDone)
-              completeJava.complete(())
-            ()
-          } catch {
-            case f: CompileFailed =>
-              // Intercept and report manually because https://github.com/sbt/zinc/issues/520
-              config.reporter.printSummary()
-              completeJava.completeExceptionally(f)
-              throw f
-          }
+      timed("Java compilation + analysis", logger) {
+        val incToolOptions = IncToolOptions.of(
+          Optional.of(classfileManager),
+          config.incOptions.useCustomizedFileManager()
+        )
+        val javaOptions = setup.options.javacOptions.toArray[String]
+        try {
+          javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
+          if (!completeJava.isDone)
+            completeJava.complete(())
+          ()
+        } catch {
+          case f: CompileFailed =>
+            // Intercept and report manually because https://github.com/sbt/zinc/issues/520
+            config.reporter.printSummary()
+            completeJava.completeExceptionally(f)
+            throw f
         }
       }
     }
 
-    val compilationTask = {
-      // Complete the java exception if there are no java sources
-      if (javaSources.isEmpty)
-        completeJava.complete(())
-      fireJavaCompilation.flatMap {
-        case JavaSignal.ContinueCompilation =>
-          if (setup.order == CompileOrder.JavaThenScala) {
-            compileJava.flatMap(_ => compileScala)
-          } else {
-            compileScala.flatMap(_ => compileJava)
+    val combinedTasks = {
+      if (separateJavaAndScala) {
+        val compileJavaSynchronized = {
+          fireJavaCompilation.flatMap {
+            case JavaSignal.ContinueCompilation => compileJava
+            case JavaSignal.FailFastCompilation(failedProjects) =>
+              throw new StopPipelining(failedProjects)
           }
+        }
 
-        case JavaSignal.FailFastCompilation(failedProjects) =>
-          throw new StopPipelining(failedProjects)
+        if (javaSources.isEmpty) compileScala
+        else {
+          if (setup.order == CompileOrder.JavaThenScala) {
+            Task.gatherUnordered(List(compileJavaSynchronized, compileScala)).map(_ => ())
+          } else {
+            compileScala.flatMap(_ => compileJavaSynchronized)
+          }
+        }
+      } else {
+        // Note that separate java and scala is not enabled under pipelining
+        fireJavaCompilation.flatMap {
+          case JavaSignal.ContinueCompilation =>
+            if (setup.order == CompileOrder.JavaThenScala) {
+              Task.gatherUnordered(List(compileScala, compileJava)).map(_ => ())
+            } else {
+              compileScala.flatMap(_ => compileJava)
+            }
+
+          case JavaSignal.FailFastCompilation(failedProjects) =>
+            throw new StopPipelining(failedProjects)
+        }
       }
     }
 
-    compilationTask.map { _ =>
+    combinedTasks.map { _ =>
       // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
       if (javaSources.size + scalaSources.size > 0)
         logger.info("Done compiling.")

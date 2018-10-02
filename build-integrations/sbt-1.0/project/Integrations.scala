@@ -15,7 +15,7 @@ object Integrations {
   val WithTests = RootProject(
     uri("git://github.com/scalacenter/with-tests.git#3be26f4f21427c5bc0b83deb96d6e66973102eb2"))
   val AkkaAkka = RootProject(
-    uri("git://github.com/scalacenter/akka.git#ad1c3fcad5f5521792f3772a195b0b9167f570fd"))
+    uri("git://github.com/scalacenter/akka.git#d02446828a98b0b8da087545e4b5c270f7ef90cc"))
   val CrossPlatform = RootProject(
     uri("git://github.com/scalacenter/cross-platform.git#6a29444158ec6b3de5384f0d49a3d9cded32b818"))
   val Finagle = RootProject(

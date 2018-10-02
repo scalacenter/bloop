@@ -266,7 +266,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "3.1-reload",
+    BuildKeys.schemaVersion := "3.2",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
@@ -536,7 +536,7 @@ object BuildImplementation {
 
         if (!isWindows) {
           // Twitter projects are not added to the community build under Windows
-          val cmd = "/bin/bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+          val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
           val dodoSetUp = Process(cmd, buildIntegrationsBase).!
           if (dodoSetUp != 0)
             throw new MessageOnlyException(

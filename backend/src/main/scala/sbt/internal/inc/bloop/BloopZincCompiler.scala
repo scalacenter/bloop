@@ -6,6 +6,7 @@ import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
+import bloop.CompileMode
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger, Reporter}

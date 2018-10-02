@@ -238,7 +238,7 @@ object TestUtil {
     state.results.lastSuccessfulResult(project).isDefined
 
   private[bloop] def syntheticOriginFor(path: AbsolutePath): Origin =
-    Origin(path, FileTime.fromMillis(0), 1)
+    Origin(path, FileTime.fromMillis(0), scala.util.Random.nextInt())
 
   def makeProject(
       baseDir: Path,

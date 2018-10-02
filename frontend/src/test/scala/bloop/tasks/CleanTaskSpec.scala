@@ -45,7 +45,7 @@ class CleanTaskSpec {
   ): Unit = {
     TestUtil.withTemporaryDirectory { temp =>
       val buildPath = AbsolutePath(temp)
-      val logger = BloopLogger.default("test-logger")
+      val logger = new bloop.logging.RecordingLogger
       val projects = projectsWithDeps.map {
         case (project, deps) => dummyProject(buildPath, project, deps)
       }

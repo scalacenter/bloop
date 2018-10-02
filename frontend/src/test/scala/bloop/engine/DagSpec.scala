@@ -19,7 +19,7 @@ class DagSpec {
   private val dummyPath = bloop.io.AbsolutePath.completelyUnsafe("")
 
   // format: OFF
-  private val dummyOrigin = TestUtil.syntheticOriginFor(dummyPath)
+  def dummyOrigin = TestUtil.syntheticOriginFor(dummyPath)
   def dummyProject(name: String, dependencies: List[String]): Project =
     Project(name, dummyPath, dependencies, Some(dummyInstance), Nil, compileOptions, dummyPath, Nil,
       Nil, Nil, Nil, Config.TestOptions.empty, JavaEnv.default, dummyPath, dummyPath,

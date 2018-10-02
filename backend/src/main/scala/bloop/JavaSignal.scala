@@ -1,4 +1,4 @@
-package sbt.internal.inc.bloop
+package bloop
 
 /**
  * Signals the Zinc internals whether Java compilation should be attempted or not.
@@ -20,4 +20,7 @@ sealed trait JavaSignal
 object JavaSignal {
   case object ContinueCompilation extends JavaSignal
   final case class FailFastCompilation(failedProjects: List[String]) extends JavaSignal
+  object FailFastCompilation {
+    def apply(failedProject: String): FailFastCompilation = FailFastCompilation(List(failedProject))
+  }
 }

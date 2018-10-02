@@ -9,7 +9,7 @@ import java.net.URI
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
 import bloop.reporter.Reporter
-import sbt.internal.inc.bloop.{BloopZincCompiler, CompileMode}
+import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, Locate}
 import _root_.monix.eval.Task
 import bloop.util.CacheHashCode
@@ -119,10 +119,8 @@ object Compiler {
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
       // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
       compileInputs.mode match {
-        case CompileMode.Pipelined(pickleUri, _, _) =>
-          setup.withPicklePromise(pickleUri)
-        case CompileMode.ParallelAndPipelined(_, pickleUri, _, _) =>
-          setup.withPicklePromise(pickleUri)
+        case p: CompileMode.Pipelined => setup.withPicklePromise(p.pickleURI)
+        case pp: CompileMode.ParallelAndPipelined => setup.withPicklePromise(pp.pickleURI)
         case _ => setup
       }
     }
