@@ -6,17 +6,14 @@ import java.nio.file.attribute.FileTime
 
 import scala.util.Try
 import bloop.exec.JavaEnv
-import bloop.io.{AbsolutePath, Paths}
+import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import xsbti.compile.{ClasspathOptions, CompileOrder}
-import _root_.monix.eval.Task
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.config.Config.Platform
-import bloop.engine.ExecutionContext
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.util.ByteHasher
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(

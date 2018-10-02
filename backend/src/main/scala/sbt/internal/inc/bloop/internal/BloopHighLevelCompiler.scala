@@ -221,23 +221,25 @@ final class BloopHighLevelCompiler(
     }
 
     val combinedTasks = {
-      val compileJavaSynchronized = {
-        fireJavaCompilation.flatMap {
-          case JavaSignal.ContinueCompilation => compileJava
-          case JavaSignal.FailFastCompilation(failedProjects) =>
-            throw new StopPipelining(failedProjects)
+      if (separateJavaAndScala) {
+        val compileJavaSynchronized = {
+          fireJavaCompilation.flatMap {
+            case JavaSignal.ContinueCompilation => compileJava
+            case JavaSignal.FailFastCompilation(failedProjects) =>
+              throw new StopPipelining(failedProjects)
+          }
         }
-      }
 
-      if (javaSources.isEmpty) compileScala
-      else {
-        if (setup.order == CompileOrder.JavaThenScala) {
-          Task.gatherUnordered(List(compileJavaSynchronized, compileScala)).map(_ => ())
-        } else {
-          compileScala.flatMap(_ => compileJavaSynchronized)
+        if (javaSources.isEmpty) compileScala
+        else {
+          if (setup.order == CompileOrder.JavaThenScala) {
+            Task.gatherUnordered(List(compileJavaSynchronized, compileScala)).map(_ => ())
+          } else {
+            compileScala.flatMap(_ => compileJavaSynchronized)
+          }
         }
-      }
-      /*      } else {
+      } else {
+        // Note that separate java and scala is not enabled under pipelining
         fireJavaCompilation.flatMap {
           case JavaSignal.ContinueCompilation =>
             if (setup.order == CompileOrder.JavaThenScala) {
@@ -249,7 +251,7 @@ final class BloopHighLevelCompiler(
           case JavaSignal.FailFastCompilation(failedProjects) =>
             throw new StopPipelining(failedProjects)
         }
-      }*/
+      }
     }
 
     combinedTasks.map { _ =>
