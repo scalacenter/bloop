@@ -536,7 +536,7 @@ object BuildImplementation {
 
         if (!isWindows) {
           // Twitter projects are not added to the community build under Windows
-          val cmd = "/bin/bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+          val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
           val dodoSetUp = Process(cmd, buildIntegrationsBase).!
           if (dodoSetUp != 0)
             throw new MessageOnlyException(
