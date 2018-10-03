@@ -79,11 +79,17 @@ main() {
     SBT_BLOOP_BENCHMARKS=(
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
       "$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=frontend -p projectName=root"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka"
+      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=frontend -p projectName=root-test"
+      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=finagle -p projectName=finagle-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=scalding -p projectName=scalding-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=algebird -p projectName=algebird-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=scalatra -p projectName=scalatra-project-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=atlas -p projectName=root-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=grid -p projectName=grid-test"
+      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka-test"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
+      #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
     )
 
@@ -97,9 +103,7 @@ main() {
     pidFile=$(mktemp /tmp/pid.XXXXXX)
     ASYNC_PROF_OPTS="-p pidFile=$pidFile -prof pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;threads=true;framebuf=16777216;jfr=true;pidFile=$pidFile;"
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark")
-      SBT_COMMANDS+=("$JMH_CMD .*HotPipelinedBloopBenchmark.* $benchmark")
-      #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
+      SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop|PipelinedBloop)Benchmark.* $benchmark")
 
       #for java_home in "${JAVA_HOMES[@]}"; do
       #  SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home")
