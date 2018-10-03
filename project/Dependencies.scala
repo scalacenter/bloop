@@ -1,6 +1,10 @@
 package build
 
 object Dependencies {
+  val Scala210Version = "2.10.7"
+  val Scala211Version = "2.11.12"
+  val Scala212Version = "2.12.7"
+
   val nailgunVersion = "0c8b937b"
   val zincVersion = "1.2.1+92-2425db16"
   val bspVersion = "1.0.0-M4"

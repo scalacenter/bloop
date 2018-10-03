@@ -23,6 +23,7 @@ val benchmarkBridge = project
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 import build.Dependencies
+import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version}
 
 val backend = project
   .enablePlugins(BuildInfoPlugin)

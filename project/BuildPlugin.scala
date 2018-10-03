@@ -38,10 +38,6 @@ object BuildPlugin extends AutoPlugin {
 object BuildKeys {
   import sbt.{Reference, RootProject, ProjectRef, BuildRef, file, uri}
 
-  final val Scala210Version = "2.10.7"
-  final val Scala211Version = "2.11.12"
-  final val Scala212Version = "2.12.6"
-
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -285,7 +281,7 @@ object BuildImplementation {
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := BuildKeys.Scala212Version,
+    Keys.scalaVersion := Dependencies.Scala212Version,
     Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
