@@ -2,7 +2,6 @@ package bloop.io
 
 import java.nio.file.{Files, Path}
 
-import bloop.data.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.{Logger, Slf4jAdapter}
@@ -16,7 +15,7 @@ import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 
 final class SourceWatcher private (
-    project: Project,
+    projectNames: List[String],
     dirs: Seq[Path],
     files: Seq[Path],
     logger: Logger
@@ -82,7 +81,7 @@ final class SourceWatcher private (
       watcherHandle.complete(null)
       observer.onComplete()
       ngout.println(
-        s"File watching on '${project.name}' and dependent projects has been successfully cancelled")
+        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled")
     }
 
     val fileEventConsumer = {
@@ -111,10 +110,10 @@ final class SourceWatcher private (
 }
 
 object SourceWatcher {
-  def apply(project: Project, paths0: Seq[Path], logger: Logger): SourceWatcher = {
+  def apply(projectNames: List[String], paths0: Seq[Path], logger: Logger): SourceWatcher = {
     val existingPaths = paths0.distinct.filter(p => Files.exists(p))
     val dirs = existingPaths.filter(p => Files.isDirectory(p))
     val files = existingPaths.filter(p => Files.isRegularFile(p))
-    new SourceWatcher(project, dirs, files, logger)
+    new SourceWatcher(projectNames, dirs, files, logger)
   }
 }

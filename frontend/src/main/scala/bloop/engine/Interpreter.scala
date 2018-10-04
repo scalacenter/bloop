@@ -94,15 +94,18 @@ object Interpreter {
     state.mergeStatus(ExitStatus.Ok)
   }
 
+  private def getProjectsDag(projects: List[Project], state: State): Dag[Project] =
+    Aggregate[Project](projects.map(p => state.build.getDagFor(p)))
+
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
     val scheduler = ExecutionContext.bspScheduler
     BspServer.run(cmd, state, RelativePath(".bloop"), scheduler)
   }
 
-  private[bloop] def watch(project: Project, state: State)(f: State => Task[State]): Task[State] = {
-    val reachable = Dag.dfs(state.build.getDagFor(project))
+  private[bloop] def watch(projects: List[Project], state: State)(f: State => Task[State]): Task[State] = {
+    val reachable = Dag.dfs(getProjectsDag(projects, state))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
-    val watcher = SourceWatcher(project, allSources.toList, state.logger)
+    val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
     val fg = (state: State) =>
       f(state).map { state =>
         watcher.notifyWatch()
@@ -138,7 +141,7 @@ object Interpreter {
       /*      if (cmd.pipelined)
         Pipelined.compile(state, project, config, deduplicateFailures, compilerMode, excludeRoot)
       else Tasks.compile(state, project, config, deduplicateFailures, compilerMode, excludeRoot)*/
-      val dag = Aggregate[Project](projects.map(p => state.build.getDagFor(p)))
+      val dag = getProjectsDag(projects, state)
       CompilationTask.compile(
         state,
         dag,
@@ -224,7 +227,7 @@ object Interpreter {
         if (cmd.watch) watch(project, state)(doTest _) else doTest(state)
 
       case None =>
-        reportMissing(cmd.project :: Nil, state)
+        reportMissing(cmd.project, state)
     }
   }
 
