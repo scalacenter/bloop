@@ -2,21 +2,15 @@ package bloop.scalajs
 
 import java.nio.file.Path
 
-import org.scalajs.io.{
-  AtomicWritableFileVirtualJSFile,
-  FileVirtualJSFile,
-  MemVirtualJSFile,
-  VirtualJSFile
-}
+import org.scalajs.io.{AtomicWritableFileVirtualBinaryFile, MemVirtualBinaryFile}
 import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
 import bloop.data.Project
 import bloop.io.Paths
 import bloop.logging.{Logger => BloopLogger}
+import org.scalajs.jsenv.Input
 import org.scalajs.linker.irio.{FileScalaJSIRContainer, FileVirtualScalaJSIRFile, IRFileCache}
-import org.scalajs.linker.{ModuleInitializer, ModuleKind, Semantics, StandardLinker}
+import org.scalajs.linker.{LinkerOutput, ModuleInitializer, ModuleKind, Semantics, StandardLinker}
 import org.scalajs.logging.{Level, Logger => JsLogger}
-import org.scalajs.jsenv.nodejs.NodeJSEnv
-import org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv
 import org.scalajs.testadapter.TestAdapter
 
 object JsBridge {
@@ -58,7 +52,7 @@ object JsBridge {
     val sourceIRs = {
       val classpathDirs = project.classpath.filter(_.isDirectory)
       val sjsirFiles = classpathDirs.flatMap(d => Paths.pathFilesUnder(d, "glob:**.sjsir")).distinct
-      sjsirFiles.map(s => FileVirtualScalaJSIRFile(s.underlying.toFile))
+      sjsirFiles.map(s => new FileVirtualScalaJSIRFile(s.underlying.toFile, s.toString))
     }
 
     val libraryIRs = {
@@ -81,43 +75,35 @@ object JsBridge {
     StandardLinker(jsConfig).link(
       irFiles = sourceIRs ++ libraryIRs,
       moduleInitializers = initializers,
-      output = AtomicWritableFileVirtualJSFile(target.toFile),
+      output = LinkerOutput(new AtomicWritableFileVirtualBinaryFile(target.toFile)),
       logger = new Logger(logger)
     )
   }
 
-  private class CustomDomNodeEnv(config: JSDOMNodeJSEnv.Config, initFiles: Seq[MemVirtualJSFile])
-      extends JSDOMNodeJSEnv(config) {
-    protected override def customInitFiles(): Seq[VirtualJSFile] = initFiles
-  }
-
-  private class CustomNodeEnv(config: NodeJSEnv.Config, initFiles: Seq[MemVirtualJSFile])
-      extends NodeJSEnv(config) {
-    protected override def customInitFiles(): Seq[VirtualJSFile] = initFiles
-  }
-
   /** @return (list of frameworks, function to close test adapter) */
-  def testFrameworks(frameworkNames: List[List[String]],
-                     jsPath: Path,
-                     projectPath: Path,
-                     logger: BloopLogger,
-                     jsdom: java.lang.Boolean): (List[sbt.testing.Framework], () => Unit) = {
-    // TODO It would be cleaner if the CWD of the Node process could be set
-    val quotedPath = projectPath.toString.replaceAll("'", "\\'")
-    val customScripts = Seq(
-      new MemVirtualJSFile("changePath.js")
-        .withContent(s"require('process').chdir('$quotedPath');"))
-
-    val nodeModules = projectPath.resolve("node_modules").toString
-    logger.debug("Node.js module path: " + nodeModules)
-    val env = Map("NODE_PATH" -> nodeModules)
-
-    val nodeEnv =
-      if (!jsdom) new CustomNodeEnv(NodeJSEnv.Config().withEnv(env), customScripts)
-      else new CustomDomNodeEnv(JSDOMNodeJSEnv.Config().withEnv(env), customScripts)
+  def testFrameworks(
+      frameworkNames: List[List[String]],
+      jsPath: Path,
+      projectPath: Path,
+      logger: BloopLogger,
+      jsdom: java.lang.Boolean): (List[sbt.testing.Framework], () => Unit) = {
+    // TODO Add JSDOM support
+    val nodeEnv = new NodeJSEnv(logger, NodeJSEnv.Config().withCwd(Some(projectPath)))
 
     val config = TestAdapter.Config().withLogger(new Logger(logger))
-    val adapter = new TestAdapter(nodeEnv, Seq(new FileVirtualJSFile(jsPath.toFile)), config)
+    val adapter = new TestAdapter(
+      nodeEnv,
+      Input.ScriptsToLoad(
+        List(
+          // TODO For testing purposes
+          MemVirtualBinaryFile.fromStringUTF8("before-tests.js", "console.log('before tests');"),
+          MemVirtualBinaryFile
+            .fromStringUTF8(jsPath.toString, scala.io.Source.fromFile(jsPath.toFile).mkString),
+          MemVirtualBinaryFile.fromStringUTF8("after-tests.js", "console.log('after tests');")
+        )),
+      config
+    )
+
     val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
 
     (result, () => adapter.close())

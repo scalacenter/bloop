@@ -31,7 +31,7 @@ object Dependencies {
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
   val scalaJs06Version = "0.6.25"
-  val scalaJs10Version = "1.0.0-M3"
+  val scalaJs10Version = "1.0.0-M5"
   val millVersion = "0.2.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
