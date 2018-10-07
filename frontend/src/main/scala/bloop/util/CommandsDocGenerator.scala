@@ -33,7 +33,7 @@ object CommandsDocGenerator {
           b ++= Messages.NL
           if (examples.nonEmpty) {
             b ++= Messages.NL
-            b ++= s"### Examples ${Messages.NL}"
+            b ++= s"### Examples${Messages.NL}"
             b ++= Messages.NL
             b ++= examples.mkString(Messages.NL)
           }
@@ -68,13 +68,16 @@ object CommandsDocGenerator {
   }
 
   private val ExampleProjectName: String = "foobar"
+  private val ExampleProjectName2: String = "baz"
   private val ExampleMainClass: String = "com.acme.Main"
   private final val CommandExamples = {
     val tmp = java.nio.file.Files.createTempDirectory("tmp")
     List(
       "bloop projects",
       "bloop projects --dot-graph",
+      "bloop clean",
       s"bloop clean $ExampleProjectName",
+      s"bloop clean $ExampleProjectName $ExampleProjectName2",
       s"bloop clean $ExampleProjectName --propagate",
       s"bloop bsp --protocol local --socket ${tmp.resolve("socket").toString} --pipe-name windows-name-pipe",
       "bloop bsp --protocol tcp --host 127.0.0.1 --port 5101",

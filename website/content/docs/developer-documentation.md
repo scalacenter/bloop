@@ -28,6 +28,17 @@ We recommend that whenever you make changes to the docs you add `[DOCS]` to the
 commit message to tell the CI server to skip tests and speed up the merge
 process.
 
+### Changing command syntax
+
+If you change command syntax, please also update our
+[commands reference]({{< relref "commands-reference.md" >}}) by running:
+
+```sh
+$ bloop run -p frontend -m bloop.util.CommandsDocGenerator
+```
+
+and copying the output to `website/content/docs/commands-reference.md` (keeping old header intact).
+
 ## Opening up our sbt build
 
 Bloop builds with sbt and uses git submodules. To avoid getting cryptic errors like
