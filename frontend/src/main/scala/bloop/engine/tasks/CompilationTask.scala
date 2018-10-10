@@ -4,12 +4,11 @@ import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine._
 import bloop.engine.tasks.compilation._
-import bloop.io.{AbsolutePath, Paths}
+import bloop.io.AbsolutePath
 import bloop.logging.{BspLogger, Logger}
 import bloop.reporter._
-import bloop.{CompileInputs, CompileMode, Compiler, ScalaInstance}
+import bloop.{CompileInputs, CompileMode, Compiler}
 import monix.eval.Task
-import sbt.util.InterfaceUtil
 
 object CompilationTask {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
@@ -43,7 +42,8 @@ object CompilationTask {
       val project = graphInputs.bundle.project
       graphInputs.bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
-          graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
+          val complete = CompileExceptions.CompletePromise(graphInputs.store)
+          graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
           Task.now(earlyResult)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
@@ -58,7 +58,7 @@ object CompilationTask {
               val mode = userCompileMode match {
                 case CompileMode.Sequential =>
                   CompileMode.Pipelined(
-                    graphInputs.pickleReady,
+                    graphInputs.irPromise,
                     graphInputs.completeJava,
                     graphInputs.transitiveJavaSignal,
                     graphInputs.oracle,
@@ -67,7 +67,7 @@ object CompilationTask {
                 case CompileMode.Parallel(batches) =>
                   CompileMode.ParallelAndPipelined(
                     batches,
-                    graphInputs.pickleReady,
+                    graphInputs.irPromise,
                     graphInputs.completeJava,
                     graphInputs.transitiveJavaSignal,
                     graphInputs.oracle,
@@ -83,7 +83,7 @@ object CompilationTask {
             compilerCache,
             sources.toArray,
             project.classpath,
-            graphInputs.picklepath.toArray,
+            graphInputs.store,
             project.classesDir,
             project.out,
             scalacOptions,
@@ -97,7 +97,7 @@ object CompilationTask {
 
           Compiler.compile(backendInputs).map { result =>
             // Do some implementation book-keeping before returning the compilation result
-            if (!graphInputs.pickleReady.isDone) {
+            if (!graphInputs.irPromise.isDone) {
               /*
                * When pipeline compilation is disabled either by the user or the implementation
                * decides not to use it (in the presence of macros from the same build), we force
@@ -105,16 +105,17 @@ object CompilationTask {
                */
               result match {
                 case Compiler.Result.NotOk(_) =>
-                  graphInputs.pickleReady.completeExceptionally(CompileExceptions.FailPromise)
+                  graphInputs.irPromise.completeExceptionally(CompileExceptions.FailPromise)
                 case result =>
                   if (pipeline && !javaOnly)
                     logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-                  graphInputs.pickleReady.completeExceptionally(CompileExceptions.CompletePromise)
+                  val complete = CompileExceptions.CompletePromise(graphInputs.store)
+                  graphInputs.irPromise.completeExceptionally(complete)
               }
             } else {
               // Report if the pickle ready was correctly completed by the compiler
-              InterfaceUtil.toOption(graphInputs.pickleReady.get) match {
-                case None if pipeline =>
+              graphInputs.irPromise.get match {
+                case Array() if pipeline =>
                   logger.warn(s"Project ${project.name} compiled without pipelined compilation.")
                 case _ => logger.debug(s"The pickle promise of ${project.name} completed in Zinc.")
               }

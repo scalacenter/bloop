@@ -1,14 +1,13 @@
 package bloop.engine.tasks.compilation
 
-import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
-import bloop.data.Project
 import bloop.{Compiler, JavaSignal}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 import monix.eval.Task
+import xsbti.compile.{EmptyIRStore, IRStore}
 
 import scala.util.Try
 
@@ -28,16 +27,16 @@ sealed trait PartialCompileResult extends CompileResult[Task[Compiler.Result]] {
 object PartialCompileResult {
   def apply(
       bundle: CompileBundle,
-      pickleURI: Try[Optional[URI]],
+      store: Try[IRStore],
       completeJava: CompletableFuture[Unit],
       javaTrigger: Task[JavaSignal],
       result: Task[Compiler.Result]
   ): PartialCompileResult = {
-    pickleURI match {
-      case scala.util.Success(opt) =>
-        PartialSuccess(bundle, opt, completeJava, javaTrigger, result)
-      case scala.util.Failure(CompileExceptions.CompletePromise) =>
-        PartialSuccess(bundle, Optional.empty(), completeJava, javaTrigger, result)
+    store match {
+      case scala.util.Success(store) =>
+        PartialSuccess(bundle, store, completeJava, javaTrigger, result)
+      case scala.util.Failure(CompileExceptions.CompletePromise(store)) =>
+        PartialSuccess(bundle, store, completeJava, javaTrigger, result)
       case scala.util.Failure(t) =>
         PartialFailure(bundle, t, result)
     }
@@ -53,7 +52,7 @@ case class PartialFailure(
 
 case class PartialSuccess(
     bundle: CompileBundle,
-    pickleURI: Optional[URI],
+    store: IRStore,
     completeJava: CompletableFuture[Unit],
     javaTrigger: Task[JavaSignal],
     result: Task[Compiler.Result]

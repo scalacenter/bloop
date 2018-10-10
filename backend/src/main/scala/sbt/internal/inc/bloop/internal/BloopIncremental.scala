@@ -25,7 +25,7 @@ object BloopIncremental {
       output: Output,
       log: Logger,
       options: IncOptions,
-      picklePromise: CompletableFuture[Optional[URI]]
+      irPromise: CompletableFuture[Array[IR]]
   ): Task[(Boolean, Analysis)] = {
     def getExternalAPI(lookup: Lookup): (File, String) => Option[AnalyzedClass] = { (_: File, binaryClassName: String) =>
       lookup.lookupAnalysis(binaryClassName) flatMap {
@@ -44,7 +44,7 @@ object BloopIncremental {
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
     val internalSourceToClassNamesMap: File => Set[String] = (f: File) => previousRelations.classNames(f)
 
-    val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, picklePromise)
+    val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
     compileIncremental(sources, lookup, previous, current, compile, builder, log, options)
   }
