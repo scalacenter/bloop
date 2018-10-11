@@ -74,7 +74,7 @@ final class ResultsCache private (
     ps.foldLeft(this) { case (rs, (p, r)) => rs.addResult(p, r) }
 
   def addFinalResults(ps: List[FinalCompileResult]): ResultsCache =
-    ps.foldLeft(this) { case (rs, FinalCompileResult(b, r)) => rs.addResult(b.project, r) }
+    ps.foldLeft(this) { case (rs, FinalCompileResult(b, r, _)) => rs.addResult(b.project, r) }
 
   override def toString: String = s"ResultsCache(${successful.mkString(", ")})"
 }

@@ -10,10 +10,12 @@ import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
 import xsbti.compile.Compilers
 
-class CompilerCache(componentProvider: ComponentProvider,
-                    retrieveDir: AbsolutePath,
-                    logger: Logger,
-                    userResolvers: List[Resolver]) {
+final class CompilerCache(
+    componentProvider: ComponentProvider,
+    retrieveDir: AbsolutePath,
+    logger: Logger,
+    userResolvers: List[Resolver]
+) {
 
   private val cache = new ConcurrentHashMap[ScalaInstance, Compilers]()
 
@@ -25,8 +27,10 @@ class CompilerCache(componentProvider: ComponentProvider,
     ZincUtil.compilers(scalaInstance, None, compiler)
   }
 
-  def getScalaCompiler(scalaInstance: ScalaInstance,
-                       componentProvider: ComponentProvider): AnalyzingCompiler = {
+  def getScalaCompiler(
+      scalaInstance: ScalaInstance,
+      componentProvider: ComponentProvider
+  ): AnalyzingCompiler = {
     val bridgeSources = ZincInternals.getModuleForBridgeSources(scalaInstance)
     val bridgeId = ZincInternals.getBridgeComponentId(bridgeSources, scalaInstance)
     componentProvider.component(bridgeId) match {

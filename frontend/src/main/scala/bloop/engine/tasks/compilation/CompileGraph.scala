@@ -8,7 +8,7 @@ import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
 import bloop.logging.Logger
-import bloop.{Compiler, CompilerOracle, JavaSignal}
+import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
 import xsbti.compile.{EmptyIRStore, IR, IRStore}
 
@@ -178,8 +178,7 @@ object CompileGraph {
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
                   .map { irs =>
-                    //println(s"IRS $irs")
-                    val store = irs.map(irs => new bloop.SimpleIRStore(irs))
+                    val store = irs.map(irs => new bloop.SimpleIRStore(Array(irs)))
                     Leaf(PartialCompileResult(bundle, store, jcf, completeJavaTask, running))
                   }
               }
@@ -192,16 +191,12 @@ object CompileGraph {
                 if (failed.isEmpty) {
                   val directResults =
                     Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
+                  val dependentStore =
+                    new SimpleIRStore(directResults.iterator.flatMap(_.store.getDependentsIRs).toArray)
 
                   val results: List[PartialSuccess] = {
                     val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
                     transitive.collect { case s: PartialSuccess => s }
-                  }
-
-                  val dependentStore = {
-                    results.map(_.store).foldLeft(EmptyIRStore.getStore: IRStore) {
-                      case (acc, s) => acc.merge(s)
-                    }
                   }
 
                   // Signals whether java compilation can proceed or not
@@ -230,7 +225,7 @@ object CompileGraph {
                       .deferFutureAction(c => cf.asScala(c))
                       .materialize
                       .map { irs =>
-                        val store = irs.map(irs => dependentStore.merge(new bloop.SimpleIRStore(irs)))
+                        val store = irs.map(irs => dependentStore.merge(new bloop.SimpleIRStore(Array(irs))))
                         val res = PartialCompileResult(bundle, store, jcf, completeJavaTask, ongoing)
                         Parent(res, dagResults)
                       }

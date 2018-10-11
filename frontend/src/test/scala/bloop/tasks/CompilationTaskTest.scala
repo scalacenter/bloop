@@ -29,7 +29,6 @@ class CompilationTaskTest {
     val `Dotty.scala` = "package p0\nobject Foo { val x: String | Int = 1 }"
   }
 
-  @Ignore
   @Test
   def compileAnEmptyProject = {
     val logger = new RecordingLogger
@@ -66,7 +65,6 @@ class CompilationTaskTest {
   )
 
   @Test
-  @Ignore
   def compileScalaAndJava(): Unit = {
     val logger = new RecordingLogger
     val dependencies = Map.empty[String, Set[String]]
@@ -84,8 +82,9 @@ class CompilationTaskTest {
     val errors = TestUtil.errorsFromLogger(logger)
     assert(errors.size == 0)
   }
-  @Test
+
   @Ignore
+  @Test
   def compileAndDetectJavaErrors(): Unit = {
     val logger = new RecordingLogger
     val dependencies = Map.empty[String, Set[String]]
@@ -108,7 +107,6 @@ class CompilationTaskTest {
   }
 
   @Test
-  @Ignore
   def compileAndDetectScalaErrors(): Unit = {
     val logger = new RecordingLogger
     val dependencies = Map.empty[String, Set[String]]
@@ -130,7 +128,6 @@ class CompilationTaskTest {
   }
 
     @Test
-    @Ignore
     def compileAndDetectInvalidScalacFlags(): Unit = {
       val logger = new RecordingLogger
       val dependencies = Map.empty[String, Set[String]]
@@ -160,7 +157,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileWithScala2124(): Unit = {
       val logger = new RecordingLogger
       val scalaInstance =
@@ -169,7 +165,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileWithScala2123(): Unit = {
       val logger = new RecordingLogger
       val scalaInstance =
@@ -178,7 +173,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileWithScala21111(): Unit = {
       val logger = new RecordingLogger
       val scalaInstance =
@@ -187,7 +181,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileTwoProjectsWithADependency(): Unit = {
       val projectsStructure = Map(
         "parent" -> Map("A.scala" -> ArtificialSources.`A.scala`),
@@ -201,7 +194,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileOneProjectWithTwoDependencies(): Unit = {
       val projectsStructure = Map(
         "parent0" -> Map("A.scala" -> ArtificialSources.`A.scala`),
@@ -246,7 +238,6 @@ class CompilationTaskTest {
 
       val dependencies = Map(RootProject -> Set("parent"))
       checkAfterCleanCompilation(projectsStructures, dependencies, quiet = false, useSiteLogger = Some(logger)) { (state: State) =>
-      logger.dump()
         // The unrelated project should not have been compiled
         assertTrue(s"Project `unrelated` was compiled",
                    noPreviousAnalysis(getProject("unrelated", state), state))
@@ -258,7 +249,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def noResultWhenCompilationFails(): Unit = {
       val projectsStructure = Map(RootProject -> Map("Error.scala" -> "iwontcompile"))
       checkAfterCleanCompilation(projectsStructure, Map.empty, failure = true) { (state: State) =>
@@ -269,7 +259,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileJavaProjectDependingOnScala(): Unit = {
       object Sources {
         val `A.scala` = "package foo; object Greeting { def greeting: String = \"Hello, World!\" }"
@@ -314,7 +303,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileDiamondLikeStructure(): Unit = {
       object Sources {
         val `A.scala` = "package p0\nclass A"
@@ -346,7 +334,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileRepeatedSubTreeInProjects(): Unit = {
       object Sources {
         val `A.scala` = "package p0\nclass A"
@@ -386,7 +373,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def failSequentialCompilation(): Unit = {
       object Sources {
         val `A.scala` = "package p0\nclass A extends NonExistentClass"
@@ -425,7 +411,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def compileWithDotty080RC1(): Unit = {
       val logger = new RecordingLogger()
       val scalaInstance =
@@ -437,7 +422,6 @@ class CompilationTaskTest {
     }
 
     @Test
-    @Ignore
     def writeAnalysisFileByDefault(): Unit = {
       val testProject = "with-resources"
       val logger = new RecordingLogger()

@@ -19,9 +19,10 @@ sealed trait CompileResult[+R] {
 sealed trait PartialCompileResult extends CompileResult[Task[Compiler.Result]] {
   def bundle: CompileBundle
   def result: Task[Compiler.Result]
+  def store: IRStore
 
   def toFinalResult: Task[FinalCompileResult] =
-    result.map(res => FinalCompileResult(bundle, res))
+    result.map(res => FinalCompileResult(bundle, res, store))
 }
 
 object PartialCompileResult {
@@ -48,7 +49,9 @@ case class PartialFailure(
     exception: Throwable,
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
-    with CacheHashCode
+    with CacheHashCode {
+  def store: IRStore = xsbti.compile.EmptyIRStore.getStore()
+}
 
 case class PartialSuccess(
     bundle: CompileBundle,
@@ -61,7 +64,8 @@ case class PartialSuccess(
 
 case class FinalCompileResult(
     bundle: CompileBundle,
-    result: Compiler.Result
+    result: Compiler.Result,
+    store: IRStore
 ) extends CompileResult[Compiler.Result]
     with CacheHashCode
 
