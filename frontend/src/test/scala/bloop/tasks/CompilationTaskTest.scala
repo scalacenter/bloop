@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.experimental.categories.Category
 import bloop.ScalaInstance
@@ -83,7 +83,6 @@ class CompilationTaskTest {
     assert(errors.size == 0)
   }
 
-  @Ignore
   @Test
   def compileAndDetectJavaErrors(): Unit = {
     val logger = new RecordingLogger

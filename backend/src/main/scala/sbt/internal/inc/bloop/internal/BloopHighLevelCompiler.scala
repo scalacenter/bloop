@@ -239,7 +239,7 @@ final class BloopHighLevelCompiler(
         fireJavaCompilation.flatMap {
           case JavaSignal.ContinueCompilation =>
             if (setup.order == CompileOrder.JavaThenScala) {
-              Task.gatherUnordered(List(compileScala, compileJava)).map(_ => ())
+              compileJava.flatMap(_ => compileScala)
             } else {
               compileScala.flatMap(_ => compileJava)
             }
