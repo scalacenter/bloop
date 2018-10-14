@@ -8,7 +8,6 @@ import bloop.logging.{BspClientLogger, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
-import junit.framework.Assert
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket

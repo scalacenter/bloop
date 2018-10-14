@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import bloop.Server
 import bloop.bsp.BspServer
-import bloop.logging.{ProcessLogger, RecordingLogger}
+import bloop.logging.{LogContext, ProcessLogger, RecordingLogger}
 import bloop.tasks.TestUtil
 import com.martiansoftware.nailgun.NGServer
 import monix.eval.Task

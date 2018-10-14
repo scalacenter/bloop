@@ -8,7 +8,7 @@ import bloop.config.Config
 import bloop.engine.ExecutionContext
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{LogContext, Logger}
 import monix.eval.Task
 import sbt.testing.{AnnotatedFingerprint, EventHandler, Fingerprint, SubclassFingerprint}
 import org.scalatools.testing.{Framework => OldFramework}
@@ -27,6 +27,8 @@ object TestInternals {
   private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
   private final val testAgentVersion = "1.0.4"
+
+  private implicit val logContext: LogContext = LogContext.Test
 
   // Cache the resolution of test agent files since it's static (cannot be lazy because depends on logger)
   @volatile private var testAgentFiles: Option[Array[AbsolutePath]] = None
@@ -96,7 +98,7 @@ object TestInternals {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
-    logger.debug("Starting forked test execution...")
+    logger.debugInContext("Starting forked test execution...")
 
     // Make sure that we cache the resolution of the test agent JAR and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
@@ -105,7 +107,7 @@ object TestInternals {
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
-    logger.debug("Test agent JARs: " + testAgentJars.mkString(", "))
+    logger.debugInContext("Test agent JARs: " + testAgentJars.mkString(", "))
 
     val listener = server.listenToTests
     val runner = forker.runMain(cwd, forkMain, arguments, logger, opts, testAgentJars)

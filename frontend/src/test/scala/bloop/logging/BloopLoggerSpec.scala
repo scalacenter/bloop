@@ -17,6 +17,9 @@ import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class BloopLoggerSpec {
+
+  private implicit val ctx: LogContext = LogContext.All
+
   @Test
   def infoAndWarnMessagesGoToOut =
     runAndCheck { logger =>
@@ -114,8 +117,8 @@ class BloopLoggerSpec {
     val bos1 = new ByteArrayOutputStream
     val ps1 = new PrintStream(bos1)
 
-    val l0 = BloopLogger.at("l0", ps0, ps0, false)
-    val l1 = BloopLogger.at("l1", ps1, ps1, false)
+    val l0 = BloopLogger.at("l0", ps0, ps0, false, LogContext.All)
+    val l1 = BloopLogger.at("l1", ps1, ps1, false, LogContext.All)
 
     l0.info("info0")
     l1.info("info1")
@@ -135,12 +138,12 @@ class BloopLoggerSpec {
 
     val bos0 = new ByteArrayOutputStream
     val ps0 = new PrintStream(bos0)
-    val l0 = BloopLogger.at(loggerName, ps0, ps0, false)
+    val l0 = BloopLogger.at(loggerName, ps0, ps0, false, LogContext.All)
     l0.info("info0")
 
     val bos1 = new ByteArrayOutputStream
     val ps1 = new PrintStream(bos1)
-    val l1 = BloopLogger.at(loggerName, ps1, ps1, false)
+    val l1 = BloopLogger.at(loggerName, ps1, ps1, false, LogContext.All)
     l1.info("info1")
 
     val msgs0 = convertAndReadAllFrom(bos0)
@@ -189,7 +192,7 @@ class BloopLoggerSpec {
     val err = new PrintStream(errStream)
 
     val loggerName = UUID.randomUUID().toString
-    val logger = BloopLogger.at(loggerName, out, err, false)
+    val logger = BloopLogger.at(loggerName, out, err, false, LogContext.All)
     op(logger)
 
     val outMessages = convertAndReadAllFrom(outStream)

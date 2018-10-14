@@ -10,7 +10,7 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{LogContext, Logger}
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
 import monix.eval.Task
 import monix.execution.Cancelable
@@ -72,7 +72,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
              |   classpath    = '$fullClasspath'
              |   java_home    = '${javaEnv.javaHome}'
              |   java_options = '${javaEnv.javaOptions.mkString(" ")}""".stripMargin
-        Task(logger.debug(debugOptions))
+        Task(logger.debugInContext(debugOptions)(LogContext.All))
       } else Task.unit
     logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
   }
@@ -80,6 +80,8 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
 }
 
 object Forker {
+
+  private implicit val logContext: LogContext = LogContext.All
 
   /** The code returned after a successful execution. */
   private final val EXIT_OK = 0
@@ -119,21 +121,22 @@ object Forker {
       var gobbleInput: Cancelable = null
       final class ProcessHandler extends NuAbstractProcessHandler {
         override def onStart(nuProcess: NuProcess): Unit = {
-          logger.debug(s"""Starting forked process:
-                          |  cwd = '$cwd'
-                          |  pid = '${nuProcess.getPID}'
-                          |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
+          logger.debugInContext(
+            s"""Starting forked process:
+               |  cwd = '$cwd'
+               |  pid = '${nuProcess.getPID}'
+               |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
         }
 
         override def onExit(statusCode: Int): Unit =
-          logger.debug(s"Forked process exited with code: $statusCode")
+          logger.debugInContext(s"Forked process exited with code: $statusCode")
 
         val outBuilder = StringBuilder.newBuilder
         override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
           if (closed) {
             // Make sure that the gobbler never stays awake!
             if (gobbleInput != null) gobbleInput.cancel()
-            logger.debug("The process is closed. Emptying buffer...")
+            logger.debugInContext("The process is closed. Emptying buffer...")
             val remaining = outBuilder.mkString
             if (!remaining.isEmpty)
               logger.info(remaining)
@@ -182,7 +185,7 @@ object Forker {
         Task {
           try {
             val exitCode = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
-            logger.debug(s"Process ${process.getPID} exited with code: $exitCode")
+            logger.debugInContext(s"Process ${process.getPID} exited with code: $exitCode")
             exitCode
           } finally {
             shutdownInput = true
@@ -198,11 +201,11 @@ object Forker {
             if (process.isRunning) {
               val msg = s"The cancellation could not destroy process ${process.getPID}"
               opts.ngout.println(msg)
-              logger.debug(msg)
+              logger.debugInContext(msg)
             } else {
               val msg = s"The run process ${process.getPID} has been closed"
               opts.ngout.println(msg)
-              logger.debug(msg)
+              logger.debugInContext(msg)
             }
           }
         })

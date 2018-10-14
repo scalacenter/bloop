@@ -7,7 +7,7 @@ import bloop.cli.CommonOptions
 import bloop.config.Config
 
 import scala.util.control.NonFatal
-import bloop.logging.Logger
+import bloop.logging.{LogContext, Logger}
 import monix.eval.Task
 import sbt.{ForkConfiguration, ForkTags}
 import sbt.testing.{Event, TaskDef}
@@ -26,6 +26,8 @@ final class TestServer(
     args: List[Config.TestArgument],
     opts: CommonOptions
 ) {
+
+  private implicit val logContext: LogContext = LogContext.Test
 
   private val server = new ServerSocket(0)
   private val frameworks = discoveredTests.tests.keys
@@ -94,13 +96,13 @@ final class TestServer(
 
     val serverStarted = Promise[Unit]()
     val clientConnection = Task {
-      logger.debug(s"Firing up test server at $port. Waiting for client...")
+      logger.debugInContext(s"Firing up test server at $port. Waiting for client...")
       serverStarted.trySuccess(())
       server.accept()
     }
 
     val testListeningTask = clientConnection.flatMap { socket =>
-      logger.debug("Test server established connection with remote JVM.")
+      logger.debugInContext("Test server established connection with remote JVM.")
       val os = new ObjectOutputStream(socket.getOutputStream)
       os.flush()
       val is = new ObjectInputStream(socket.getInputStream)
@@ -132,7 +134,7 @@ final class TestServer(
       server.close()
       // Do both just in case the logger streams have been closed by nailgun
       opts.ngout.println("The test execution was successfully cancelled.")
-      logger.debug("Test server has been successfully closed.")
+      logger.debugInContext("Test server has been successfully closed.")
     }
 
     val listener = testListeningTask

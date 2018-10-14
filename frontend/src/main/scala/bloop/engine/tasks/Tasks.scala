@@ -8,6 +8,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, State}
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
+import bloop.logging.LogContext
 import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import bloop.data.Project
 import monix.eval.Task
@@ -56,7 +57,7 @@ object Tasks {
       case Some(instance) =>
         val classpath = project.classpath
         val entries = classpath.map(_.underlying.toFile).toSeq
-        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")
+        logger.debugInContext(s"Setting up the console classpath with ${entries.mkString(", ")}")(LogContext.All)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
@@ -127,6 +128,8 @@ object Tasks {
   ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
+    implicit val logContext: LogContext = LogContext.Test
+
     def foundFrameworks(frameworks: List[Framework]) = frameworks.map(_.name).mkString(", ")
 
     // Test arguments coming after `--` can only be used if only one mapping is found
@@ -138,7 +141,7 @@ object Tasks {
           case Nil => Nil
           case oneFramework :: Nil =>
             val rawArgs = frameworkSpecificRawArgs
-            logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
+            logger.debugInContext(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
             List(Config.TestArgument(rawArgs, Some(Config.TestFramework(cls))))
           case frameworks =>
             val frameworkNames = foundFrameworks(frameworks)
@@ -163,7 +166,7 @@ object Tasks {
       val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
-      logger.debug(s"Found frameworks: ${foundFrameworks(frameworks)}")
+      logger.debugInContext(s"Found frameworks: ${foundFrameworks(frameworks)}")
 
       val frameworkArgs = considerFrameworkArgs(frameworks)
       val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
@@ -189,9 +192,9 @@ object Tasks {
           val allNames = ungroupedTests.map(_._2.fullyQualifiedName).mkString(", ")
           val includedNames = includedTests.map(_._2.fullyQualifiedName).mkString(", ")
           val excludedNames = excludedTests.map(_._2.fullyQualifiedName).mkString(", ")
-          logger.debug(s"Bloop found the following tests for $projectName: $allNames")
-          logger.debug(s"The following tests were included by the filter: $includedNames")
-          logger.debug(s"The following tests were excluded by the filter: $excludedNames")
+          logger.debugInContext(s"Bloop found the following tests for $projectName: $allNames")
+          logger.debugInContext(s"The following tests were included by the filter: $includedNames")
+          logger.debugInContext(s"The following tests were excluded by the filter: $excludedNames")
         }
 
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
@@ -214,7 +217,7 @@ object Tasks {
         }
       }
 
-      logger.debug(s"Running test suites with arguments: $args")
+      logger.debugInContext(s"Running test suites with arguments: $args")
       TestInternals.execute(cwd, forker, discovered, args, failureHandler, logger, opts)
     }
 
@@ -222,7 +225,7 @@ object Tasks {
     Task.sequence(testTasks).map { exitCodes =>
       // When the test execution is over report no matter what the result is
       testEventHandler.report()
-      logger.debug(s"Test suites failed: $failure")
+      logger.debugInContext(s"Test suites failed: $failure")
       val isOk = !failure && exitCodes.forall(_ == 0)
       if (isOk) state.mergeStatus(ExitStatus.Ok)
       else state.copy(status = ExitStatus.TestExecutionError)
@@ -284,6 +287,7 @@ object Tasks {
   def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
+
     val analysis = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption match {
       case Some(analysis: Analysis) => analysis
       case _ =>
@@ -292,7 +296,7 @@ object Tasks {
     }
 
     val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
-    logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")
+    logger.debugInContext(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(LogContext.All)
     mainClasses
   }
 

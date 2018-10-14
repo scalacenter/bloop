@@ -7,6 +7,7 @@ import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.config.Config.Platform
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
+import bloop.logging.LogContext
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompilationTask, ScalaJsToolchain, ScalaNativeToolchain, Tasks}
 import bloop.cli.Commands.{CompilingCommand, LinkingCommand}
@@ -165,7 +166,7 @@ object Interpreter {
       logger.info(contents)
     } else {
       val configDirectory = state.build.origin.syntax
-      logger.debug(s"Projects loaded from '$configDirectory':")
+      logger.debugInContext(s"Projects loaded from '$configDirectory':")(LogContext.All)
       state.build.projects.map(_.name).sorted.foreach(logger.info)
     }
 

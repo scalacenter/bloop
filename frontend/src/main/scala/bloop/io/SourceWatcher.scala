@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 import bloop.data.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
-import bloop.logging.{Logger, Slf4jAdapter}
+import bloop.logging.{LogContext, Logger, Slf4jAdapter}
 import bloop.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
@@ -24,13 +24,15 @@ final class SourceWatcher private (
   import java.nio.file.Files
   private val slf4jLogger = new Slf4jAdapter(logger)
 
+  private implicit val logContext: LogContext = LogContext.FileWatching
+
   def watch(state0: State, action: State => Task[State]): Task[State] = {
     val ngout = state0.commonOptions.ngout
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
       // Someone that wants this to be supported by Windows will need to make it work for all terminals
       if (!BspServer.isWindows)
         logger.info("\u001b[H\u001b[2J") // Clean the terminal before acting on the file event action
-      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event")
+      logger.debugInContext(s"A ${event.eventType()} in ${event.path()} has triggered an event")
       action(state)
     }
 
@@ -74,7 +76,7 @@ final class SourceWatcher private (
     val watchController = Task {
       try watcherHandle.get()
       finally watcher.close()
-      logger.debug("File watcher was successfully closed")
+      logger.debugInContext("File watcher was successfully closed")
     }
 
     val watchCancellation = Cancelable { () =>

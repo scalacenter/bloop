@@ -8,7 +8,7 @@ import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine._
-import bloop.logging.{BloopLogger, Logger}
+import bloop.logging.{BloopLogger, LogContext, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
@@ -269,7 +269,8 @@ object Cli {
       commonOpts.out,
       commonOpts.err,
       cliOptions.verbose,
-      !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR"))
+      !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR")),
+      cliOptions.debug
     )
 
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
@@ -310,7 +311,7 @@ object Cli {
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
       val elapsed = (System.nanoTime() - since).toDouble / 1e6
-      logger.debug(s"Elapsed: $elapsed ms")
+      logger.debugInContext(s"Elapsed: $elapsed ms")(LogContext.All)
     }
 
     // Simulate try-catch-finally with monix tasks to time the task execution

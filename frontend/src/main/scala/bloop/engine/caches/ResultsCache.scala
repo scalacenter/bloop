@@ -8,7 +8,7 @@ import bloop.Compiler.Result
 import bloop.engine.tasks.compilation.FinalCompileResult
 import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{LogContext, Logger}
 import bloop.reporter.Reporter
 import monix.eval.Task
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -82,6 +82,8 @@ final class ResultsCache private (
 object ResultsCache {
   import java.util.concurrent.ConcurrentHashMap
 
+  private implicit val logContext: LogContext = LogContext.All
+
   // TODO: Use a guava cache that stores maximum 200 analysis file
   private[bloop] val persisted = ConcurrentHashMap.newKeySet[PreviousResult]()
 
@@ -107,19 +109,19 @@ object ResultsCache {
           val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
           contents match {
             case Some(res) =>
-              logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
+              logger.debugInContext(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               val reporter = Reporter.fromAnalysis(res.getAnalysis, cwd, logger)
               Result.Success(reporter, r, 0L)
             case None =>
-              logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
+              logger.debugInContext(s"Analysis '$analysisFile' for '${p.name}' is empty.")
               Result.Empty
           }
 
         }
       } else {
         Task.now {
-          logger.debug(s"Missing analysis file for project '${p.name}'")
+          logger.debugInContext(s"Missing analysis file for project '${p.name}'")
           Result.Empty
         }
       }

@@ -24,6 +24,8 @@ final class BspServerLogger private (
 ) extends Logger
     with scribe.LoggerSupport {
 
+  override def logContext: LogContext = underlying.logContext
+
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger =
     new BspServerLogger(name, underlying.asDiscrete, client, ansiSupported)
@@ -31,7 +33,11 @@ final class BspServerLogger private (
     new BspServerLogger(name, underlying.asVerbose, client, ansiSupported)
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
+
+  override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = underlying.debug(msg)
+
   override def debug(msg: String): Unit = underlying.debug(msg)
+
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
   override def error(msg: String): Unit = {

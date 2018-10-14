@@ -15,6 +15,12 @@ abstract class Logger extends xsbti.Logger with sbt.testing.Logger {
   /** Return a logger that doesn't log verbose and debug events. */
   def asDiscrete: Logger
 
+  /** Context for debug logging. */
+  def logContext: LogContext
+
+  def debugInContext(msg: String)(implicit ctx: LogContext): Unit = if (logContext.isEnabled) debug(msg)
+  def debugInContext(msg: Supplier[String])(implicit ctx: LogContext): Unit = if (logContext.isEnabled) debug(msg.get())
+
   override def debug(msg: Supplier[String]): Unit = debug(msg.get())
   override def error(msg: Supplier[String]): Unit = error(msg.get())
   override def warn(msg: Supplier[String]): Unit = warn(msg.get())

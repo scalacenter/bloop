@@ -6,7 +6,7 @@ import java.util.Locale
 import bloop.cli.Commands
 import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspClientLogger, Slf4jAdapter}
+import bloop.logging.{BspClientLogger, LogContext}
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -15,6 +15,9 @@ import monix.execution.atomic.Atomic
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
+
+  private implicit val logContext: LogContext = LogContext.Bsp
+
   private[bloop] val isWindows: Boolean =
     System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
   private[bloop] val isMac: Boolean =
@@ -34,16 +37,16 @@ object BspServer {
     cmd match {
       case Commands.WindowsLocalBsp(pipeName, _) =>
         val server = new NGWin32NamedPipeServerSocket(pipeName)
-        state.logger.debug(s"Waiting for a connection at pipe $pipeName...")
+        state.logger.debugInContext(s"Waiting for a connection at pipe $pipeName...")
         Task(WindowsLocal(pipeName, server)).doOnCancel(Task(server.close()))
       case Commands.UnixLocalBsp(socketFile, _) =>
         val server = new NGUnixDomainServerSocket(socketFile.toString)
-        state.logger.debug(s"Waiting for a connection at $socketFile...")
+        state.logger.debugInContext(s"Waiting for a connection at $socketFile...")
         Task(UnixLocal(socketFile, server)).doOnCancel(Task(server.close()))
       case Commands.TcpBsp(address, portNumber, _) =>
         val socketAddress = new InetSocketAddress(address, portNumber)
         val server = new java.net.ServerSocket(portNumber, 10, address)
-        state.logger.debug(s"Waiting for a connection at $socketAddress...")
+        state.logger.debugInContext(s"Waiting for a connection at $socketAddress...")
         Task(Tcp(socketAddress, server)).doOnCancel(Task(server.close()))
     }
   }
@@ -77,7 +80,7 @@ object BspServer {
     import state.logger
     def startServer(handle: ConnectionHandle): Task[State] = {
       val connectionURI = uri(handle)
-      logger.debug(s"The server is listening for incoming connections at $connectionURI...")
+      logger.debugInContext(s"The server is listening for incoming connections at $connectionURI...")
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 

@@ -5,13 +5,14 @@ import bloop.data.Project
 import bloop.engine._
 import bloop.engine.tasks.compilation._
 import bloop.io.AbsolutePath
-import bloop.logging.{BspServerLogger, Logger}
+import bloop.logging.{BspServerLogger, LogContext, Logger}
 import bloop.reporter._
 import bloop.{CompileInputs, CompileMode, Compiler}
 import monix.eval.Task
 import sbt.internal.inc.AnalyzingCompiler
 
 object CompilationTask {
+  private implicit val logContext: LogContext = LogContext.Compilation
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
@@ -119,7 +120,7 @@ object CompilationTask {
               graphInputs.irPromise.get match {
                 case Array() if pipeline =>
                   logger.warn(s"Project ${project.name} compiled without pipelined compilation.")
-                case _ => logger.debug(s"The pickle promise of ${project.name} completed in Zinc.")
+                case _ => logger.debugInContext(s"The pickle promise of ${project.name} completed in Zinc.")
               }
             }
 

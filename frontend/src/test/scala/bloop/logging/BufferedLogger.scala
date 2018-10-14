@@ -8,7 +8,9 @@ final class BufferedLogger private(
 ) extends Logger {
   override def name = underlying.name
   override def ansiCodesSupported() = underlying.ansiCodesSupported()
+  override def logContext = underlying.logContext
 
+  override def debugInContext(msg: String)(implicit ctx: LogContext) = buffer.addLast(() => underlying.debugInContext(msg))
   override def debug(msg: String) = buffer.addLast(() => underlying.debug(msg))
   override def error(msg: String) = buffer.addLast(() => underlying.error(msg))
   override def warn(msg: String) = buffer.addLast(() => underlying.warn(msg))

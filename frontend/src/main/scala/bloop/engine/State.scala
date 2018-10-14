@@ -5,7 +5,7 @@ import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.data.Project
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
-import bloop.logging.Logger
+import bloop.logging.{LogContext, Logger}
 import monix.eval.Task
 
 /**

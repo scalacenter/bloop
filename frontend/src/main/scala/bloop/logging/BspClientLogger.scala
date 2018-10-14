@@ -7,7 +7,9 @@ final class BspClientLogger[L <: Logger](val underlying: L)
     extends Logger
     with scribe.LoggerSupport {
 
+  override val logContext: LogContext = underlying.logContext
   override val name: String = underlying.name
+
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger = new BspClientLogger(underlying.asDiscrete)
   override def asVerbose: Logger = new BspClientLogger(underlying.asVerbose)

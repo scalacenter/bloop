@@ -7,7 +7,8 @@ import scala.collection.JavaConverters.asScalaIteratorConverter
 
 final class RecordingLogger(
     debug: Boolean = false,
-    debugOut: Option[PrintStream] = None
+    debugOut: Option[PrintStream] = None,
+    val logContext: LogContext = LogContext.All
 ) extends Logger {
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
 
@@ -31,13 +32,13 @@ final class RecordingLogger(
     }
 
     messages.add((key, value))
-    ()
   }
 
-  override def debug(msg: String): Unit = { add("debug", msg); () }
-  override def info(msg: String): Unit = { add("info", msg); () }
-  override def error(msg: String): Unit = { add("error", msg); () }
-  override def warn(msg: String): Unit = { add("warn", msg); () }
+  override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = if (logContext.isEnabled) add("debug", msg)
+  override def debug(msg: String): Unit = add("debug", msg)
+  override def info(msg: String): Unit = add("info", msg)
+  override def error(msg: String): Unit = add("error", msg)
+  override def warn(msg: String): Unit = add("warn", msg)
   override def trace(ex: Throwable): Unit = {
     ex.getStackTrace.foreach(ste => trace(ste.toString))
     Option(ex.getCause).foreach { cause =>
@@ -46,9 +47,9 @@ final class RecordingLogger(
     }
   }
 
-  def serverInfo(msg: String): Unit = { add("server-info", msg); () }
-  def serverError(msg: String): Unit = { add("server-error", msg); () }
-  private def trace(msg: String): Unit = { add("trace", msg); () }
+  def serverInfo(msg: String): Unit = add("server-info", msg)
+  def serverError(msg: String): Unit = add("server-error", msg)
+  private def trace(msg: String): Unit = add("trace", msg)
 
   override def isVerbose: Boolean = true
   override def asVerbose: Logger = this

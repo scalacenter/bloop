@@ -2,6 +2,7 @@ package bloop.cli
 
 import java.nio.file.Path
 
+import bloop.logging.LogContext
 import caseapp.{ExtraName, HelpMessage, Recurse, ValueDescription}
 
 case class CliOptions(
@@ -18,6 +19,9 @@ case class CliOptions(
     verbose: Boolean = false,
     @HelpMessage("If set, do not color output. Defaults to false.")
     noColor: Boolean = false,
+    @HelpMessage("Debug log context.")
+    @ValueDescription("file-watching")
+    debug: LogContext = LogContext.All,
     @Recurse common: CommonOptions = CommonOptions.default,
 )
 
