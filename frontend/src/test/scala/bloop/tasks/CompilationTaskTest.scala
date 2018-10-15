@@ -216,7 +216,7 @@ class CompilationTaskTest {
     ) { (state: State) =>
       assertTrue(state.status.isOk)
       ensureCompilationInAllTheBuild(state)
-      assertEquals(logger.compilingInfos.size.toLong, 3.toLong)
+      assertEquals(3.toLong, logger.compilingInfos.size.toLong)
 
       val rootProject = state.build.getProjectFor(RootProject).get
       val sourceC = rootProject.sources.head.resolve("C.scala").underlying
@@ -228,7 +228,7 @@ class CompilationTaskTest {
 
       assertTrue(state2.status.isOk)
       ensureCompilationInAllTheBuild(state2)
-      assertEquals(logger.compilingInfos.size.toLong, 4.toLong)
+      assertEquals(4.toLong, logger.compilingInfos.size.toLong)
     }
   }
 
@@ -342,7 +342,7 @@ class CompilationTaskTest {
       "C" -> Set("A"),
       "D" -> Set("B", "C"))
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
-      assertEquals(logger.compilingInfos.size.toLong, 5.toLong)
+      assertEquals(5.toLong, logger.compilingInfos.size.toLong)
       state.build.projects.foreach { p =>
         assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
       }
@@ -374,7 +374,40 @@ class CompilationTaskTest {
       "C" -> Set("B", "A"),
       "D" -> Set("B", "A"))
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
-      assertEquals(logger.compilingInfos.size.toLong, 5.toLong)
+      assertEquals(5.toLong, logger.compilingInfos.size.toLong)
+      ensureCompilationInAllTheBuild(state)
+    }
+  }
+
+  @Test
+  def compileBuildIncrementally(): Unit = {
+    object Sources {
+      val `A.scala` = "object Dep {\n  def fun(i: String) = s\"i\"\n}"
+      val `B.scala` = "object TestRoot {\n  println(Dep.fun(\"1\"))\n}"
+      val `A2.scala` = "object Dep {\n  def fun(i: Int) = s\"i\"\n}"
+    }
+
+    val structure = Map(
+      "A" -> Map("A.scala" -> Sources.`A.scala`),
+      RootProject -> Map("B.scala" -> Sources.`B.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map(RootProject -> Set("A"))
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      assertEquals(logger.compilingInfos.size.toLong, 2.toLong)
+      ensureCompilationInAllTheBuild(state)
+
+      // Modify the contents of a source in `A` to trigger recompilation in root
+      val projectA = state.build.getProjectFor("A").get
+      val sourceA = projectA.sources.head.resolve("A.scala")
+      assert(Files.exists(sourceA.underlying), s"Source $sourceA does not exist")
+      Files.write(sourceA.underlying, Sources.`A2.scala`.getBytes(StandardCharsets.UTF_8))
+
+      val action = Run(Commands.Compile(RootProject, incremental = true))
+      val state2 = TestUtil.blockingExecute(action, state)
+
+      assertEquals(4.toLong, logger.compilingInfos.size.toLong)
       ensureCompilationInAllTheBuild(state)
     }
   }

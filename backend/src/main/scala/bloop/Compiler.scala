@@ -4,16 +4,16 @@ import xsbti.compile._
 import xsbti.T2
 import java.util.Optional
 import java.io.File
-import java.net.URI
 
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
 import bloop.reporter.Reporter
 import sbt.internal.inc.bloop.BloopZincCompiler
-import sbt.internal.inc.{FreshCompilerCache, Locate}
+import sbt.internal.inc.{FreshCompilerCache, JavaInterfaceUtil, Locate}
 import _root_.monix.eval.Task
 import bloop.util.CacheHashCode
 import sbt.internal.inc.bloop.internal.StopPipelining
+import sbt.util.InterfaceUtil
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -29,16 +29,20 @@ case class CompileInputs(
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     reporter: Reporter,
-    mode: CompileMode
+    mode: CompileMode,
+    dependentResults: Map[File, PreviousResult]
 )
 
 object Compiler {
-  private final class ZincClasspathEntryLookup(previousResult: PreviousResult)
+  private final class ZincClasspathEntryLookup(results: Map[File, PreviousResult])
       extends PerClasspathEntryLookup {
-    override def analysis(classpathEntry: File): Optional[CompileAnalysis] =
-      previousResult.analysis
-    override def definesClass(classpathEntry: File): DefinesClass =
+    override def analysis(classpathEntry: File): Optional[CompileAnalysis] = {
+      InterfaceUtil.toOptional(results.get(classpathEntry)).flatMap(_.analysis())
+    }
+
+    override def definesClass(classpathEntry: File): DefinesClass = {
       Locate.definesClass(classpathEntry)
+    }
   }
 
   sealed trait Result
@@ -78,6 +82,7 @@ object Compiler {
   }
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
+    val classesDir = compileInputs.classesDir.toFile
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -104,7 +109,8 @@ object Compiler {
     def getSetup(compileInputs: CompileInputs): Setup = {
       val skip = false
       val empty = Array.empty[T2[String, String]]
-      val lookup = new ZincClasspathEntryLookup(compileInputs.previousResult)
+      val results = compileInputs.dependentResults.+(classesDir -> compileInputs.previousResult)
+      val lookup = new ZincClasspathEntryLookup(results)
       val reporter = compileInputs.reporter
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile

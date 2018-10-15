@@ -93,7 +93,8 @@ object CompilationTask {
             project.classpathOptions,
             previous,
             reporter,
-            compileMode
+            compileMode,
+            graphInputs.dependentResults
           )
 
           Compiler.compile(backendInputs).map { result =>
