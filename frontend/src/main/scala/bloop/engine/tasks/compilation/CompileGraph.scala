@@ -191,17 +191,20 @@ object CompileGraph {
                 if (failed.isEmpty) {
                   val directResults =
                     Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
-/*                  val dependentStore =
-                    SimpleIRStore(directResults.iterator.flatMap(_.store.getDependentsIRs).toArray)*/
 
                   val results: List[PartialSuccess] = {
                     val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
                     transitive.collect { case s: PartialSuccess => s }
                   }
 
-                  // Let's order the IRs exactly as the classpath is
-                  val indexDirs =project.classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
-                  val dependentStore = SimpleIRStore(results.flatMap(r => indexDirs.get(r.bundle.project.classesDir).toList.map(i => i -> r.store)).sortBy(_._1).iterator.flatMap(_._2.getDependentsIRs).toArray)
+                  // Let's order the IRs exactly in the same order as provided in the classpath!
+                  // Required for symbol clashes in dependencies (`AppLoader` in guardian/frontend)
+                  val indexDirs = project.classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
+                  val dependentStore = {
+                    val transitiveStores =
+                      results.flatMap(r => indexDirs.get(r.bundle.project.classesDir).iterator.map(i => i -> r.store))
+                    SimpleIRStore(transitiveStores.sortBy(_._1).iterator.flatMap(_._2.getDependentsIRs).toArray)
+                  }
 
                   // Signals whether java compilation can proceed or not
                   val javaSignal: Task[JavaSignal] =
