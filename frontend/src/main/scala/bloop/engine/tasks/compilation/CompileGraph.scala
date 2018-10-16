@@ -178,7 +178,7 @@ object CompileGraph {
                   .deferFutureAction(c => cf.asScala(c))
                   .materialize
                   .map { irs =>
-                    val store = irs.map(irs => new bloop.SimpleIRStore(Array(irs)))
+                    val store = irs.map(irs => SimpleIRStore(Array(irs)))
                     Leaf(PartialCompileResult(bundle, store, jcf, completeJavaTask, running))
                   }
               }
@@ -192,7 +192,7 @@ object CompileGraph {
                   val directResults =
                     Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
                   val dependentStore =
-                    new SimpleIRStore(directResults.iterator.flatMap(_.store.getDependentsIRs).toArray)
+                    SimpleIRStore(directResults.iterator.flatMap(_.store.getDependentsIRs).toArray)
 
                   val results: List[PartialSuccess] = {
                     val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
@@ -225,7 +225,7 @@ object CompileGraph {
                       .deferFutureAction(c => cf.asScala(c))
                       .materialize
                       .map { irs =>
-                        val store = irs.map(irs => dependentStore.merge(new bloop.SimpleIRStore(Array(irs))))
+                        val store = irs.map(irs => dependentStore.merge(SimpleIRStore(Array(irs))))
                         val res = PartialCompileResult(bundle, store, jcf, completeJavaTask, ongoing)
                         Parent(res, dagResults)
                       }

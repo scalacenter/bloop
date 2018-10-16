@@ -169,7 +169,7 @@ final class BloopHighLevelCompiler(
                           if (setup.order != CompileOrder.Mixed) scalaSourceGroup
                           else scalaSourceGroup ++ javaSources
                         }
-                        val store = new SimpleIRStore(Array(irs))
+                        val store = SimpleIRStore(Array(irs))
                         compileSources(sourceGroup, scalacOptions, callback, store)
                       }
                     }
