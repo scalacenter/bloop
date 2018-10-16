@@ -1,6 +1,7 @@
 // scalafmt: { maxColumn = 120 }
 package bloop.engine.tasks.compilation
 
+import java.io.File
 import java.util.concurrent.CompletableFuture
 
 import bloop.data.Project
@@ -10,7 +11,7 @@ import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
 import bloop.logging.Logger
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
-import xsbti.compile.{EmptyIRStore, IR, IRStore}
+import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
 
 import scala.util.{Failure, Success}
 
@@ -25,7 +26,8 @@ object CompileGraph {
       completeJava: CompletableFuture[Unit],
       transitiveJavaSignal: Task[JavaSignal],
       oracle: CompilerOracle,
-      separateJavaAndScala: Boolean
+      separateJavaAndScala: Boolean,
+      dependentResults: Map[File, PreviousResult] = Map.empty
   )
 
   /**
@@ -111,12 +113,25 @@ object CompileGraph {
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.isEmpty) {
-                  val cf = new CompletableFuture[IRs]()
-                  compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false)).map {
-                    case Compiler.Result.Ok(res) =>
-                      val partial = PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res))
-                      Parent(partial, dagResults)
-                    case res => Parent(toPartialFailure(bundle, res), dagResults)
+                  val results: List[PartialSuccess] = {
+                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                    transitive.collect { case s: PartialSuccess => s }
+                  }
+
+                  val projectResults = results.map(ps => ps.result.map(r => ps.bundle.project -> r))
+                  // These tasks have already been completing, so collecting its results is super fast
+                  Task.gatherUnordered(projectResults).flatMap { results =>
+                    val dr = results.collect {
+                      case (p, s: Compiler.Result.Success) => p.classesDir.toFile -> s.previous
+                    }.toMap
+
+                    val cf = new CompletableFuture[IRs]()
+                    compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false, dr)).map {
+                      case Compiler.Result.Ok(res) =>
+                        val partial = PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res))
+                        Parent(partial, dagResults)
+                      case res => Parent(toPartialFailure(bundle, res), dagResults)
+                    }
                   }
                 } else {
                   // Register the name of the projects we're blocked on (intransitively)
