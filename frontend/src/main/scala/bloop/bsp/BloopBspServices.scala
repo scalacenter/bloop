@@ -9,7 +9,7 @@ import bloop.cli.{Commands, ExitStatus}
 import bloop.data.Project
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.BspLogger
+import bloop.logging.BspServerLogger
 import monix.eval.Task
 import ch.epfl.scala.bsp.endpoints
 
@@ -32,8 +32,8 @@ final class BloopBspServices(
   private type BspResponse[T] = Task[Either[ProtocolError, T]]
 
   // Disable ansii codes for now so that the BSP clients don't get unescaped color codes
-  private val bspForwarderLogger = BspLogger(callSiteState, client, false)
-  final val services = JsonRpcServices.empty
+  private val bspForwarderLogger = BspServerLogger(callSiteState, client, false)
+  final val services = JsonRpcServices.empty(bspForwarderLogger)
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
     .request(endpoints.Build.shutdown)(shutdown(_))

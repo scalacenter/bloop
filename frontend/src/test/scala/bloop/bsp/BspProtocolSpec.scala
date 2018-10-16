@@ -7,16 +7,14 @@ import bloop.cli.{BspProtocol, CliOptions, Commands}
 import bloop.engine.{BuildLoader, Run}
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
-import bloop.logging.{RecordingLogger, Slf4jAdapter}
+import bloop.logging.{BspClientLogger, RecordingLogger}
 import org.junit.Test
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.{ScalaBuildTarget, endpoints}
-import io.circe.Json
 import junit.framework.Assert
 import monix.eval.Task
 
-import scala.meta.lsp.LanguageClient
-import scala.meta.jsonrpc.{Response, Services}
+import scala.meta.jsonrpc.{LanguageClient, Response, Services}
 import scala.util.control.NonFatal
 
 class BspProtocolSpec {
@@ -52,7 +50,7 @@ class BspProtocolSpec {
     validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts))
   }
 
-  def reportIfError(logger: Slf4jAdapter[RecordingLogger])(thunk: => Unit): Unit = {
+  def reportIfError(logger: BspClientLogger[RecordingLogger])(thunk: => Unit): Unit = {
     try thunk
     catch {
       case NonFatal(t) =>
@@ -64,7 +62,7 @@ class BspProtocolSpec {
   }
 
   def testInitialization(cmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     // We test the initialization several times to make sure the scheduler doesn't get blocked.
     def test(counter: Int): Unit = {
       if (counter == 0) ()
@@ -87,7 +85,7 @@ class BspProtocolSpec {
   }
 
   def testBuildTargets(bspCmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
         case Right(workspaceTargets) =>
@@ -124,7 +122,7 @@ class BspProtocolSpec {
   }
 
   def testDependencySources(bspCmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
@@ -162,7 +160,7 @@ class BspProtocolSpec {
       s"""StringifiedScalacOption($scalacOptions, $classpath, ${classesDir.value})"""
     }
 
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
@@ -204,7 +202,7 @@ class BspProtocolSpec {
 
   def testCompile(bspCmd: Commands.ValidatedBsp): Unit = {
     var tested: Boolean = false
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
@@ -247,7 +245,7 @@ class BspProtocolSpec {
 
   type BspResponse[T] = Task[Either[Response.Error, T]]
   def testFailedCompile(bspCmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def expectError(request: BspResponse[bsp.CompileResult], expected: String, failMsg: String) = {
       request.flatMap {
         case Right(report) =>

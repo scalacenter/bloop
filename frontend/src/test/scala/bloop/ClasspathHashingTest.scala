@@ -7,12 +7,11 @@ import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
 import org.junit.Test
 import org.junit.experimental.categories.Category
-import sbt.internal.inc.bloop.ClasspathHashing
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 
 @Category(Array(classOf[bloop.FastTests]))
-class ClasspathHashing {
+class ClasspathHashingTest {
   @Test
   def detectsMacrosInClasspath(): Unit = {
     val logger = new RecordingLogger()
@@ -20,6 +19,7 @@ class ClasspathHashing {
       .resolve("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091", logger)
       .filter(_.syntax.endsWith(".jar"))
 
+    import sbt.internal.inc.bloop.ClasspathHashing
     Timer.timed(logger) {
       val duration = FiniteDuration(7, TimeUnit.SECONDS)
       TestUtil.await(duration) {

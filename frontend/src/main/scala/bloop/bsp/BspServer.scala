@@ -6,14 +6,13 @@ import java.util.Locale
 import bloop.cli.Commands
 import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.Slf4jAdapter
+import bloop.logging.{BspClientLogger, Slf4jAdapter}
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
 
-import scala.meta.jsonrpc.BaseProtocolMessage
-import scala.meta.lsp.{LanguageClient, LanguageServer}
+import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
   private[bloop] val isWindows: Boolean =
@@ -31,7 +30,6 @@ object BspServer {
       extends ConnectionHandle
 
   import Commands.ValidatedBsp
-  import monix.{eval => me}
   private def initServer(cmd: ValidatedBsp, state: State): Task[ConnectionHandle] = {
     cmd match {
       case Commands.WindowsLocalBsp(pipeName, _) =>
@@ -86,11 +84,11 @@ object BspServer {
       val exitStatus = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
-      val bspLogger = com.typesafe.scalalogging.Logger(new Slf4jAdapter(logger))
+      val bspLogger = new BspClientLogger(logger)
       val client = new LanguageClient(out, bspLogger)
       val servicesProvider = new BloopBspServices(state, client, configPath, in, exitStatus)
       val bloopServices = servicesProvider.services
-      val messages = BaseProtocolMessage.fromInputStream(in)
+      val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
       server.startTask
