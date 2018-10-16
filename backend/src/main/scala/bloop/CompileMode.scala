@@ -1,10 +1,9 @@
 package bloop
 
 import _root_.monix.eval.Task
-
-import java.net.URI
-import java.util.Optional
 import java.util.concurrent.CompletableFuture
+
+import xsbti.compile.IR
 
 /**
  * Defines the mode in which compilation should run.
@@ -24,7 +23,7 @@ object CompileMode {
   final case class Parallel(batches: Int) extends ConfigurableMode
 
   final case class Pipelined(
-      pickleURI: CompletableFuture[Optional[URI]],
+      irs: CompletableFuture[Array[IR]],
       completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal],
       oracle: CompilerOracle,
@@ -33,7 +32,7 @@ object CompileMode {
 
   final case class ParallelAndPipelined(
       batches: Int,
-      pickleURI: CompletableFuture[Optional[URI]],
+      irs: CompletableFuture[Array[IR]],
       completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal],
       oracle: CompilerOracle,

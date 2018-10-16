@@ -20,7 +20,7 @@ case class CompileInputs(
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
-    picklepath: Array[URI],
+    store: IRStore,
     classesDir: AbsolutePath,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
@@ -94,7 +94,7 @@ object Compiler {
         .withClassesDirectory(classesDir)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
-        .withPicklepath(inputs.picklepath)
+        .withStore(inputs.store)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
@@ -119,8 +119,8 @@ object Compiler {
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
       // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
       compileInputs.mode match {
-        case p: CompileMode.Pipelined => setup.withPicklePromise(p.pickleURI)
-        case pp: CompileMode.ParallelAndPipelined => setup.withPicklePromise(pp.pickleURI)
+        case p: CompileMode.Pipelined => setup.withIrPromise(p.irs)
+        case pp: CompileMode.ParallelAndPipelined => setup.withIrPromise(pp.irs)
         case _ => setup
       }
     }

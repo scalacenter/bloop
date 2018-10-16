@@ -6,7 +6,7 @@ object Dependencies {
   val Scala212Version = "2.12.7"
 
   val nailgunVersion = "0c8b937b"
-  val zincVersion = "1.2.1+92-2425db16"
+  val zincVersion = "1.2.1+104-55d3c3d5"
   val bspVersion = "1.0.0-M4"
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M3"
@@ -34,6 +34,7 @@ object Dependencies {
   val scalaJs10Version = "1.0.0-M3"
   val millVersion = "0.2.6"
   val xxHashVersion = "1.3.0"
+  val ztVersion = "1.13"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -86,4 +87,5 @@ object Dependencies {
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version
   val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
+  val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
 }

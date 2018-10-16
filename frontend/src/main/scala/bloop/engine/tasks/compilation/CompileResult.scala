@@ -1,14 +1,13 @@
 package bloop.engine.tasks.compilation
 
-import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
-import bloop.data.Project
 import bloop.{Compiler, JavaSignal}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 import monix.eval.Task
+import xsbti.compile.{EmptyIRStore, IRStore}
 
 import scala.util.Try
 
@@ -20,24 +19,25 @@ sealed trait CompileResult[+R] {
 sealed trait PartialCompileResult extends CompileResult[Task[Compiler.Result]] {
   def bundle: CompileBundle
   def result: Task[Compiler.Result]
+  def store: IRStore
 
   def toFinalResult: Task[FinalCompileResult] =
-    result.map(res => FinalCompileResult(bundle, res))
+    result.map(res => FinalCompileResult(bundle, res, store))
 }
 
 object PartialCompileResult {
   def apply(
       bundle: CompileBundle,
-      pickleURI: Try[Optional[URI]],
+      store: Try[IRStore],
       completeJava: CompletableFuture[Unit],
       javaTrigger: Task[JavaSignal],
       result: Task[Compiler.Result]
   ): PartialCompileResult = {
-    pickleURI match {
-      case scala.util.Success(opt) =>
-        PartialSuccess(bundle, opt, completeJava, javaTrigger, result)
-      case scala.util.Failure(CompileExceptions.CompletePromise) =>
-        PartialSuccess(bundle, Optional.empty(), completeJava, javaTrigger, result)
+    store match {
+      case scala.util.Success(store) =>
+        PartialSuccess(bundle, store, completeJava, javaTrigger, result)
+      case scala.util.Failure(CompileExceptions.CompletePromise(store)) =>
+        PartialSuccess(bundle, store, completeJava, javaTrigger, result)
       case scala.util.Failure(t) =>
         PartialFailure(bundle, t, result)
     }
@@ -49,11 +49,13 @@ case class PartialFailure(
     exception: Throwable,
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
-    with CacheHashCode
+    with CacheHashCode {
+  def store: IRStore = xsbti.compile.EmptyIRStore.getStore()
+}
 
 case class PartialSuccess(
     bundle: CompileBundle,
-    pickleURI: Optional[URI],
+    store: IRStore,
     completeJava: CompletableFuture[Unit],
     javaTrigger: Task[JavaSignal],
     result: Task[Compiler.Result]
@@ -62,7 +64,8 @@ case class PartialSuccess(
 
 case class FinalCompileResult(
     bundle: CompileBundle,
-    result: Compiler.Result
+    result: Compiler.Result,
+    store: IRStore
 ) extends CompileResult[Compiler.Result]
     with CacheHashCode
 

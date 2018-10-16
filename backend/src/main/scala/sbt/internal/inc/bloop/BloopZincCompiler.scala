@@ -53,7 +53,7 @@ object BloopZincCompiler {
       javacChosen,
       sources,
       classpath,
-      picklepath,
+      store,
       CompileOutput(classesDirectory),
       cache,
       progress().toOption,
@@ -68,7 +68,7 @@ object BloopZincCompiler {
       skip,
       incrementalCompilerOptions,
       extraOptions,
-      picklePromise,
+      irPromise,
       compileMode
     )(logger)
   }
@@ -78,7 +78,7 @@ object BloopZincCompiler {
       javaCompiler: xsbti.compile.JavaCompiler,
       sources: Array[File],
       classpath: Seq[File],
-      picklepath: Seq[URI],
+      store: IRStore,
       output: Output,
       cache: GlobalsCache,
       progress: Option[CompileProgress] = None,
@@ -93,7 +93,7 @@ object BloopZincCompiler {
       skip: Boolean = false,
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
-      picklePromise: CompletableFuture[Optional[URI]],
+      irPromise: CompletableFuture[Array[IR]],
       compileMode: CompileMode
   )(implicit logger: Logger): Task[CompileResult] = {
     val prev = previousAnalysis match {
@@ -102,7 +102,7 @@ object BloopZincCompiler {
     }
 
     // format: off
-    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, picklepath, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra)
+    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, store, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra)
     // format: on
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
@@ -114,7 +114,7 @@ object BloopZincCompiler {
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, config.incOptions, picklePromise).map {
+        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, config.incOptions, irPromise).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }
@@ -159,7 +159,7 @@ object BloopZincCompiler {
       javac: xsbti.compile.JavaCompiler,
       sources: Seq[File],
       classpath: Seq[File],
-      picklepath: Seq[URI],
+      store: IRStore,
       output: Output,
       cache: GlobalsCache,
       progress: Option[CompileProgress] = None,
@@ -194,7 +194,7 @@ object BloopZincCompiler {
         sources,
         classpath,
         classpathOptions,
-        picklepath,
+        store,
         compileSetup,
         progress,
         previousAnalysis,
