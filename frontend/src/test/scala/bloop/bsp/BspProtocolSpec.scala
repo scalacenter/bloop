@@ -2,7 +2,6 @@ package bloop.bsp
 
 import java.nio.file.Files
 
-import bloop.data.Project
 import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, CliOptions, Commands}
 import bloop.engine.{BuildLoader, Run}
@@ -11,7 +10,8 @@ import bloop.tasks.TestUtil
 import bloop.logging.{RecordingLogger, Slf4jAdapter}
 import org.junit.Test
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.{ScalaBuildTarget, endpoints}
+import io.circe.Json
 import junit.framework.Assert
 import monix.eval.Task
 
@@ -91,6 +91,20 @@ class BspProtocolSpec {
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
         case Right(workspaceTargets) =>
+          workspaceTargets.targets.map { t =>
+            Assert.assertEquals(t.languageIds.sorted, List("java", "scala"))
+            t.data.foreach { json =>
+              ScalaBuildTarget.decodeScalaBuildTarget(json.hcursor) match {
+                case Right(target) =>
+                  Assert.assertTrue(
+                    s"Scala bin version ${target.scalaBinaryVersion} == Scala version ${target.scalaVersion}",
+                    target.scalaBinaryVersion != target.scalaVersion
+                  )
+                case Left(failure) =>
+                  sys.error(s"Decoding `${json}` as a scala build target failed: ${failure}")
+              }
+            }
+          }
           Right(Assert.assertEquals(workspaceTargets.targets.size, 8))
         case Left(error) => Left(error)
       }
