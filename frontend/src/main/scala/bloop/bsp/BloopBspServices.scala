@@ -195,11 +195,15 @@ final class BloopBspServices(
     bsp.BuildTargetIdentifier(project.bspUri)
 
   def toScalaBuildTarget(instance: ScalaInstance): bsp.ScalaBuildTarget = {
+    def toBinaryScalaVersion(version: String): String = {
+      version.split('.').take(2).mkString(".")
+    }
+
     val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
     bsp.ScalaBuildTarget(
       scalaOrganization = instance.organization,
       scalaVersion = instance.version,
-      scalaBinaryVersion = instance.version,
+      scalaBinaryVersion = toBinaryScalaVersion(instance.version),
       platform = bsp.ScalaPlatform.Jvm,
       jars = jars
     )
