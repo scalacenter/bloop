@@ -8,9 +8,11 @@ import bloop.logging.{BspClientLogger, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
+import junit.framework.Assert
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket
+import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
@@ -76,7 +78,8 @@ object BspClientTest {
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
       logger: BspClientLogger[_],
-      customServices: Services => Services = identity[Services]
+      customServices: Services => Services = identity[Services],
+      allowError: Boolean = false,
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
@@ -112,7 +115,14 @@ object BspClientTest {
         otherCalls <- runEndpoints(lsClient)
         _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
         _ = endpoints.Build.exit.notify(bsp.Exit())
-      } yield BspServer.closeSocket(cmd, socket)
+      } yield {
+        BspServer.closeSocket(cmd, socket)
+        otherCalls match {
+          case Right(_) => ()
+          case Left(error) if allowError => Left(error)
+          case Left(error) => throw new MessageOnlyException(s"Received error ${error}!")
+        }
+      }
     }
 
     import scala.concurrent.Await
