@@ -228,8 +228,8 @@ class BspProtocolSpec {
         if (tested) throw new AssertionError("Bloop compiled more than one target")
         if (report.target.uri.value.endsWith("utestJVM")) {
           tested = true
-          Assert.assertEquals("Warnings in utestJVM != 4", report.warnings, 4)
-          Assert.assertEquals("Errors in utestJVM != 0", report.errors, 0)
+          Assert.assertEquals("Warnings in utestJVM != 4", 4, report.warnings)
+          Assert.assertEquals("Errors in utestJVM != 0", 0, report.errors)
           //Assert.assertTrue("Duration in utestJVM == 0", report.time != 0)
         }
       }
@@ -240,6 +240,69 @@ class BspProtocolSpec {
       // Make sure that the compilation is logged back to the client via logs in stdout
       val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
       Assert.assertTrue("End of compilation is not reported.", msgs.contains("Done compiling."))
+    }
+  }
+
+  def testTest(bspCmd: Commands.ValidatedBsp): Unit = {
+    var checkCompiledUtest: Boolean = false
+    var checkCompiledUtestTest: Boolean = false
+    var checkTestedTargets: Boolean = false
+    val logger = new BspClientLogger(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
+        ts match {
+          case Right(workspaceTargets) =>
+            workspaceTargets.targets.map(_.id).find(_.uri.value.endsWith("utestJVM-test")) match {
+              case Some(id) =>
+                endpoints.BuildTarget.test.request(bsp.TestParams(List(id), None, Nil)).map {
+                  case Left(e) => Left(e)
+                  case Right(report) =>
+                    if (checkCompiledUtest && checkCompiledUtestTest) Right(report)
+                    else Left(Response.internalError("The test didn't receive any test report."))
+                }
+              case None => Task.now(Left(Response.internalError("Missing 'utestJVM-test'")))
+            }
+          case Left(error) =>
+            Task.now(Left(Response.internalError(s"Target request failed testing with $error.")))
+        }
+      }
+    }
+
+    val addServicesTest = { (s: Services) =>
+      s.notification(endpoints.BuildTarget.compileReport) { report =>
+          if (checkCompiledUtest && checkCompiledUtestTest)
+            throw new AssertionError(s"Bloop compiled unexpected target: ${report}")
+          val uri = report.target.uri.value
+          if (uri.endsWith("utestJVM")) {
+            checkCompiledUtest = true
+            Assert.assertEquals("Warnings in utestJVM != 4", 4, report.warnings)
+            Assert.assertEquals("Errors in utestJVM != 0", 0, report.errors)
+          } else if (uri.endsWith("utestJVM-test")) {
+            checkCompiledUtestTest = true
+            Assert.assertEquals("Warnings in utestJVM != 5", 5, report.warnings)
+            Assert.assertEquals("Errors in utestJVM-test != 0", 0, report.errors)
+          } else ()
+        }
+        .notification(endpoints.BuildTarget.testReport) { report =>
+          if (checkTestedTargets)
+            throw new AssertionError(s"Bloop unexpected only one test report, received: ${report}")
+          val uri = report.target.uri.value
+          if (uri.endsWith("utestJVM-test")) {
+            checkTestedTargets = true
+            Assert.assertEquals("Successful tests != 115", 115, report.passed)
+            Assert.assertEquals(s"Failed tests ${report.failed}", 0, report.failed)
+          }
+        }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
+      // Make sure that the compilation is logged back to the client via logs in stdout
+      val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
+      Assert.assertTrue(
+        "Test execution did not compile utestJVM and utestJVM-test.",
+        msgs.filter(_.contains("Done compiling.")).size == 2
+      )
     }
   }
 
@@ -325,9 +388,19 @@ class BspProtocolSpec {
   @Test def TestCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
   }
+
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir, verbose = true))
   }
+
+  @Test def TestTestViaLocal(): Unit = {
+    if (!BspServer.isWindows) testTest(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestTestViaTcp(): Unit = {
+    testTest(createTcpBspCommand(configDir, verbose = true))
+  }
+
   @Test def TestFailedCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
   }

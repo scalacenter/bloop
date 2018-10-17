@@ -2,9 +2,13 @@ package bloop.testing
 
 import bloop.logging.Logger
 import bloop.util.TimeFormat
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.BuildTargetIdentifier
+import ch.epfl.scala.bsp.endpoints.BuildTarget
 import sbt.testing.{Event, Status}
 
 import scala.collection.mutable
+import scala.meta.jsonrpc.JsonRpcClient
 
 sealed trait TestSuiteEvent
 object TestSuiteEvent {
@@ -25,13 +29,13 @@ trait TestSuiteEventHandler {
 }
 
 class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
-  private var suitesDuration = 0L
-  private var suitesPassed = 0
-  private var suitesAborted = 0
-  private val suitesFailed = mutable.ArrayBuffer.empty[String]
-  private var suitesTotal = 0
+  protected var suitesDuration = 0L
+  protected var suitesPassed = 0
+  protected var suitesAborted = 0
+  protected val suitesFailed = mutable.ArrayBuffer.empty[String]
+  protected var suitesTotal = 0
 
-  private def formatMetrics(metrics: List[(Int, String)]): String = {
+  protected def formatMetrics(metrics: List[(Int, String)]): String = {
     val relevant = metrics.iterator.filter(_._1 > 0)
     relevant.map { case (value, metric) => value + " " + metric }.mkString(", ")
   }
@@ -118,6 +122,16 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
     }
 
     logger.info("===============================================")
+  }
+}
+
+final class BspLoggingEventHandler(id: BuildTargetIdentifier, logger: Logger, client: JsonRpcClient)
+    extends LoggingEventHandler(logger) {
+  implicit val client0: JsonRpcClient = client
+  override def report(): Unit = {
+    val failed = suitesFailed.length
+    val r = bsp.TestReport(id, None, suitesPassed, failed, 0, 0, 0, 0, Some(suitesDuration))
+    BuildTarget.testReport.notify(r)
   }
 }
 

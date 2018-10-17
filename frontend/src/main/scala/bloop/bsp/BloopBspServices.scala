@@ -7,11 +7,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import bloop.{Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus}
 import bloop.data.Project
+import bloop.engine.tasks.Tasks
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.BspServerLogger
+import bloop.testing.{BspLoggingEventHandler, LoggingEventHandler, TestInternals}
 import monix.eval.Task
-import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, ScalaTestClassesItem, ScalaTestClassesParams, endpoints}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import xsbti.Problem
@@ -33,7 +35,8 @@ final class BloopBspServices(
 
   // Disable ansii codes for now so that the BSP clients don't get unescaped color codes
   private val bspForwarderLogger = BspServerLogger(callSiteState, client, false)
-  final val services = JsonRpcServices.empty(bspForwarderLogger)
+  final val services = JsonRpcServices
+    .empty(bspForwarderLogger)
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
     .request(endpoints.Build.shutdown)(shutdown(_))
@@ -42,6 +45,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.dependencySources)(dependencySources(_))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(scalacOptions(_))
     .requestAsync(endpoints.BuildTarget.compile)(compile(_))
+    .requestAsync(endpoints.BuildTarget.test)(test(_))
 
   // Internal state, think how to make this more elegant.
   @volatile private var currentState: State = null
@@ -139,54 +143,92 @@ final class BloopBspServices(
     }
   }
 
+  def compileProjects(projects0: Seq[ProjectMapping]): BspResponse[bsp.CompileResult] = {
+    val current = currentState
+    val projects = Dag.reduce(current.build.dags, projects0.map(_._2).toSet)
+    val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
+      case (action, project) => Run(Commands.Compile(project.name), action)
+    }
+
+    def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
+      val count = bloop.reporter.Problem.count(problems)
+      s"${p.name} [${elapsedMs}ms] (errors ${count.errors}, warnings ${count.warnings})"
+    }
+
+    Interpreter.execute(action, Task.now(current)).map { state =>
+      currentState = state
+      val compiledProjects = current.results.diffLatest(state.results)
+      val errorMsgs = compiledProjects.flatMap {
+        case (p, result) =>
+          result match {
+            case Compiler.Result.Empty => Nil
+            case Compiler.Result.Cancelled(_) => Nil
+            case Compiler.Result.Blocked(_) => Nil
+            case Compiler.Result.Success(_, _, _) => Nil
+            case Compiler.Result.GlobalError(problem) => List(problem)
+            case Compiler.Result.Failed(problems, t, elapsed) =>
+              val acc = List(reportError(p, problems, elapsed))
+              t match {
+                case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc
+                case None => acc
+              }
+          }
+      }
+
+      errorMsgs match {
+        case Nil => Right(bsp.CompileResult(None, None))
+        case xs =>
+          val allErrors = xs.map(str => s"  ${str}").mkString(System.lineSeparator())
+          Left(
+            JsonRpcResponse.internalError(
+              s"Compilation failed:${System.lineSeparator()}$allErrors".stripMargin))
+      }
+    }
+  }
+
   def compile(params: bsp.CompileParams): BspResponse[bsp.CompileResult] = {
-    def compile(projects0: Seq[ProjectMapping]): BspResponse[bsp.CompileResult] = {
-      val current = currentState
-      val projects = Dag.reduce(current.build.dags, projects0.map(_._2).toSet)
-      val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
-        case (action, project) => Run(Commands.Compile(project.name), action)
+    ifInitialized {
+      mapToProjects(params.targets) match {
+        case Left(error) => Task.now(Left(error))
+        case Right(mappings) => compileProjects(mappings)
       }
+    }
+  }
 
-      def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
-        val count = bloop.reporter.Problem.count(problems)
-        s"${p.name} [${elapsedMs}ms] (errors ${count.errors}, warnings ${count.warnings})"
-      }
-
-      Interpreter.execute(action, Task.now(current)).map { state =>
-        currentState = state
-        val compiledProjects = current.results.diffLatest(state.results)
-        val errorMsgs = compiledProjects.flatMap {
-          case (p, result) =>
-            result match {
-              case Compiler.Result.Empty => Nil
-              case Compiler.Result.Cancelled(_) => Nil
-              case Compiler.Result.Blocked(_) => Nil
-              case Compiler.Result.Success(_, _, _) => Nil
-              case Compiler.Result.GlobalError(problem) => List(problem)
-              case Compiler.Result.Failed(problems, t, elapsed) =>
-                val acc = List(reportError(p, problems, elapsed))
-                t match {
-                  case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc
-                  case None => acc
-                }
-            }
-        }
-
-        errorMsgs match {
-          case Nil => Right(bsp.CompileResult(None, None))
-          case xs =>
-            val allErrors = xs.map(str => s"  ${str}").mkString(System.lineSeparator())
-            Left(
-              JsonRpcResponse.internalError(
-                s"Compilation failed:${System.lineSeparator()}$allErrors".stripMargin))
-        }
-      }
+  def test(params: bsp.TestParams): BspResponse[bsp.TestResult] = {
+    def test(
+        id: BuildTargetIdentifier,
+        project: Project,
+        state: State
+    ): Task[State] = {
+      val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
+      val cwd = state.commonOptions.workingPath
+      val handler = new BspLoggingEventHandler(id, state.logger, client)
+      Tasks.test(state, project, cwd, false, Nil, testFilter, handler)
     }
 
     ifInitialized {
       mapToProjects(params.targets) match {
         case Left(error) => Task.now(Left(error))
-        case Right(mappings) => compile(mappings)
+        case Right(mappings) =>
+          compileProjects(mappings).flatMap { compileResult =>
+            compileResult match {
+              case Right(result) =>
+                val sequentialTestExecution = mappings.foldLeft(Task.now(currentState)) {
+                  case (taskState, (tid, p)) => taskState.flatMap(state => test(tid, p, state))
+                }
+
+                sequentialTestExecution.materialize.map(_.toEither).map {
+                  case Left(e) =>
+                    Left(JsonRpcResponse.internalError(s"Failed test execution: ${e.getMessage}"))
+                  case Right(state) =>
+                    currentState = state
+                    Right(bsp.TestResult(None, None))
+                }
+
+              case Left(error) => Task.now(Left(error))
+            }
+          }
       }
     }
   }
