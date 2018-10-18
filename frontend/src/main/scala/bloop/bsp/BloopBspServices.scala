@@ -288,9 +288,9 @@ final class BloopBspServices(
                     currentState = state
                     val status = {
                       val exitStatus = state.status
-                      if (isCancelled) bsp.ExitStatus.Cancelled
-                      else if (exitStatus.isOk) bsp.ExitStatus.Ok
-                      else bsp.ExitStatus.Error
+                      if (isCancelled) bsp.StatusCode.Cancelled
+                      else if (exitStatus.isOk) bsp.StatusCode.Ok
+                      else bsp.StatusCode.Error
                     }
                     Right(bsp.RunResult(None, status))
                 }

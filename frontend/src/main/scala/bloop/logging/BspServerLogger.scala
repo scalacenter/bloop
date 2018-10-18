@@ -36,14 +36,17 @@ final class BspServerLogger private (
 
   override def error(msg: String): Unit = {
     Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Error, None, None, msg))
+    ()
   }
 
   override def warn(msg: String): Unit = {
     Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, None, msg))
+    ()
   }
 
   override def info(msg: String): Unit = {
     Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Info, None, None, msg))
+    ()
   }
 
   def diagnostic(problem: Problem): Unit = {
@@ -81,6 +84,7 @@ final class BspServerLogger private (
           case Severity.Info => info(message)
         }
     }
+    ()
   }
 
   def publishBspReport(uri: bsp.Uri, problems: Seq[Problem]): Unit = {
@@ -89,6 +93,7 @@ final class BspServerLogger private (
     BuildTarget.compileReport.notify(
       bsp.CompileReport(bsp.BuildTargetIdentifier(uri), None, errors, warnings, None)
     )
+    ()
   }
 
   override def log[M](record: LogRecord[M]): Unit = {
@@ -105,6 +110,7 @@ final class BspServerLogger private (
           case None => error(record.message)
         }
     }
+    ()
   }
 }
 
