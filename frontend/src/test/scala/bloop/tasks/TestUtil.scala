@@ -18,6 +18,7 @@ import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
 import monix.eval.Task
+import org.junit.Assert
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -190,8 +191,7 @@ object TestUtil {
       noDependencies,
       rootProjectName = cmd.project,
       javaEnv = javaEnv,
-      quiet = true) { state =>
-      runAndCheck(state, cmd)(check)
+      quiet = true) { state => runAndCheck(state, cmd)(check)
     }
   }
 
@@ -293,6 +293,12 @@ object TestUtil {
     Files.createDirectories(srcs)
     Files.createDirectories(classes)
     (srcs, classes)
+  }
+
+  def ensureCompilationInAllTheBuild(state: State): Unit = {
+    state.build.projects.foreach { p =>
+      Assert.assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
+    }
   }
 
   def writeSources(srcDir: Path, sources: Map[String, String]): Unit = {

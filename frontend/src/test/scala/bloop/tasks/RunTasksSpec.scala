@@ -2,13 +2,14 @@ package bloop.tasks
 
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import bloop.ScalaInstance
 import org.junit.Test
-import org.junit.Assert.assertEquals
+import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
-import bloop.cli.Commands
+import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{ExecutionContext, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
@@ -60,11 +61,12 @@ class RunTasksSpec {
     val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.NotRunnable))
     val javaEnv = JavaEnv.default
-    checkAfterCleanCompilation(projectsStructure,
-                               noDependencies,
-                               rootProjectName = projectName,
-                               javaEnv = javaEnv,
-                               quiet = true) { state =>
+    checkAfterCleanCompilation(
+      projectsStructure,
+      noDependencies,
+      rootProjectName = projectName,
+      javaEnv = javaEnv,
+      quiet = true) { state =>
       val project = getProject(projectName, state)
       val mainClasses = Tasks.findMainClasses(state, project)
       assertEquals(0, mainClasses.length.toLong)
@@ -76,11 +78,12 @@ class RunTasksSpec {
     val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0))
     val javaEnv = JavaEnv.default
-    checkAfterCleanCompilation(projectsStructure,
-                               noDependencies,
-                               rootProjectName = projectName,
-                               javaEnv = javaEnv,
-                               quiet = true) { state =>
+    checkAfterCleanCompilation(
+      projectsStructure,
+      noDependencies,
+      rootProjectName = projectName,
+      javaEnv = javaEnv,
+      quiet = true) { state =>
       val project = getProject(projectName, state)
       val mainClasses = Tasks.findMainClasses(state, project)
       assertEquals(1, mainClasses.length.toLong)
@@ -92,14 +95,16 @@ class RunTasksSpec {
   def canDetectMultipleMainClasses() = {
     val projectName = "test-project"
     val projectsStructure = Map(
-      projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0,
-                         "B.scala" -> ArtificialSources.RunnableClass1))
+      projectName -> Map(
+        "A.scala" -> ArtificialSources.RunnableClass0,
+        "B.scala" -> ArtificialSources.RunnableClass1))
     val javaEnv = JavaEnv.default
-    checkAfterCleanCompilation(projectsStructure,
-                               noDependencies,
-                               rootProjectName = projectName,
-                               javaEnv = javaEnv,
-                               quiet = true) { state =>
+    checkAfterCleanCompilation(
+      projectsStructure,
+      noDependencies,
+      rootProjectName = projectName,
+      javaEnv = javaEnv,
+      quiet = true) { state =>
       val project = getProject(projectName, state)
       val mainClasses = Tasks.findMainClasses(state, project).sorted
       assertEquals(2, mainClasses.length.toLong)
@@ -114,8 +119,7 @@ class RunTasksSpec {
     val mainClassName = "Main"
     val state = loadTestProject(projectName)
     val command = Commands.Run(projectName, Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "OK")))
+    runAndCheck(state, command) { messages => assert(messages.contains(("info", "OK")))
     }
   }
 
@@ -234,6 +238,46 @@ class RunTasksSpec {
 
         assert(msgs.filter(_._1 == "info").exists(_._2.contains("Starting infinity.")))
         assert(!runState.status.isOk)
+    }
+  }
+
+  @Test
+  def runApplicationAfterIncrementalChanges(): Unit = {
+    val RootProject = "target-project"
+    import TestUtil.{checkAfterCleanCompilation, ensureCompilationInAllTheBuild}
+    object Sources {
+      val `A.scala` = "object Dep { val s = 1 }"
+      val `B.scala` = "object TestRoot extends App { println(Dep.s) }"
+      val `A2.scala` = "object Dep { val t = 1 }"
+    }
+
+    val structure = Map(
+      "A" -> Map("A.scala" -> Sources.`A.scala`),
+      RootProject -> Map("B.scala" -> Sources.`B.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map(RootProject -> Set("A"))
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      assertEquals(logger.compilingInfos.size.toLong, 2.toLong)
+      ensureCompilationInAllTheBuild(state)
+
+      // Modify the contents of a source in `A` to trigger recompilation in root
+      val projectA = state.build.getProjectFor("A").get
+      val sourceA = projectA.sources.head.resolve("A.scala")
+      assert(Files.exists(sourceA.underlying), s"Source $sourceA does not exist")
+      Files.write(sourceA.underlying, Sources.`A2.scala`.getBytes(StandardCharsets.UTF_8))
+
+      val action = Run(Commands.Run(RootProject, incremental = true))
+      val state2 = TestUtil.blockingExecute(action, state)
+
+      assertEquals(4.toLong, logger.compilingInfos.size.toLong)
+      val errors = logger.getMessages.filter(_._1 == "error")
+      val compilationError = errors.filter(_._2.contains("value s is not a member of object Dep"))
+      assertTrue("A compilation error is missing", compilationError.size == 1)
+      val msgs = errors.filter(_._2.contains("Could not find or load main class TestRoot"))
+      assertTrue("An application was run when compilation failed.", msgs.size == 0)
+      ensureCompilationInAllTheBuild(state)
     }
   }
 }

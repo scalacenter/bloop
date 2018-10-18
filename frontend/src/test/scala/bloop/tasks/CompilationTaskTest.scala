@@ -19,7 +19,8 @@ import bloop.tasks.TestUtil.{
   checkAfterCleanCompilation,
   getProject,
   hasPreviousResult,
-  noPreviousAnalysis
+  noPreviousAnalysis,
+  ensureCompilationInAllTheBuild
 }
 
 import scala.concurrent.duration.FiniteDuration
@@ -486,11 +487,5 @@ class CompilationTaskTest {
 
     val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
     assertTrue(Files.exists(analysisOutFile.underlying))
-  }
-
-  def ensureCompilationInAllTheBuild(state: State): Unit = {
-    state.build.projects.foreach { p =>
-      assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
-    }
   }
 }
