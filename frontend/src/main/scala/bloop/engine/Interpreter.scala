@@ -14,6 +14,7 @@ import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.Feedback.XMessageString
 import monix.eval.Task
+
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
   def execute(action: Action, stateTask: Task[State]): Task[State] = {

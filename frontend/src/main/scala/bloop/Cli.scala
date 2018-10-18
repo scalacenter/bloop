@@ -1,6 +1,8 @@
 package bloop
 
+import java.io.{InputStream, PrintStream}
 import java.nio.file.{Files, Path}
+import java.util.concurrent.CompletableFuture
 
 import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
@@ -20,6 +22,31 @@ object Cli {
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool, args)
     sys.exit(exitStatus.code)
+  }
+
+  def reflectMain(
+      args: Array[String],
+      cwd: Path,
+      in: InputStream,
+      out: PrintStream,
+      err: PrintStream,
+      props: java.util.Properties,
+      cancel: CompletableFuture[java.lang.Boolean]
+  ): Int = {
+    val env = CommonOptions.PrettyProperties.from(props)
+    val nailgunOptions = CommonOptions(
+      in = in,
+      out = out,
+      err = err,
+      ngout = out,
+      ngerr = err,
+      workingDirectory = cwd.toAbsolutePath.toString,
+      env = env
+    )
+
+    val cmd = parse(args, nailgunOptions)
+    val exitStatus = run(cmd, NoPool, args, cancel)
+    exitStatus.code
   }
 
   def nailMain(ngContext: NGContext): Unit = {
@@ -211,6 +238,15 @@ object Cli {
   }
 
   def run(action: Action, pool: ClientPool, userArgs: Array[String]): ExitStatus = {
+    run(action, pool, userArgs, FalseCancellation)
+  }
+
+  private def run(
+      action: Action,
+      pool: ClientPool,
+      userArgs: Array[String],
+      cancel: CompletableFuture[java.lang.Boolean]
+  ): ExitStatus = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       val cwd = AbsolutePath(cliOptions.common.workingDirectory)
@@ -239,7 +275,8 @@ object Cli {
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
     if (Files.exists(configDirectory.underlying)) {
-      waitUntilEndOfWorld(action, cliOptions, pool, configDirectory.underlying, logger, userArgs) {
+      val dir = configDirectory.underlying
+      waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
         Interpreter.execute(action, currentState).map { newState =>
           State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
           // Persist successful result on the background for the new state -- it doesn't block!
@@ -253,6 +290,12 @@ object Cli {
     }
   }
 
+  private final val FalseCancellation: CompletableFuture[java.lang.Boolean] = {
+    val cancel = new CompletableFuture[java.lang.Boolean]()
+    cancel.complete(false)
+    cancel
+  }
+
   import scala.concurrent.Await
   import scala.concurrent.duration.Duration
   private[bloop] def waitUntilEndOfWorld(
@@ -261,7 +304,8 @@ object Cli {
       pool: ClientPool,
       configDirectory: Path,
       logger: Logger,
-      userArgs: Array[String]
+      userArgs: Array[String],
+      cancel: CompletableFuture[java.lang.Boolean] = FalseCancellation
   )(taskState: Task[State]): ExitStatus = {
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
@@ -278,8 +322,23 @@ object Cli {
         .dematerialize
         .runAsync(ExecutionContext.scheduler)
 
+    if (!cancel.isDone) {
+      // Add support for a client to cancel bloop via Java's completable future
+      import bloop.monix.Java8Compat.JavaCompletableFutureUtils
+      val cancelCliClient = Task.deferFutureAction(cancel.asScala(_)).map { cancel =>
+        if (cancel) {
+          cliOptions.common.out.println(
+            s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
+          handle.cancel()
+        } else ()
+      }.runAsync(ExecutionContext.scheduler)
+    }
+
+
     def handleException(t: Throwable) = {
       handle.cancel()
+      if (!cancel.isDone)
+        cancel.complete(false)
       if (t.getMessage != null)
         logger.error(t.getMessage)
       logger.trace(t)
@@ -294,6 +353,9 @@ object Cli {
             ngout.println(
               s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks...")
             handle.cancel()
+            if (!cancel.isDone)
+              cancel.complete(false)
+            ()
           }
       }
 
