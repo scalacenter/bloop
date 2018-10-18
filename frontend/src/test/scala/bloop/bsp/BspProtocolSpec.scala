@@ -131,7 +131,7 @@ class BspProtocolSpec {
           endpoints.BuildTarget.dependencySources.request(bsp.DependencySourcesParams(btis)).map {
             case Left(error) => Left(error)
             case Right(sources) =>
-              val fetchedSources = sources.items.flatMap(i => i.uris.map(_.value))
+              val fetchedSources = sources.items.flatMap(i => i.sources.map(_.value))
               val expectedSources = BuildLoader
                 .loadSynchronously(configDir, logger.underlying)
                 .flatMap(_.sources.map(s => bsp.Uri(s.underlying.toUri).value))
