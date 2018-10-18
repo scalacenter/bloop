@@ -20,18 +20,19 @@ object ExitStatus {
     result
   }
 
-  private val all: List[ExitStatus] = allInternal.toList
-  private def codeToName(code: Int): String = {
+  // FORMAT: OFF
+  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, LinkingError, TestExecutionError, RunError: ExitStatus = generateExitStatus
+  // FORMAT: ON
+
+  // The initialization of all must come after the invocations to `generateExitStatus`
+  private lazy val all: List[ExitStatus] = allInternal.toList
+  private[bloop] def codeToName(code: Int): String = {
     if (code == 0) Ok.name
     else {
       val names = all.collect { case exit if (exit.code & code) != 0 => exit.name }
       names.mkString("+")
     }
   }
-
-  // FORMAT: OFF
-  val Ok, UnexpectedError, ParseError, InvalidCommandLineOption, CompilationError, LinkingError, TestExecutionError, RunError: ExitStatus = generateExitStatus
-  // FORMAT: ON
 
   def apply(code: Int): ExitStatus = {
     if (cache.contains(code)) cache.get(code)
