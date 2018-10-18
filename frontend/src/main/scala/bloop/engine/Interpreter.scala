@@ -295,7 +295,7 @@ object Interpreter {
     }
   }
 
-  private def linkWithScalaJs(
+  private[bloop] def linkWithScalaJs(
       cmd: LinkingCommand,
       project: Project,
       state: State,
@@ -324,7 +324,7 @@ object Interpreter {
     }
   }
 
-  private def linkWithScalaNative(
+  private[bloop] def linkWithScalaNative(
       cmd: LinkingCommand,
       project: Project,
       state: State,
@@ -365,7 +365,7 @@ object Interpreter {
     }
   }
 
-  private def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
+  private[bloop] def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     def doLink(project: Project)(state: State): Task[State] = {
       compileAnd(cmd, state, project, false, sequential, "`link`") { state =>
         getMainClass(state, project, cmd.main) match {
@@ -444,7 +444,7 @@ object Interpreter {
       .mergeStatus(ExitStatus.InvalidCommandLineOption)
   }
 
-  private def getMainClass(
+  private[bloop] def getMainClass(
       state: State,
       project: Project,
       cliMainClass: Option[String]

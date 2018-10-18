@@ -7,16 +7,14 @@ import bloop.cli.{BspProtocol, CliOptions, Commands}
 import bloop.engine.{BuildLoader, Run}
 import bloop.io.AbsolutePath
 import bloop.tasks.TestUtil
-import bloop.logging.{RecordingLogger, Slf4jAdapter}
+import bloop.logging.{BspClientLogger, RecordingLogger}
 import org.junit.Test
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.{ScalaBuildTarget, endpoints}
-import io.circe.Json
 import junit.framework.Assert
 import monix.eval.Task
 
-import scala.meta.lsp.LanguageClient
-import scala.meta.jsonrpc.{Response, Services}
+import scala.meta.jsonrpc.{LanguageClient, Response, Services}
 import scala.util.control.NonFatal
 
 class BspProtocolSpec {
@@ -52,7 +50,7 @@ class BspProtocolSpec {
     validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts))
   }
 
-  def reportIfError(logger: Slf4jAdapter[RecordingLogger])(thunk: => Unit): Unit = {
+  def reportIfError(logger: BspClientLogger[RecordingLogger])(thunk: => Unit): Unit = {
     try thunk
     catch {
       case NonFatal(t) =>
@@ -64,7 +62,7 @@ class BspProtocolSpec {
   }
 
   def testInitialization(cmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     // We test the initialization several times to make sure the scheduler doesn't get blocked.
     def test(counter: Int): Unit = {
       if (counter == 0) ()
@@ -87,7 +85,7 @@ class BspProtocolSpec {
   }
 
   def testBuildTargets(bspCmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
         case Right(workspaceTargets) =>
@@ -124,7 +122,7 @@ class BspProtocolSpec {
   }
 
   def testDependencySources(bspCmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
@@ -162,7 +160,7 @@ class BspProtocolSpec {
       s"""StringifiedScalacOption($scalacOptions, $classpath, ${classesDir.value})"""
     }
 
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
@@ -204,7 +202,7 @@ class BspProtocolSpec {
 
   def testCompile(bspCmd: Commands.ValidatedBsp): Unit = {
     var tested: Boolean = false
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
@@ -230,8 +228,8 @@ class BspProtocolSpec {
         if (tested) throw new AssertionError("Bloop compiled more than one target")
         if (report.target.uri.value.endsWith("utestJVM")) {
           tested = true
-          Assert.assertEquals("Warnings in utestJVM != 4", report.warnings, 4)
-          Assert.assertEquals("Errors in utestJVM != 0", report.errors, 0)
+          Assert.assertEquals("Warnings in utestJVM != 4", 4, report.warnings)
+          Assert.assertEquals("Errors in utestJVM != 0", 0, report.errors)
           //Assert.assertTrue("Duration in utestJVM == 0", report.time != 0)
         }
       }
@@ -245,9 +243,135 @@ class BspProtocolSpec {
     }
   }
 
+  def testTest(bspCmd: Commands.ValidatedBsp): Unit = {
+    var checkCompiledUtest: Boolean = false
+    var checkCompiledUtestTest: Boolean = false
+    var checkTestedTargets: Boolean = false
+    val logger = new BspClientLogger(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
+        ts match {
+          case Right(workspaceTargets) =>
+            workspaceTargets.targets.map(_.id).find(_.uri.value.endsWith("utestJVM-test")) match {
+              case Some(id) =>
+                endpoints.BuildTarget.test.request(bsp.TestParams(List(id), None, Nil)).map {
+                  case Left(e) => Left(e)
+                  case Right(report) =>
+                    val valid = checkCompiledUtest && checkCompiledUtestTest && checkTestedTargets
+                    if (valid) Right(report)
+                    else Left(Response.internalError("Didn't receive all compile or test reports."))
+                }
+              case None => Task.now(Left(Response.internalError("Missing 'utestJVM-test'")))
+            }
+          case Left(error) =>
+            Task.now(Left(Response.internalError(s"Target request failed testing with $error.")))
+        }
+      }
+    }
+
+    val addServicesTest = { (s: Services) =>
+      s.notification(endpoints.BuildTarget.compileReport) { report =>
+          if (checkCompiledUtest && checkCompiledUtestTest)
+            throw new AssertionError(s"Bloop compiled unexpected target: ${report}")
+          val uri = report.target.uri.value
+          if (uri.endsWith("utestJVM")) {
+            checkCompiledUtest = true
+            Assert.assertEquals("Warnings in utestJVM != 4", 4, report.warnings)
+            Assert.assertEquals("Errors in utestJVM != 0", 0, report.errors)
+          } else if (uri.endsWith("utestJVM-test")) {
+            checkCompiledUtestTest = true
+            Assert.assertEquals("Warnings in utestJVM != 5", 5, report.warnings)
+            Assert.assertEquals("Errors in utestJVM-test != 0", 0, report.errors)
+          } else ()
+        }
+        .notification(endpoints.BuildTarget.testReport) { report =>
+          if (checkTestedTargets)
+            throw new AssertionError(s"Bloop unexpected only one test report, received: ${report}")
+          val uri = report.target.uri.value
+          if (uri.endsWith("utestJVM-test")) {
+            checkTestedTargets = true
+            Assert.assertEquals("Successful tests != 115", 115, report.passed)
+            Assert.assertEquals(s"Failed tests ${report.failed}", 0, report.failed)
+          }
+        }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
+      // Make sure that the compilation is logged back to the client via logs in stdout
+      val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
+      Assert.assertTrue(
+        "Test execution did not compile utestJVM and utestJVM-test.",
+        msgs.filter(_.contains("Done compiling.")).size == 2
+      )
+    }
+  }
+
+  def testRun(bspCmd: Commands.ValidatedBsp): Unit = {
+    val project = "utestJVM-test"
+    var checkCompiledUtest: Boolean = false
+    var checkCompiledUtestTest: Boolean = false
+    val logger = new BspClientLogger(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
+        ts match {
+          case Right(workspaceTargets) =>
+            workspaceTargets.targets.map(_.id).find(_.uri.value.endsWith(project)) match {
+              case Some(id) =>
+                endpoints.BuildTarget.run.request(bsp.RunParams(id, None, Nil)).map {
+                  case Left(e) => Left(e)
+                  case Right(result) =>
+                    if (checkCompiledUtest && checkCompiledUtestTest) {
+                      result.exitStatus match {
+                        case bsp.ExitStatus.Ok => Right(result)
+                        case bsp.ExitStatus.Error =>
+                          Left(Response.internalError("Status code of run is an error!"))
+                        case bsp.ExitStatus.Cancelled =>
+                          Left(Response.internalError("Status code of cancelled is an error!"))
+                      }
+                    } else {
+                      Left(Response.internalError("The test didn't receive any compile report."))
+                    }
+                }
+              case None => Task.now(Left(Response.internalError(s"Missing '$project'")))
+            }
+          case Left(error) =>
+            Task.now(Left(Response.internalError(s"Target request failed testing with $error.")))
+        }
+      }
+    }
+
+    val addServicesTest = { (s: Services) =>
+      s.notification(endpoints.BuildTarget.compileReport) { report =>
+        if (checkCompiledUtest && checkCompiledUtestTest)
+          throw new AssertionError(s"Bloop compiled unexpected target: ${report}")
+        val uri = report.target.uri.value
+        if (uri.endsWith("utestJVM")) {
+          checkCompiledUtest = true
+          Assert.assertEquals("Warnings in utestJVM != 4", 4, report.warnings)
+          Assert.assertEquals("Errors in utestJVM != 0", 0, report.errors)
+        } else if (uri.endsWith("utestJVM-test")) {
+          checkCompiledUtestTest = true
+          Assert.assertEquals("Warnings in utestJVM != 5", 5, report.warnings)
+          Assert.assertEquals("Errors in utestJVM-test != 0", 0, report.errors)
+        } else ()
+      }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
+      // Make sure that the compilation is logged back to the client via logs in stdout
+      val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
+      Assert.assertTrue(
+        s"Run execution did not compile $project.",
+        msgs.filter(_.contains("Done compiling.")).size == 2
+      )
+    }
+  }
+
   type BspResponse[T] = Task[Either[Response.Error, T]]
   def testFailedCompile(bspCmd: Commands.ValidatedBsp): Unit = {
-    val logger = new Slf4jAdapter(new RecordingLogger)
+    val logger = new BspClientLogger(new RecordingLogger)
     def expectError(request: BspResponse[bsp.CompileResult], expected: String, failMsg: String) = {
       request.flatMap {
         case Right(report) =>
@@ -284,7 +408,7 @@ class BspProtocolSpec {
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
+      BspClientTest.runTest(bspCmd, configDir, logger, allowError = true)(c => clientWork(c))
     }
   }
 
@@ -327,9 +451,27 @@ class BspProtocolSpec {
   @Test def TestCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
   }
+
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir, verbose = true))
   }
+
+  @Test def TestTestViaLocal(): Unit = {
+    if (!BspServer.isWindows) testTest(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestTestViaTcp(): Unit = {
+    testTest(createTcpBspCommand(configDir, verbose = true))
+  }
+
+  @Test def TestRunViaLocal(): Unit = {
+    if (!BspServer.isWindows) testRun(createLocalBspCommand(configDir))
+  }
+
+  @Test def TestRunViaTcp(): Unit = {
+    testRun(createTcpBspCommand(configDir, verbose = true))
+  }
+
   @Test def TestFailedCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
   }

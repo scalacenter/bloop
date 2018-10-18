@@ -3,30 +3,32 @@ package bloop.logging
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.engine.State
-import bloop.reporter.{DefaultReporterFormat, Problem}
+import bloop.reporter.Problem
 import sbt.internal.inc.bloop.ZincInternals
 import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
+import scribe.LogRecord
 
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
  * It does so via the replication of the `build/logMessage` LSP functionality.
  */
-final class BspLogger private (
+final class BspServerLogger private (
     override val name: String,
     underlying: Logger,
     implicit val client: JsonRpcClient,
     ansiSupported: Boolean
-) extends Logger {
+) extends Logger
+    with scribe.LoggerSupport {
 
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger =
-    new BspLogger(name, underlying.asDiscrete, client, ansiSupported)
+    new BspServerLogger(name, underlying.asDiscrete, client, ansiSupported)
   override def asVerbose: Logger =
-    new BspLogger(name, underlying.asVerbose, client, ansiSupported)
+    new BspServerLogger(name, underlying.asVerbose, client, ansiSupported)
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
   override def debug(msg: String): Unit = underlying.debug(msg)
@@ -88,13 +90,29 @@ final class BspLogger private (
       bsp.CompileReport(bsp.BuildTargetIdentifier(uri), None, errors, warnings, None)
     )
   }
+
+  override def log[M](record: LogRecord[M]): Unit = {
+    import scribe.Level
+    val msg = record.message
+    record.level match {
+      case Level.Info => info(msg)
+      case Level.Error => error(msg)
+      case Level.Warn => warn(msg)
+      case Level.Debug => debug(msg)
+      case Level.Trace =>
+        record.throwable match {
+          case Some(t) => trace(t)
+          case None => error(record.message)
+        }
+    }
+  }
 }
 
-object BspLogger {
+object BspServerLogger {
   private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
 
-  def apply(state: State, client: JsonRpcClient, ansiCodesSupported: Boolean): BspLogger = {
-    val name: String = s"bsp-logger-${BspLogger.counter.incrementAndGet()}"
-    new BspLogger(name, state.logger, client, ansiCodesSupported)
+  def apply(state: State, client: JsonRpcClient, ansiCodesSupported: Boolean): BspServerLogger = {
+    val name: String = s"bsp-logger-${ BspServerLogger.counter.incrementAndGet()}"
+    new BspServerLogger(name, state.logger, client, ansiCodesSupported)
   }
 }

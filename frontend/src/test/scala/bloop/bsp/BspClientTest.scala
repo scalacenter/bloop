@@ -4,20 +4,21 @@ import java.nio.file.Files
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
-import bloop.logging.{RecordingLogger, Slf4jAdapter}
+import bloop.logging.{BspClientLogger, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
+import junit.framework.Assert
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket
+import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc.{BaseProtocolMessage, Response, Services}
-import scala.meta.lsp.{LanguageClient, LanguageServer}
+import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 
 object BspClientTest {
-  def cleanUpLastResources(cmd: Commands.ValidatedBsp) = {
+  def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
       case cmd: Commands.WindowsLocalBsp => ()
       case cmd: Commands.UnixLocalBsp =>
@@ -44,9 +45,8 @@ object BspClientTest {
   val scheduler: Scheduler = Scheduler(java.util.concurrent.Executors.newFixedThreadPool(4),
                                        ExecutionModel.AlwaysAsyncExecution)
 
-  import com.typesafe.scalalogging.{Logger => ScalaLogger}
-  def createServices(logger: ScalaLogger): Services = {
-    Services.empty
+  def createServices(logger: BspClientLogger[_]): Services = {
+    Services.empty(logger)
       .notification(endpoints.Build.showMessage) {
         case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
         case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
@@ -77,13 +77,13 @@ object BspClientTest {
   def runTest[T](
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
-      logger0: TestLogger,
+      logger: BspClientLogger[_],
       customServices: Services => Services = identity[Services],
+      allowError: Boolean = false,
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
-    val logger = ScalaLogger.apply(logger0)
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
-    val state = TestUtil.loadTestProject(projectName).copy(logger = logger0.underlying)
+    val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
 
     // Clean all the project results to avoid reusing previous compiles.
     state.results.cleanSuccessful(state.build.projects)
@@ -95,7 +95,7 @@ object BspClientTest {
       val out = socket.getOutputStream
 
       implicit val lsClient = new LanguageClient(out, logger)
-      val messages = BaseProtocolMessage.fromInputStream(in)
+      val messages = BaseProtocolMessage.fromInputStream(in, logger)
       val services = customServices(createServices(logger))
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
@@ -115,7 +115,14 @@ object BspClientTest {
         otherCalls <- runEndpoints(lsClient)
         _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
         _ = endpoints.Build.exit.notify(bsp.Exit())
-      } yield BspServer.closeSocket(cmd, socket)
+      } yield {
+        BspServer.closeSocket(cmd, socket)
+        otherCalls match {
+          case Right(_) => ()
+          case Left(error) if allowError => Left(error)
+          case Left(error) => throw new MessageOnlyException(s"Received error ${error}!")
+        }
+      }
     }
 
     import scala.concurrent.Await

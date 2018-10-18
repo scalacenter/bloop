@@ -5,7 +5,7 @@ import bloop.data.Project
 import bloop.engine._
 import bloop.engine.tasks.compilation._
 import bloop.io.AbsolutePath
-import bloop.logging.{BspLogger, Logger}
+import bloop.logging.{BspServerLogger, Logger}
 import bloop.reporter._
 import bloop.{CompileInputs, CompileMode, Compiler}
 import monix.eval.Task
@@ -211,7 +211,7 @@ object CompilationTask {
       logger: Logger
   ): Reporter = {
     logger match {
-      case bspLogger: BspLogger =>
+      case bspLogger: BspServerLogger =>
         // Disable reverse order to show errors as they come for BSP clients
         new BspReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
       case _ => new LogReporter(logger, cwd, identity, config)
