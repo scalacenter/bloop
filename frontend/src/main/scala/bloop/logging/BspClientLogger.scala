@@ -30,7 +30,7 @@ final class BspClientLogger[L <: Logger](val underlying: L)
       case Level.Trace =>
         record.throwable match {
           case Some(t) => trace(t)
-          case None => error(record.message)
+          case None => debug(record.message)
         }
     }
   }
