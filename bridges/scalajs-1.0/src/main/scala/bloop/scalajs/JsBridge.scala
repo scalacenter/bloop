@@ -62,8 +62,13 @@ object JsBridge {
       cache.cached(irContainers)
     }
 
+    val isTestProject = project.testFrameworks.nonEmpty
+
     val initializers =
-      mainClass.toList.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main"))
+      mainClass.toList.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main")) ++
+        (if (!isTestProject) List()
+         else List(ModuleInitializer.mainMethod("org.scalajs.testinterface.Bridge", "start")))
+
     val jsConfig = StandardLinker
       .Config()
       .withOptimizer(enableOptimizer)
@@ -87,19 +92,18 @@ object JsBridge {
       projectPath: Path,
       logger: BloopLogger,
       jsdom: java.lang.Boolean): (List[sbt.testing.Framework], () => Unit) = {
-    // TODO Add JSDOM support
-    val nodeEnv = new NodeJSEnv(logger, NodeJSEnv.Config().withCwd(Some(projectPath)))
+    val nodeJsConfig = NodeJSConfig().withCwd(Some(projectPath))
+    val nodeEnv =
+      if (!jsdom) new NodeJSEnv(logger, nodeJsConfig)
+      else new JSDOMNodeJSEnv(logger, nodeJsConfig)
 
     val config = TestAdapter.Config().withLogger(new Logger(logger))
     val adapter = new TestAdapter(
       nodeEnv,
       Input.ScriptsToLoad(
         List(
-          // TODO For testing purposes
-          MemVirtualBinaryFile.fromStringUTF8("before-tests.js", "console.log('before tests');"),
           MemVirtualBinaryFile
-            .fromStringUTF8(jsPath.toString, scala.io.Source.fromFile(jsPath.toFile).mkString),
-          MemVirtualBinaryFile.fromStringUTF8("after-tests.js", "console.log('after tests');")
+            .fromStringUTF8(jsPath.toString, scala.io.Source.fromFile(jsPath.toFile).mkString)
         )),
       config
     )
