@@ -74,7 +74,7 @@ class ProcessHandler(logger: Logger, exit: Promise[Unit], files: List[VirtualBin
     currentFileIndex < files.length
   }
 
-  override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit =
+  override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
     if (!closed) {
       val bytes = new Array[Byte](buffer.remaining)
       buffer.get(bytes)
@@ -83,14 +83,16 @@ class ProcessHandler(logger: Logger, exit: Promise[Unit], files: List[VirtualBin
       System.out.print(new String(bytes, "UTF-8"))
       System.out.flush()
     }
+  }
 
-  override def onStderr(buffer: ByteBuffer, closed: Boolean): Unit =
+  override def onStderr(buffer: ByteBuffer, closed: Boolean): Unit = {
     if (!closed) {
       val bytes = new Array[Byte](buffer.remaining)
       buffer.get(bytes)
       System.err.print(new String(bytes, "UTF-8"))
       System.err.flush()
     }
+  }
 
   override def onExit(statusCode: Int): Unit = {
     logger.debug(s"Process exited with status code $statusCode")
