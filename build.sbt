@@ -196,7 +196,9 @@ lazy val sbtBloop10 = project
   .settings(BuildDefaults.scriptedSettings)
   .settings(sbtPluginSettings("1.1.4", jsonConfig212))
   .dependsOn(jsonConfig212)
+  .settings(libraryDependencies += Dependencies.bsp4j)
 
+/*
 // Let's remove scripted for 0.13, we only test 1.0
 lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
@@ -204,6 +206,7 @@ lazy val sbtBloop013 = project
   .settings(scalaVersion := Scala210Version)
   .settings(sbtPluginSettings("0.13.17", jsonConfig210))
   .dependsOn(jsonConfig210)
+ */
 
 val mavenBloop = project
   .in(integrations / "maven-bloop")
@@ -330,7 +333,7 @@ val allProjects = Seq(
   jsonConfig210,
   jsonConfig211,
   jsonConfig212,
-  sbtBloop013,
+  //sbtBloop013,
   sbtBloop10,
   mavenBloop,
   gradleBloop211,
@@ -368,7 +371,7 @@ addCommandAlias(
     s"${jsonConfig210.id}/$publishLocalCmd",
     s"${jsonConfig211.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${sbtBloop013.id}/$publishLocalCmd",
+    //s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${gradleBloop211.id}/$publishLocalCmd",
@@ -397,7 +400,7 @@ val allBloopReleases = List(
   s"${jsonConfig210.id}/$releaseEarlyCmd",
   s"${jsonConfig211.id}/$releaseEarlyCmd",
   s"${jsonConfig212.id}/$releaseEarlyCmd",
-  s"${sbtBloop013.id}/$releaseEarlyCmd",
+  //s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
   s"${gradleBloop211.id}/$releaseEarlyCmd",

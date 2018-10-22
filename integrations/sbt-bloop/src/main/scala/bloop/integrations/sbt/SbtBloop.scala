@@ -6,8 +6,10 @@ import java.nio.file.{Files, Path}
 import bloop.config.Config
 import bloop.config.util.ConfigUtil
 import bloop.integration.sbt.Feedback
+import sbt.internal.util.Attributed
 import sbt.{
   AutoPlugin,
+  BloopExecutionProgress,
   ClasspathDep,
   ClasspathDependency,
   Compile,
@@ -25,7 +27,7 @@ import sbt.{
   ThisBuild,
   ThisProject
 }
-import xsbti.compile.CompileOrder
+import xsbti.compile.{CompileAnalysis, CompileOrder}
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -61,8 +63,12 @@ object BloopKeys {
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
+  val bloopTargetName: sbt.SettingKey[String] =
+    settingKey[String]("Return the name of the target (a project + a configuration) in bloop.")
   val bloopGenerate: sbt.TaskKey[Option[File]] =
     taskKey[Option[File]]("Generate bloop configuration files for this project")
+  val bloopCompile: sbt.TaskKey[CompileAnalysis] =
+    taskKey[CompileAnalysis]("Compile with bloop assuming `bloopInstall` has already run")
   val bloopAnalysisOut: SettingKey[Option[File]] =
     settingKey[Option[File]]("User-defined location for the incremental analysis file")
   val bloopScalaJSStage: SettingKey[Option[String]] =
@@ -140,8 +146,9 @@ object BloopDefaults {
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None,
       BloopKeys.bloopMainClass := None,
+      BloopKeys.bloopTargetName := bloopTargetName.value,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
-    ) ++ discoveredSbtPluginsSettings
+    ) ++ Compat.compileSettings ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
     sbt.inConfig(Compile)(configSettings) ++
@@ -650,6 +657,14 @@ object BloopDefaults {
     }
   }
 
+  lazy val bloopTargetName: Def.Initialize[String] = Def.settingDyn {
+    val project = Keys.thisProject.value
+    val configuration = Keys.configuration.value
+    Def.setting {
+      projectNameFromString(project.id, configuration, Keys.sLog.value)
+    }
+  }
+
   lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -659,7 +674,7 @@ object BloopDefaults {
     if (isMetaBuild && configuration == Test) Def.task(None)
     else {
       Def.task {
-        val projectName = projectNameFromString(project.id, configuration, logger)
+        val projectName = BloopKeys.bloopTargetName.value
         val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
         val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
         val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
@@ -825,7 +840,6 @@ object BloopDefaults {
   }
 
   lazy val bloopConfigDir: Def.Initialize[Option[File]] = Def.setting { None }
-  import sbt.Classpaths
 
   /**
    * Emulates `dependencyClasspath` without triggering compilation of dependent projects.
@@ -842,7 +856,7 @@ object BloopDefaults {
       val self = Keys.configuration.value
 
       import scala.collection.JavaConverters._
-      val visited = Classpaths.interSort(currentProject, conf, data, deps)
+      val visited = sbt.Classpaths.interSort(currentProject, conf, data, deps)
       val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       val bloopProductDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       for ((dep, c) <- visited) {
