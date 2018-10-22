@@ -132,6 +132,7 @@ final class BspLoggingEventHandler(id: BuildTargetIdentifier, logger: Logger, cl
     val failed = suitesFailed.length
     val r = bsp.TestReport(id, None, suitesPassed, failed, 0, 0, 0, 0, Some(suitesDuration))
     BuildTarget.testReport.notify(r)
+    ()
   }
 }
 

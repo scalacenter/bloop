@@ -322,11 +322,11 @@ class BspProtocolSpec {
                   case Left(e) => Left(e)
                   case Right(result) =>
                     if (checkCompiledUtest && checkCompiledUtestTest) {
-                      result.exitStatus match {
-                        case bsp.ExitStatus.Ok => Right(result)
-                        case bsp.ExitStatus.Error =>
+                      result.statusCode match {
+                        case bsp.StatusCode.Ok => Right(result)
+                        case bsp.StatusCode.Error =>
                           Left(Response.internalError("Status code of run is an error!"))
-                        case bsp.ExitStatus.Cancelled =>
+                        case bsp.StatusCode.Cancelled =>
                           Left(Response.internalError("Status code of cancelled is an error!"))
                       }
                     } else {
