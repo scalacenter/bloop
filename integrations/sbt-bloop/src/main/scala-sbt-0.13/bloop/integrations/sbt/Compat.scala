@@ -21,4 +21,6 @@ object Compat {
   }
 
   def toAnyRefSettingKey(id: String, m: Manifest[AnyRef]): SettingKey[AnyRef] = SettingKey(id)(m)
+
+  lazy val compileSettings: Seq[Def.Setting[_]] = Nil
 }
