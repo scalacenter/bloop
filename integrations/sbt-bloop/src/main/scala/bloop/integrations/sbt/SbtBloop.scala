@@ -77,6 +77,7 @@ object BloopDefaults {
   import Compat._
   import sbt.{Task, Defaults, State}
 
+  private lazy val cwd: String = System.getProperty("user.dir")
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopExportJarClassifiers := None,
     BloopKeys.bloopInstall := bloopInstall.value,
@@ -87,7 +88,12 @@ object BloopDefaults {
       val bloopClassifiers = BloopKeys.bloopExportJarClassifiers.in(ThisBuild).value
       (if (bloopClassifiers.isEmpty) old else bloopClassifiers.get).toList
     },
-    BloopKeys.bloopIsMetaBuild := Keys.sbtPlugin.in(LocalRootProject).value,
+    BloopKeys.bloopIsMetaBuild := {
+      val buildStructure = Keys.loadedBuild.value
+      val baseDirectory = new File(buildStructure.root)
+      val isMetaBuild = Keys.sbtPlugin.in(LocalRootProject).value
+      isMetaBuild && baseDirectory.getAbsolutePath != cwd
+    },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
       oldOnLoad.andThen { state =>
@@ -775,8 +781,8 @@ object BloopDefaults {
   }
 
   private final val allJson = sbt.GlobFilter("*.json")
-  private final val removeStaleProjects = { allConfigDirs: Set[File] =>
-    { (s: State, generatedFiles: Set[Option[File]]) =>
+  private final val removeStaleProjects = {
+    allConfigDirs: Set[File] => { (s: State, generatedFiles: Set[Option[File]]) =>
       val logger = s.globalLogging.full
       val allConfigs =
         allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
@@ -845,8 +851,7 @@ object BloopDefaults {
       }
 
       val generatedTask = productDirs.toList.join.map(_.flatten.distinct).flatMap { a =>
-        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b =>
-          a.zip(b)
+        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b => a.zip(b)
         }
       }
 
@@ -889,8 +894,7 @@ object BloopDefaults {
       val oldResourceDir = Keys.resourceManaged.in(configKey).value
       val newResourceDir =
         BloopKeys.bloopResourceManaged.in(configKey).value / Defaults.nameForSrc(configName)
-      oldUnmanagedResourceDirs.map { dir =>
-        if (dir == oldResourceDir) newResourceDir else dir
+      oldUnmanagedResourceDirs.map { dir => if (dir == oldResourceDir) newResourceDir else dir
       }
     }
   }
