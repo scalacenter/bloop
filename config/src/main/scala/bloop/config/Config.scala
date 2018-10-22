@@ -200,7 +200,7 @@ object Config {
 
   case class File(version: String, project: Project)
   object File {
-    final val LatestVersion = "1.1.0"
+    final val LatestVersion = "1.1.0-M1"
 
     private[bloop] val empty = File(LatestVersion, Project.empty)
 
