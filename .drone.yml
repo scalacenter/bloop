@@ -34,6 +34,8 @@ matrix:
   PUBLISH_ARTIFACTS:
     - bin/sbt-ci-publish.sh \
           "inspect version" \
+         "show dynverGitDescribeOutput" \
+         "show dynverGitPreviousStableVersion" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           "docs/ghpagesPushSite" \

@@ -6,8 +6,7 @@ val `bloop-build` = project
   .in(file("."))
   .settings(
     scalaVersion := "2.12.4",
-    // Force new version of sbt-dynver in the sbt universe (classlaoders are not isolated)
-    addSbtPlugin("com.dwijnand" % "sbt-dynver" % "2.1.0"),
+    addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
     addSbtPlugin("com.lucidchart" % "sbt-scalafmt" % "1.14"),
     addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0"),
