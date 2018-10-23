@@ -62,7 +62,6 @@ clone:
     tags: true
     # We clone the submodules ourselves
     recursive: false
-    depth: 50
 
 pipeline:
   clone:
