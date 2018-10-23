@@ -11,7 +11,7 @@ import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtassembly.PathList
-import sbtdynver.GitDescribeOutput
+import sbtdynver.{DynVerUtils, GitDescribeOutput}
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
@@ -113,8 +113,7 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseNotes := { tagName =>
-      IO.read(buildBase.value / "notes" / s"$tagName.md")
+    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md")
     },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
@@ -306,6 +305,7 @@ object BuildImplementation {
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
     ),
+    DynVerKeys.dynverGitPreviousStableVersion := BuildDefaults.dynverGitPreviousStableVersion.value
   )
 
   import sbt.{CrossVersion, compilerPlugin}
@@ -381,6 +381,20 @@ object BuildImplementation {
       // Use the default staging directory, we don't care if the user changed it.
       val globalBase = sbt.BuildPaths.getGlobalBase(state)
       sbt.BuildPaths.getStagingDirectory(state, globalBase)
+    }
+
+    lazy val dynverGitPreviousStableVersion: Def.Initialize[Option[sbtdynver.GitDescribeOutput]] = {
+      Def.setting {
+        val firstStable = DynVerKeys.dynverGitPreviousStableVersion.value
+        if (!firstStable.hasNoTags) firstStable
+        else {
+          val dynver = DynVerKeys.dynverInstance.value
+          val secondStable = DynVerUtils.getGitPreviousStableTag(dynver.wd)
+          // Only use the output of the second attempt if the stable tag contains tags
+          if (secondStable.hasNoTags) firstStable
+          else secondStable
+        }
+      }
     }
 
     import sbt.librarymanagement.Artifact

@@ -3,6 +3,10 @@
 matrix:
   TEST_BLOOP:
     - bin/sbt-ci.sh \
+          "inspect version" \
+          "show dynverInstance" \
+          "show dynverGitDescribeOutput" \
+          "show dynverGitPreviousStableVersion" \
           "benchmarks/compile" \
           "jsonConfig210/test" \
           "jsonConfig211/test" \
@@ -96,7 +100,7 @@ pipeline:
         OPS: basic
     commands:
       - export DRONE_DIR="/drone"
-      - git log | head -n 20
+      - git log --oneline --graph | head -n 20
       - . bin/set-up-dodo.sh # Source it because it exports variables
       - . bin/detect-community-build.sh # Source it because it exports variables
       - ${TEST_BLOOP}
@@ -112,7 +116,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - . bin/set-up-dodo.sh # Source it because it exports variables
-      - git log | head -n 20
+      - git log --oneline --graph | head -n 20
       - ${RUN_BENCHMARKS_AND_SCRIPTED}
 
   run_community_pipelined:
@@ -127,7 +131,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - export PIPELINE_COMMUNITY_BUILD="true"
       - . bin/set-up-dodo.sh # Source it because it exports variables
-      - git log | head -n 20
+      - git log --oneline --graph | head -n 20
       - . bin/detect-community-build.sh # Source it because it exports variables
       - ${RUN_COMMUNITY_BUILD_EXTRA}
 
@@ -159,7 +163,7 @@ pipeline:
       - git tag -l
       - git fetch --tags
       - git tag -l
-      - git log | head -n 20
+      - git log --oneline --graph | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
       - . bin/set-up-dodo.sh # Source it because it exports variables
