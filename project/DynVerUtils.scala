@@ -6,6 +6,7 @@ object DynVerUtils {
   private final val errLogger =
     scala.sys.process.ProcessLogger(stdOut => println(stdOut), stdErr => println(stdErr))
   private def execAndHandleEmptyOutput(cmd: String, wd: Option[File]): Try[String] = {
+    println(s"Running ${cmd}")
     Try(scala.sys.process.Process(cmd, wd) !! errLogger)
       .filter(_.trim.nonEmpty)
   }

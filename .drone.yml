@@ -103,6 +103,8 @@ pipeline:
       - git log --oneline --graph | head -n 20
       - . bin/set-up-dodo.sh # Source it because it exports variables
       - . bin/detect-community-build.sh # Source it because it exports variables
+      -  git describe --tags --abbrev=0 --always 9d7c2ce8e59131f8e7db9eaae5607a958e9370fe
+      - git --help
       - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
