@@ -3,7 +3,7 @@
 matrix:
   TEST_BLOOP:
     - bin/sbt-ci.sh \
-          "inspect version" \
+          "show version" \
           "show dynverInstance" \
           "show dynverGitDescribeOutput" \
           "show dynverGitPreviousStableVersion" \
