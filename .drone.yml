@@ -33,7 +33,7 @@ matrix:
 
   PUBLISH_ARTIFACTS:
     - bin/sbt-ci-publish.sh \
-         "show version" \
+          "inspect version" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
           "docs/ghpagesPushSite" \
@@ -154,7 +154,9 @@ pipeline:
         OS: linux
         OPS: basic
     commands:
+      - git tag -l
       - git fetch --tags
+      - git tag -l
       - git log | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
