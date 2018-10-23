@@ -12,7 +12,8 @@ object DynVerUtils {
   def getGitPreviousStableTag(wd: Option[File]): Option[GitDescribeOutput] = {
     (for {
       // Find the parent of the current commit. The "^2" instructs it to pick the second parent
-      parent <- execAndHandleEmptyOutput(s"git --no-pager log --pretty=%H -n 1 HEAD^2", wd)
+      parent <- execAndHandleEmptyOutput(s"git --no-pager log --pretty=%H -n 1 HEAD^1", wd)
+      _ = println(s"Parent is ${parent}")
       // Find the closest tag of the parent commit
       tag <- execAndHandleEmptyOutput(s"git describe --tags --abbrev=0 --always $parent", wd)
     } yield GitDescribeOutput.parse(tag)).toOption
