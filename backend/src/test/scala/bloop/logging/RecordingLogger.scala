@@ -32,6 +32,7 @@ final class RecordingLogger(
     }
 
     messages.add((key, value))
+    ()
   }
 
   override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = if (logContext.isEnabled) add("debug", msg)
