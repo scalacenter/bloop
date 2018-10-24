@@ -43,6 +43,9 @@ object CommandsDocGenerator {
 
     parseExamples match {
       case Left(msg) => println(s"Error: $msg")
+      case Right(commandExamples) if (args.headOption.contains("--test")) =>
+        val generation = generateHTML(commandExamples)
+        assert(!generation.isEmpty, s"Generation of HTML yielded empty map! ${generation}")
       case Right(commandExamples) =>
         println(generateHTML(commandExamples).mkString(Messages.NL))
     }

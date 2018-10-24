@@ -18,6 +18,7 @@ matrix:
           "nativeBridge/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
+          "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/test" \
           "gradleBloop212/test" \
           "docs/makeSite"
