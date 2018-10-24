@@ -79,7 +79,8 @@ final class BloopLogger(
   }
 
   override private[logging] def printDebug(line: String): Unit = {
-    err.println(s"${colored(GREEN, "[D]")} $line")
+    if (!isVerbose) ()
+    else err.println(s"${colored(GREEN, "[D]")} $line")
   }
 }
 
