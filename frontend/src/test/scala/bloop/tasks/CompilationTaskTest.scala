@@ -107,7 +107,6 @@ class CompilationTaskTest {
     )(_ => ())
 
     val errors = TestUtil.errorsFromLogger(logger)
-    logger.dump()
     assert(errors.size == 3)
     assert(errors.exists(_.contains("cannot find symbol")))
   }
