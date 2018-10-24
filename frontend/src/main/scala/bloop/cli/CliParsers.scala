@@ -4,7 +4,7 @@ import java.io.{InputStream, PrintStream}
 import java.nio.file.{Path, Paths}
 import java.util.Properties
 
-import bloop.logging.LogContext
+import bloop.logging.DebugFilter
 import caseapp.CommandParser
 import caseapp.core.{ArgParser, Default, DefaultBaseCommand, Parser}
 import caseapp.util.Implicit
@@ -61,15 +61,17 @@ object CliParsers {
     }
   }
 
-  implicit val logContextParser: ArgParser[LogContext] =
-    ArgParser.instance[LogContext]("\"all\" | \"file-watching\" | \"compilation\" | \"test\" | \"bsp\"") {
-      case "all" => Right(LogContext.All)
-      case "file-watching" => Right(LogContext.FileWatching)
-      case "compilation" => Right(LogContext.Compilation)
-      case "test" => Right(LogContext.Test)
-      case "bsp" => Right(LogContext.Bsp)
+  val DebugFilterTags = "\"all\" | \"file-watching\" | \"compilation\" | \"test\" | \"bsp\""
+  implicit val debugFilterParser: ArgParser[DebugFilter] = {
+    ArgParser.instance[DebugFilter](DebugFilterTags) {
+      case "all" => Right(DebugFilter.All)
+      case "file-watching" => Right(DebugFilter.FileWatching)
+      case "compilation" => Right(DebugFilter.Compilation)
+      case "test" => Right(DebugFilter.Test)
+      case "bsp" => Right(DebugFilter.Bsp)
       case w00t => Left(s"Unrecognized log context: $w00t")
     }
+  }
 
   import shapeless.{HNil, CNil, :+:, ::, Coproduct}
   implicit val implicitHNil: Implicit[HNil] = Implicit.hnil

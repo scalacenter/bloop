@@ -7,7 +7,7 @@ import java.nio.file.attribute.FileTime
 import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
-import bloop.logging.{LogContext, Logger}
+import bloop.logging.{DebugFilter, Logger}
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
@@ -143,7 +143,7 @@ object Project {
 
   def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
     import _root_.io.circe.parser
-    logger.debug(s"Loading project from '${origin.path}'")(LogContext.All)
+    logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
     val contents = new String(bytes, StandardCharsets.UTF_8)
     parser.parse(contents) match {
       case Left(failure) => throw failure

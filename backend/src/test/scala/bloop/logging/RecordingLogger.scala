@@ -8,7 +8,7 @@ import scala.collection.JavaConverters.asScalaIteratorConverter
 final class RecordingLogger(
     debug: Boolean = false,
     debugOut: Option[PrintStream] = None,
-    val logContext: LogContext = LogContext.All
+    val debugFilter: DebugFilter = DebugFilter.All
 ) extends Logger {
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
 
@@ -36,8 +36,8 @@ final class RecordingLogger(
   }
 
   override def printDebug(msg: String): Unit = add("debug", msg)
-  override def debug(msg: String)(implicit ctx: LogContext): Unit =
-    if (logContext.isEnabledFor(ctx)) add("debug", msg)
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
+    if (debugFilter.isEnabledFor(ctx)) add("debug", msg)
 
   override def info(msg: String): Unit = add("info", msg)
   override def error(msg: String): Unit = add("error", msg)

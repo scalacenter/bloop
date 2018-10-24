@@ -5,7 +5,7 @@ import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.data.Project
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
-import bloop.logging.{LogContext, Logger}
+import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 
 /**
@@ -90,7 +90,7 @@ object State {
 
   implicit class XState(val s: State) extends AnyVal {
     def withTrace(t: Throwable): State = { s.logger.trace(t); s }
-    def withDebug(msg: String)(implicit log: LogContext): State = { s.logger.debug(msg); s }
+    def withDebug(msg: String)(implicit log: DebugFilter): State = { s.logger.debug(msg); s }
     def withInfo(msg: String): State = { s.logger.info(msg); s }
     def withWarn(msg: String): State = { s.logger.warn(msg); s }
     def withError(msg: String): State = withError(msg, ExitStatus.UnexpectedError)

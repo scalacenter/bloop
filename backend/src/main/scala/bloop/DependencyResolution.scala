@@ -1,6 +1,6 @@
 package bloop
 
-import bloop.logging.{ LogContext, Logger }
+import bloop.logging.{ DebugFilter, Logger }
 import bloop.io.AbsolutePath
 
 import sbt.librarymanagement._
@@ -45,7 +45,7 @@ object DependencyResolution {
               version: String,
               logger: Logger,
               additionalRepositories: Seq[Repository] = Nil): Array[AbsolutePath] = {
-    logger.debug(s"Resolving $organization:$module:$version")(LogContext.Compilation)
+    logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
     val dependency = Dependency(Module(organization, module), version)
     val start = Resolution(Set(dependency))
     val repositories = {

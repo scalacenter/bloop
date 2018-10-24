@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import bloop.Server
 import bloop.bsp.BspServer
-import bloop.logging.{LogContext, Logger, ProcessLogger, RecordingLogger}
+import bloop.logging.{DebugFilter, Logger, ProcessLogger, RecordingLogger}
 import bloop.tasks.TestUtil
 import com.martiansoftware.nailgun.NGServer
 import monix.eval.Task
@@ -38,7 +38,7 @@ abstract class NailgunTest {
    */
   def withServerTask[T](log: RecordingLogger, config: Path)(
       op: (RecordingLogger, Client) => T): Task[T] = {
-    implicit val ctx: LogContext = LogContext.All
+    implicit val ctx: DebugFilter = DebugFilter.All
     val oldIn = System.in
     val oldOut = System.out
     val oldErr = System.err

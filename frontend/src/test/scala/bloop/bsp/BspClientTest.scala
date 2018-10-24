@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
-import bloop.logging.{BspClientLogger, LogContext, RecordingLogger, Slf4jAdapter}
+import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
@@ -17,7 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 
 object BspClientTest {
-  private implicit val ctx: LogContext = LogContext.Bsp
+  private implicit val ctx: DebugFilter = DebugFilter.Bsp
   def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
       case cmd: Commands.WindowsLocalBsp => ()

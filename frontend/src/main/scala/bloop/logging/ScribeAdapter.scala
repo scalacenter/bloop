@@ -9,11 +9,11 @@ trait ScribeAdapter extends scribe.LoggerSupport { self: Logger =>
       case Level.Info => info(msg)
       case Level.Error => error(msg)
       case Level.Warn => warn(msg)
-      case Level.Debug => debug(msg)(LogContext.Bsp)
+      case Level.Debug => debug(msg)(DebugFilter.Bsp)
       case Level.Trace =>
         record.throwable match {
           case Some(t) => trace(t)
-          case None => debug(record.message)(LogContext.Bsp)
+          case None => debug(record.message)(DebugFilter.Bsp)
         }
     }
   }

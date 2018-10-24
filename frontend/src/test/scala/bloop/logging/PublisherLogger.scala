@@ -7,7 +7,7 @@ import monix.reactive.Observer
 final class PublisherLogger(
     observer: Observer.Sync[(String, String)],
     debug: Boolean = false,
-    val logContext: LogContext
+    val debugFilter: DebugFilter
 ) extends Logger {
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
   override val name: String = "PublisherLogger"
@@ -33,8 +33,8 @@ final class PublisherLogger(
     messages.iterator.asScala.flatMap(lm => if (lm._1 == label) List(lm._2) else Nil).toList
 
   override def printDebug(msg: String): Unit = add("debug", msg)
-  override def debug(msg: String)(implicit ctx: LogContext): Unit =
-    if (logContext.isEnabledFor(ctx)) add("debug", msg)
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
+    if (debugFilter.isEnabledFor(ctx)) add("debug", msg)
 
   private def trace(msg: String): Unit = add("trace", msg)
   override def info(msg: String): Unit = add("info", msg)

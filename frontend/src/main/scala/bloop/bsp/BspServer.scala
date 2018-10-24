@@ -6,7 +6,7 @@ import java.util.Locale
 import bloop.cli.Commands
 import bloop.engine.State
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspClientLogger, LogContext}
+import bloop.logging.{BspClientLogger, DebugFilter}
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -15,9 +15,7 @@ import monix.execution.atomic.Atomic
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
-
-  private implicit val logContext: LogContext = LogContext.Bsp
-
+  private implicit val logContext: DebugFilter = DebugFilter.Bsp
   private[bloop] val isWindows: Boolean =
     System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
   private[bloop] val isMac: Boolean =

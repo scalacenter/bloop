@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 import bloop.DependencyResolution
 import bloop.config.Config
 import bloop.internal.build.BuildInfo
-import bloop.logging.{LogContext, Logger}
+import bloop.logging.{DebugFilter, Logger}
 
 /**
  * Base class for companion objects of toolchains.
@@ -68,7 +68,8 @@ abstract class ToolchainCompanion[Toolchain] {
   private final val BloopVersion = BuildInfo.version
   private final val BloopOrg = BuildInfo.organization
   private def resolveJars(artifactName: String, logger: Logger): List[Path] = {
-    logger.debug(s"Resolving platform bridge: $BloopOrg:$artifactName:$BloopVersion")(LogContext.Compilation)
+    logger.debug(s"Resolving platform bridge: $BloopOrg:$artifactName:$BloopVersion")(
+      DebugFilter.Compilation)
     val files = DependencyResolution.resolve(BloopOrg, artifactName, BloopVersion, logger)
     files.iterator.map(_.underlying).filter(_.toString.endsWith(".jar")).toList
   }

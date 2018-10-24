@@ -8,11 +8,11 @@ final class BufferedLogger private (
 ) extends Logger {
   override def name: String = underlying.name
   override def ansiCodesSupported(): Boolean = underlying.ansiCodesSupported()
-  override def logContext: LogContext = underlying.logContext
+  override def debugFilter: DebugFilter = underlying.debugFilter
 
   override def printDebug(msg: String): Unit = buffer.addLast(() => underlying.printDebug(msg))
-  override def debug(msg: String)(implicit ctx: LogContext): Unit =
-    if (isVerbose && logContext.isEnabledFor(ctx)) buffer.addLast(() => printDebug(msg))
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
+    if (isVerbose && debugFilter.isEnabledFor(ctx)) buffer.addLast(() => printDebug(msg))
 
   override def error(msg: String): Unit = buffer.addLast(() => underlying.error(msg))
   override def warn(msg: String): Unit = buffer.addLast(() => underlying.warn(msg))

@@ -11,7 +11,7 @@ import bloop.data.Project
 import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks}
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspServerLogger, LogContext}
+import bloop.logging.{BspServerLogger, DebugFilter}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, endpoints}
@@ -64,7 +64,7 @@ final class BloopBspServices(
   private val pool = callSiteState.pool
   private val defaultOpts = callSiteState.commonOptions
   def reloadState(config: AbsolutePath): Task[State] = {
-    bspForwarderLogger.debug(s"Reloading bsp state for ${config.syntax}")(LogContext.Bsp)
+    bspForwarderLogger.debug(s"Reloading bsp state for ${config.syntax}")(DebugFilter.Bsp)
     State.loadActiveStateFor(config, pool, defaultOpts, bspForwarderLogger).map { state0 =>
       state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
     }

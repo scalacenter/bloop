@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 import bloop.data.Project
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
-import bloop.logging.{LogContext, Logger, Slf4jAdapter}
+import bloop.logging.{DebugFilter, Logger, Slf4jAdapter}
 import bloop.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
@@ -24,7 +24,7 @@ final class SourceWatcher private (
   import java.nio.file.Files
   private val slf4jLogger = new Slf4jAdapter(logger)
 
-  private implicit val logContext: LogContext = LogContext.FileWatching
+  private implicit val logContext: DebugFilter = DebugFilter.FileWatching
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
     val ngout = state0.commonOptions.ngout

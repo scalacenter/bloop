@@ -8,11 +8,12 @@ import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine._
-import bloop.logging.{BloopLogger, LogContext, Logger}
+import bloop.logging.{BloopLogger, DebugFilter, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
 import bloop.engine.tasks.Tasks
+import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag
 
 import scala.util.control.NonFatal
 
@@ -264,13 +265,18 @@ object Cli {
 
     val commonOpts = cliOptions.common
     val configDirectory = getConfigDir(cliOptions)
+    val debugFilter: DebugFilter = DebugFilter.toUniqueFilter(cliOptions.debug)
+
+    // We enable verbose debugging when the user either specifies `--verbose` or `--debug FILTER`
+    val isVerbose = cliOptions.verbose || debugFilter != DebugFilter.All
+
     val logger = BloopLogger.at(
       configDirectory.syntax,
       commonOpts.out,
       commonOpts.err,
-      cliOptions.verbose,
+      isVerbose,
       !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR")),
-      cliOptions.debug
+      debugFilter
     )
 
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
@@ -311,7 +317,7 @@ object Cli {
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
       val elapsed = (System.nanoTime() - since).toDouble / 1e6
-      logger.debug(s"Elapsed: $elapsed ms")(LogContext.All)
+      logger.debug(s"Elapsed: $elapsed ms")(DebugFilter.All)
     }
 
     // Simulate try-catch-finally with monix tasks to time the task execution

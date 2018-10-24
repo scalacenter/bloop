@@ -1,7 +1,7 @@
 package bloop.scalanative
 import bloop.config.Config.{LinkerMode, NativeConfig}
 import bloop.io.Paths
-import bloop.logging.{LogContext, Logger}
+import bloop.logging.{DebugFilter, Logger}
 import java.nio.file.{Files, Path}
 
 import bloop.data.Project
@@ -10,7 +10,7 @@ import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => Nat
 
 object NativeBridge {
 
-  private implicit val ctx: LogContext = LogContext.All
+  private implicit val ctx: DebugFilter = DebugFilter.All
 
   def nativeLink(config0: NativeConfig, project: Project, entry: String, target: Path, logger: Logger): Path = {
     val workdir = project.out.resolve("native")

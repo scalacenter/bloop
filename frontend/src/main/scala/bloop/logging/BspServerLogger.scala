@@ -23,7 +23,7 @@ final class BspServerLogger private (
 ) extends Logger
     with ScribeAdapter {
 
-  override def logContext: LogContext = underlying.logContext
+  override def debugFilter: DebugFilter = underlying.debugFilter
 
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger =
@@ -34,8 +34,8 @@ final class BspServerLogger private (
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
   override private[logging] def printDebug(msg: String): Unit = underlying.printDebug(msg)
-  override def debug(msg: String)(implicit ctx: LogContext): Unit =
-    if (logContext.isEnabledFor(ctx)) printDebug(msg)
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
+    if (debugFilter.isEnabledFor(ctx)) printDebug(msg)
 
   override def trace(t: Throwable): Unit = underlying.trace(t)
 

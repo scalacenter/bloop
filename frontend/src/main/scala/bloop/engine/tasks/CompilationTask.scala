@@ -5,14 +5,14 @@ import bloop.data.Project
 import bloop.engine._
 import bloop.engine.tasks.compilation._
 import bloop.io.AbsolutePath
-import bloop.logging.{BspServerLogger, LogContext, Logger}
+import bloop.logging.{BspServerLogger, DebugFilter, Logger}
 import bloop.reporter._
 import bloop.{CompileInputs, CompileMode, Compiler}
 import monix.eval.Task
 import sbt.internal.inc.AnalyzingCompiler
 
 object CompilationTask {
-  private implicit val logContext: LogContext = LogContext.Compilation
+  private implicit val logContext: DebugFilter = DebugFilter.Compilation
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 

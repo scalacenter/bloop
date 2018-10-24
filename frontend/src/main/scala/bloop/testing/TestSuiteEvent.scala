@@ -1,6 +1,6 @@
 package bloop.testing
 
-import bloop.logging.{LogContext, Logger}
+import bloop.logging.{DebugFilter, Logger}
 import bloop.util.TimeFormat
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
@@ -44,7 +44,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
     case TestSuiteEvent.Error(message) => logger.error(message)
     case TestSuiteEvent.Warn(message) => logger.warn(message)
     case TestSuiteEvent.Info(message) => logger.info(message)
-    case TestSuiteEvent.Debug(message) => logger.debug(message)(LogContext.Test)
+    case TestSuiteEvent.Debug(message) => logger.debug(message)(DebugFilter.Test)
     case TestSuiteEvent.Trace(throwable) =>
       logger.error("Test suite aborted.")
       logger.trace(throwable)

@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 
 import bloop.data.Project
 import bloop.cli.Commands
-import bloop.logging.{LogContext, Logger, PublisherLogger}
+import bloop.logging.{DebugFilter, Logger, PublisherLogger}
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.io.Paths.delete
@@ -109,7 +109,7 @@ class FileWatchingSpec {
     import ExecutionContext.ioScheduler
     val (observer, observable) =
       Observable.multicast[(String, String)](MulticastStrategy.publish)(ioScheduler)
-    val logger = new PublisherLogger(observer, debug = debug, LogContext.All)
+    val logger = new PublisherLogger(observer, debug = debug, DebugFilter.All)
 
     // Let's modify the project to add special sources to check the right behaviour of the watcher
     val (state, singleFile) = {

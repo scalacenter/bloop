@@ -10,7 +10,7 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
-import bloop.logging.{LogContext, Logger}
+import bloop.logging.{DebugFilter, Logger}
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
 import monix.eval.Task
 import monix.execution.Cancelable
@@ -72,7 +72,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
              |   classpath    = '$fullClasspath'
              |   java_home    = '${javaEnv.javaHome}'
              |   java_options = '${javaEnv.javaOptions.mkString(" ")}""".stripMargin
-        Task(logger.debug(debugOptions)(LogContext.All))
+        Task(logger.debug(debugOptions)(DebugFilter.All))
       } else Task.unit
     logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
   }
@@ -81,7 +81,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
 
 object Forker {
 
-  private implicit val logContext: LogContext = LogContext.All
+  private implicit val logContext: DebugFilter = DebugFilter.All
 
   /** The code returned after a successful execution. */
   private final val EXIT_OK = 0

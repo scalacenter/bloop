@@ -11,7 +11,7 @@ import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
  * @param out         The stream to use to write `INFO` and `WARN` level messages.
  * @param err         The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
  * @param colorOutput Print with or without color.
- * @param logContext  Narrows logs to specified context.
+ * @param debugFilter  Narrows logs to specified context.
  */
 final class BloopLogger(
     override val name: String,
@@ -19,11 +19,11 @@ final class BloopLogger(
     err: PrintStream,
     private val debugCount: Int,
     colorOutput: Boolean,
-    val logContext: LogContext
+    val debugFilter: DebugFilter
 ) extends Logger {
   override def ansiCodesSupported() = true
-  override def debug(msg: String)(implicit ctx: LogContext): Unit =
-    if (isVerbose && logContext.isEnabledFor(ctx)) print(msg, printDebug)
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
+    if (isVerbose && debugFilter.isEnabledFor(ctx)) print(msg, printDebug)
   override def error(msg: String): Unit = print(msg, printError)
   override def warn(msg: String): Unit = print(msg, printWarning)
   override def trace(exception: Throwable): Unit = trace("", exception)
@@ -31,12 +31,12 @@ final class BloopLogger(
 
   override def asDiscrete: Logger = {
     if (debugCount <= 0) this
-    else new BloopLogger(name, out, err, debugCount - 1, colorOutput, logContext)
+    else new BloopLogger(name, out, err, debugCount - 1, colorOutput, debugFilter)
   }
 
   override def isVerbose: Boolean = debugCount > 0
   override def asVerbose: Logger = {
-    new BloopLogger(name, out, err, debugCount + 1, colorOutput, logContext)
+    new BloopLogger(name, out, err, debugCount + 1, colorOutput, debugFilter)
   }
 
   @scala.annotation.tailrec
@@ -93,7 +93,7 @@ object BloopLogger {
    * @param out        The stream to use to write `INFO` and `WARN` level messages.
    * @param err        The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
    * @param isVerbose  Tells whether the logger is verbose or not.
-   * @param logContext Narrows logs to specified context.
+   * @param filter     Filters that apply to all debug messages.
    * @return A `BloopLogger` whose output will be written in the specified streams.
    */
   def at(
@@ -102,8 +102,8 @@ object BloopLogger {
       err: PrintStream,
       isVerbose: Boolean,
       colorOutput: Boolean,
-      logContext: LogContext
-  ): BloopLogger = new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput, logContext)
+      filter: DebugFilter
+  ): BloopLogger = new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput, filter)
 
   /**
    * Instantiates a new `BloopLogger` using the specified streams.
@@ -111,7 +111,7 @@ object BloopLogger {
    * @param name       The name of the logger.
    * @param out        The stream to use to write `INFO` and `WARN` level messages.
    * @param err        The stream to use to write `FATAL`, `ERROR`, `DEBUG` and `TRACE` level messages.
-   * @param logContext Narrows logs to specified context.
+   * @param filter     Filters that apply to all debug messages.
    * @return A `BloopLogger` whose output will be written in the specified streams.
    */
   def at(
@@ -119,8 +119,8 @@ object BloopLogger {
       out: PrintStream,
       err: PrintStream,
       colorOutput: Boolean,
-      logContext: LogContext
-  ): BloopLogger = at(name, out, err, false, colorOutput, logContext)
+      filter: DebugFilter
+  ): BloopLogger = at(name, out, err, false, colorOutput, filter)
 
   /**
    * Instantiates a new `BloopLogger` that writes to stdout and stderr.
@@ -130,5 +130,5 @@ object BloopLogger {
    *         calling `at(name, System.out, System.err)`.
    */
   def default(name: String): BloopLogger =
-    at(name, System.out, System.err, false, LogContext.All)
+    at(name, System.out, System.err, false, DebugFilter.All)
 }

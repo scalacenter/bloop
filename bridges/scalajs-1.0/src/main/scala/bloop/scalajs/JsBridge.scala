@@ -6,7 +6,7 @@ import org.scalajs.io.AtomicWritableFileVirtualJSFile
 import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
 import bloop.data.Project
 import bloop.io.Paths
-import bloop.logging.{LogContext, Logger => BloopLogger}
+import bloop.logging.{DebugFilter, Logger => BloopLogger}
 import org.scalajs.linker.irio.{FileScalaJSIRContainer, FileVirtualScalaJSIRFile, IRFileCache}
 import org.scalajs.linker.{ModuleInitializer, ModuleKind, Semantics, StandardLinker}
 import org.scalajs.logging.{Level, Logger => JsLogger}
@@ -19,7 +19,7 @@ object JsBridge {
         case Level.Error => logger.error(message)
         case Level.Warn => logger.warn(message)
         case Level.Info => logger.info(message)
-        case Level.Debug => logger.debug(message)(LogContext.All)
+        case Level.Debug => logger.debug(message)(DebugFilter.All)
       }
     override def success(message: => String): Unit = logger.info(message)
     override def trace(t: => Throwable): Unit = logger.trace(t)

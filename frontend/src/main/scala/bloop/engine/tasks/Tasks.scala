@@ -8,7 +8,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.engine.{Dag, State}
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
-import bloop.logging.LogContext
+import bloop.logging.DebugFilter
 import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import bloop.data.Project
 import monix.eval.Task
@@ -57,7 +57,7 @@ object Tasks {
       case Some(instance) =>
         val classpath = project.classpath
         val entries = classpath.map(_.underlying.toFile).toSeq
-        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(LogContext.All)
+        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(DebugFilter.All)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
@@ -128,7 +128,7 @@ object Tasks {
   ): Task[State] = {
     import state.logger
     import bloop.util.JavaCompat.EnrichOptional
-    implicit val logContext: LogContext = LogContext.Test
+    implicit val logContext: DebugFilter = DebugFilter.Test
 
     def foundFrameworks(frameworks: List[Framework]) = frameworks.map(_.name).mkString(", ")
 
@@ -296,7 +296,8 @@ object Tasks {
     }
 
     val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
-    logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(LogContext.All)
+    logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(
+      DebugFilter.All)
     mainClasses
   }
 

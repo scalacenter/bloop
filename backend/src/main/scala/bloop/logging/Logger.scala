@@ -16,9 +16,10 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
   def asDiscrete: Logger
 
   /** Context for debug logging. */
-  def logContext: LogContext
+  def debugFilter: DebugFilter
 
-  def debug(msg: String)(implicit ctx: LogContext): Unit
+  /** Defines a debug function that takes a message and a filter from its use site. */
+  def debug(msg: String)(implicit ctx: DebugFilter): Unit
 
   override def debug(msg: Supplier[String]): Unit = printDebug(msg.get())
   override def error(msg: Supplier[String]): Unit = error(msg.get())

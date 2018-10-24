@@ -4,7 +4,7 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
-import bloop.logging.{LogContext, BloopLogger}
+import bloop.logging.{DebugFilter, BloopLogger}
 import bloop.tasks.TestUtil
 import org.junit.Test
 import org.junit.experimental.categories.Category
@@ -52,7 +52,7 @@ object InterpreterSpec {
     val inMemory = new ByteArrayOutputStream()
     val newOut = new PrintStream(inMemory)
     val loggerName = UUID.randomUUID().toString
-    val newLogger = BloopLogger.at(loggerName, newOut, newOut, false, LogContext.All)
+    val newLogger = BloopLogger.at(loggerName, newOut, newOut, false, DebugFilter.All)
     val defaultCli = CliOptions.default
     val newCommonOptions = state.commonOptions.copy(out = newOut)
     val newState = state.copy(logger = newLogger, commonOptions = newCommonOptions)
