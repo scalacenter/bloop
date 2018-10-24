@@ -203,5 +203,26 @@ class DebugFilterSpec {
         DebugFilter.Aggregate(List(DebugFilter.Compilation, DebugFilter.Test))
       )
     )
+
+    checkTrue(
+      !DebugFilter.checkSubsumption(
+        DebugFilter.Aggregate(List(DebugFilter.Compilation, DebugFilter.Link)),
+        DebugFilter.Aggregate(List(DebugFilter.Test, DebugFilter.Bsp))
+      )
+    )
+
+    checkTrue(
+      !DebugFilter.checkSubsumption(
+        DebugFilter.Aggregate(List(DebugFilter.Compilation)),
+        DebugFilter.Aggregate(List(DebugFilter.Link))
+      )
+    )
+
+    checkTrue(
+      !DebugFilter.checkSubsumption(
+        DebugFilter.Aggregate(List(DebugFilter.FileWatching)),
+        DebugFilter.Aggregate(List(DebugFilter.Link, DebugFilter.Test))
+      )
+    )
   }
 }

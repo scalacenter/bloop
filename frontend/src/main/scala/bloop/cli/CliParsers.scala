@@ -61,7 +61,8 @@ object CliParsers {
     }
   }
 
-  val DebugFilterTags = "\"all\" | \"file-watching\" | \"compilation\" | \"test\" | \"bsp\""
+  val DebugFilterTags =
+    "\"all\" | \"file-watching\" | \"compilation\" | \"test\" | \"bsp\" | \"link\""
   implicit val debugFilterParser: ArgParser[DebugFilter] = {
     ArgParser.instance[DebugFilter](DebugFilterTags) {
       case "all" => Right(DebugFilter.All)
@@ -69,6 +70,7 @@ object CliParsers {
       case "compilation" => Right(DebugFilter.Compilation)
       case "test" => Right(DebugFilter.Test)
       case "bsp" => Right(DebugFilter.Bsp)
+      case "link" => Right(DebugFilter.Link)
       case w00t => Left(s"Unrecognized log context: $w00t")
     }
   }
