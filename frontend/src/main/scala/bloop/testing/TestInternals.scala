@@ -98,7 +98,7 @@ object TestInternals {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
-    logger.debugInContext("Starting forked test execution...")
+    logger.debug("Starting forked test execution...")
 
     // Make sure that we cache the resolution of the test agent JAR and we don't repeat it every time
     val agentFiles = lazyTestAgents(logger)
@@ -107,7 +107,7 @@ object TestInternals {
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
     val arguments = Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
-    logger.debugInContext("Test agent JARs: " + testAgentJars.mkString(", "))
+    logger.debug("Test agent JARs: " + testAgentJars.mkString(", "))
 
     val listener = server.listenToTests
     val runner = forker.runMain(cwd, forkMain, arguments, logger, opts, testAgentJars)

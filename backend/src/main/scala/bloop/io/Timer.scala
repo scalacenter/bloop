@@ -8,7 +8,7 @@ object Timer {
     try op
     finally {
       val elapsed = (System.nanoTime() - start).toDouble / 1e6
-      logger.debugInContext(s"Elapsed ${prefix.map(s => s"($s)").getOrElse("")}: $elapsed ms")(LogContext.All)
+      logger.debug(s"Elapsed ${prefix.map(s => s"($s)").getOrElse("")}: $elapsed ms")(LogContext.All)
     }
   }
 }

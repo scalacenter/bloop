@@ -45,7 +45,7 @@ object DependencyResolution {
               version: String,
               logger: Logger,
               additionalRepositories: Seq[Repository] = Nil): Array[AbsolutePath] = {
-    logger.debugInContext(s"Resolving $organization:$module:$version")(LogContext.Compilation)
+    logger.debug(s"Resolving $organization:$module:$version")(LogContext.Compilation)
     val dependency = Dependency(Module(organization, module), version)
     val start = Resolution(Set(dependency))
     val repositories = {

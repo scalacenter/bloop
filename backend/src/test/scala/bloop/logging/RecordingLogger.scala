@@ -35,8 +35,10 @@ final class RecordingLogger(
     ()
   }
 
-  override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = if (logContext.isEnabled) add("debug", msg)
-  override def debug(msg: String): Unit = add("debug", msg)
+  override def printDebug(msg: String): Unit = add("debug", msg)
+  override def debug(msg: String)(implicit ctx: LogContext): Unit =
+    if (logContext.isEnabledFor(ctx)) add("debug", msg)
+
   override def info(msg: String): Unit = add("info", msg)
   override def error(msg: String): Unit = add("error", msg)
   override def warn(msg: String): Unit = add("warn", msg)

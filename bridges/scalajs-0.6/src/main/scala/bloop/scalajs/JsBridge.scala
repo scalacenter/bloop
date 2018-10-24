@@ -21,7 +21,7 @@ object JsBridge {
         case Level.Error => logger.error(message)
         case Level.Warn => logger.warn(message)
         case Level.Info => logger.info(message)
-        case Level.Debug => logger.debugInContext(message)(LogContext.All)
+        case Level.Debug => logger.debug(message)(LogContext.All)
       }
     override def success(message: => String): Unit = logger.info(message)
     override def trace(t: => Throwable): Unit = logger.trace(t)

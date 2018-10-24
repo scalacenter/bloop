@@ -28,11 +28,13 @@ class BloopLoggerBenchmark {
 
   @Benchmark
   def logDebug(): Unit = {
-    BloopLoggerBenchmark.logger.debug("message")
+    // Debugs with `LogContext.All`
+    BloopLoggerBenchmark.logger.debug("message")(LogContext.All)
   }
 
   @Benchmark
-  def logDebugInContext(): Unit = {
-    BloopLoggerBenchmark.logger.debugInContext("message")(LogContext.All)
+  def logDebugWithContext(): Unit = {
+    implicit val logContext: LogContext = LogContext.All
+    BloopLoggerBenchmark.logger.debug("message")(logContext)
   }
 }

@@ -57,7 +57,7 @@ object Tasks {
       case Some(instance) =>
         val classpath = project.classpath
         val entries = classpath.map(_.underlying.toFile).toSeq
-        logger.debugInContext(s"Setting up the console classpath with ${entries.mkString(", ")}")(LogContext.All)
+        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(LogContext.All)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
@@ -141,7 +141,7 @@ object Tasks {
           case Nil => Nil
           case oneFramework :: Nil =>
             val rawArgs = frameworkSpecificRawArgs
-            logger.debugInContext(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
+            logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
             List(Config.TestArgument(rawArgs, Some(Config.TestFramework(cls))))
           case frameworks =>
             val frameworkNames = foundFrameworks(frameworks)
@@ -166,7 +166,7 @@ object Tasks {
       val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
       val frameworks = project.testFrameworks
         .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
-      logger.debugInContext(s"Found frameworks: ${foundFrameworks(frameworks)}")
+      logger.debug(s"Found frameworks: ${foundFrameworks(frameworks)}")
 
       val frameworkArgs = considerFrameworkArgs(frameworks)
       val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
@@ -192,9 +192,9 @@ object Tasks {
           val allNames = ungroupedTests.map(_._2.fullyQualifiedName).mkString(", ")
           val includedNames = includedTests.map(_._2.fullyQualifiedName).mkString(", ")
           val excludedNames = excludedTests.map(_._2.fullyQualifiedName).mkString(", ")
-          logger.debugInContext(s"Bloop found the following tests for $projectName: $allNames")
-          logger.debugInContext(s"The following tests were included by the filter: $includedNames")
-          logger.debugInContext(s"The following tests were excluded by the filter: $excludedNames")
+          logger.debug(s"Bloop found the following tests for $projectName: $allNames")
+          logger.debug(s"The following tests were included by the filter: $includedNames")
+          logger.debug(s"The following tests were excluded by the filter: $excludedNames")
         }
 
         DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
@@ -217,7 +217,7 @@ object Tasks {
         }
       }
 
-      logger.debugInContext(s"Running test suites with arguments: $args")
+      logger.debug(s"Running test suites with arguments: $args")
       TestInternals.execute(cwd, forker, discovered, args, failureHandler, logger, opts)
     }
 
@@ -225,7 +225,7 @@ object Tasks {
     Task.sequence(testTasks).map { exitCodes =>
       // When the test execution is over report no matter what the result is
       testEventHandler.report()
-      logger.debugInContext(s"Test suites failed: $failure")
+      logger.debug(s"Test suites failed: $failure")
       val isOk = !failure && exitCodes.forall(_ == 0)
       if (isOk) state.mergeStatus(ExitStatus.Ok)
       else state.copy(status = ExitStatus.TestExecutionError)
@@ -296,7 +296,7 @@ object Tasks {
     }
 
     val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
-    logger.debugInContext(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(LogContext.All)
+    logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(LogContext.All)
     mainClasses
   }
 

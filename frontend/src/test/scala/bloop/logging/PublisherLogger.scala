@@ -32,9 +32,11 @@ final class PublisherLogger(
   def filterMessageByLabel(label: String): List[String] =
     messages.iterator.asScala.flatMap(lm => if (lm._1 == label) List(lm._2) else Nil).toList
 
+  override def printDebug(msg: String): Unit = add("debug", msg)
+  override def debug(msg: String)(implicit ctx: LogContext): Unit =
+    if (logContext.isEnabledFor(ctx)) add("debug", msg)
+
   private def trace(msg: String): Unit = add("trace", msg)
-  override def debug(msg: String): Unit = add("debug", msg)
-  override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = if (logContext.isEnabled) add("debug", msg)
   override def info(msg: String): Unit = add("info", msg)
   override def error(msg: String): Unit = add("error", msg)
   override def warn(msg: String): Unit = add("warn", msg)

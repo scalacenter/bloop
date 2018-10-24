@@ -90,7 +90,7 @@ object State {
 
   implicit class XState(val s: State) extends AnyVal {
     def withTrace(t: Throwable): State = { s.logger.trace(t); s }
-    def withDebug(msg: String): State = { s.logger.debug(msg); s }
+    def withDebug(msg: String)(implicit log: LogContext): State = { s.logger.debug(msg); s }
     def withInfo(msg: String): State = { s.logger.info(msg); s }
     def withWarn(msg: String): State = { s.logger.warn(msg); s }
     def withError(msg: String): State = withError(msg, ExitStatus.UnexpectedError)

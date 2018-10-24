@@ -166,7 +166,7 @@ object Interpreter {
       logger.info(contents)
     } else {
       val configDirectory = state.build.origin.syntax
-      logger.debugInContext(s"Projects loaded from '$configDirectory':")(LogContext.All)
+      logger.debug(s"Projects loaded from '$configDirectory':")(LogContext.All)
       state.build.projects.map(_.name).sorted.foreach(logger.info)
     }
 
@@ -183,7 +183,13 @@ object Interpreter {
   )(next: State => Task[State]): Task[State] = {
     runCompile(cmd, state, project, deduplicateFailures, excludeRoot).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
-      else Task.now(state.withDebug(s"Failed compilation for $project. Skipping $nextAction..."))
+      else {
+        Task.now(
+          state.withDebug(s"Failed compilation for $project. Skipping $nextAction...")(
+            LogContext.Compilation
+          )
+        )
+      }
     }
   }
 
@@ -288,7 +294,9 @@ object Interpreter {
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
     if (cmd.project.isEmpty)
-      Tasks.clean(state, state.build.projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
+      Tasks
+        .clean(state, state.build.projects, cmd.includeDependencies)
+        .map(_.mergeStatus(ExitStatus.Ok))
     else {
       val (projects, missing) = lookupProjects(cmd.project, state)
       if (missing.isEmpty)

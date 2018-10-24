@@ -96,13 +96,13 @@ final class TestServer(
 
     val serverStarted = Promise[Unit]()
     val clientConnection = Task {
-      logger.debugInContext(s"Firing up test server at $port. Waiting for client...")
+      logger.debug(s"Firing up test server at $port. Waiting for client...")
       serverStarted.trySuccess(())
       server.accept()
     }
 
     val testListeningTask = clientConnection.flatMap { socket =>
-      logger.debugInContext("Test server established connection with remote JVM.")
+      logger.debug("Test server established connection with remote JVM.")
       val os = new ObjectOutputStream(socket.getOutputStream)
       os.flush()
       val is = new ObjectInputStream(socket.getInputStream)
@@ -134,7 +134,7 @@ final class TestServer(
       server.close()
       // Do both just in case the logger streams have been closed by nailgun
       opts.ngout.println("The test execution was successfully cancelled.")
-      logger.debugInContext("Test server has been successfully closed.")
+      logger.debug("Test server has been successfully closed.")
     }
 
     val listener = testListeningTask

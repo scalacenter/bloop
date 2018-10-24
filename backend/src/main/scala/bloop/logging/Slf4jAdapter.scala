@@ -13,6 +13,7 @@ import org.slf4j.{Marker, Logger => Slf4jLogger}
  */
 final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
   def underlying: L = logger
+  implicit val logContext: LogContext = logger.logContext
 
   override def getName: String = logger.name
   override def debug(msg: String): Unit = logger.debug(msg)

@@ -17,11 +17,8 @@ import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class BloopLoggerSpec {
-
-  private implicit val ctx: LogContext = LogContext.All
-
   @Test
-  def infoAndWarnMessagesGoToOut =
+  def infoAndWarnMessagesGoToOut(): Unit =
     runAndCheck { logger =>
       logger.info("info")
       logger.warn("warn")
@@ -34,9 +31,8 @@ class BloopLoggerSpec {
     }
 
   @Test
-  def errorMessagesGoToErr =
-    runAndCheck { logger =>
-      logger.error("error")
+  def errorMessagesGoToErr(): Unit =
+    runAndCheck { logger => logger.error("error")
     } { (outMsgs, errMsgs) =>
       assertEquals(0, outMsgs.length.toLong)
       assertEquals(1, errMsgs.length.toLong)
@@ -45,9 +41,9 @@ class BloopLoggerSpec {
     }
 
   @Test
-  def debugAndTraceMessagesAreIgnoredByDefault =
+  def debugAndTraceMessagesAreIgnoredByDefault(): Unit =
     runAndCheck { logger =>
-      logger.debug("debug")
+      logger.debug("debug")(LogContext.All)
       logger.trace(new Exception)
     } { (outMsgs, errMsgs) =>
       assertEquals(0, outMsgs.length.toLong)
@@ -55,7 +51,7 @@ class BloopLoggerSpec {
     }
 
   @Test
-  def debugAndTraceMessagesGoToErrInVerboseMode =
+  def debugAndTraceMessagesGoToErrInVerboseMode(): Unit =
     runAndCheck { logger =>
       val ex0 = {
         val ex = new Exception("trace0")
@@ -65,7 +61,7 @@ class BloopLoggerSpec {
       logger.error("error0")
       logger.warn("warn0")
       logger.info("info0")
-      logger.debug("debug0")
+      logger.debug("debug0")(LogContext.All)
       logger.trace(ex0)
 
       val verboseLogger = logger.asVerbose
@@ -77,7 +73,7 @@ class BloopLoggerSpec {
       verboseLogger.error("error1")
       verboseLogger.warn("warn1")
       verboseLogger.info("info1")
-      verboseLogger.debug("debug1")
+      verboseLogger.debug("debug1")(LogContext.All)
       verboseLogger.trace(ex1)
 
       val ex2 = {
@@ -88,7 +84,7 @@ class BloopLoggerSpec {
       logger.error("error2")
       logger.warn("warn2")
       logger.info("info2")
-      logger.debug("debug2")
+      logger.debug("debug2")(LogContext.All)
       logger.trace(ex2)
 
     } { (outMsgs, errMsgs) =>
@@ -110,7 +106,7 @@ class BloopLoggerSpec {
     }
 
   @Test
-  def multipleLoggersDontStepOnEachOtherToes = {
+  def multipleLoggersDontStepOnEachOtherToes(): Unit = {
     val bos0 = new ByteArrayOutputStream
     val ps0 = new PrintStream(bos0)
 
@@ -133,7 +129,7 @@ class BloopLoggerSpec {
   }
 
   @Test
-  def multipleLoggerSameNamesDifferentOutputs = {
+  def multipleLoggerSameNamesDifferentOutputs(): Unit = {
     val loggerName = "same-name-logger"
 
     val bos0 = new ByteArrayOutputStream
@@ -156,23 +152,49 @@ class BloopLoggerSpec {
   }
 
   @Test
-  def isVerbose: Unit = {
+  def isVerbose(): Unit = {
     val expectedMessage = "this-is-logged"
     runAndCheck { logger =>
-      logger.debug("this-is-not-logged")
+      logger.debug("this-is-not-logged")(LogContext.All)
       assertFalse("The logger shouldn't report being in verbose mode.", logger.isVerbose)
 
       val verboseLogger = logger.asVerbose
-      verboseLogger.debug(expectedMessage)
+      verboseLogger.debug(expectedMessage)(LogContext.All)
       assertTrue("The logger should report being in verbose mode.", verboseLogger.isVerbose)
     } { (outMsgs, errMsgs) =>
       assertTrue("Nothing should have been logged to stdout.", outMsgs.isEmpty)
       assertEquals(1, errMsgs.length.toLong)
       assertTrue("Logged message should have debug level.", isDebug(errMsgs(0)))
-      assertTrue(s"Logged message should contain '$expectedMessage'",
-                 errMsgs(0).contains(expectedMessage))
+      assertTrue(
+        s"Logged message should contain '$expectedMessage'",
+        errMsgs(0).contains(expectedMessage))
     }
+  }
 
+  @Test
+  def isVerboseForConcreteContexts(): Unit = {
+    val AllDebugLog = "This is an all debug log"
+    val CompilationDebugLog = "This is a compilation debug log"
+    val CompilationDebugLog2 = "This is a compilation debug log 2"
+
+    runAndCheck { logger0 =>
+      val logger = logger0.asVerbose
+      logger.debug(AllDebugLog)(LogContext.All)
+      logger.debug("This is a bsp log")(LogContext.Bsp)
+      logger.debug("This is a file watching log")(LogContext.FileWatching)
+      logger.debug("This is a test log")(LogContext.Test)
+      logger.debug(CompilationDebugLog)(LogContext.Compilation)
+
+      // Use a locally scope to force the use of an implicit
+      locally {
+        implicit val ctx: LogContext = LogContext.Compilation
+        logger.debug(CompilationDebugLog2)
+      }
+    } { (stdout, stderr) =>
+      val successfulDebugs = List(AllDebugLog, CompilationDebugLog, CompilationDebugLog2)
+      val prefixedLogs = successfulDebugs.map(msg => s"[D] $msg").sorted
+      assertTrue(s"Unexpected ${stderr}", stderr.toList.sorted == prefixedLogs)
+    }(LogContext.Compilation)
   }
 
   private def isWarn(msg: String): Boolean = msg.contains("[W]")
@@ -183,8 +205,9 @@ class BloopLoggerSpec {
     !(isWarn(msg) || isError(msg) || isDebug(msg) || isTrace(msg))
   }
 
-  private def runAndCheck(op: BloopLogger => Unit)(
-      check: (Seq[String], Seq[String]) => Unit): Unit = {
+  private def runAndCheck(
+      op: BloopLogger => Unit
+  )(check: (Seq[String], Seq[String]) => Unit)(implicit ctx: LogContext = LogContext.All): Unit = {
     val outStream = new ByteArrayOutputStream
     val errStream = new ByteArrayOutputStream
 
@@ -192,7 +215,7 @@ class BloopLoggerSpec {
     val err = new PrintStream(errStream)
 
     val loggerName = UUID.randomUUID().toString
-    val logger = BloopLogger.at(loggerName, out, err, false, LogContext.All)
+    val logger = BloopLogger.at(loggerName, out, err, false, ctx)
     op(logger)
 
     val outMessages = convertAndReadAllFrom(outStream)

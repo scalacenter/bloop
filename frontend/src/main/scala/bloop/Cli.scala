@@ -311,7 +311,7 @@ object Cli {
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
       val elapsed = (System.nanoTime() - since).toDouble / 1e6
-      logger.debugInContext(s"Elapsed: $elapsed ms")(LogContext.All)
+      logger.debug(s"Elapsed: $elapsed ms")(LogContext.All)
     }
 
     // Simulate try-catch-finally with monix tasks to time the task execution

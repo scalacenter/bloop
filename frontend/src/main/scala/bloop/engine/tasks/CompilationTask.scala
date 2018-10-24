@@ -120,7 +120,7 @@ object CompilationTask {
               graphInputs.irPromise.get match {
                 case Array() if pipeline =>
                   logger.warn(s"Project ${project.name} compiled without pipelined compilation.")
-                case _ => logger.debugInContext(s"The pickle promise of ${project.name} completed in Zinc.")
+                case _ => logger.debug(s"The pickle promise of ${project.name} completed in Zinc.")
               }
             }
 

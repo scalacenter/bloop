@@ -109,19 +109,19 @@ object ResultsCache {
           val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
           contents match {
             case Some(res) =>
-              logger.debugInContext(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
+              logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               val reporter = Reporter.fromAnalysis(res.getAnalysis, cwd, logger)
               Result.Success(reporter, r, 0L)
             case None =>
-              logger.debugInContext(s"Analysis '$analysisFile' for '${p.name}' is empty.")
+              logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
               Result.Empty
           }
 
         }
       } else {
         Task.now {
-          logger.debugInContext(s"Missing analysis file for project '${p.name}'")
+          logger.debug(s"Missing analysis file for project '${p.name}'")
           Result.Empty
         }
       }

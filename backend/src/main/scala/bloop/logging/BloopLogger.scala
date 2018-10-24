@@ -1,10 +1,8 @@
 package bloop.logging
 
 import java.io.PrintStream
-import java.util.concurrent.atomic.AtomicInteger
 
 import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
-import com.martiansoftware.nailgun.NGCommunicator
 
 /**
  * Creates a logger that writes to the given streams.
@@ -23,25 +21,28 @@ final class BloopLogger(
     colorOutput: Boolean,
     val logContext: LogContext
 ) extends Logger {
-
   override def ansiCodesSupported() = true
-
-  override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = if (isVerbose && logContext.isEnabled) print(msg, printDebug)
-  override def debug(msg: String): Unit = if (isVerbose) print(msg, printDebug)
+  override def debug(msg: String)(implicit ctx: LogContext): Unit =
+    if (isVerbose && logContext.isEnabledFor(ctx)) print(msg, printDebug)
   override def error(msg: String): Unit = print(msg, printError)
   override def warn(msg: String): Unit = print(msg, printWarning)
   override def trace(exception: Throwable): Unit = trace("", exception)
   override def info(msg: String): Unit = print(msg, printInfo)
 
+  override def asDiscrete: Logger = {
+    if (debugCount <= 0) this
+    else new BloopLogger(name, out, err, debugCount - 1, colorOutput, logContext)
+  }
+
   override def isVerbose: Boolean = debugCount > 0
-  override def asDiscrete: Logger =
-    if (debugCount > 0) new BloopLogger(name, out, err, debugCount - 1, colorOutput, logContext) else this
-  override def asVerbose: Logger = new BloopLogger(name, out, err, debugCount + 1, colorOutput, logContext)
+  override def asVerbose: Logger = {
+    new BloopLogger(name, out, err, debugCount + 1, colorOutput, logContext)
+  }
 
   @scala.annotation.tailrec
   private def trace(prefix: String, exception: Throwable): Unit = {
     if (isVerbose) {
-      print(prefix + exception.toString(), printTrace)
+      print(prefix + exception.toString, printTrace)
       exception.getStackTrace.foreach(ste => print("\t" + ste.toString, printTrace))
 
       val cause = exception.getCause
@@ -60,7 +61,7 @@ final class BloopLogger(
 
   private def colored(color: String, msg: String): String = {
     if (colorOutput)
-       s"${RESET}${color}$msg${RESET}"
+      s"${RESET}${color}$msg${RESET}"
     else
       msg
   }
@@ -77,7 +78,7 @@ final class BloopLogger(
     err.println(s"${colored(CYAN, "[T]")} $line")
   }
 
-  private def printDebug(line: String): Unit = {
+  override private[logging] def printDebug(line: String): Unit = {
     err.println(s"${colored(GREEN, "[D]")} $line")
   }
 }
@@ -94,8 +95,14 @@ object BloopLogger {
    * @param logContext Narrows logs to specified context.
    * @return A `BloopLogger` whose output will be written in the specified streams.
    */
-  def at(name: String, out: PrintStream, err: PrintStream, isVerbose: Boolean, colorOutput: Boolean, logContext: LogContext): BloopLogger =
-    new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput, logContext)
+  def at(
+      name: String,
+      out: PrintStream,
+      err: PrintStream,
+      isVerbose: Boolean,
+      colorOutput: Boolean,
+      logContext: LogContext
+  ): BloopLogger = new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput, logContext)
 
   /**
    * Instantiates a new `BloopLogger` using the specified streams.
@@ -106,8 +113,13 @@ object BloopLogger {
    * @param logContext Narrows logs to specified context.
    * @return A `BloopLogger` whose output will be written in the specified streams.
    */
-  def at(name: String, out: PrintStream, err: PrintStream, colorOutput: Boolean, logContext: LogContext): BloopLogger =
-    at(name, out, err, false, colorOutput, logContext)
+  def at(
+      name: String,
+      out: PrintStream,
+      err: PrintStream,
+      colorOutput: Boolean,
+      logContext: LogContext
+  ): BloopLogger = at(name, out, err, false, colorOutput, logContext)
 
   /**
    * Instantiates a new `BloopLogger` that writes to stdout and stderr.
@@ -116,6 +128,6 @@ object BloopLogger {
    * @return A `BloopLogger` writing to stdout and stderr. Calling this method is equivalent to
    *         calling `at(name, System.out, System.err)`.
    */
-  def default(name: String): BloopLogger = at(name, System.out, System.err, false, LogContext.All)
-
+  def default(name: String): BloopLogger =
+    at(name, System.out, System.err, false, LogContext.All)
 }

@@ -143,7 +143,7 @@ object Project {
 
   def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
     import _root_.io.circe.parser
-    logger.debugInContext(s"Loading project from '${origin.path}'")(LogContext.All)
+    logger.debug(s"Loading project from '${origin.path}'")(LogContext.All)
     val contents = new String(bytes, StandardCharsets.UTF_8)
     parser.parse(contents) match {
       case Left(failure) => throw failure

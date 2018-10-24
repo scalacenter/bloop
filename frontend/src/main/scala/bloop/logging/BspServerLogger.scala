@@ -10,7 +10,6 @@ import xsbti.Severity
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
-import scribe.LogRecord
 
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
@@ -22,7 +21,7 @@ final class BspServerLogger private (
     implicit val client: JsonRpcClient,
     ansiSupported: Boolean
 ) extends Logger
-    with scribe.LoggerSupport {
+    with ScribeAdapter {
 
   override def logContext: LogContext = underlying.logContext
 
@@ -34,9 +33,9 @@ final class BspServerLogger private (
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
-  override def debugInContext(msg: String)(implicit ctx: LogContext): Unit = underlying.debug(msg)
-
-  override def debug(msg: String): Unit = underlying.debug(msg)
+  override private[logging] def printDebug(msg: String): Unit = underlying.printDebug(msg)
+  override def debug(msg: String)(implicit ctx: LogContext): Unit =
+    if (logContext.isEnabledFor(ctx)) printDebug(msg)
 
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
@@ -101,30 +100,13 @@ final class BspServerLogger private (
     )
     ()
   }
-
-  override def log[M](record: LogRecord[M]): Unit = {
-    import scribe.Level
-    val msg = record.message
-    record.level match {
-      case Level.Info => info(msg)
-      case Level.Error => error(msg)
-      case Level.Warn => warn(msg)
-      case Level.Debug => debug(msg)
-      case Level.Trace =>
-        record.throwable match {
-          case Some(t) => trace(t)
-          case None => error(record.message)
-        }
-    }
-    ()
-  }
 }
 
 object BspServerLogger {
   private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
 
   def apply(state: State, client: JsonRpcClient, ansiCodesSupported: Boolean): BspServerLogger = {
-    val name: String = s"bsp-logger-${ BspServerLogger.counter.incrementAndGet()}"
+    val name: String = s"bsp-logger-${BspServerLogger.counter.incrementAndGet()}"
     new BspServerLogger(name, state.logger, client, ansiCodesSupported)
   }
 }

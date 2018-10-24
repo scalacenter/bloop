@@ -22,7 +22,7 @@ class ProcessLogger(underlying: Logger, process: Process) {
 
   def start(): Unit = {
     implicit val ctx: LogContext = LogContext.All
-    underlying.debug("Starting to log output from process...")
+    underlying.printDebug("Starting to log output from process...")
     new StreamLogger(underlying.info, processOut).start()
     new StreamLogger(underlying.error, processErr).start()
   }

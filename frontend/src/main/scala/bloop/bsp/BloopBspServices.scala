@@ -64,7 +64,7 @@ final class BloopBspServices(
   private val pool = callSiteState.pool
   private val defaultOpts = callSiteState.commonOptions
   def reloadState(config: AbsolutePath): Task[State] = {
-    bspForwarderLogger.debugInContext(s"Reloading bsp state for ${config.syntax}")(LogContext.Bsp)
+    bspForwarderLogger.debug(s"Reloading bsp state for ${config.syntax}")(LogContext.Bsp)
     State.loadActiveStateFor(config, pool, defaultOpts, bspForwarderLogger).map { state0 =>
       state0.copy(logger = bspForwarderLogger, commonOptions = latestState.commonOptions)
     }
