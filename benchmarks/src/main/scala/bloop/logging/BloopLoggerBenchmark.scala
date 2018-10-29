@@ -6,7 +6,7 @@ import org.openjdk.jmh.annotations.Benchmark
 
 object BloopLoggerBenchmark {
   private val devnull = new PrintStream(_ => ())
-  val logger = BloopLogger.at("benchmark", devnull, devnull, false)
+  val logger = BloopLogger.at("benchmark", devnull, devnull, false, DebugFilter.All)
 }
 
 class BloopLoggerBenchmark {
@@ -28,6 +28,13 @@ class BloopLoggerBenchmark {
 
   @Benchmark
   def logDebug(): Unit = {
-    BloopLoggerBenchmark.logger.debug("message")
+    // Debugs with `LogContext.All`
+    BloopLoggerBenchmark.logger.debug("message")(DebugFilter.All)
+  }
+
+  @Benchmark
+  def logDebugWithContext(): Unit = {
+    implicit val logContext: DebugFilter = DebugFilter.All
+    BloopLoggerBenchmark.logger.debug("message")(logContext)
   }
 }

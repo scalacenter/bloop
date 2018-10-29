@@ -21,7 +21,8 @@ class ProcessLogger(underlying: Logger, process: Process) {
   private[this] val processErr = process.getErrorStream
 
   def start(): Unit = {
-    underlying.debug("Starting to log output from process...")
+    implicit val ctx: DebugFilter = DebugFilter.All
+    underlying.printDebug("Starting to log output from process...")
     new StreamLogger(underlying.info, processOut).start()
     new StreamLogger(underlying.error, processErr).start()
   }

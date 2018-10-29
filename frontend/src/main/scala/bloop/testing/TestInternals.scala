@@ -8,7 +8,7 @@ import bloop.config.Config
 import bloop.engine.ExecutionContext
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 import sbt.testing.{AnnotatedFingerprint, EventHandler, Fingerprint, SubclassFingerprint}
 import org.scalatools.testing.{Framework => OldFramework}
@@ -27,6 +27,8 @@ object TestInternals {
   private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
   private final val testAgentVersion = "1.0.4"
+
+  private implicit val logContext: DebugFilter = DebugFilter.Test
 
   // Cache the resolution of test agent files since it's static (cannot be lazy because depends on logger)
   @volatile private var testAgentFiles: Option[Array[AbsolutePath]] = None

@@ -4,6 +4,7 @@ import java.io.{InputStream, PrintStream}
 import java.nio.file.{Path, Paths}
 import java.util.Properties
 
+import bloop.logging.DebugFilter
 import caseapp.CommandParser
 import caseapp.core.{ArgParser, Default, DefaultBaseCommand, Parser}
 import caseapp.util.Implicit
@@ -57,6 +58,20 @@ object CliParsers {
   implicit val propertiesParser: ArgParser[CommonOptions.PrettyProperties] = {
     ArgParser.instance("A properties parser") {
       case whatever => Left("You cannot pass in properties through the command line.")
+    }
+  }
+
+  val DebugFilterTags =
+    "\"all\" | \"file-watching\" | \"compilation\" | \"test\" | \"bsp\" | \"link\""
+  implicit val debugFilterParser: ArgParser[DebugFilter] = {
+    ArgParser.instance[DebugFilter](DebugFilterTags) {
+      case "all" => Right(DebugFilter.All)
+      case "file-watching" => Right(DebugFilter.FileWatching)
+      case "compilation" => Right(DebugFilter.Compilation)
+      case "test" => Right(DebugFilter.Test)
+      case "bsp" => Right(DebugFilter.Bsp)
+      case "link" => Right(DebugFilter.Link)
+      case w00t => Left(s"Unrecognized log context: $w00t")
     }
   }
 

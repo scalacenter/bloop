@@ -7,7 +7,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.util.Properties
 
 import bloop.internal.build.BloopScalaInfo
-import bloop.logging.Logger
+import bloop.logging.{ DebugFilter, Logger }
 
 import scala.util.control.NonFatal
 
@@ -91,8 +91,9 @@ object ScalaInstance {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
       def newInstance = {
-        logger.debug(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")
-        jarsKey.foreach(p => logger.debug(s"  => $p"))
+        logger.debug(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")(
+          DebugFilter.Compilation)
+        jarsKey.foreach(p => logger.debug(s"  => $p")(DebugFilter.Compilation))
         new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile).toArray)
       }
 

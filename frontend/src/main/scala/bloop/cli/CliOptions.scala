@@ -2,6 +2,7 @@ package bloop.cli
 
 import java.nio.file.Path
 
+import bloop.logging.DebugFilter
 import caseapp.{ExtraName, HelpMessage, Recurse, ValueDescription}
 
 case class CliOptions(
@@ -18,6 +19,8 @@ case class CliOptions(
     verbose: Boolean = false,
     @HelpMessage("If set, do not color output. Defaults to false.")
     noColor: Boolean = false,
+    @HelpMessage("Debug the execution of a concrete task.")
+    debug: List[DebugFilter] = Nil,
     @Recurse common: CommonOptions = CommonOptions.default,
 )
 

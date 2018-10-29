@@ -7,7 +7,7 @@ import bloop.cli.CommonOptions
 import bloop.config.Config
 
 import scala.util.control.NonFatal
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 import sbt.{ForkConfiguration, ForkTags}
 import sbt.testing.{Event, TaskDef}
@@ -26,6 +26,8 @@ final class TestServer(
     args: List[Config.TestArgument],
     opts: CommonOptions
 ) {
+
+  private implicit val logContext: DebugFilter = DebugFilter.Test
 
   private val server = new ServerSocket(0)
   private val frameworks = discoveredTests.tests.keys

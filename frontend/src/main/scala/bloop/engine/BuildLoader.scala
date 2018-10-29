@@ -3,7 +3,7 @@ package bloop.engine
 import bloop.data.{Origin, Project}
 import bloop.io.Paths.AttributedPath
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import bloop.util.ByteHasher
 import monix.eval.Task
 
@@ -37,7 +37,8 @@ object BuildLoader {
       configFiles: List[Build.ReadConfiguration],
       logger: Logger
   ): Task[List[Project]] = {
-    logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")
+    logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
+      DebugFilter.Compilation)
     val all = configFiles.map(f => Task(Project.fromBytesAndOrigin(f.bytes, f.origin, logger)))
     Task.gatherUnordered(all).executeOn(ExecutionContext.scheduler)
   }
@@ -83,7 +84,8 @@ object BuildLoader {
       Build.ReadConfiguration(Origin(ap, hash), bytes)
     }
 
-    logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")
+    logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
+      DebugFilter.Compilation)
     configFiles.map(f => Project.fromBytesAndOrigin(f.bytes, f.origin, logger))
   }
 }

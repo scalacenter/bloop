@@ -6,7 +6,8 @@ import monix.reactive.Observer
 
 final class PublisherLogger(
     observer: Observer.Sync[(String, String)],
-    debug: Boolean = false
+    debug: Boolean = false,
+    val debugFilter: DebugFilter
 ) extends Logger {
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
   override val name: String = "PublisherLogger"
@@ -31,11 +32,14 @@ final class PublisherLogger(
   def filterMessageByLabel(label: String): List[String] =
     messages.iterator.asScala.flatMap(lm => if (lm._1 == label) List(lm._2) else Nil).toList
 
-  private def trace(msg: String): Unit = { add("trace", msg); () }
-  override def debug(msg: String): Unit = { add("debug", msg); () }
-  override def info(msg: String): Unit = { add("info", msg); () }
-  override def error(msg: String): Unit = { add("error", msg); () }
-  override def warn(msg: String): Unit = { add("warn", msg); () }
+  override def printDebug(msg: String): Unit = add("debug", msg)
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
+    if (debugFilter.isEnabledFor(ctx)) add("debug", msg)
+
+  private def trace(msg: String): Unit = add("trace", msg)
+  override def info(msg: String): Unit = add("info", msg)
+  override def error(msg: String): Unit = add("error", msg)
+  override def warn(msg: String): Unit = add("warn", msg)
   override def trace(ex: Throwable): Unit = {
     ex.getStackTrace.foreach(ste => trace(ste.toString))
     Option(ex.getCause).foreach { cause =>

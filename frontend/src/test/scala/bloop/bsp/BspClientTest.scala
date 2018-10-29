@@ -4,11 +4,10 @@ import java.nio.file.Files
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
-import bloop.logging.{BspClientLogger, RecordingLogger, Slf4jAdapter}
+import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
-import junit.framework.Assert
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import org.scalasbt.ipcsocket.Win32NamedPipeSocket
@@ -18,6 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 
 object BspClientTest {
+  private implicit val ctx: DebugFilter = DebugFilter.Bsp
   def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
       case cmd: Commands.WindowsLocalBsp => ()
@@ -29,9 +29,11 @@ object BspClientTest {
     }
   }
 
-  def setupBspCommand(cmd: Commands.ValidatedBsp,
-                      cwd: AbsolutePath,
-                      configDir: AbsolutePath): Commands.ValidatedBsp = {
+  def setupBspCommand(
+      cmd: Commands.ValidatedBsp,
+      cwd: AbsolutePath,
+      configDir: AbsolutePath
+  ): Commands.ValidatedBsp = {
     val common = cmd.cliOptions.common.copy(workingDirectory = cwd.syntax)
     val cliOptions = cmd.cliOptions.copy(configDir = Some(configDir.underlying), common = common)
     cmd match {
@@ -42,11 +44,15 @@ object BspClientTest {
   }
 
   // We limit the scheduler on purpose so that we don't have any thread leak.
-  val scheduler: Scheduler = Scheduler(java.util.concurrent.Executors.newFixedThreadPool(4),
-                                       ExecutionModel.AlwaysAsyncExecution)
+  val scheduler: Scheduler = Scheduler(
+    java.util.concurrent.Executors.newFixedThreadPool(4),
+    ExecutionModel.AlwaysAsyncExecution
+  )
 
-  def createServices(logger: BspClientLogger[_]): Services = {
-    Services.empty(logger)
+  def createServices(logger0: BspClientLogger[_]): Services = {
+    val logger: bloop.logging.Logger = logger0
+    Services
+      .empty(logger0)
       .notification(endpoints.Build.showMessage) {
         case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
         case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
@@ -147,9 +153,11 @@ object BspClientTest {
   }
 
   // Courtesy of @olafurpg
-  def retryBackoff[A](source: me.Task[A],
-                      maxRetries: Int,
-                      firstDelay: FiniteDuration): me.Task[A] = {
+  def retryBackoff[A](
+      source: me.Task[A],
+      maxRetries: Int,
+      firstDelay: FiniteDuration
+  ): me.Task[A] = {
     source.onErrorHandleWith {
       case ex: Exception =>
         if (maxRetries > 0)

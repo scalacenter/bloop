@@ -3,8 +3,10 @@ package bloop.logging
 object NoopLogger extends Logger {
   override def name: String = "NoopLogger"
   override def ansiCodesSupported(): Boolean = false
+  override def debugFilter: DebugFilter = DebugFilter.All
 
-  override def debug(msg: String): Unit = ()
+  override def printDebug(msg: String): Unit = ()
+  override def debug(msg: String)(implicit ctx: DebugFilter): Unit = ()
   override def error(msg: String): Unit = ()
   override def warn(msg: String): Unit = ()
   override def trace(exception: Throwable): Unit = ()
