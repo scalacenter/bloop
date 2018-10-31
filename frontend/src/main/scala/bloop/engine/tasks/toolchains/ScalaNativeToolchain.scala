@@ -1,10 +1,10 @@
-package bloop.engine.tasks
+package bloop.engine.tasks.toolchains
 
 import java.nio.file.Path
 
-import bloop.data.Project
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
+import bloop.data.Project
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
@@ -13,8 +13,6 @@ import monix.eval.Task
 import scala.util.Try
 
 final class ScalaNativeToolchain private (classLoader: ClassLoader) {
-  private val paramTypes =
-    classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
 
   /**
    * Compile down to native binary using Scala Native's toolchain.
@@ -43,12 +41,21 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
         .asInstanceOf[Unit]
     }.materialize
   }
+
+  // format: OFF
+  private val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
+  // format: ON
 }
 
 object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
   override final val name: String = "Scala Native"
   override type Platform = Config.Platform.Native
+  override type Config = Config.NativeConfig
+
   override def artifactNameFrom(version: String): String = BuildInfo.nativeBridge
+  override def getPlatformData(platform: Platform): Option[PlatformData] = {
+    Some(PlatformData(artifactNameFrom(platform.config.version), platform.config.toolchain))
+  }
 
   private final val DefaultNativeTarget = "out"
   def linkTargetFrom(config: NativeConfig, out: AbsolutePath): AbsolutePath = {

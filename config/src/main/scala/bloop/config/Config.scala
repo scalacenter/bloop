@@ -103,14 +103,14 @@ object Config {
       mode: LinkerMode,
       kind: ModuleKindJS,
       emitSourceMaps: Boolean,
-      jsdom: Boolean,
+      jsdom: Option[Boolean],
       output: Option[Path],
       toolchain: List[Path]
   ) extends PlatformConfig
 
   object JsConfig {
     val empty: JsConfig =
-      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, false, None, Nil)
+      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, None, Nil)
   }
 
   /**

@@ -6,24 +6,13 @@ import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.config.Config.Platform
 import bloop.engine.caches.ResultsCache
-import bloop.engine.{Dag, State}
-import bloop.exec.Forker
-import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.data.Project
-import bloop.engine.{Dag, Feedback, Leaf, Parent, State}
-import bloop.exec.Forker
-import bloop.io.{AbsolutePath, Paths}
-import bloop.reporter.{BspReporter, LogReporter, Problem, ReporterConfig}
+import bloop.engine.{Dag, Feedback, State}
+import bloop.exec.{Forker, JavaEnv}
+import bloop.io.AbsolutePath
 import bloop.util.JavaCompat.EnrichOptional
-import bloop.testing.{
-  DiscoveredTestFrameworks,
-  LoggingEventHandler,
-  TestInternals,
-  TestSuiteEvent,
-  TestSuiteEventHandler
-}
-import bloop.{CompileInputs, Compiler, ScalaInstance}
+import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
@@ -72,7 +61,8 @@ object Tasks {
       case Some(instance) =>
         val classpath = project.classpath
         val entries = classpath.map(_.underlying.toFile).toSeq
-        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(DebugFilter.All)
+        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
+          DebugFilter.All)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
@@ -120,68 +110,6 @@ object Tasks {
     Task.gatherUnordered(ts).map(_ => ())
   }
 
-  private def linkJs(
-      config: Config.JsConfig,
-      project: Project,
-      state: State,
-      target: AbsolutePath,
-      mainClass: Option[String]): Task[Boolean] = {
-    import state.logger
-    project.jsToolchain match {
-      case Some(toolchain) =>
-        // TODO Only link if generated SJSIR files have changed
-        toolchain.link(config, project, mainClass, target, state.logger).map {
-          case Success(_) =>
-            logger.info(s"Generated JavaScript file '${target.syntax}'")
-            true
-          case Failure(ex) =>
-            logger.trace(ex)
-            logger.error(s"JavaScript linking failed with '${ex.getMessage}'")
-            false
-        }
-
-      case None =>
-        val artifactName = ScalaJsToolchain.artifactNameFrom(config.version)
-        val msg = Feedback.missingLinkArtifactFor(project, artifactName, ScalaJsToolchain.name)
-        state.logger.error(msg)
-        Task.now(false)
-    }
-  }
-
-  /**
-   * Links project if needed and looks up test frameworks
-   */
-  private def discoverTestFrameworks(
-      project: Project,
-      state: State): Task[Option[DiscoveredTestFrameworks]] = {
-    import state.logger
-    implicit val logContext: DebugFilter = DebugFilter.Test
-    project.platform match {
-      case Platform.Js(config, _) =>
-        val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
-        linkJs(config, project, state, target, None).map { success =>
-          if (!success) None
-          else {
-            logger.debug(s"Resolving test frameworks: ${project.testFrameworks.map(_.names)}")
-            val (frameworks, dispose) =
-              project.jsToolchain.get.testFrameworks(project.testFrameworks.map(_.names),
-                                                     target,
-                                                     project.baseDirectory,
-                                                     logger,
-                                                     config.jsdom)
-            Some(DiscoveredTestFrameworks.Js(frameworks, dispose))
-          }
-        }
-
-      case _ =>
-        val forker = Forker(project.javaEnv, project.classpath)
-        val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
-        val frameworks = project.testFrameworks.flatMap(f =>
-          TestInternals.loadFramework(testLoader, f.names, logger))
-        Task.now(Some(DiscoveredTestFrameworks.Jvm(frameworks, forker, testLoader)))
-    }
-  }
-
   /**
    * Run the tests for `project` and its dependencies (optional).
    *
@@ -198,40 +126,12 @@ object Tasks {
       project: Project,
       cwd: AbsolutePath,
       includeDependencies: Boolean,
-      frameworkSpecificRawArgs: List[String],
+      userTestOptions: List[String],
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler
   ): Task[State] = {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
-    def foundFrameworks(frameworks: List[Framework]) = frameworks.map(_.name).mkString(", ")
-
-    // Test arguments coming after `--` can only be used if only one mapping is found
-    def considerFrameworkArgs(frameworks: List[Framework]): List[Config.TestArgument] = {
-      if (frameworkSpecificRawArgs.isEmpty) Nil
-      else {
-        val cls = frameworks.map(f => f.getClass.getName)
-        frameworks match {
-          case Nil => Nil
-          case oneFramework :: Nil =>
-            val rawArgs = frameworkSpecificRawArgs
-            val cls = oneFramework.getClass.getName
-            logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
-            List(Config.TestArgument(rawArgs, Some(Config.TestFramework(List(cls)))))
-          case frameworks =>
-            val frameworkNames = foundFrameworks(frameworks)
-            val (sysProperties, ignoredArgs) =
-              frameworkSpecificRawArgs.partition(s => s.startsWith("-D"))
-
-            if (sysProperties.isEmpty) {
-              logger.warn(
-                s"Ignored CLI test options '${ignoredArgs}' can only be applied to one framework, found: $frameworkNames")
-              Nil
-            } else
-              List(Config.TestArgument(sysProperties, Some(Config.TestFramework(cls))))
-        }
-      }
-    }
 
     var failure = false
     val projectsToTest =
@@ -251,60 +151,7 @@ object Tasks {
         }
       }
 
-      discoverTestFrameworks(project, state).flatMap {
-        case None => Task.now(state.mergeStatus(ExitStatus.TestExecutionError))
-        case Some(l) =>
-          if (l.frameworks.isEmpty)
-            logger.error("No test frameworks found")
-          else
-            logger.debug(s"Found test frameworks: ${foundFrameworks(l.frameworks)}")
-          val frameworkArgs = considerFrameworkArgs(l.frameworks)
-          val args = project.testOptions.arguments ++ frameworkArgs
-          logger.debug(s"Running test suites with arguments: $args")
-          val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
-          val analysis = lastCompileResult.analysis().toOption.getOrElse {
-            logger.warn(
-              s"Test execution was triggered, but no compilation detected for ${project.name}")
-            Analysis.empty
-          }
-          val discoveredTestSuites =
-            discoverTestSuites(state, project, l.frameworks, analysis, testFilter)
-          l match {
-            case DiscoveredTestFrameworks.Jvm(_, forker, testLoader) =>
-              val opts = state.commonOptions
-              TestInternals.execute(
-                cwd,
-                forker,
-                testLoader,
-                discoveredTestSuites,
-                args,
-                failureHandler,
-                logger,
-                opts)
-            case DiscoveredTestFrameworks.Js(_, dispose) =>
-              Task {
-                try {
-                  discoveredTestSuites.foreach {
-                    case (framework, testSuites) =>
-                      testSuites.foreach { testSuite =>
-                        val events = TestInternals
-                          .executeWithoutForking(framework, Array(testSuite), args, logger)
-                        failureHandler.handle(
-                          TestSuiteEvent.Results(testSuite.fullyQualifiedName(), events))
-                      }
-                  }
-                  Task.now(ExitStatus.Ok)
-                } catch {
-                  case t: Throwable =>
-                    logger.error(s"An exception was thrown while running the tests: $t")
-                    logger.trace(t)
-                    Task.now(ExitStatus.TestExecutionError)
-                } finally {
-                  dispose()
-                }
-              }
-          }
-      }
+      TestTask.runTestSuites(state, project, cwd, userTestOptions, testFilter, failureHandler)
     }
 
     // For now, test execution is only sequential.
@@ -330,11 +177,13 @@ object Tasks {
   def runJVM(
       state: State,
       project: Project,
+      javaEnv: JavaEnv,
       cwd: AbsolutePath,
       fqn: String,
-      args: Array[String]): Task[State] = {
+      args: Array[String]
+  ): Task[State] = {
     val classpath = project.classpath
-    val processConfig = Forker(project.javaEnv, classpath)
+    val processConfig = Forker(javaEnv, classpath)
     val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
     runTask.map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
@@ -408,53 +257,4 @@ object Tasks {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
 
-  private[bloop] def discoverTestSuites(
-      state: State,
-      project: Project,
-      frameworks: List[Framework],
-      analysis: CompileAnalysis,
-      testFilter: String => Boolean
-  ): Map[Framework, List[TaskDef]] = {
-    import state.logger
-    implicit val logContext: DebugFilter = DebugFilter.Test
-    val tests = discoverTests(analysis, frameworks)
-    val excluded = project.testOptions.excludes.toSet
-    val ungroupedTests = tests.toList.flatMap {
-      case (framework, tasks) => tasks.map(t => (framework, t))
-    }
-    val (includedTests, excludedTests) = ungroupedTests.partition {
-      case (_, task) =>
-        val fqn = task.fullyQualifiedName()
-        !excluded(fqn) && testFilter(fqn)
-    }
-    if (logger.isVerbose) {
-      val allNames = ungroupedTests.map(_._2.fullyQualifiedName).mkString(", ")
-      val includedNames = includedTests.map(_._2.fullyQualifiedName).mkString(", ")
-      val excludedNames = excludedTests.map(_._2.fullyQualifiedName).mkString(", ")
-      logger.debug(s"Bloop found the following tests for ${project.name}: $allNames")
-      logger.debug(s"The following tests were included by the filter: $includedNames")
-      logger.debug(s"The following tests were excluded by the filter: $excludedNames")
-    }
-    includedTests.groupBy(_._1).mapValues(_.map(_._2))
-  }
-
-  private[bloop] def discoverTests(
-      analysis: CompileAnalysis,
-      frameworks: List[Framework]
-  ): Map[Framework, List[TaskDef]] = {
-    import scala.collection.mutable
-    val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
-    val definitions = TestInternals.potentialTests(analysis)
-    val discovered = Discovery(subclassPrints.map(_._1), annotatedPrints.map(_._1))(definitions)
-    val tasks = mutable.Map.empty[Framework, mutable.Buffer[TaskDef]]
-    frameworks.foreach(tasks(_) = mutable.Buffer.empty)
-    discovered.foreach {
-      case (defn, discovered) =>
-        TestInternals.matchingFingerprints(subclassPrints, annotatedPrints, discovered).foreach {
-          case (_, _, framework, fingerprint) =>
-            tasks(framework) += new TaskDef(defn.name, fingerprint, false, Array(new SuiteSelector))
-        }
-    }
-    tasks.mapValues(_.toList).toMap
-  }
 }

@@ -9,7 +9,7 @@ import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
 import bloop.data.Project
-import bloop.engine.tasks.ScalaNativeToolchain
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category

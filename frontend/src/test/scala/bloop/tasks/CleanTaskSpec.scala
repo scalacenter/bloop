@@ -2,12 +2,13 @@ package bloop.tasks
 
 import bloop.Compiler
 import bloop.cli.{Commands, ExitStatus}
+import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.{Build, Run, State}
 import bloop.engine.caches.ResultsCache
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
-import bloop.logging.BloopLogger
+import bloop.logging.{BloopLogger, Logger}
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.experimental.categories.Category
@@ -18,16 +19,20 @@ class CleanTaskSpec {
   private def dummyProject(
     buildPath: AbsolutePath,
     name: String,
-    dependencies: Set[String]
-  ): Project =
+    dependencies: Set[String],
+    logger: Logger
+  ): Project = {
     TestUtil.makeProject(
       buildPath.underlying,
       name,
       sources = Map.empty,
       dependencies = dependencies,
       scalaInstance = None,
-      javaEnv = JavaEnv.default
+      logger = logger,
+      javaEnv = JavaEnv.default,
+      compileOrder = Config.Mixed
     )
+  }
 
   /**
    * Executes the given `command` and checks if it cleaned `expected` projects.
@@ -47,7 +52,7 @@ class CleanTaskSpec {
       val buildPath = AbsolutePath(temp)
       val logger = new bloop.logging.RecordingLogger
       val projects = projectsWithDeps.map {
-        case (project, deps) => dummyProject(buildPath, project, deps)
+        case (project, deps) => dummyProject(buildPath, project, deps, logger)
       }
       val build = Build(buildPath, projects.toList)
       val results = projects.foldLeft(ResultsCache.forTests) { (cache, project) =>

@@ -1,4 +1,4 @@
-package bloop.engine.tasks
+package bloop.engine.tasks.toolchains
 
 import java.net.URLClassLoader
 import java.nio.file.Path
@@ -15,13 +15,20 @@ import bloop.logging.{DebugFilter, Logger}
  * Caches instances and abstract over some common functionality.
  */
 abstract class ToolchainCompanion[Toolchain] {
+
   /** The official name of the toolchain. */
   def name: String
 
   type Platform <: Config.Platform
+  type Config <: Config.PlatformConfig
+
+  case class PlatformData(name: String, toolchainClasspath: List[Path])
 
   /** The artifact name of this toolchain. */
   def artifactNameFrom(version: String): String
+
+  /** The platform data if this toolchain must be resolved. */
+  def getPlatformData(platform: Platform): Option[PlatformData]
 
   /**
    * Create a new instance of this toolchain, which will use the given `classLoader`.
@@ -40,16 +47,13 @@ abstract class ToolchainCompanion[Toolchain] {
    * @param logger The logger that will receive message about resolution.
    * @return An instance of this toolchain, possibly cached.
    */
-  def resolveToolchain(platform: Config.Platform, logger: Logger): Toolchain = {
-    val (artifactName, toolchain) = platform match {
-      case Config.Platform.Js(config, _) => (artifactNameFrom(config.version), config.toolchain)
-      case Config.Platform.Native(config, _) => (artifactNameFrom(config.version), config.toolchain)
-      case Config.Platform.Jvm(_, _) =>
-        throw new IllegalArgumentException("Fatal programming error: JVM toolchain does not exist.")
+  def resolveToolchain(platform: Platform, logger: Logger): Toolchain = {
+    getPlatformData(platform) match {
+      case None => apply(getClass.getClassLoader)
+      case Some(PlatformData(name, toolchain)) =>
+        if (toolchain.nonEmpty) toToolchain(toolchain)
+        else instancesById.computeIfAbsent(name, a => toToolchain(resolveJars(a, logger)))
     }
-
-    if (toolchain.nonEmpty) toToolchain(toolchain)
-    else instancesById.computeIfAbsent(artifactName, a => toToolchain(resolveJars(a, logger)))
   }
 
   /**

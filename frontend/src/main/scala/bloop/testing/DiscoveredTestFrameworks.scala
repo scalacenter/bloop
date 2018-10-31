@@ -1,6 +1,5 @@
 package bloop.testing
-
-import bloop.engine.tasks.ScalaJsToolchain
+import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.exec.Forker
 import sbt.testing.Framework
 
@@ -9,9 +8,8 @@ sealed trait DiscoveredTestFrameworks {
 }
 
 object DiscoveredTestFrameworks {
-  case class Js(frameworks: List[Framework], dispose: ScalaJsToolchain.Dispose)
+  final case class Js(frameworks: List[Framework], dispose: ScalaJsToolchain.Dispose)
       extends DiscoveredTestFrameworks
-
-  case class Jvm(frameworks: List[Framework], forker: Forker, testLoader: ClassLoader)
+  final case class Jvm(frameworks: List[Framework], forker: Forker, testLoader: ClassLoader)
       extends DiscoveredTestFrameworks
 }

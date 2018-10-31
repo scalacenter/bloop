@@ -30,7 +30,6 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 object TestInternals {
-
   private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
   private final val testAgentVersion = "1.0.4"
