@@ -26,7 +26,7 @@ import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.testadapter.TestAdapter
 
 object JsBridge {
-
+  implicit val debugFilter: DebugFilter = DebugFilter.Link
   private class Logger(logger: BloopLogger) extends JsLogger {
     override def log(level: Level, message: => String): Unit =
       level match {

@@ -3,15 +3,13 @@ package bloop.scalajs
 import org.scalajs.jsenv._
 import java.nio.ByteBuffer
 import java.nio.file.Path
-
 import java.io._
 import java.nio.file.{Files, StandardCopyOption}
 import java.net.URI
 
 import org.scalajs.io._
 import org.scalajs.io.JSUtils.escapeJS
-
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 
 import scala.collection.JavaConverters._
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
@@ -22,6 +20,7 @@ import scala.util.control.NonFatal
 
 class ProcessHandler(logger: Logger, exit: Promise[Unit], files: List[VirtualBinaryFile])
     extends NuAbstractProcessHandler {
+  implicit val debugFilter: DebugFilter = DebugFilter.Link
   private val buffer = new Array[Byte](NuProcess.BUFFER_CAPACITY)
   private var currentFileIndex: Int = 0
   private var currentStream: Option[InputStream] = None
@@ -230,6 +229,7 @@ final class NodeJSEnv(logger: Logger, config: NodeJSConfig) extends JSEnv {
 }
 
 object NodeJSEnv {
+  implicit val debugFilter: DebugFilter = DebugFilter.Link
   private lazy val validator = ExternalJSRun.supports(RunConfig.Validator())
 
   private lazy val installSourceMapIfAvailable = {
