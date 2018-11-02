@@ -18,7 +18,7 @@ toc = true
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
-  <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
+  <dd><p>If set, print the about section at the beginning of the execution. Defaults to true.</p></dd>
   <dt><code>--verbose</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print out debugging information to stderr. Defaults to false.</p></dd>
   <dt><code>--no-color</code> (type: <code>bool</code>)</dt>
