@@ -9,6 +9,7 @@ from subprocess import CalledProcessError, check_call
 import sys
 import re
 from shutil import copyfileobj, copyfile
+from urlparse import urlparse
 
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
@@ -143,17 +144,30 @@ def coursier_bootstrap(target, main):
     try:
         from os.path import expanduser
         ivy_home = expanduser("~") + "/.ivy2/"
+        https = []
+        http = []
+        if "http_proxy" in os.environ:
+            http_proxy =  urlparse(os.environ['http_proxy'])
+            http = [
+                "-Dhttp.proxyHost="+http_proxy.hostname,
+                "-Dhttp.proxyPort="+str(http_proxy.port)
+                ]
+
+        if "https_proxy" in os.environ:
+            https_proxy =  urlparse(os.environ['https_proxy'])
+            https = [
+                "-Dhttps.proxyHost="+https_proxy.hostname,
+                "-Dhttps.proxyPort="+str(https_proxy.port)
+                ]
 
         if is_local:
-            check_call([
-                "java", "-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+            check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
                 "-r", "bintray:scalameta/maven",
                 "-r", "bintray:scalacenter/releases",
                 "-o", target, "-f", "--standalone", "--main", main
             ])
         else:
-            check_call([
-                "java", "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+            check_call(["java"] + http + https + ["-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
                 "-r", "bintray:scalameta/maven",
                 "-r", "bintray:scalacenter/releases",
                 "-r", "https://oss.sonatype.org/content/repositories/staging",
