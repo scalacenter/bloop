@@ -1,4 +1,5 @@
 package bloop.logging
+
 import java.util.function.Supplier
 
 abstract class Logger extends xsbti.Logger with BaseSbtLogger {

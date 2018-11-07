@@ -23,7 +23,7 @@ import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, Previous
 import scala.util.{Failure, Success}
 
 object Tasks {
-  private val TestFailedStatus: Set[Status] =
+  private[bloop] val TestFailedStatus: Set[Status] =
     Set(Status.Failure, Status.Error, Status.Canceled)
 
   /**

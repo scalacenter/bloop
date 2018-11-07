@@ -1,0 +1,197 @@
+package bloop.tasks
+
+import java.net.URLClassLoader
+import java.util
+import java.util.concurrent.{ExecutionException, TimeUnit}
+
+import bloop.CompileMode
+import bloop.cli.Commands
+import bloop.data.Project
+import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
+import bloop.engine.{ExecutionContext, Run, State}
+import bloop.logging.RecordingLogger
+import bloop.reporter.ReporterConfig
+import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteEvent}
+import monix.eval.Task
+import org.junit.Assert.{assertEquals, assertTrue}
+import org.junit.experimental.categories.Category
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
+import org.junit.{Assert, Test}
+import sbt.testing.Framework
+import xsbti.compile.CompileAnalysis
+
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
+
+// The execution of this test suite requires the local publication of `jsBridge06` and `jsBridge10`
+object JsTestSpec {
+  // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
+  val frameworks06 = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest", "JUnit")
+  val frameworks10 = Array("UTest", "JUnit")
+
+  def compileBeforeTesting(buildName: String, target: String): (State, Project, CompileAnalysis) = {
+    import bloop.util.JavaCompat.EnrichOptional
+    val state0 = TestUtil.loadTestProject(buildName)
+    val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
+    val format = ReporterConfig.defaultFormat
+    val compileTask =
+      CompilationTask.compile(state0, project, format, false, CompileMode.Sequential, false, false)
+    val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
+    val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
+    val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
+    (state, project, analysis)
+  }
+
+  private val (testState0: State, testProject0: Project, testAnalysis0: CompileAnalysis) = {
+    // 0.6 contains a scala build for 2.11.x
+    compileBeforeTesting("cross-test-build-0.6", "test-projectJS-test")
+  }
+
+  private val (testState1: State, testProject1: Project, testAnalysis1: CompileAnalysis) = {
+    // 1.0 contains a scala build for 2.12.x
+    compileBeforeTesting("cross-test-build-1.0", "test-projectJS-test")
+  }
+
+  @Parameters
+  def data(): util.Collection[Array[Object]] = {
+    val firstBatch = Array(Array[AnyRef](frameworks06, testState0, testProject0, testAnalysis0))
+    val secondBatch = Array(Array[AnyRef](frameworks10, testState1, testProject1, testAnalysis1))
+    util.Arrays.asList((firstBatch ++ secondBatch): _*)
+  }
+}
+
+@Category(Array(classOf[bloop.SlowTests]))
+@RunWith(classOf[Parameterized])
+class JsTestSpec(
+    targetFrameworks: Array[String],
+    testState: State,
+    testProject: Project,
+    testAnalysis: CompileAnalysis
+) {
+
+  @Test
+  def testSuffixCanBeOmitted(): Unit = {
+    val expectedName = testProject.name
+    val withoutSuffix = Tasks.pickTestProject(expectedName.stripSuffix("-test"), testState)
+    val withSuffix = Tasks.pickTestProject(expectedName, testState)
+    assertTrue("Couldn't find the project without suffix", withoutSuffix.isDefined)
+    assertEquals(expectedName, withoutSuffix.get.name)
+    assertTrue("Couldn't find the project with suffix", withSuffix.isDefined)
+    assertEquals(expectedName, withSuffix.get.name)
+  }
+
+  @Test
+  def canRunTest(): Unit = {
+    val logger = new RecordingLogger()
+    val blockingDuration = Duration.apply(15, TimeUnit.SECONDS)
+    val action = Run(Commands.Test(project = testProject.name))
+    val resultingState: State =
+      TestUtil.blockingExecute(action, testState.copy(logger = logger), blockingDuration)
+    assertTrue(
+      s"Run failed: ${logger.getMessages.mkString("\n")}",
+      resultingState.status.isOk
+    )
+
+    val expectedMsgs =
+      targetFrameworks.toList.map(framework => s"All tests in hello.${framework}Test passed")
+    val missingBuffer = ListBuffer.newBuilder[String]
+    val loggerMsgs = logger.getMessages().filter(_._1 == "info").map(_._2)
+    expectedMsgs.foreach { expectedMsg =>
+      if (loggerMsgs.contains(expectedMsg)) ()
+      else missingBuffer.+=(expectedMsg)
+    }
+
+    val missingMsgs = missingBuffer.result().toList
+    Assert.assertFalse("Expected msgs are empty", expectedMsgs.isEmpty)
+    Assert.assertTrue(s"Missing msgs in logs ${missingMsgs}", missingMsgs.isEmpty)
+  }
+
+  @Test
+  def canCancelTestFramework(): Unit = {
+    var hasErrors: Boolean = false
+    val testEventHandler = new LoggingEventHandler(testState.logger)
+    val failureHandler = new LoggingEventHandler(testState.logger) {
+      override def report(): Unit = testEventHandler.report()
+      override def handle(event: TestSuiteEvent): Unit = {
+        testEventHandler.handle(event)
+        event match {
+          case TestSuiteEvent.Results(_, ev)
+              if ev.exists(e => Tasks.TestFailedStatus.contains(e.status())) =>
+            hasErrors = true
+          case _ => ()
+        }
+      }
+    }
+
+    // Remove project-level exclusions so that we can run and cancel `EternalUtest`
+    val newTestProject: Project = {
+      val opts = testProject.testOptions
+      val newExcludes = opts.excludes.filter(_.contains("Writing"))
+      testProject.copy(testOptions = opts.copy(excludes = newExcludes))
+    }
+
+    val cwd = testState.commonOptions.workingPath
+    val testFilter = TestInternals.parseFilters(Nil)
+    def createTestTask: Task[Int] =
+      TestTask.runTestSuites(testState, newTestProject, cwd, Nil, testFilter, failureHandler)
+    val cancelTime = Duration.apply(4000, TimeUnit.MILLISECONDS)
+
+    val testHandle = createTestTask.runAsync(ExecutionContext.ioScheduler)
+    val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { testHandle.cancel() }
+
+    try {
+      val exitCode = Await.result(testHandle, Duration.apply(10, TimeUnit.SECONDS))
+      Assert.assertFalse("There can be no failures during execution", hasErrors)
+      Assert.assertTrue("The exit code must be successful", exitCode == 0)
+    } catch {
+      case NonFatal(t) =>
+        driver.cancel()
+        testHandle.cancel()
+        t match {
+          case e: ExecutionException => throw e.getCause
+          case _ => throw t
+        }
+    }
+  }
+
+  @Test
+  def testsAreDetected(): Unit = {
+    // Load the project's classpath by filtering out unwanted FQNs to create the test loader
+    val classpathEntries = testProject.classpath.map(_.underlying.toUri.toURL)
+    val testLoader = new URLClassLoader(classpathEntries, Some(TestInternals.filteredLoader).orNull)
+    def frameworks(classLoader: ClassLoader): List[Framework] = {
+      testProject.testFrameworks.flatMap(f =>
+        TestInternals.loadFramework(classLoader, f.names, testState.logger))
+    }
+
+    TestUtil.quietIfSuccess(testState.logger) { logger =>
+      val discoveredTask = TestTask.discoverTestFrameworks(testProject, testState).map {
+        case Some(discoveredTestFrameworks) =>
+          try {
+            val testNames = TestTask
+              .discoverTests(testAnalysis, frameworks(testLoader))
+              .valuesIterator
+              .flatMap(defs => defs.map(_.fullyQualifiedName()))
+              .toList
+            targetFrameworks.foreach { framework =>
+              assertTrue(
+                s"Test not detected for $framework.",
+                testNames.exists(_.contains(s"${framework}Test"))
+              )
+            }
+          } finally {
+            testLoader.close()
+          }
+
+        case None => Assert.fail(s"Missing discovered tests in ${testProject}")
+      }
+
+      TestUtil.blockOnTask(discoveredTask, 10)
+      ()
+    }
+  }
+}

@@ -2,17 +2,36 @@ package bloop.scalajs
 
 import java.nio.file.Path
 
-import org.scalajs.io.{AtomicWritableFileVirtualBinaryFile, MemVirtualBinaryFile}
 import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
 import bloop.data.Project
-import bloop.io.Paths
 import bloop.logging.{DebugFilter, Logger => BloopLogger}
+import bloop.scalajs.jsenv.{JsDomNodeJsEnv, NodeJSConfig, NodeJSEnv}
+import org.scalajs.io.{AtomicWritableFileVirtualBinaryFile, MemVirtualBinaryFile}
 import org.scalajs.jsenv.Input
-import org.scalajs.linker.irio.{FileScalaJSIRContainer, FileVirtualScalaJSIRFile, IRFileCache}
+import org.scalajs.linker.irio.{FileScalaJSIRContainer, IRFileCache}
 import org.scalajs.linker.{LinkerOutput, ModuleInitializer, ModuleKind, Semantics, StandardLinker}
 import org.scalajs.logging.{Level, Logger => JsLogger}
 import org.scalajs.testadapter.TestAdapter
 
+/**
+ * Defines operations provided by the Scala.JS 1.x toolchain.
+ *
+ * The 1.x js bridge needs to inline the implementation of `NodeJSEnv` and
+ * `JSDOMNodeJSEnv` because the protected `customInitFiles` method has been
+ * removed after significant refactorings in the 1.x test infrastructure.
+ * This method is critical to run tests via Scala.JS because it allowed us
+ * to install a script that would set the current working directory of the
+ * node processes to the project working directory (see `JsBridge` for 0.6).
+ *
+ * As this is not exposed in the jsenv's public interfaces anymore, we have
+ * inline the most common environments *and* use nuprocess to set the cwd.
+ * The use of nuprocess is not strictly necessary but we do it to be consistent
+ * with the rest of the codebase. Whenever Scala.JS fixes this issue upstream,
+ * we can consider removing the additional jsenv code and use the `scala.sys.process`
+ * that `NodeJSEnv` et al use under the hood. Note that its use does not prevent
+ * us from being able to cancel the tests accordingly, as the `close` method will
+ * correctly end all the existing communications and kill the js runs forcibly.
+ */
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {
     override def log(level: Level, message: => String): Unit =
@@ -26,8 +45,6 @@ object JsBridge {
     override def trace(t: => Throwable): Unit = logger.trace(t)
   }
 
-  private def isJarFile(path: Path): Boolean = path.toString.endsWith(".jar")
-
   def link(
       config: JsConfig,
       project: Project,
@@ -36,7 +53,6 @@ object JsBridge {
       logger: BloopLogger
   ): Unit = {
     val enableOptimizer = config.mode == LinkerMode.Release
-
     val semantics = config.mode match {
       case LinkerMode.Debug => Semantics.Defaults
       case LinkerMode.Release => Semantics.Defaults.optimized
@@ -47,28 +63,23 @@ object JsBridge {
       case ModuleKindJS.CommonJSModule => ModuleKind.CommonJSModule
     }
 
-    val classpath = project.classpath.map(_.underlying)
+    val cache = new IRFileCache().newCache
+    val irClasspath = FileScalaJSIRContainer.fromClasspath(project.classpath.map(_.toFile))
+    val irFiles = cache.cached(irClasspath)
 
-    val sourceIRs = {
-      val classpathDirs = project.classpath.filter(_.isDirectory)
-      val sjsirFiles = classpathDirs.flatMap(d => Paths.pathFilesUnder(d, "glob:**.sjsir")).distinct
-      sjsirFiles.map(s => new FileVirtualScalaJSIRFile(s.underlying.toFile, s.toString))
+    val moduleInitializers = mainClass match {
+      case Some(mainClass) => List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
+      case None => // There is no main class
+        import org.scalajs.testadapter.TestAdapterInitializer
+        List(
+          ModuleInitializer.mainMethod(
+            TestAdapterInitializer.ModuleClassName,
+            TestAdapterInitializer.MainMethodName
+          )
+        )
     }
 
-    val libraryIRs = {
-      val cache = new IRFileCache().newCache
-      val jarFiles = classpath.iterator.filter(isJarFile).map(_.toFile).toList
-      val irContainers = FileScalaJSIRContainer.fromClasspath(jarFiles)
-      cache.cached(irContainers)
-    }
-
-    val isTestProject = project.testFrameworks.nonEmpty
-
-    val initializers =
-      mainClass.toList.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main")) ++
-        (if (!isTestProject) List()
-         else List(ModuleInitializer.mainMethod("org.scalajs.testinterface.Bridge", "start")))
-
+    val output = LinkerOutput(new AtomicWritableFileVirtualBinaryFile(target.toFile))
     val jsConfig = StandardLinker
       .Config()
       .withOptimizer(enableOptimizer)
@@ -78,38 +89,41 @@ object JsBridge {
       .withSourceMap(config.emitSourceMaps)
 
     StandardLinker(jsConfig).link(
-      irFiles = sourceIRs ++ libraryIRs,
-      moduleInitializers = initializers,
-      output = LinkerOutput(new AtomicWritableFileVirtualBinaryFile(target.toFile)),
+      irFiles = irFiles,
+      moduleInitializers = moduleInitializers,
+      output = output,
       logger = new Logger(logger)
     )
   }
 
   /** @return (list of frameworks, function to close test adapter) */
-  def testFrameworks(
+  def discoverTestFrameworks(
       frameworkNames: List[List[String]],
+      nodePath: String,
       jsPath: Path,
       projectPath: Path,
       logger: BloopLogger,
-      jsdom: java.lang.Boolean): (List[sbt.testing.Framework], () => Unit) = {
-    val nodeJsConfig = NodeJSConfig().withCwd(Some(projectPath))
+      jsdom: java.lang.Boolean,
+      env: Map[String, String]
+  ): (List[sbt.testing.Framework], () => Unit) = {
+    val config = NodeJSConfig().withExecutable(nodePath).withCwd(Some(projectPath)).withEnv(env)
     val nodeEnv =
-      if (!jsdom) new NodeJSEnv(logger, nodeJsConfig)
-      else new JSDOMNodeJSEnv(logger, nodeJsConfig)
+      if (!jsdom) new NodeJSEnv(logger, config)
+      else new JsDomNodeJsEnv(logger, config)
 
-    val config = TestAdapter.Config().withLogger(new Logger(logger))
+    val testConfig = TestAdapter.Config().withLogger(new Logger(logger))
     val adapter = new TestAdapter(
       nodeEnv,
       Input.ScriptsToLoad(
         List(
           MemVirtualBinaryFile
             .fromStringUTF8(jsPath.toString, scala.io.Source.fromFile(jsPath.toFile).mkString)
-        )),
-      config
+        )
+      ),
+      testConfig
     )
 
     val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
-
     (result, () => adapter.close())
   }
 }

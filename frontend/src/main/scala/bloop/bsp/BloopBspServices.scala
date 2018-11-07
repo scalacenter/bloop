@@ -252,7 +252,7 @@ final class BloopBspServices(
             case Platform.Jvm(javaEnv, _, _) =>
               Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray)
             case platform @ Platform.Native(config, _, _) =>
-              val target = ScalaNativeToolchain.linkTargetFrom(config, project.out)
+              val target = ScalaNativeToolchain.linkTargetFrom(project, config)
               linkMainWithNative(cmd, project, state, mainClass, target, platform).flatMap {
                 state =>
                   val args = (target.syntax +: cmd.args).toArray
@@ -260,7 +260,7 @@ final class BloopBspServices(
                   else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
               }
             case platform @ Platform.Js(config, _, _) =>
-              val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
+              val target = ScalaJsToolchain.linkTargetFrom(project, config)
               linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap { state =>
                 // We use node to run the program (is this a special case?)
                 val args = ("node" +: target.syntax +: cmd.args).toArray

@@ -313,11 +313,11 @@ object Interpreter {
           case Right(mainClass) =>
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
-                val target = ScalaNativeToolchain.linkTargetFrom(config, project.out)
+                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
                 LinkTask.linkMainWithNative(cmd, project, state, mainClass, target, platform)
 
               case platform @ Platform.Js(config, _, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
+                val target = ScalaJsToolchain.linkTargetFrom(project, config)
                 LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform)
 
               case Platform.Jvm(_, _, _) =>
@@ -345,7 +345,7 @@ object Interpreter {
           case Right(mainClass) =>
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
-                val target = ScalaNativeToolchain.linkTargetFrom(config, project.out)
+                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
                 LinkTask
                   .linkMainWithNative(cmd, project, state, mainClass, target, platform)
                   .flatMap { state =>
@@ -354,7 +354,7 @@ object Interpreter {
                     else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
                   }
               case platform @ Platform.Js(config, _, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
+                val target = ScalaJsToolchain.linkTargetFrom(project, config)
                 LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap {
                   state =>
                     // We use node to run the program (is this a special case?)

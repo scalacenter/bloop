@@ -71,7 +71,6 @@ object ClasspathHashing {
 
   private[this] val definedMacrosJarCache = new ConcurrentHashMap[File, (JarMetadata, Boolean)]()
 
-  // From https://raw.githubusercontent.com/twitter/elephant-bird/master/core/src/main/java/com/twitter/elephantbird/util/StreamSearcher.java
   val blackboxReference = "scala/reflect/macros/blackbox/Context".getBytes
   val whiteboxReference = "scala/reflect/macros/whitebox/Context".getBytes
   def containsMacroDefinition(classpath: Seq[File]): Task[Seq[(File, Boolean)]] = {

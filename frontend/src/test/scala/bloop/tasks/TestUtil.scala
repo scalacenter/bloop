@@ -19,7 +19,7 @@ import bloop.logging.{BloopLogger, BufferedLogger, Logger, RecordingLogger}
 import monix.eval.Task
 import org.junit.Assert
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionException}
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
@@ -84,7 +84,14 @@ object TestUtil {
     val duration = Duration(seconds, TimeUnit.SECONDS)
     val handle = task.runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
-    catch { case NonFatal(t) => handle.cancel(); throw t }
+    catch {
+      case NonFatal(t) =>
+        handle.cancel()
+        t match {
+          case e: ExecutionException => throw e.getCause()
+          case _ => throw t
+        }
+    }
   }
 
   def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
@@ -146,10 +153,27 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
+  private final val ThisClassLoader = this.getClass.getClassLoader
   def loadTestProject(
       name: String,
       transformProjects: List[Project] => List[Project] = identity
-  ): State = loadTestProject(getBloopConfigDir(name), name, transformProjects)
+  ): State = {
+    val baseDirURL = ThisClassLoader.getResource(name)
+    if (baseDirURL == null) {
+      // The project is not in `test/resources`, let's load it from the integrations directory
+      loadTestProject(getBloopConfigDir(name), name, transformProjects)
+    } else {
+      baseDirURL
+      val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
+      val bloopConfigDir = baseDir.resolve("bloop-config")
+      if (Files.exists(bloopConfigDir)) {
+        loadTestProject(bloopConfigDir, name, transformProjects)
+      } else {
+        // The project is not an integration test, let's load it from the integrations directory
+        loadTestProject(getBloopConfigDir(name), name, transformProjects)
+      }
+    }
+  }
 
   def loadTestProject(
       configDir: Path,

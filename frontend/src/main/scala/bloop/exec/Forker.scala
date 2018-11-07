@@ -80,7 +80,6 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
 }
 
 object Forker {
-
   private implicit val logContext: DebugFilter = DebugFilter.All
 
   /** The code returned after a successful execution. */
@@ -111,7 +110,7 @@ object Forker {
    * @return The exit code of the process
    */
   def run(cwd: AbsolutePath, cmd: Seq[String], logger: Logger, opts: CommonOptions): Task[Int] = {
-    import scala.collection.JavaConverters.{propertiesAsScalaMap, mapAsJavaMapConverter}
+    import scala.collection.JavaConverters.mapAsJavaMapConverter
     if (!Files.exists(cwd.underlying)) {
       Task {
         logger.error(s"Could not start the process because '$cwd' does not exist")
@@ -165,7 +164,7 @@ object Forker {
         builder.setCwd(cwd.underlying)
         val npEnv = builder.environment()
         npEnv.clear()
-        npEnv.putAll(propertiesAsScalaMap(opts.env).asJava)
+        npEnv.putAll(opts.env.toMap.asJava)
         builder.start()
       }.flatMap { process =>
         /* We need to gobble the input manually with a fixed delay because otherwise

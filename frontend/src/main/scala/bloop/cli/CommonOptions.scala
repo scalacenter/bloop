@@ -36,6 +36,11 @@ object CommonOptions {
     override def toString: String = synchronized {
       super.keySet().toArray.map(_.toString).mkString(", ")
     }
+
+    def toMap: Map[String, String] = {
+      import scala.collection.JavaConverters._
+      this.asScala.toMap
+    }
   }
 
   object PrettyProperties {

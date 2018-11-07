@@ -5,7 +5,7 @@ import java.util.{Arrays, Collection}
 
 import bloop.CompileMode
 import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.Test
+import org.junit.{Assert, Test}
 import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -18,16 +18,17 @@ import bloop.io.AbsolutePath
 import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
-import bloop.testing.{NoopEventHandler, TestInternals}
+import bloop.testing.{DiscoveredTestFrameworks, NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
+import xsbt.api.Discovered
 import xsbti.compile.CompileAnalysis
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-object TestTaskTest {
+object JvmTestSpec {
   // Test that frameworks are class-loaded, detected and that test classes exist and can be run.
-  val frameworks = Array("UTest")
+  val frameworks = Array("ScalaTest", "ScalaCheck", "Specs2", "UTest", "JUnit")
 
   def compileBeforeTesting(buildName: String, target: String): (State, Project, CompileAnalysis) = {
     import bloop.util.JavaCompat.EnrichOptional
@@ -42,28 +43,28 @@ object TestTaskTest {
     (state, project, analysis)
   }
 
-  private val WithTestProjectName = "with-tests"
   private val (testState0: State, testProject0: Project, testAnalysis0: CompileAnalysis) = {
-    compileBeforeTesting("with-tests", "with-tests-test")
+    // 0.6 contains a scala build for 2.11.x
+    compileBeforeTesting("cross-test-build-0.6", "test-project-test")
   }
 
-  private val UtestProjectName = "utestJS"
   private val (testState1: State, testProject1: Project, testAnalysis1: CompileAnalysis) = {
-    compileBeforeTesting("utest", "utestJS-test")
+    // 1.0 contains a scala build for 2.12.x
+    compileBeforeTesting("cross-test-build-1.0", "test-project-test")
   }
 
   @Parameters
   def data(): Collection[Array[Object]] = {
-    val firstBatch = frameworks.map(n => Array[AnyRef](n, testState0, testProject0, testAnalysis0))
-    val secondBatch = frameworks.map(n => Array[AnyRef](n, testState1, testProject1, testAnalysis1))
-    Arrays.asList(secondBatch: _*) //jvmTests ++ jsTests: _*)
+    val firstBatch = Array(Array[AnyRef](frameworks, testState0, testProject0, testAnalysis0))
+    val secondBatch = Array(Array[AnyRef](frameworks, testState1, testProject1, testAnalysis1))
+    Arrays.asList((firstBatch ++ secondBatch): _*)
   }
 }
 
 @Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])
-class TestTaskTest(
-    framework: String,
+class JvmTestSpec(
+    targetFrameworks: Array[String],
     testState: State,
     testProject: Project,
     testAnalysis: CompileAnalysis
@@ -86,7 +87,7 @@ class TestTaskTest(
     Forker(javaEnv, classpath)
   }
 
-  private def testLoader(fork: Forker): ClassLoader = {
+  private def loaderForTestCode(fork: Forker): ClassLoader = {
     fork.newClassLoader(Some(TestInternals.filteredLoader))
   }
 
@@ -101,7 +102,7 @@ class TestTaskTest(
       TestUtil.quietIfSuccess(testState.logger) { logger =>
         val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
-        val classLoader = testLoader(config)
+        val classLoader = loaderForTestCode(config)
         val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader)).toList
         val tests = discovered.flatMap {
           case (framework, taskDefs) =>
@@ -121,7 +122,7 @@ class TestTaskTest(
             logger,
             opts)
         }
-        assert(exitCode == 0)
+        Assert.assertTrue(s"The exit code is non-zero ${exitCode}", exitCode == 0)
       }
     }
   }
@@ -132,7 +133,7 @@ class TestTaskTest(
       TestUtil.quietIfSuccess(testState.logger) { logger =>
         val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
-        val classLoader = testLoader(config)
+        val classLoader = loaderForTestCode(config)
         val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader)).toList
         val tests = discovered.flatMap {
           case (framework, taskDefs) =>
@@ -160,9 +161,9 @@ class TestTaskTest(
           _ <- createTestTask
           state <- createTestTask
         } yield state
+
         val testHandle = testsTask.runAsync(ExecutionContext.ioScheduler)
         val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { testHandle.cancel() }
-
         val exitCode = try Await.result(testHandle, Duration.apply(10, TimeUnit.SECONDS))
         catch {
           case NonFatal(t) =>
@@ -180,12 +181,25 @@ class TestTaskTest(
   def testsAreDetected(): Unit = {
     TestUtil.quietIfSuccess(testState.logger) { logger =>
       val config = processRunnerConfig
-      val classLoader = testLoader(config)
-      val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader))
-      val testNames = discovered.valuesIterator.flatMap(defs => defs.map(_.fullyQualifiedName()))
-      assertTrue(
-        s"Test not detected for $framework.",
-        testNames.exists(_.contains(s"${framework}Test")))
+      val discoveredTask = TestTask.discoverTestFrameworks(testProject, testState).map {
+        case Some(DiscoveredTestFrameworks.Jvm(_, _, testLoader)) =>
+          val testNames = TestTask
+            .discoverTests(testAnalysis, frameworks(testLoader))
+            .valuesIterator
+            .flatMap(defs => defs.map(_.fullyQualifiedName()))
+            .toList
+          targetFrameworks.foreach { framework =>
+            assertTrue(
+              s"Test not detected for $framework.",
+              testNames.exists(_.contains(s"${framework}Test"))
+            )
+          }
+
+        case None => Assert.fail(s"Missing discovered tests in ${testProject}")
+      }
+
+      TestUtil.blockOnTask(discoveredTask, 3)
+      ()
     }
   }
 }

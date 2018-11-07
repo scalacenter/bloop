@@ -26,7 +26,7 @@ import bloop.tasks.TestUtil.{
 import scala.concurrent.duration.FiniteDuration
 
 @Category(Array(classOf[bloop.FastTests]))
-class CompilationTaskTest {
+class CompileSpec {
   object ArtificialSources {
     val `A.scala` = "package p0\nclass A"
     val `B.scala` = "package p1\nimport p0.A\nclass B extends A"

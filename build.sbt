@@ -252,6 +252,7 @@ lazy val jsBridge10 = project
       Dependencies.scalaJsLogging10,
       Dependencies.scalaJsIO10,
       Dependencies.scalaJsEnvs10,
+      Dependencies.scalaJsEnvNode10,
       Dependencies.scalaJsEnvJsdomNode10,
       Dependencies.scalaJsSbtTestAdapter10
     )

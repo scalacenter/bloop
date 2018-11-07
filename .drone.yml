@@ -18,6 +18,8 @@ matrix:
           "nativeBridge/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
+          "jsBridge06/publishLocal" \
+          "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/test" \
           "gradleBloop212/test" \

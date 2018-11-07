@@ -25,7 +25,7 @@ object LinkTask {
           case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
           case None =>
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain.link(config, project, Some(mainClass), target, state.logger) map {
+            toolchain.link(config, project, Some(mainClass), target, state.logger).map {
               case scala.util.Success(_) =>
                 state.withInfo(s"Generated JavaScript file '${target.syntax}'")
               case scala.util.Failure(t) =>

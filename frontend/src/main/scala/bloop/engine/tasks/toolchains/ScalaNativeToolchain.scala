@@ -1,5 +1,6 @@
 package bloop.engine.tasks.toolchains
 
+import java.lang.reflect.InvocationTargetException
 import java.nio.file.Path
 
 import bloop.config.Config
@@ -35,11 +36,20 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
 
     // The Scala Native toolchain expects to receive the module class' name
     val fullEntry = if (mainClass.endsWith("$")) mainClass else mainClass + "$"
-    Task {
+    val linkage = Task {
       nativeLinkMeth
         .invoke(null, config, project, fullEntry, target.underlying, logger)
         .asInstanceOf[Unit]
     }.materialize
+
+    linkage.map {
+      case s @ scala.util.Success(_) => s
+      case f @ scala.util.Failure(t) =>
+        t match {
+          case it: InvocationTargetException => scala.util.Failure(it.getCause)
+          case _ => f
+        }
+    }
   }
 
   // format: OFF
@@ -57,11 +67,10 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
     Some(PlatformData(artifactNameFrom(platform.config.version), platform.config.toolchain))
   }
 
-  private final val DefaultNativeTarget = "out"
-  def linkTargetFrom(config: NativeConfig, out: AbsolutePath): AbsolutePath = {
+  def linkTargetFrom(project: Project, config: NativeConfig): AbsolutePath = {
     config.output match {
       case Some(p) => AbsolutePath(p)
-      case None => out.resolve(DefaultNativeTarget)
+      case None => project.out.resolve(s"${project.name}.out")
     }
   }
 

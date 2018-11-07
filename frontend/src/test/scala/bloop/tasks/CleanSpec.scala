@@ -14,7 +14,7 @@ import org.junit.Test
 import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
-class CleanTaskSpec {
+class CleanSpec {
 
   private def dummyProject(
     buildPath: AbsolutePath,

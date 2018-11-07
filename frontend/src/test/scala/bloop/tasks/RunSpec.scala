@@ -21,7 +21,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 @Category(Array(classOf[bloop.FastTests]))
-class RunTasksSpec {
+class RunSpec {
 
   private val packageName = "foo.bar"
   private val mainClassName0 = "Main0"

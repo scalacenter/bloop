@@ -105,12 +105,13 @@ object Config {
       emitSourceMaps: Boolean,
       jsdom: Option[Boolean],
       output: Option[Path],
+      nodePath: Option[Path],
       toolchain: List[Path]
   ) extends PlatformConfig
 
   object JsConfig {
     val empty: JsConfig =
-      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, None, Nil)
+      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, None, None, Nil)
   }
 
   /**

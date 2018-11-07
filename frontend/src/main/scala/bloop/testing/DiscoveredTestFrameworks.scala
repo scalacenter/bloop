@@ -8,8 +8,14 @@ sealed trait DiscoveredTestFrameworks {
 }
 
 object DiscoveredTestFrameworks {
-  final case class Js(frameworks: List[Framework], dispose: ScalaJsToolchain.Dispose)
-      extends DiscoveredTestFrameworks
-  final case class Jvm(frameworks: List[Framework], forker: Forker, testLoader: ClassLoader)
-      extends DiscoveredTestFrameworks
+  final case class Js(
+      frameworks: List[Framework],
+      closeResources: ScalaJsToolchain.CloseResources
+  ) extends DiscoveredTestFrameworks
+
+  final case class Jvm(
+      frameworks: List[Framework],
+      forker: Forker,
+      testLoader: ClassLoader
+  ) extends DiscoveredTestFrameworks
 }
