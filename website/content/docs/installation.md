@@ -20,7 +20,7 @@ The formula installs a property list (`plist`) that starts the Bloop server
 automatically when you log onto your machine. This way, you don't have to
 start it manually.
 
-If you don't want the Bloop server to start automatically, you can disable it: 
+If you don't want the Bloop server to start automatically, you can disable it:
 
 ```sh
 $ brew services stop bloop
@@ -99,10 +99,8 @@ One way to run Bloop server automatically if you are using systemd is to
 install the provided user service file:
 
 ```sh
-$ mkdir -p $HOME/.config/systemd/user
-$ ln -s $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+$ systemctl --user enable $HOME/.bloop/systemd/bloop.service
 $ systemctl --user daemon-reload
-$ systemctl --user enable bloop
 ```
 
 This way, Bloop server will be started when you log in for the first time and
@@ -401,10 +399,10 @@ $ ./install.py -v $BLOOP_VERSION -n $NAILGUN_COMMIT -c $COURSIER_VERSION
 ```
 
 <script type="text/javascript">
-  
+
   $.get("https://cors-anywhere.herokuapp.com/repo1.maven.org/maven2/ch/epfl/scala/bloop-frontend_2.12/maven-metadata.xml", function(xml) {
-  
-  var versions = 
+
+  var versions =
     xml.getElementsByTagName("metadata")[0]
        .getElementsByTagName("versioning")[0]
        .getElementsByTagName("versions")[0]
