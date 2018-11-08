@@ -242,10 +242,8 @@ but we provide a desktop entry for people not using systemd.</p>
 <p>One way to run Bloop server automatically if you are using systemd is to
 install the provided user service file:</p>
 
-<pre><code class="language-sh">$ mkdir -p $HOME/.config/systemd/user
-$ ln -s $HOME/.bloop/systemd/bloop.service $HOME/.config/systemd/user/
+<pre><code class="language-sh">$ systemctl --user enable $HOME/.bloop/systemd/bloop.service
 $ systemctl --user daemon-reload
-$ systemctl --user enable bloop
 </code></pre>
 
 <p>This way, Bloop server will be started when you log in for the first time and
@@ -523,10 +521,10 @@ submodule at a given point in time to find that information.</li>
 </code></pre>
 
 <script type="text/javascript">
-  
+
   $.get("https://cors-anywhere.herokuapp.com/repo1.maven.org/maven2/ch/epfl/scala/bloop-frontend_2.12/maven-metadata.xml", function(xml) {
-  
-  var versions = 
+
+  var versions =
     xml.getElementsByTagName("metadata")[0]
        .getElementsByTagName("versioning")[0]
        .getElementsByTagName("versions")[0]
