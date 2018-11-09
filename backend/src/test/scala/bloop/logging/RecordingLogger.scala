@@ -68,10 +68,12 @@ final class RecordingLogger(
   override def asVerbose: Logger = this
   override def asDiscrete: Logger = this
 
-  def dump(): Unit = println {
-    s"""Logger contains the following messages:
-       |${getMessages().map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
+  def dump(out: PrintStream = System.out): Unit = {
+    out.println {
+      s"""Logger contains the following messages:
+         |${getMessages.map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
      """.stripMargin
+    }
   }
 
   /** Returns all the infos detected about the state of compilation */

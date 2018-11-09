@@ -4,19 +4,20 @@ import java.util.concurrent.TimeUnit
 
 import bloop.io.AbsolutePath
 import org.junit.Test
-import org.junit.Assert.{assertEquals, assertTrue}
+import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
 
-class BasicNailgunSpec extends NailgunTest {
+class NailgunSpec extends NailgunTestUtils {
   @Test
   def unknownCommandTest(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       val command = "thatcommanddoesntexist"
       client.fail(command)
       val messages = logger.getMessages()
-      assertTrue(s"Error was not reported in $messages",
-                 messages.contains(("info", s"Command not found: $command")))
+      assertTrue(
+        s"Error was not reported in $messages",
+        messages.contains(("info", s"Command not found: $command")))
     }
   }
 
@@ -64,18 +65,38 @@ class BasicNailgunSpec extends NailgunTest {
 
   @Test
   def testCompileCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
+    // This test ensures that we can compile `with-resources` and clean
+    withServerInProject("with-resources", noExit = true) { (logger, client) =>
       client.success("clean", "with-resources")
       client.success("compile", "with-resources")
       client.success("clean", "-p", "with-resources")
       client.success("compile", "-p", "with-resources")
+      client.success("exit")
       val messages = logger.getMessages()
       val needle = "Compiling"
 
-      assertTrue(s"${messages.mkString("\n")} did not contain '$needle'", messages.exists {
-        case ("info", msg) => msg.contains(needle)
-        case _ => false
-      })
+      assertTrue(
+        s"${messages.mkString("\n")} did not contain '$needle'",
+        messages.exists {
+          case ("info", msg) => msg.contains(needle)
+          case _ => false
+        }
+      )
+    }
+
+    // This test checks that if we exit the nailgun server and compile again, compilation is a no-op
+    withServerInProject("with-resources") { (logger, client) =>
+      client.success("compile", "with-resources")
+      val messages = logger.getMessages()
+      val needle = "Compiling"
+
+      assertFalse(
+        s"${messages.mkString("\n")} contained '$needle', expected no-op",
+        messages.exists {
+          case ("info", msg) => msg.contains(needle)
+          case _ => false
+        }
+      )
     }
   }
 
@@ -111,12 +132,15 @@ class BasicNailgunSpec extends NailgunTest {
   @Test
   def testRunCommand(): Unit = {
     def logger = new RecordingLogger(false, None)
-    withServer(TestUtil.getBloopConfigDir("with-resources"), logger) { (logger, client) =>
-      client.success("clean", "with-resources")
-      client.success("run", "with-resources")
-      val messages = logger.getMessages()
-      val needle = ("info", "OK")
-      assertTrue(s"${messages.mkString("\n")} did not contain '$needle'", messages.contains(needle))
+    withServer(TestUtil.getBloopConfigDir("with-resources"), noExit = false, logger) {
+      (logger, client) =>
+        client.success("clean", "with-resources")
+        client.success("run", "with-resources")
+        val messages = logger.getMessages()
+        val needle = ("info", "OK")
+        assertTrue(
+          s"${messages.mkString("\n")} did not contain '$needle'",
+          messages.contains(needle))
     }
   }
 
@@ -153,9 +177,11 @@ class BasicNailgunSpec extends NailgunTest {
         case ("info", msg) => msg.contains(needle)
         case _ => false
       }
-      assertEquals(s"${messages.mkString("\n")} should contain four times '$needle'",
-                   4,
-                   matches.toLong)
+      assertEquals(
+        s"${messages.mkString("\n")} should contain four times '$needle'",
+        4,
+        matches.toLong
+      )
     }
   }
 
