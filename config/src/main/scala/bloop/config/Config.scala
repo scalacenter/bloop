@@ -103,12 +103,15 @@ object Config {
       mode: LinkerMode,
       kind: ModuleKindJS,
       emitSourceMaps: Boolean,
+      jsdom: Option[Boolean],
       output: Option[Path],
+      nodePath: Option[Path],
       toolchain: List[Path]
   ) extends PlatformConfig
 
   object JsConfig {
-    val empty: JsConfig = JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, Nil)
+    val empty: JsConfig =
+      JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, None, None, Nil)
   }
 
   /**
@@ -198,7 +201,7 @@ object Config {
 
   case class File(version: String, project: Project)
   object File {
-    final val LatestVersion = "1.0.0"
+    final val LatestVersion = "1.1.0-M1"
 
     private[bloop] val empty = File(LatestVersion, Project.empty)
 

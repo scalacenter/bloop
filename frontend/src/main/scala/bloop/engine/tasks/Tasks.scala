@@ -4,13 +4,15 @@ import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
 import bloop.config.Config
+import bloop.config.Config.Platform
 import bloop.engine.caches.ResultsCache
-import bloop.engine.{Dag, State}
-import bloop.exec.Forker
-import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
-import bloop.testing.{DiscoveredTests, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import bloop.data.Project
+import bloop.engine.{Dag, Feedback, State}
+import bloop.exec.{Forker, JavaEnv}
+import bloop.io.AbsolutePath
+import bloop.util.JavaCompat.EnrichOptional
+import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
@@ -18,8 +20,10 @@ import sbt.testing._
 import xsbt.api.Discovery
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
 
+import scala.util.{Failure, Success}
+
 object Tasks {
-  private val TestFailedStatus: Set[Status] =
+  private[bloop] val TestFailedStatus: Set[Status] =
     Set(Status.Failure, Status.Error, Status.Canceled)
 
   /**
@@ -57,7 +61,8 @@ object Tasks {
       case Some(instance) =>
         val classpath = project.classpath
         val entries = classpath.map(_.underlying.toFile).toSeq
-        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(DebugFilter.All)
+        logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
+          DebugFilter.All)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
@@ -78,7 +83,6 @@ object Tasks {
    */
   def persist(state: State): Task[Unit] = {
     val out = state.commonOptions.ngout
-    import bloop.util.JavaCompat.EnrichOptional
     def persist(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
         val storeFile = project.analysisOut
@@ -122,87 +126,17 @@ object Tasks {
       project: Project,
       cwd: AbsolutePath,
       includeDependencies: Boolean,
-      frameworkSpecificRawArgs: List[String],
+      userTestOptions: List[String],
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler
   ): Task[State] = {
     import state.logger
-    import bloop.util.JavaCompat.EnrichOptional
     implicit val logContext: DebugFilter = DebugFilter.Test
-
-    def foundFrameworks(frameworks: List[Framework]) = frameworks.map(_.name).mkString(", ")
-
-    // Test arguments coming after `--` can only be used if only one mapping is found
-    def considerFrameworkArgs(frameworks: List[Framework]): List[Config.TestArgument] = {
-      if (frameworkSpecificRawArgs.isEmpty) Nil
-      else {
-        val cls = frameworks.map(f => f.getClass.getName)
-        frameworks match {
-          case Nil => Nil
-          case oneFramework :: Nil =>
-            val rawArgs = frameworkSpecificRawArgs
-            logger.debug(s"Test options '$rawArgs' assigned to the only found framework $cls'.")
-            List(Config.TestArgument(rawArgs, Some(Config.TestFramework(cls))))
-          case frameworks =>
-            val frameworkNames = foundFrameworks(frameworks)
-            val (sysProperties, ignoredArgs) = frameworkSpecificRawArgs.partition(s => s.startsWith("-D"))
-
-            if(sysProperties.isEmpty){
-              logger.warn(
-                s"Ignored CLI test options '${ignoredArgs}' can only be applied to one framework, found: $frameworkNames")
-              Nil
-            } else
-              List(Config.TestArgument(sysProperties, Some(Config.TestFramework(cls))))
-        }
-      }
-    }
 
     var failure = false
     val projectsToTest =
       if (!includeDependencies) List(project) else Dag.dfs(state.build.getDagFor(project))
-    val testTasks = projectsToTest.map { project =>
-      val projectName = project.name
-      val forker = Forker(project.javaEnv, project.classpath)
-      val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
-      val frameworks = project.testFrameworks
-        .flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
-      logger.debug(s"Found frameworks: ${foundFrameworks(frameworks)}")
-
-      val frameworkArgs = considerFrameworkArgs(frameworks)
-      val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
-      val analysis = lastCompileResult.analysis().toOption.getOrElse {
-        logger.warn(s"Test execution is triggered but no compilation detected for ${projectName}.")
-        Analysis.empty
-      }
-
-      val discovered = {
-        val tests = discoverTests(analysis, frameworks)
-        val excluded = project.testOptions.excludes.toSet
-        val ungroupedTests = tests.toList.flatMap {
-          case (framework, tasks) => tasks.map(t => (framework, t))
-        }
-
-        val (includedTests, excludedTests) = ungroupedTests.partition {
-          case (_, task) =>
-            val fqn = task.fullyQualifiedName()
-            !excluded(fqn) && testFilter(fqn)
-        }
-
-        if (logger.isVerbose) {
-          val allNames = ungroupedTests.map(_._2.fullyQualifiedName).mkString(", ")
-          val includedNames = includedTests.map(_._2.fullyQualifiedName).mkString(", ")
-          val excludedNames = excludedTests.map(_._2.fullyQualifiedName).mkString(", ")
-          logger.debug(s"Bloop found the following tests for $projectName: $allNames")
-          logger.debug(s"The following tests were included by the filter: $includedNames")
-          logger.debug(s"The following tests were excluded by the filter: $excludedNames")
-        }
-
-        DiscoveredTests(testLoader, includedTests.groupBy(_._1).mapValues(_.map(_._2)))
-      }
-
-      val opts = state.commonOptions
-      val args = project.testOptions.arguments ++ frameworkArgs
-
+    val testTasks = projectsToTest.filter(_.testFrameworks.nonEmpty).map { project =>
       /* Intercept test failures to set the correct error code */
       val failureHandler = new LoggingEventHandler(state.logger) {
         override def report(): Unit = testEventHandler.report()
@@ -217,8 +151,7 @@ object Tasks {
         }
       }
 
-      logger.debug(s"Running test suites with arguments: $args")
-      TestInternals.execute(cwd, forker, discovered, args, failureHandler, logger, opts)
+      TestTask.runTestSuites(state, project, cwd, userTestOptions, testFilter, failureHandler)
     }
 
     // For now, test execution is only sequential.
@@ -241,13 +174,16 @@ object Tasks {
    * @param fqn       The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    */
-  def runJVM(state: State,
-             project: Project,
-             cwd: AbsolutePath,
-             fqn: String,
-             args: Array[String]): Task[State] = {
+  def runJVM(
+      state: State,
+      project: Project,
+      javaEnv: JavaEnv,
+      cwd: AbsolutePath,
+      fqn: String,
+      args: Array[String]
+  ): Task[State] = {
     val classpath = project.classpath
-    val processConfig = Forker(project.javaEnv, classpath)
+    val processConfig = Forker(javaEnv, classpath)
     val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
     runTask.map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
@@ -286,7 +222,6 @@ object Tasks {
    */
   def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
-    import bloop.util.JavaCompat.EnrichOptional
 
     val analysis = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption match {
       case Some(analysis: Analysis) => analysis
@@ -322,23 +257,4 @@ object Tasks {
     state.build.getProjectFor(s"$projectName-test").orElse(state.build.getProjectFor(projectName))
   }
 
-  private[bloop] def discoverTests(
-      analysis: CompileAnalysis,
-      frameworks: List[Framework]
-  ): Map[Framework, List[TaskDef]] = {
-    import scala.collection.mutable
-    val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
-    val definitions = TestInternals.potentialTests(analysis)
-    val discovered = Discovery(subclassPrints.map(_._1), annotatedPrints.map(_._1))(definitions)
-    val tasks = mutable.Map.empty[Framework, mutable.Buffer[TaskDef]]
-    frameworks.foreach(tasks(_) = mutable.Buffer.empty)
-    discovered.foreach {
-      case (defn, discovered) =>
-        TestInternals.matchingFingerprints(subclassPrints, annotatedPrints, discovered).foreach {
-          case (_, _, framework, fingerprint) =>
-            tasks(framework) += new TaskDef(defn.name, fingerprint, false, Array(new SuiteSelector))
-        }
-    }
-    tasks.mapValues(_.toList).toMap
-  }
 }

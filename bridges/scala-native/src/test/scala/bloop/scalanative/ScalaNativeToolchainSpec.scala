@@ -8,15 +8,27 @@ import bloop.tasks.TestUtil
 import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
-import bloop.data.Project
-import bloop.engine.tasks.ScalaNativeToolchain
+import bloop.data.{Platform, Project}
+import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class ScalaNativeToolchainSpec {
-  private val state0 = TestUtil.loadTestProject("cross-platform", _.map(setUpNative))
+  private val state0 = {
+    def setUpNative(p: Project): Project = {
+      val platform = p.platform match {
+        case nativePlatform: Platform.Native =>
+          nativePlatform.copy(
+            toolchain = Some(ScalaNativeToolchain.apply(this.getClass.getClassLoader)))
+        case _ => p.platform
+      }
+      p.copy(platform = platform)
+    }
+
+    TestUtil.loadTestProject("cross-platform", _.map(setUpNative))
+  }
   @Test def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
@@ -48,14 +60,6 @@ class ScalaNativeToolchainSpec {
 
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
     logger.getMessages.assertContain("Hello, world!", atLevel = "info")
-  }
-
-  private def setUpNative(p: Project): Project = {
-    p.nativeToolchain match {
-      case Some(_) => p
-      case None =>
-        p.copy(nativeToolchain = Some(ScalaNativeToolchain.apply(this.getClass.getClassLoader)))
-    }
   }
 
   private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)

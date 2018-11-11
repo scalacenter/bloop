@@ -6,9 +6,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus}
-import bloop.config.Config.Platform
-import bloop.data.Project
-import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain, Tasks}
+import bloop.data.{Platform, Project}
+import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.engine.{Action, Dag, Exit, Interpreter, Run, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
@@ -241,7 +241,7 @@ final class BloopBspServices(
         project: Project,
         state: State
     ): Task[State] = {
-      import Interpreter.{linkWithScalaJs, linkWithScalaNative}
+      import bloop.engine.tasks.LinkTask.{linkMainWithJs, linkMainWithNative}
       val cwd = state.commonOptions.workingPath
       val cmd = Commands.Run(project.name)
       Interpreter.getMainClass(state, project, cmd.main) match {
@@ -249,23 +249,24 @@ final class BloopBspServices(
           Task.now(sys.error(s"Failed to run main class in ${project.name}"))
         case Right(mainClass) =>
           project.platform match {
-            case Platform.Native(config, _) =>
-              val target = ScalaNativeToolchain.linkTargetFrom(config, project.out)
-              linkWithScalaNative(cmd, project, state, mainClass, target, config).flatMap { state =>
-                val args = (target.syntax +: cmd.args).toArray
-                if (!state.status.isOk) Task.now(state)
-                else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
+            case Platform.Jvm(javaEnv, _, _) =>
+              Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray)
+            case platform @ Platform.Native(config, _, _) =>
+              val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+              linkMainWithNative(cmd, project, state, mainClass, target, platform).flatMap {
+                state =>
+                  val args = (target.syntax +: cmd.args).toArray
+                  if (!state.status.isOk) Task.now(state)
+                  else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
               }
-            case Platform.Js(config, _) =>
-              val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
-              linkWithScalaJs(cmd, project, state, mainClass, target, config).flatMap { state =>
+            case platform @ Platform.Js(config, _, _) =>
+              val target = ScalaJsToolchain.linkTargetFrom(project, config)
+              linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap { state =>
                 // We use node to run the program (is this a special case?)
                 val args = ("node" +: target.syntax +: cmd.args).toArray
                 if (!state.status.isOk) Task.now(state)
                 else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
               }
-            case Platform.Jvm(_, _) =>
-              Tasks.runJVM(state, project, cwd, mainClass, cmd.args.toArray)
           }
       }
     }

@@ -1,5 +1,6 @@
 package bloop.exec
 
+import bloop.config.Config
 import bloop.io.AbsolutePath
 
 /**
@@ -12,8 +13,12 @@ import bloop.io.AbsolutePath
 final case class JavaEnv(javaHome: AbsolutePath, javaOptions: Array[String])
 
 object JavaEnv {
-
   private[bloop] final val DefaultJavaHome = AbsolutePath(sys.props("java.home"))
+
+  def fromConfig(jvm: Config.JvmConfig): JavaEnv = {
+    val jvmHome = jvm.home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
+    JavaEnv(jvmHome, jvm.options.toArray)
+  }
 
   /**
    * Default `JavaEnv` constructed from this JVM. Uses the same `javaHome`,

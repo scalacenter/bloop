@@ -25,6 +25,21 @@ object Feedback {
   def noLinkFor(project: Project): String =
     s"Cannot link JVM project '${project.name}', `link` is only available in Scala Native or Scala.js projects."
 
+  def printException(error: String, t: Throwable): String = {
+    val msg = t.getMessage
+    val cause = t.getCause
+    if (msg == null) {
+      s"$error: '$cause'"
+    } else {
+      if (cause == null) s"$error: '$t'"
+      else {
+        s"""
+           |$error: '$t'
+           |  Caused by: '$cause'
+       """.stripMargin
+      }
+    }
+  }
 
   def missingConfigDirectory(configDirectory: AbsolutePath): String =
     s"""Missing configuration directory in $configDirectory.

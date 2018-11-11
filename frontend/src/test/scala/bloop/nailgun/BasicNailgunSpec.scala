@@ -3,10 +3,9 @@ package bloop.nailgun
 import java.util.concurrent.TimeUnit
 
 import bloop.io.AbsolutePath
-import bloop.bsp.BspServer
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertTrue}
-import bloop.logging.{BloopLogger, RecordingLogger}
+import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
 
 class BasicNailgunSpec extends NailgunTest {

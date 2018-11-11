@@ -12,7 +12,6 @@ import bloop.tasks.TestUtil.{loadTestProject, runAndCheck}
 
 @Category(Array(classOf[bloop.FastTests]))
 class TestResourcesSpec {
-
   @Test
   def testsCanSeeResources: Unit = {
     val projectName = "with-resources"

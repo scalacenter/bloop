@@ -261,7 +261,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "3.2",
+    BuildKeys.schemaVersion := "4.0",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
@@ -369,10 +369,52 @@ object BuildImplementation {
       Keys.onLoad.value.andThen { state =>
         val staging = getStagingDirectory(state)
         // Side-effecting operation to clone kafka if it hasn't been cloned yet
-        sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
-          case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
-          case None => state.log.error("Kafka git reference is invalid and cannot be cloned"); state
+        val newState = {
+          sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
+            case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
+            case None =>
+              state.log.error("Kafka git reference is invalid and cannot be cloned"); state
+          }
         }
+
+        import java.util.Locale
+        val isWindows: Boolean =
+          System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+
+        // Generate bloop configuration files for projects we use in our test suite upfront
+        val resourcesDir = newState.baseDir / "frontend" / "src" / "test" / "resources"
+        val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
+        projectDirs.foreach { projectDir =>
+          val targetDir = projectDir / "target"
+          val cacheDirectory = targetDir / "generation-cache-file"
+          java.nio.file.Files.createDirectories(cacheDirectory.toPath)
+
+          val watchedFiles = sbt.io.Path
+            .allSubpaths(projectDir)
+            .map(_._1)
+            .filter { f =>
+              val filename = f.toString
+              filename.endsWith(".sbt") || filename.endsWith(".scala")
+            }
+            .toSet
+
+          import scala.sys.process.Process
+          val cached = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { changedFiles =>
+            newState.log.info(s"Generating bloop configuration files for ${projectDir}")
+            val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
+            val cmd = cmdBase ::: List("bloopInstall")
+            val exitGenerate = Process(cmd, projectDir).!
+            if (exitGenerate != 0)
+              throw new sbt.MessageOnlyException(
+                s"Failed to generate bloop config for ${projectDir}.")
+            newState.log.success(s"Generated bloop configuration files for ${projectDir}")
+            changedFiles
+          }
+
+          cached(watchedFiles)
+        }
+
+        newState
       }
     }
 

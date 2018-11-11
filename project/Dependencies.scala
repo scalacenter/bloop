@@ -30,8 +30,8 @@ object Dependencies {
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
-  val scalaJs06Version = "0.6.23"
-  val scalaJs10Version = "1.0.0-M3"
+  val scalaJs06Version = "0.6.25"
+  val scalaJs10Version = "1.0.0-M5"
   val millVersion = "0.2.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
@@ -82,9 +82,17 @@ object Dependencies {
 
   val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
+  val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version
+  val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version
+
   val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version
   val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version
+  val scalaJsEnvs10 = "org.scala-js" %% "scalajs-js-envs" % scalaJs10Version
+  val scalaJsEnvNode10 = "org.scala-js" %% "scalajs-env-nodejs" % scalaJs10Version
+  val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % scalaJs10Version
+  val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version
+
   val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion

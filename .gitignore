@@ -23,3 +23,5 @@ integrations/gradle-bloop/lib
 
 # The index where we store project mappings for local benchmarks
 .local-benchmarks
+
+bloop-config/

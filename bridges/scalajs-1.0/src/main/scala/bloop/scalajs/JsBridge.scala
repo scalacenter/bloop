@@ -2,15 +2,31 @@ package bloop.scalajs
 
 import java.nio.file.Path
 
-import org.scalajs.io.AtomicWritableFileVirtualJSFile
 import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
 import bloop.data.Project
-import bloop.io.Paths
 import bloop.logging.{DebugFilter, Logger => BloopLogger}
-import org.scalajs.linker.irio.{FileScalaJSIRContainer, FileVirtualScalaJSIRFile, IRFileCache}
-import org.scalajs.linker.{ModuleInitializer, ModuleKind, Semantics, StandardLinker}
+import bloop.scalajs.jsenv.{JsDomNodeJsEnv, NodeJSConfig, NodeJSEnv}
+import org.scalajs.io.{AtomicWritableFileVirtualBinaryFile, MemVirtualBinaryFile}
+import org.scalajs.jsenv.Input
+import org.scalajs.linker.irio.{FileScalaJSIRContainer, IRFileCache}
+import org.scalajs.linker.{LinkerOutput, ModuleInitializer, ModuleKind, Semantics, StandardLinker}
 import org.scalajs.logging.{Level, Logger => JsLogger}
+import org.scalajs.testadapter.TestAdapter
 
+/**
+ * Defines operations provided by the Scala.JS 1.x toolchain.
+ *
+ * The 1.x js bridge needs to inline the implementation of `NodeJSEnv`,
+ * `JSDOMNodeJSEnv` and `ComRunner` because there is a bug in the latest
+ * Scala.js release that does not run `close` on the underlying process,
+ * skipping the destruction of the process running Scala.js tests. Aside
+ * from leaking, this is fatal in Windows because the underlying process
+ * is alive and keeps open references to the output JS file.
+ *
+ * We can remove all of the js environments and runners as soon as this
+ * issue is fixed upstream. Note that our 0.6.x version handles cancellation
+ * correctly.
+ */
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {
     override def log(level: Level, message: => String): Unit =
@@ -24,17 +40,14 @@ object JsBridge {
     override def trace(t: => Throwable): Unit = logger.trace(t)
   }
 
-  private def isJarFile(path: Path): Boolean = path.toString.endsWith(".jar")
-
   def link(
       config: JsConfig,
       project: Project,
-      mainClass: String,
+      mainClass: Option[String],
       target: Path,
       logger: BloopLogger
   ): Unit = {
     val enableOptimizer = config.mode == LinkerMode.Release
-
     val semantics = config.mode match {
       case LinkerMode.Debug => Semantics.Defaults
       case LinkerMode.Release => Semantics.Defaults.optimized
@@ -45,22 +58,23 @@ object JsBridge {
       case ModuleKindJS.CommonJSModule => ModuleKind.CommonJSModule
     }
 
-    val classpath = project.classpath.map(_.underlying)
+    val cache = new IRFileCache().newCache
+    val irClasspath = FileScalaJSIRContainer.fromClasspath(project.classpath.map(_.toFile))
+    val irFiles = cache.cached(irClasspath)
 
-    val sourceIRs = {
-      val classpathDirs = project.classpath.filter(_.isDirectory)
-      val sjsirFiles = classpathDirs.flatMap(d => Paths.pathFilesUnder(d, "glob:**.sjsir")).distinct
-      sjsirFiles.map(s => FileVirtualScalaJSIRFile(s.underlying.toFile))
+    val moduleInitializers = mainClass match {
+      case Some(mainClass) => List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
+      case None => // There is no main class, install the test module initializers
+        import org.scalajs.testadapter.TestAdapterInitializer
+        List(
+          ModuleInitializer.mainMethod(
+            TestAdapterInitializer.ModuleClassName,
+            TestAdapterInitializer.MainMethodName
+          )
+        )
     }
 
-    val libraryIRs = {
-      val cache = new IRFileCache().newCache
-      val jarFiles = classpath.iterator.filter(isJarFile).map(_.toFile).toList
-      val irContainers = FileScalaJSIRContainer.fromClasspath(jarFiles)
-      cache.cached(irContainers)
-    }
-
-    val initializer = ModuleInitializer.mainMethodWithArgs(mainClass, "main")
+    val output = LinkerOutput(new AtomicWritableFileVirtualBinaryFile(target.toFile))
     val jsConfig = StandardLinker
       .Config()
       .withOptimizer(enableOptimizer)
@@ -70,10 +84,43 @@ object JsBridge {
       .withSourceMap(config.emitSourceMaps)
 
     StandardLinker(jsConfig).link(
-      irFiles = sourceIRs ++ libraryIRs,
-      moduleInitializers = Seq(initializer),
-      output = AtomicWritableFileVirtualJSFile(target.toFile),
+      irFiles = irFiles,
+      moduleInitializers = moduleInitializers,
+      output = output,
       logger = new Logger(logger)
     )
+  }
+
+  /** @return (list of frameworks, function to close test adapter) */
+  def discoverTestFrameworks(
+      frameworkNames: List[List[String]],
+      nodePath: String,
+      jsPath: Path,
+      baseDirectory: Path,
+      logger: BloopLogger,
+      jsdom: java.lang.Boolean,
+      env: Map[String, String]
+  ): (List[sbt.testing.Framework], () => Unit) = {
+    implicit val debugFilter: DebugFilter = DebugFilter.Test
+    val config = NodeJSConfig().withExecutable(nodePath).withCwd(Some(baseDirectory)).withEnv(env)
+    val nodeEnv =
+      if (!jsdom) new NodeJSEnv(logger, config)
+      else new JsDomNodeJsEnv(logger, config)
+
+    val outputJsContents = {
+      val contents = java.nio.file.Files.readAllBytes(jsPath)
+      MemVirtualBinaryFile(jsPath.toString, contents)
+    }
+
+    // The order of the scripts mandates the load order in the js runtime
+    val inputs = List(outputJsContents)
+    val nodeModules = baseDirectory.resolve("node_modules").toString
+    logger.debug("Node.js module path: " + nodeModules)
+    val fullEnv = Map("NODE_PATH" -> nodeModules) ++ env
+
+    val testConfig = TestAdapter.Config().withLogger(new Logger(logger))
+    val adapter = new TestAdapter(nodeEnv, Input.ScriptsToLoad(inputs), testConfig)
+    val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
+    (result, () => adapter.close())
   }
 }

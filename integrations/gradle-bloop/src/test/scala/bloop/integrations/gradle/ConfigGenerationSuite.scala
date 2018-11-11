@@ -5,7 +5,6 @@ import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.data.Project
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.ConfigEncoderDecoders._

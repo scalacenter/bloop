@@ -1,8 +1,6 @@
 package bloop.data
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.attribute.FileTime
 
 import scala.util.Try
 import bloop.exec.JavaEnv
@@ -12,8 +10,7 @@ import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
-import bloop.config.Config.Platform
-import bloop.engine.tasks.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(
@@ -29,12 +26,9 @@ final case class Project(
     sources: List[AbsolutePath],
     testFrameworks: List[Config.TestFramework],
     testOptions: Config.TestOptions,
-    javaEnv: JavaEnv,
     out: AbsolutePath,
     analysisOut: AbsolutePath,
     platform: Platform,
-    jsToolchain: Option[ScalaJsToolchain],
-    nativeToolchain: Option[ScalaNativeToolchain],
     sbt: Option[Config.Sbt],
     resolution: Option[Config.Resolution],
     origin: Origin
@@ -69,13 +63,18 @@ final case class Project(
       case _ => false
     }
   }
-
 }
 
 object Project {
-
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
+
+  def defaultPlatform(logger: Logger, javaEnv: Option[JavaEnv] = None): Platform = {
+    val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
+    val env = javaEnv.getOrElse(JavaEnv.fromConfig(platform.config))
+    val toolchain = JvmToolchain.resolveToolchain(platform, logger)
+    Platform.Jvm(env, toolchain, platform.mainClass)
+  }
 
   def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
     val project = file.project
@@ -93,19 +92,18 @@ object Project {
       .orElse(ScalaInstance.scalaInstanceFromBloop(logger))
 
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
-    val jsToolchain = project.platform.flatMap { platform =>
-      Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
-    }
-
-    val nativeToolchain = project.platform.flatMap { platform =>
-      Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
-    }
-
-    val javaEnv = project.platform match {
-      case Some(Config.Platform.Jvm(Config.JvmConfig(home, jvmOptions), _)) =>
-        val jvmHome = home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
-        JavaEnv(jvmHome, jvmOptions.toArray)
-      case _ => JavaEnv.default
+    val platform = project.platform match {
+      case Some(platform: Config.Platform.Jvm) =>
+        val javaEnv = JavaEnv.fromConfig(platform.config)
+        val toolchain = JvmToolchain.resolveToolchain(platform, logger)
+        Platform.Jvm(javaEnv, toolchain, platform.mainClass)
+      case Some(platform: Config.Platform.Js) =>
+        val toolchain = Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
+        Platform.Js(platform.config, toolchain, platform.mainClass)
+      case Some(platform: Config.Platform.Native) =>
+        val toolchain = Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
+        Platform.Native(platform.config, toolchain, platform.mainClass)
+      case None => defaultPlatform(logger)
     }
 
     val sbt = project.sbt
@@ -129,12 +127,9 @@ object Project {
       project.sources.map(AbsolutePath.apply),
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
-      javaEnv,
       AbsolutePath(project.out),
       analysisOut,
-      project.platform.getOrElse(Config.Platform.default),
-      jsToolchain,
-      nativeToolchain,
+      platform,
       sbt,
       resolution,
       origin

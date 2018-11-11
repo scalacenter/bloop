@@ -72,7 +72,6 @@ class IntegrationTestSuite(testDirectory: Path) {
         val rootProjectName = "bloop-test-root"
         val classesDir = AbsolutePath(testDirectory)
         val previousProjects = state0.build.projects
-        val javaEnv = JavaEnv.default
 
         val rootProject = Project(
           name = rootProjectName,
@@ -87,12 +86,9 @@ class IntegrationTestSuite(testDirectory: Path) {
           sources = Nil,
           testFrameworks = Nil,
           testOptions = Config.TestOptions.empty,
-          javaEnv = javaEnv,
           out = classesDir,
           analysisOut = classesDir.resolve(Config.Project.analysisFileName(rootProjectName)),
-          platform = Config.Platform.default,
-          jsToolchain = None,
-          nativeToolchain = None,
+          platform = Project.defaultPlatform(state0.logger),
           sbt = None,
           resolution = None,
           origin = TestUtil.syntheticOriginFor(state0.build.origin)

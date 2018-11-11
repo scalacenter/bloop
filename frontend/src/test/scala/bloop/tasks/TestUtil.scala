@@ -5,7 +5,6 @@ import java.nio.file._
 import java.nio.file.attribute.FileTime
 import java.util.concurrent.TimeUnit
 
-import bloop.data.Project
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
@@ -16,11 +15,11 @@ import bloop.ScalaInstance
 import bloop.io.AbsolutePath
 import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
-import bloop.logging.{BloopLogger, BufferedLogger, Logger, ProcessLogger, RecordingLogger}
+import bloop.logging.{BloopLogger, BufferedLogger, Logger, RecordingLogger}
 import monix.eval.Task
 import org.junit.Assert
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionException}
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
@@ -85,7 +84,14 @@ object TestUtil {
     val duration = Duration(seconds, TimeUnit.SECONDS)
     val handle = task.runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
-    catch { case NonFatal(t) => handle.cancel(); throw t }
+    catch {
+      case NonFatal(t) =>
+        handle.cancel()
+        t match {
+          case e: ExecutionException => throw e.getCause()
+          case _ => throw t
+        }
+    }
   }
 
   def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
@@ -147,10 +153,26 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
+  private final val ThisClassLoader = this.getClass.getClassLoader
   def loadTestProject(
       name: String,
       transformProjects: List[Project] => List[Project] = identity
-  ): State = loadTestProject(getBloopConfigDir(name), name, transformProjects)
+  ): State = {
+    val baseDirURL = ThisClassLoader.getResource(name)
+    if (baseDirURL == null) {
+      // The project is not in `test/resources`, let's load it from the integrations directory
+      loadTestProject(getBloopConfigDir(name), name, transformProjects)
+    } else {
+      val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
+      val bloopConfigDir = baseDir.resolve("bloop-config")
+      if (Files.exists(bloopConfigDir)) {
+        loadTestProject(bloopConfigDir, name, transformProjects)
+      } else {
+        // The project is not an integration test, let's load it from the integrations directory
+        loadTestProject(getBloopConfigDir(name), name, transformProjects)
+      }
+    }
+  }
 
   def loadTestProject(
       configDir: Path,
@@ -219,12 +241,12 @@ object TestUtil {
       order: CompileOrder = Config.Mixed
   )(op: State => T): T = {
     withTemporaryDirectory { temp =>
+      val logger = BloopLogger.default(temp.toString)
       val projects = projectStructures.map {
         case (name, sources) =>
-          val projectDependencies = dependencies.getOrElse(name, Set.empty)
-          makeProject(temp, name, sources, projectDependencies, Some(scalaInstance), javaEnv, order)
+          val projectDeps = dependencies.getOrElse(name, Set.empty)
+          makeProject(temp, name, sources, projectDeps, Some(scalaInstance), javaEnv, logger, order)
       }
-      val logger = BloopLogger.default(temp.toString)
       val build = Build(AbsolutePath(temp), projects.toList)
       val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
       op(state)
@@ -247,7 +269,8 @@ object TestUtil {
       dependencies: Set[String],
       scalaInstance: Option[ScalaInstance],
       javaEnv: JavaEnv,
-      compileOrder: CompileOrder = Config.Mixed
+      logger: Logger,
+      compileOrder: CompileOrder
   ): Project = {
     val origin = syntheticOriginFor(AbsolutePath(baseDir))
     val baseDirectory = projectDir(baseDir, name)
@@ -274,13 +297,10 @@ object TestUtil {
       sources = sourceDirectories,
       testFrameworks = Nil,
       testOptions = Config.TestOptions.empty,
-      javaEnv = javaEnv,
       out = AbsolutePath(baseDirectory), // This means nothing in tests
       // Let's store the analysis file in target even though we usually do it in `out`
       analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name))),
-      platform = Config.Platform.default,
-      jsToolchain = None,
-      nativeToolchain = None,
+      platform = Project.defaultPlatform(logger, Some(javaEnv)),
       sbt = None,
       resolution = None,
       origin = origin

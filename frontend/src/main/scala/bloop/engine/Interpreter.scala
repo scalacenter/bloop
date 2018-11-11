@@ -5,15 +5,15 @@ import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, ExitStatus, OptimizerConfig, ReporterKind}
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
-import bloop.config.Config.Platform
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompilationTask, ScalaJsToolchain, ScalaNativeToolchain, Tasks}
+import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks}
 import bloop.cli.Commands.{CompilingCommand, LinkingCommand}
 import bloop.config.Config
-import bloop.data.Project
+import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
+import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import monix.eval.Task
 
 object Interpreter {
@@ -305,76 +305,6 @@ object Interpreter {
     }
   }
 
-  private[bloop] def linkWithScalaJs(
-      cmd: LinkingCommand,
-      project: Project,
-      state: State,
-      mainClass: String,
-      target: AbsolutePath,
-      config0: Config.JsConfig,
-  ): Task[State] = {
-    project.jsToolchain match {
-      case Some(toolchain) =>
-        config0.output.flatMap(Tasks.reasonOfInvalidPath(_, ".js")) match {
-          case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
-          case None =>
-            val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain.link(config, project, mainClass, target, state.logger) map {
-              case scala.util.Success(_) =>
-                state.withInfo(s"Generated JavaScript file '${target.syntax}'")
-              case scala.util.Failure(t) =>
-                val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
-                state.withError(msg, ExitStatus.LinkingError).withTrace(t)
-            }
-        }
-      case None =>
-        val artifactName = ScalaJsToolchain.artifactNameFrom(config0.version)
-        val msg = Feedback.missingLinkArtifactFor(project, artifactName, ScalaJsToolchain.name)
-        Task.now(state.withError(msg))
-    }
-  }
-
-  private[bloop] def linkWithScalaNative(
-      cmd: LinkingCommand,
-      project: Project,
-      state: State,
-      mainClass: String,
-      target: AbsolutePath,
-      config0: Config.NativeConfig
-  ): Task[State] = {
-    project.nativeToolchain match {
-      case Some(toolchain) =>
-        config0.output.flatMap(Tasks.reasonOfInvalidPath(_)) match {
-          case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
-          case None =>
-            val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain.link(config, project, mainClass, target, state.logger) map {
-              case scala.util.Success(_) =>
-                state.withInfo(s"Generated native binary '${target.syntax}'")
-              case scala.util.Failure(t) =>
-                val msg = Feedback.failedToLink(project, ScalaNativeToolchain.name, t)
-                state.withError(msg, ExitStatus.LinkingError).withTrace(t)
-            }
-        }
-
-      case None =>
-        val artifactName = ScalaNativeToolchain.artifactNameFrom(config0.version)
-        val msg = Feedback.missingLinkArtifactFor(project, artifactName, ScalaNativeToolchain.name)
-        Task.now(state.withError(msg))
-    }
-  }
-
-  private def getOptimizerMode(
-      config: Option[OptimizerConfig],
-      fallbackMode: Config.LinkerMode
-  ): Config.LinkerMode = {
-    config match {
-      case Some(OptimizerConfig.Debug) => Config.LinkerMode.Debug
-      case Some(OptimizerConfig.Release) => Config.LinkerMode.Release
-      case None => fallbackMode
-    }
-  }
-
   private[bloop] def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     def doLink(project: Project)(state: State): Task[State] = {
       compileAnd(cmd, state, project, false, sequential, "`link`") { state =>
@@ -382,15 +312,15 @@ object Interpreter {
           case Left(state) => Task.now(state)
           case Right(mainClass) =>
             project.platform match {
-              case Platform.Native(config, _) =>
-                val target = ScalaNativeToolchain.linkTargetFrom(config, project.out)
-                linkWithScalaNative(cmd, project, state, mainClass, target, config)
+              case platform @ Platform.Native(config, _, _) =>
+                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+                LinkTask.linkMainWithNative(cmd, project, state, mainClass, target, platform)
 
-              case Platform.Js(config, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
-                linkWithScalaJs(cmd, project, state, mainClass, target, config)
+              case platform @ Platform.Js(config, _, _) =>
+                val target = ScalaJsToolchain.linkTargetFrom(project, config)
+                LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform)
 
-              case Platform.Jvm(_, _) =>
+              case Platform.Jvm(_, _, _) =>
                 val msg = Feedback.noLinkFor(project)
                 Task.now(state.withError(msg, ExitStatus.InvalidCommandLineOption))
             }
@@ -414,24 +344,26 @@ object Interpreter {
           case Left(state) => Task.now(state) // If we got here, we have already reported errors
           case Right(mainClass) =>
             project.platform match {
-              case Platform.Native(config, _) =>
-                val target = ScalaNativeToolchain.linkTargetFrom(config, project.out)
-                linkWithScalaNative(cmd, project, state, mainClass, target, config).flatMap {
-                  state =>
+              case platform @ Platform.Native(config, _, _) =>
+                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+                LinkTask
+                  .linkMainWithNative(cmd, project, state, mainClass, target, platform)
+                  .flatMap { state =>
                     val args = (target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
                     else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
+                  }
+              case platform @ Platform.Js(config, _, _) =>
+                val target = ScalaJsToolchain.linkTargetFrom(project, config)
+                LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap {
+                  state =>
+                    // We use node to run the program (is this a special case?)
+                    val args = ("node" +: target.syntax +: cmd.args).toArray
+                    if (!state.status.isOk) Task.now(state)
+                    else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
                 }
-              case Platform.Js(config, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(config, project.out)
-                linkWithScalaJs(cmd, project, state, mainClass, target, config).flatMap { state =>
-                  // We use node to run the program (is this a special case?)
-                  val args = ("node" +: target.syntax +: cmd.args).toArray
-                  if (!state.status.isOk) Task.now(state)
-                  else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
-                }
-              case Platform.Jvm(_, _) =>
-                Tasks.runJVM(state, project, cwd, mainClass, cmd.args.toArray)
+              case Platform.Jvm(javaEnv, _, _) =>
+                Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray)
             }
         }
       }
@@ -464,7 +396,7 @@ object Interpreter {
       case List(main) => Right(main)
       case mainClasses =>
         def withS(msg: String): String = msg.suggest(Feedback.listMainClasses(mainClasses))
-        val configMainClass = project.platform.mainClass
+        val configMainClass = project.platform.userMainClass
         cliMainClass match {
           case Some(userMainClass) if mainClasses.contains(userMainClass) => Right(userMainClass)
           case Some(userMainClass) =>
