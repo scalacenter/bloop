@@ -5,19 +5,11 @@ import java.nio.file.Path
 import bloop.logging.{DebugFilter, Logger}
 import bloop.scalajs.jsenv
 import com.zaxxer.nuprocess.NuProcessBuilder
-
+import monix.execution.atomic.AtomicBoolean
 import org.scalajs.jsenv.nodejs.NodeJSEnv.SourceMap
 import org.scalajs.io.{MemVirtualBinaryFile, VirtualBinaryFile}
-import org.scalajs.jsenv.nodejs.{ComRun, Support}
-import org.scalajs.jsenv.{
-  ExternalJSRun,
-  Input,
-  JSComRun,
-  JSEnv,
-  JSRun,
-  RunConfig,
-  UnsupportedInputException
-}
+import org.scalajs.jsenv.nodejs.{BloopComRun, Support}
+import org.scalajs.jsenv.{ExternalJSRun, Input, JSComRun, JSEnv, JSRun, RunConfig, UnsupportedInputException}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
@@ -81,7 +73,7 @@ object NodeJSConfig {
    *  - `args`: `Nil`
    *  - `env`: `Map.empty`
    *  - `cwd`: `None`
-   *  - `sourceMap`: [[SourceMap.EnableIfAvailable]]
+   *  - `sourceMap`: [[org.scalajs.jsenv.nodejs.NodeJSEnv.SourceMap.EnableIfAvailable]]
    */
   def apply(): NodeJSConfig = new NodeJSConfig()
 }
@@ -102,7 +94,7 @@ final class NodeJSEnv(logger: Logger, config: NodeJSConfig) extends JSEnv {
 
   def startWithCom(input: Input, runConfig: RunConfig, onMessage: String => Unit): JSComRun = {
     NodeJSEnv.validator.validate(runConfig)
-    ComRun.start(runConfig, onMessage) { comLoader =>
+    BloopComRun.start(runConfig, onMessage) { comLoader =>
       val files = initFiles ::: (comLoader :: inputFiles(input))
       NodeJSEnv.internalStart(logger, config, env)(files, runConfig)
     }
@@ -124,10 +116,10 @@ final class NodeJSEnv(logger: Logger, config: NodeJSConfig) extends JSEnv {
 }
 
 object NodeJSEnv {
-  implicit val debugFilter: DebugFilter = DebugFilter.Link
+  implicit val debugFilter: DebugFilter = DebugFilter.Test
   private lazy val validator = ExternalJSRun.supports(RunConfig.Validator())
 
-  private lazy val installSourceMapIfAvailable = {
+  private lazy val installSourceMapIfAvailable: MemVirtualBinaryFile = {
     MemVirtualBinaryFile.fromStringUTF8(
       "sourceMapSupport.js",
       """
@@ -139,13 +131,13 @@ object NodeJSEnv {
     )
   }
 
-  private lazy val installSourceMap = {
+  private lazy val installSourceMap: MemVirtualBinaryFile = {
     MemVirtualBinaryFile.fromStringUTF8(
       "sourceMapSupport.js",
       "require('source-map-support').install();")
   }
 
-  private[jsenv] lazy val runtimeEnv = {
+  private[jsenv] lazy val runtimeEnv: MemVirtualBinaryFile = {
     MemVirtualBinaryFile.fromStringUTF8(
       "scalaJSEnvInfo.js",
       """
@@ -167,7 +159,8 @@ object NodeJSEnv {
 
     val executionPromise = Promise[Unit]()
     val builder = new NuProcessBuilder(command.asJava, env.asJava)
-    builder.setProcessListener(new NodeJsHandler(logger, executionPromise, files))
+    val handler = new NodeJsHandler(logger, executionPromise, files)
+    builder.setProcessListener(handler)
     config.cwd.foreach(builder.setCwd)
 
     val processEnvironment = builder.environment()
@@ -178,10 +171,16 @@ object NodeJSEnv {
     process.wantWrite()
 
     new JSRun {
+      private val isClosed = AtomicBoolean(false)
       override def future: Future[Unit] = executionPromise.future
       override def close(): Unit = {
-        logger.debug(s"Destroying process...")
-        process.destroy(true)
+        // Make sure we only destroy the process once, the test adapter can call this several times!
+        if (!isClosed.getAndSet(true)) {
+          logger.debug(s"Destroying process...")
+          process.destroy(true)
+          // Make sure that no matter what happens the `onExit` callback is invoked
+          handler.cancel()
+        }
         ()
       }
     }

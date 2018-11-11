@@ -20,7 +20,6 @@ import sbt.testing.Framework
 import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
 import bloop.testing.{DiscoveredTestFrameworks, NoopEventHandler, TestInternals}
 import monix.execution.misc.NonFatal
-import xsbt.api.Discovered
 import xsbti.compile.CompileAnalysis
 
 import scala.concurrent.Await
@@ -195,7 +194,7 @@ class JvmTestSpec(
             )
           }
 
-        case None => Assert.fail(s"Missing discovered tests in ${testProject}")
+        case _ => Assert.fail(s"Missing discovered tests in ${testProject}")
       }
 
       TestUtil.blockOnTask(discoveredTask, 3)

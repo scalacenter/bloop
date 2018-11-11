@@ -6,16 +6,8 @@ import java.nio.file.{Files, StandardCopyOption}
 
 import bloop.logging.Logger
 import org.scalajs.io.{FileVirtualFile, JSUtils, MemVirtualBinaryFile, VirtualBinaryFile}
-import org.scalajs.jsenv.nodejs.{ComRun, Support}
-import org.scalajs.jsenv.{
-  ExternalJSRun,
-  Input,
-  JSComRun,
-  JSEnv,
-  JSRun,
-  RunConfig,
-  UnsupportedInputException
-}
+import org.scalajs.jsenv.nodejs.{BloopComRun, ComRun, Support}
+import org.scalajs.jsenv.{ExternalJSRun, Input, JSComRun, JSEnv, JSRun, RunConfig, UnsupportedInputException}
 
 import scala.util.control.NonFatal
 
@@ -42,7 +34,7 @@ class JsDomNodeJsEnv(logger: Logger, config: NodeJSConfig) extends JSEnv {
 
   def startWithCom(input: Input, runConfig: RunConfig, onMessage: String => Unit): JSComRun = {
     JsDomNodeJsEnv.validator.validate(runConfig)
-    ComRun.start(runConfig, onMessage) { comLoader =>
+    BloopComRun.start(runConfig, onMessage) { comLoader =>
       val files = initFiles ::: (comLoader :: codeWithJSDOMContext(input))
       NodeJSEnv.internalStart(logger, config, env)(files, runConfig)
     }

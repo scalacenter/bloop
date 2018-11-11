@@ -16,21 +16,16 @@ import org.scalajs.testadapter.TestAdapter
 /**
  * Defines operations provided by the Scala.JS 1.x toolchain.
  *
- * The 1.x js bridge needs to inline the implementation of `NodeJSEnv` and
- * `JSDOMNodeJSEnv` because the protected `customInitFiles` method has been
- * removed after significant refactorings in the 1.x test infrastructure.
- * This method is critical to run tests via Scala.JS because it allowed us
- * to install a script that would set the current working directory of the
- * node processes to the project working directory (see `JsBridge` for 0.6).
+ * The 1.x js bridge needs to inline the implementation of `NodeJSEnv`,
+ * `JSDOMNodeJSEnv` and `ComRunner` because there is a bug in the latest
+ * Scala.js release that does not run `close` on the underlying process,
+ * skipping the destruction of the process running Scala.js tests. Aside
+ * from leaking, this is fatal in Windows because the underlying process
+ * is alive and keeps open references to the output JS file.
  *
- * As this is not exposed in the jsenv's public interfaces anymore, we have
- * inline the most common environments *and* use nuprocess to set the cwd.
- * The use of nuprocess is not strictly necessary but we do it to be consistent
- * with the rest of the codebase. Whenever Scala.JS fixes this issue upstream,
- * we can consider removing the additional jsenv code and use the `scala.sys.process`
- * that `NodeJSEnv` et al use under the hood. Note that its use does not prevent
- * us from being able to cancel the tests accordingly, as the `close` method will
- * correctly end all the existing communications and kill the js runs forcibly.
+ * We can remove all of the js environments and runners as soon as this
+ * issue is fixed upstream. Note that our 0.6.x version handles cancellation
+ * correctly.
  */
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {
@@ -69,7 +64,7 @@ object JsBridge {
 
     val moduleInitializers = mainClass match {
       case Some(mainClass) => List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
-      case None => // There is no main class
+      case None => // There is no main class, install the test module initializers
         import org.scalajs.testadapter.TestAdapterInitializer
         List(
           ModuleInitializer.mainMethod(
@@ -101,28 +96,30 @@ object JsBridge {
       frameworkNames: List[List[String]],
       nodePath: String,
       jsPath: Path,
-      projectPath: Path,
+      baseDirectory: Path,
       logger: BloopLogger,
       jsdom: java.lang.Boolean,
       env: Map[String, String]
   ): (List[sbt.testing.Framework], () => Unit) = {
-    val config = NodeJSConfig().withExecutable(nodePath).withCwd(Some(projectPath)).withEnv(env)
+    implicit val debugFilter: DebugFilter = DebugFilter.Test
+    val config = NodeJSConfig().withExecutable(nodePath).withCwd(Some(baseDirectory)).withEnv(env)
     val nodeEnv =
       if (!jsdom) new NodeJSEnv(logger, config)
       else new JsDomNodeJsEnv(logger, config)
 
-    val testConfig = TestAdapter.Config().withLogger(new Logger(logger))
-    val adapter = new TestAdapter(
-      nodeEnv,
-      Input.ScriptsToLoad(
-        List(
-          MemVirtualBinaryFile
-            .fromStringUTF8(jsPath.toString, scala.io.Source.fromFile(jsPath.toFile).mkString)
-        )
-      ),
-      testConfig
-    )
+    val outputJsContents = {
+      val contents = java.nio.file.Files.readAllBytes(jsPath)
+      MemVirtualBinaryFile(jsPath.toString, contents)
+    }
 
+    // The order of the scripts mandates the load order in the js runtime
+    val inputs = List(outputJsContents)
+    val nodeModules = baseDirectory.resolve("node_modules").toString
+    logger.debug("Node.js module path: " + nodeModules)
+    val fullEnv = Map("NODE_PATH" -> nodeModules) ++ env
+
+    val testConfig = TestAdapter.Config().withLogger(new Logger(logger))
+    val adapter = new TestAdapter(nodeEnv, Input.ScriptsToLoad(inputs), testConfig)
     val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
     (result, () => adapter.close())
   }

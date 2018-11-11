@@ -6,6 +6,7 @@ import java.nio.ByteBuffer
 import bloop.exec.Forker
 import bloop.logging.{DebugFilter, Logger}
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
+import monix.execution.atomic.AtomicBoolean
 import org.scalajs.io.{FileVirtualBinaryFile, JSUtils, VirtualBinaryFile}
 
 import scala.concurrent.Promise
@@ -26,10 +27,7 @@ final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[Virtu
 
   /** @return false if we have nothing else to write */
   override def onStdinReady(output: ByteBuffer): Boolean = {
-    if (currentFileIndex < files.length) {
-      files(currentFileIndex) match {
-        case f: FileVirtualBinaryFile =>
-          logger.debug(s"Sending js file $f...")
+    if (currentFileIndex < files.length) { files(currentFileIndex) match { case f: FileVirtualBinaryFile => logger.debug(s"Sending js file $f...")
           val path = f.file.getAbsolutePath
           val str = s"""require("${JSUtils.escapeJS(path)}");"""
           output.put(str.getBytes("UTF-8"))
@@ -87,10 +85,14 @@ final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[Virtu
     }
   }
 
+  private val hasExited = AtomicBoolean(false)
+  def cancel(): Unit = onExit(0)
   override def onExit(statusCode: Int): Unit = {
-    logger.debug(s"Process exited with status code $statusCode")
-    currentStream.foreach(_.close())
-    currentStream = None
-    exit.success(())
+    if (!hasExited.getAndSet(true)) {
+      logger.debug(s"Process exited with status code $statusCode")
+      currentStream.foreach(_.close())
+      currentStream = None
+      exit.success(())
+    }
   }
 }

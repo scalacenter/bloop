@@ -84,25 +84,28 @@ object TestTask {
             val checkCancelled = () => cancelled.get
             TestInternals
               .runJsTestsInProcess(discovered, args, failureHandler, checkCancelled, logger)
-              .doOnCancel(Task(cancel()))
               .materialize
+              .doOnCancel(Task(cancel()))
               .map {
                 case s @ scala.util.Success(exitCode) => closeResources(); s
                 case f @ scala.util.Failure(e) =>
                   e match {
-                    case NonFatal(t) if !checkCancelled() =>
-                      closeResources(); reportTestException(t)
                     case NonFatal(t) =>
-                      t.getCause match {
-                        // Swallow the ISE because we know it happens when cancelling
-                        case _: IllegalStateException =>
-                          logger.debug("Test server has been successfully closed.")
-                          scala.util.Success(0)
-                        // Swallow the IAE because we know it happens when cancelling
-                        case _: IllegalArgumentException =>
-                          logger.debug("Test server has been successfully closed.")
-                          scala.util.Success(0)
-                        case _ => reportTestException(t)
+                      if (!checkCancelled()) {
+                        closeResources()
+                        reportTestException(t)
+                      } else {
+                        t.getCause match {
+                          // Swallow the ISE because we know it happens when cancelling
+                          case _: IllegalStateException =>
+                            logger.debug("Test server has been successfully closed.")
+                            scala.util.Success(0)
+                          // Swallow the IAE because we know it happens when cancelling
+                          case _: IllegalArgumentException =>
+                            logger.debug("Test server has been successfully closed.")
+                            scala.util.Success(0)
+                          case _ => reportTestException(t)
+                        }
                       }
                   }
               }

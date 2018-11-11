@@ -163,7 +163,6 @@ object TestUtil {
       // The project is not in `test/resources`, let's load it from the integrations directory
       loadTestProject(getBloopConfigDir(name), name, transformProjects)
     } else {
-      baseDirURL
       val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
       val bloopConfigDir = baseDir.resolve("bloop-config")
       if (Files.exists(bloopConfigDir)) {

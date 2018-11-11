@@ -26,7 +26,6 @@ import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.testadapter.TestAdapter
 
 object JsBridge {
-  implicit val debugFilter: DebugFilter = DebugFilter.Link
   private class Logger(logger: BloopLogger) extends JsLogger {
     override def log(level: Level, message: => String): Unit =
       level match {
@@ -115,13 +114,12 @@ object JsBridge {
       jsdom: java.lang.Boolean,
       env: Map[String, String]
   ): (List[sbt.testing.Framework], () => Unit) = {
+    implicit val debugFilter: DebugFilter = DebugFilter.Test
     // Required to escape `'` and, in Windows, `\` paths to have a successful invocation
-    val quotedPath = baseDirectory.toString
-      .replaceAll("'", "\\'")
-      .replaceAll("""\\""", """\\\\""")
+    val escapedBaseDir = org.scalajs.core.ir.Utils.escapeJS(baseDirectory.toAbsolutePath.toString)
     val customScripts = Seq(
       new MemVirtualJSFile("changePath.js")
-        .withContent(s"require('process').chdir('$quotedPath');")
+        .withContent(s"require('process').chdir('$escapedBaseDir');")
     )
 
     val nodeModules = baseDirectory.resolve("node_modules").toString

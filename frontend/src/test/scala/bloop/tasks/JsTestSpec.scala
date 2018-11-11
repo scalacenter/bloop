@@ -12,7 +12,7 @@ import bloop.engine.{ExecutionContext, Run, State}
 import bloop.logging.RecordingLogger
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteEvent}
-import monix.eval.Task
+import monix.execution.Cancelable
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
@@ -112,6 +112,8 @@ class JsTestSpec(
 
   @Test
   def canCancelTestFramework(): Unit = {
+    val logger = new RecordingLogger()
+    val testState1 = testState.copy(logger = logger)
     var hasErrors: Boolean = false
     val testEventHandler = new LoggingEventHandler(testState.logger)
     val failureHandler = new LoggingEventHandler(testState.logger) {
@@ -136,21 +138,39 @@ class JsTestSpec(
 
     val cwd = testState.commonOptions.workingPath
     val testFilter = TestInternals.parseFilters(Nil)
-    def createTestTask: Task[Int] =
-      TestTask.runTestSuites(testState, newTestProject, cwd, Nil, testFilter, failureHandler)
-    val cancelTime = Duration.apply(4000, TimeUnit.MILLISECONDS)
 
-    val testHandle = createTestTask.runAsync(ExecutionContext.ioScheduler)
-    val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { testHandle.cancel() }
+    val testHandle = TestTask
+      .runTestSuites(testState1, newTestProject, cwd, Nil, testFilter, failureHandler)
+      .runAsync(ExecutionContext.ioScheduler)
+    val driver: Cancelable = {
+      // The wait is long because it has to link and run all tests until it runs the infinite test
+      val cancelTime = Duration.apply(8000, TimeUnit.MILLISECONDS)
+      ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { testHandle.cancel() }
+    }
 
     try {
-      val exitCode = Await.result(testHandle, Duration.apply(10, TimeUnit.SECONDS))
+      val exitCode = Await.result(testHandle, Duration.apply(20, TimeUnit.SECONDS))
       Assert.assertFalse("There can be no failures during execution", hasErrors)
       Assert.assertTrue("The exit code must be successful", exitCode == 0)
+
+      val loggerMsgs = logger.getMessages
+      val errorMsgs = loggerMsgs.filter(_._1 == "error").map(_._2)
+      Assert.assertTrue("There can be no errors printed to the user", errorMsgs.isEmpty)
+
+      // Only test this in the 1.0 test infrastructure as we use our own process infrastructure
+      if (testProject.baseDirectory.syntax.contains("1.0")) {
+        // Check that we are indeed destroying the process by invoking run.close in `BloopComRunner`
+        val destructionWitnesses =
+          loggerMsgs.filter(_._1 == "debug").map(_._2).filter(_.contains("Destroying process")).size
+        if (destructionWitnesses == 0) Assert.fail("The underlying process was not killed")
+        else if (destructionWitnesses > 1) Assert.fail("The process was killed more than once!")
+        else () // Everything is fine if it has only been killed once :)
+      }
     } catch {
       case NonFatal(t) =>
         driver.cancel()
         testHandle.cancel()
+
         t match {
           case e: ExecutionException => throw e.getCause
           case _ => throw t
@@ -171,26 +191,26 @@ class JsTestSpec(
     TestUtil.quietIfSuccess(testState.logger) { logger =>
       val discoveredTask = TestTask.discoverTestFrameworks(testProject, testState).map {
         case Some(discoveredTestFrameworks) =>
-          try {
-            val testNames = TestTask
-              .discoverTests(testAnalysis, frameworks(testLoader))
-              .valuesIterator
-              .flatMap(defs => defs.map(_.fullyQualifiedName()))
-              .toList
-            targetFrameworks.foreach { framework =>
-              assertTrue(
-                s"Test not detected for $framework.",
-                testNames.exists(_.contains(s"${framework}Test"))
-              )
-            }
-          } finally {
-            testLoader.close()
+          val testNames = TestTask
+            .discoverTests(testAnalysis, frameworks(testLoader))
+            .valuesIterator
+            .flatMap(defs => defs.map(_.fullyQualifiedName()))
+            .toList
+          targetFrameworks.foreach { framework =>
+            assertTrue(
+              s"Test not detected for $framework.",
+              testNames.exists(_.contains(s"${framework}Test"))
+            )
           }
 
         case None => Assert.fail(s"Missing discovered tests in ${testProject}")
       }
 
-      TestUtil.blockOnTask(discoveredTask, 10)
+      try {
+        TestUtil.blockOnTask(discoveredTask, 10)
+      } finally {
+        testLoader.close()
+      }
       ()
     }
   }
