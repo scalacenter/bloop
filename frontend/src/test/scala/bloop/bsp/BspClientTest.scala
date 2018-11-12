@@ -96,6 +96,7 @@ object BspClientTest {
     // Set an empty results cache and update the state globally
     val state = {
       val state0 = TestUtil.loadTestProject(projectName).copy(logger = logger)
+      // Return if we plan to reuse it, BSP reloads the state based on the state cache
       if (reusePreviousState) state0
       else {
         val state = state0.copy(results = ResultsCache.emptyForTests)
