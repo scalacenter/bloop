@@ -63,7 +63,7 @@ class IntegrationTestSuite(testDirectory: Path) {
   }
 
   def compileProject0: Unit = {
-    val state0 = TestUtil.loadTestProject(testDirectory, integrationTestName, identity)
+    val state0 = TestUtil.loadTestProject(testDirectory, identity[List[Project]] _)
     val (initialState, projectToCompile) = getModuleToCompile(testDirectory) match {
       case Some(projectName) =>
         (state0, state0.build.getProjectFor(projectName).get)

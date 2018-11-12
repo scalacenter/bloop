@@ -6,11 +6,4 @@ object Hello {
     Environment.requireEnvironmentVariable()
     s"Hello, $name!"
   }
-
-}
-
-object App {
-  def main(args: Array[String]): Unit = {
-    println(Hello.greet("world"))
-  }
 }
