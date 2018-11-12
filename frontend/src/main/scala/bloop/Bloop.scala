@@ -46,7 +46,8 @@ object Bloop extends CaseApp[CliOptions] {
     val input = reader.readLine()
     input.split(" ") match {
       case Array("exit") =>
-        waitForState(Exit(ExitStatus.Ok), Tasks.persist(state).map(_ => state))
+        val persistOut = (msg: String) => state.commonOptions.ngout.println(msg)
+        waitForState(Exit(ExitStatus.Ok), Tasks.persist(state, persistOut).map(_ => state))
         ()
 
       case Array("projects") =>

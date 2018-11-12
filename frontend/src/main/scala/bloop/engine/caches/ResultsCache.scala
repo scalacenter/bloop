@@ -90,7 +90,7 @@ object ResultsCache {
   private[ResultsCache] final val EmptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  private[bloop] val forTests: ResultsCache =
+  private[bloop] val emptyForTests: ResultsCache =
     new ResultsCache(Map.empty, Map.empty)
 
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {

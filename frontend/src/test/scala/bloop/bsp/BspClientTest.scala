@@ -3,6 +3,8 @@ package bloop.bsp
 import java.nio.file.Files
 
 import bloop.cli.Commands
+import bloop.engine.State
+import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.AbsolutePath
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
@@ -86,13 +88,23 @@ object BspClientTest {
       logger: BspClientLogger[_],
       customServices: Services => Services = identity[Services],
       allowError: Boolean = false,
+      reusePreviousState: Boolean = false,
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
     val workingPath = cmd.cliOptions.common.workingPath
     val projectName = workingPath.underlying.getFileName().toString()
-    val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
+
+    // Set an empty results cache and update the state globally
+    val state = {
+      val state0 = TestUtil.loadTestProject(projectName).copy(logger = logger)
+      // Return if we plan to reuse it, BSP reloads the state based on the state cache
+      if (reusePreviousState) state0
+      else {
+        val state = state0.copy(results = ResultsCache.emptyForTests)
+        State.stateCache.updateBuild(state)
+      }
+    }
 
     // Clean all the project results to avoid reusing previous compiles.
-    state.results.cleanSuccessful(state.build.projects)
     val configPath = configDirectory.toRelative(workingPath)
     val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
 

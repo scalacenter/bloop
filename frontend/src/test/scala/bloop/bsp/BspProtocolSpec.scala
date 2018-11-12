@@ -243,6 +243,38 @@ class BspProtocolSpec {
     }
   }
 
+  def testCompileNoOp(bspCmd: Commands.ValidatedBsp): Unit = {
+    val logger = new BspClientLogger(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
+        ts match {
+          case Right(workspaceTargets) =>
+            workspaceTargets.targets.map(_.id).find(_.uri.value.endsWith("utestJVM")) match {
+              case Some(id) =>
+                endpoints.BuildTarget.compile.request(bsp.CompileParams(List(id), None, Nil)).map {
+                  case Left(e) => Left(e)
+                  case Right(result) => Right(result)
+                }
+              case None => Task.now(Left(Response.internalError("Missing 'utestJVM'")))
+            }
+          case Left(error) =>
+            Task.now(Left(Response.internalError(s"Target request failed with $error.")))
+        }
+      }
+    }
+
+    val addServicesTest = { (s: Services) =>
+      s.notification(endpoints.BuildTarget.compileReport) { report =>
+        Assert.fail(s"Expected no-op compilation, obtained ${report}")
+      }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest, reusePreviousState = true)(
+        c => clientWork(c))
+    }
+  }
+
   def testTest(bspCmd: Commands.ValidatedBsp): Unit = {
     var checkCompiledUtest: Boolean = false
     var checkCompiledUtestTest: Boolean = false
@@ -449,11 +481,15 @@ class BspProtocolSpec {
   }
 
   @Test def TestCompileViaLocal(): Unit = {
-    if (!BspServer.isWindows) testCompile(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) {
+      testCompile(createLocalBspCommand(configDir))
+      testCompileNoOp(createLocalBspCommand(configDir))
+    }
   }
 
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir, verbose = true))
+    testCompileNoOp(createTcpBspCommand(configDir, verbose = true))
   }
 
   @Test def TestTestViaLocal(): Unit = {

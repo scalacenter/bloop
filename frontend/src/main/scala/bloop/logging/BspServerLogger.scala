@@ -1,5 +1,6 @@
 package bloop.logging
 
+import java.io.PrintStream
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.engine.State

@@ -13,11 +13,21 @@ final class RecordingLogger(
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
 
   def clear(): Unit = messages.clear()
-  def getMessages(): List[(String, String)] = messages.iterator.asScala.toList.map {
-    // Remove trailing '\r' so that we don't have to special case for Windows
-    case (category, msg0) =>
-      val msg = if (msg0 == null) "<null reference>" else msg0
-      (category, msg.stripSuffix("\r"))
+
+  def getMessages(): List[(String, String)] = getMessages(None)
+  def getMessages(level: Option[String] = None): List[(String, String)] = {
+    val initialMsgs = messages.iterator.asScala
+    val msgs = level match {
+      case Some(level) => initialMsgs.filter(_._1 == level)
+      case None => initialMsgs
+    }
+
+    msgs.map {
+      // Remove trailing '\r' so that we don't have to special case for Windows
+      case (category, msg0) =>
+        val msg = if (msg0 == null) "<null reference>" else msg0
+        (category, msg.stripSuffix("\r"))
+    }.toList
   }
 
   override val name: String = "TestRecordingLogger"
@@ -60,11 +70,11 @@ final class RecordingLogger(
 
   def dump(): Unit = println {
     s"""Logger contains the following messages:
-       |${getMessages.map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
+       |${getMessages().map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
      """.stripMargin
   }
 
   /** Returns all the infos detected about the state of compilation */
   def compilingInfos: List[String] =
-    getMessages.iterator.filter(m => m._1 == "info" && m._2.contains("Compiling ")).map(_._2).toList
+    getMessages().iterator.filter(m => m._1 == "info" && m._2.contains("Compiling ")).map(_._2).toList
 }

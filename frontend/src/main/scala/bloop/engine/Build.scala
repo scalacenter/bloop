@@ -19,7 +19,7 @@ final case class Build private (
     Dag.dagFor(dags, project).getOrElse(sys.error(s"Project $project does not have a DAG!"))
 
   /**
-   * Has this build definition changed since it was loaded?
+   * Detect changes in the build definition since the last time it was loaded.
    *
    * @param logger A logger that receives errors, if any.
    * @return The status of the directory from which the build was loaded.

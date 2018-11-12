@@ -3,24 +3,19 @@ package bloop.engine.tasks
 import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
-import bloop.config.Config
-import bloop.config.Config.Platform
 import bloop.engine.caches.ResultsCache
 import bloop.logging.DebugFilter
 import bloop.data.Project
-import bloop.engine.{Dag, Feedback, State}
+import bloop.engine.{Dag, State}
 import bloop.exec.{Forker, JavaEnv}
 import bloop.io.AbsolutePath
 import bloop.util.JavaCompat.EnrichOptional
-import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals, TestSuiteEvent, TestSuiteEventHandler}
+import bloop.testing.{LoggingEventHandler, TestSuiteEvent, TestSuiteEventHandler}
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
-import xsbt.api.Discovery
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
-
-import scala.util.{Failure, Success}
 
 object Tasks {
   private[bloop] val TestFailedStatus: Set[Status] =
@@ -78,15 +73,20 @@ object Tasks {
   /**
    * Persists every analysis file (the state of the incremental compiler) on disk in parallel.
    *
+   * Logging during the execution of `persist` is not straight-forward because this task
+   * is executed asynchronously after a client disconnects and, therefore, the state
+   * output streams cannot be used as there is no guarantee they will not be closed.
+   *
    * @param state The current state of Bloop
+   * @param log A log function based on the call-site (necessary to redirect to ngout for CLI
+   *            applications and to BSP loggers during a BSP session).
    * @return The task that will persist all the results in parallel.
    */
-  def persist(state: State): Task[Unit] = {
-    val out = state.commonOptions.ngout
+  def persist(state: State, log: String => Unit): Task[Unit] = {
     def persist(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
         val storeFile = project.analysisOut
-        state.commonOptions.ngout.println(s"Writing ${storeFile.syntax}.")
+        log(s"Writing ${storeFile.syntax}.")
         FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
         ResultsCache.persisted.add(result)
         ()
@@ -99,10 +99,10 @@ object Tasks {
           if (ResultsCache.persisted.contains(result)) ()
           else toBinaryFile(analysis, setup)
         case (Some(analysis), None) =>
-          out.println(s"$project has analysis but not setup after compilation. Report upstream.")
+          log(s"$project has analysis but not setup after compilation. Report upstream.")
         case (None, Some(analysis)) =>
-          out.println(s"$project has setup but not analysis after compilation. Report upstream.")
-        case (None, None) => out.println(s"Project $project has no analysis and setup.")
+          log(s"$project has setup but not analysis after compilation. Report upstream.")
+        case (None, None) => log(s"Project $project has no analysis and setup.")
       }
     }
 
