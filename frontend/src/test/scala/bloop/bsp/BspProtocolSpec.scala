@@ -265,8 +265,7 @@ class BspProtocolSpec {
             }
 
             nextCompile
-            // No matter what happens, make sure the file is deleted
-              .doOnFinish(_ => Task(deleteNewFile()))
+              .doOnFinish(_ => Task(deleteNewFile())) // Delete the file regardless of the result
               .flatMap {
                 case Left(e) => Task.now(Left(e))
                 case Right(_) =>
@@ -336,6 +335,15 @@ class BspProtocolSpec {
       Assert.assertTrue(
         "End of compilation is not reported.",
         msgs.filter(_.startsWith("Done compiling.")).nonEmpty
+      )
+
+      // Both the start line and the start column have to be indexed by 0
+      val expectedWarning =
+        "[diagnostic] local val in method main is never used Range(Position(5,8),Position(5,8))"
+      val warnings = logger.underlying.getMessagesAt(Some("warn"))
+      Assert.assertTrue(
+        s"Expected $expectedWarning, obtained $warnings.",
+        warnings == List(expectedWarning)
       )
 
       // The syntax error has to be present as a diagnostic, not a normal log error
