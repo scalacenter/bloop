@@ -62,14 +62,15 @@ final class BspServerLogger private (
     val sourceFile = toOption(problemPos.sourceFile())
 
     (problemPos, sourceFile) match {
-      case (ZincInternals.ZincExistsPos(startLine, startColumn), Some(file)) =>
+      case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
+        // Lines in Scalac are indexed by 1, BSP expects 0-index positions
         val pos = problem.position match {
           case ZincInternals.ZincRangePos(endLine, endColumn) =>
-            val start = bsp.Position(startLine, startColumn)
-            val end = bsp.Position(endLine, endColumn)
+            val start = bsp.Position(startLine - 1, startColumn)
+            val end = bsp.Position(endLine - 1, endColumn)
             bsp.Range(start, end)
           case _ =>
-            val pos = bsp.Position(startLine, startColumn)
+            val pos = bsp.Position(startLine - 1, startColumn)
             bsp.Range(pos, pos)
         }
 

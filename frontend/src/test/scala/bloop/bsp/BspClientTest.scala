@@ -1,11 +1,13 @@
 package bloop.bsp
 
 import java.nio.file.Files
+import java.util.concurrent.ExecutionException
 
 import bloop.cli.Commands
+import bloop.data.Project
 import bloop.engine.State
 import bloop.engine.caches.{ResultsCache, StateCache}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
 import ch.epfl.scala.bsp
@@ -69,13 +71,15 @@ object BspClientTest {
       }
       .notification(endpoints.Build.publishDiagnostics) {
         case bsp.PublishDiagnosticsParams(uri, _, diagnostics) =>
+          // We prepend diagnostics so that tests can check they came from this notification
+          def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
           diagnostics.foreach { d =>
             d.severity match {
-              case Some(bsp.DiagnosticSeverity.Error) => logger.error(d.toString)
-              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(d.toString)
-              case Some(bsp.DiagnosticSeverity.Information) => logger.info(d.toString)
-              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(d.toString)
-              case None => logger.info(d.toString)
+              case Some(bsp.DiagnosticSeverity.Error) => logger.error(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Information) => logger.info(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(printDiagnostic(d))
+              case None => logger.info(printDiagnostic(d))
             }
           }
       }
@@ -90,12 +94,10 @@ object BspClientTest {
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
-    val workingPath = cmd.cliOptions.common.workingPath
-    val projectName = workingPath.underlying.getFileName().toString()
-
     // Set an empty results cache and update the state globally
     val state = {
-      val state0 = TestUtil.loadTestProject(projectName).copy(logger = logger)
+      val id = identity[List[Project]] _
+      val state0 = TestUtil.loadTestProject(configDirectory.underlying, id).copy(logger = logger)
       // Return if we plan to reuse it, BSP reloads the state based on the state cache
       if (reusePreviousState) state0
       else {
@@ -104,8 +106,7 @@ object BspClientTest {
       }
     }
 
-    // Clean all the project results to avoid reusing previous compiles.
-    val configPath = configDirectory.toRelative(workingPath)
+    val configPath = RelativePath("bloop-config")
     val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
 
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
@@ -118,7 +119,7 @@ object BspClientTest {
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
-      val cwd = TestUtil.getBaseFromConfigDir(configDirectory.underlying)
+      val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
         bsp.InitializeBuildParams(
           rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
@@ -146,10 +147,18 @@ object BspClientTest {
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
     val bspClient = bspClientExecution.runAsync(scheduler)
-    // The timeout for all our bsp tests, no matter what operation they run, is 60s
-    Await.result(bspClient, FiniteDuration(60, "s"))
-    Await.result(bspServer, FiniteDuration(60, "s"))
-    cleanUpLastResources(cmd)
+
+    try {
+      // The timeout for all our bsp tests, no matter what operation they run, is 60s
+      Await.result(bspClient, FiniteDuration(60, "s"))
+      Await.result(bspServer, FiniteDuration(60, "s"))
+    } catch {
+      case e: ExecutionException => throw e.getCause
+      case t: Throwable => throw t
+    } finally {
+      cleanUpLastResources(cmd)
+    }
+    ()
   }
 
   private def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {

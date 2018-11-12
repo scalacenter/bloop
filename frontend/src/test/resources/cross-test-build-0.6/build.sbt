@@ -8,6 +8,7 @@ lazy val `test-project` =
       name := "test-project",
       // %%% now include Scala Native. It applies to all selected platforms
       scalaVersion := "2.11.12",
+      scalacOptions += "-Ywarn-unused",
       libraryDependencies += "com.lihaoyi" %%% "utest" % "0.6.6" % Test,
       libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % "test",
       libraryDependencies += "org.scalacheck" %%% "scalacheck" % "1.13.4" % "test",

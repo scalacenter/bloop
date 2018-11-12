@@ -34,7 +34,7 @@ final case class Project(
     origin: Origin
 ) {
   /** The bsp uri associated with this project. */
-  val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toUri(baseDirectory, name))
+  val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toURI(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
   val classpath: Array[AbsolutePath] = (classesDir :: rawClasspath).toArray

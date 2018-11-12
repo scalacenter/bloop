@@ -4,15 +4,15 @@ import java.io.PrintStream
 
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ExecutionException, TimeUnit}
 
 import bloop.Server
 import bloop.bsp.BspServer
-import bloop.logging.{DebugFilter, Logger, ProcessLogger, RecordingLogger}
+import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.tasks.TestUtil
-import com.martiansoftware.nailgun.NGServer
+import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
 import monix.eval.Task
-import monix.execution.{CancelableFuture, Scheduler}
+import monix.execution.Scheduler
 import org.apache.commons.io.IOUtils
 
 import scala.concurrent.Await
@@ -21,10 +21,9 @@ import scala.concurrent.duration.FiniteDuration
 /**
  * Base class for writing test for the nailgun integration.
  */
-abstract class NailgunTest {
-
-  private final val TEST_PORT = 8998
-
+abstract class NailgunTestUtils {
+  NailgunTestUtils.init()
+  private final val TEST_PORT = 8996
   private final val nailgunPool = Scheduler.computation(parallelism = 2)
 
   /**
@@ -33,18 +32,24 @@ abstract class NailgunTest {
    *
    * @param log  The logger that will receive all produced output.
    * @param config The config directory in which the client will be.
+   * @param noExit Don't exit, the client is responsible for exiting the server.
    * @param op   A function that will receive the instantiated Client.
    * @return The result of executing `op` on the client.
    */
-  def withServerTask[T](log: RecordingLogger, config: Path)(
+  def withServerTask[T](log: RecordingLogger, config: Path, noExit: Boolean)(
       op: (RecordingLogger, Client) => T): Task[T] = {
     implicit val ctx: DebugFilter = DebugFilter.All
-    val oldIn = System.in
-    val oldOut = System.out
-    val oldErr = System.err
-    val inStream = IOUtils.toInputStream("")
-    val outStream = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
-    val errStream = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
+
+    val oldIn = NailgunTestUtils.initialIn
+    val oldOut = NailgunTestUtils.initialOut
+    val oldErr = NailgunTestUtils.initialErr
+
+    // Wrap in Nailgun's thread local so that tests work in both bloop and sbt
+    val inStream = new BloopThreadLocalInputStream(IOUtils.toInputStream(""))
+    val outStream = new ThreadLocalPrintStream(
+      new PrintStream(ProcessLogger.toOutputStream(log.serverInfo)))
+    val errStream = new ThreadLocalPrintStream(
+      new PrintStream(ProcessLogger.toOutputStream(log.serverError)))
 
     val serverIsStarted = scala.concurrent.Promise[Unit]()
     val serverIsFinished = scala.concurrent.Promise[Unit]()
@@ -71,13 +76,15 @@ abstract class NailgunTest {
 
     val client = new Client(TEST_PORT, log, config)
     val clientCancel = Task {
-      /* Exit on Windows seems to return a failing exit code (but no logs are logged).
-       * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
-       * for the sake of development I'm merging this since this method will be rarely called. */
-      if (BspServer.isWindows) {
-        val exitStatusCode = client.issue("exit")
-        log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
-      } else client.success("exit")
+      if (!noExit) {
+        /* Exit on Windows seems to return a failing exit code (but no logs are logged).
+         * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
+         * for the sake of development I'm merging this since this method will be rarely called. */
+        if (BspServer.isWindows) {
+          val exitStatusCode = client.issue("exit")
+          log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
+        } else client.success("exit")
+      }
 
       outStream.flush()
       errStream.flush()
@@ -101,19 +108,21 @@ abstract class NailgunTest {
    *
    * @param log  The logger that will receive all produced output.
    * @param config The config directory in which the client will be.
+   * @param noExit Don't exit, the client is responsible for exiting the server.
    * @param op   A function that will receive the instantiated Client.
    * @return The result of executing `op` on the client.
    */
-  def withServer[T](config: Path, log: => RecordingLogger)(
+  def withServer[T](config: Path, noExit: Boolean, log: => RecordingLogger)(
       op: (RecordingLogger, Client) => T): T = {
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
-    val f = withServerTask(log, config)(op)
+    val f0 = withServerTask(log, config, noExit)(op)
     // Note we cannot use restart because our task uses promises that cannot be completed twice
-      .onErrorFallbackTo(
-        withServerTask(log, config)(op).onErrorFallbackTo(withServerTask(log, config)(op)))
-      .runAsync(nailgunPool)
+    val f = f0.onErrorFallbackTo(f0.onErrorFallbackTo(f0)).runAsync(nailgunPool)
     try Await.result(f, FiniteDuration(125, TimeUnit.SECONDS))
-    finally f.cancel()
+    catch {
+      case e: ExecutionException => throw e.getCause()
+      case t: Throwable => throw t
+    } finally f.cancel()
   }
 
   /**
@@ -121,11 +130,13 @@ abstract class NailgunTest {
    * A logger that will receive all output will be created and passed to `op`.
    *
    * @param name The name of the project where the client will be.
+   * @param noExit Don't exit, the client is responsible for exiting the server.
    * @param op   A function that accepts a logger and a client.
    * @return The result of executing `op` on the logger and client.
    */
-  def withServerInProject[T](name: String)(op: (RecordingLogger, Client) => T): T = {
-    withServer(TestUtil.getBloopConfigDir(name), new RecordingLogger())(op)
+  def withServerInProject[T](name: String, noExit: Boolean = false)(
+      op: (RecordingLogger, Client) => T): T = {
+    withServer(TestUtil.getBloopConfigDir(name), noExit, new RecordingLogger())(op)
   }
 
   /**
@@ -211,4 +222,19 @@ abstract class NailgunTest {
       assertNotEquals(failMessage, 0, issue(cmd: _*).toLong)
     }
   }
+}
+
+/**
+ * This object keeps the initial in, out and error because JUnit creates a new
+ * `NailgunSpec` class for every test that is executed by the test engine.
+ *
+ * Therefore, we keep the state in this singleton whose initializer we force in `NailgunTest`
+ */
+object NailgunTestUtils {
+  final val initialIn = System.in
+  final val initialOut = System.out
+  final val initialErr = System.err
+
+  // Initializer to force the initialization
+  def init(): Unit = ()
 }

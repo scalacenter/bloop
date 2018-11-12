@@ -147,36 +147,35 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-  def getBloopConfigDir(name: String): Path = {
-    testProjectsIndex
-      .get(name)
-      .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
+
+  def getBloopConfigDir(buildName: String): Path = {
+    def fallbackToIntegrationBaseDir(buildName: String): Path = {
+      testProjectsIndex
+        .get(buildName)
+        .getOrElse(sys.error(s"Project ${ buildName} does not exist at ${integrationsIndexPath}"))
+    }
+
+    val baseDirURL = ThisClassLoader.getResource(buildName)
+    if (baseDirURL == null) {
+      // The project is not in `test/resources`, let's load it from the integrations directory
+      fallbackToIntegrationBaseDir(buildName)
+    } else {
+      val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
+      val bloopConfigDir = baseDir.resolve("bloop-config")
+      if (Files.exists(bloopConfigDir)) bloopConfigDir
+      // The project is not an integration test, let's load it from the integrations directory
+      else fallbackToIntegrationBaseDir(buildName)
+    }
   }
 
   private final val ThisClassLoader = this.getClass.getClassLoader
   def loadTestProject(
-      name: String,
+      buildName: String,
       transformProjects: List[Project] => List[Project] = identity
-  ): State = {
-    val baseDirURL = ThisClassLoader.getResource(name)
-    if (baseDirURL == null) {
-      // The project is not in `test/resources`, let's load it from the integrations directory
-      loadTestProject(getBloopConfigDir(name), name, transformProjects)
-    } else {
-      val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
-      val bloopConfigDir = baseDir.resolve("bloop-config")
-      if (Files.exists(bloopConfigDir)) {
-        loadTestProject(bloopConfigDir, name, transformProjects)
-      } else {
-        // The project is not an integration test, let's load it from the integrations directory
-        loadTestProject(getBloopConfigDir(name), name, transformProjects)
-      }
-    }
-  }
+  ): State = loadTestProject(getBloopConfigDir(buildName), transformProjects)
 
   def loadTestProject(
       configDir: Path,
-      name: String,
       transformProjects: List[Project] => List[Project]
   ): State = {
     val logger = BloopLogger.default(configDir.toString())

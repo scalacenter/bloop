@@ -14,8 +14,9 @@ final class RecordingLogger(
 
   def clear(): Unit = messages.clear()
 
+  def getMessagesAt(level: Option[String]): List[String] = getMessages(level).map(_._2)
   def getMessages(): List[(String, String)] = getMessages(None)
-  def getMessages(level: Option[String] = None): List[(String, String)] = {
+  private def getMessages(level: Option[String]): List[(String, String)] = {
     val initialMsgs = messages.iterator.asScala
     val msgs = level match {
       case Some(level) => initialMsgs.filter(_._1 == level)
@@ -68,10 +69,12 @@ final class RecordingLogger(
   override def asVerbose: Logger = this
   override def asDiscrete: Logger = this
 
-  def dump(): Unit = println {
-    s"""Logger contains the following messages:
-       |${getMessages().map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
+  def dump(out: PrintStream = System.out): Unit = {
+    out.println {
+      s"""Logger contains the following messages:
+         |${getMessages.map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
      """.stripMargin
+    }
   }
 
   /** Returns all the infos detected about the state of compilation */
