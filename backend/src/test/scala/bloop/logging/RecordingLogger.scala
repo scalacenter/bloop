@@ -14,8 +14,9 @@ final class RecordingLogger(
 
   def clear(): Unit = messages.clear()
 
+  def getMessagesAt(level: Option[String]): List[String] = getMessages(None).map(_._2)
   def getMessages(): List[(String, String)] = getMessages(None)
-  def getMessages(level: Option[String] = None): List[(String, String)] = {
+  private def getMessages(level: Option[String]): List[(String, String)] = {
     val initialMsgs = messages.iterator.asScala
     val msgs = level match {
       case Some(level) => initialMsgs.filter(_._1 == level)

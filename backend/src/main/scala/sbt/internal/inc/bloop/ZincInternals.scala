@@ -62,10 +62,14 @@ object ZincInternals {
   }
 
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
-  object ZincExistsPos {
+  object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
-      position.startLine.toOption.flatMap(startLine =>
-        position.startColumn().toOption.map(startColumn => (startLine, startColumn)))
+      position.line.toOption
+        .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
+        .orElse {
+          position.startLine.toOption.flatMap(startLine =>
+            position.startColumn().toOption.map(startColumn => (startLine, startColumn)))
+        }
     }
   }
 

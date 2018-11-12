@@ -62,7 +62,7 @@ final class BspServerLogger private (
     val sourceFile = toOption(problemPos.sourceFile())
 
     (problemPos, sourceFile) match {
-      case (ZincInternals.ZincExistsPos(startLine, startColumn), Some(file)) =>
+      case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
         val pos = problem.position match {
           case ZincInternals.ZincRangePos(endLine, endColumn) =>
             val start = bsp.Position(startLine, startColumn)

@@ -1,13 +1,14 @@
 package bloop.bsp
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, CliOptions, Commands}
 import bloop.engine.{BuildLoader, Run}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Paths}
 import bloop.tasks.TestUtil
-import bloop.logging.{BspClientLogger, RecordingLogger}
+import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger}
 import org.junit.Test
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, ScalaBuildTarget, endpoints}
@@ -207,21 +208,94 @@ class BspProtocolSpec {
     }
   }
 
+  def sourceDirectoryOf(projectBaseDir: AbsolutePath): AbsolutePath =
+    projectBaseDir.resolve("src").resolve("main").resolve("scala")
+
+  // The contents of the file (which is created during the test) contains a syntax error on purpose
+  private val TestIncrementalCompilationContents =
+    "package example\n\nclass UserTest {\n  List[String)](\"\")\n}"
   def testCompile(bspCmd: Commands.ValidatedBsp): Unit = {
-    var tested: Boolean = false
+    var receivedReports: Int = 0
     val logger = new BspClientLogger(new RecordingLogger)
+    def exhaustiveTestCompile(target: bsp.BuildTarget)(implicit client: LanguageClient) = {
+      def compileMainProject: Task[Either[Response.Error, bsp.CompileResult]] =
+        endpoints.BuildTarget.compile.request(bsp.CompileParams(List(target.id), None, Nil))
+      // Test batch compilation only for the main project
+      compileMainProject.flatMap {
+        case Left(e) => Task.now(Left(e))
+        case Right(report) =>
+          if (receivedReports != 1) {
+            Task.now(
+              Left(
+                Response.internalError(s"Expected 1 compile report, received ${receivedReports}")
+              )
+            )
+          } else {
+            // Harcode the source directory path to avoid extra BSP invocations
+            val sourceDir = sourceDirectoryOf(AbsolutePath(ProjectUris.toPath(target.id.uri)))
+            val newSourceFilePath = sourceDir.resolve("TestIncrementalCompilation.scala")
+            // Write a new file in the directory so that incremental compilation picks it up
+            Files.write(
+              newSourceFilePath.underlying,
+              TestIncrementalCompilationContents.getBytes(StandardCharsets.UTF_8)
+            )
+
+            def deleteNewFile(): Unit = {
+              Files.deleteIfExists(newSourceFilePath.underlying)
+              ()
+            }
+
+            // Test incremental compilation with a syntax error
+            val nextCompile = compileMainProject.map {
+              case Left(e) =>
+                val msg = e.error.message
+                if (msg.contains("Compilation failed") && msg.contains(MainProject)) Right(())
+                else {
+                  Left(
+                    Response.internalError(
+                      s"Expecting 'Compilation failed' and '${MainProject}' in error msg $msg"
+                    )
+                  )
+                }
+              case Right(incrementalReport) =>
+                Left(
+                  Response.internalError(
+                    s"Expecting incremental compilation error, received ${incrementalReport}")
+                )
+            }
+
+            nextCompile
+            // No matter what happens, make sure the file is deleted
+              .doOnFinish(_ => Task(deleteNewFile()))
+              .flatMap {
+                case Left(e) => Task.now(Left(e))
+                case Right(_) =>
+                  // Lastly, let's compile the project after deleting the new file
+                  deleteNewFile()
+                  compileMainProject.map {
+                    case Left(e) => Left(e)
+                    case Right(result) => Right(result)
+                    /*
+                      // Uncomment whenever we receive a report on the third no-op
+                      if (receivedReports == 3) Right(result)
+                      else {
+                        Left(
+                          Response.internalError(s"Expected 3, got ${receivedReports} reports")
+                        )
+                      }
+                   */
+                  }
+              }
+          }
+      }
+    }
+
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
           case Right(workspaceTargets) =>
-            workspaceTargets.targets.map(_.id).find(isMainProject(_)) match {
-              case Some(id) =>
-                endpoints.BuildTarget.compile.request(bsp.CompileParams(List(id), None, Nil)).map {
-                  case Left(e) => Left(e)
-                  case Right(report) =>
-                    if (tested) Right(report)
-                    else Left(Response.internalError("The test didn't receive any compile report."))
-                }
+            workspaceTargets.targets.find(t => isMainProject(t.id)) match {
+              case Some(t) => exhaustiveTestCompile(t)
               case None => Task.now(Left(Response.internalError(s"Missing '$MainProject'")))
             }
           case Left(error) =>
@@ -232,12 +306,25 @@ class BspProtocolSpec {
 
     val addServicesTest = { (s: Services) =>
       s.notification(endpoints.BuildTarget.compileReport) { report =>
-        if (tested) Assert.fail("Bloop compiled more than one target")
-        if (isMainProject(report.target)) {
-          tested = true
+        if (isMainProject(report.target) && receivedReports == 0) {
+          // This is the batch compilation which should have a warning and no errors
+          receivedReports += 1
           Assert.assertEquals(s"Warnings in $MainProject != 1", 1, report.warnings)
           Assert.assertEquals(s"Errors in $MainProject != 0", 0, report.errors)
           //Assert.assertTrue(s"Duration in $MainProject == 0", report.time != 0)
+        } else if (isMainProject(report.target) && receivedReports == 1) {
+          // This is the incremental compile which should have errors
+          receivedReports += 1
+          Assert.assertTrue(
+            s"Expected errors in incremental cycle of $MainProject",
+            report.errors > 0
+          )
+        } else if (isMainProject(report.target) && receivedReports == 2) {
+          // This is the last compilation which should be successful
+          // TODO(jvican): Test the initial warning is buffered and shown to the client
+          ()
+        } else {
+          Assert.fail(s"Unexpected compilation report: $report")
         }
       }
     }
@@ -245,8 +332,18 @@ class BspProtocolSpec {
     reportIfError(logger) {
       BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
       // Make sure that the compilation is logged back to the client via logs in stdout
-      val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
-      Assert.assertTrue("End of compilation is not reported.", msgs.contains("Done compiling."))
+      val msgs = logger.underlying.getMessagesAt(Some("info"))
+      Assert.assertTrue(
+        "End of compilation is not reported.",
+        msgs.filter(_.startsWith("Done compiling.")).nonEmpty
+      )
+
+      // The syntax error has to be present as a diagnostic, not a normal log error
+      val errors = logger.underlying.getMessagesAt(Some("error"))
+      Assert.assertTrue(
+        "Syntax error is not reported as diagnostic.",
+        errors.exists(_.startsWith("[diagnostic] ']' expected but ')' found."))
+      )
     }
   }
 
@@ -278,7 +375,8 @@ class BspProtocolSpec {
 
     reportIfError(logger) {
       BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest, reusePreviousState = true)(
-        c => clientWork(c))
+        c => clientWork(c)
+      )
     }
   }
 
@@ -403,7 +501,8 @@ class BspProtocolSpec {
   }
 
   type BspResponse[T] = Task[Either[Response.Error, T]]
-  def testFailedCompile(bspCmd: Commands.ValidatedBsp): Unit = {
+  // Check the BSP server errors correctly on unknown and empty targets in a compile request
+  def testFailedCompileOnInvalidInputs(bspCmd: Commands.ValidatedBsp): Unit = {
     val logger = new BspClientLogger(new RecordingLogger)
     def expectError(request: BspResponse[bsp.CompileResult], expected: String, failMsg: String) = {
       request.flatMap {
@@ -424,11 +523,11 @@ class BspProtocolSpec {
       val f = new java.net.URI("file://thisdoesntexist")
       val params1 = compileParams(List(bsp.BuildTargetIdentifier(bsp.Uri(f))))
 
-      val expected3 = "Empty build targets. Expected at least one build target identifier."
-      val fail3 = "No error was thrown on empty build targets."
-      val params3 = compileParams(List())
+      val expected2 = "Empty build targets. Expected at least one build target identifier."
+      val fail2 = "No error was thrown on empty build targets."
+      val params2 = compileParams(List())
 
-      val extraErrors = List((expected3, fail3, params3))
+      val extraErrors = List((expected2, fail2, params2))
       val init = expectError(endpoints.BuildTarget.compile.request(params1), expected1, fail1)
       extraErrors.foldLeft(init) {
         case (acc, (expected, fail, params)) =>
@@ -510,10 +609,10 @@ class BspProtocolSpec {
   }
 
   @Test def TestFailedCompileViaLocal(): Unit = {
-    if (!BspServer.isWindows) testFailedCompile(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testFailedCompileOnInvalidInputs(createLocalBspCommand(configDir))
   }
 
   @Test def TestFailedCompileViaTcp(): Unit = {
-    testFailedCompile(createTcpBspCommand(configDir))
+    testFailedCompileOnInvalidInputs(createTcpBspCommand(configDir))
   }
 }

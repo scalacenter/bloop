@@ -71,13 +71,15 @@ object BspClientTest {
       }
       .notification(endpoints.Build.publishDiagnostics) {
         case bsp.PublishDiagnosticsParams(uri, _, diagnostics) =>
+          // We prepend diagnostics so that tests can check they came from this notification
+          def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
           diagnostics.foreach { d =>
             d.severity match {
-              case Some(bsp.DiagnosticSeverity.Error) => logger.error(d.toString)
-              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(d.toString)
-              case Some(bsp.DiagnosticSeverity.Information) => logger.info(d.toString)
-              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(d.toString)
-              case None => logger.info(d.toString)
+              case Some(bsp.DiagnosticSeverity.Error) => logger.error(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Information) => logger.info(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(printDiagnostic(d))
+              case None => logger.info(printDiagnostic(d))
             }
           }
       }
