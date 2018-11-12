@@ -287,7 +287,8 @@ object Cli {
         Interpreter.execute(action, currentState).map { newState =>
           State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
           // Persist successful result on the background for the new state -- it doesn't block!
-          Tasks.persist(newState).runAsync(ExecutionContext.ioScheduler)
+          val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
+          Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
           newState
         }
       }
@@ -332,15 +333,17 @@ object Cli {
     if (!cancel.isDone) {
       // Add support for a client to cancel bloop via Java's completable future
       import bloop.monix.Java8Compat.JavaCompletableFutureUtils
-      val cancelCliClient = Task.deferFutureAction(cancel.asScala(_)).map { cancel =>
-        if (cancel) {
-          cliOptions.common.out.println(
-            s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
-          handle.cancel()
-        } else ()
-      }.runAsync(ExecutionContext.scheduler)
+      val cancelCliClient = Task
+        .deferFutureAction(cancel.asScala(_))
+        .map { cancel =>
+          if (cancel) {
+            cliOptions.common.out.println(
+              s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
+            handle.cancel()
+          } else ()
+        }
+        .runAsync(ExecutionContext.scheduler)
     }
-
 
     def handleException(t: Throwable) = {
       handle.cancel()

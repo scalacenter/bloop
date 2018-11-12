@@ -93,10 +93,10 @@ object BspServer {
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
       server.startTask
-        .map(_ => servicesProvider.latestState)
+        .map(_ => servicesProvider.stateAfterExecution)
         .onErrorHandleWith { t =>
           Task.now(
-            servicesProvider.latestState.withError(s"BSP server stopped by ${t.getMessage}")
+            servicesProvider.stateAfterExecution.withError(s"BSP server stopped by ${t.getMessage}")
           )
         }
         .doOnFinish(_ => Task { handle.serverSocket.close() })

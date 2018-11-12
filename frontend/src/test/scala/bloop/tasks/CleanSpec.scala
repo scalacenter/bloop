@@ -55,7 +55,7 @@ class CleanSpec {
         case (project, deps) => dummyProject(buildPath, project, deps, logger)
       }
       val build = Build(buildPath, projects.toList)
-      val results = projects.foldLeft(ResultsCache.forTests) { (cache, project) =>
+      val results = projects.foldLeft(ResultsCache.emptyForTests) { (cache, project) =>
         cache.addResult(project, Compiler.Result.Empty)
       }
       val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
