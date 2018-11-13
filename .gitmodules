@@ -19,4 +19,4 @@
 	url = https://github.com/scalacenter/kube.git
 [submodule "website/static/docson"]
 	path = website/static/docson
-	url = git://github.com/scalacenter/docson.git
+	url = https://github.com/scalacenter/docson.git

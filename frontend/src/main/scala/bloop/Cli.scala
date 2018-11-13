@@ -19,6 +19,7 @@ import scala.util.control.NonFatal
 
 class Cli
 object Cli {
+
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool, args)

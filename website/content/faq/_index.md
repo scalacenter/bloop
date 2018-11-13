@@ -64,6 +64,10 @@ By default the sbt plugin exports only `Compile` and `Test` configurations.
 If you want to export other sbt configurations too, please read about
 [advanced sbt configuration]({{<relref "docs/sbt.md" >}}).
 
+## Bloop can't download some file
+You are maybe behind a proxy server. 
+Set `http_proxy` and `https_proxy` environments variable, Bool will used them to download needed ressources.
+
 ## Is Bloop open source?
 
 Yes. Bloop is released under the Apache-2.0 license and is free and open source software.

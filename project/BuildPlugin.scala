@@ -56,7 +56,7 @@ object BuildKeys {
     else {
       val headSha = new com.typesafe.sbt.git.DefaultReadableGit(f).withGit(_.headCommitSha)
       headSha match {
-        case Some(commit) => RootProject(uri(s"git://github.com/scalacenter/${name}.git#$commit"))
+        case Some(commit) => RootProject(uri(s"https://github.com/scalacenter/${name}.git#$commit"))
         case None => sys.error(s"The 'HEAD' sha of '${f}' could not be retrieved.")
       }
     }
@@ -368,7 +368,7 @@ object BuildImplementation {
 
   object BuildDefaults {
     private final val kafka =
-      uri("git://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
+      uri("https://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
 
     /** This onLoad hook will clone any repository required for the build tool integration tests.
      * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
