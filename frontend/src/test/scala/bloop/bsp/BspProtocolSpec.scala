@@ -161,12 +161,25 @@ class BspProtocolSpec {
             case Left(error) => Left(error)
             case Right(sources) =>
               val fetchedSources = sources.items.flatMap(i => i.sources.map(_.value))
+
+              val existsScalaLibraryJar =
+                fetchedSources.exists(_.endsWith("scala-library-2.11.12-sources.jar"))
+              Assert.assertTrue(
+                s"The Scala library could not be found in $fetchedSources",
+                existsScalaLibraryJar
+              )
+
               val expectedSources = BuildLoader
                 .loadSynchronously(configDir, logger.underlying)
                 .flatMap(_.sources.map(s => bsp.Uri(s.underlying.toUri).value))
-              val msg = s"Expected != Fetched, $expectedSources != $fetchedSources"
-              val same = expectedSources.sorted.sameElements(fetchedSources.sorted)
-              Right(Assert.assertTrue(msg, same))
+
+              val missingSourcesInFetched = expectedSources.filterNot(fetchedSources.contains(_))
+              Assert.assertTrue(
+                s"Missing source $missingSourcesInFetched in $fetchedSources",
+                missingSourcesInFetched.isEmpty
+              )
+
+              Right(())
           }
       }
     }
