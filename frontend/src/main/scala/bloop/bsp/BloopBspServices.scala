@@ -341,17 +341,23 @@ final class BloopBspServices(
   private def toBuildTargetId(project: Project): bsp.BuildTargetIdentifier =
     bsp.BuildTargetIdentifier(project.bspUri)
 
-  def toScalaBuildTarget(instance: ScalaInstance): bsp.ScalaBuildTarget = {
+  def toScalaBuildTarget(project: Project, instance: ScalaInstance): bsp.ScalaBuildTarget = {
     def toBinaryScalaVersion(version: String): String = {
       version.split('.').take(2).mkString(".")
     }
 
     val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
+    val platform = project.platform match {
+      case _: Platform.Jvm => bsp.ScalaPlatform.Jvm
+      case _: Platform.Js => bsp.ScalaPlatform.Js
+      case _: Platform.Native => bsp.ScalaPlatform.Native
+    }
+
     bsp.ScalaBuildTarget(
       scalaOrganization = instance.organization,
       scalaVersion = instance.version,
       scalaBinaryVersion = toBinaryScalaVersion(instance.version),
-      platform = bsp.ScalaPlatform.Jvm,
+      platform = platform,
       jars = jars
     )
   }
@@ -370,7 +376,7 @@ final class BloopBspServices(
             else bsp.BuildTargetKind.Library
           }
           val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
-          val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(i)))
+          val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(p, i)))
           val capabilities = bsp.BuildTargetCapabilities(
             canCompile = true,
             canTest = true,

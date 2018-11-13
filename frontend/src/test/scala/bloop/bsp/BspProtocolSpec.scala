@@ -32,6 +32,9 @@ class BspProtocolSpec {
   def isTestProject(targetUri: BuildTargetIdentifier): Boolean =
     targetUri.uri.value.endsWith(TestProject)
 
+  private final val MainJsProject = "test-projectJS"
+  private final val TestJsProject = "test-projectJS-test"
+
   def validateBsp(bspCommand: Commands.Bsp): Commands.ValidatedBsp = {
     Validate.bsp(bspCommand, BspServer.isWindows) match {
       case Run(bsp: Commands.ValidatedBsp, _) => BspClientTest.setupBspCommand(bsp, cwd, configDir)
@@ -98,15 +101,33 @@ class BspProtocolSpec {
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
         case Right(workspaceTargets) =>
-          workspaceTargets.targets.map { t =>
+          workspaceTargets.targets.foreach { t =>
             Assert.assertEquals(t.languageIds.sorted, List("java", "scala"))
             t.data.foreach { json =>
               ScalaBuildTarget.decodeScalaBuildTarget(json.hcursor) match {
                 case Right(target) =>
+                  // Test that the scala version is the correct one
                   Assert.assertTrue(
                     s"Scala bin version ${target.scalaBinaryVersion} == Scala version ${target.scalaVersion}",
                     target.scalaBinaryVersion != target.scalaVersion
                   )
+
+                  val platform = target.platform
+                  val expectedPlatform = t.displayName match {
+                    case MainProject => bsp.ScalaPlatform.Jvm
+                    case TestProject => bsp.ScalaPlatform.Jvm
+                    case MainJsProject => bsp.ScalaPlatform.Js
+                    case TestJsProject => bsp.ScalaPlatform.Js
+                    // For the rest of the projects, assume JVM
+                    case _ => bsp.ScalaPlatform.Jvm
+                  }
+
+                  Assert.assertEquals(
+                    s"Expected $expectedPlatform, obtained $platform platform for ${t.displayName}",
+                    expectedPlatform,
+                    platform
+                  )
+
                 case Left(failure) =>
                   sys.error(s"Decoding `${json}` as a scala build target failed: ${failure}")
               }
