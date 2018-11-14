@@ -6,12 +6,10 @@ object Feedback {
   private final val eol = System.lineSeparator
   def listMainClasses(mainClasses: List[String]): String =
     s"Use the following main classes:\n${mainClasses.mkString(" * ", s"$eol * ", "")}"
-  def missingMainClass(project: Project, mainClass: String = ""): String =
-    s"Missing main class $mainClass in project '${project.name}'"
-  def missingDefaultMainClass(project: Project, mainClass: String): String =
-    s"Missing default main class $mainClass in project '${project.name}'"
-  def expectedMainClass(project: Project): String =
-    s"Expected a main class via command-line or in the configuration of project '${project.name}'"
+  def missingMainClass(project: Project): String =
+    s"No main classes defined in project '${project.name}'"
+  def expectedDefaultMainClass(project: Project): String =
+    s"Multiple main classes found. Expected a default main class via command-line or in the configuration of project '${project.name}'"
 
   def missingScalaInstance(project: Project): String =
     s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
