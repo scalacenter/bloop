@@ -98,4 +98,11 @@ object Reporter {
     val ps = sourceInfos.flatMap(_._2.getReportedProblems).map(Problem.fromZincProblem(_))
     new LogReporter(logger, cwd, identity, ReporterConfig.defaultFormat, ps)
   }
+/*
+  def getWarningsFromAnalysis(analysis: CompileAnalysis): List[xsbti.Problem] = {
+    import scala.collection.JavaConverters._
+    val sourceInfos = analysis.readSourceInfos.getAllSourceInfos.asScala.toBuffer
+    val ps = sourceInfos.flatMap(_._2.getReportedProblems).map(Problem.fromZincProblem(_))
+    ps.filter(_.)
+  }*/
 }

@@ -101,7 +101,16 @@ object BloopIncremental {
         } yield callback.get
       }
 
-      try incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, classfileManager, 1)
+      /* Normal Zinc happens to add the source infos of the previous result to the infos
+       * of the new previous result. In constrast, we desire to only have the source infos
+       * of those files that we have indeed compiled so that we can know from the outside
+       * to which extent a new compilation overlaps with a previous compilation. This is
+       * important whenever we want to know which warnings were not reported in the new
+       * compilation but should be reported given that they are still present in the codebase.
+       */
+      val previousWithNoSourceInfos =
+        previous.copy(infos = previous.infos -- previous.infos.allInfos.keys)
+      try incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previousWithNoSourceInfos, doCompile, classfileManager, 1)
       catch { case e: Throwable => classfileManager.complete(false); throw e }
     }
 
