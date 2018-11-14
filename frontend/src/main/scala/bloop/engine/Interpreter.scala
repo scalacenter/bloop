@@ -391,27 +391,24 @@ object Interpreter {
       project: Project,
       cliMainClass: Option[String]
   ): Either[State, String] = {
-    Tasks.findMainClasses(state, project) match {
-      case Nil => Left(state.withError(Feedback.missingMainClass(project)))
-      case List(main) => Right(main)
-      case mainClasses =>
-        def withS(msg: String): String = msg.suggest(Feedback.listMainClasses(mainClasses))
-        val configMainClass = project.platform.userMainClass
-        cliMainClass match {
-          case Some(userMainClass) if mainClasses.contains(userMainClass) => Right(userMainClass)
-          case Some(userMainClass) =>
-            Left(state.withError(withS(Feedback.missingMainClass(project, userMainClass))))
+    cliMainClass match {
+      case Some(userMainClass) => Right(userMainClass)
+      case None =>
+        project.platform.userMainClass match {
+          case Some(configMainClass) => Right(configMainClass)
           case None =>
-            configMainClass match {
-              case Some(configMainClass) if mainClasses.contains(configMainClass) =>
-                Right(configMainClass)
-              case Some(configMainClass) =>
-                val msg = withS(Feedback.missingDefaultMainClass(project, configMainClass))
-                Left(state.withError(msg))
-              case None =>
-                val msg = withS(Feedback.expectedMainClass(project))
+            Tasks.findMainClasses(state, project) match {
+              case Nil =>
+                val msg = Feedback.missingMainClass(project)
+                Left(state.withError(msg, ExitStatus.InvalidCommandLineOption))
+              case List(mainClass) => Right(mainClass)
+              case mainClasses =>
+                val msg = Feedback
+                  .expectedDefaultMainClass(project)
+                  .suggest(Feedback.listMainClasses(mainClasses))
                 Left(state.withError(msg, ExitStatus.InvalidCommandLineOption))
             }
+
         }
     }
   }
