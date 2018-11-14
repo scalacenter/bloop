@@ -9,7 +9,9 @@ import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks}
-import bloop.cli.Commands.CompilingCommand
+import bloop.cli.Commands.{CompilingCommand, LinkingCommand}
+import bloop.config.Config
+import bloop.config.Config.ModuleKindJS
 import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
@@ -309,22 +311,33 @@ object Interpreter {
   private[bloop] def link(cmd: Commands.Link, state: State, sequential: Boolean): Task[State] = {
     def doLink(project: Project)(state: State): Task[State] = {
       compileAnd(cmd, state, project, false, sequential, "`link`") { state =>
-        getMainClass(state, project, cmd.main) match {
-          case Left(state) => Task.now(state)
-          case Right(mainClass) =>
-            project.platform match {
-              case platform @ Platform.Native(config, _, _) =>
-                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+        project.platform match {
+          case platform @ Platform.Native(config, _, _) =>
+            val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+
+            getMainClass(state, project, cmd.main) match {
+              case Left(state) => Task.now(state)
+              case Right(mainClass) =>
                 LinkTask.linkMainWithNative(cmd, project, state, mainClass, target, platform)
-
-              case platform @ Platform.Js(config, _, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform)
-
-              case Platform.Jvm(_, _, _) =>
-                val msg = Feedback.noLinkFor(project)
-                Task.now(state.withError(msg, ExitStatus.InvalidCommandLineOption))
             }
+
+          case platform @ Platform.Js(config, _, _) =>
+            val target = ScalaJsToolchain.linkTargetFrom(project, config)
+
+            // A CommonJS module does not have an entry point
+            if (config.kind == Config.ModuleKindJS.CommonJSModule)
+              LinkTask.linkMainWithJs(cmd, project, state, None, target, platform)
+            else {
+              getMainClass(state, project, cmd.main) match {
+                case Left(state) => Task.now(state)
+                case Right(mainClass) =>
+                  LinkTask.linkMainWithJs(cmd, project, state, Some(mainClass), target, platform)
+              }
+            }
+
+          case Platform.Jvm(_, _, _) =>
+            val msg = Feedback.noLinkFor(project)
+            Task.now(state.withError(msg, ExitStatus.InvalidCommandLineOption))
         }
       }
     }
@@ -356,13 +369,14 @@ object Interpreter {
                   }
               case platform @ Platform.Js(config, _, _) =>
                 val target = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap {
-                  state =>
+                LinkTask
+                  .linkMainWithJs(cmd, project, state, Some(mainClass), target, platform)
+                  .flatMap { state =>
                     // We use node to run the program (is this a special case?)
                     val args = ("node" +: target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
                     else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
-                }
+                  }
               case Platform.Jvm(javaEnv, _, _) =>
                 Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray)
             }

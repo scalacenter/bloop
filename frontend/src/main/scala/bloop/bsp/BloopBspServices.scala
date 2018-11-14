@@ -371,11 +371,12 @@ final class BloopBspServices(
               }
             case platform @ Platform.Js(config, _, _) =>
               val target = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap { state =>
-                // We use node to run the program (is this a special case?)
-                val args = ("node" +: target.syntax +: cmd.args).toArray
-                if (!state.status.isOk) Task.now(state)
-                else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
+              linkMainWithJs(cmd, project, state, Some(mainClass), target, platform).flatMap {
+                state =>
+                  // We use node to run the program (is this a special case?)
+                  val args = ("node" +: target.syntax +: cmd.args).toArray
+                  if (!state.status.isOk) Task.now(state)
+                  else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
               }
           }
       }
