@@ -2,14 +2,13 @@
 package sbt.internal.inc.bloop
 
 import java.io.File
-import java.net.URI
-import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import bloop.CompileMode
+import bloop.reporter.Reporter
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
-import xsbti.{AnalysisCallback, Logger, Reporter}
+import xsbti.{AnalysisCallback, Logger}
 import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
 import sbt.internal.inc.bloop.internal.{BloopHighLevelCompiler, BloopIncremental}
 import sbt.util.InterfaceUtil
@@ -38,12 +37,12 @@ object BloopZincCompiler {
   def compile(
       in: Inputs,
       compileMode: CompileMode,
-      logger: Logger
+      reporter: Reporter
   ): Task[CompileResult] = {
     val config = in.options()
     val setup = in.setup()
     import config._
-    import setup._
+    import setup.{reporter => _, _}
     val compilers = in.compilers
     val javacChosen = compilers.javaTools.javac
     val scalac = compilers.scalac
@@ -70,7 +69,7 @@ object BloopZincCompiler {
       extraOptions,
       irPromise,
       compileMode
-    )(logger)
+    )(reporter.logger)
   }
 
   def compileIncrementally(
@@ -108,13 +107,13 @@ object BloopZincCompiler {
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
         val setOfSources = sources.toSet
-        val compiler = BloopHighLevelCompiler(config, logger)
+        val compiler = BloopHighLevelCompiler(config, reporter)
         val lookup = new LookupImpl(config, previousSetup)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev)
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, config.incOptions, irPromise).map {
+        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }

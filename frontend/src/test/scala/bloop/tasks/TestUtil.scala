@@ -343,4 +343,25 @@ object TestUtil {
 
   def errorsFromLogger(logger: RecordingLogger): List[String] =
     logger.getMessages.iterator.filter(_._1 == "error").map(_._2).toList
+
+  /** Fails the test with a pretty diff if there obtained is not the same as expected */
+  def assertNoDiff(expected: String, obtained: String): Unit = {
+    import scala.collection.JavaConverters._
+    if (obtained.isEmpty && !expected.isEmpty) Assert.fail("obtained empty output")
+    def splitLines(string: String): java.util.List[String] =
+      string.trim.replace("\r\n", "\n").split("\n").toSeq.asJava
+    val obtainedLines = splitLines(obtained)
+    val expectedLines = splitLines(expected)
+    val patch = difflib.DiffUtils.diff(expectedLines, obtainedLines)
+    val diff =
+      if (patch.getDeltas.isEmpty) ""
+      else {
+        difflib.DiffUtils.generateUnifiedDiff(
+          "expected", "obtained", obtainedLines, patch, 1
+        ).asScala.mkString("\n")
+      }
+    if (!diff.isEmpty) {
+      Assert.fail("\n" + diff)
+    }
+  }
 }

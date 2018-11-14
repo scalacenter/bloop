@@ -1,7 +1,7 @@
 package bloop
 
 import xsbti.compile._
-import xsbti.T2
+import xsbti.{Problem, T2}
 import java.util.Optional
 import java.io.File
 
@@ -9,7 +9,7 @@ import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
 import bloop.reporter.Reporter
 import sbt.internal.inc.bloop.BloopZincCompiler
-import sbt.internal.inc.{FreshCompilerCache, JavaInterfaceUtil, Locate}
+import sbt.internal.inc.{FreshCompilerCache, Locate}
 import _root_.monix.eval.Task
 import bloop.util.CacheHashCode
 import sbt.internal.inc.bloop.internal.StopPipelining
@@ -28,6 +28,7 @@ case class CompileInputs(
     compileOrder: CompileOrder,
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
+    previousCompilerResult: Compiler.Result,
     reporter: Reporter,
     mode: CompileMode,
     dependentResults: Map[File, PreviousResult]
@@ -49,7 +50,6 @@ object Compiler {
   object Result {
     final case object Empty extends Result with CacheHashCode
     final case class Blocked(on: List[String]) extends Result with CacheHashCode
-    final case class Cancelled(elapsed: Long) extends Result with CacheHashCode
     final case class GlobalError(problem: String) extends Result with CacheHashCode
 
     final case class Success(
@@ -66,6 +66,12 @@ object Compiler {
     ) extends Result
         with CacheHashCode
 
+    final case class Cancelled(
+        problems: List[xsbti.Problem],
+        elapsed: Long
+    ) extends Result
+        with CacheHashCode
+
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
         case s @ (Success(_, _, _) | Empty) => Some(s)
@@ -75,24 +81,10 @@ object Compiler {
 
     object NotOk {
       def unapply(result: Result): Option[Result] = result match {
-        case f @ (Failed(_, _, _) | Cancelled(_) | Blocked(_)) => Some(f)
+        case f @ (Failed(_, _, _) | Cancelled(_, _) | Blocked(_)) => Some(f)
         case _ => None
       }
     }
-  }
-
-  def warningsFromPreviousRuns(
-      previous: CompileAnalysis,
-      current: CompileAnalysis
-  ): List[xsbti.Problem] = {
-    import scala.collection.JavaConverters._
-    val previousSourceInfos = previous.readSourceInfos().getAllSourceInfos.asScala.toMap
-    val currentSourceInfos = current.readSourceInfos().getAllSourceInfos.asScala.toMap
-    val eligibleSourceInfos =
-      previousSourceInfos.filterKeys(f => !currentSourceInfos.contains(f)).values
-    eligibleSourceInfos.flatMap { i =>
-      i.getReportedProblems.filter(_.severity() == xsbti.Severity.Warn)
-    }.toList
   }
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
@@ -154,27 +146,44 @@ object Compiler {
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
 
+    import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
-    val logger = compileInputs.reporter.logger
-    val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
-    BloopZincCompiler.compile(inputs, compileInputs.mode, logger).materialize.map {
-      case Success(result) =>
-        // Report warnings that occurred in previous compilation cycles
-        previousAnalysis.foreach { previous =>
-          warningsFromPreviousRuns(previous, result.analysis()).foreach { p =>
-            // Note that buffered warnings are not added back to the current analysis on purpose
-            compileInputs.reporter.log(p)
-          }
-        }
+    val reporter = compileInputs.reporter
 
-        val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-        Result.Success(compileInputs.reporter, res, elapsed)
-      case Failure(f: StopPipelining) => Result.Blocked(f.failedProjectNames)
-      case Failure(f: xsbti.CompileFailed) => Result.Failed(f.problems().toList, None, elapsed)
-      case Failure(_: xsbti.CompileCancelled) => Result.Cancelled(elapsed)
-      case Failure(t: Throwable) =>
-        t.printStackTrace()
-        Result.Failed(Nil, Some(t), elapsed)
+    val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
+    val previousProblems: List[Problem] = compileInputs.previousCompilerResult match {
+      case f: Compiler.Result.Failed => f.problems
+      case c: Compiler.Result.Cancelled => c.problems
+      case _: Compiler.Result.Success =>
+        import scala.collection.JavaConverters._
+        val infos =
+          previousAnalysis.toList.flatMap(_.readSourceInfos().getAllSourceInfos.asScala.values)
+        infos.flatMap(info => info.getReportedProblems.toList).toList
+      case _ => Nil
     }
+
+    reporter.reportStartCompilation(previousProblems)
+    BloopZincCompiler
+      .compile(inputs, compileInputs.mode, reporter)
+      .materialize
+      .map {
+        case Success(result) =>
+          // Report end of compilation only after we have reported all warnings from previous runs
+          reporter.reportEndCompilation(previousAnalysis, Some(result.analysis), bsp.StatusCode.Ok)
+          val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+          Result.Success(compileInputs.reporter, res, elapsed)
+        case Failure(_: xsbti.CompileCancelled) =>
+          reporter.reportEndCompilation(previousAnalysis, None, bsp.StatusCode.Cancelled)
+          Result.Cancelled(reporter.allProblems.toList, elapsed)
+        case Failure(cause) =>
+          reporter.reportEndCompilation(previousAnalysis, None, bsp.StatusCode.Error)
+          cause match {
+            case f: StopPipelining => Result.Blocked(f.failedProjectNames)
+            case f: xsbti.CompileFailed => Result.Failed(f.problems().toList, None, elapsed)
+            case t: Throwable =>
+              t.printStackTrace()
+              Result.Failed(Nil, Some(t), elapsed)
+          }
+      }
   }
 }

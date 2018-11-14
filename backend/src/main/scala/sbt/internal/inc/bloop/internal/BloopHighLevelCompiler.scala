@@ -6,12 +6,13 @@ import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
+import bloop.reporter.Reporter
 import bloop.{CompileMode, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
 import sbt.internal.inc.javac.AnalyzingJavaCompiler
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler, ScalaInstance, Stamper, Stamps}
-import sbt.util.{InterfaceUtil, Logger}
+import sbt.util.Logger
 import xsbti.{AnalysisCallback, CompileFailed}
 import xsbti.compile._
 
@@ -28,14 +29,15 @@ import scala.util.control.NonFatal
  * @param scalac The Scala compiler (this one takes the concrete implementation, not an interface).
  * @param javac The concrete Java compiler.
  * @param config The compilation configuration.
- * @param logger The logger.
+ * @param reporter The reporter to be used to compile.
  */
 final class BloopHighLevelCompiler(
     scalac: AnalyzingCompiler,
     javac: AnalyzingJavaCompiler,
     config: CompileConfiguration,
-    logger: Logger
+    reporter: Reporter
 ) {
+  import reporter.logger
   private[this] final val setup = config.currentSetup
   private[this] final val classpath = config.classpath.map(_.getAbsoluteFile)
 
@@ -84,7 +86,10 @@ final class BloopHighLevelCompiler(
 
     val includedSources = config.sources.filter(sourcesToCompile)
     val (javaSources, scalaSources) = includedSources.partition(_.getName.endsWith(".java"))
-    logInputs(logger, javaSources.size, scalaSources.size, outputDirs)
+    val existsCompilation = javaSources.size + scalaSources.size > 0
+    if (existsCompilation) {
+      reporter.reportStartIncrementalCycle(includedSources, outputDirs)
+    }
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
     val (pipeline: Boolean, batches: Option[Int], completeJava: CompletableFuture[Unit], fireJavaCompilation: Task[JavaSignal], transitiveJavaSources: List[File], separateJavaAndScala: Boolean) = {
@@ -250,27 +255,13 @@ final class BloopHighLevelCompiler(
       }
     }
 
-    combinedTasks.map { _ =>
-      // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
-      if (javaSources.size + scalaSources.size > 0)
-        logger.info("Done compiling.")
-    }
-  }
+    combinedTasks.materialize.map { r =>
+      if (existsCompilation) {
+        reporter.reportEndIncrementalCycle()
+      }
 
-  // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
-  private[this] def logInputs(
-      log: Logger,
-      javaCount: Int,
-      scalaCount: Int,
-      outputDirs: Seq[File]
-  ): Unit = {
-    val scalaMsg = Analysis.counted("Scala source", "", "s", scalaCount)
-    val javaMsg = Analysis.counted("Java source", "", "s", javaCount)
-    val combined = scalaMsg ++ javaMsg
-    if (combined.nonEmpty) {
-      val targets = outputDirs.map(_.getAbsolutePath).mkString(",")
-      log.info(combined.mkString("Compiling ", " and ", s" to $targets ..."))
-    }
+      r
+    }.dematerialize
   }
 }
 
@@ -295,10 +286,10 @@ object BloopHighLevelCompiler {
     new CallbackBuilder(_ => None, _ => Set.empty, (_, _) => None, stamps, output, options, promise).build()
   }
 
-  def apply(config: CompileConfiguration, log: Logger): BloopHighLevelCompiler = {
+  def apply(config: CompileConfiguration, reporter: Reporter): BloopHighLevelCompiler = {
     val (searchClasspath, entry) = MixedAnalyzingCompiler.searchClasspathAndLookup(config)
     val scalaCompiler = config.compiler.asInstanceOf[AnalyzingCompiler]
     val javaCompiler = new AnalyzingJavaCompiler(config.javac, config.classpath, config.compiler.scalaInstance, config.classpathOptions, entry, searchClasspath)
-    new BloopHighLevelCompiler(scalaCompiler, javaCompiler, config, log)
+    new BloopHighLevelCompiler(scalaCompiler, javaCompiler, config, reporter)
   }
 }

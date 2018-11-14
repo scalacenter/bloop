@@ -9,7 +9,7 @@ import bloop.engine.tasks.compilation.FinalCompileResult
 import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
-import bloop.reporter.Reporter
+import bloop.reporter.LogReporter
 import monix.eval.Task
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -111,7 +111,7 @@ object ResultsCache {
             case Some(res) =>
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
-              val reporter = Reporter.fromAnalysis(res.getAnalysis, cwd, logger)
+              val reporter = LogReporter.fromAnalysis(res.getAnalysis, cwd, logger)
               Result.Success(reporter, r, 0L)
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")

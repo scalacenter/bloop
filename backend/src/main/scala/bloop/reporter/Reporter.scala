@@ -1,9 +1,12 @@
 package bloop.reporter
 
+import java.io.File
+
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import xsbti.compile.CompileAnalysis
 import xsbti.{Position, Severity}
+import ch.epfl.scala.bsp
+import xsbti.compile.CompileAnalysis
 
 import scala.collection.mutable
 
@@ -11,6 +14,8 @@ import scala.collection.mutable
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
  * This configuration indicated whether to use colors, how to format messages,
  * etc.
+ *
+ * A reporter has internal state and must be instantiated per compilation.
  *
  * @param logger The logger that will receive the output of the reporter.
  * @param cwd    The current working directory of the user who started compilation.
@@ -59,43 +64,36 @@ abstract class Reporter(
 
   private def hasWarnings(problems: Seq[Problem]): Boolean =
     problems.exists(_.severity == Severity.Warn)
-}
 
-final class LogReporter(
-    override val logger: Logger,
-    override val cwd: AbsolutePath,
-    sourcePositionMapper: Position => Position,
-    override val config: ReporterConfig,
-    override val _problems: mutable.Buffer[Problem] = mutable.ArrayBuffer.empty
-) extends Reporter(logger, cwd, sourcePositionMapper, config, _problems) {
-
-  private final val format = config.format(this)
-  override def printSummary(): Unit = {
-    if (config.reverseOrder) { _problems.reverse.foreach(logFull) }
-    format.printSummary()
-  }
+  /** A function called *always* at the very beginning of compilation. */
+  def reportStartCompilation(previousProblems: List[xsbti.Problem]): Unit
 
   /**
-   * Log the full error message for `problem`.
+   * A function called at the very end of compilation, before returning from Zinc to bloop.
    *
-   * @param problem The problem to log.
+   * This method **is** called if the compilation is a no-op.
+   *
+   * @param previousAnalysis An instance of a previous compiler analysis, if any.
+   * @param analysis An instance of a new compiler analysis, if no error happened.
+   * @param code The status code for a given compilation.
    */
-  override protected def logFull(problem: Problem): Unit = {
-    val text = format.formatProblem(problem)
-    problem.severity match {
-      case Severity.Error => logger.error(text)
-      case Severity.Warn => logger.warn(text)
-      case Severity.Info => logger.info(text)
-    }
-  }
+  def reportEndCompilation(
+      previousAnalysis: Option[CompileAnalysis],
+      analysis: Option[CompileAnalysis],
+      code: bsp.StatusCode
+  ): Unit
 
-}
+  /**
+   * A function called before every incremental cycle with the compilation inputs.
+   *
+   * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   */
+  def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit
 
-object Reporter {
-  def fromAnalysis(analysis: CompileAnalysis, cwd: AbsolutePath, logger: Logger): Reporter = {
-    import scala.collection.JavaConverters._
-    val sourceInfos = analysis.readSourceInfos.getAllSourceInfos.asScala.toBuffer
-    val ps = sourceInfos.flatMap(_._2.getReportedProblems).map(Problem.fromZincProblem(_))
-    new LogReporter(logger, cwd, identity, ReporterConfig.defaultFormat, ps)
-  }
+  /**
+   * A function called after every incremental cycle, even if any compilation errors happen.
+   *
+   * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   */
+  def reportEndIncrementalCycle(): Unit
 }

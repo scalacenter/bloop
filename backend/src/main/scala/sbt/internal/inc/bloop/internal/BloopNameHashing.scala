@@ -4,7 +4,7 @@ import java.io.File
 
 import monix.eval.Task
 import sbt.internal.inc._
-import sbt.util.Logger
+import _root_.bloop.reporter.Reporter
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
 
 /**
@@ -22,8 +22,8 @@ import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
  * @param options The incremental compiler options.
  * @param profiler The profiler used for the incremental invalidation algorithm.
  */
-private final class BloopNameHashing(log: Logger, options: IncOptions, profiler: RunProfiler)
-    extends IncrementalNameHashingCommon(log, options, profiler) {
+private final class BloopNameHashing(reporter: Reporter, options: IncOptions, profiler: RunProfiler)
+    extends IncrementalNameHashingCommon(reporter.logger, options, profiler) {
 
   /**
    * Compile a project as many times as it is required incrementally. This logic is the start

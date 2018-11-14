@@ -42,7 +42,7 @@ class NailgunSpec extends NailgunTestUtils {
       def contains(needle: String): Unit = {
         assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
       }
-      contains("Bloop-frontend version")
+      contains("Bloop version")
       contains("Zinc version")
       contains("Scala version")
       contains("maintained by")
