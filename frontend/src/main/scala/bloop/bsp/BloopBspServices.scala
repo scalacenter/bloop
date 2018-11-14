@@ -183,8 +183,9 @@ final class BloopBspServices(
     }
 
     def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
+      // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
-      s"${p.name} [${elapsedMs}ms] (errors ${count.errors}, warnings ${count.warnings})"
+      s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"
     }
 
     Interpreter.execute(action, Task.now(state)).map { newState =>

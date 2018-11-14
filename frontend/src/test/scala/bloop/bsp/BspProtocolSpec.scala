@@ -307,16 +307,15 @@ class BspProtocolSpec {
                   deleteNewFile()
                   compileMainProject.map {
                     case Left(e) => Left(e)
-                    case Right(result) => Right(result)
-                    /*
-                      // Uncomment whenever we receive a report on the third no-op
+                    case Right(result) => Right(())
+                      // Uncomment whenever we implement bspv2 and can upgrade to reset diagnostics
+/*
                       if (receivedReports == 3) Right(result)
                       else {
                         Left(
                           Response.internalError(s"Expected 3, got ${receivedReports} reports")
                         )
-                      }
-                   */
+                      }*/
                   }
               }
           }
@@ -354,7 +353,9 @@ class BspProtocolSpec {
           )
         } else if (isMainProject(report.target) && receivedReports == 2) {
           // This is the last compilation which should be successful
-          // TODO(jvican): Test the initial warning is buffered and shown to the client
+          receivedReports += 1
+          Assert.assertEquals(s"Warnings in $MainProject != 1", 1, report.warnings)
+          Assert.assertEquals(s"Errors in $MainProject != 0", 0, report.errors)
           ()
         } else {
           Assert.fail(s"Unexpected compilation report: $report")
@@ -376,8 +377,8 @@ class BspProtocolSpec {
         "[diagnostic] local val in method main is never used Range(Position(5,8),Position(5,8))"
       val warnings = logger.underlying.getMessagesAt(Some("warn"))
       Assert.assertTrue(
-        s"Expected $expectedWarning, obtained $warnings.",
-        warnings == List(expectedWarning)
+        s"Expected two times $expectedWarning, obtained $warnings.",
+        warnings == List(expectedWarning, expectedWarning)
       )
 
       // The syntax error has to be present as a diagnostic, not a normal log error

@@ -81,6 +81,20 @@ object Compiler {
     }
   }
 
+  def warningsFromPreviousRuns(
+      previous: CompileAnalysis,
+      current: CompileAnalysis
+  ): List[xsbti.Problem] = {
+    import scala.collection.JavaConverters._
+    val previousSourceInfos = previous.readSourceInfos().getAllSourceInfos.asScala.toMap
+    val currentSourceInfos = current.readSourceInfos().getAllSourceInfos.asScala.toMap
+    val eligibleSourceInfos =
+      previousSourceInfos.filterKeys(f => !currentSourceInfos.contains(f)).values
+    eligibleSourceInfos.flatMap { i =>
+      i.getReportedProblems.filter(_.severity() == xsbti.Severity.Warn)
+    }.toList
+  }
+
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val classesDir = compileInputs.classesDir.toFile
     def getInputs(compilers: Compilers): Inputs = {
@@ -137,13 +151,22 @@ object Compiler {
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
 
-    // We don't want nanosecond granularity, we're happy with milliseconds
+    // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
 
     import scala.util.{Success, Failure}
     val logger = compileInputs.reporter.logger
+    val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
     BloopZincCompiler.compile(inputs, compileInputs.mode, logger).materialize.map {
       case Success(result) =>
+        // Report warnings that occurred in previous compilation cycles
+        previousAnalysis.foreach { previous =>
+          warningsFromPreviousRuns(previous, result.analysis()).foreach { p =>
+            // Note that buffered warnings are not added back to the current analysis on purpose
+            compileInputs.reporter.log(p)
+          }
+        }
+
         val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
         Result.Success(compileInputs.reporter, res, elapsed)
       case Failure(f: StopPipelining) => Result.Blocked(f.failedProjectNames)
