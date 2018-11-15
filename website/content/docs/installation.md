@@ -61,7 +61,7 @@ Install bloop in other platforms (Windows, Unix, \*bsd) via our python script:
 
 The installation script will also install:
 
- * completions for zsh and Bash
+ * completions for zsh, Bash and fish
  * service file for systemd
  * desktop entry for freedesktop-compliant desktop environments
 
@@ -86,6 +86,15 @@ To get the command line completions with Bash, add the following to your `~/.bas
 ```sh
 . $HOME/.bloop/bash/bloop
 ```
+
+#### Fish completions
+
+To get the command line completions with fish shell, navigate to your local completion location (e.g.: `~/.config/fish/completions`)
+and create a symlink to the file provided in the Bloop distribution:
+
+```sh
+$ ln -s $HOME/.bloop/fish/bloop.fish bloop.fish
+``` 
 
 ### Automatic startup
 
