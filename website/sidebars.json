@@ -1,0 +1,25 @@
+{
+  "docs": {
+    "General": [
+      "what-is-bloop",
+      "usage",
+      "integration"
+    ],
+    "Build Tools": [
+      "build-tools/overview",
+      "build-tools/sbt",
+      "build-tools/maven",
+      "build-tools/gradle",
+      "build-tools/mill"
+    ],
+    "IDEs": [
+      "ides/overview",
+      "ides/intellij",
+      "ides/metals"
+    ],
+    "References": [
+      "cli-reference",
+      "configuration-format"
+    ]
+  }
+}

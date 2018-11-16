@@ -75,21 +75,11 @@ object Interpreter {
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
-    val header =
-      s"""|$t   _____            __         ______           __
-          |$t  / ___/_________ _/ /___ _   / ____/__  ____  / /____  _____
-          |$t  \\__ \\/ ___/ __ `/ / __ `/  / /   / _ \\/ __ \\/ __/ _ \\/ ___/
-          |$t ___/ / /__/ /_/ / / /_/ /  / /___/ /__/ / / / /_/ /__/ /
-          |$t/____/\\___/\\__,_/_/\\__,_/   \\____/\\___/_/ /_/\\__/\\___/_/
-          |""".stripMargin
-    val versions = s"""
-                      |$t${bloopName.capitalize} version    `$bloopVersion`
-                      |${t}Zinc version     `$zincVersion`
-                      |${t}Scala version    `$scalaVersion`""".stripMargin
-    logger.info(s"$header$line")
-    logger.info(s"$t$bloopName is made with love at the Scala Center <3$line")
-    logger.info(s"$versions$line$line") // I have no idea why two are required, one is not enough
-    logger.info(s"${t}It is maintained by $developers.")
+
+    logger.info(s"$bloopName v$bloopVersion")
+    logger.info("")
+    logger.info(s"Running on Scala v$scalaVersion and Zinc v$zincVersion")
+    logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)
   }

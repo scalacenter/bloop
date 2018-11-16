@@ -219,12 +219,15 @@ val millBloop = project
   .settings(BuildDefaults.millModuleBuildSettings)
 
 val docs = project
-  .in(file("website"))
-  .enablePlugins(HugoPlugin, GhpagesPlugin, ScriptedPlugin)
+  .in(file("docs"))
+  .dependsOn(frontend)
+  .enablePlugins(DocusaurusPlugin)
   .settings(
-    name := "bloop-website",
+    name := "bloop-docs",
+    moduleName := "bloop-docs",
     skip in publish := true,
-    websiteSettings
+    scalaVersion := "2.12.6",
+    mainClass.in(Compile) := Some("bloop.Docs")
   )
 
 lazy val jsBridge06 = project

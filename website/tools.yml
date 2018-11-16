@@ -1,0 +1,7 @@
+- name: Universal installation
+  items:
+    universal: curl
+- name: Package managers
+  items:
+    homebrew: Homebrew
+    nix: Nix
