@@ -306,12 +306,13 @@
           "items": {
             "$id": "/properties/project/properties/sources/items",
             "type": "string",
-            "title": "An example of a source directory",
+            "title": "An example of a source file or directory",
             "default": "",
             "examples": [
               "/code/foo/src/main/scala",
               "/code/foo/src/main/java",
-              "/code/foo/src/main/scala-2.12"
+              "/code/foo/src/main/scala-2.12",
+              "/code/foo/src/main/scala-2.12/foo/Foo.scala"
             ]
           }
         },
