@@ -4,7 +4,7 @@ import bloop.logging.{DebugFilter, Logger}
 import bloop.util.TimeFormat
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
-import ch.epfl.scala.bsp.endpoints.BuildTarget
+import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
 import sbt.testing.{Event, Status}
 
 import scala.collection.mutable
@@ -25,6 +25,8 @@ object TestSuiteEvent {
 
 trait TestSuiteEventHandler {
   def handle(testSuiteEvent: TestSuiteEvent): Unit
+/*  def startTest(): Unit
+  def finishTest(): Unit*/
   def report(): Unit
 }
 
@@ -121,10 +123,11 @@ final class BspLoggingEventHandler(id: BuildTargetIdentifier, logger: Logger, cl
     extends LoggingEventHandler(logger) {
   implicit val client0: JsonRpcClient = client
   override def report(): Unit = {
-    val failed = suitesFailed.length
+/*    val failed = suitesFailed.length
     val r = bsp.TestReport(id, None, suitesPassed, failed, 0, 0, 0, 0, Some(suitesDuration))
+    Build.taskFinish
     BuildTarget.testReport.notify(r)
-    ()
+    ()*/
   }
 }
 

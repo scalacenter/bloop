@@ -35,6 +35,7 @@ val backend = project
     buildInfoKeys := BloopBackendInfoKeys,
     buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
+      Dependencies.bsp,
       Dependencies.zinc,
       Dependencies.nailgun,
       Dependencies.scalazCore,
@@ -125,7 +126,8 @@ lazy val frontend: Project = project
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
   .settings(
-    name := s"bloop-frontend",
+    name := "bloop-frontend",
+    bloopName := "bloop",
     mainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
@@ -137,7 +139,6 @@ lazy val frontend: Project = project
     parallelExecution in test := false,
     libraryDependencies ++= List(
       Dependencies.scalazCore,
-      Dependencies.bsp,
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.nuprocess,

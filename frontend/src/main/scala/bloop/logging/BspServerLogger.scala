@@ -1,8 +1,9 @@
 package bloop.logging
 
-import java.io.PrintStream
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
+import bloop.data.Project
 import bloop.engine.State
 import bloop.reporter.Problem
 import sbt.internal.inc.bloop.ZincInternals
@@ -10,7 +11,8 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
+import ch.epfl.scala.bsp.endpoints.Build
+import monix.execution.atomic.AtomicInt
 
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
@@ -20,6 +22,7 @@ final class BspServerLogger private (
     override val name: String,
     underlying: Logger,
     implicit val client: JsonRpcClient,
+    taskIdCounter: AtomicInt,
     ansiSupported: Boolean
 ) extends Logger
     with ScribeAdapter {
@@ -28,9 +31,9 @@ final class BspServerLogger private (
 
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger =
-    new BspServerLogger(name, underlying.asDiscrete, client, ansiSupported)
+    new BspServerLogger(name, underlying.asDiscrete, client, taskIdCounter, ansiSupported)
   override def asVerbose: Logger =
-    new BspServerLogger(name, underlying.asVerbose, client, ansiSupported)
+    new BspServerLogger(name, underlying.asVerbose, client, taskIdCounter, ansiSupported)
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
@@ -55,7 +58,7 @@ final class BspServerLogger private (
     ()
   }
 
-  def diagnostic(problem: Problem): Unit = {
+  def diagnostic(project: Project, problem: Problem, clear: Boolean): Unit = {
     import sbt.util.InterfaceUtil.toOption
     val message = problem.message
     val problemPos = problem.position
@@ -82,7 +85,10 @@ final class BspServerLogger private (
 
         val uri = bsp.Uri(file.toURI)
         val diagnostic = bsp.Diagnostic(pos, Some(severity), None, None, message, None)
-        val diagnostics = bsp.PublishDiagnosticsParams(uri, None, List(diagnostic))
+        val textDocument = bsp.TextDocumentIdentifier(uri)
+        val buildTargetId = bsp.BuildTargetIdentifier(project.bspUri)
+        val diagnostics =
+          bsp.PublishDiagnosticsParams(textDocument, buildTargetId, None, List(diagnostic), clear)
         Build.publishDiagnostics.notify(diagnostics)
       case _ =>
         problem.severity match {
@@ -94,11 +100,82 @@ final class BspServerLogger private (
     ()
   }
 
-  def publishBspReport(uri: bsp.Uri, problems: Seq[Problem]): Unit = {
+  def noDiagnostic(project: Project, file: File): Unit = {
+    val uri = bsp.Uri(file.toURI)
+    val textDocument = bsp.TextDocumentIdentifier(uri)
+    val buildTargetId = bsp.BuildTargetIdentifier(project.bspUri)
+    val diagnostics =
+      bsp.PublishDiagnosticsParams(textDocument, buildTargetId, None, Nil, true)
+    Build.publishDiagnostics.notify(diagnostics)
+    ()
+  }
+
+  /** Return the next task id per bsp session. */
+  def nextTaskId: bsp.TaskId = {
+    // TODO(jvican): Add parent information to the task id
+    bsp.TaskId(taskIdCounter.addAndGet(1).toString, None)
+  }
+
+  private def now: Long = System.currentTimeMillis()
+
+  /**
+   * Publish a compile start notification to the client via BSP.
+   *
+   * The compile start notification must always have a corresponding
+   * compile end notification, published by [[publishCompileEnd()]].
+   *
+   * @param project The project to which the compilation is associated.
+   * @param taskId The task id to use for this publication.
+   */
+  def publishCompileStart(project: Project, taskId: bsp.TaskId): Unit = {
+    val json = bsp.CompileTask.encodeCompileTask(
+      bsp.CompileTask(bsp.BuildTargetIdentifier(project.bspUri))
+    )
+
+    val ack = Build.taskStart.notify(
+      bsp.TaskStartParams(
+        taskId,
+        Some(now),
+        Some(s"Compiling '${project.name}'"),
+        Some(bsp.TaskDataKind.CompileTask),
+        Some(json)
+      )
+    )
+    ()
+  }
+
+  /**
+   * Publish a compile start notification to the client via BSP.
+   *
+   * The compile end notification must always the same task id than
+   * its counterpart, published by [[publishCompileStart()]].
+   *
+   * @param project The project to which the compilation is associated.
+   * @param taskId The task id to use for this publication.
+   * @param problems The sequence of problems that were found during compilation.
+   * @param code The status code associated with the finished compilation event.
+   */
+  def publishCompileEnd(
+      project: Project,
+      taskId: bsp.TaskId,
+      problems: Seq[Problem],
+      code: bsp.StatusCode
+  ): Unit = {
     val errors = problems.count(_.severity == Severity.Error)
     val warnings = problems.count(_.severity == Severity.Warn)
-    BuildTarget.compileReport.notify(
-      bsp.CompileReport(bsp.BuildTargetIdentifier(uri), None, errors, warnings, None)
+    val json = bsp.CompileReport.encodeCompileReport(
+      bsp.CompileReport(bsp.BuildTargetIdentifier(project.bspUri), None, errors, warnings, None)
+    )
+
+    Build.taskFinish.notify(
+      bsp.TaskFinishParams(
+        taskId,
+        Some(now),
+        Some(s"Compiled '${project.name}'"),
+        code,
+        Some(bsp.TaskDataKind.CompileReport),
+        Some(json)
+      )
     )
     ()
   }
@@ -107,8 +184,13 @@ final class BspServerLogger private (
 object BspServerLogger {
   private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
 
-  def apply(state: State, client: JsonRpcClient, ansiCodesSupported: Boolean): BspServerLogger = {
+  def apply(
+      state: State,
+      client: JsonRpcClient,
+      taskIdCounter: AtomicInt,
+      ansiCodesSupported: Boolean
+  ): BspServerLogger = {
     val name: String = s"bsp-logger-${BspServerLogger.counter.incrementAndGet()}"
-    new BspServerLogger(name, state.logger, client, ansiCodesSupported)
+    new BspServerLogger(name, state.logger, client, taskIdCounter, ansiCodesSupported)
   }
 }

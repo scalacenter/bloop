@@ -75,6 +75,9 @@ final class TestServer(
       val taskDefs = tasks.map(forkFingerprint)
       os.writeObject(taskDefs.toArray)
       os.writeInt(frameworks.size)
+      taskDefs.foreach { taskDef =>
+        taskDef.fingerprint()
+      }
 
       frameworks.foreach { framework =>
         val frameworkClass = framework.getClass.getName

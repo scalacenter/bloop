@@ -77,7 +77,8 @@ object FinalCompileResult {
       val projectName = r.bundle.project.name
       r.result match {
         case Compiler.Result.Empty => s"${projectName} (empty)"
-        case Compiler.Result.Cancelled(ms) => s"${projectName} (cancelled, lasted ${ms}ms)"
+        case Compiler.Result.Cancelled(problems, ms) =>
+          s"${projectName} (cancelled, failed with ${Problem.count(problems)}, ${ms}ms)"
         case Compiler.Result.Success(_, _, ms) => s"${projectName} (success ${ms}ms)"
         case Compiler.Result.Blocked(on) => s"${projectName} (blocked on ${on.mkString(", ")})"
         case Compiler.Result.GlobalError(problem) =>

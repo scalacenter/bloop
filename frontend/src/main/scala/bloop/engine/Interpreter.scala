@@ -71,7 +71,7 @@ object Interpreter {
   private final val line = System.lineSeparator()
   private def printAbout(state: State): Task[State] = Task {
     import state.logger
-    val bloopName = bloop.internal.build.BuildInfo.name
+    val bloopName = bloop.internal.build.BuildInfo.bloopName
     val bloopVersion = bloop.internal.build.BuildInfo.version
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion

@@ -2,10 +2,9 @@
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
-import java.net.URI
-import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
+import bloop.reporter.Reporter
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
 import sbt.util.Logger
@@ -24,6 +23,7 @@ object BloopIncremental {
       previous0: CompileAnalysis,
       output: Output,
       log: Logger,
+      reporter: Reporter,
       options: IncOptions,
       irPromise: CompletableFuture[Array[IR]]
   ): Task[(Boolean, Analysis)] = {
@@ -46,7 +46,7 @@ object BloopIncremental {
 
     val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, lookup, previous, current, compile, builder, log, options)
+    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options)
   }
 
   def compileIncremental(
@@ -56,6 +56,7 @@ object BloopIncremental {
       current: ReadStamps,
       compile: CompileFunction,
       callbackBuilder: AnalysisCallbackImpl.Builder,
+      reporter: Reporter,
       log: sbt.util.Logger,
       options: IncOptions,
       // TODO(jvican): Enable profiling of the invalidation algorithm down the road
@@ -72,7 +73,7 @@ object BloopIncremental {
     }
 
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, options, profiler.profileRun)
+    val incremental = new BloopNameHashing(reporter, options, profiler.profileRun)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray

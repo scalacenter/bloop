@@ -7,6 +7,7 @@ import bloop.cli.Commands
 import bloop.data.Project
 import bloop.engine.State
 import bloop.engine.caches.{ResultsCache, StateCache}
+import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.tasks.TestUtil
@@ -53,9 +54,9 @@ object BspClientTest {
     ExecutionModel.AlwaysAsyncExecution
   )
 
-  def createServices(logger0: BspClientLogger[_]): Services = {
+  def createServices(addDiagnosticsHandler: Boolean, logger0: BspClientLogger[_]): Services = {
     val logger: bloop.logging.Logger = logger0
-    Services
+    val rawServices = Services
       .empty(logger0)
       .notification(endpoints.Build.showMessage) {
         case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
@@ -69,8 +70,12 @@ object BspClientTest {
         case bsp.LogMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
         case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
       }
-      .notification(endpoints.Build.publishDiagnostics) {
-        case bsp.PublishDiagnosticsParams(uri, _, diagnostics) =>
+
+    // Lsp4s fails if we try to repeat a handler for a given notification
+    if (!addDiagnosticsHandler) rawServices
+    else {
+      rawServices.notification(endpoints.Build.publishDiagnostics) {
+        case bsp.PublishDiagnosticsParams(uri, _, _, diagnostics, _) =>
           // We prepend diagnostics so that tests can check they came from this notification
           def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
           diagnostics.foreach { d =>
@@ -83,6 +88,7 @@ object BspClientTest {
             }
           }
       }
+    }
   }
 
   type TestLogger = Slf4jAdapter[RecordingLogger]
@@ -93,6 +99,7 @@ object BspClientTest {
       customServices: Services => Services = identity[Services],
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
+      addDiagnosticsHandler: Boolean = true
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
     // Set an empty results cache and update the state globally
     val state = {
@@ -115,15 +122,19 @@ object BspClientTest {
 
       implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
-      val services = customServices(createServices(logger))
+      val services = customServices(createServices(addDiagnosticsHandler, logger))
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
         bsp.InitializeBuildParams(
+          "test-bloop-client",
+          "1.0.0",
+          BuildInfo.bspVersion,
           rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
-          capabilities = bsp.BuildClientCapabilities(List("scala"), false)
+          capabilities = bsp.BuildClientCapabilities(List("scala")),
+          None
         )
       )
 

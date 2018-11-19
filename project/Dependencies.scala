@@ -7,7 +7,7 @@ object Dependencies {
 
   val nailgunVersion = "0c8b937b"
   val zincVersion = "1.2.1+106-0dad4a69"
-  val bspVersion = "1.1.0" 
+  val bspVersion = "2.0.0-M1" 
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M3"
   val lmVersion = "1.0.0"
@@ -35,6 +35,7 @@ object Dependencies {
   val millVersion = "0.2.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
+  val difflibVersion = "1.3.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -58,6 +59,7 @@ object Dependencies {
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
+  val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided

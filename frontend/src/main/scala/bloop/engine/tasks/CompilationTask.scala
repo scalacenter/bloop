@@ -49,7 +49,8 @@ object CompilationTask {
           graphInputs.completeJava.complete(())
           Task.now(earlyResult)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
-          val previous = state.results.lastSuccessfulResultOrEmpty(project)
+          val previousResult = state.results.latestResult(project)
+          val previousSuccesful = state.results.lastSuccessfulResultOrEmpty(project)
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
           val (scalacOptions, compileMode) = {
@@ -92,7 +93,8 @@ object CompilationTask {
             project.javacOptions.toArray,
             project.compileOrder,
             project.classpathOptions,
-            previous,
+            previousSuccesful,
+            previousResult,
             reporter,
             compileMode,
             graphInputs.dependentResults
@@ -214,7 +216,7 @@ object CompilationTask {
     logger match {
       case bspLogger: BspServerLogger =>
         // Disable reverse order to show errors as they come for BSP clients
-        new BspReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
+        new BspProjectReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
       case _ => new LogReporter(logger, cwd, identity, config)
     }
   }
