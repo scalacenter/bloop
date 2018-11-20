@@ -9,12 +9,13 @@ from subprocess import CalledProcessError, check_call
 import sys
 import re
 from shutil import copyfileobj, copyfile
-from urlparse import urlparse
 
 IS_PY2 = sys.version[0] == '2'
 if IS_PY2:
+    from urlparse import urlparse
     from urllib2 import urlopen as urlopen
 else:
+    from urllib import parse as urlparse
     from urllib.request import urlopen as urlopen
 
 # INSERT_INSTALL_VARIABLES
