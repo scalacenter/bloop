@@ -58,7 +58,7 @@ final class BspServerLogger private (
     ()
   }
 
-  def diagnostic(project: Project, problem: Problem, clear: Boolean): Unit = {
+  def diagnostic(project: Project, problem: xsbti.Problem, clear: Boolean): Unit = {
     import sbt.util.InterfaceUtil.toOption
     val message = problem.message
     val problemPos = problem.position

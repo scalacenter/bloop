@@ -19,6 +19,7 @@ final class BspProjectReporter(
     override val cwd: AbsolutePath,
     sourcePositionMapper: Position => Position,
     override val config: ReporterConfig,
+    reportAllPreviousProblems: Boolean,
     override val _problems: mutable.Buffer[Problem] = mutable.ArrayBuffer.empty
 ) extends Reporter(logger, cwd, sourcePositionMapper, config, _problems) {
   private val taskId = logger.nextTaskId
@@ -71,8 +72,10 @@ final class BspProjectReporter(
       case None => false
     }
 
+    val clearedFiles = new mutable.HashSet[File]
     previouslyReportedProblems.foreach { problem =>
       InterfaceUtil.toOption(problem.position().sourceFile).foreach { source =>
+        if (reportAllPreviousProblems) logger
         // Do nothing if problem maps to a file with problems, assume it's already reported
         if (filesWithProblems.contains(source)) ()
         else {
@@ -82,6 +85,11 @@ final class BspProjectReporter(
           else if (compiledFiles.contains(source)) {
             // Log no diagnostic if there was a problem in a file that now compiled without problems
             logger.noDiagnostic(project, source)
+          } else if (reportAllPreviousProblems) {
+            // If we start compilation in BSP for this module, resend all previous diagnostics
+            val clear = !clearedFiles.contains(source)
+            logger.diagnostic(project, problem, clear)
+            clearedFiles.+=(source)
           } else ()
         }
       }

@@ -33,9 +33,13 @@ object JvmTestSpec {
     import bloop.util.JavaCompat.EnrichOptional
     val state0 = TestUtil.loadTestProject(buildName)
     val project = state0.build.getProjectFor(target).getOrElse(sys.error(s"Missing $target!"))
+    val order = CompileMode.Sequential
+    val cwd = state0.build.origin.getParent
     val format = ReporterConfig.defaultFormat
+    val createReporter = (project: Project, cwd: AbsolutePath) =>
+      CompilationTask.toReporter(project, cwd, format, state0.logger)
     val compileTask =
-      CompilationTask.compile(state0, project, format, false, CompileMode.Sequential, false, false)
+      CompilationTask.compile(state0, project, createReporter, false, order, false, false)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
