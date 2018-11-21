@@ -2,15 +2,14 @@ package bloop.engine
 
 import bloop.CompileMode
 import bloop.bsp.BspServer
-import bloop.cli.{BspProtocol, Commands, ExitStatus, OptimizerConfig, ReporterKind}
+import bloop.cli._
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks}
-import bloop.cli.Commands.{CompilingCommand, LinkingCommand}
-import bloop.config.Config
+import bloop.cli.Commands.CompilingCommand
 import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
@@ -132,10 +131,12 @@ object Interpreter {
     val compilerMode: CompileMode.ConfigurableMode = CompileMode.Sequential
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
+      val createReporter = (project: Project, cwd: AbsolutePath) =>
+        CompilationTask.toReporter(project, cwd, config, state.logger)
       CompilationTask.compile(
         state,
         project,
-        config,
+        createReporter,
         deduplicateFailures,
         compilerMode,
         cmd.pipeline,

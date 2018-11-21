@@ -2,18 +2,19 @@ package bloop.bsp
 
 import java.io.InputStream
 import java.nio.file.{FileSystems, PathMatcher}
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.{Compiler, ScalaInstance}
-import bloop.cli.{Commands, ExitStatus}
+import bloop.{CompileMode, Compiler, ScalaInstance}
+import bloop.cli.{BloopReporter, Commands, ExitStatus, ReporterKind}
 import bloop.data.{Platform, Project}
-import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.{CompilationTask, Tasks}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.engine._
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
+import bloop.reporter.{BspProjectReporter, Reporter, ReporterConfig}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, endpoints}
@@ -24,6 +25,7 @@ import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import monix.execution.atomic.AtomicInt
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
 
 final class BloopBspServices(
@@ -48,9 +50,9 @@ final class BloopBspServices(
 
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
-  private val bspForwarderLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
+  private val bspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
   final val services = JsonRpcServices
-    .empty(bspForwarderLogger)
+    .empty(bspLogger)
     .requestAsync(endpoints.Build.initialize)(initialize(_))
     .notification(endpoints.Build.initialized)(initialized(_))
     .request(endpoints.Build.shutdown)(shutdown(_))
@@ -75,10 +77,10 @@ final class BloopBspServices(
   private def reloadState(config: AbsolutePath): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
-    bspForwarderLogger.debug(s"Reloading bsp state for ${config.syntax}")
+    bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
     // TODO(jvican): Modify the in, out and err streams to go through the BSP wire
-    State.loadActiveStateFor(config, pool, defaultOpts, bspForwarderLogger).map { state0 =>
-      val newState = state0.copy(logger = bspForwarderLogger)
+    State.loadActiveStateFor(config, pool, defaultOpts, bspLogger).map { state0 =>
+      val newState = state0.copy(logger = bspLogger)
       currentState = newState
       newState
     }
@@ -87,9 +89,9 @@ final class BloopBspServices(
   private def saveState(state: State): Task[Unit] = {
     Task {
       val configDir = state.build.origin
-      bspForwarderLogger.debug(s"Saving bsp state for ${configDir.syntax}")
+      bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
       // Spawn the analysis persistence after every save
-      val persistOut = (msg: String) => bspForwarderLogger.debug(msg)
+      val persistOut = (msg: String) => bspLogger.debug(msg)
       Tasks.persist(state, persistOut).runAsync(ExecutionContext.scheduler)
       // Save the state globally so that it can be accessed by other clients
       State.stateCache.updateBuild(state)
@@ -182,31 +184,91 @@ final class BloopBspServices(
     }
   }
 
+  private val compiledTargetsAtLeastOnce =
+    new TrieMap[bsp.BuildTargetIdentifier, Boolean]()
+
+  /**
+   * Checks whether a project should compile with fresh reporting enabled.
+   *
+   * Enabling fresh reporting in a project will allow the bloop server to
+   * publish diagnostics from previous runs to the client. For an example
+   * of where this is required, see https://github.com/scalacenter/bloop/issues/726
+   *
+   * @param mappings The projects mappings we work with.
+   * @return The list of projects we want to enable fresh reporting for.
+   */
+  def detectProjectsWithFreshReporting(mappings: Seq[ProjectMapping]): Seq[Project] = {
+    val filteredMappings = mappings.filter {
+      case (btid, project) =>
+        compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
+          case Some(_) => false
+          case None => true
+        }
+    }
+
+    filteredMappings.map(_._2)
+  }
+
   def compileProjects(
       projects0: Seq[ProjectMapping],
       state: State
   ): BspResult[bsp.CompileResult] = {
-    val projects = Dag.reduce(state.build.dags, projects0.map(_._2).toSet)
-    val action = projects.foldLeft(Exit(ExitStatus.Ok): Action) {
-      case (action, project) => Run(Commands.Compile(project.name), action)
-    }
-
+    val projectsWithFreshReporting = detectProjectsWithFreshReporting(projects0).toSet
     def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
       s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"
     }
 
-    Interpreter.execute(action, Task.now(state)).map { newState =>
-      val compiledProjects = state.results.diffLatest(newState.results)
-      val errorMsgs = compiledProjects.flatMap {
+    def compile(projects: Set[Project]): Task[State] = {
+      // TODO(jvican): Improve when https://github.com/scalacenter/bloop/issues/575 is fixdd
+      val (_, finalTaskState) = projects.foldLeft((false, Task.now(state))) {
+        case ((deduplicateFailures, taskState), project) =>
+          val newTaskState = taskState.flatMap { state =>
+            val reportAllPreviousProblems = projectsWithFreshReporting.contains(project)
+            val cwd = state.build.origin.getParent
+            val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
+            val createReporter = (project: Project, cwd: AbsolutePath) => {
+              new BspProjectReporter(
+                project,
+                bspLogger,
+                cwd,
+                identity,
+                config,
+                reportAllPreviousProblems
+              )
+            }
+
+            val compileTask = CompilationTask.compile(
+              state,
+              project,
+              createReporter,
+              deduplicateFailures,
+              CompileMode.Sequential,
+              false,
+              false
+            )
+
+            compileTask.map(_.mergeStatus(ExitStatus.Ok))
+          }
+
+          (true, newTaskState)
+      }
+
+      finalTaskState
+    }
+
+    val projects = Dag.reduce(state.build.dags, projects0.map(_._2).toSet)
+    compile(projects).map { newState =>
+      val compiledResults = state.results.diffLatest(newState.results)
+      val errorMsgs = compiledResults.flatMap {
         case (p, result) =>
           result match {
             case Compiler.Result.Empty => Nil
             case Compiler.Result.Blocked(_) => Nil
             case Compiler.Result.Success(_, _, _) => Nil
             case Compiler.Result.GlobalError(problem) => List(problem)
-            case Compiler.Result.Cancelled(problems, elapsed) => Nil
+            case Compiler.Result.Cancelled(problems, elapsed) =>
               List(reportError(p, problems, elapsed))
             case Compiler.Result.Failed(problems, t, elapsed) =>
               val acc = List(reportError(p, problems, elapsed))
@@ -232,7 +294,7 @@ final class BloopBspServices(
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          bspForwarderLogger.error(error)
+          bspLogger.error(error)
           Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None))))
         case Right(mappings) => compileProjects(mappings, state)
       }
@@ -255,7 +317,7 @@ final class BloopBspServices(
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          bspForwarderLogger.error(error)
+          bspLogger.error(error)
           Task.now((state, Right(bsp.TestResult(None, bsp.StatusCode.Error, None))))
         case Right(mappings) =>
           compileProjects(mappings, state).flatMap {
@@ -323,7 +385,7 @@ final class BloopBspServices(
       mapToProject(params.target, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          bspForwarderLogger.error(error)
+          bspLogger.error(error)
           Task.now((state, Right(bsp.RunResult(None, bsp.StatusCode.Error))))
         case Right((tid, project)) =>
           compileProjects(List((tid, project)), state).flatMap {
@@ -365,7 +427,7 @@ final class BloopBspServices(
       version.split('.').take(2).mkString(".")
     }
 
-    val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
+    val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toPath.toUri)).toList
     val platform = project.platform match {
       case _: Platform.Jvm => bsp.ScalaPlatform.Jvm
       case _: Platform.Js => bsp.ScalaPlatform.Js
@@ -443,7 +505,7 @@ final class BloopBspServices(
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          bspForwarderLogger.error(error)
+          bspLogger.error(error)
           Task.now((state, Right(bsp.SourcesResult(Nil))))
         case Right(mappings) => sources(mappings, state)
       }
@@ -479,7 +541,7 @@ final class BloopBspServices(
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          bspForwarderLogger.error(error)
+          bspLogger.error(error)
           Task.now((state, Right(bsp.DependencySourcesResult(Nil))))
         case Right(mappings) => sources(mappings, state)
       }
@@ -511,7 +573,7 @@ final class BloopBspServices(
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          bspForwarderLogger.error(error)
+          bspLogger.error(error)
           // TODO(jvican): Add status code to scalac options result
           Task.now((state, Right(bsp.ScalacOptionsResult(Nil))))
         case Right(mappings) => scalacOptions(mappings, state)

@@ -11,6 +11,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.reporter.LogReporter
 import monix.eval.Task
+import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.concurrent.Await
@@ -31,7 +32,7 @@ import scala.concurrent.duration.Duration
  */
 final class ResultsCache private (
     all: Map[Project, Compiler.Result],
-    successful: Map[Project, PreviousResult]
+    successful: Map[Project, PreviousResult],
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
@@ -99,7 +100,6 @@ object ResultsCache {
   }
 
   def loadAsync(build: Build, cwd: AbsolutePath, logger: Logger): Task[ResultsCache] = {
-    import sbt.internal.inc.FileAnalysisStore
     import bloop.util.JavaCompat.EnrichOptional
 
     def fetchPreviousResult(p: Project): Task[Compiler.Result] = {

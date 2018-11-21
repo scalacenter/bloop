@@ -58,7 +58,7 @@ final class BspServerLogger private (
     ()
   }
 
-  def diagnostic(project: Project, problem: Problem, clear: Boolean): Unit = {
+  def diagnostic(project: Project, problem: xsbti.Problem, clear: Boolean): Unit = {
     import sbt.util.InterfaceUtil.toOption
     val message = problem.message
     val problemPos = problem.position
@@ -83,7 +83,7 @@ final class BspServerLogger private (
           case Severity.Info => bsp.DiagnosticSeverity.Information
         }
 
-        val uri = bsp.Uri(file.toURI)
+        val uri = bsp.Uri(file.toPath.toUri)
         val diagnostic = bsp.Diagnostic(pos, Some(severity), None, None, message, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(project.bspUri)
@@ -101,7 +101,7 @@ final class BspServerLogger private (
   }
 
   def noDiagnostic(project: Project, file: File): Unit = {
-    val uri = bsp.Uri(file.toURI)
+    val uri = bsp.Uri(file.toPath.toUri)
     val textDocument = bsp.TextDocumentIdentifier(uri)
     val buildTargetId = bsp.BuildTargetIdentifier(project.bspUri)
     val diagnostics =

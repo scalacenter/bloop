@@ -26,12 +26,7 @@ class BspProtocolSpec {
   tempDir.toFile.deleteOnExit()
 
   private final val MainProject = "test-project"
-  def isMainProject(targetUri: BuildTargetIdentifier): Boolean =
-    targetUri.uri.value.endsWith(MainProject)
-
   private final val TestProject = "test-project-test"
-  def isTestProject(targetUri: BuildTargetIdentifier): Boolean =
-    targetUri.uri.value.endsWith(TestProject)
 
   private final val MainJsProject = "test-projectJS"
   private final val TestJsProject = "test-projectJS-test"
@@ -46,6 +41,11 @@ class BspProtocolSpec {
     .find(_.name == TestProject)
     .getOrElse(sys.error(s"Missing main project $TestProject in $crossTestBuild"))
   Files.createDirectories(testProject.baseDirectory.underlying)
+
+  def isMainProject(targetUri: BuildTargetIdentifier): Boolean =
+    targetUri.uri == mainProject.bspUri
+  def isTestProject(targetUri: BuildTargetIdentifier): Boolean =
+    targetUri.uri == testProject.bspUri
 
   def validateBsp(bspCommand: Commands.Bsp): Commands.ValidatedBsp = {
     val baseDir = AbsolutePath(configDir.underlying.getParent)
@@ -395,6 +395,74 @@ class BspProtocolSpec {
     } else Assert.fail(s"Unknown target ${compileTask.target} in ${task}")
   }
 
+  type Result = Either[Response.Error, bsp.CompileResult]
+  private def composeCompilation(
+      prev: Result,
+      newCompilation: Task[Result]
+  ): Task[Result] = prev.fold(e => Task.now(Left(e)), _ => newCompilation)
+
+  private def io[T](thunk: => T): T = {
+    // Avoid spurious CI errors by giving the OS some time to pick up changes
+    val value = thunk; Thread.sleep(50); value
+  }
+
+  type DiagnosticKey = (bsp.BuildTargetIdentifier, Int) // Int = Cycle starts at 0
+  private def addNotificationsHandler(
+      services: Services,
+      stringifiedDiagnostics: ConcurrentHashMap[DiagnosticKey, StringBuilder],
+      decideCompilationCycleIndex: bsp.BuildTargetIdentifier => Int
+  ): Services = {
+    services.notification(endpoints.Build.publishDiagnostics) {
+      case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
+        // Add the diagnostics to the stringified diagnostics map
+        val cycleIndex = decideCompilationCycleIndex(btid)
+        stringifiedDiagnostics.compute(
+          (btid, cycleIndex),
+          (_: DiagnosticKey, builder0) => {
+            val builder = if (builder0 == null) new StringBuilder() else builder0
+            val baseDir = {
+              // TODO(jvican): Fix when https://github.com/scalacenter/bloop/issues/724 is done
+              val wp = CommonOptions.default.workingPath
+              if (wp.underlying.endsWith("frontend")) wp
+              else wp.resolve("frontend")
+            }
+
+            // Make the relative path compatible with unix for tests to pass in Windows
+            Assert.assertTrue(
+              s"URI ${tid.uri} does not start with valid 'file:///'",
+              tid.uri.value.startsWith("file:///")
+            )
+            val relativePath = AbsolutePath(tid.uri.toPath).toRelative(baseDir)
+            val canonical = relativePath.toString.replace(File.separatorChar, '/')
+            val report = diagnostics
+              .map(_.toString.replace("\n", " ").replace(System.lineSeparator, " "))
+            builder
+              .++=(s"#${cycleIndex + 1}: $canonical\n")
+              .++=(s"  -> $report\n")
+              .++=(s"  -> reset = $reset\n")
+          }
+        )
+        ()
+    }
+  }
+
+  private def findDiagnosticsReportUntil(
+      btid: BuildTargetIdentifier,
+      stringifiedDiagnostics: ConcurrentHashMap[DiagnosticKey, StringBuilder],
+      compilationNumber: Int
+  ): String = {
+    val builder = new StringBuilder()
+    for (i <- 1 to compilationNumber) {
+      val result = stringifiedDiagnostics.get((btid, i - 1))
+      if (result == null) {
+        builder.++=(s"#$i: No diagnostics for $btid\n")
+      } else {
+        builder.++=(result.mkString)
+      }
+    }
+    builder.mkString.stripLineEnd
+  }
+
   /**
    * This test checks the behavior of compilation is as comprehensive and well-specified as it can.
    *
@@ -443,17 +511,6 @@ class BspProtocolSpec {
         Files.deleteIfExists(testIncrementalCompilationFile.underlying)
         Files.deleteIfExists(testIncrementalCompilationFile2.underlying)
         ()
-      }
-
-      type Result = Either[Response.Error, bsp.CompileResult]
-      def composeCompilation(
-          prev: Result,
-          newCompilation: Task[Result]
-      ): Task[Result] = prev.fold(e => Task.now(Left(e)), _ => newCompilation)
-
-      def io[T](thunk: => T): T = {
-        // Avoid spurious CI errors by giving the OS some time to pick up changes
-        val value = thunk; Thread.sleep(50); value
       }
 
       val driver = for {
@@ -548,26 +605,11 @@ class BspProtocolSpec {
     }
 
     val startedTask = scala.collection.mutable.HashSet[bsp.TaskId]()
-    type DiagnosticKey = (bsp.BuildTargetIdentifier, Int) // Int = Cycle starts at 0
     val stringifiedDiagnostics = new ConcurrentHashMap[DiagnosticKey, StringBuilder]()
-    def findDiagnosticsReportPerCycle(btid: BuildTargetIdentifier, cycle: Int): String =
-      stringifiedDiagnostics.get((btid, mainReportsIndex)).mkString.stripLineEnd
-    def findDiagnosticsReportUntil(btid: BuildTargetIdentifier, compilationNumber: Int): String = {
-      import scala.collection.JavaConverters._
-      val builder = new StringBuilder()
-      for (i <- 1 to compilationNumber) {
-        val result = stringifiedDiagnostics.get((btid, i - 1))
-        if (result == null) {
-          builder.++=(s"#$i: No diagnostics for $btid\n")
-        } else {
-          builder.++=(result.mkString)
-        }
-      }
-      builder.mkString.stripLineEnd
-    }
 
     val addServicesTest = { (s: Services) =>
-      s.notification(endpoints.Build.taskStart) { taskStart =>
+      val services = s
+        .notification(endpoints.Build.taskStart) { taskStart =>
           taskStart.dataKind match {
             case Some(bsp.TaskDataKind.CompileTask) =>
               // Add the task id to the list of started task so that we check them in `taskFinish`
@@ -584,35 +626,6 @@ class BspProtocolSpec {
               }
             case _ => Assert.fail(s"Got an unknown task start $taskStart")
           }
-        }
-        .notification(endpoints.Build.publishDiagnostics) {
-          case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
-            // Add the diagnostics to the stringified diagnostics map
-            val isTestProject = tid.uri.value == testProject.bspUri
-            val cycle = if (isTestProject) testReportsIndex else mainReportsIndex
-            stringifiedDiagnostics.compute(
-              (btid, cycle),
-              (_: DiagnosticKey, builder0) => {
-                val builder = if (builder0 == null) new StringBuilder() else builder0
-                val baseDir = {
-                  // TODO(jvican): Fix when https://github.com/scalacenter/bloop/issues/724 is done
-                  val wp = CommonOptions.default.workingPath
-                  if (wp.underlying.endsWith("frontend")) wp
-                  else wp.resolve("frontend")
-                }
-
-                // Make the relative path compatible with unix for tests to pass in Windows
-                val relativePath = AbsolutePath(tid.uri.toPath).toRelative(baseDir)
-                val canonical = relativePath.toString.replace(File.separatorChar, '/')
-                val report = diagnostics
-                  .map(_.toString.replace("\n", " ").replace(System.lineSeparator, " "))
-                builder
-                  .++=(s"#${mainReportsIndex + 1}: $canonical\n")
-                  .++=(s"  -> $report\n")
-                  .++=(s"  -> reset = $reset\n")
-              }
-            )
-            ()
         }
         .notification(endpoints.Build.taskFinish) { taskFinish =>
           taskFinish.dataKind match {
@@ -638,6 +651,15 @@ class BspProtocolSpec {
             case _ => Assert.fail(s"Got an unknown task finish $taskFinish")
           }
         }
+
+      addNotificationsHandler(
+        services,
+        stringifiedDiagnostics,
+        (btid: bsp.BuildTargetIdentifier) => {
+          val isTestProject = btid.uri == testProject.bspUri
+          if (isTestProject) testReportsIndex else mainReportsIndex
+        }
+      )
     }
 
     reportIfError(logger) {
@@ -648,10 +670,6 @@ class BspProtocolSpec {
         addServicesTest,
         addDiagnosticsHandler = false
       )(c => clientWork(c))
-
-      // P      , 1st  , 2nd        , 3rd        , 4th        , 5th  , 6th   , 7th   , 8th  , 9th
-      // main   , FULL , INC FAILED , INC FAILED , NOOP  , INC FAILED , INC  , NOOP  , NOOP , NOOP
-      // test   , FULL , NONE       , NOOP       , NOOP  , NONE       , NOOP , NOOP  , INC  , NOOP
 
       val totalMainCompilations = 9
       Assert.assertEquals(
@@ -706,7 +724,8 @@ class BspProtocolSpec {
          """.stripMargin
 
       // There must only be 5 compile reports with diagnostics in the main project
-      val obtainedMainDiagnostics = findDiagnosticsReportUntil(mainTarget, totalMainCompilations)
+      val obtainedMainDiagnostics =
+        findDiagnosticsReportUntil(mainTarget, stringifiedDiagnostics, totalMainCompilations)
       TestUtil.assertNoDiff(expectedMainDiagnostics, obtainedMainDiagnostics)
 
       val testTarget = bsp.BuildTargetIdentifier(testProject.bspUri)
@@ -720,20 +739,22 @@ class BspProtocolSpec {
          """.stripMargin
 
       // The compilation of the test project sends no diagnostics whatosever
-      val obtainedTestDiagnostics = findDiagnosticsReportUntil(testTarget, totalTestCompilations)
+      val obtainedTestDiagnostics =
+        findDiagnosticsReportUntil(testTarget, stringifiedDiagnostics, totalTestCompilations)
       TestUtil.assertNoDiff(expectedTestDiagnostics, obtainedTestDiagnostics)
     }
   }
 
   def testCompileNoOp(bspCmd: Commands.ValidatedBsp): Unit = {
-    var receivedReports: Int = 0
-    var receivedTestReports: Int = 0
+    var mainReportsIndex: Int = 0
+    var testReportsIndex: Int = 0
     val logger = new BspClientLogger(new RecordingLogger)
+
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
         ts match {
           case Right(workspaceTargets) =>
-            workspaceTargets.targets.map(_.id).find(isMainProject(_)) match {
+            workspaceTargets.targets.map(_.id).find(isTestProject(_)) match {
               case Some(id) =>
                 endpoints.BuildTarget.compile.request(bsp.CompileParams(List(id), None, None)).map {
                   case Left(e) => Left(e)
@@ -748,8 +769,12 @@ class BspProtocolSpec {
     }
 
     val startedTask = scala.collection.mutable.HashSet[bsp.TaskId]()
+    type DiagnosticKey = (bsp.BuildTargetIdentifier, Int) // Int = Cycle starts at 0
+    val stringifiedDiagnostics = new ConcurrentHashMap[DiagnosticKey, StringBuilder]()
+
     val addServicesTest = { (s: Services) =>
-      s.notification(endpoints.Build.taskStart) { taskStart =>
+      val services = s
+        .notification(endpoints.Build.taskStart) { taskStart =>
           taskStart.dataKind match {
             case Some(bsp.TaskDataKind.CompileTask) =>
               // Add the task id to the list of started task so that we check them in `taskFinish`
@@ -777,15 +802,15 @@ class BspProtocolSpec {
               val json = taskFinish.data.get
               bsp.CompileReport.decodeCompileReport(json.hcursor) match {
                 case Right(report) =>
-                  if (isMainProject(report.target) && receivedReports == 0) {
+                  if (isMainProject(report.target) && mainReportsIndex == 0) {
                     // This is the batch compilation which should have a warning and no errors
-                    receivedReports += 1
+                    mainReportsIndex += 1
                     Assert.assertEquals(s"Warnings in $MainProject != 1", 1, report.warnings)
                     Assert.assertEquals(s"Errors in $MainProject != 0", 0, report.errors)
                     //Assert.assertTrue(s"Duration in $MainProject == 0", report.time != 0)
-                  } else if (isTestProject(report.target) && receivedTestReports == 0) {
+                  } else if (isTestProject(report.target) && testReportsIndex == 0) {
                     // All compilations of the test project must compile correctly
-                    receivedTestReports += 1
+                    testReportsIndex += 1
                     Assert.assertEquals(s"Warnings in $MainProject != 0", 0, report.warnings)
                     Assert.assertEquals(s"Errors in $MainProject != 0", 0, report.errors)
                   } else {
@@ -797,12 +822,60 @@ class BspProtocolSpec {
             case _ => Assert.fail(s"Got an unknown task finish $taskFinish")
           }
         }
+
+      addNotificationsHandler(
+        services,
+        stringifiedDiagnostics,
+        (btid: bsp.BuildTargetIdentifier) => {
+          val isTestProject = btid.uri == testProject.bspUri
+          if (isTestProject) testReportsIndex else mainReportsIndex
+        }
+      )
     }
 
     reportIfError(logger) {
-      BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest, reusePreviousState = true)(
-        c => clientWork(c)
+      BspClientTest.runTest(
+        bspCmd,
+        configDir,
+        logger,
+        addServicesTest,
+        reusePreviousState = true,
+        addDiagnosticsHandler = false
+      )(c => clientWork(c))
+
+      val totalMainCompilations = 1
+      Assert.assertEquals(
+        s"Mismatch in total number of compilations for $MainProject",
+        totalMainCompilations,
+        mainReportsIndex
       )
+
+      val totalTestCompilations = 1
+      Assert.assertEquals(
+        s"Mismatch in total number of compilations for $TestProject",
+        totalTestCompilations,
+        testReportsIndex
+      )
+
+      val mainTarget = bsp.BuildTargetIdentifier(mainProject.bspUri)
+      val expectedMainDiagnostics =
+        s"""#1: src/test/resources/cross-test-build-0.6/test-project/shared/src/main/scala/hello/App.scala
+           |  -> List(Diagnostic(Range(Position(5,8),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
+           |  -> reset = true
+         """.stripMargin
+
+      val obtainedMainDiagnostics =
+        findDiagnosticsReportUntil(mainTarget, stringifiedDiagnostics, totalMainCompilations)
+      TestUtil.assertNoDiff(expectedMainDiagnostics, obtainedMainDiagnostics)
+
+      val testTarget = bsp.BuildTargetIdentifier(testProject.bspUri)
+      val expectedTestDiagnostics =
+        s"""#1: No diagnostics for $testTarget
+         """.stripMargin
+
+      val obtainedTestDiagnostics =
+        findDiagnosticsReportUntil(testTarget, stringifiedDiagnostics, totalTestCompilations)
+      TestUtil.assertNoDiff(expectedTestDiagnostics, obtainedTestDiagnostics)
     }
   }
 

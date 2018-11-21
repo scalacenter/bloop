@@ -24,15 +24,15 @@ object CompilationTask {
    *
    * @param state          The current state of Bloop.
    * @param project        The project to compile.
-   * @param reporterConfig Configuration of the compilation messages reporter.
-   * @param excludeRoot    If `true`, compile only the dependencies of `project`. Otherwise,
-   *                       also compile `project`.
+   * @param createReporter A function that creates a per-project compilation reporter.
+   * @param excludeRoot    If `true`, compile only the dependencies of `project`.
+   *                       Otherwise, also compile `project`.
    * @return The new state of Bloop after compilation.
    */
   def compile(
       state: State,
       project: Project,
-      reporterConfig: ReporterConfig,
+      createReporter: (Project, AbsolutePath) => Reporter,
       sequentialCompilation: Boolean,
       userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
@@ -51,7 +51,7 @@ object CompilationTask {
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
           val previousResult = state.results.latestResult(project)
           val previousSuccesful = state.results.lastSuccessfulResultOrEmpty(project)
-          val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
+          val reporter = createReporter(project, cwd)
 
           val (scalacOptions, compileMode) = {
             if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
@@ -191,23 +191,23 @@ object CompilationTask {
 
       val instances = results.iterator.flatMap(_.bundle.project.scalaInstance.toIterator).toSet
       instances.foreach { i =>
-          // Initialize a compiler so that we can reset the global state after a build compilation
-          val logger = state.logger
-          val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]
-          val config = ReporterConfig.defaultFormat
-          val cwd = state.commonOptions.workingPath
-          val reporter = new LogReporter(logger, cwd, identity, config)
-          val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
-          val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
-          // Reset the global ir caches on the cached compiler only for the store IRs
-          scalac.resetGlobalIRCaches(mergedStore, cached, logger)
+        // Initialize a compiler so that we can reset the global state after a build compilation
+        val logger = state.logger
+        val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]
+        val config = ReporterConfig.defaultFormat
+        val cwd = state.commonOptions.workingPath
+        val reporter = new LogReporter(logger, cwd, identity, config)
+        val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
+        val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
+        // Reset the global ir caches on the cached compiler only for the store IRs
+        scalac.resetGlobalIRCaches(mergedStore, cached, logger)
       }
     } finally {
       Files.delete(tmpDir)
     }
   }
 
-  private def createCompilationReporter(
+  def toReporter(
       project: Project,
       cwd: AbsolutePath,
       config: ReporterConfig,
@@ -216,7 +216,13 @@ object CompilationTask {
     logger match {
       case bspLogger: BspServerLogger =>
         // Disable reverse order to show errors as they come for BSP clients
-        new BspProjectReporter(project, bspLogger, cwd, identity, config.copy(reverseOrder = false))
+        new BspProjectReporter(
+          project,
+          bspLogger,
+          cwd,
+          identity,
+          config.copy(reverseOrder = false),
+          false)
       case _ => new LogReporter(logger, cwd, identity, config)
     }
   }
