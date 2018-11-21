@@ -428,6 +428,10 @@ class BspProtocolSpec {
             }
 
             // Make the relative path compatible with unix for tests to pass in Windows
+            Assert.assertTrue(
+              s"URI ${tid.uri} does not start with valid 'file:///'",
+              tid.uri.value.startsWith("file:///")
+            )
             val relativePath = AbsolutePath(tid.uri.toPath).toRelative(baseDir)
             val canonical = relativePath.toString.replace(File.separatorChar, '/')
             val report = diagnostics

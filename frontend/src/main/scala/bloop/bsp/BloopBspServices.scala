@@ -427,7 +427,7 @@ final class BloopBspServices(
       version.split('.').take(2).mkString(".")
     }
 
-    val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toURI)).toList
+    val jars = instance.allJars.iterator.map(j => bsp.Uri(j.toPath.toUri)).toList
     val platform = project.platform match {
       case _: Platform.Jvm => bsp.ScalaPlatform.Jvm
       case _: Platform.Js => bsp.ScalaPlatform.Js
