@@ -39,14 +39,6 @@ $ bloop run -p frontend -m bloop.util.CommandsDocGenerator
 
 and copying the output to `website/content/docs/commands-reference.md` (keeping old header intact).
 
-Additionally, in order to keep Fish tab completion up-to-date, please run:
-
-```sh
-$ bloop run -p frontend -m bloop.util.FishCompleteGenerator
-```
-
-and copy the output to `etc/fish/bloop.fish` (keeping the content before this line `# BEGINNING OF GENERATED CONTENT`)
-
 ## Opening up our sbt build
 
 Bloop builds with sbt and uses git submodules. To avoid getting cryptic errors like
