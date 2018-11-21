@@ -64,7 +64,7 @@ parser.add_argument(
     help="Tell the location of the ivy home.")
 parser.add_argument(
     '--bloop-home',
-    help="Tell the location of the ivy home.")
+    help="Tell the location of the bloop home.")
 args = parser.parse_args()
 is_local = args.ivy_home is not None
 
@@ -73,6 +73,7 @@ BLOOP_VERSION = args.version
 NAILGUN_COMMIT = args.nailgun
 ZSH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "zsh")
 BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
+FISH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "fish")
 SYSTEMD_SERVICE_DIR = join(BLOOP_INSTALLATION_TARGET, "systemd")
 XDG_DIR = join(BLOOP_INSTALLATION_TARGET, "xdg")
 COURSIER_URL = "https://github.com/coursier/coursier/raw/v" + args.coursier + "/coursier"
@@ -93,6 +94,7 @@ else:
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
 ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % ETC_VERSION
 BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % ETC_VERSION
+FISH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/fish/bloop.fish" % ETC_VERSION
 SYSTEMD_SERVICE_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/systemd/bloop.service" % ETC_VERSION
 XDG_APPLICATION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.desktop" % ETC_VERSION
 XDG_ICON_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.png" % ETC_VERSION
@@ -101,6 +103,7 @@ BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 ZSH_COMPLETION_TARGET = join(ZSH_COMPLETION_DIR, "_bloop")
 BASH_COMPLETION_TARGET = join(BASH_COMPLETION_DIR, "bloop")
+FISH_COMPLETION_TARGET = join(FISH_COMPLETION_DIR, "bloop.fish")
 SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
 XDG_APPLICATION_TARGET = join(XDG_DIR, "bloop.desktop")
 XDG_ICON_TARGET = join(XDG_DIR, "bloop.png")
@@ -187,6 +190,7 @@ def makedir(directory):
 makedir(BLOOP_INSTALLATION_TARGET)
 makedir(ZSH_COMPLETION_DIR)
 makedir(BASH_COMPLETION_DIR)
+makedir(FISH_COMPLETION_DIR)
 makedir(SYSTEMD_SERVICE_DIR)
 makedir(XDG_DIR)
 
@@ -208,18 +212,25 @@ if is_local:
     # The bloop rb is created under the relative path 'frontend/target/Bloop.rb'
     local_zsh = join(join(join(args.bloop_home, "etc"), "zsh"), "_bloop")
     local_bash = join(join(join(args.bloop_home, "etc"), "bash"), "bloop")
+    local_fish = join(join(join(args.bloop_home, "etc"), "fish"), "bloop.fish")
 
     copy_and_install(local_zsh, ZSH_COMPLETION_TARGET, 0o755)
     print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 
     copy_and_install(local_bash, BASH_COMPLETION_TARGET, 0o755)
     print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+
+    copy_and_install(local_fish, FISH_COMPLETION_TARGET, 0o755)
+    print("Installed fish completion in '%s'" % FISH_COMPLETION_TARGET)
 else:
     download_and_install(ZSH_COMPLETION_URL, ZSH_COMPLETION_TARGET, 0o755)
     print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
 
     download_and_install(BASH_COMPLETION_URL, BASH_COMPLETION_TARGET, 0o755)
     print("Installed Bash completion in '%s'" % BASH_COMPLETION_TARGET)
+
+    download_and_install(FISH_COMPLETION_URL, FISH_COMPLETION_TARGET, 0o755)
+    print("Installed fish completion in '%s'" % FISH_COMPLETION_TARGET)
 
 if not is_local:
     # Only copy these if we're not installing it locally
