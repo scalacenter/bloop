@@ -2,11 +2,10 @@ package bloop.engine
 
 import org.junit.{Assert, Test}
 import org.junit.experimental.categories.Category
-import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
-import bloop.data.Project
 import bloop.config.Config
 import bloop.data.Project
+import bloop.engine.Dag.DagResult
 import bloop.tasks.{CompilationHelpers, TestUtil}
 import guru.nidi.graphviz.parse.Parser
 
@@ -33,16 +32,25 @@ class DagSpec {
     val d = dummyProject("d", List("c", "a"))
     val e = dummyProject("e", List())
     val f = dummyProject("f", List("d"))
+    val fWithError = dummyProject("f", List("z"))
     val complete = List(a, b, c, d, e, f)
+    val completeWithFailedDependency = List(a, b, c, d, e, fWithError)
     val g = dummyProject("g", List("g"))
     val recursive = List(a, b, c, d, e, f)
     val h = dummyProject("h", List("i"))
     val i = dummyProject("i", List("h"))
   }
 
+  def fromMap(projectsMap: Map[String, Project]): List[Dag[Project]] = Dag.fromMap(projectsMap).dags
+
   private def checkParent(d: Dag[Project], p: Project) = d match {
     case Parent(p2, _) => assert(p2 == p, s"$p2 is not $p")
     case Leaf(f) => sys.error(s"$p is a leaf!")
+  }
+
+  private def checkDependencies(d: Dag[Project], ps: Seq[Project]) = d match {
+    case Parent(_, deps) => assert(deps == ps, s"$deps != $ps")
+    case Leaf(f) => sys.error(s"$d is a leaf!")
   }
 
   private def checkLeaf(d: Dag[Project], p: Project) = d match {
@@ -51,21 +59,21 @@ class DagSpec {
   }
 
   @Test def EmptyDAG(): Unit = {
-    val dags = Dag.fromMap(Map())
+    val dags = fromMap(Map())
     assert(dags.isEmpty)
   }
 
   @Test def SimpleDAG(): Unit = {
     import TestProjects.a
     val projectsMap = List(a.name -> a).toMap
-    val dags = Dag.fromMap(projectsMap)
+    val dags = fromMap(projectsMap)
     assert(dags.size == 1)
     checkLeaf(dags.head, a)
   }
 
   @Test def CompleteDAG(): Unit = {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
-    val dags = Dag.fromMap(projectsMap)
+    val dags = fromMap(projectsMap)
 
     assert(dags.size == 3)
     checkLeaf(dags.head, TestProjects.e)
@@ -73,11 +81,28 @@ class DagSpec {
     checkParent(dags.tail.tail.head, TestProjects.b)
   }
 
+  @Test def CompleteDAGWithMissingDependencies(): Unit = {
+    val projectsMap = TestProjects.completeWithFailedDependency.map(p => p.name -> p).toMap
+    val DagResult(dags, missingDeps) = Dag.fromMap(projectsMap)
+
+    checkLeaf(dags.head, TestProjects.e)
+    // Check that f has no registered dependency
+    dags.tail.head match {
+      case Parent(p, deps) =>
+        assert(p.name == "f")
+        assert(deps == Nil, s"$deps != Nil")
+      case l @ Leaf(_) => sys.error(s"$l is a leaf!")
+    }
+
+    checkParent(dags.tail.tail.head, TestProjects.b)
+    checkParent(dags.tail.tail.tail.head, TestProjects.d)
+  }
+
   @Test(expected = classOf[Dag.RecursiveCycle])
   def SimpleRecursiveDAG(): Unit = {
     import TestProjects.g
     val projectsMap = Map(g.name -> g)
-    Dag.fromMap(projectsMap)
+    fromMap(projectsMap)
     ()
   }
 
@@ -85,7 +110,7 @@ class DagSpec {
   def CompleteRecursiveDAG(): Unit = {
     import TestProjects.g
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap + (g.name -> g)
-    Dag.fromMap(projectsMap)
+    fromMap(projectsMap)
     ()
   }
 
@@ -94,20 +119,20 @@ class DagSpec {
     import TestProjects.{h, i}
     val recursiveProjects = Map(h.name -> h, i.name -> i)
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap ++ recursiveProjects
-    Dag.fromMap(projectsMap)
+    fromMap(projectsMap)
     ()
   }
 
   @Test def DottifyGraph(): Unit = {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
-    val dags = Dag.fromMap(projectsMap)
+    val dags = fromMap(projectsMap)
     val dotContents = Dag.toDotGraph(dags)
     Parser.read(dotContents)
     ()
   }
 
   @Test def EmptyDfs(): Unit = {
-    val dags = Dag.fromMap(Map())
+    val dags = fromMap(Map())
     val dfss = dags.map(dag => Dag.dfs(dag))
     assert(dfss.isEmpty, "DFS for empty dag is empty")
   }
@@ -115,7 +140,7 @@ class DagSpec {
   @Test def SimpleDfs(): Unit = {
     import TestProjects.a
     val projectsMap = List(a.name -> a).toMap
-    val dags = Dag.fromMap(projectsMap)
+    val dags = fromMap(projectsMap)
     val dfss = dags.map(dag => Dag.dfs(dag))
     assert(dfss.size == 1)
     assert(dfss.head == List(a), s"DFS for simple dag does not contain $a")
@@ -123,7 +148,7 @@ class DagSpec {
 
   @Test def CompleteDfs(): Unit = {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
-    val dags = Dag.fromMap(projectsMap)
+    val dags = fromMap(projectsMap)
     val dfss = dags.map(dag => Dag.dfs(dag))
     assert(dfss.size == 3)
     assert(dfss.head == List(TestProjects.e))
@@ -136,7 +161,7 @@ class DagSpec {
     val g = dummyProject("g", List("f"))
     val h = dummyProject("h", List("f"))
     val i = dummyProject("i", List("h"))
-    val dags = Dag.fromMap(List(f, g, h, i).map(p => p.name -> p).toMap)
+    val dags = fromMap(List(f, g, h, i).map(p => p.name -> p).toMap)
     Assert.assertTrue("fromMap returns only one dag", dags.size == 2)
   }
 
@@ -161,7 +186,7 @@ class DagSpec {
     val g = dummyProject("g", List("f"))
     val h = dummyProject("h", List("f"))
     val i = dummyProject("i", List("h"))
-    val dags = Dag.fromMap(List(a, b, c, d, e, f, g, h, i).map(p => p.name -> p).toMap)
+    val dags = fromMap(List(a, b, c, d, e, f, g, h, i).map(p => p.name -> p).toMap)
 
     def reduce(targets: Set[Project]): Set[Project] = Dag.reduce(dags, targets)
 

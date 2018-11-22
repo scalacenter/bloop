@@ -53,6 +53,11 @@ object CompilationTask {
           val previousSuccesful = state.results.lastSuccessfulResultOrEmpty(project)
           val reporter = createReporter(project, cwd)
 
+          // Warn user if detected missing dep, see https://github.com/scalacenter/bloop/issues/708
+          state.build.hasMissingDependencies(project).foreach { missing =>
+            Feedback.detectMissingDependencies(project, missing).foreach(msg => logger.warn(msg))
+          }
+
           val (scalacOptions, compileMode) = {
             if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
             else {

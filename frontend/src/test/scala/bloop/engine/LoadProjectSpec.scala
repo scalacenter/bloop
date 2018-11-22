@@ -24,7 +24,7 @@ class LoadProjectSpec {
 
     val t = BuildLoader
       .load(configDir, logger)
-      .map(ps => Dag.fromMap(ps.map(p => p.name -> p).toMap))
+      .map(ps => Dag.fromMap(ps.map(p => p.name -> p).toMap).dags)
     try TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(t)
     catch { case t: Throwable => logger.dump(); throw t }
     ()

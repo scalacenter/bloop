@@ -13,7 +13,13 @@ object Dag {
   class RecursiveCycle(path: List[Project])
       extends Exception(s"Not a DAG, cycle detected in ${path.map(_.name).mkString(" -> ")} ")
 
-  def fromMap(projectsMap: Map[String, Project]): List[Dag[Project]] = {
+  case class DagResult(
+      dags: List[Dag[Project]],
+      missingDependencies: Map[Project, List[String]]
+  )
+
+  def fromMap(projectsMap: Map[String, Project]): DagResult = {
+    val missingDeps = new scala.collection.mutable.HashMap[Project, List[String]]()
     val visited = new scala.collection.mutable.HashMap[Project, Dag[Project]]()
     val visiting = new scala.collection.mutable.LinkedHashSet[Project]()
     val dependents = new scala.collection.mutable.HashSet[Dag[Project]]()
@@ -35,7 +41,19 @@ object Dag {
             project match {
               case leaf if project.dependencies.isEmpty => Leaf(leaf)
               case parent =>
-                val childrenNodes = project.dependencies.iterator.map(name => projectsMap(name))
+                val childrenNodes = project.dependencies.iterator.flatMap { name =>
+                  projectsMap.get(name) match {
+                    case Some(project) => List(project)
+                    case None =>
+                      val newMissingDeps = missingDeps.get(parent) match {
+                        case Some(prev) => name :: prev
+                        case None => name :: Nil
+                      }
+
+                      missingDeps.+=((parent, newMissingDeps))
+                      Nil
+                  }
+                }
                 Parent(parent, childrenNodes.map(loop(_, true)).toList)
             }
           }
@@ -48,7 +66,10 @@ object Dag {
 
     // Traverse through all the projects and only get the root nodes
     val dags = projects.map(loop(_, false))
-    dags.filterNot(node => dependents.contains(node))
+    DagResult(
+      dags.filterNot(node => dependents.contains(node)),
+      missingDeps.toMap
+    )
   }
 
   def dagFor[T](dags: List[Dag[T]], target: T): Option[Dag[T]] =
@@ -105,7 +126,6 @@ object Dag {
    * To make this operation more efficient, we may want to do indexing of
    * transitives and then cache them in the build so that we don't have to
    * recompute them every time.
-
    *
    * @param dags The forest of disjoint DAGs from which we start from.
    * @param targets The targets to be deduplicated transitively.
@@ -153,8 +173,7 @@ object Dag {
       dag match {
         case Leaf(value) => value :: acc
         case Parent(value, children) =>
-          children.foldLeft(value :: acc) { (acc, child) =>
-            loop(child, acc)
+          children.foldLeft(value :: acc) { (acc, child) => loop(child, acc)
           }
       }
     }

@@ -1,6 +1,7 @@
 package bloop.engine
 
 import bloop.data.{Origin, Project}
+import bloop.engine.Dag.DagResult
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.util.{ByteHasher, CacheHashCode}
@@ -11,12 +12,14 @@ final case class Build private (
     projects: List[Project]
 ) extends CacheHashCode {
   private val stringToProjects: Map[String, Project] = projects.map(p => p.name -> p).toMap
-  private[bloop] val dags: List[Dag[Project]] = Dag.fromMap(stringToProjects)
+  private[bloop] val DagResult(dags, missingDeps) = Dag.fromMap(stringToProjects)
 
   def getProjectFor(name: String): Option[Project] = stringToProjects.get(name)
 
   def getDagFor(project: Project): Dag[Project] =
     Dag.dagFor(dags, project).getOrElse(sys.error(s"Project $project does not have a DAG!"))
+
+  def hasMissingDependencies(project: Project): Option[List[String]] = missingDeps.get(project)
 
   /**
    * Detect changes in the build definition since the last time it was loaded.
