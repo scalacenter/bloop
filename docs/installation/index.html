@@ -206,7 +206,7 @@ nix-env -iA nixos-unstable.bloop
 <p>The installation script will also install:</p>
 
 <ul>
-<li>completions for zsh and Bash</li>
+<li>completions for zsh, Bash and fish</li>
 <li>service file for systemd</li>
 <li>desktop entry for freedesktop-compliant desktop environments</li>
 </ul>
@@ -229,6 +229,26 @@ compinit
 <p>To get the command line completions with Bash, add the following to your <code>~/.bash_profile</code>:</p>
 
 <pre><code class="language-sh">. $HOME/.bloop/bash/bloop
+</code></pre>
+
+<h4 id="fish-completions">Fish completions</h4>
+
+<p>To get the command line completions with fish shell, navigate to your local completion location (e.g.: <code>~/.config/fish/completions</code>)
+and create a symlink to the file provided in the Bloop distribution:</p>
+
+<pre><code class="language-sh">$ ln -s $HOME/.bloop/fish/bloop.fish bloop.fish
+</code></pre>
+
+<p><span class="label warning">Note</span> that fish tab completion will not work correctly if Bloop server was not running
+when the shell was started. To troubleshoot this, start the Bloop server and then restart the shell. Alternatively,
+instead of restarting the shell, you can just reload the completion script like this:</p>
+
+<pre><code class="language-sh">$ source $HOME/.bloop/fish/bloop.fish bloop.fish
+</code></pre>
+
+<p>Or if you have Oh My Fish installed by running:</p>
+
+<pre><code class="language-sh">$ omf reload
 </code></pre>
 
 <h3 id="automatic-startup">Automatic startup</h3>
