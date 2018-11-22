@@ -15,6 +15,16 @@ object Feedback {
     s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
   def missingInstanceForJavaCompilation(project: Project): String =
     s"Failed to compile Java sources in ${project.name}: default Zinc Scala instance couldn't be created!"
+  def detectMissingDependencies(project: Project, missing: List[String]): Option[String] = {
+    missing match {
+      case Nil => None
+      case missing :: Nil =>
+        Some(s"Detected missing dependency '$missing' in project '${project.name}' may cause compilation issues")
+      case xs =>
+        val deps = missing.map(m => s"'$m'").mkString(", ")
+        Some(s"Detected missing dependencies $deps in project '${project.name}' may cause compilation issues")
+    }
+  }
 
   def failedToLink(project: Project, linker: String, t: Throwable): String =
     s"Failed to link $linker project '${project.name}': '${t.getMessage}'"

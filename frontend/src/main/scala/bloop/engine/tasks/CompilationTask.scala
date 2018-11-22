@@ -53,6 +53,11 @@ object CompilationTask {
           val previousSuccesful = state.results.lastSuccessfulResultOrEmpty(project)
           val reporter = createCompilationReporter(project, cwd, reporterConfig, state.logger)
 
+          // Warn user if detected missing dep, see https://github.com/scalacenter/bloop/issues/708
+          state.build.hasMissingDependencies(project).foreach { missing =>
+            Feedback.detectMissingDependencies(project, missing).foreach(msg => logger.warn(msg))
+          }
+
           val (scalacOptions, compileMode) = {
             if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
             else {
@@ -191,16 +196,16 @@ object CompilationTask {
 
       val instances = results.iterator.flatMap(_.bundle.project.scalaInstance.toIterator).toSet
       instances.foreach { i =>
-          // Initialize a compiler so that we can reset the global state after a build compilation
-          val logger = state.logger
-          val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]
-          val config = ReporterConfig.defaultFormat
-          val cwd = state.commonOptions.workingPath
-          val reporter = new LogReporter(logger, cwd, identity, config)
-          val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
-          val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
-          // Reset the global ir caches on the cached compiler only for the store IRs
-          scalac.resetGlobalIRCaches(mergedStore, cached, logger)
+        // Initialize a compiler so that we can reset the global state after a build compilation
+        val logger = state.logger
+        val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]
+        val config = ReporterConfig.defaultFormat
+        val cwd = state.commonOptions.workingPath
+        val reporter = new LogReporter(logger, cwd, identity, config)
+        val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
+        val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
+        // Reset the global ir caches on the cached compiler only for the store IRs
+        scalac.resetGlobalIRCaches(mergedStore, cached, logger)
       }
     } finally {
       Files.delete(tmpDir)

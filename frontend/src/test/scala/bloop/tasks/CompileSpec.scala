@@ -11,16 +11,16 @@ import bloop.ScalaInstance
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.engine.tasks.Tasks
-import bloop.engine.{Run, State}
+import bloop.engine.{Feedback, Run, State}
 import bloop.exec.JavaEnv
 import bloop.logging.{Logger, RecordingLogger}
 import bloop.tasks.TestUtil.{
   RootProject,
   checkAfterCleanCompilation,
+  ensureCompilationInAllTheBuild,
   getProject,
   hasPreviousResult,
-  noPreviousAnalysis,
-  ensureCompilationInAllTheBuild
+  noPreviousAnalysis
 }
 
 import scala.concurrent.duration.FiniteDuration
@@ -72,9 +72,11 @@ class CompileSpec {
   )
 
   @Test
-  def compileScalaAndJava(): Unit = {
+  def compileScalaAndJavaWithMissingDependency(): Unit = {
     val logger = new RecordingLogger
-    val dependencies = Map.empty[String, Set[String]]
+    // Add missing dependency to check we don't fail during build load, we just emit a warning
+    val missingDependency = "i-dont-exist"
+    val dependencies = Map[String, Set[String]](RootProject -> Set(missingDependency))
     val structures = Map(
       RootProject -> Map("A.scala" -> "object A", "B.java" -> "public class B {}"))
 
@@ -84,7 +86,11 @@ class CompileSpec {
       scalaInstance = scalaInstance2124(logger),
       useSiteLogger = Some(logger),
       order = Config.JavaThenScala
-    )(_ => ())
+    ) { state =>
+      val targetProject = getProject(RootProject, state)
+      val missingDepMsg = Feedback.detectMissingDependencies(targetProject, List(missingDependency))
+      assertTrue(logger.getMessagesAt(Some("warn")).exists(_.startsWith(missingDepMsg.get)))
+    }
 
     val errors = TestUtil.errorsFromLogger(logger)
     assert(errors.size == 0)
