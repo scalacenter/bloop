@@ -7,11 +7,49 @@ object Config {
   case class Java(options: List[String])
 
   case class TestFramework(names: List[String])
+
+  object TestFramework {
+    val ScalaCheck = Config.TestFramework(
+      List(
+        "org.scalacheck.ScalaCheckFramework"
+      )
+    )
+
+    val ScalaTest = Config.TestFramework(
+      List(
+        "org.scalatest.tools.Framework",
+        "org.scalatest.tools.ScalaTestFramework"
+      )
+    )
+
+    val Specs2 = Config.TestFramework(
+      List(
+        "org.specs.runner.SpecsFramework",
+        "org.specs2.runner.Specs2Framework",
+        "org.specs2.runner.SpecsFramework"
+      )
+    )
+
+    val JUnit = Config.TestFramework(
+      List(
+        "com.novocode.junit.JUnitFramework"
+      )
+    )
+
+    val DefaultFrameworks = List(JUnit, ScalaTest, ScalaCheck, Specs2)
+  }
+
   case class TestArgument(args: List[String], framework: Option[TestFramework])
   case class TestOptions(excludes: List[String], arguments: List[TestArgument])
   object TestOptions { val empty = TestOptions(Nil, Nil) }
 
   case class Test(frameworks: List[TestFramework], options: TestOptions)
+  object Test {
+    def defaultConfiguration: Test = {
+      val junit = List(Config.TestArgument(List("-v", "-a"), Some(Config.TestFramework.JUnit)))
+      Config.Test(Config.TestFramework.DefaultFrameworks, Config.TestOptions(Nil, junit))
+    }
+  }
 
   case class Sbt(
       sbtVersion: String,

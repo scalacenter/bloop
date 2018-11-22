@@ -51,7 +51,7 @@ object TestTask {
         else logger.debug(s"Found test frameworks: ${frameworks.map(_.name).mkString(", ")}")
 
         val frameworkArgs = considerFrameworkArgs(frameworks, userTestOptions, logger)
-        val args = project.testOptions.arguments ++ frameworkArgs
+        val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
         logger.debug(s"Running test suites with arguments: $args")
 
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
@@ -247,4 +247,55 @@ object TestTask {
     }
     tasks.mapValues(_.toList).toMap
   }
+
+  /**
+   * Fixes the test arguments for a given framework.
+   *
+   * This is a generic function that accumulates fixes we do to the test arguments
+   * that a build has exported. https://github.com/scalacenter/bloop/issues/658 is
+   * a good example of a test option (`-h` in Scalatest) which requires us to check
+   * that its path exists.
+   *
+   * @param project The project we fix test options for.
+   * @param args The test arguments.
+   * @return The list of fixed test arguments.
+   */
+  def fixTestOptions(
+      project: Project,
+      args: List[Config.TestArgument]
+  ): List[Config.TestArgument] = {
+    import java.nio.file.{Files, Paths}
+    args.map {
+      case Config.TestArgument(testArg :: testArgs, f @ Some(Config.TestFramework.ScalaTest)) =>
+        val fixedArgs = testArgs.foldLeft(List(testArg)) {
+          case (Nil, current) => current :: Nil
+          case (rest @ previous :: _, current) =>
+            if (previous != "-h") current :: rest
+            else {
+              val currentPath = Paths.get(current)
+              val path = {
+                if (currentPath.isAbsolute) currentPath
+                else {
+                  val potentialPath = project.baseDirectory.resolve(current)
+                  if (potentialPath.exists) potentialPath.underlying
+                  else {
+                    if (potentialPath.getParent.exists)
+                      Files.createFile(potentialPath.underlying)
+                    else {
+                      Files.createDirectories(potentialPath.getParent.underlying)
+                      Files.createFile(potentialPath.underlying)
+                    }
+                  }
+                }
+              }
+
+              path.toAbsolutePath.toString :: rest
+            }
+        }
+
+        Config.TestArgument(fixedArgs, f)
+      case a => a
+    }
+  }
+
 }
