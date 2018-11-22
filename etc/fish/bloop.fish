@@ -72,7 +72,6 @@ end
 function _bloop_cmpl_ -d 'Make a completion for a subcommand' --no-scope-shadowing -a minTokens cmd
     set -e argv[1]
     set -e argv[1]
-    echo ---$argv
     complete -c bloop -f -n "__assert_args_at_least_count $minTokens; and __fish_seen_subcommand_from $cmd" $argv
 end
 

@@ -96,6 +96,19 @@ and create a symlink to the file provided in the Bloop distribution:
 $ ln -s $HOME/.bloop/fish/bloop.fish bloop.fish
 ``` 
 
+<span class="label warning">Note</span> that fish tab completion will not work correctly if Bloop server was not running
+when the shell was started. To troubleshoot this, start the Bloop server and then restart the shell. Alternatively,
+instead of restarting the shell, you can just reload the completion script like this:
+```sh
+$ source $HOME/.bloop/fish/bloop.fish bloop.fish
+```
+
+Or if you have Oh My Fish installed by running:
+
+```sh
+$ omf reload
+```
+
 ### Automatic startup
 
 <span class="label warning">Note</span> that you should choose only one of
