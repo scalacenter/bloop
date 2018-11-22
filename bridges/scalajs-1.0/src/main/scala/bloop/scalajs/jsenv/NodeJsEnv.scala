@@ -177,6 +177,8 @@ object NodeJSEnv {
         // Make sure we only destroy the process once, the test adapter can call this several times!
         if (!isClosed.getAndSet(true)) {
           logger.debug(s"Destroying process...")
+          process.destroy(false)
+          process.waitFor(400, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
           process.destroy(true)
           // Make sure that no matter what happens the `onExit` callback is invoked
           handler.cancel()
