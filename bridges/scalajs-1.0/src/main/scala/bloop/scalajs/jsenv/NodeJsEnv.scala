@@ -179,6 +179,7 @@ object NodeJSEnv {
           logger.debug(s"Destroying process...")
           process.destroy(false)
           process.waitFor(400, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+          process.destroy(true)
           // Make sure that no matter what happens the `onExit` callback is invoked
           handler.cancel()
         }
