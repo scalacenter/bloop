@@ -4,26 +4,9 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
 import bloop.config.Config
+import bloop.config.util.ConfigUtil
 import bloop.integration.sbt.Feedback
-import sbt.{
-  AutoPlugin,
-  ClasspathDep,
-  ClasspathDependency,
-  Compile,
-  ConfigKey,
-  Configuration,
-  Def,
-  File,
-  Global,
-  Keys,
-  LocalRootProject,
-  Logger,
-  ProjectRef,
-  ResolvedProject,
-  Test,
-  ThisBuild,
-  ThisProject
-}
+import sbt.{AutoPlugin, ClasspathDep, ClasspathDependency, Compile, ConfigKey, Configuration, Def, File, Global, Keys, LocalRootProject, Logger, ProjectRef, ResolvedProject, Test, ThisBuild, ThisProject}
 import xsbti.compile.CompileOrder
 
 object BloopPlugin extends AutoPlugin {
@@ -51,14 +34,10 @@ object BloopKeys {
       "The classifiers that will be exported with `updateClassifiers`")
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
-  val bloopManagedResourceDirectories: SettingKey[Seq[File]] =
-    settingKey[Seq[File]]("Managed resource directories for bloop")
   val bloopClassDirectory: SettingKey[File] =
     settingKey[File]("Directory where to write the class files")
   val bloopTargetDir: SettingKey[File] =
     settingKey[File]("Target directory for the pertinent project and configuration")
-  val bloopResourceManaged: SettingKey[File] =
-    settingKey[File]("Resource managed for bloop")
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
@@ -135,10 +114,8 @@ object BloopDefaults {
   lazy val configSettings: Seq[Def.Setting[_]] =
     List(
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
-      BloopKeys.bloopManagedResourceDirectories := managedResourceDirs.value,
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
-      BloopKeys.bloopResourceManaged := BloopKeys.bloopTargetDir.value / "resource_managed",
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None
     ) ++ discoveredSbtPluginsSettings
@@ -744,8 +721,6 @@ object BloopDefaults {
 
         // Force source generators on this task manually
         Keys.managedSources.value
-        // Copy the resources, so that they're available when running and testing
-        bloopCopyResourcesTask.value
 
         // format: OFF
         val config = {
@@ -754,10 +729,11 @@ object BloopDefaults {
           val analysisOut = None
           val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
           val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
+          val resources = Some(bloopResourcesTask.value)
 
           val sbt = computeSbtMetadata.value.map(_.config)
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, out, classesDir, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
+            classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON
@@ -866,37 +842,24 @@ object BloopDefaults {
     internalClasspath ++ externalClasspath
   }
 
-  def bloopCopyResourcesTask = Def.taskDyn {
+  def bloopResourcesTask = Def.taskDyn {
     val configKey = sbt.ConfigKey(Keys.configuration.value.name)
     Def.task {
       import sbt._
-      val t = BloopKeys.bloopClassDirectory.value
-      val dirs =
-        Classpaths
-          .concatSettings(
-            Keys.unmanagedResourceDirectories.in(configKey),
-            BloopKeys.bloopManagedResourceDirectories.in(configKey))
-          .value
       val s = Keys.streams.value
-      val cacheStore = bloop.integrations.sbt.Compat.generateCacheFile(s, "copy-resources-bloop")
-      val mappings = (sbt.PathFinder(Keys.resources.value) --- dirs) pair (sbt.Path
-        .rebase(dirs, t) | sbt.Path.flat(t))
-      s.log.debug("Copy resource mappings: " + mappings.mkString("\n\t", "\n\t", ""))
-      sbt.Sync(cacheStore)(mappings)
-      mappings
-    }
-  }
+      val bloopClassDir = BloopKeys.bloopClassDirectory.value
+      val resourceDirs = Classpaths
+        .concatSettings(
+          Keys.unmanagedResourceDirectories.in(configKey),
+          Keys.managedResourceDirectories.in(configKey)
+        )
+        .value
+        .map(_.toPath)
 
-  def managedResourceDirs: Def.Initialize[Seq[File]] = Def.settingDyn {
-    val configName = Keys.configuration.value.name
-    val configKey = sbt.ConfigKey(configName)
-    Def.setting {
-      val oldUnmanagedResourceDirs = Keys.managedResourceDirectories.in(configKey).value
-      val oldResourceDir = Keys.resourceManaged.in(configKey).value
-      val newResourceDir =
-        BloopKeys.bloopResourceManaged.in(configKey).value / Defaults.nameForSrc(configName)
-      oldUnmanagedResourceDirs.map { dir => if (dir == oldResourceDir) newResourceDir else dir
-      }
+      val allResourceFiles = Keys.resources.in(configKey).value
+      val additionalResources =
+        ConfigUtil.pathsOutsideRoots(resourceDirs, allResourceFiles.map(_.toPath))
+      (resourceDirs ++ additionalResources).toList
     }
   }
 

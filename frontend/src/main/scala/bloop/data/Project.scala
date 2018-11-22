@@ -10,6 +10,7 @@ import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
+import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import ch.epfl.scala.{bsp => Bsp}
 
@@ -19,6 +20,7 @@ final case class Project(
     dependencies: List[String],
     scalaInstance: Option[ScalaInstance],
     rawClasspath: List[AbsolutePath],
+    resources: List[AbsolutePath],
     compileSetup: Config.CompileSetup,
     classesDir: AbsolutePath,
     scalacOptions: List[String],
@@ -33,11 +35,12 @@ final case class Project(
     resolution: Option[Config.Resolution],
     origin: Origin
 ) {
+
   /** The bsp uri associated with this project. */
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toURI(baseDirectory, name))
 
   /** This project's full classpath (classes directory and raw classpath) */
-  val classpath: Array[AbsolutePath] = (classesDir :: rawClasspath).toArray
+  val compilationClasspath: Array[AbsolutePath] = (classesDir :: rawClasspath).toArray
 
   val classpathOptions: ClasspathOptions = {
     ClasspathOptions.of(
@@ -62,6 +65,20 @@ final case class Project(
       case other: Project => this.hashCode == other.hashCode
       case _ => false
     }
+  }
+
+  def fullClasspathFor(dag: Dag[Project]): Array[AbsolutePath] = {
+    val cp = compilationClasspath.toBuffer
+    // Add the resources right after the classes directory if found in the classpath
+    Dag.dfs(dag).foreach { p =>
+      val index = cp.indexOf(p.classesDir)
+      // If there is an anomaly and the classes dir of a dependency is missing, add resource at end
+      if (index == -1) {
+        p.resources.foreach(r => cp.append(r))
+      }
+      else cp.insertAll(index, p.resources)
+    }
+    cp.toArray
   }
 }
 
@@ -113,6 +130,7 @@ object Project {
     val analysisOut = scala
       .flatMap(_.analysis.map(AbsolutePath.apply))
       .getOrElse(out.resolve(Config.Project.analysisFileName(project.name)))
+    val resources = project.resources.toList.flatten.map(AbsolutePath.apply)
 
     Project(
       project.name,
@@ -120,6 +138,7 @@ object Project {
       project.dependencies,
       instance,
       project.classpath.map(AbsolutePath.apply),
+      resources,
       setup,
       AbsolutePath(project.classesDir),
       scala.map(_.options).getOrElse(Nil),

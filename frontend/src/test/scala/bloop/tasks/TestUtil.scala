@@ -289,6 +289,7 @@ object TestUtil {
       dependencies = dependencies.toList,
       scalaInstance = scalaInstance,
       rawClasspath = classpath,
+      resources = Nil,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
       classesDir = AbsolutePath(target),
       scalacOptions = Nil,

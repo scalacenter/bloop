@@ -4,8 +4,8 @@ import _root_.mill._
 import _root_.mill.define._
 import _root_.mill.scalalib._
 import _root_.mill.eval.Evaluator
-
 import ammonite.ops._
+import bloop.config.util.ConfigUtil
 
 object Bloop extends ExternalModule {
 
@@ -33,8 +33,7 @@ object Bloop extends ExternalModule {
     val scalaConfig = module match {
       case s: ScalaModule =>
         T.task {
-          val pluginOptions = s.scalacPluginClasspath().map { pathRef =>
-            s"-Xplugin:${pathRef.path}"
+          val pluginOptions = s.scalacPluginClasspath().map { pathRef => s"-Xplugin:${pathRef.path}"
           }
 
           Some(
@@ -88,12 +87,12 @@ object Bloop extends ExternalModule {
 
     def transitiveClasspath(m: JavaModule): Task[Seq[Path]] = T.task {
       m.moduleDeps.map(classes) ++
-        m.resources().map(_.path) ++
         m.unmanagedClasspath().map(_.path) ++
         Task.traverse(m.moduleDeps)(transitiveClasspath)().flatten
     }
 
     val classpath = T.task(transitiveClasspath(module)() ++ ivyDepsClasspath())
+    val resources = T.task(module.resources().map(_.path.toNIO).toList)
 
     val project = T.task {
       Config.Project(
@@ -104,6 +103,7 @@ object Bloop extends ExternalModule {
         classpath = classpath().map(_.toNIO).toList,
         out = out(module).toNIO,
         classesDir = classes(module).toNIO,
+        resources = Some(resources()),
         `scala` = scalaConfig(),
         java = javaConfig(),
         sbt = None,

@@ -2,14 +2,18 @@ package bloop.integrations.maven
 
 import java.io.File
 import java.nio.file.{Files, Path}
+import java.util
 
 import bloop.config.Config
 import org.apache.maven.execution.MavenSession
+import org.apache.maven.model.Resource
 import org.apache.maven.plugin.logging.Log
 import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
 import org.codehaus.plexus.util.xml.Xpp3Dom
 import scala_maven.AppLauncher
+
+import scala.collection.mutable
 
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
@@ -68,6 +72,13 @@ object MojoImplementation {
   private val DefaultTestOptions =
     Config.TestOptions(Nil, List(Config.TestArgument(List("-v", "-a"), Some(JUnitFramework))))
 
+  def writeConfig(
+      asScala: mutable.Buffer[File],
+      getTestOutputDir: File,
+      strings: util.List[String],
+      launcher: AppLauncher,
+      str: String): Int = ???
+
   def writeCompileAndTestConfiguration(mojo: BloopMojo, session: MavenSession, log: Log): Unit = {
     import scala.collection.JavaConverters._
     def abs(file: File): Path = file.toPath().toRealPath().toAbsolutePath()
@@ -97,11 +108,13 @@ object MojoImplementation {
     val allScalaJars = mojo.getAllScalaJars().map(abs).toList
     val scalacArgs = mojo.getScalacArgs().asScala.toList
 
-    def writeConfig(sourceDirs0: Seq[File],
-                    classesDir0: File,
-                    classpath0: java.util.List[_],
-                    launcher: AppLauncher,
-                    configuration: String): Unit = {
+    def writeConfig(
+        sourceDirs0: Seq[File],
+        classesDir0: File,
+        classpath0: java.util.List[_],
+        resources0: java.util.List[Resource],
+        launcher: AppLauncher,
+        configuration: String): Unit = {
       val suffix = if (configuration == "compile") "" else s"-$configuration"
       val name = project.getArtifactId() + suffix
       val build = project.getBuild()
@@ -131,7 +144,9 @@ object MojoImplementation {
         val mainClass = if (launcher.getMainClass().isEmpty) None else Some(launcher.getMainClass())
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass))
         val resolution = None
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, `scala`, java, sbt, test, platform, resolution)
+        // Resources in Maven require
+        val resources = Some(resources0.asScala.toList.map(r => classesDir.resolve(r.getTargetPath)))
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON
@@ -142,16 +157,23 @@ object MojoImplementation {
       bloop.config.write(config, configTarget.toPath)
     }
 
-    writeConfig(mojo.getCompileSourceDirectories.asScala,
-                mojo.getCompileOutputDir,
-                project.getCompileClasspathElements(),
-                launcher,
-                "compile")
-    writeConfig(mojo.getTestSourceDirectories.asScala,
-                mojo.getTestOutputDir,
-                project.getTestClasspathElements(),
-                launcher,
-                "test")
+    writeConfig(
+      mojo.getCompileSourceDirectories.asScala,
+      mojo.getCompileOutputDir,
+      project.getCompileClasspathElements,
+      project.getResources,
+      launcher,
+      "compile"
+    )
+
+    writeConfig(
+      mojo.getTestSourceDirectories.asScala,
+      mojo.getTestOutputDir,
+      project.getTestClasspathElements,
+      project.getTestResources,
+      launcher,
+      "test"
+    )
   }
 
   private def relativize(base: File, file: File): Option[String] = {

@@ -20,8 +20,8 @@ class DagSpec {
   // format: OFF
   def dummyOrigin = TestUtil.syntheticOriginFor(dummyPath)
   def dummyProject(name: String, dependencies: List[String]): Project =
-    Project(name, dummyPath, dependencies, Some(dummyInstance), Nil, compileOptions, dummyPath, Nil,
-      Nil, Nil, Nil, Config.TestOptions.empty, dummyPath, dummyPath,
+    Project(name, dummyPath, dependencies, Some(dummyInstance), Nil, Nil, compileOptions,
+      dummyPath, Nil, Nil, Nil, Nil, Config.TestOptions.empty, dummyPath, dummyPath,
       Project.defaultPlatform(logger), None, None, dummyOrigin)
   // format: ON
 

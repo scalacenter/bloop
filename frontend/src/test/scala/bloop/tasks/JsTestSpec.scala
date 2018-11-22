@@ -186,7 +186,8 @@ class JsTestSpec(
   @Test
   def testsAreDetected(): Unit = {
     // Load the project's classpath by filtering out unwanted FQNs to create the test loader
-    val classpathEntries = testProject.classpath.map(_.underlying.toUri.toURL)
+    val classpath = testProject.fullClasspathFor(testState.build.getDagFor(testProject))
+    val classpathEntries = classpath.map(_.underlying.toUri.toURL)
     val testLoader = new URLClassLoader(classpathEntries, Some(TestInternals.filteredLoader).orNull)
     def frameworks(classLoader: ClassLoader): List[Framework] = {
       testProject.testFrameworks.flatMap(f =>

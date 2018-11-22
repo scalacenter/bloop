@@ -1,13 +1,11 @@
 package bloop.tasks
 
 import org.junit.Test
-import org.junit.Assert.assertEquals
 import org.junit.experimental.categories.Category
 
 import sbt.internal.util.EscHelpers.removeEscapeSequences
 
 import bloop.cli.Commands
-import bloop.exec.JavaEnv
 import bloop.tasks.TestUtil.{loadTestProject, runAndCheck}
 
 @Category(Array(classOf[bloop.FastTests]))

@@ -90,7 +90,7 @@ object CompilationTask {
             instance,
             compilerCache,
             sources.toArray,
-            project.classpath,
+            project.compilationClasspath,
             graphInputs.store,
             project.classesDir,
             project.out,

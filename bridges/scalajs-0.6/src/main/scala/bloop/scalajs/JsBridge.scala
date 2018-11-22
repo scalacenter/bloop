@@ -57,7 +57,7 @@ object JsBridge {
       target: Path,
       logger: BloopLogger
   ): Unit = {
-    val classpath = project.classpath.map(_.underlying)
+    val classpath = project.compilationClasspath.map(_.underlying)
     val classpathIrFiles = classpath
       .filter(Files.isDirectory(_))
       .flatMap(findIrFiles)

@@ -43,7 +43,7 @@ class ForkerSpec {
       val cwdPath = AbsolutePath(cwd)
       val project = TestUtil.getProject(TestUtil.RootProject, state)
       val env = JavaEnv.default
-      val classpath = project.classpath
+      val classpath = project.fullClasspathFor(state.build.getDagFor(project))
       val config = Forker(env, classpath)
       val logger = new RecordingLogger
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)

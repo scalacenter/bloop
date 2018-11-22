@@ -560,7 +560,7 @@ final class BloopBspServices(
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
-              classpath = project.classpath.map(e => bsp.Uri(e.toBspUri)).toList,
+              classpath = project.compilationClasspath.map(e => bsp.Uri(e.toBspUri)).toList,
               classDirectory = bsp.Uri(project.classesDir.toBspUri)
             )
         }.toList

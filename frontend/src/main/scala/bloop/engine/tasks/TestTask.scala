@@ -3,7 +3,7 @@ package bloop.engine.tasks
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.data.{Platform, Project}
-import bloop.engine.{Feedback, State}
+import bloop.engine.{Dag, Feedback, State}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
@@ -129,7 +129,8 @@ object TestTask {
     implicit val logContext: DebugFilter = DebugFilter.Test
     project.platform match {
       case Platform.Jvm(env, _, _) =>
-        val forker = Forker(env, project.classpath)
+        val classpath = project.fullClasspathFor(state.build.getDagFor(project))
+        val forker = Forker(env, classpath)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
         val frameworks = project.testFrameworks.flatMap(f =>
           TestInternals.loadFramework(testLoader, f.names, logger))

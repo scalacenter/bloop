@@ -59,7 +59,7 @@ object JsBridge {
     }
 
     val cache = new IRFileCache().newCache
-    val irClasspath = FileScalaJSIRContainer.fromClasspath(project.classpath.map(_.toFile))
+    val irClasspath = FileScalaJSIRContainer.fromClasspath(project.compilationClasspath.map(_.toFile))
     val irFiles = cache.cached(irClasspath)
 
     val moduleInitializers = mainClass match {
