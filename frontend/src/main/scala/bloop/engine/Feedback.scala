@@ -19,10 +19,10 @@ object Feedback {
     missing match {
       case Nil => None
       case missing :: Nil =>
-        Some(s"Detected missing dependency '$missing' in project '${project.name}' may cause compilation issues")
+        Some(s"Missing project '$missing', may cause compilation issues in project '${project.name}'")
       case xs =>
         val deps = missing.map(m => s"'$m'").mkString(", ")
-        Some(s"Detected missing dependencies $deps in project '${project.name}' may cause compilation issues")
+        Some(s"Missing projects $deps, may cause compilation issues in project '${project.name}'")
     }
   }
 
