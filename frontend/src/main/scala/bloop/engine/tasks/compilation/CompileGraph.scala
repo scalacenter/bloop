@@ -214,7 +214,7 @@ object CompileGraph {
 
                   // Let's order the IRs exactly in the same order as provided in the classpath!
                   // Required for symbol clashes in dependencies (`AppLoader` in guardian/frontend)
-                  val indexDirs = project.classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
+                  val indexDirs = project.compilationClasspath.iterator.filter(_.isDirectory).zipWithIndex.toMap
                   val dependentStore = {
                     val transitiveStores =
                       results.flatMap(r => indexDirs.get(r.bundle.project.classesDir).iterator.map(i => i -> r.store))

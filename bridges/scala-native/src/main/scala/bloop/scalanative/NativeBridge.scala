@@ -15,7 +15,7 @@ object NativeBridge {
     if (workdir.isDirectory) Paths.delete(workdir)
     Files.createDirectories(workdir.underlying)
 
-    val classpath = project.classpath.map(_.underlying)
+    val classpath = project.compilationClasspath.map(_.underlying)
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
     val config = setUpNativeConfig(project, config0)
     val nativeMode = config.mode match {
@@ -66,7 +66,7 @@ object NativeBridge {
       if (config.nativelib.toString.nonEmpty) config.nativelib
       else {
         Discover
-          .nativelib(project.classpath.map(_.underlying))
+          .nativelib(project.compilationClasspath.map(_.underlying))
           .getOrElse(sys.error("Fatal: nativelib is missing and could not be found."))
       }
     }

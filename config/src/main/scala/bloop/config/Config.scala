@@ -183,6 +183,7 @@ object Config {
       classpath: List[Path],
       out: Path,
       classesDir: Path,
+      resources: Option[List[Path]],
       `scala`: Option[Scala],
       java: Option[Java],
       sbt: Option[Sbt],
@@ -193,7 +194,7 @@ object Config {
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None)
+    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -201,7 +202,7 @@ object Config {
 
   case class File(version: String, project: Project)
   object File {
-    final val LatestVersion = "1.1.0-M1"
+    final val LatestVersion = "1.1.0-M2"
 
     private[bloop] val empty = File(LatestVersion, Project.empty)
 
@@ -237,6 +238,7 @@ object Config {
         List(scalaLibraryJar),
         outDir,
         classesDir,
+        Some(List(outDir.resolve("resource1.xml"))),
         Some(
           Scala(
             "org.scala-lang",

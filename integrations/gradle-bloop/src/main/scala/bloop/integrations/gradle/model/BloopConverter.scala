@@ -94,6 +94,7 @@ final class BloopConverter(parameters: BloopParameters) {
         classpath = classpath,
         out = project.getBuildDir.toPath,
         classesDir = classesDir,
+        resources = Some(getResources(sourceSet)),
         `scala` = scalaConfig,
         java = getJavaConfig(project, sourceSet),
         sbt = None,
@@ -117,6 +118,9 @@ final class BloopConverter(parameters: BloopParameters) {
 
   private def getSources(sourceSet: SourceSet): List[Path] =
     sourceSet.getAllSource.getSrcDirs.asScala.map(_.toPath).toList
+
+  private def getResources(sourceSet: SourceSet): List[Path] =
+    sourceSet.getResources.getSrcDirs.asScala.map(_.toPath).toList
 
   private def isProjectDependency(
       projectDependencies: List[ProjectDependency],
