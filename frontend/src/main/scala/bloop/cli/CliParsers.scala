@@ -24,9 +24,10 @@ object CliParsers {
   }
 
   implicit val completionFormatRead: ArgParser[completion.Format] = {
-    ArgParser.instance[completion.Format]("\"bash\" | \"zsh\"") {
+    ArgParser.instance[completion.Format]("\"bash\" | \"zsh\" | \"fish\"") {
       case "bash" => Right(completion.BashFormat)
       case "zsh" => Right(completion.ZshFormat)
+      case "fish" => Right(completion.FishFormat)
       case w00t => Left(s"Unrecognized format: $w00t")
     }
   }

@@ -97,6 +97,7 @@ object ReleaseUtils {
        |      ${pythonInvocation}
        |      zsh_completion.install "bin/zsh/_bloop"
        |      bash_completion.install "bin/bash/bloop"
+       |      fish_completion.install "bin/fish/bloop.fish"
        |
        |      File.delete("bin/blp-coursier")
        |
