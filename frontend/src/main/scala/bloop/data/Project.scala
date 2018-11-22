@@ -76,7 +76,7 @@ final case class Project(
       if (index == -1) {
         p.resources.foreach(r => cp.append(r))
       }
-      else cp.insertAll(index + 1, p.resources)
+      else cp.insertAll(index, p.resources)
     }
     cp.toArray
   }
