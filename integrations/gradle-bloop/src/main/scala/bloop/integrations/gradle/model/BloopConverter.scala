@@ -98,7 +98,7 @@ final class BloopConverter(parameters: BloopParameters) {
         `scala` = scalaConfig,
         java = getJavaConfig(project, sourceSet),
         sbt = None,
-        test = Some(Config.Test(testFrameworks, defaultTestOptions)), // TODO: make this configurable?
+        test = Some(Config.Test.defaultConfiguration), // TODO: make this configurable?
         platform = None,
         resolution = Some(resolution)
       )
@@ -280,37 +280,6 @@ final class BloopConverter(parameters: BloopParameters) {
   private def splitFlags(values: List[String]): List[String] = {
     values.flatMap(value => value.split(argumentSpaceSeparator))
   }
-
-  private val scalaCheckFramework = Config.TestFramework(
-    List(
-      "org.scalacheck.ScalaCheckFramework"
-    ))
-
-  private val scalaTestFramework = Config.TestFramework(
-    List(
-      "org.scalatest.tools.Framework",
-      "org.scalatest.tools.ScalaTestFramework"
-    )
-  )
-
-  private val specsFramework = Config.TestFramework(
-    List(
-      "org.specs.runner.SpecsFramework",
-      "org.specs2.runner.Specs2Framework",
-      "org.specs2.runner.SpecsFramework"
-    )
-  )
-
-  private val jUnitFramework = Config.TestFramework(
-    List(
-      "com.novocode.junit.JUnitFramework"
-    )
-  )
-
-  private val testFrameworks: List[Config.TestFramework] =
-    List(scalaCheckFramework, scalaTestFramework, specsFramework, jUnitFramework)
-  private val defaultTestOptions =
-    Config.TestOptions(Nil, List(Config.TestArgument(List("-v", "-a"), Some(jUnitFramework))))
 }
 
 object BloopConverter {

@@ -42,36 +42,6 @@ object MojoImplementation {
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
 
-  val ScalaCheckFramework = Config.TestFramework(
-    List(
-      "org.scalacheck.ScalaCheckFramework"
-    ))
-  val ScalaTestFramework = Config.TestFramework(
-    List(
-      "org.scalatest.tools.Framework",
-      "org.scalatest.tools.ScalaTestFramework"
-    ))
-  val SpecsFramework = Config.TestFramework(
-    List(
-      "org.specs.runner.SpecsFramework",
-      "org.specs2.runner.Specs2Framework",
-      "org.specs2.runner.SpecsFramework"
-    ))
-  val JUnitFramework = Config.TestFramework(
-    List(
-      "com.novocode.junit.JUnitFramework"
-    ))
-
-  private val testFrameworks: List[Config.TestFramework] = List(
-    ScalaCheckFramework,
-    ScalaTestFramework,
-    SpecsFramework,
-    JUnitFramework
-  )
-
-  private val DefaultTestOptions =
-    Config.TestOptions(Nil, List(Config.TestArgument(List("-v", "-a"), Some(JUnitFramework))))
-
   def writeConfig(
       asScala: mutable.Buffer[File],
       getTestOutputDir: File,
@@ -137,7 +107,7 @@ object MojoImplementation {
       // FORMAT: OFF
       val config = {
         val sbt = None
-        val test = Some(Config.Test(testFrameworks, DefaultTestOptions))
+        val test = Some(Config.Test.defaultConfiguration)
         val java = Some(Config.Java(mojo.getJavacArgs().asScala.toList))
         val `scala` = Some(Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(), mojo.getScalaVersion(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
