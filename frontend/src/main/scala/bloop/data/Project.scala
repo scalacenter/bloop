@@ -12,6 +12,7 @@ import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.util.ByteHasher
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(
@@ -58,11 +59,13 @@ final case class Project(
     case Config.ScalaThenJava => CompileOrder.ScalaThenJava
   }
 
+  val uniqueId = s"${origin.path}#${name}"
   override def toString: String = s"$name"
-  override val hashCode: Int = origin.hash
+  override val hashCode: Int =
+    ByteHasher.hashBytes(uniqueId.getBytes(StandardCharsets.UTF_8))
   override def equals(other: Any): Boolean = {
     other match {
-      case other: Project => this.hashCode == other.hashCode
+      case other: Project => this.origin.path == other.origin.path && this.name == other.name
       case _ => false
     }
   }
