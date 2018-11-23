@@ -44,13 +44,13 @@ class FileWatchingSpec {
       (state: State) =>
         val load = (logger: Logger) => state.copy(logger = logger)
         val cmd = Run(Commands.Compile(RootProject, watch = true))
-        val signalMsg = "Done compiling."
         val messagesToCheck = List(
-          "Compiling 2 Scala sources to" -> 1,
-          "Compiling 1 Scala source to" -> 4
+          s"Compiling ${RootProject}" -> 3,
+          "Compiling parent0" -> 1,
+          "Compiling parent1" -> 1,
         )
 
-        checkFileWatchingIteration(load, RootProject, cmd, signalMsg, messagesToCheck)
+        checkFileWatchingIteration(load, RootProject, cmd, messagesToCheck)
     }
   }
 
@@ -60,16 +60,15 @@ class FileWatchingSpec {
     val load = (logger: Logger) => TestUtil.loadTestProject("with-tests").copy(logger = logger)
     val runTest = Run(Commands.Test(targetProject, watch = true))
     val messagesToCheck = List(
-      "Compiling 1 Scala source to" -> 3,
-      "Compiling 7 Scala sources to" -> 1,
+      "Compiling with-tests" -> 5,
+      s"Compiling ${targetProject}" -> 3,
       "is very personal" -> 3,
       "+ Greeting.is personal: OK" -> 3,
       "- should be very personal" -> 3,
       "Total for specification Specs2Test" -> 3
     )
 
-    val signalMsg = "Test server has been successfully closed."
-    checkFileWatchingIteration(load, targetProject, runTest, signalMsg, messagesToCheck)
+    checkFileWatchingIteration(load, targetProject, runTest, messagesToCheck)
   }
 
   /**
@@ -102,7 +101,6 @@ class FileWatchingSpec {
       load: Logger => State,
       targetProject: String,
       commandToRun: Action,
-      signalMsg: String,
       targetMessages: List[(String, Int)],
       debug: Boolean = false
   ): Unit = {
@@ -160,6 +158,7 @@ class FileWatchingSpec {
         isIterationOver(observable, 3).map { _ =>
           testFuture.cancel()
           val infos = logger.filterMessageByLabel("info")
+          println(infos.mkString("\n"))
           targetMessages.foreach {
             case (msg, count) =>
               val times = infos.count(_.contains(msg))

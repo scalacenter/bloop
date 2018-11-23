@@ -95,5 +95,5 @@ abstract class Reporter(
    *
    * This method is not called if the compilation is a no-op (e.g. same analysis as before).
    */
-  def reportEndIncrementalCycle(): Unit
+  def reportEndIncrementalCycle(durationMs: Long): Unit
 }

@@ -358,8 +358,8 @@ Once the installation is ready, let's try everything with a first compile.
 
 ```sh
 $ bloop compile foo
-Compiling 2 Scala sources to '/my-project/foo/target/classes'...
-Done compiling.
+Compiling foo (2 Scala sources)
+Compiled foo (242ms)
 ```
 
 The `compile` command accepts several options that let you configure how compilation happens. To get more information, trigger the autocompletions or type:

@@ -255,12 +255,19 @@ final class BloopHighLevelCompiler(
       }
     }
 
-    combinedTasks.materialize.map { r =>
-      if (existsCompilation) {
-        reporter.reportEndIncrementalCycle()
-      }
+    val start = Task {
+      System.nanoTime
+    }
 
-      r
+    start.flatMap { nanoStart =>
+      combinedTasks.materialize.map { r =>
+        if (existsCompilation) {
+          val elapsedMs = (System.nanoTime - nanoStart) / 1000000
+          reporter.reportEndIncrementalCycle(elapsedMs)
+        }
+
+        r
+      }
     }.dematerialize
   }
 }
