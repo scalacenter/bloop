@@ -51,7 +51,7 @@ final case class Build private (
         }
       }
 
-      // Recompute all the build -- this step could be incremental but it's negligible
+      // Recompute all the build -- this step could be incremental but its cost is negligible
       Task.gatherUnordered(newOrModifiedConfigurations).map(_.flatten).map { newOrModified =>
         val newToAttributed = newFiles.iterator.map(ap => ap.path -> ap).toMap
         val deleted = files.toList.collect { case f if !newToAttributed.contains(f.path) => f.path }

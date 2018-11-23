@@ -1,5 +1,6 @@
 package bloop.nailgun
 
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import bloop.io.AbsolutePath
@@ -84,8 +85,19 @@ class NailgunSpec extends NailgunTestUtils {
       )
     }
 
-    // This test checks that if we exit the nailgun server and compile again, compilation is a no-op
-    withServerInProject("with-resources") { (logger, client) =>
+    // Start another nailgun session with the bloop server
+    val newLogger = new RecordingLogger()
+    val withResourcesConfigDir = TestUtil.getBloopConfigDir("with-resources")
+    withServer(withResourcesConfigDir, false, newLogger) { (logger, client) =>
+      // Force a reload by making a change in the hash of one configuration file
+      import java.nio.charset.StandardCharsets.UTF_8
+      val configFile = withResourcesConfigDir.resolve("with-resources.json")
+      val jsonContents = new String(Files.readAllBytes(configFile), UTF_8)
+      val newContents =
+        if (jsonContents.endsWith(" ")) jsonContents.stripSuffix(" ") else jsonContents + " "
+      Files.write(configFile, newContents.getBytes(UTF_8))
+
+      // This test checks that a new nailgun session still produces a no-op compilation
       client.success("compile", "with-resources")
       val messages = logger.getMessages()
       val needle = "Compiling"
