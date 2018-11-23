@@ -138,6 +138,7 @@ class FileWatchingSpec {
     val existingSourceDir = project.sources.collectFirst { case d if d.exists => d }.get
     val newSource = existingSourceDir.resolve("D.scala")
     if (Files.exists(newSource.underlying)) delete(newSource)
+    Thread.sleep(50)
 
     val runTest = TestUtil.interpreterTask(commandToRun, state)
     val testFuture = runTest.runAsync(ExecutionContext.scheduler)
@@ -149,10 +150,12 @@ class FileWatchingSpec {
       // Write the contents of a source back to the same source and force another test execution
       //Files.write(singleFile.underlying, "object Hello".getBytes("UTF-8"))
       Files.write(newSource.underlying, "object ForceRecompilation {}".getBytes("UTF-8"))
+      Thread.sleep(50)
 
       isIterationOver(observable, 2).flatMap { _ =>
         // Write the contents of a source back to the same source and force another test execution
         Files.write(singleFile.underlying, "object ForceRecompilation2 {}".getBytes("UTF-8"))
+        Thread.sleep(50)
 
         isIterationOver(observable, 3).map { _ =>
           testFuture.cancel()
