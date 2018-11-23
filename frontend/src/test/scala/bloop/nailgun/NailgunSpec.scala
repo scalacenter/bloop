@@ -1,12 +1,15 @@
 package bloop.nailgun
 
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
+import bloop.bsp.BspServer
 import bloop.io.AbsolutePath
-import org.junit.Test
+import org.junit.{Assert, Test}
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
+import bloop.util.OS
 
 class NailgunSpec extends NailgunTestUtils {
   @Test
@@ -47,6 +50,32 @@ class NailgunSpec extends NailgunTestUtils {
       contains("Scala version")
       contains("maintained by")
       contains("Scala Center")
+    }
+  }
+
+  val bspTempDir = Files.createTempDirectory("validate")
+  bspTempDir.toFile.deleteOnExit()
+
+  @Test
+  def testBspCommand(): Unit = {
+    withServerInProject("with-resources") { (logger, client) =>
+      val bspCommand = {
+        if (OS.isWindows) {
+          val uniqueId = java.util.UUID.randomUUID().toString.take(8)
+          val pipeName = s"\\\\.\\pipe\\test-$uniqueId"
+          List("bsp", "--protocol", "local", "--pipe-name", pipeName)
+        } else {
+          val socketPath = bspTempDir.resolve("test.socket")
+          List("bsp", "--protocol", "local", "--socket", socketPath.toAbsolutePath.toString)
+        }
+      }
+
+      val process = client.issueAsProcess(bspCommand: _*)
+      Thread.sleep(2000)
+      process.destroyForcibly()
+
+      val msgs = logger.getMessagesAt(Some("error"))
+      Assert.assertTrue(s"Expected empty msgs, obtained ${msgs.mkString(", ")}", msgs.isEmpty)
     }
   }
 

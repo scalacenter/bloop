@@ -16,10 +16,6 @@ import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
-  private[bloop] val isWindows: Boolean =
-    System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
-  private[bloop] val isMac: Boolean =
-    System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("mac")
 
   import java.net.InetSocketAddress
   private sealed trait ConnectionHandle { def serverSocket: ServerSocket }

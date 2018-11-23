@@ -13,6 +13,7 @@ import bloop.cli.Commands.CompilingCommand
 import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.util.OS
 import monix.eval.Task
 
 object Interpreter {
@@ -109,7 +110,7 @@ object Interpreter {
         State.stateCache.updateBuild(state)
     }
 
-    if (!BspServer.isWindows)
+    if (!OS.isWindows)
       state.logger.info("\u001b[H\u001b[2J")
     // Force the first execution before relying on the file watching task
     fg(state).flatMap(newState => watcher.watch(newState, fg))

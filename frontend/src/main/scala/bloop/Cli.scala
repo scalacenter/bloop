@@ -4,7 +4,6 @@ import java.io.{InputStream, PrintStream}
 import java.nio.file.{Files, Path}
 import java.util.concurrent.CompletableFuture
 
-import bloop.bsp.BspServer
 import bloop.cli.validation.Validate
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
 import bloop.engine._
@@ -13,7 +12,7 @@ import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
 import bloop.engine.tasks.Tasks
-import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag
+import bloop.util.OS
 
 import scala.util.control.NonFatal
 
@@ -173,7 +172,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand, BspServer.isWindows)
+                Validate.bsp(newCommand, OS.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withProject(c.project) { (p: String) =>

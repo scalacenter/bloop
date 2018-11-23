@@ -7,9 +7,9 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{ExecutionException, TimeUnit}
 
 import bloop.Server
-import bloop.bsp.BspServer
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.tasks.TestUtil
+import bloop.util.OS
 import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -80,7 +80,7 @@ abstract class NailgunTestUtils {
         /* Exit on Windows seems to return a failing exit code (but no logs are logged).
          * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
          * for the sake of development I'm merging this since this method will be rarely called. */
-        if (BspServer.isWindows) {
+        if (OS.isWindows) {
           val exitStatusCode = client.issue("exit")
           log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
         } else client.success("exit")
@@ -156,7 +156,7 @@ abstract class NailgunTestUtils {
 
     private def processBuilder(cmd: Seq[String]): ProcessBuilder = {
       val cmdBase =
-        if (BspServer.isWindows) "python" :: clientPath.toString :: Nil
+        if (OS.isWindows) "python" :: clientPath.toString :: Nil
         else clientPath.toString :: Nil
       val builder = new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
       builder.redirectInput(ProcessBuilder.Redirect.INHERIT)

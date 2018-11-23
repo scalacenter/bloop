@@ -3,10 +3,10 @@ package bloop.cli.validation
 import java.nio.charset.Charset
 import java.nio.file.{Files, Path}
 
-import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Print, Run}
 import bloop.io.AbsolutePath
+import bloop.util.OS
 
 object Validate {
   private def cliError(msg: String, commonOptions: CommonOptions): Action =
@@ -25,7 +25,7 @@ object Validate {
         cliError(Feedback.existingSocketFile(socket), commonOptions)
       case Some(socket) if !Files.exists(socket.getParent) =>
         cliError(Feedback.missingParentOfSocket(socket), commonOptions)
-      case Some(socket) if BspServer.isMac && bytesOf(socket.toString) > 104 =>
+      case Some(socket) if OS.isMac && bytesOf(socket.toString) > 104 =>
         cliError(Feedback.excessiveSocketLengthInMac(socket), commonOptions)
       case Some(socket) if bytesOf(socket.toString) > 108 =>
         cliError(Feedback.excessiveSocketLength(socket), commonOptions)
@@ -34,7 +34,7 @@ object Validate {
     }
 
     def validatePipeName = cmd.pipeName match {
-      case Some(PipeName(pipeName)) => Run(Commands.WindowsLocalBsp(pipeName, cliOptions))
+      case Some(p @ PipeName(_)) => Run(Commands.WindowsLocalBsp(p, cliOptions))
       case Some(wrong) => cliError(Feedback.unexpectedPipeFormat(wrong), commonOptions)
       case None => cliError(Feedback.MissingPipeName, commonOptions)
     }

@@ -1,11 +1,13 @@
 package bloop.cli.validation
 
 import java.nio.file.Files
+import java.util.Locale
 
-import bloop.bsp.BspServer
-import bloop.cli.{BspProtocol, Commands, ExitStatus}
+import bloop.Cli
+import bloop.cli._
 import bloop.engine.{Action, Exit, Print, Run}
-import org.junit.Test
+import bloop.util.OS
+import org.junit.{Assert, Test}
 
 class ValidateSuite {
   val tempDir = Files.createTempDirectory("validate")
@@ -71,7 +73,7 @@ class ValidateSuite {
   @Test def FailAtLengthySocket(): Unit = {
     // See http://www.cs.utah.edu/plt/popl16/doc/unix-socket/index.html
     val tempBytes = Validate.bytesOf(tempDir.toString)
-    val limit = if (BspServer.isMac) 104 else 108
+    val limit = if (OS.isMac) 104 else 108
     val missing = limit - tempBytes
     val lengthyName = "a" * missing
 
@@ -83,7 +85,7 @@ class ValidateSuite {
     )
 
     val msg =
-      if (BspServer.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
+      if (OS.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
       else Feedback.excessiveSocketLength(socketPath)
     checkIsCliError(Validate.bsp(bspCommand, isWindows = false), msg)
   }
@@ -112,6 +114,27 @@ class ValidateSuite {
       Validate.bsp(bspCommand, isWindows = true),
       Feedback.MissingPipeName
     )
+  }
+
+  @Test def SucceedAtCorrectPipeNameFromCli(): Unit = {
+    val pipeName = s"\\\\.\\pipe\\test-$uniqueId"
+    val bspCommand = Commands.WindowsLocalBsp(
+      pipeName = pipeName,
+      cliOptions = CliOptions.default
+    )
+
+    val oldProperty = System.getProperty("os.name").toLowerCase(Locale.ENGLISH)
+    try {
+      System.setProperty("os.name", "windows")
+      val args = Array("bsp", "--protocol", "local", "--pipe-name", pipeName)
+      Assert.assertEquals(
+        Run(bspCommand),
+        Cli.parse(args, CommonOptions.default)
+      )
+    } finally {
+      System.setProperty("os.name", oldProperty)
+      ()
+    }
   }
 
   @Test def SucceedAtCorrectPipeName(): Unit = {

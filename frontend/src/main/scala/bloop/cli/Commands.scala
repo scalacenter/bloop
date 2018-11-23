@@ -95,8 +95,7 @@ object Commands {
       port: Int = 5101,
       @HelpMessage("A path to a socket file to communicate through Unix sockets (local only).")
       socket: Option[Path] = None,
-      @HelpMessage(
-        "A path to a new existing socket file to communicate through Unix sockets (local only).")
+      @HelpMessage("A named pipe identifier for Windows local communication.")
       pipeName: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
