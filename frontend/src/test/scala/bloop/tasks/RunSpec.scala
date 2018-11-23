@@ -22,7 +22,6 @@ import scala.concurrent.duration.Duration
 
 @Category(Array(classOf[bloop.FastTests]))
 class RunSpec {
-
   private val packageName = "foo.bar"
   private val mainClassName0 = "Main0"
   private val mainClassName1 = "Main1"
@@ -115,11 +114,31 @@ class RunSpec {
 
   @Test
   def runCanSeeCompileResources: Unit = {
-    val projectName = "with-resources"
-    val mainClassName = "Main"
-    val state = loadTestProject(projectName)
-    val command = Commands.Run(projectName, Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages => assert(messages.contains(("info", "OK")))
+    val mainClassName = "hello.AppWithResources"
+    val state = loadTestProject("cross-test-build-0.6")
+    val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "Resources were found")))
+    }
+  }
+
+  @Test
+  def canRunMainFromSourceDependency: Unit = {
+    val mainClassName = "hello.App"
+    val state = loadTestProject("cross-test-build-0.6")
+    val command = Commands.Run("test-project-test", Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "Hello, world!")))
+    }
+  }
+
+  @Test
+  def canRunMainFromBinaryDependency: Unit = {
+    val mainClassName = "App"
+    val state = loadTestProject("cross-test-build-0.6")
+    val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "Hello, world!")))
     }
   }
 
