@@ -850,7 +850,7 @@ object BloopDefaults {
     }.distinct
     val project = Keys.thisProjectRef.value
 
-    val sf = ScopeFilter(
+    val lookInAggregates = ScopeFilter(
       inAggregates(project, transitive = true, includeRoot = true),
       inConfigurations(configuration: _*)
     )
@@ -859,18 +859,18 @@ object BloopDefaults {
       val resourceDirs: Seq[Path] =
         Keys
           .unmanagedResourceDirectories
-          .all(sf).value.flatten
+          .all(lookInAggregates).value.flatten
           .union(
             Keys
               .managedResourceDirectories
-              .all(sf).value.flatten
+              .all(lookInAggregates).value.flatten
           )
           .map(_.toPath)
           .distinct
 
       val allResourceFiles: Seq[File] = Keys
         .resources
-        .all(sf).value.flatten
+        .all(lookInAggregates).value.flatten
         .distinct
 
       val additionalResources: Seq[Path] =
