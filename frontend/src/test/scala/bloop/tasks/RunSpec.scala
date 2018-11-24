@@ -118,7 +118,7 @@ class RunSpec {
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
     runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Resources were found")))
+      assert(messages.contains(("info", "Resources were found")), s"Actual: [$messages]")
     }
   }
 
