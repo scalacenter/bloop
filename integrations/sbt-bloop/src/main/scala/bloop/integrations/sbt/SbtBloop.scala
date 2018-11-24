@@ -868,14 +868,10 @@ object BloopDefaults {
           .map(_.toPath)
           .distinct
 
-      println("resd " + resourceDirs)
-
       val allResourceFiles: Seq[File] = Keys
         .resources
         .all(sf).value.flatten
         .distinct
-
-      println("resf " + resourceDirs)
 
       val additionalResources: Seq[Path] =
         ConfigUtil.pathsOutsideRoots(
