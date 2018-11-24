@@ -714,7 +714,6 @@ object BloopDefaults {
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
         val allModules = mergeModules(binaryModules, sourceModules)
-
         val resolution = {
           val modules = onlyCompilationModules(allModules, classpath).toList
           if (modules.isEmpty) None else Some(Config.Resolution(modules))
