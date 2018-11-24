@@ -714,6 +714,7 @@ object BloopDefaults {
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
         val allModules = mergeModules(binaryModules, sourceModules)
+
         val resolution = {
           val modules = onlyCompilationModules(allModules, classpath).toList
           if (modules.isEmpty) None else Some(Config.Resolution(modules))
@@ -842,24 +843,51 @@ object BloopDefaults {
     internalClasspath ++ externalClasspath
   }
 
-  def bloopResourcesTask = Def.taskDyn {
-    val configKey = sbt.ConfigKey(Keys.configuration.value.name)
-    Def.task {
-      import sbt._
-      val s = Keys.streams.value
-      val bloopClassDir = BloopKeys.bloopClassDirectory.value
-      val resourceDirs = Classpaths
-        .concatSettings(
-          Keys.unmanagedResourceDirectories.in(configKey),
-          Keys.managedResourceDirectories.in(configKey)
-        )
-        .value
-        .map(_.toPath)
+  def bloopResourcesTask: Def.Initialize[Task[List[Path]]] = Def.taskDyn {
+    import sbt._
 
-      val allResourceFiles = Keys.resources.in(configKey).value
-      val additionalResources =
-        ConfigUtil.pathsOutsideRoots(resourceDirs, allResourceFiles.map(_.toPath))
-      (resourceDirs ++ additionalResources).toList
+    val configuration: List[Configuration] = {
+      Keys.configuration.value :: eligibleDepsFromConfig.value
+    }.distinct
+    val project = Keys.thisProjectRef.value
+
+    val sf = ScopeFilter(
+      inAggregates(project, transitive = true, includeRoot = true),
+      inConfigurations(configuration: _*)
+    )
+
+    Def.task {
+      val resourceDirs: Seq[Path] =
+        Keys
+          .unmanagedResourceDirectories
+          .all(sf).value.flatten
+          .union(
+            Keys
+              .managedResourceDirectories
+              .all(sf).value.flatten
+          )
+          .map(_.toPath)
+          .distinct
+
+      println("resd " + resourceDirs)
+
+      val allResourceFiles: Seq[File] = Keys
+        .resources
+        .all(sf).value.flatten
+        .distinct
+
+      println("resf " + resourceDirs)
+
+      val additionalResources: Seq[Path] =
+        ConfigUtil.pathsOutsideRoots(
+          resourceDirs,
+          allResourceFiles.map(_.toPath)
+        )
+
+      resourceDirs
+        .union(additionalResources)
+        .distinct
+        .toList
     }
   }
 
