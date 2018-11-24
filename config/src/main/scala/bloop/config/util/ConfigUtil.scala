@@ -6,7 +6,7 @@ object ConfigUtil {
   def pathsOutsideRoots(roots: Seq[Path], paths: Seq[Path]): Seq[Path] = {
     for {
       path <- paths
-      root <- roots if !path.toAbsolutePath.startsWith(root)
+      root <- roots if !path.toAbsolutePath.startsWith(root.toAbsolutePath)
     } yield {
       path
     }
