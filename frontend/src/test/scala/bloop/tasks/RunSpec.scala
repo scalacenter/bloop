@@ -150,6 +150,16 @@ class RunSpec {
   }
 
   @Test
+  def canRunDefaultMainClass: Unit = {
+    // The default main class is set to hello.App build.sbt. Therefore, no error must be triggered here.
+    val state = loadTestProject("cross-test-build-0.6")
+    val command = Commands.Run("test-project", None, args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "Hello, world!")))
+    }
+  }
+
+  @Test
   def canRunMainFromBinaryDependency: Unit = {
     val mainClassName = "App"
     val state = loadTestProject("cross-test-build-0.6")
