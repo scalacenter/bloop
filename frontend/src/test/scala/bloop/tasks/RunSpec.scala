@@ -158,6 +158,16 @@ class RunSpec {
   }
 
   @Test
+  def setCorrectCwd: Unit = {
+    val mainClassName = "hello.ShowCwd"
+    val state = loadTestProject("cross-test-build-0.6")
+    val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.reverse.find(_._1 == "info").exists(_._2.endsWith("cross-test-build-0.6/test-project/jvm")))
+    }
+  }
+
+  @Test
   def canRunInheritedMain: Unit = {
     val projectName = "test-project"
     val sources = ArtificialSources.InheritedRunnable :: Nil
