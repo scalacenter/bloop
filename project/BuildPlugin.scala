@@ -117,7 +117,8 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md")
+    GHReleaseKeys.ghreleaseNotes := { tagName =>
+      IO.read(buildBase.value / "notes" / s"$tagName.md")
     },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
@@ -389,19 +390,26 @@ object BuildImplementation {
 
         // Generate bloop configuration files for projects we use in our test suite upfront
         val resourcesDir = newState.baseDir / "frontend" / "src" / "test" / "resources"
+        val pluginSourceDir = newState.baseDir / "integrations" / "sbt-bloop" / "src" / "main"
         val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
         projectDirs.foreach { projectDir =>
           val targetDir = projectDir / "target"
           val cacheDirectory = targetDir / "generation-cache-file"
           java.nio.file.Files.createDirectories(cacheDirectory.toPath)
 
-          val watchedFiles = sbt.io.Path
+          val projectsFiles = sbt.io.Path
             .allSubpaths(projectDir)
             .map(_._1)
             .filter { f =>
               val filename = f.toString
               filename.endsWith(".sbt") || filename.endsWith(".scala")
             }
+            .toSet
+
+          val pluginFiles = sbt.io.Path
+            .allSubpaths(pluginSourceDir)
+            .map(_._1)
+            .filter(f => f.toString.endsWith(".scala"))
             .toSet
 
           import scala.sys.process.Process
@@ -417,7 +425,7 @@ object BuildImplementation {
             changedFiles
           }
 
-          cached(watchedFiles)
+          cached(projectsFiles ++ pluginFiles)
         }
 
         newState
