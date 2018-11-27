@@ -209,7 +209,7 @@ object Interpreter {
       case Some(project) =>
         def doTest(state: State): Task[State] = {
           val testFilter = TestInternals.parseFilters(cmd.only)
-          val cwd = cmd.cliOptions.common.workingPath
+          val cwd = project.baseDirectory
           compileAnd(cmd, state, project, false, sequential, "`test`") { state =>
             val handler = new LoggingEventHandler(state.logger)
             Tasks.test(state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, handler)
@@ -338,8 +338,8 @@ object Interpreter {
   }
 
   private def run(cmd: Commands.Run, state: State, sequential: Boolean): Task[State] = {
-    val cwd = cmd.cliOptions.common.workingPath
     def doRun(project: Project)(state: State): Task[State] = {
+      val cwd = project.baseDirectory
       compileAnd(cmd, state, project, false, sequential, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(state) => Task.now(state) // If we got here, we have already reported errors
