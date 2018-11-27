@@ -145,8 +145,7 @@ class RunSpec {
     val mainClassName = "hello.App"
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run("test-project-test", Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages => assert(messages.contains(("info", "Hello, world!")))
-    }
+    runAndCheck(state, command)(msgs => assert(msgs.contains(("info", "Hello, world!"))))
   }
 
   @Test
@@ -164,8 +163,7 @@ class RunSpec {
     val mainClassName = "App"
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages => assert(messages.contains(("info", "Hello, world!")))
-    }
+    runAndCheck(state, command)(msgs => assert(msgs.contains(("info", "Hello, world!"))))
   }
 
   @Test

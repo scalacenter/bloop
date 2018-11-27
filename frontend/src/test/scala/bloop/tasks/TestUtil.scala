@@ -147,12 +147,11 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-
   def getBloopConfigDir(buildName: String): Path = {
     def fallbackToIntegrationBaseDir(buildName: String): Path = {
       testProjectsIndex
         .get(buildName)
-        .getOrElse(sys.error(s"Project ${ buildName} does not exist at ${integrationsIndexPath}"))
+        .getOrElse(sys.error(s"Project ${buildName} does not exist at ${integrationsIndexPath}"))
     }
 
     val baseDirURL = ThisClassLoader.getResource(buildName)
@@ -202,7 +201,8 @@ object TestUtil {
    * @param check   A function that'll receive the resulting log messages.
    */
   def runAndCheck(sources: Seq[String], cmd: Commands.CompilingCommand)(
-      check: List[(String, String)] => Unit): Unit = {
+      check: List[(String, String)] => Unit
+  ): Unit = {
     val noDependencies = Map.empty[String, Set[String]]
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
     val projectsStructure = Map(cmd.project -> namedSources)
@@ -224,15 +224,17 @@ object TestUtil {
    * @param check A function that'll receive the resulting log messages.
    */
   def runAndCheck(state: State, cmd: Commands.CompilingCommand)(
-      check: List[(String, String)] => Unit): Unit = {
-    val recordingLogger = new RecordingLogger
-    val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
-    val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
-    TestUtil.blockingExecute(Run(cmd), recordingState)
-    try check(recordingLogger.getMessages)
-    catch {
-      case NonFatal(t) =>
-        recordingLogger.dump()
+      check: List[(String, String)] => Unit
+  ): Unit = {
+    val logger = new RecordingLogger
+    try {
+      val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
+      val recordingState = state.copy(logger = logger).copy(commonOptions = commonOptions)
+      TestUtil.blockingExecute(Run(cmd), recordingState)
+      check(logger.getMessages)
+    } catch {
+      case t: Throwable =>
+        logger.dump()
         throw t
     }
   }
@@ -362,9 +364,9 @@ object TestUtil {
     val diff =
       if (patch.getDeltas.isEmpty) ""
       else {
-        difflib.DiffUtils.generateUnifiedDiff(
-          "expected", "obtained", obtainedLines, patch, 1
-        ).asScala.mkString("\n")
+        val diffLines = difflib.DiffUtils
+          .generateUnifiedDiff("expected", "obtained", obtainedLines, patch, 1)
+        diffLines.asScala.mkString("\n")
       }
     if (!diff.isEmpty) {
       Assert.fail("\n" + diff)
