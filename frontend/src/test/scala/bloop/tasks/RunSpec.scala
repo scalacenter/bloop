@@ -7,9 +7,10 @@ import java.util.concurrent.TimeUnit
 
 import bloop.ScalaInstance
 import org.junit.{Assert, Test}
+import bloop.bsp.BspServer
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
-import bloop.cli.{Commands, ExitStatus}
+import bloop.cli.Commands
 import bloop.engine.{Dag, ExecutionContext, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
@@ -162,8 +163,15 @@ class RunSpec {
     val mainClassName = "hello.ShowCwd"
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
+    val targetMsg = {
+      if (BspServer.isWindows) "cross-test-build-0.6\\test-project\\jvm"
+      else "cross-test-build-0.6/test-project/jvm"
+    }
+
     runAndCheck(state, command) { messages =>
-      assert(messages.reverse.find(_._1 == "info").exists(_._2.endsWith("cross-test-build-0.6/test-project/jvm")))
+      assert(
+        messages.reverse.find(_._1 == "info").exists(_._2.endsWith(targetMsg))
+      )
     }
   }
 
