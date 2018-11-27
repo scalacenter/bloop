@@ -20,7 +20,6 @@ object Interpreter {
   def execute(action: Action, stateTask: Task[State]): Task[State] = {
     def execute(action: Action, stateTask: Task[State], inRecursion: Boolean): Task[State] = {
       stateTask.flatMap { state =>
-        bloop.util.ProxyEnvironment.setJvmProxySettings(state)
         action match {
           // We keep it case because there is a 'match may not be exhaustive' false positive by scalac
           // Looks related to existing bug report https://github.com/scala/bug/issues/10251

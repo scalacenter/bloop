@@ -2,7 +2,7 @@ package bloop
 
 import java.net.InetAddress
 
-import bloop.util.ProxyEnvironment
+import bloop.util.ProxySetup
 import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
 
 import scala.util.Try
@@ -19,7 +19,7 @@ object Server {
     val addr = InetAddress.getLoopbackAddress
     val server = new NGServer(addr, port)
     registerAliases(server)
-    ProxyEnvironment.init()
+    ProxySetup.init()
     server
   }
 

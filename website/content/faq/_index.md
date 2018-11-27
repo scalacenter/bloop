@@ -64,9 +64,24 @@ By default the sbt plugin exports only `Compile` and `Test` configurations.
 If you want to export other sbt configurations too, please read about
 [advanced sbt configuration]({{<relref "docs/sbt.md" >}}).
 
-## Bloop can't download some file
-You are maybe behind a proxy server. 
-Set `http_proxy` and `https_proxy` environments variable, Bool will used them to download needed ressources.
+## Configure bloop behind a proxy
+
+Bloop can be configured behind a proxy in two different ways:
+
+1. Run the bloop server with the right proxy settings.
+2. Set the proxy settings as environment variables in the terminal where
+   you invoke a bloop client (such as the command-line application).
+
+You can change the proxy settings as many times as you want, however you
+need to keep in mind the following considerations:
+
+1. Changes in the proxy settings of a client affect all bloop clients.
+2. It's not possible to clear proxy settings (if the proxy settings are
+   empty in one of the bloop clients, nothing is done).
+
+To configure bloop behind a proxy, you can set `http_proxy` and
+`https_proxy`. If you need a more advanced configuration, consult the
+[Oracle Proxy documentation](https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html).
 
 ## Is Bloop open source?
 

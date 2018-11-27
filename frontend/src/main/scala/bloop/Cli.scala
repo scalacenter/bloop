@@ -280,6 +280,8 @@ object Cli {
       debugFilter
     )
 
+    // Set the proxy settings right before loading the state of the build
+    bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
     if (Files.exists(configDirectory.underlying)) {
