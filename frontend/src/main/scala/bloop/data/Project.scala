@@ -72,14 +72,15 @@ final case class Project(
 
   def fullClasspathFor(dag: Dag[Project]): Array[AbsolutePath] = {
     val cp = compilationClasspath.toBuffer
-    // Add the resources right after the classes directory if found in the classpath
+    // Add the resources right before the classes directory if found in the classpath
     Dag.dfs(dag).foreach { p =>
       val index = cp.indexOf(p.classesDir)
       // If there is an anomaly and the classes dir of a dependency is missing, add resource at end
       if (index == -1) {
-        p.resources.foreach(r => cp.append(r))
+        cp.appendAll(p.resources)
+      } else {
+        cp.insertAll(index, p.resources)
       }
-      else cp.insertAll(index, p.resources)
     }
     cp.toArray
   }

@@ -6,11 +6,11 @@ import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import bloop.ScalaInstance
-import org.junit.Test
+import org.junit.{Assert, Test}
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{ExecutionContext, Run, State}
+import bloop.engine.{Dag, ExecutionContext, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
@@ -123,12 +123,28 @@ class RunSpec {
   }
 
   @Test
+  def runIncludesTransitiveResourcesInAggregatedProjects: Unit = {
+    val target = "cross-test-build-0-6"
+    val state = loadTestProject("cross-test-build-0.6")
+    state.build.getProjectFor(target) match {
+      case Some(rootWithAggregation) =>
+        val dag = state.build.getDagFor(rootWithAggregation)
+        val fullClasspath = rootWithAggregation.fullClasspathFor(dag).toList
+        val dependentResources = Dag.dfs(dag).flatMap(_.resources)
+        Assert.assertFalse(dependentResources.isEmpty)
+        dependentResources.foreach { r =>
+          Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))
+        }
+      case None => Assert.fail(s"Missing root $target")
+    }
+  }
+
+  @Test
   def canRunMainFromSourceDependency: Unit = {
     val mainClassName = "hello.App"
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run("test-project-test", Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Hello, world!")))
+    runAndCheck(state, command) { messages => assert(messages.contains(("info", "Hello, world!")))
     }
   }
 
@@ -137,8 +153,7 @@ class RunSpec {
     val mainClassName = "App"
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Hello, world!")))
+    runAndCheck(state, command) { messages => assert(messages.contains(("info", "Hello, world!")))
     }
   }
 
