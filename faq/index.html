@@ -192,6 +192,29 @@ on a plugin, the plugin should make sure of that).</p>
 If you want to export other sbt configurations too, please read about
 <a href="/bloop/docs/sbt/">advanced sbt configuration</a>.</p>
 
+<h2 id="configure-bloop-behind-a-proxy">Configure bloop behind a proxy</h2>
+
+<p>Bloop can be configured behind a proxy in two different ways:</p>
+
+<ol>
+<li>Run the bloop server with the right proxy settings.</li>
+<li>Set the proxy settings as environment variables in the terminal where
+you invoke a bloop client (such as the command-line application).</li>
+</ol>
+
+<p>You can change the proxy settings as many times as you want, however you
+need to keep in mind the following considerations:</p>
+
+<ol>
+<li>Changes in the proxy settings of a client affect all bloop clients.</li>
+<li>It&rsquo;s not possible to clear proxy settings (if the proxy settings are
+empty in one of the bloop clients, nothing is done).</li>
+</ol>
+
+<p>To configure bloop behind a proxy, you can set <code>http_proxy</code> and
+<code>https_proxy</code>. If you need a more advanced configuration, consult the
+<a href="https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html">Oracle Proxy documentation</a>.</p>
+
 <h2 id="is-bloop-open-source">Is Bloop open source?</h2>
 
 <p>Yes. Bloop is released under the Apache-2.0 license and is free and open source software.</p>
