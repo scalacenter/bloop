@@ -1,7 +1,15 @@
 package bloop
 
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{OptionsParser, cliParser, coParser, inputStreamRead, pathParser, printStreamRead, propertiesParser}
+import bloop.cli.CliParsers.{
+  OptionsParser,
+  cliParser,
+  coParser,
+  inputStreamRead,
+  pathParser,
+  printStreamRead,
+  propertiesParser
+}
 import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath

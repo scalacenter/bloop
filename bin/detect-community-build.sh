@@ -9,6 +9,10 @@ pr_has_label () {
   curl --silent https://api.github.com/repos/"$MONITOR_REPO"/issues/"$PR"/labels | jq -e '. | map(select( .name == "'"$1"'" )) | .[].name' > /dev/null 2>&1
 }
 
+if git log -1 --pretty=%B --no-merges | grep FORCE_TEST_RESOURCES_GENERATION > /dev/null 2>&1; then
+  export FORCE_TEST_RESOURCES_GENERATION=true
+fi
+
 if [[ "$PR" ]]; then
   if pr_has_label "community build"; then
     export RUN_COMMUNITY_BUILD=true

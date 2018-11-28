@@ -19,6 +19,7 @@ import scala.util.control.NonFatal
 
 class Cli
 object Cli {
+
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool, args)
@@ -279,6 +280,8 @@ object Cli {
       debugFilter
     )
 
+    // Set the proxy settings right before loading the state of the build
+    bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
     if (Files.exists(configDirectory.underlying)) {
