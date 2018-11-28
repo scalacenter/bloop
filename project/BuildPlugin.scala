@@ -394,7 +394,9 @@ object BuildImplementation {
         val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
         projectDirs.foreach { projectDir =>
           val targetDir = projectDir / "target"
-          val cacheDirectory = targetDir / "generation-cache-file"
+          val cacheDirectory = targetDir / "generation-cache-dir"
+          if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
+            IO.delete(cacheDirectory)
           java.nio.file.Files.createDirectories(cacheDirectory.toPath)
 
           val projectsFiles = sbt.io.Path
