@@ -31,5 +31,9 @@ lazy val `test-project` =
     )
 
 
-lazy val `test-project-js` = `test-project`.js
+lazy val `test-project-js` = `test-project`.js.settings(
+  // Should override default set above. Tested as part of ScalaJsToolchainSpec.
+  bloopMainClass in Compile := Some("hello.DefaultApp")
+)
+
 lazy val `test-project-jvm` = `test-project`.jvm
