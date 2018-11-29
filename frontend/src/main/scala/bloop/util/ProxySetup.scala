@@ -1,6 +1,6 @@
 package bloop.util
 
-import java.net.URL
+import java.net.URI
 import java.net.MalformedURLException
 
 import bloop.logging.Logger
@@ -142,7 +142,7 @@ object ProxySetup {
   ): Option[ProxySettings] = {
     env.get(key).flatMap { proxyVar =>
       try {
-        val url = new URL(proxyVar)
+        val url = new URI(proxyVar)
         val maybeNoProxy = env.get("no_proxy").map(_.replace(',', '|'))
         Some(ProxySettings(url.getHost(), url.getPort(), maybeNoProxy))
       } catch {
