@@ -71,8 +71,14 @@ object JsBridge {
         List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
       case _ =>
         if (runMain) {
-          logger.debug(s"Setting up no module initializers, commonjs module detected ${project}")
-          Nil // If run is disabled, it'a commonjs module and we link with exports
+          moduleKind match {
+            case ModuleKind.CommonJSModule =>
+              logger.debug(s"Setting up no module initializers, commonjs detected in ${project}")
+              Nil // If run is disabled, it'a commonjs module and we link with exports
+            case ModuleKind.NoModule =>
+              logger.debug(s"Setting up no module initializers in ${project}, main class is empty")
+              Nil // If run is disabled, it'a commonjs module and we link with exports
+          }
         } else {
           // There is no main class, install the test module initializers
           logger.debug(s"Setting up test module initializers for ${project}")

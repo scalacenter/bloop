@@ -17,9 +17,10 @@ import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class ScalaJsToolchainSpec {
+  val NormalMain = Some("hello.App")
   val MainProject = "test-projectJS"
   val TestProject = "test-projectJS-test"
-  val CommonJsProject = "commonjs-build-0-6"
+  val CommonJsProject = "commonjs-project"
 
   def setUpScalajs(p: Project): Project = {
     val platform = p.platform match {
@@ -31,29 +32,12 @@ class ScalaJsToolchainSpec {
     p.copy(platform = platform)
   }
 
-  val crossTestState: State =
-    TestUtil.loadTestProject("cross-test-build-0.6", _.map(setUpScalajs))
-  val commonjsTestState: State = {
-    val initial = TestUtil.loadTestProject("commonjs-build-0.6", _.map(setUpScalajs))
-
-    // Enable CommonJS mode, workaround for https://github.com/scalacenter/bloop/issues/715
-    commonjsTestState.copy(
-      build = commonjsTestState.build.copy(
-        projects = commonjsTestState.build.projects.map { p =>
-          p.copy(platform = p.platform match {
-            case p: Platform.Js =>
-              p.copy(config = p.config.copy(kind = Config.ModuleKindJS.CommonJSModule))
-            case p => p
-          })
-        }
-      )
-    )
-  }
+  val crossTestState: State = TestUtil.loadTestProject("cross-test-build-0.6", _.map(setUpScalajs))
 
   @Test def canLinkScalaJsProject(): Unit = {
     val logger = new RecordingLogger
     val state = crossTestState.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject, main = Some("hello.App")))
+    val action = Run(Commands.Link(project = MainProject, main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -62,8 +46,8 @@ class ScalaJsToolchainSpec {
 
   @Test def canLinkCommonJsScalaJsProject(): Unit = {
     val logger = new RecordingLogger
-    val state = commonjsTestState.copy(logger = logger)
-    val action = Run(Commands.Link(project = CommonJsProject))
+    val state = crossTestState.copy(logger = logger)
+    val action = Run(Commands.Link(project = CommonJsProject, main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -75,7 +59,7 @@ class ScalaJsToolchainSpec {
     val mode = OptimizerConfig.Release
     val state = crossTestState.copy(logger = logger)
     val action = Run(
-      Commands.Link(project = MainProject, optimize = Some(mode), main = Some("hello.App")))
+      Commands.Link(project = MainProject, optimize = Some(mode), main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -86,7 +70,7 @@ class ScalaJsToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = crossTestState.copy(logger = logger)
-    val action = Run(Commands.Run(project = MainProject, main = Some("hello.App")))
+    val action = Run(Commands.Run(project = MainProject, main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)

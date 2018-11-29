@@ -324,6 +324,7 @@ object Interpreter {
           case platform @ Platform.Js(config, _, _) =>
             val target = ScalaJsToolchain.linkTargetFrom(project, config)
 
+
             // A CommonJS module does not have an entry point
             if (config.kind == Config.ModuleKindJS.CommonJSModule)
               LinkTask.linkMainWithJs(cmd, project, state, None, target, platform)

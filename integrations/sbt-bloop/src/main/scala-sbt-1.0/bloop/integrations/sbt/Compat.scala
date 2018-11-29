@@ -33,4 +33,7 @@ object Compat {
   private final val anyWriter = implicitly[sbt.util.OptJsonWriter[AnyRef]]
   def toAnyRefSettingKey(id: String, m: Manifest[AnyRef]): SettingKey[AnyRef] =
     SettingKey(id)(m, anyWriter)
+
+  def toAnyRefTaskKey(id: String, m: Manifest[AnyRef]): sbt.TaskKey[AnyRef] =
+    sbt.TaskKey(id)(m)
 }

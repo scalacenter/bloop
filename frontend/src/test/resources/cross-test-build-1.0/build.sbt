@@ -36,4 +36,14 @@ lazy val `test-project-js` = `test-project`.js.settings(
   bloopMainClass in Compile := Some("hello.DefaultApp")
 )
 
-lazy val `test-project-jvm` = `test-project`.jvm
+lazy val `test-project-jvm` = `test-project`.jvm.settings(
+  bloopMainClass in Compile := Some("hello.App")
+)
+
+lazy val `commonjs-project` = project
+  .enablePlugins(ScalaJSPlugin)
+  .settings(
+    scalaVersion := "2.12.6",
+    scalacOptions += "-Ywarn-unused",
+    scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) }
+  )

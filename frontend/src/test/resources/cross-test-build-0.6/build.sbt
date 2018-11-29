@@ -48,3 +48,11 @@ lazy val `test-project-jvm` = `test-project`.jvm.settings(
   bloopMainClass in (Compile, run) := Some("hello.App"),
   unmanagedBase := baseDirectory.value / "custom_libraries"
 )
+
+lazy val `commonjs-project` = project
+  .enablePlugins(ScalaJSPlugin)
+  .settings(
+    scalaVersion := "2.11.12",
+    scalacOptions += "-Ywarn-unused",
+    scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) }
+  )

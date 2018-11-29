@@ -16,9 +16,11 @@ import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class ScalaJsToolchainSpec {
+  val NormalMain = Some("hello.App")
   val MainProject = "test-projectJS"
   val TestProject = "test-projectJS-test"
-  val state0: State = {
+  val CommonJsProject = "commonjs-project"
+  val crossTestState: State = {
     def setUpScalajs(p: Project): Project = {
       val platform = p.platform match {
         case jsPlatform: Platform.Js =>
@@ -33,8 +35,18 @@ class ScalaJsToolchainSpec {
 
   @Test def canLinkScalaJsProject(): Unit = {
     val logger = new RecordingLogger
-    val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject))
+    val state = crossTestState.copy(logger = logger)
+    val action = Run(Commands.Link(project = MainProject, main = NormalMain))
+    val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
+
+    assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages.assertContain("Generated JavaScript file '", atLevel = "info")
+  }
+
+  @Test def canLinkCommonJsScalaJsProject(): Unit = {
+    val logger = new RecordingLogger
+    val state = crossTestState.copy(logger = logger)
+    val action = Run(Commands.Link(project = CommonJsProject, main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -44,8 +56,8 @@ class ScalaJsToolchainSpec {
   @Test def canLinkScalaJsProjectInReleaseMode(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
-    val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject, optimize = Some(mode)))
+    val state = crossTestState.copy(logger = logger)
+    val action = Run(Commands.Link(project = MainProject, optimize = Some(mode), main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -55,12 +67,23 @@ class ScalaJsToolchainSpec {
   @Test def canRunScalaJsProject(): Unit = {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
-    val state = state0.copy(logger = logger)
-    val action = Run(Commands.Run(project = MainProject))
+    val state = crossTestState.copy(logger = logger)
+    val action = Run(Commands.Run(project = MainProject, main = NormalMain))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
     logger.getMessages.assertContain("Hello, world!", atLevel = "info")
+  }
+
+  @Test def canRunScalaJsProjectDefaultMainClass(): Unit = {
+    val logger = new RecordingLogger
+    val mode = OptimizerConfig.Release
+    val state = crossTestState.copy(logger = logger)
+    val action = Run(Commands.Run(project = MainProject, main = None))
+    val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
+
+    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages.assertContain("Hello, world from DefaultApp!", atLevel = "info")
   }
 
   private final val maxDuration = Duration.apply(45, TimeUnit.SECONDS)

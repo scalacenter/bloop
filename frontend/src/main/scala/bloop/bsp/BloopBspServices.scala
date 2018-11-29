@@ -377,7 +377,7 @@ final class BloopBspServices(
                   val args = ("node" +: target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
                   else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
-              }
+                }
           }
       }
     }

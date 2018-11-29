@@ -31,6 +31,9 @@ class BspProtocolSpec {
   private final val MainJsProject = "test-projectJS"
   private final val TestJsProject = "test-projectJS-test"
 
+  private final val CommonjsProject = "commonjs-project"
+  private final val TestCommonjsProject = "commonjs-project-test"
+
   // Load the current build associated with the configuration directory to test project metadata
   private final val crossTestBuild = BuildLoader.loadSynchronously(configDir, new RecordingLogger)
   private val mainProject = crossTestBuild
@@ -139,6 +142,8 @@ class BspProtocolSpec {
                     case Some(TestProject) => bsp.ScalaPlatform.Jvm
                     case Some(MainJsProject) => bsp.ScalaPlatform.Js
                     case Some(TestJsProject) => bsp.ScalaPlatform.Js
+                    case Some(CommonjsProject) => bsp.ScalaPlatform.Js
+                    case Some(TestCommonjsProject) => bsp.ScalaPlatform.Js
                     // For the rest of the projects, assume JVM
                     case Some(_) => bsp.ScalaPlatform.Jvm
                     // This should never happen, bloop should always pass in the display name
@@ -156,7 +161,7 @@ class BspProtocolSpec {
               }
             }
           }
-          Right(Assert.assertEquals(6, workspaceTargets.targets.size))
+          Right(Assert.assertEquals(8, workspaceTargets.targets.size))
         case Left(error) => Left(error)
       }
     }
