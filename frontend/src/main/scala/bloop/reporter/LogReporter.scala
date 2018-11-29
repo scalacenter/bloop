@@ -12,6 +12,7 @@ import sbt.internal.inc.Analysis
 import scala.collection.mutable
 
 final class LogReporter(
+    val project: Project,
     override val logger: Logger,
     override val cwd: AbsolutePath,
     sourcePositionMapper: Position => Position,
@@ -51,12 +52,11 @@ final class LogReporter(
     val scalaMsg = Analysis.counted("Scala source", "", "s", scalaSources.size)
     val javaMsg = Analysis.counted("Java source", "", "s", javaSources.size)
     val combined = scalaMsg ++ javaMsg
-    val targets = outputDirs.map(_.getAbsolutePath).mkString(",")
-    logger.info(combined.mkString("Compiling ", " and ", s" to $targets ..."))
+    logger.info(combined.mkString(s"Compiling ${project.name} (", " and ", ")"))
   }
 
-  override def reportEndIncrementalCycle(): Unit = {
-    logger.info("Done compiling.")
+  override def reportEndIncrementalCycle(durationMs: Long): Unit = {
+    logger.info(s"Compiled ${project.name} (${durationMs}ms)")
   }
 
   override def reportStartCompilation(previousProblems: List[xsbti.Problem]): Unit = ()
@@ -89,6 +89,7 @@ final class LogReporter(
 
 object LogReporter {
   def fromAnalysis(
+      project: Project,
       analysis: CompileAnalysis,
       cwd: AbsolutePath,
       logger: Logger
@@ -96,6 +97,6 @@ object LogReporter {
     import scala.collection.JavaConverters._
     val sourceInfos = analysis.readSourceInfos.getAllSourceInfos.asScala.toBuffer
     val ps = sourceInfos.flatMap(_._2.getReportedProblems).map(Problem.fromZincProblem(_))
-    new LogReporter(logger, cwd, identity, ReporterConfig.defaultFormat, ps)
+    new LogReporter(project, logger, cwd, identity, ReporterConfig.defaultFormat, ps)
   }
 }

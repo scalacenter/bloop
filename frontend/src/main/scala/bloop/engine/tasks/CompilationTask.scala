@@ -146,7 +146,7 @@ object CompilationTask {
             case FinalCompileResult(p, Compiler.Result.NotOk(_), _) => p
           }
 
-          cleanStatePerBuildRun(results, state)
+          cleanStatePerBuildRun(project, results, state)
           val newState = state.copy(results = state.results.addFinalResults(results))
           if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
           else {
@@ -184,7 +184,11 @@ object CompilationTask {
   }
 
   // Running this method takes around 10ms per compiler and it's rare to have more than one to reset!
-  private def cleanStatePerBuildRun(results: List[FinalCompileResult], state: State): Unit = {
+  private def cleanStatePerBuildRun(
+      project: Project,
+      results: List[FinalCompileResult],
+      state: State
+  ): Unit = {
     import xsbti.compile.{IRStore, EmptyIRStore}
     import java.nio.file.Files
     val tmpDir = Files.createTempDirectory("outputDir")
@@ -201,7 +205,7 @@ object CompilationTask {
         val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]
         val config = ReporterConfig.defaultFormat
         val cwd = state.commonOptions.workingPath
-        val reporter = new LogReporter(logger, cwd, identity, config)
+        val reporter = new LogReporter(project, logger, cwd, identity, config)
         val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
         val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
         // Reset the global ir caches on the cached compiler only for the store IRs
@@ -228,7 +232,7 @@ object CompilationTask {
           identity,
           config.copy(reverseOrder = false),
           false)
-      case _ => new LogReporter(logger, cwd, identity, config)
+      case _ => new LogReporter(project, logger, cwd, identity, config)
     }
   }
 }

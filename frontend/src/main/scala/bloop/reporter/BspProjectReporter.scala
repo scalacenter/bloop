@@ -56,7 +56,7 @@ final class BspProjectReporter(
     }
   }
 
-  override def reportEndIncrementalCycle(): Unit = ()
+  override def reportEndIncrementalCycle(durationMs: Long): Unit = ()
 
   override def reportEndCompilation(
       previousAnalysis: Option[CompileAnalysis],
