@@ -10,6 +10,7 @@ lazy val `test-project` =
       // %%% now include Scala Native. It applies to all selected platforms
       scalaVersion := "2.11.12",
       scalacOptions += "-Ywarn-unused",
+      mainClass in (Compile, run) := Some("hello.App"),
       libraryDependencies += "com.lihaoyi" %%% "utest" % "0.6.6" % Test,
       libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % "test",
       libraryDependencies += "org.scalacheck" %%% "scalacheck" % "1.13.4" % "test",
@@ -38,8 +39,12 @@ lazy val `test-project` =
     )
     .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
 
+lazy val `test-project-js` = `test-project`.js.settings(
+  // Should override default set above. Tested as part of ScalaJsToolchainSpec.
+  bloopMainClass in (Compile, run) := Some("hello.DefaultApp")
+)
 
-lazy val `test-project-js` = `test-project`.js
 lazy val `test-project-jvm` = `test-project`.jvm.settings(
+  bloopMainClass in (Compile, run) := Some("hello.App"),
   unmanagedBase := baseDirectory.value / "custom_libraries"
 )

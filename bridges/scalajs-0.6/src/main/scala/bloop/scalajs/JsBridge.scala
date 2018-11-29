@@ -53,6 +53,7 @@ object JsBridge {
   def link(
       config: JsConfig,
       project: Project,
+      runMain: java.lang.Boolean,
       mainClass: Option[String],
       target: Path,
       logger: BloopLogger
@@ -77,7 +78,8 @@ object JsBridge {
     val jarFiles = classpath.filter(isJarFile).map(toIrJar)
     val scalajsIRFiles = jarFiles.flatMap(_.jar.sjsirFiles)
     val initializers =
-      mainClass.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main")).toList
+      if (!runMain) Nil
+      else mainClass.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main")).toList
     val jsConfig = StandardLinker
       .Config()
       .withOptimizer(enableOptimizer)

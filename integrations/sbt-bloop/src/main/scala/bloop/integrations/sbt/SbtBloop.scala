@@ -6,7 +6,25 @@ import java.nio.file.{Files, Path}
 import bloop.config.Config
 import bloop.config.util.ConfigUtil
 import bloop.integration.sbt.Feedback
-import sbt.{AutoPlugin, ClasspathDep, ClasspathDependency, Compile, ConfigKey, Configuration, Def, File, Global, Keys, LocalRootProject, Logger, ProjectRef, ResolvedProject, Test, ThisBuild, ThisProject}
+import sbt.{
+  AutoPlugin,
+  ClasspathDep,
+  ClasspathDependency,
+  Compile,
+  ConfigKey,
+  Configuration,
+  Def,
+  File,
+  Global,
+  Keys,
+  LocalRootProject,
+  Logger,
+  ProjectRef,
+  ResolvedProject,
+  Test,
+  ThisBuild,
+  ThisProject
+}
 import xsbti.compile.CompileOrder
 
 object BloopPlugin extends AutoPlugin {
@@ -50,6 +68,8 @@ object BloopKeys {
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
+  val bloopMainClass: SettingKey[Option[String]] =
+    settingKey[Option[String]]("The main class to run a bloop target")
 }
 
 object BloopDefaults {
@@ -117,7 +137,9 @@ object BloopDefaults {
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
-      BloopKeys.bloopAnalysisOut := None
+      BloopKeys.bloopAnalysisOut := None,
+      BloopKeys.bloopMainClass := None,
+      BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
     ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
@@ -536,6 +558,7 @@ object BloopDefaults {
   lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
     val project = Keys.thisProject.value
     val (javaHome, javaOptions) = javaConfiguration.value
+    val mainClass = BloopKeys.bloopMainClass.in(Keys.run).value
 
     val libraryDeps = Keys.libraryDependencies.value
     val externalClasspath: Seq[Path] =
@@ -569,7 +592,7 @@ object BloopDefaults {
 
           val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
           val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs, None)
-          Config.Platform.Native(nativeConfig, None)
+          Config.Platform.Native(nativeConfig, mainClass)
         }
       }
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
@@ -592,12 +615,12 @@ object BloopDefaults {
           ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
         val jsdom = Some(false)
         val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, emptyScalaJs.toolchain)
-        Config.Platform.Js(jsConfig, None)
+        Config.Platform.Js(jsConfig, mainClass)
       }
     } else {
       Def.task {
         val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
-        Config.Platform.Jvm(config, None)
+        Config.Platform.Jvm(config, mainClass)
       }
     }
     // FORMAT: ON

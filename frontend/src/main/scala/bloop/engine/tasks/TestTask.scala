@@ -140,7 +140,7 @@ object TestTask {
         val target = ScalaJsToolchain.linkTargetFrom(project, config)
         toolchain match {
           case Some(toolchain) =>
-            toolchain.link(config, project, userMainClass, target, state.logger).map {
+            toolchain.link(config, project, false, userMainClass, target, state.logger).map {
               case Success(_) =>
                 logger.info(s"Generated JavaScript file '${target.syntax}'")
                 val fnames = project.testFrameworks.map(_.names)

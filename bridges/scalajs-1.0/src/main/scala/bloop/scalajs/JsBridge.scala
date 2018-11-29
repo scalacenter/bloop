@@ -28,13 +28,13 @@ import org.scalajs.testadapter.TestAdapter
  * correctly.
  */
 object JsBridge {
-  private class Logger(logger: BloopLogger) extends JsLogger {
+  private class Logger(logger: BloopLogger)(implicit filter: DebugFilter) extends JsLogger {
     override def log(level: Level, message: => String): Unit =
       level match {
         case Level.Error => logger.error(message)
         case Level.Warn => logger.warn(message)
         case Level.Info => logger.info(message)
-        case Level.Debug => logger.debug(message)(DebugFilter.Link)
+        case Level.Debug => logger.debug(message)(filter)
       }
     override def success(message: => String): Unit = logger.info(message)
     override def trace(t: => Throwable): Unit = logger.trace(t)
@@ -43,10 +43,12 @@ object JsBridge {
   def link(
       config: JsConfig,
       project: Project,
+      runMain: java.lang.Boolean,
       mainClass: Option[String],
       target: Path,
       logger: BloopLogger
   ): Unit = {
+    implicit val logFilter: DebugFilter = DebugFilter.Link
     val enableOptimizer = config.mode == LinkerMode.Release
     val semantics = config.mode match {
       case LinkerMode.Debug => Semantics.Defaults
@@ -59,19 +61,29 @@ object JsBridge {
     }
 
     val cache = new IRFileCache().newCache
-    val irClasspath = FileScalaJSIRContainer.fromClasspath(project.compilationClasspath.map(_.toFile))
+    val irClasspath =
+      FileScalaJSIRContainer.fromClasspath(project.compilationClasspath.map(_.toFile))
     val irFiles = cache.cached(irClasspath)
 
     val moduleInitializers = mainClass match {
-      case Some(mainClass) => List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
-      case None => // There is no main class, install the test module initializers
-        import org.scalajs.testadapter.TestAdapterInitializer
-        List(
-          ModuleInitializer.mainMethod(
-            TestAdapterInitializer.ModuleClassName,
-            TestAdapterInitializer.MainMethodName
+      case Some(mainClass) if runMain =>
+        logger.debug(s"Setting up main module initializers for ${project}")
+        List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
+      case _ =>
+        if (runMain) {
+          logger.debug(s"Setting up no module initializers, commonjs module detected ${project}")
+          Nil // If run is disabled, it'a commonjs module and we link with exports
+        } else {
+          // There is no main class, install the test module initializers
+          logger.debug(s"Setting up test module initializers for ${project}")
+          import org.scalajs.testadapter.TestAdapterInitializer
+          List(
+            ModuleInitializer.mainMethod(
+              TestAdapterInitializer.ModuleClassName,
+              TestAdapterInitializer.MainMethodName
+            )
           )
-        )
+        }
     }
 
     val output = LinkerOutput(new AtomicWritableFileVirtualBinaryFile(target.toFile))

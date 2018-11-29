@@ -1009,8 +1009,10 @@ class BspProtocolSpec {
       request.map {
         case Right(report) =>
           Assert.assertEquals(report.statusCode, bsp.StatusCode.Error)
-          if (!logger.underlying.getMessagesAt(Some("error")).exists(_.contains(expected)))
+          if (!logger.underlying.getMessagesAt(Some("error")).exists(_.contains(expected))) {
+            logger.underlying.dump()
             Assert.fail(failMsg)
+          }
           Right(())
         case Left(e) => Left(e)
       }

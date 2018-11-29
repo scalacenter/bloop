@@ -35,7 +35,7 @@ class ScalaJsToolchainSpec {
   @Test def canLinkScalaJsProject(): Unit = {
     val logger = new RecordingLogger
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject))
+    val action = Run(Commands.Link(project = MainProject, main = Some("hello.App")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -46,7 +46,7 @@ class ScalaJsToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject, optimize = Some(mode)))
+    val action = Run(Commands.Link(project = MainProject, optimize = Some(mode), main = Some("hello.App")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -57,11 +57,22 @@ class ScalaJsToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Run(project = MainProject))
+    val action = Run(Commands.Run(project = MainProject, main = Some("hello.App")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
     logger.getMessages.assertContain("Hello, world!", atLevel = "info")
+  }
+
+  @Test def canRunScalaJsProjectDefaultMainClass(): Unit = {
+    val logger = new RecordingLogger
+    val mode = OptimizerConfig.Release
+    val state = state0.copy(logger = logger)
+    val action = Run(Commands.Run(project = MainProject, main = None))
+    val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
+
+    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages.assertContain("Hello, world from DefaultApp!", atLevel = "info")
   }
 
   private final val maxDuration = Duration.apply(45, TimeUnit.SECONDS)
