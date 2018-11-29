@@ -6,7 +6,25 @@ import java.nio.file.{Files, Path}
 import bloop.config.Config
 import bloop.config.util.ConfigUtil
 import bloop.integration.sbt.Feedback
-import sbt.{AutoPlugin, ClasspathDep, ClasspathDependency, Compile, ConfigKey, Configuration, Def, File, Global, Keys, LocalRootProject, Logger, ProjectRef, ResolvedProject, Test, ThisBuild, ThisProject}
+import sbt.{
+  AutoPlugin,
+  ClasspathDep,
+  ClasspathDependency,
+  Compile,
+  ConfigKey,
+  Configuration,
+  Def,
+  File,
+  Global,
+  Keys,
+  LocalRootProject,
+  Logger,
+  ProjectRef,
+  ResolvedProject,
+  Test,
+  ThisBuild,
+  ThisProject
+}
 import xsbti.compile.CompileOrder
 
 object BloopPlugin extends AutoPlugin {
@@ -533,11 +551,16 @@ object BloopDefaults {
   private val isWindows: Boolean =
     System.getProperty("os.name").toLowerCase(java.util.Locale.ENGLISH).contains("windows")
 
-  lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
+  def findOutPlatform(
+      configuration: Configuration
+  ): Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
     val project = Keys.thisProject.value
     val (javaHome, javaOptions) = javaConfiguration.value
-    val mainClass = Keys.mainClass.in(Compile, Keys.run).value
-      .orElse(Keys.mainClass.in(Compile).value)
+    val mainClass = {
+      if (configuration == Compile)
+        Keys.mainClass.in(Compile, Keys.run).value.orElse(Keys.mainClass.value)
+      else Keys.mainClass.value
+    }
 
     val libraryDeps = Keys.libraryDependencies.value
     val externalClasspath: Seq[Path] =
@@ -711,7 +734,7 @@ object BloopDefaults {
 
         val jsConfig = None
         val nativeConfig = None
-        val platform = findOutPlatform.value
+        val platform = findOutPlatform(configuration).value
 
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)

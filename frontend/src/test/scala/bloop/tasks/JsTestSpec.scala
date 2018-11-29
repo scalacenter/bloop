@@ -175,6 +175,7 @@ class JsTestSpec(
       case NonFatal(t) =>
         driver.cancel()
         testHandle.cancel()
+        logger.dump()
 
         t match {
           case e: ExecutionException => throw e.getCause
