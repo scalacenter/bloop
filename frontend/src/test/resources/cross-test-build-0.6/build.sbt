@@ -41,9 +41,10 @@ lazy val `test-project` =
 
 lazy val `test-project-js` = `test-project`.js.settings(
   // Should override default set above. Tested as part of ScalaJsToolchainSpec.
-  mainClass in (Compile, run) := Some("hello.DefaultApp")
+  bloopMainClass in (Compile, run) := Some("hello.DefaultApp")
 )
 
 lazy val `test-project-jvm` = `test-project`.jvm.settings(
+  bloopMainClass in (Compile, run) := Some("hello.App"),
   unmanagedBase := baseDirectory.value / "custom_libraries"
 )

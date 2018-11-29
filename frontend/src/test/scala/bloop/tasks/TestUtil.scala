@@ -229,7 +229,12 @@ object TestUtil {
     val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
     TestUtil.blockingExecute(Run(cmd), recordingState)
-    check(recordingLogger.getMessages)
+    try check(recordingLogger.getMessages)
+    catch {
+      case NonFatal(t) =>
+        recordingLogger.dump()
+        throw t
+    }
   }
 
   def withState[T](
