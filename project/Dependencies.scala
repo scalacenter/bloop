@@ -5,7 +5,7 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.7"
 
-  val nailgunVersion = "0c8b937b"
+  val nailgunVersion = "6992a3bf"
   val zincVersion = "1.2.1+106-0dad4a69"
   val bspVersion = "2.0.0-M1" 
   val scalazVersion = "7.2.20"
