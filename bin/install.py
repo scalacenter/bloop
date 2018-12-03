@@ -2,10 +2,12 @@
 
 from __future__ import print_function
 
+import sys
 import argparse
 import os
 from os.path import expanduser, isdir, isfile, join, dirname, abspath
 from subprocess import CalledProcessError, check_call
+import platform
 import sys
 import re
 from shutil import copyfileobj, copyfile
@@ -98,7 +100,8 @@ FISH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/et
 SYSTEMD_SERVICE_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/systemd/bloop.service" % ETC_VERSION
 XDG_APPLICATION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.desktop" % ETC_VERSION
 XDG_ICON_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.png" % ETC_VERSION
-BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-coursier")
+BLOOP_COURSIER_BINARY_NAME = "blp-coursier"
+BLOOP_COURSIER_TARGET = join(BLOOP_INSTALLATION_TARGET, BLOOP_COURSIER_BINARY_NAME)
 BLOOP_SERVER_TARGET = join(BLOOP_INSTALLATION_TARGET, "blp-server")
 BLOOP_CLIENT_TARGET = join(BLOOP_INSTALLATION_TARGET, "bloop")
 ZSH_COMPLETION_TARGET = join(ZSH_COMPLETION_DIR, "_bloop")
@@ -111,6 +114,20 @@ XDG_ICON_TARGET = join(XDG_DIR, "bloop.png")
 BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 BUFFER_SIZE = 4096
+
+MACOS_LAUNCH_SCRIPT_CONTENTS = """
+#!/usr/bin/env sh
+
+BASE_BIN_DIR=$(dirname "$0")
+COURSIER_BIN="$BASE_BIN_DIR/%s"
+/usr/libexec/java_home -v 1.8 -F -R --exec java \
+     -Divy.home=%s -jar "$COURSIER_BIN" launch %s \
+     -r bintray:scalameta/maven \
+     -r bintray:scalacenter/releases \
+     -r https://oss.sonatype.org/content/repositories/staging \
+     --main bloop.Server
+""" % (BLOOP_COURSIER_BINARY_NAME, args.ivy_home, BLOOP_ARTIFACT)
+
 
 def download(url, target):
     try:
@@ -144,39 +161,57 @@ def download_and_install_template(url, target, permissions=0o644):
     os.remove(template_target)
     os.chmod(target, permissions)
 
+def make_executable(path):
+    mode = os.stat(path).st_mode
+    mode |= (mode & 0o444) >> 2    # copy R bits to X
+    os.chmod(path, mode)
+
 def coursier_bootstrap(target, main):
+    http = []
+    https = []
+
+    if "http_proxy" in os.environ:
+        http_proxy = urlparse(os.environ['http_proxy'])
+        http = [
+            "-Dhttp.proxyHost="+http_proxy.hostname,
+            "-Dhttp.proxyPort="+str(http_proxy.port)
+        ]
+
+    if "https_proxy" in os.environ:
+        https_proxy = urlparse(os.environ['https_proxy'])
+        https = [
+            "-Dhttps.proxyHost="+https_proxy.hostname,
+            "-Dhttps.proxyPort="+str(https_proxy.port)
+        ]
+
     try:
-        from os.path import expanduser
-        ivy_home = expanduser("~") + "/.ivy2/"
-        https = []
-        http = []
-        if "http_proxy" in os.environ:
-            http_proxy =  urlparse(os.environ['http_proxy'])
-            http = [
-                "-Dhttp.proxyHost="+http_proxy.hostname,
-                "-Dhttp.proxyPort="+str(http_proxy.port)
-                ]
-
-        if "https_proxy" in os.environ:
-            https_proxy =  urlparse(os.environ['https_proxy'])
-            https = [
-                "-Dhttps.proxyHost="+https_proxy.hostname,
-                "-Dhttps.proxyPort="+str(https_proxy.port)
-                ]
-
-        if is_local:
-            check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+        # Use own script if Mac OS system to avoid launchd problems with java environment variables
+        if platform.system() == "Darwin":
+            # Resolve first so that `coursier launch` in script doesn't
+            check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "fetch", BLOOP_ARTIFACT,
                 "-r", "bintray:scalameta/maven",
-                "-r", "bintray:scalacenter/releases",
-                "-o", target, "-f", "--standalone", "--main", main
+                "-r", "bintray:scalacenter/releases"
             ])
+
+            # Write the script in blp-server path so that it works
+            with open(target, 'w') as output_file:
+                output_file.write(MACOS_LAUNCH_SCRIPT_CONTENTS)
+
+            make_executable(target)
         else:
-            check_call(["java"] + http + https + ["-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
-                "-r", "bintray:scalameta/maven",
-                "-r", "bintray:scalacenter/releases",
-                "-r", "https://oss.sonatype.org/content/repositories/staging",
-                "-o", target, "-f", "--standalone", "--main", main
-            ])
+            if is_local:
+                check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+                    "-r", "bintray:scalameta/maven",
+                    "-r", "bintray:scalacenter/releases",
+                    "-o", target, "-f", "--standalone", "--main", main
+                ])
+            else:
+                check_call(["java"] + http + https + ["-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
+                    "-r", "bintray:scalameta/maven",
+                    "-r", "bintray:scalacenter/releases",
+                    "-r", "https://oss.sonatype.org/content/repositories/staging",
+                    "-o", target, "-f", "--standalone", "--main", main
+                ])
     except CalledProcessError as e:
         print("Coursier couldn't create %s. Please report an issue." % target)
         print("Command: %s" % e.cmd)
