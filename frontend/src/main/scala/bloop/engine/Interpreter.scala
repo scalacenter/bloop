@@ -105,7 +105,8 @@ object Interpreter {
     BspServer.run(cmd, state, RelativePath(".bloop"), scheduler)
   }
 
-  private[bloop] def watch(projects: List[Project], state: State)(f: State => Task[State]): Task[State] = {
+  private[bloop] def watch(projects: List[Project], state: State)(
+      f: State => Task[State]): Task[State] = {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
@@ -159,7 +160,8 @@ object Interpreter {
       state: State,
       deduplicateFailures: Boolean
   ): Task[State] = {
-    val (projects, missingProjects) = lookupProjects(cmd.project, state)
+    val (projects, missingProjects) =
+      lookupProjects(cmd.project, state, state.build.getProjectFor(_))
     if (missingProjects.nonEmpty) Task.now(reportMissing(missingProjects, state))
     else {
       if (!cmd.watch) runCompile(cmd, state, projects, deduplicateFailures)
@@ -189,7 +191,7 @@ object Interpreter {
       deduplicateFailures: Boolean,
       nextAction: String
   )(next: State => Task[State]): Task[State] = {
-    runCompile(cmd, state, project, deduplicateFailures, excludeRoot).flatMap { compiled =>
+    runCompile(cmd, state, List(project), deduplicateFailures, excludeRoot).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         Task.now(
@@ -202,20 +204,38 @@ object Interpreter {
   }
 
   private def console(cmd: Commands.Console, state: State, sequential: Boolean): Task[State] = {
-    state.build.getProjectFor(cmd.project) match {
-      case Some(project) =>
-        compileAnd(cmd, state, project, cmd.excludeRoot, sequential, "`console`")(
-          state => Tasks.console(state, project, cmd.excludeRoot)
+    cmd.project match {
+      case Nil =>
+        Task.now (
+          state
+            .withError(s"Missing project in `console` invocation")
+            .mergeStatus(ExitStatus.InvalidCommandLineOption)
         )
-      case None => Task.now(reportMissing(cmd.project :: Nil, state))
+      case project :: Nil =>
+        state.build.getProjectFor(project) match {
+          case Some(project) =>
+            compileAnd(cmd, state, project, cmd.excludeRoot, sequential, "`console`")(
+              state => Tasks.console(state, project, cmd.excludeRoot)
+            )
+          case None => Task.now(reportMissing(project :: Nil, state))
+        }
+      case projects =>
+        val stringProjects = projects.map(p => s"'$p'").mkString(", ")
+        Task.now (
+          state
+            .withError(s"Unexpected list of projects in `console` invocation: $stringProjects")
+            .mergeStatus(ExitStatus.InvalidCommandLineOption)
+        )
     }
   }
 
   private def test(cmd: Commands.Test, state: State, sequential: Boolean): Task[State] = {
-    // FIXME: here we can at least trivially just report the missing ones immediately and not do any more work
-    Tasks.pickTestProject(cmd.project, state) match {
-      case Some(project) =>
-        def doTest(state: State): Task[State] = {
+    val (projects, missingProjects) =
+      lookupProjects(cmd.project, state, Tasks.pickTestProject(_, state))
+    if (missingProjects.nonEmpty) Task.now(reportMissing(missingProjects, state))
+    else {
+      def testAllProjects(state: State) = {
+        def doTest(project: Project, state: State): Task[State] = {
           val testFilter = TestInternals.parseFilters(cmd.only)
           val cwd = project.baseDirectory
           compileAnd(cmd, state, project, false, sequential, "`test`") { state =>
@@ -223,21 +243,27 @@ object Interpreter {
             Tasks.test(state, project, cwd, cmd.includeDependencies, cmd.args, testFilter, handler)
           }
         }
+        projects.foldLeft(Task.now(state)) {
+          case (stateTask, p) => stateTask.flatMap(doTest(p, _))
+        }
+      }
 
-        if (cmd.watch) watch(project, state)(doTest _) else doTest(state)
-
-      case None => Task.now(reportMissing(cmd.project, state))
+      if (cmd.watch) watch(projects, state)(testAllProjects(_)) else testAllProjects(state)
     }
   }
 
   type ProjectLookup = (List[Project], List[String])
-  private def lookupProjects(names: List[String], state: State): ProjectLookup = {
+  private def lookupProjects(
+      names: List[String],
+      state: State,
+      lookupFunction: String => Option[Project]
+  ): ProjectLookup = {
     // FIXME: THis is *very* similar to what we need
     val build = state.build
     val result = List[Project]() -> List[String]()
     names.foldLeft(result) {
       case ((projects, missing), name) =>
-        build.getProjectFor(name) match {
+        lookupFunction(name) match {
           case Some(project) => (project :: projects) -> missing
           case None => projects -> (name :: missing)
         }
@@ -307,7 +333,7 @@ object Interpreter {
         .clean(state, state.build.projects, cmd.includeDependencies)
         .map(_.mergeStatus(ExitStatus.Ok))
     else {
-      val (projects, missing) = lookupProjects(cmd.project, state)
+      val (projects, missing) = lookupProjects(cmd.project, state, state.build.getProjectFor(_))
       if (missing.isEmpty)
         Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
       else Task.now(reportMissing(missing, state))
@@ -337,11 +363,17 @@ object Interpreter {
       }
     }
 
-    state.build.getProjectFor(cmd.project) match {
-      case Some(project) =>
-        val linkTask = doLink(project) _
-        if (cmd.watch) watch(project, state)(linkTask) else linkTask(state)
-      case None => Task.now(reportMissing(cmd.project :: Nil, state))
+    val (projects, missing) = lookupProjects(cmd.project, state, state.build.getProjectFor(_))
+    if (missing.nonEmpty)
+      Task.now(reportMissing(missing, state))
+    else {
+      def linkTask(state: State): Task[State] = {
+        projects.foldLeft(Task.now(state)) {
+          case (stateTask, p) => stateTask.flatMap(doLink(p)(_))
+        }
+      }
+
+      if (cmd.watch) watch(projects, state)(linkTask) else linkTask(state)
     }
   }
 
@@ -386,11 +418,17 @@ object Interpreter {
       }
     }
 
-    state.build.getProjectFor(cmd.project) match {
-      case Some(project) =>
-        val runTask = doRun(project) _
-        if (cmd.watch) watch(project, state)(runTask) else runTask(state)
-      case None => Task.now(reportMissing(cmd.project :: Nil, state))
+    val (projects, missing) = lookupProjects(cmd.project, state, state.build.getProjectFor(_))
+    if (missing.nonEmpty)
+      Task.now(reportMissing(missing, state))
+    else {
+      def runTask(state: State): Task[State] = {
+        projects.foldLeft(Task.now(state)) {
+          case (stateTask, p) => stateTask.flatMap(doRun(p)(_))
+        }
+      }
+
+      if (cmd.watch) watch(projects, state)(runTask) else runTask(state)
     }
   }
 

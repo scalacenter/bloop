@@ -202,9 +202,9 @@ object CompilationTask {
       val instances = results.iterator.flatMap {
         case FinalNormalCompileResult(bundle, _, _) => bundle.project.scalaInstance
         case FinalEmptyResult => Nil
-      }
+      }.toSet
 
-      instances.toSet.foreach { i =>
+      instances.foreach { i =>
         // Initialize a compiler so that we can reset the global state after a build compilation
         val logger = state.logger
         val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]

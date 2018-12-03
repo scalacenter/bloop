@@ -228,41 +228,30 @@ final class BloopBspServices(
     }
 
     def compile(projects: Set[Project]): Task[State] = {
-      // TODO(jvican): Improve when https://github.com/scalacenter/bloop/issues/575 is fixdd
-      val (_, finalTaskState) = projects.foldLeft((false, Task.now(state))) {
-        case ((deduplicateFailures, taskState), project) =>
-          val newTaskState = taskState.flatMap { state =>
-            val reportAllPreviousProblems = projectsWithFreshReporting.contains(project)
-            val cwd = state.build.origin.getParent
-            val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
-            val createReporter = (project: Project, cwd: AbsolutePath) => {
-              new BspProjectReporter(
-                project,
-                bspLogger,
-                cwd,
-                identity,
-                config,
-                reportAllPreviousProblems
-              )
-            }
-
-            val compileTask = CompilationTask.compile(
-              state,
-              project,
-              createReporter,
-              deduplicateFailures,
-              CompileMode.Sequential,
-              false,
-              false
-            )
-
-            compileTask.map(_.mergeStatus(ExitStatus.Ok))
-          }
-
-          (true, newTaskState)
+      val cwd = state.build.origin.getParent
+      val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
+      val createReporter = (project: Project, cwd: AbsolutePath) => {
+        val reportAllPreviousProblems = projectsWithFreshReporting.contains(project)
+        new BspProjectReporter(
+          project,
+          bspLogger,
+          cwd,
+          identity,
+          config,
+          reportAllPreviousProblems
+        )
       }
 
-      finalTaskState
+      val dag = Aggregate(projects.toList.map(p => state.build.getDagFor(p)))
+      CompilationTask.compile(
+        state,
+        dag,
+        createReporter,
+        false,
+        CompileMode.Sequential,
+        false,
+        false
+      )
     }
 
     val projects = Dag.reduce(state.build.dags, projects0.map(_._2).toSet)
