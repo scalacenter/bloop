@@ -123,7 +123,8 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
-    createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value
+    createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
+    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
