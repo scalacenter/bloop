@@ -261,6 +261,36 @@ object TestTask {
   }
 
   /**
+    * Finds testsFQCN in `project`.
+    *
+    * @param state   The current state of Bloop.
+    * @param project The project for which to find the testsFQCN.
+    * @return An array containing all the testsFQCN that were detected.
+    */
+  private[bloop] def findTestsFQCN(
+    project: Project,
+    state: State
+  ): Task[List[String]] = {
+    import state.logger
+    TestTask.discoverTestFrameworks(project, state).map {
+      case None => List.empty[String]
+      case Some(found) =>
+        val frameworks = found.frameworks
+        val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
+        val analysis = lastCompileResult.analysis().toOption.getOrElse {
+          logger.warn(
+            s"TestsFQCN was triggered, but no compilation detected for ${project.name}")
+          Analysis.empty
+        }
+        val tests = discoverTests(analysis, frameworks)
+        tests.toList.flatMap {
+          case (framework, tasks) => tasks.map(t => (framework, t))
+        }.map(_._2.fullyQualifiedName)
+    }
+  }
+
+
+  /**
    * Fixes the test arguments for a given framework.
    *
    * This is a generic function that accumulates fixes we do to the test arguments

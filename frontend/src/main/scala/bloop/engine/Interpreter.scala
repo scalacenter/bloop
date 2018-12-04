@@ -8,7 +8,7 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks}
+import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.validation.Validate
 import bloop.data.{Platform, Project}
@@ -300,10 +300,13 @@ object Interpreter {
           completion <- cmd.format.showMainName(main)
         } state.logger.info(completion)
       case Mode.TestsFQCN =>
+        import ExecutionContext.scheduler
         for {
           projectName <- cmd.project
-          placeholder <- List.empty[String]
-          completion <- cmd.format.showTestName(placeholder)
+          project <- Tasks.pickTestProject(projectName, state)
+          testsFQCN <- TestTask.findTestsFQCN(project, state)
+          testFQCN <- testsFQCN
+          completion <- cmd.format.showTestName(testFQCN)
         } state.logger.info(completion)
     }
 
