@@ -99,8 +99,6 @@ object ReleaseUtils {
        |      bash_completion.install "bin/bash/bloop"
        |      fish_completion.install "bin/fish/bloop.fish"
        |
-       |      File.delete("bin/blp-coursier")
-       |
        |      # We need to create these files manually here, because otherwise launchd
        |      # will create them with owner set to `root` (see the plist file below).
        |      FileUtils.mkdir_p("log/bloop/")
@@ -125,9 +123,9 @@ object ReleaseUtils {
        |    <key>KeepAlive</key>
        |    <true/>
        |    <key>StandardOutPath</key>
-       |    <string>#{var}/log/bloop/bloop.out.log</string>
+       |    <string>#{prefix}/log/bloop/bloop.out.log</string>
        |    <key>StandardErrorPath</key>
-       |    <string>#{var}/log/bloop/bloop.err.log</string>
+       |    <string>#{prefix}/log/bloop/bloop.err.log</string>
        |</dict>
        |</plist>
        |          EOS
