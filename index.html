@@ -1,233 +1,37 @@
-<!DOCTYPE html>
-<html lang="en-us">
-
-<head>
-  <meta name="generator" content="Hugo 0.30.2" />
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title> Bloop </title>
-
-  
-  <meta name="description" content="Bloop is a Scala build server and command-line tool to make the compile and test developer workflows fast and productive in a build-tool-agnostic way."> 
-  
-  
-  
-  
-  
-
-  
-
-  <meta name="author" content="Scala Center">
-
-
-  <meta property="og:title" content="Bloop" />
-<meta property="og:description" content="Bloop is a Scala build server and command-line tool to make the compile and test developer workflows fast and productive in a build-tool-agnostic way." />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://scalacenter.github.io/bloop/" />
-
-
-
-<meta property="og:updated_time" content="2018-02-08T16:35:00&#43;01:00"/>
-
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-  
-   
-
-
-
- 
-  
-  
-  
-  <link href="https://scalacenter.github.io/bloop/index.xml" rel="alternate" type="application/rss+xml" title="Bloop" /> 
-
-  <link rel="canonical" href="https://scalacenter.github.io/bloop/">  
-
-  
-<link rel="shortcut icon" type="image/png" href="data:image/png;base64,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">
-
-  <link href="/bloop/css/font.css" rel="stylesheet" type="text/css">
-  <link href="/bloop/css/kube.min.css" rel="stylesheet" type="text/css">
-  <link href="/bloop/css/kube.legenda.css" rel="stylesheet" type="text/css">
-  <link href="/bloop/css/highlight.css" rel="stylesheet" type="text/css">
-  <link href="/bloop/css/master.css" rel="stylesheet" type="text/css">
-  <link href="/bloop/css/kube.demo.css" rel="stylesheet" type="text/css">
-
- <link href="/bloop/css/custom.css" rel="stylesheet" type="text/css">
-  <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet">
-
-
-  <script src="/bloop/js/jquery-2.1.4.min.js" type="text/javascript">
-  </script>
-
-  <script type="text/javascript" src="/bloop/js/tocbot.min.js"></script>
-  
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css" />
-</head>
-
-
-<body class="page-kube">
-  <header> <div class="show-sm">
-    <div id="nav-toggle-box">
-      <div id="nav-toggle-brand">
-        <a href="/bloop/">Bloop</a>
-      </div><a data-component="toggleme" data-target="#top" href="#" id="nav-toggle"><i class="kube-menu"></i></a>
-    </div>
-  </div>
-  <div class="hide-sm" id="top">
-    <div id="top-brand">
-      <a href="/bloop/" title="Bloop">
-        <img alt="bloop-logo" width="40px" src="/bloop/img/logo.png">
-      </a>
-    </div>
-    <nav id="top-nav-main">
-      <ul>
-       
-       
-    <li><a href="/bloop/docs/" >Docs</a></li>
-    
-    <li><a href="/bloop/faq/" >Faq</a></li>
-    
-      </ul>
-    </nav>
-    <nav id="top-nav-extra"> 
-      <ul>
-          <li>
-            <form class="form">
-              <div class="form-item">
-                <input type="text" id="bloop-search" id="bloop-search-input" placeholder="Search in docs">
-              </div>
-            </form>
-          </li>
-         
-          <li>
-            <a class="button secondary outline" href="https://github.com/scalacenter/bloop">View on GitHub</a>
-          </li>
-          
-      </ul>
-    </nav>
-  </div>
- </header>
-  <main>
-
-<div id="main">
-  <div id="hero">
-    <figure>
-      <img alt="bloop-logo" width="20%" src="/bloop/img/logo.png">
-    </figure>
-    <h1>Bloop</h1>
-    <p>Bloop is a Scala build server and command-line tool to make the compile and test developer workflows fast and productive in a build-tool-agnostic way.</p>
-  </div>
-  <div id="action-buttons">
-    <a class="button primary big" href="https://scalacenter.github.io/bloop/docs/installation/">Get started</a>
-  </div>
-  
-  <div id="kube-features">
-    <div class="row gutters">
-      <div class="col col-4 item">
-        <figure>
-          <img alt="Lightning" class="desaturate" height="75" src="/bloop/img/frontpage/lightning.png" width="75">
-        </figure>
-        <h3>Snappy</h3>
-        <p>
-          Bloop has a focus on speed to minimize the amount of time that happens between you write your changes and your application
-          runs.
-      </div>
-      <div class="col col-4 item">
-        <figure>
-          <img alt="Hammer" class="desaturate" height="80" src="/bloop/img/frontpage/hammer.png" width="80">
-        </figure>
-        <h3>Cross build tool</h3>
-        <p>Bloop integrates with established JVM build tools like Maven, Gradle, sbt and Bazel to provide a full Scala developer
-          experience.</p>
-      </div>
-      <div class="col col-4 item">
-        <figure>
-          <img alt="Hot flame" class="desaturate" height="80" src="/bloop/img/frontpage/hot.png" width="80">
-        </figure>
-        <h3>Hot</h3>
-        <p>
-          Bloop shares hot compilers with all of your IDEs and build tools to provide the fastest compilation possible.
-        </p>
-      </div>
-    </div>
-    <div class="row gutters">
-      <div class="col col-4 item">
-        <h4>Runtime independent</h4>
-        <p>
-          Test or run your Scala application on the JVM, <a href="https://www.scala-js.org/">Scala.js</a> and <a href="http://www.scala-native.org/en/latest/">Scala Native</a>.
-        </p>
-      </div>
-      <div class="col col-4 item">
-        <h4>Concurrent</h4>
-        <p>
-          Bloop supports concurrent users to minimize workflow restrictions. Test one project while you compile another one!
-        </p>
-      </div>
-      <div class="col col-4 item">
-        <h4>A Scala Center tool</h4>
-        <p>
-          Bloop is brought to you with love by the Scala Center under an
-          <a href="https://opensource.org/licenses/Apache-2.0">Apache 2.0</a> license.
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-</main>
-  <footer>   <footer id="footer">
-    <nav>
-      <ul>
-        <li><span>Bloop</span></li>
-        <li>
-          <a href="/company/">Scala Center</a>
-        </li>
-
-          <li>
-          <a href="/docs/">Docs</a>
-        </li>
-        <li>
-          <a href="https://twitter.com/scala_lang">Give us a shout-out on Twitter!</a>
-        </li>
-      </ul>
-    </nav>
-    <p>&copy; Licence Apache2.</p>
-  </footer> </footer>
-
-
-  <script src="/bloop/js/kube.js" type="text/javascript">
-  </script>
-  <script src="/bloop/js/kube.legenda.js" type="text/javascript">
-  </script>
-  <script src="/bloop/js/master.js" type="text/javascript">
-  </script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/scala.min.js"></script>
-  <script>hljs.initHighlightingOnLoad();</script>
-
-  
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
-  <script type="text/javascript"> docsearch({
-   apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
-   indexName: 'bloop_scala',
-   inputSelector: '#bloop-search',
-   debug: false 
-  });
-  </script> 
-</body>
-
-</html>
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/index.html"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/solarized-dark.min.css"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><link rel="stylesheet" href="/bloop/css/prism.css"/><link rel="stylesheet" href="/bloop/css/main.css"/></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/orca-whale-white.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div><div class="hero"><div class="hero__container"><div class="projectLogo"><img src="/bloop/img/orca-whale-white.svg" alt="Project Logo"/></div><h1>Bloop is a Scala build server.</h1><p>Compile, test and run Scala fast.</p></div></div><div class="tldrSection productShowcaseSection lightBackground"><div class="container"><div class="wrapper"><div style="display:flex;flex-flow:row wrap;justify-content:space-evenly"><div style="display:flex;flex-direction:column"><h2>Features</h2><ul class="featureSection" style="flex:1"><li>Provides <b>fast</b> compile, test and run</li><li>Has a built-in command-line tool</li><li>Integrates with most JVM build tools</li><li>Implements the <b><a href="https://github.com/scalacenter/bsp">Build Server Protocol</a></b></li><li>Supports JVM, Scala.js and Scala Native</li></ul></div><div style="display:flex;flex-direction:column"><h2>Why?</h2><ul class="whySection" style="flex:1"><li>You edit code and get instant feedback </li><li>Saves you time and makes you more productive</li><li>Makes Scala support in build tools easier</li><li>Adaptable to your own developer workflow</li></ul></div></div></div></div></div><div class="mainContainer"><div class="container paddingBottom paddingTop"><div class="wrapper"><div class="gridBlock"><div class="blockElement alignCenter twoByGridBlock"><div class="blockContent"><h2><div><span><p>Use it with your favorite build tool</p>
+</span></div></h2><div><span><p>Bloop supports the most popular JVM build tools in the Java and Scala community, with more integrations on their way! Export your build and benefit from faster compile times.</p>
+</span></div></div></div><div class="blockElement alignCenter twoByGridBlock"><div class="blockContent"><div><span><table>
+<thead>
+<tr><th></th><th>Supported</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>sbt</strong></td><td>✅</td></tr>
+<tr><td><strong>Maven</strong></td><td>✅</td></tr>
+<tr><td><strong>Gradle</strong></td><td>✅</td></tr>
+<tr><td><strong>mill</strong></td><td>✅</td></tr>
+</tbody>
+</table>
+</span></div></div></div></div></div></div><div class="container paddingBottom paddingTop" id="ideLogos"><div class="wrapper"><div class="gridBlock"><div class="blockElement alignCenter threeByGridBlock"><div class="blockContent"><div><span><p><img src="/bloop/img/editors-logos.svg" alt="Editors logos"></p>
+</span></div></div></div><div class="blockElement alignCenter threeByGridBlock"><div class="blockContent"><h2><div><span><p>Use it with IDEs</p>
+</span></div></h2><div><span><p>Bloop integrates with IDEs and text editors to provide a short feedback cycle and reliable compiler diagnostics. Use Bloop with IntelliJ and <a href="https://metals.rocks">Metals</a> (Visual Studio Code, Sublime Text, <code>vim</code> and Atom).</p>
+</span></div></div></div></div></div></div><div class="productShowcaseSection paddingBottom" style="text-align:center"><h2>Maintained by the Scala Center</h2><div><span><p>The Scala Center is a non-profit organization established at EPFL (École Polytechnique Federal de Lausanne) with the goals of promoting, supporting, and advancing the Scala language.</p>
+</span></div><img src="/bloop/img/scala-center-logo.png" style="padding-top:30px"/></div></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+                document.addEventListener('keyup', function(e) {
+                  if (e.target !== document.body) {
+                    return;
+                  }
+                  // keyCode for '/' (slash)
+                  if (e.keyCode === 191) {
+                    const search = document.getElementById('search_input_react');
+                    search && search.focus();
+                  }
+                });
+              </script><script>
+              var search = docsearch({
+                
+                apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
+                indexName: 'bloop_scala',
+                inputSelector: '#search_input_react',
+                algoliaOptions: {"facetFilters":["version:undefined"]}
+              });
+            </script></body></html>
