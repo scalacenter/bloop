@@ -39,11 +39,9 @@ class InterpreterSpec {
     val action = Run(Commands.About(cliOptions = cliOptions))
     TestUtil.blockingExecute(action, state)
     val output = outStream.toString("UTF-8")
-    assert(output.contains("Bloop version"))
-    assert(output.contains("Zinc version"))
-    assert(output.contains("Scala version"))
-    assert(output.contains("maintained by"))
-    assert(output.contains("Scala Center"))
+    assert(output.contains("bloop v"))
+    assert(output.contains("Running on Scala v"))
+    assert(output.contains("Maintained by the Scala Center"))
   }
 }
 

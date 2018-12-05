@@ -25,3 +25,8 @@ integrations/gradle-bloop/lib
 .local-benchmarks
 
 bloop-config/
+out/
+.DS_Store
+website/build/
+node_modules/
+package-lock.json

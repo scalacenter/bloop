@@ -1,0 +1,131 @@
+.text-center {
+    text-align: center;
+}
+
+.page-header {
+    padding-bottom: 9px;
+    margin: 0 0 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.tools-button {
+  display: inline-block;
+  margin-right: 5px;
+  margin-bottom: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font-size: 16px;
+  padding: 6px 12px;
+  cursor: pointer;
+  background-color: white !important;
+  border-radius: 4px;
+}
+
+.tools-group a:link {
+  text-decoration: none !important;
+}
+
+.build-tools-button {
+  display: inline-block;
+  margin-right: 5px;
+  margin-bottom: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font-size: 16px;
+  padding: 6px 12px;
+  cursor: pointer;
+  background-color: white !important;
+  border-radius: 4px;
+}
+
+.build-tools-group {
+  margin-bottom: 1.5em;
+}
+
+.build-tools-group a:link {
+  text-decoration: none !important;
+}
+
+.step-no {
+  display: block;
+  float: left;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+  border-radius: 20px;
+  color: #fff;
+  background-color: $secondaryColor;
+  margin-right: 10px;
+}
+
+.step .step-setup h2 {
+  color: #323330;
+  font-size: 22px;
+  font-weight: bold;
+  text-align: left;
+  overflow: hidden;
+  line-height: 30px;
+  padding: 0;
+}
+
+.step .step-setup p {
+  font-size: 16px;
+  max-width: 100%;
+}
+
+.build-tools-group h5 {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+.build-tools-group .active {
+  background-color: #e6e6e6 !important;
+  border-color: #adadad;
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+  outline: 0;
+}
+
+.tools-group h5 {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+.tools-group .active {
+  background-color: #e6e6e6 !important;
+  border-color: #adadad;
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+  outline: 0;
+}
+
+.step-hidden .items ul li  {
+  font-size: 16px;
+}
+
+.step-hidden .items ol {
+  list-style: decimal;
+}
+
+.step-hidden .items ol li {
+  font-size: 16px;
+}
+
+.step .step-hidden {
+  display: none;
+}
+
+.step-hidden .items {
+  display: none;
+}
+
+.step .build-step-hidden {
+  display: none;
+}
+
+.step-hidden .build-items {
+  display: none;
+}

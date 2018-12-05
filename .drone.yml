@@ -23,7 +23,7 @@ matrix:
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/test" \
           "gradleBloop212/test" \
-          "docs/makeSite"
+          "docs/run"
 
   RUN_COMMUNITY_BUILD_EXTRA:
     - bin/sbt-ci.sh \
@@ -40,7 +40,7 @@ matrix:
           "show version" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
-          "docs/ghpagesPushSite" \
+          "docs/docusaurusPublishGhpages" \
           "releaseBloop"
 
   RELEASE_GITHUB_BREW:
@@ -104,6 +104,10 @@ pipeline:
       - git log --oneline --graph | head -n 20
       - . bin/set-up-dodo.sh # Source it because it exports variables
       - . bin/detect-community-build.sh # Source it because it exports variables
+      - touch ~/.profile
+      - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+      - curl -o- -L https://yarnpkg.com/install.sh | bash
+      - yarn --help
       - ${TEST_BLOOP}
 
   run_benchmarks_scripted:
@@ -167,6 +171,10 @@ pipeline:
       - . bin/set-up-dodo.sh # Source it because it exports variables
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
+      - touch ~/.profile
+      - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+      - curl -o- -L https://yarnpkg.com/install.sh | bash
+      - yarn --help
       - ${PUBLISH_ARTIFACTS}
 
   release:

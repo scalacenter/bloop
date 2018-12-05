@@ -13,7 +13,6 @@ import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
 import bloop.engine.tasks.Tasks
-import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag
 
 import scala.util.control.NonFatal
 
@@ -284,8 +283,7 @@ object Cli {
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
-    if (Files.exists(configDirectory.underlying)) {
-      val dir = configDirectory.underlying
+    def interpretActionIn(dir: Path) = {
       waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
         Interpreter.execute(action, currentState).map { newState =>
           State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
@@ -295,9 +293,19 @@ object Cli {
           newState
         }
       }
-    } else {
-      logger.error(Feedback.missingConfigDirectory(configDirectory))
-      ExitStatus.InvalidCommandLineOption
+    }
+
+    val dir = configDirectory.underlying
+    if (Files.exists(configDirectory.underlying)) interpretActionIn(dir)
+    else {
+      action match {
+        case Run(Commands.Help(_) | Commands.About(_), _) =>
+          // Interpret the action only if the commands are help or about
+          interpretActionIn(dir)
+        case _ =>
+          logger.error(Feedback.missingConfigDirectory(configDirectory))
+          ExitStatus.InvalidCommandLineOption
+      }
     }
   }
 

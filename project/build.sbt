@@ -17,6 +17,7 @@ val `bloop-build` = project
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
     addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3"),
+    addSbtPlugin("com.geirsson" % "sbt-docusaurus" % "0.3.3"),
     libraryDependencies += { "org.scala-sbt" %% "scripted-plugin" % sbtVersion.value },
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {

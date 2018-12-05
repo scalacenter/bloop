@@ -36,6 +36,23 @@ class NailgunSpec extends NailgunTestUtils {
   }
 
   @Test
+  def testAboutCommandInProjectWithNoConfigurationFiles(): Unit = {
+    val tmpDir = Files.createTempDirectory("bloop-nailgun-empty")
+    tmpDir.toFile.deleteOnExit()
+    withServer(tmpDir, false, new RecordingLogger()) { (logger, client) =>
+      client.success("about")
+      val messages = logger.getMessages()
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
+      }
+
+      contains("bloop v")
+      contains("Running on Scala v")
+      contains("Maintained by the Scala Center")
+    }
+  }
+
+  @Test
   def testAboutCommand(): Unit = {
     withServerInProject("with-resources") { (logger, client) =>
       client.success("about")
@@ -43,11 +60,10 @@ class NailgunSpec extends NailgunTestUtils {
       def contains(needle: String): Unit = {
         assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
       }
-      contains("Bloop version")
-      contains("Zinc version")
-      contains("Scala version")
-      contains("maintained by")
-      contains("Scala Center")
+
+      contains("bloop v")
+      contains("Running on Scala v")
+      contains("Maintained by the Scala Center")
     }
   }
 
@@ -225,19 +241,26 @@ class NailgunSpec extends NailgunTestUtils {
     val wrongDirectory = "something-not-right"
 
     withServerInProject(projectName) { (logger, client) =>
-      client.fail("projects", "--config-dir", wrongDirectory)
-
-      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
-      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
+      client.success("about")
 
       val messages = logger.getMessages()
-
-      def contains(needle: String): Unit = {
-        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
+      def contains(needle: String, msgs: List[(String, String)]): Unit = {
+        assertTrue(s"'$needle not found in $msgs'", msgs.exists(_._2.contains(needle)))
       }
 
+      contains("bloop v", messages)
+      contains("Running on Scala v", messages)
+      contains("Maintained by the Scala Center", messages)
+
+      client.success("help")
+
+      client.fail("projects", "--config-dir", wrongDirectory)
+
+      val messages2 = logger.getMessages()
+      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
+      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
       val configDirectory = AbsolutePath(projectBase.resolve(wrongDirectory))
-      contains(s"Missing configuration directory in $configDirectory")
+      contains(s"Missing configuration directory in $configDirectory", messages2)
     }
   }
 

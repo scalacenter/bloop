@@ -14,9 +14,3 @@
 	path = bsp
 	url = https://github.com/scalacenter/bsp.git
 	branch = master
-[submodule "website/themes/kube"]
-	path = website/themes/kube
-	url = https://github.com/scalacenter/kube.git
-[submodule "website/static/docson"]
-	path = website/static/docson
-	url = https://github.com/scalacenter/docson.git

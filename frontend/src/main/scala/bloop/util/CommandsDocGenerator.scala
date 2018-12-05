@@ -22,7 +22,7 @@ object CommandsDocGenerator {
           b ++= s"## `$progName $commandName$argsOption`"
           b ++= Messages.NL
           b ++= Messages.NL
-          b ++= "### Usage"
+          b ++= "#### Usage"
           b ++= Messages.NL
           b ++= Messages.NL
           b ++= s"<dl>"
@@ -33,7 +33,7 @@ object CommandsDocGenerator {
           b ++= Messages.NL
           if (examples.nonEmpty) {
             b ++= Messages.NL
-            b ++= s"### Examples${Messages.NL}"
+            b ++= s"#### Examples${Messages.NL}"
             b ++= Messages.NL
             b ++= examples.mkString(Messages.NL)
           }
