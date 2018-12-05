@@ -29,13 +29,13 @@ function loadMD(fsPath) {
 const tools = loadYaml("./tools.yml");
 const buildTools = loadYaml("./build-tools.yml");
 
-const toolsMD = findMarkDownSync("../docs/tools/");
+const toolsMD = findMarkDownSync("../out/tools/");
 toolsMD.forEach(tool => {
   tool.install = loadMD(`${tool.path}/install.md`);
   tool.usage = loadMD(`${tool.path}/usage.md`);
 });
 
-const buildToolsMD = findMarkDownSync("../docs/build-tools/");
+const buildToolsMD = findMarkDownSync("../out/build-tools/");
 buildToolsMD.forEach(buildTool => {
   buildTool.export = loadMD(`${buildTool.path}/export.md`);
 });

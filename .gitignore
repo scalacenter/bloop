@@ -28,5 +28,6 @@ bloop-config/
 out/
 .DS_Store
 website/build/
+website/build/bloop-gh-pages/
 node_modules/
 package-lock.json
