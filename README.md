@@ -1,9 +1,13 @@
 <p align="center">
-  <img src="https://github.com/scalacenter/bloop/raw/master/website/static/img/logo.svg?sanitize=true" alt="logo" width="30%">
+  <img src="https://github.com/scalacenter/bloop/raw/topic/new-docusaurus-website/website/static/img/orca-whale-blue.svg?sanitize=true" alt="logo" width="30%">
 </p>
 
 <p align="center">
-Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
+Bloop is a build server that gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
+</p>
+
+<p align="center">
+<a href="https://scalacenter.github.io/bloop">Read the <b>documentation</b> in our website</a>
 </p>
 
 <p align="center">
@@ -11,33 +15,7 @@ Bloop gives you <b>fast</b> edit/compile/test workflows for <b>Scala</b>.
 <a href="https://gitter.im/scalacenter/bloop"><img src="https://camo.githubusercontent.com/9b3d43be69818501c39dc7db170aaf0531cfa363/68747470733a2f2f6261646765732e6769747465722e696d2f7363616c6163656e7465722f626c6f6f702e737667" alt="Join the chat" data-canonical-src="https://badges.gitter.im/scalacenter/bloop.svg" style="max-width:100%;"></a>
 </p>
 
-Bloop is a Scala build server and command-line tool to make the compile and
-test developer workflows fast and productive in a build-tool-agnostic way.
-
-### Tight feedback loop
-
-Edit, compile and test workflows are the bread and butter of our daily jobs.
-When our build is slow to respond, our productivity drops. Bloop is a
-command-line tool and build server that brings you a tighter developer
-workflow. Slow Scala compile times can often be attributed to the slugishness
-of our build tool, and `bloop` aims to address them.
-
-We have created bloop to make you productive without getting in your way. We
-focus on how you can be faster at writing Scala code using your current build
-tool, whether it’s sbt, Maven or Gradle.
-
-### Documentation
-
-Bloop's documentation lives in [our website](https://scalacenter.github.io/bloop/).
-
-1. [User documentation](https://scalacenter.github.io/bloop/docs/) to read
-   about the project, how to install and use bloop, and similar user inquiries.
-1. [Developer
-   documentation](https://scalacenter.github.io/bloop/docs/developer-documentation/)
-   to learn how to hack on the project, run our community build, improve
-   documentation, etc.
-
-### Contributors and Maintainers
+#### Contributors and Maintainers
 
 Kudos to these wonderful people ([emoji key](https://github.com/kentcdodds/all-contributors#emoji-key)):
 

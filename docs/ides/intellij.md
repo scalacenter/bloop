@@ -65,8 +65,8 @@ The IntelliJ BSP integration is work-in-progress and therefore has some well-kno
 ### Manual bloop export project
 
 IntelliJ does not run `bloopInstall` whenever it detects a change in sbt build files like
-[Metals](metals.md) does. Therefore, if you want to re-import your project the following two
-steps are required:
+[Metals](build-tools/metals.md) does. Therefore, if you want to re-import your project the following
+two steps are required:
 
 1. Export your project to Bloop manually.
 1. Click on "Refresh project" as you would normally do to refresh your project.
