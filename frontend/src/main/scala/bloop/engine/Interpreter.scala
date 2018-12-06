@@ -96,9 +96,14 @@ object Interpreter {
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = SourceWatcher(project, allSources.toList, state.logger)
     var current: Option[CancelableFuture[State]] = None
+    def cancel(): Unit = {
+      current.foreach { c =>
+        c.cancel()
+        current = None
+      }
+    }
     val fg = (state: State) => {
-      if (current.isDefined)
-        current.get.cancel()
+      cancel()
       val task = f(state)
       current = Some(task.runAsync)
       watcher.notifyWatch()  // TODO Interrupt previous compilation run
@@ -109,6 +114,7 @@ object Interpreter {
       state.logger.info("\u001b[H\u001b[2J")
     // Force the first execution before relying on the file watching task
     fg(state).flatMap(newState => watcher.watch(newState, fg))
+      .doOnCancel(Task(cancel()))
   }
 
   private def runCompile(
