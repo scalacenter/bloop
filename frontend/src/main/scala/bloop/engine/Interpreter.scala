@@ -14,6 +14,8 @@ import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import monix.eval.Task
+import monix.execution.CancelableFuture
+import monix.execution.Scheduler.Implicits.global
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -93,10 +95,14 @@ object Interpreter {
     val reachable = Dag.dfs(state.build.getDagFor(project))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = SourceWatcher(project, allSources.toList, state.logger)
-    val fg = (state: State) =>
-      f(state).map { state =>
-        watcher.notifyWatch()
-        State.stateCache.updateBuild(state)
+    var current: Option[CancelableFuture[State]] = None
+    val fg = (state: State) => {
+      if (current.isDefined)
+        current.get.cancel()
+      val task = f(state)
+      current = Some(task.runAsync)
+      watcher.notifyWatch()  // TODO Interrupt previous compilation run
+      Task.now(State.stateCache.updateBuild(state))
     }
 
     if (!BspServer.isWindows)
