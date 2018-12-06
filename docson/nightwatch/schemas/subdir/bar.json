@@ -1,0 +1,7 @@
+{
+    "$id": "two",
+    "type": "object",
+    "properties": { 
+        "baz": { "$ref": "./baz.json" }
+    }
+}

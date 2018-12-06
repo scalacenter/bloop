@@ -1,0 +1,21 @@
+ {
+    "description": "circular definitions",
+    "schema": {
+      "definitions": {
+        "a": {
+          "properties":{
+           "prop3":{"$ref": "#/definitions/b"}
+            }
+        },
+        "b": {
+          "properties":{
+            "prop2":{"$ref": "#/definitions/a"}
+           }
+        }
+      },
+      "type": "object",
+      "properties":{
+        "prop1":{"$ref": "#/definitions/b"}
+      }
+    }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+
+  "title": "Circle",
+  "type": "object",
+
+  "properties": {
+    "circle": {
+      "$ref": "./circle.json"
+    }
+  }
+}

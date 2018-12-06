@@ -1,0 +1,7 @@
+{
+    "$id": "one",
+    "type": "object",
+    "properties": { 
+        "foo": { "$ref": "./subdir/bar.json" }
+    }
+}

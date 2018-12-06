@@ -1,0 +1,7 @@
+{
+    "type": "object",
+    "properties": {
+        "foo": { "$ref": "/nightwatch/schemas/local-absolute/foo.json" }
+    }
+}
+
