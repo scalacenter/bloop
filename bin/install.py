@@ -10,6 +10,7 @@ from subprocess import CalledProcessError, check_call
 import platform
 import sys
 import re
+import textwrap
 from shutil import copyfileobj, copyfile
 
 IS_PY2 = sys.version[0] == '2'
@@ -115,19 +116,34 @@ BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 BUFFER_SIZE = 4096
 
-MACOS_LAUNCH_SCRIPT_CONTENTS = """
-#!/usr/bin/env sh
+is_windows = os.name == "nt"
 
-BASE_BIN_DIR=$(dirname "$0")
-COURSIER_BIN="$BASE_BIN_DIR/%s"
-/usr/libexec/java_home -v 1.8 -F -R --exec java \
-     -Divy.home=%s -jar "$COURSIER_BIN" launch %s \
-     -r bintray:scalameta/maven \
-     -r bintray:scalacenter/releases \
-     -r https://oss.sonatype.org/content/repositories/staging \
-     --main bloop.Server
-""" % (BLOOP_COURSIER_BINARY_NAME, args.ivy_home, BLOOP_ARTIFACT)
+def macos_launch_script_contents(is_local):
+    configuration_ivy_home = " "
+    if is_local:
+        configuration_ivy_home = "-Divy.home=%s " % args.ivy_home
 
+    contents = """
+    #!/usr/bin/env sh
+
+    BASE_BIN_DIR=$(dirname "$0")
+    COURSIER_BIN="$BASE_BIN_DIR/%s"
+    /usr/libexec/java_home -v 1.8 -F -R --exec java \
+      %s-jar "$COURSIER_BIN" launch %s \
+      -r bintray:scalameta/maven \
+      -r bintray:scalacenter/releases \
+      -r https://oss.sonatype.org/content/repositories/staging \
+      --main bloop.Server
+    """ % (BLOOP_COURSIER_BINARY_NAME, configuration_ivy_home, BLOOP_ARTIFACT)
+
+    return textwrap.dedent(contents)
+
+def generate_bat(bloop_client_target):
+    contents = """
+    @echo off
+    python %%%s %%*
+    """ % bloop_client_target
+    return textwrap.dedent(contents)
 
 def download(url, target):
     try:
@@ -187,15 +203,23 @@ def coursier_bootstrap(target, main):
     try:
         # Use own script if Mac OS system to avoid launchd problems with java environment variables
         if platform.system() == "Darwin":
-            # Resolve first so that `coursier launch` in script doesn't
-            check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "fetch", BLOOP_ARTIFACT,
-                "-r", "bintray:scalameta/maven",
-                "-r", "bintray:scalacenter/releases"
-            ])
+            if is_local:
+                # Resolve first so that `coursier launch` in script doesn't
+                check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "fetch", BLOOP_ARTIFACT,
+                    "-r", "bintray:scalameta/maven",
+                    "-r", "bintray:scalacenter/releases"
+                ])
+            else:
+                # Resolve first so that `coursier launch` in script doesn't
+                check_call(["java"] + http + https + ["-jar", BLOOP_COURSIER_TARGET, "fetch", BLOOP_ARTIFACT,
+                    "-r", "bintray:scalameta/maven",
+                    "-r", "bintray:scalacenter/releases",
+                    "-r", "https://oss.sonatype.org/content/repositories/staging"
+                ])
 
             # Write the script in blp-server path so that it works
             with open(target, 'w') as output_file:
-                output_file.write(MACOS_LAUNCH_SCRIPT_CONTENTS)
+                output_file.write(macos_launch_script_contents(is_local))
 
             make_executable(target)
         else:
@@ -238,6 +262,17 @@ print("Installed bloop server in '%s'" % BLOOP_SERVER_TARGET)
 
 download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET, 0o755)
 print("Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET)
+
+if is_windows:
+    target = BLOOP_CLIENT_TARGET + ".cmd"
+    with open(target, 'w') as output_file:
+        # Pass in the full absolute path of the python script to the bat
+        output_file.write(generate_bat(BLOOP_CLIENT_TARGET))
+    make_executable(target)
+
+    if not "SCOOP" in os.environ:
+        print("You can run `bloop` in Windows with " + target)
+        print("Recommended: Add " + BLOOP_INSTALLATION_TARGET + " to the Windows $PATH")
 
 if is_local:
     if args.bloop_home is None:
