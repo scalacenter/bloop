@@ -1,7 +1,0 @@
-{
-    "$id": "three",
-    "type": "object",
-    "properties": { 
-        "baz": { "type": "string", "description": "a baz string" }
-    }
-}
