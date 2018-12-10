@@ -34,6 +34,12 @@
     }
   }
 
+
+  previouslyBuildActive = null;
+  if (typeof(Storage) !== "undefined") {
+    previouslyBuildActive = sessionStorage.getItem("previouslyBuildActive");
+  }
+
   const buttons = document.querySelectorAll(".build-tools-group .build-tools-button");
   for (let i = 0; i < buttons.length; i++) {
     const button = buttons[i];
@@ -43,10 +49,15 @@
       } else {
         reset();
       }
+
       currentNav = this;
-      addClass(currentNav, "active");
       const name = currentNav.attributes["data-title"].value;
-      location.hash = name;
+
+      if (typeof(Storage) !== "undefined") {
+        sessionStorage.setItem("previouslyBuildActive", name);
+      }
+
+      addClass(currentNav, "active");
       currentItem = document.querySelectorAll(
         "[data-title=" + name + "]:not(.build-tools-button)"
       );
@@ -56,6 +67,14 @@
       for (let i = 0; i < stepHidden.length; i++) {
         $(stepHidden[i]).show();
       }
+
     };
+
+    const dataTitle = $(button).data("title");
+    if (dataTitle) {
+      if (dataTitle === previouslyBuildActive) {
+        button.click();
+      }
+    }
   }
 })();
