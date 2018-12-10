@@ -10,6 +10,7 @@ import sbt.util.Logger
 import scala.sys.process.Process
 
 object GradleIntegration {
+  private final val isWindows = scala.util.Properties.isWin
   def fetchGradleApi(version: String, libDir: File, logger: Logger): Unit = {
     val targetApi = libDir / s"gradle-api-$version.jar"
     val targetTestKit = libDir / s"gradle-test-kit-$version.jar"
@@ -25,9 +26,12 @@ object GradleIntegration {
 
           val gradleExecutable: File = gradleDir / s"gradle-$version" / "bin" / "gradle"
           gradleExecutable.setExecutable(true)
+          val gradlePath = gradleExecutable.getAbsolutePath
 
           logger.info("Extracting the api path from gradle...")
-          val gradleCmd = Seq(gradleExecutable.getAbsolutePath, "--stacktrace", "--no-daemon", "printClassPath")
+          val cmdBase =
+            if (isWindows) "cmd.exe" :: "/C" :: s"${gradlePath}.bat" :: Nil else gradlePath :: Nil
+          val gradleCmd = cmdBase ++ Seq("--stacktrace", "--no-daemon", "printClassPath")
           val result: String = Process(gradleCmd, dummyProjectDir).!!
 
           copyGeneratedArtifact(logger, libDir, targetApi, result, "gradle-api", version)
@@ -40,13 +44,20 @@ object GradleIntegration {
     }
   }
 
-  private def copyGeneratedArtifact(logger: Logger, libDir: File, targetFile: File, classpath: String, name: String, version: String): Unit = {
-    classpath.split(':').find(_.endsWith(s"$name-$version.jar")) match {
+  private def copyGeneratedArtifact(
+      logger: Logger,
+      libDir: File,
+      targetFile: File,
+      classpath: String,
+      name: String,
+      version: String
+  ): Unit = {
+    val splitCharacter = if (isWindows) ';' else ':'
+    classpath.split(splitCharacter).find(_.endsWith(s"$name-$version.jar")) match {
       case Some(gradleApi) =>
         // Copy the api to the lib jar so that it's accessible for the compiler
         val gradleApiJar = new File(gradleApi)
-        logger.info(
-          s"Copying ${gradleApiJar.getAbsolutePath} -> ${libDir.getAbsolutePath}")
+        logger.info(s"Copying ${gradleApiJar.getAbsolutePath} -> ${libDir.getAbsolutePath}")
         IO.copyFile(gradleApiJar, targetFile)
       case None =>
         throw new MessageOnlyException(

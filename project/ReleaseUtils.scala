@@ -170,7 +170,7 @@ object ReleaseUtils {
   def generateScoopFormulaContents(version: String, origin: FormulaOrigin): String = {
     val url = {
       origin match {
-        case Left(f) => s"""file://${f.getAbsolutePath}"""
+        case Left(f) => s"""${f.toPath.toUri.toString.replace("\\", "\\\\")}"""
         case Right(tag) => s"https://github.com/scalacenter/bloop/releases/download/$tag/install.py"
       }
     }
