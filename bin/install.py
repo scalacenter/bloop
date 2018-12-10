@@ -116,6 +116,8 @@ BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 BUFFER_SIZE = 4096
 
+is_windows = os.name == "nt"
+
 def macos_launch_script_contents(is_local):
     configuration_ivy_home = " "
     if is_local:
@@ -134,6 +136,13 @@ def macos_launch_script_contents(is_local):
       --main bloop.Server
     """ % (BLOOP_COURSIER_BINARY_NAME, configuration_ivy_home, BLOOP_ARTIFACT)
 
+    return textwrap.dedent(contents)
+
+def generate_bat(bloop_client_target):
+    contents = """
+    @echo off
+    python %%~dp0%s %%*
+    """ % bloop_client_target
     return textwrap.dedent(contents)
 
 def download(url, target):
@@ -253,6 +262,17 @@ print("Installed bloop server in '%s'" % BLOOP_SERVER_TARGET)
 
 download_and_install(NAILGUN_CLIENT_URL, BLOOP_CLIENT_TARGET, 0o755)
 print("Installed bloop client in '%s'" % BLOOP_CLIENT_TARGET)
+
+if is_windows:
+    target = BLOOP_CLIENT_TARGET + ".cmd"
+    with open(target, 'w') as output_file:
+        # Pass in the full absolute path of the python script to the bat
+        output_file.write(generate_bat(BLOOP_CLIENT_TARGET))
+    make_executable(target)
+
+    if not "SCOOP" in os.environ:
+        print("You can run `bloop` in Windows with " + target)
+        print("Recommended: Add " + BLOOP_INSTALLATION_TARGET + " to the Windows $PATH")
 
 if is_local:
     if args.bloop_home is None:

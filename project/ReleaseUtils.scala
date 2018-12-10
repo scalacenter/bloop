@@ -63,7 +63,12 @@ object ReleaseUtils {
    * @param origin The origin where we install the homebrew formula from.
    * @param installSha The SHA-256 of the versioned installation script.
    */
-  def formulaContent(version: String, origin: FormulaOrigin, installSha: String, local: Boolean): String = {
+  def generateHomebrewFormulaContents(
+      version: String,
+      origin: FormulaOrigin,
+      installSha: String,
+      local: Boolean
+  ): String = {
     val url = {
       origin match {
         case Left(f) => s"""url "file://${f.getAbsolutePath}""""
@@ -143,19 +148,100 @@ object ReleaseUtils {
     val targetLocalFormula = versionDir / "Bloop.rb"
     val installScript = versionedInstallScript.value
     val installSha = sha256(installScript)
-    val contents = formulaContent(version, Left(installScript), installSha, true)
+    val contents = generateHomebrewFormulaContents(version, Left(installScript), installSha, true)
     if (!versionDir.exists()) IO.createDirectory(versionDir)
     IO.write(targetLocalFormula, contents)
-    logger.info(s"Local formula created in ${targetLocalFormula.getAbsolutePath}")
+    logger.info(s"Local Homebrew formula created in ${targetLocalFormula.getAbsolutePath}")
   }
 
   /** Generate the new Homebrew formula, a new tag and push all that in our Homebrew tap */
   val updateHomebrewFormula = Def.task {
+    val repository = "https://github.com/scalacenter/homebrew-bloop.git"
     val buildBase = BuildKeys.buildBase.value
     val installSha = sha256(versionedInstallScript.value)
     val version = Keys.version.value
-    val bloopoidName = "Bloopoid"
-    val bloopoidEmail = "bloop@trashmail.ws"
+    cloneAndPushTag(repository, buildBase, version) { inputs =>
+      val formulaFileName = "bloop.rb"
+      val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), installSha, false)
+      FormulaArtifact(inputs.base / formulaFileName, contents)
+    }
+  }
+
+  def generateScoopFormulaContents(version: String, origin: FormulaOrigin): String = {
+    val url = {
+      origin match {
+        case Left(f) => s"""file://${f.getAbsolutePath}"""
+        case Right(tag) => s"https://github.com/scalacenter/bloop/releases/download/$tag/install.py"
+      }
+    }
+
+    s"""{
+       |  "version": "$version",
+       |  "url": "$url",
+       |  "depends": "python",
+       |  "bin": "bloop.cmd",
+       |  "env_add_path": "$$dir",
+       |  "env_set": {
+       |    "HOME": "$$dir",
+       |    "SCOOP": "true"
+       |  },
+       |  "installer": {
+       |    "script": "python $$dir/install.py --dest $$dir"
+       |  }
+       |}
+        """.stripMargin
+  }
+
+  val createLocalScoopFormula = Def.task {
+    val logger = Keys.streams.value.log
+    val version = Keys.version.value
+    val versionDir = Keys.target.value / version
+    val installScript = versionedInstallScript.value
+
+    val formulaFileName = "bloop.json"
+    val targetLocalFormula = versionDir / formulaFileName
+    val contents = generateScoopFormulaContents(version, Left(installScript))
+
+    if (!versionDir.exists()) IO.createDirectory(versionDir)
+    IO.write(targetLocalFormula, contents)
+    logger.info(s"Local Scoop formula created in ${targetLocalFormula.getAbsolutePath}")
+  }
+
+  val updateScoopFormula = Def.task {
+    val repository = "https://github.com/scalacenter/scoop-bloop.git"
+    val buildBase = BuildKeys.buildBase.value
+    val version = Keys.version.value
+    cloneAndPushTag(repository, buildBase, version) { inputs =>
+      val formulaFileName = "bloop.json"
+      val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
+      val contents =
+        s"""{
+           |  "version": "$version",
+           |  "url": "$url",
+           |  "depends": "python",
+           |  "bin": "bloop.cmd",
+           |  "env_add_path": "$$dir",
+           |  "env_set": {
+           |    "HOME": "$$dir",
+           |    "SCOOP": "true"
+           |  },
+           |  "installer": {
+           |    "script": "python $$dir/install.py --dest $$dir"
+           |  }
+           |}
+        """.stripMargin
+      FormulaArtifact(inputs.base / formulaFileName, contents)
+    }
+  }
+
+  case class FormulaInputs(tag: String, base: File)
+  case class FormulaArtifact(target: File, contents: String)
+
+  private final val bloopoidName = "Bloopoid"
+  private final val bloopoidEmail = "bloop@trashmail.ws"
+  def cloneAndPushTag(repository: String, buildBase: File, version: String)(
+      generateFormula: FormulaInputs => FormulaArtifact
+  ): Unit = {
     val token = sys.env.get("BLOOPOID_GITHUB_TOKEN").getOrElse {
       throw new MessageOnlyException("Couldn't find Github oauth token in `BLOOPOID_GITHUB_TOKEN`")
     }
@@ -164,20 +250,20 @@ object ReleaseUtils {
     }
 
     IO.withTemporaryDirectory { homebrewBase =>
-      GitUtils.clone("https://github.com/scalacenter/homebrew-bloop.git", homebrewBase, token) {
-        homebrewRepo =>
-          val formulaFileName = "bloop.rb"
-          val commitMessage = s"Updating to Bloop $tagName"
-          val content = formulaContent(version, Right(tagName), installSha, false)
-          IO.write(homebrewBase / formulaFileName, content)
-          val changed = formulaFileName :: Nil
-          GitUtils.commitChangesIn(homebrewRepo,
-                                   changed,
-                                   commitMessage,
-                                   bloopoidName,
-                                   bloopoidEmail)
-          GitUtils.tag(homebrewRepo, tagName, commitMessage)
-          GitUtils.push(homebrewRepo, "origin", Seq("master", tagName), token)
+      GitUtils.clone(repository, homebrewBase, token) { homebrewRepo =>
+        val commitMessage = s"Updating to Bloop $tagName"
+        val artifact = generateFormula(FormulaInputs(tagName, homebrewBase))
+        IO.write(artifact.target, artifact.contents)
+        val changed = artifact.target.getName :: Nil
+        GitUtils.commitChangesIn(
+          homebrewRepo,
+          changed,
+          commitMessage,
+          bloopoidName,
+          bloopoidEmail
+        )
+        GitUtils.tag(homebrewRepo, tagName, commitMessage)
+        GitUtils.push(homebrewRepo, "origin", Seq("master", tagName), token)
       }
     }
   }

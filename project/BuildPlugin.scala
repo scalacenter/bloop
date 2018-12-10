@@ -83,7 +83,9 @@ object BuildKeys {
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
+  val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
+  val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
   val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
@@ -124,7 +126,9 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
-    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value
+    createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
+    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
+    updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
