@@ -21,7 +21,7 @@ object ReleaseUtils {
    * the version of Bloop that we're releasing.
    */
   val versionedInstallScript = Def.task {
-    val nailgun = Dependencies.nailgunVersion
+    val nailgun = Dependencies.nailgunCommit
     val coursier = Dependencies.coursierVersion
     val version = Keys.version.value
     val target = Keys.target.value
