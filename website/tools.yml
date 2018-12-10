@@ -1,7 +1,8 @@
-- name: Universal installation
+- name: Universal Installation
   items:
-    universal: curl
-- name: Package managers
+    universal: curl (Default)
+- name: Package Managers
   items:
-    homebrew: Homebrew
+    homebrew: Homebrew (Mac OS)
+    scoop: Scoop (Windows)
     nix: Nix

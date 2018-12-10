@@ -83,6 +83,12 @@
       "tools/nix/usage": {
         "title": "tools/nix/usage"
       },
+      "tools/scoop/install": {
+        "title": "tools/scoop/install"
+      },
+      "tools/scoop/usage": {
+        "title": "tools/scoop/usage"
+      },
       "tools/universal/install": {
         "title": "tools/universal/install"
       },
