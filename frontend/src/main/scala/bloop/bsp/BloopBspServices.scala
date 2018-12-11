@@ -5,6 +5,7 @@ import java.nio.file.{FileSystems, PathMatcher}
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
+import bloop.cli.validation.Validate
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{BloopReporter, Commands, ExitStatus, ReporterKind}
 import bloop.data.{Platform, Project}
@@ -17,7 +18,13 @@ import bloop.logging.{BspServerLogger, DebugFilter}
 import bloop.reporter.{BspProjectReporter, Reporter, ReporterConfig}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, endpoints}
+import ch.epfl.scala.bsp.{
+  BuildTargetIdentifier,
+  MessageType,
+  ShowMessageParams,
+  WorkspaceBuildTargets,
+  endpoints
+}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import xsbti.Problem
@@ -447,36 +454,49 @@ final class BloopBspServices(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargets] = {
     ifInitialized { (state: State) =>
-      val build = state.build
-      val targets = bsp.WorkspaceBuildTargets(
-        build.projects.map { p =>
-          val id = toBuildTargetId(p)
-          val tag = {
-            if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)
-              bsp.BuildTargetTag.Test
-            else bsp.BuildTargetTag.Library
-          }
-          val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
-          val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(p, i)))
-          val capabilities = bsp.BuildTargetCapabilities(
-            canCompile = true,
-            canTest = true,
-            canRun = true
-          )
-          bsp.BuildTarget(
-            id = id,
-            displayName = Some(p.name),
-            baseDirectory = Some(bsp.Uri(p.baseDirectory.toBspUri)),
-            tags = List(tag),
-            languageIds = BloopBspServices.DefaultLanguages,
-            dependencies = deps.map(toBuildTargetId).toList,
-            capabilities = capabilities,
-            data = extra
-          )
-        }
-      )
+      def reportBuildError(msg: String): Unit = {
+        endpoints.Build.showMessage.notify(
+          ShowMessageParams(MessageType.Error, None, None, msg)
+        )(client)
+        ()
+      }
 
-      Task.now((state, Right(targets)))
+      Validate.validateBuildForCLICommands(state, reportBuildError(_)).flatMap { state =>
+        if (state.status == ExitStatus.BuildDefinitionError)
+          Task.now((state, Right(WorkspaceBuildTargets(Nil))))
+        else {
+          val build = state.build
+          val targets = bsp.WorkspaceBuildTargets(
+            build.projects.map { p =>
+              val id = toBuildTargetId(p)
+              val tag = {
+                if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)
+                  bsp.BuildTargetTag.Test
+                else bsp.BuildTargetTag.Library
+              }
+              val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
+              val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(p, i)))
+              val capabilities = bsp.BuildTargetCapabilities(
+                canCompile = true,
+                canTest = true,
+                canRun = true
+              )
+              bsp.BuildTarget(
+                id = id,
+                displayName = Some(p.name),
+                baseDirectory = Some(bsp.Uri(p.baseDirectory.toBspUri)),
+                tags = List(tag),
+                languageIds = BloopBspServices.DefaultLanguages,
+                dependencies = deps.map(toBuildTargetId).toList,
+                capabilities = capabilities,
+                data = extra
+              )
+            }
+          )
+
+          Task.now((state, Right(targets)))
+        }
+      }
     }
   }
 

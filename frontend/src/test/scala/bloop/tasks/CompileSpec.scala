@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import org.junit.Test
+import org.junit.{Assert, Test}
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.experimental.categories.Category
 import bloop.ScalaInstance
@@ -458,6 +458,7 @@ class CompileSpec {
         val projectB = getProject("B", state)
         val action = Run(Commands.Compile("B"), Run(Commands.Compile("C")))
         val compiledState = TestUtil.blockingExecute(action, state)
+        Assert.assertFalse("Sequential compilation didn't fail!", compiledState.status.isOk)
 
         // Check that A failed to compile and that `C` was skipped
         val msgs = logger.getMessages

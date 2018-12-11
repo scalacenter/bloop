@@ -10,7 +10,9 @@ import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks}
 import bloop.cli.Commands.CompilingCommand
+import bloop.cli.validation.Validate
 import bloop.data.{Platform, Project}
+import bloop.engine.Dag.RecursiveTrace
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import monix.eval.Task
@@ -29,36 +31,47 @@ object Interpreter {
           case Print(msg, _, next) =>
             state.logger.info(msg)
             execute(next, Task.now(state), true)
-          case Run(Commands.About(_), next) =>
-            execute(next, printAbout(state), true)
-          case Run(cmd: Commands.ValidatedBsp, next) =>
-            execute(next, runBsp(cmd, state), true)
-          case Run(cmd: Commands.Clean, next) =>
-            execute(next, clean(cmd, state), true)
-          case Run(cmd: Commands.Compile, next) =>
-            execute(next, compile(cmd, state, inRecursion), true)
-          case Run(cmd: Commands.Console, next) =>
-            execute(next, console(cmd, state, inRecursion), true)
-          case Run(cmd: Commands.Projects, next) =>
-            execute(next, showProjects(cmd, state), true)
-          case Run(cmd: Commands.Test, next) =>
-            execute(next, test(cmd, state, inRecursion), true)
-          case Run(cmd: Commands.Run, next) =>
-            execute(next, run(cmd, state, inRecursion), true)
-          case Run(cmd: Commands.Configure, next) =>
-            execute(next, configure(cmd, state), true)
-          case Run(cmd: Commands.Autocomplete, next) =>
-            execute(next, autocomplete(cmd, state), true)
-          case Run(cmd: Commands.Link, next) =>
-            execute(next, link(cmd, state, inRecursion), true)
-          case Run(cmd: Commands.Help, _) =>
-            val msg = "The handling of `help` does not happen in the `Interpreter`"
-            val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
-            execute(printAction, Task.now(state), true)
           case Run(cmd: Commands.Bsp, _) =>
             val msg = "Internal error: The `bsp` command must be validated before use"
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
             execute(printAction, Task.now(state), true)
+          case Run(cmd: Commands.ValidatedBsp, next) =>
+            execute(next, runBsp(cmd, state), true)
+          case Run(Commands.About(_), next) =>
+            execute(next, printAbout(state), true)
+          case Run(cmd: Commands.Help, next) =>
+            val msg = "The handling of `help` does not happen in the `Interpreter`"
+            val printAction =
+              Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
+            execute(printAction, Task.now(state), true)
+          case Run(cmd: Commands.Command, next) =>
+            // We validate for almost all commands coming from the CLI except for BSP and about,help
+            Validate.validateBuildForCLICommands(state, state.logger.error(_)).flatMap { state =>
+              // Don't continue the interpretation if a build-related error has been reported
+              if (state.status == ExitStatus.BuildDefinitionError) Task.now(state)
+              else {
+                cmd match {
+                  case cmd: Commands.Clean =>
+                    execute(next, clean(cmd, state), true)
+                  case cmd: Commands.Compile =>
+                    execute(next, compile(cmd, state, inRecursion), true)
+                  case cmd: Commands.Console =>
+                    execute(next, console(cmd, state, inRecursion), true)
+                  case cmd: Commands.Projects =>
+                    execute(next, showProjects(cmd, state), true)
+                  case cmd: Commands.Test =>
+                    execute(next, test(cmd, state, inRecursion), true)
+                  case cmd: Commands.Run =>
+                    execute(next, run(cmd, state, inRecursion), true)
+                  case cmd: Commands.Configure =>
+                    execute(next, configure(cmd, state), true)
+                  case cmd: Commands.Autocomplete =>
+                    execute(next, autocomplete(cmd, state), true)
+                  case cmd: Commands.Link =>
+                    execute(next, link(cmd, state, inRecursion), true)
+                }
+              }
+            }
         }
       }
     }

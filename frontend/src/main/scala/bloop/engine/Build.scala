@@ -12,7 +12,7 @@ final case class Build private (
     projects: List[Project]
 ) extends CacheHashCode {
   private val stringToProjects: Map[String, Project] = projects.map(p => p.name -> p).toMap
-  private[bloop] val DagResult(dags, missingDeps) = Dag.fromMap(stringToProjects)
+  private[bloop] val DagResult(dags, missingDeps, traces) = Dag.fromMap(stringToProjects)
 
   def getProjectFor(name: String): Option[Project] = stringToProjects.get(name)
 

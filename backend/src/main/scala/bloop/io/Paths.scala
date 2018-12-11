@@ -15,7 +15,7 @@ import java.nio.file.{
 }
 import java.util
 
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import io.github.soc.directories.ProjectDirectories
 
 object Paths {
@@ -111,7 +111,7 @@ object Paths {
       }
 
       def visitFileFailed(t: Path, e: IOException): FileVisitResult = {
-        logger.error(s"Unexpected failure when visiting ${t}: '${e.getMessage}'")
+        logger.debug(s"Unexpected failure when visiting ${t}: '${e.getMessage}'")(DebugFilter.All)
         FileVisitResult.CONTINUE
       }
 

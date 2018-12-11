@@ -5,8 +5,9 @@ import java.nio.file.{Files, Path}
 
 import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, CommonOptions, ExitStatus}
-import bloop.engine.{Action, Exit, Print, Run}
+import bloop.engine.{Action, Exit, Feedback, Print, Run, State}
 import bloop.io.AbsolutePath
+import monix.eval.Task
 
 object Validate {
   private def cliError(msg: String, commonOptions: CommonOptions): Action =
@@ -61,26 +62,38 @@ object Validate {
       case BspProtocol.Tcp => validateTcp
     }
   }
-}
 
-object Feedback {
-  val MissingPipeName = "Missing pipe name to establish a local connection in Windows"
-  val MissingSocket =
-    "A socket file is required to establish a local connection through Unix sockets"
-  def excessiveSocketLengthInMac(socket: Path): String =
-    s"The length of the socket path '${socket.toString}' exceeds 104 bytes in macOS"
-  def excessiveSocketLength(socket: Path): String =
-    s"The length of the socket path '${socket.toString}' exceeds 108 bytes"
-  def existingSocketFile(socket: Path): String =
-    s"Bloop bsp server cannot establish a connection with an existing socket file '${socket.toAbsolutePath}'"
-  def missingParentOfSocket(socket: Path): String =
-    s"'${socket.toAbsolutePath}' cannot be created because its parent does not exist"
-  def unexpectedPipeFormat(pipeName: String): String =
-    s"Pipe name '${pipeName}' does not start with '\\\\.\\pipe\\'"
-  def outOfRangePort(n: Int): String =
-    s"Port number '${n}' is either negative or bigger than 65535"
-  def reservedPortNumber(n: Int): String =
-    s"Port number '${n}' is reserved for the operating system. Use a port number bigger than 1024"
-  def unknownHostName(host: String): String =
-    s"Host name '$host' could not be either parsed or resolved"
+  /**
+   * Reports errors related to the build definition.
+   *
+   * The method is responsible of handling non-existing .bloop configuration directories
+   * and the reporting of recursive traces. This method is called from two places: the
+   * interpreter and [[bloop.bsp.BloopBspServices]], where we invoke this method whenever
+   * the user is importing the build.
+   *
+   * @param state The state we want to validate.
+   * @param report A function for reporting (in BSP we send a showMessage, otherwise we print).
+   * @return A state, possibly with a status code if there were errors.
+   */
+  def validateBuildForCLICommands(state: State, report: String => Unit): Task[State] = {
+    val configDirectory = state.build.origin
+    if (state.build.origin.isDirectory) {
+      state.build.traces match {
+        case Nil => Task.now(state)
+        case x :: xs =>
+          Task.now {
+            xs.foldLeft(report(Feedback.reportRecursiveTrace(x))) {
+              case (state, trace) => report(Feedback.reportRecursiveTrace(trace))
+            }
+
+            state.mergeStatus(ExitStatus.BuildDefinitionError)
+          }
+      }
+    } else {
+      Task.now {
+        report(Feedback.missingConfigDirectory(configDirectory))
+        state.mergeStatus(ExitStatus.BuildDefinitionError)
+      }
+    }
+  }
 }

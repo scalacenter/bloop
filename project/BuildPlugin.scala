@@ -138,6 +138,7 @@ object BuildKeys {
     List(Keys.scalaVersion, Keys.scalaOrganization, scalaJarsKey)
   }
 
+
   import sbt.util.Logger.{Null => NullLogger}
   def bloopInfoKeys(
       nativeBridge: Reference,

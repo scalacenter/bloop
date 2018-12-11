@@ -240,8 +240,8 @@ object Config {
 
   case class File(version: String, project: Project)
   object File {
-    final val LatestVersion = "1.1.0-M2"
-
+    // We cannot have the version coming from the build tool
+    final val LatestVersion = "1.1.2"
     private[bloop] val empty = File(LatestVersion, Project.empty)
 
     private[bloop] def dummyForTests: File = {
