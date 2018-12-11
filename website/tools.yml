@@ -3,6 +3,6 @@
     universal: curl (Default)
 - name: Package Managers
   items:
-    homebrew: Homebrew (Mac OS)
+    homebrew: Homebrew (macOS)
     scoop: Scoop (Windows)
     nix: Nix
