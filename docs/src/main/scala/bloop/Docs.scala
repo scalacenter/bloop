@@ -12,13 +12,16 @@ object Docs {
     val cwd = if (!cwd0.resolve("docs").isDirectory) cwd0.toNIO.getParent else cwd0.toNIO
 
     val settings = MainSettings()
-      .withSiteVariables(Map(
-        "VERSION" -> Sonatype.release.version,
-        "LATEST_VERSION" -> bloop.internal.build.BuildInfo.version
-      ))
+      .withSiteVariables(
+        Map(
+          "VERSION" -> Sonatype.release.version,
+          "LATEST_VERSION" -> bloop.internal.build.BuildInfo.version
+        )
+      )
       .withArgs(args.toList)
       // it should work with mdoc when run inside bloop but it doesn't, let's wait until it's fixed
-      .withWorkingDirectory(cwd)
+      .withIn(cwd.resolve("docs"))
+      .withOut(cwd.resolve("out"))
       .withStringModifiers(List(new ReleasesModifier))
 
     val exitCode = _root_.mdoc.Main.process(settings)
