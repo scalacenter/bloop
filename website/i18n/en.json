@@ -61,9 +61,8 @@
         "title": "Integrate with the Build Server",
         "sidebar_label": "Integration Guide"
       },
-      "project-goals": {
-        "title": "Project Goals",
-        "sidebar_label": "Project Goals"
+      "release-table": {
+        "title": "release-table"
       },
       "target/scala-2.12/classes/LICENSE": {
         "title": "target/scala-2.12/classes/LICENSE"
@@ -118,7 +117,6 @@
   },
   "pages-strings": {
     "Installation Guide|setup page - header": "Installation Guide",
-    "The installation guide walks you through all the steps to to install and get any of the supported build tools working with Bloop.|setup page - description": "The installation guide walks you through all the steps to to install and get any of the supported build tools working with Bloop.",
     "Pick your preferred method|setup page - step 1": "Pick your preferred method",
     "Installation|setup page - step 2": "Installation",
     "Usage|setup page - step 3": "Usage",

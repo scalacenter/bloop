@@ -9,7 +9,7 @@ Then, verify your installation by running the command-line application:
 
 ```
 $ bloop about
-bloop v1.1.0
+bloop v@VERSION@
 
 Running on Scala v2.12.7 and Zinc v1.1.0
 Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)

@@ -22,7 +22,7 @@ Center](https://scala.epfl.ch) and [JetBrains](https://www.jetbrains.com/). Bloo
 server to implement the protocol and provide build supports to clients such as
 [Metals](https://scalameta.org/metals/) and [IntelliJ](https://www.jetbrains.com/idea/)
 
-At the moment, Bloop v1.1.0 partially implements version 2.0.0-M2 and Bloop v1.0.0 implements
+At the moment, Bloop @VERSION@ partially implements version 2.0.0-M2 and Bloop v1.0.0 implements
 version 1.0.0. If you want to implement a compatible build client, check out [the protocol
 specification](https://github.com/scalacenter/bsp/blob/master/docs/bsp.md). As a client, the
 protocol gives you fine-grained build and action information and it's more suitable for rich clients

@@ -3,7 +3,7 @@
 Install bloop in `project/plugins.sbt`:
 
 ```scala
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "1.1.0")
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "@VERSION@")
 ```
 
 And start up or reload your sbt shell to add the plugin to your working build.

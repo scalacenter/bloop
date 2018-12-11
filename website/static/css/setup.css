@@ -8,6 +8,10 @@
     border-bottom: 1px solid #eee;
 }
 
+.installation-header table {
+  display: none;
+}
+
 .tools-button {
   display: inline-block;
   margin-right: 5px;
