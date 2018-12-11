@@ -40,6 +40,8 @@ buildToolsMD.forEach(buildTool => {
   buildTool.export = loadMD(`${buildTool.path}/export.md`);
 });
 
+const releaseTableMD = loadMD("../out/release-table.md")
+
 // List of projects/orgs using your project for the users page.
 const users = [
   {
@@ -82,6 +84,7 @@ const siteConfig = {
   toolsMD,
   buildTools,
   buildToolsMD,
+  releaseTableMD,
 
   // If you have users set above, you add it here:
   users,
@@ -170,10 +173,7 @@ const siteConfig = {
   editUrl: `${repoUrl}/edit/master/docs/`,
   algolia: {
     apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
-    indexName: 'bloop_scala',
-    algoliaOptions: {
-      facetFilters: [ "version:VERSION" ] 
-    }
+    indexName: 'bloop_scala'
   },
 };
 

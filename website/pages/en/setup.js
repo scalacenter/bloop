@@ -13,19 +13,22 @@ const PrismScala = require("prismjs/components/prism-scala");
 const siteConfig = require(process.cwd() + "/siteConfig.js");
 const toolsMD = siteConfig.toolsMD;
 const buildToolsMD = siteConfig.buildToolsMD;
+const releaseTableMD = siteConfig.releaseTableMD;
 
 const SetupHeader = () => {
   return (
-    <div className="page-header text-center">
+    <div className="page-header text-center installation-header">
       <h1>
         <translate desc="setup page - header">Installation Guide</translate>
       </h1>
-      <p>
-        <translate desc="setup page - description">
-        The installation guide walks you through all the steps to
-        to install and get any of the supported build tools working with Bloop.
-        </translate>
-      </p>
+    <p>
+      The installation guide walks you through all the steps to to install and get any
+      of the supported build tools working with Bloop.
+    </p>
+      
+      <div style={{"display": "flex", "justifyContent": "center", "marginBottom": "1em"}}>
+        <MarkdownBlock key={"release-table"}>{releaseTableMD}</MarkdownBlock>
+      </div>
     </div>
   );
 };

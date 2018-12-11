@@ -226,7 +226,7 @@ You've just learned the most basic bloop commands. Learn more commands with `blo
 
 ```bash
 → bloop --help
-bloop 1.1.0
+bloop @VERSION@
 Usage: bloop [options] [command] [command-options]
 
 
