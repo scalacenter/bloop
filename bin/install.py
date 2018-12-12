@@ -186,14 +186,14 @@ def coursier_bootstrap(target, main):
     http = []
     https = []
 
-    if "http_proxy" in os.environ:
+    if os.environ.get("http_proxy"):
         http_proxy = urlparse(os.environ['http_proxy'])
         http = [
             "-Dhttp.proxyHost="+http_proxy.hostname,
             "-Dhttp.proxyPort="+str(http_proxy.port)
         ]
 
-    if "https_proxy" in os.environ:
+    if os.environ.get("https_proxy"):
         https_proxy = urlparse(os.environ['https_proxy'])
         https = [
             "-Dhttps.proxyHost="+https_proxy.hostname,
