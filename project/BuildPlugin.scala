@@ -119,8 +119,7 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseNotes := { tagName =>
-      IO.read(buildBase.value / "notes" / s"$tagName.md")
+    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md")
     },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
@@ -137,7 +136,6 @@ object BuildKeys {
       BuildInfoKey.map(Keys.scalaInstance) { case (_, i) => "scalaJars" -> i.allJars.toList }
     List(Keys.scalaVersion, Keys.scalaOrganization, scalaJarsKey)
   }
-
 
   import sbt.util.Logger.{Null => NullLogger}
   def bloopInfoKeys(
@@ -375,55 +373,69 @@ object BuildImplementation {
           }
         }
 
-        import java.util.Locale
-        val isWindows: Boolean =
-          System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+        exportProjectsInTestResources(newState, enableCache = true)
+      }
+    }
 
-        // Generate bloop configuration files for projects we use in our test suite upfront
-        val resourcesDir = newState.baseDir / "frontend" / "src" / "test" / "resources"
-        val pluginSourceDir = newState.baseDir / "integrations" / "sbt-bloop" / "src" / "main"
-        val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
-        projectDirs.foreach { projectDir =>
-          val targetDir = projectDir / "target"
-          val cacheDirectory = targetDir / "generation-cache-dir"
-          if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
-            IO.delete(cacheDirectory)
-          java.nio.file.Files.createDirectories(cacheDirectory.toPath)
+    def exportProjectsInTestResources(state: State, enableCache: Boolean): State = {
+      import java.util.Locale
+      val isWindows: Boolean =
+        System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
 
-          val projectsFiles = sbt.io.Path
-            .allSubpaths(projectDir)
-            .map(_._1)
-            .filter { f =>
-              val filename = f.toString
-              filename.endsWith(".sbt") || filename.endsWith(".scala")
-            }
-            .toSet
+      // Generate bloop configuration files for projects we use in our test suite upfront
+      val resourcesDir = state.baseDir / "frontend" / "src" / "test" / "resources"
+      val pluginSourceDir = state.baseDir / "integrations" / "sbt-bloop" / "src" / "main"
+      val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
+      projectDirs.foreach { projectDir =>
+        val targetDir = projectDir / "target"
+        val cacheDirectory = targetDir / "generation-cache-dir"
+        if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
+          IO.delete(cacheDirectory)
+        java.nio.file.Files.createDirectories(cacheDirectory.toPath)
 
-          val pluginFiles = sbt.io.Path
-            .allSubpaths(pluginSourceDir)
-            .map(_._1)
-            .filter(f => f.toString.endsWith(".scala"))
-            .toSet
+        val projectsFiles = sbt.io.Path
+          .allSubpaths(projectDir)
+          .map(_._1)
+          .filter { f =>
+            val filename = f.toString
+            filename.endsWith(".sbt") || filename.endsWith(".scala")
+          }
+          .toSet
 
-          import scala.sys.process.Process
+        val pluginFiles = sbt.io.Path
+          .allSubpaths(pluginSourceDir)
+          .map(_._1)
+          .filter(f => f.toString.endsWith(".scala"))
+          .toSet
+
+        import scala.sys.process.Process
+
+        val generate = { (changedFiles: Set[File]) =>
+          state.log.info(s"Generating bloop configuration files for ${projectDir}")
+          val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
+          val cmd = cmdBase ::: List("bloopInstall")
+          val exitGenerate = Process(cmd, projectDir).!
+          if (exitGenerate != 0)
+            throw new sbt.MessageOnlyException(
+              s"Failed to generate bloop config for ${projectDir}.")
+          state.log.success(s"Generated bloop configuration files for ${projectDir}")
+          changedFiles
+        }
+
+        if (enableCache) {
           val cached = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { changedFiles =>
-            newState.log.info(s"Generating bloop configuration files for ${projectDir}")
-            val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
-            val cmd = cmdBase ::: List("bloopInstall")
-            val exitGenerate = Process(cmd, projectDir).!
-            if (exitGenerate != 0)
-              throw new sbt.MessageOnlyException(
-                s"Failed to generate bloop config for ${projectDir}.")
-            newState.log.success(s"Generated bloop configuration files for ${projectDir}")
-            changedFiles
+            generate(changedFiles)
           }
 
           cached(projectsFiles ++ pluginFiles)
-        }
-
-        newState
+        } else generate(Set.empty)
       }
+
+      state
     }
+
+    val exportProjectsInTestResourcesCmd: sbt.Command =
+      sbt.Command.command("exportProjectsInTestResources")(exportProjectsInTestResources(_, false))
 
     def getStagingDirectory(state: State): File = {
       // Use the default staging directory, we don't care if the user changed it.
