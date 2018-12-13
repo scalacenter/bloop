@@ -17,7 +17,7 @@ case class Release(version: String, lastModified: Date) {
 }
 
 object Sonatype {
-  lazy val release = Sonatype.fetchLatest("releases")
+  lazy val release = Sonatype.fetchLatest("staging")
 
   // Copy-pasted from https://github.com/scalameta/metals/blob/994e5e6746ad327ce727d688ad9831e0fbb69b3f/metals-docs/src/main/scala/docs/Snapshot.scala
   lazy val current: Release = Release(BuildInfo.version, new Date())

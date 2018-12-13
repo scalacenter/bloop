@@ -40,12 +40,13 @@ matrix:
           "show version" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
-          "docs/docusaurusPublishGhpages" \
-          "releaseBloop"
+          "releaseBloop" \
+          "docs/docusaurusPublishGhpages"
 
   RELEASE_GITHUB_BREW:
     - bin/sbt-ci.sh \
           "frontend/updateHomebrewFormula" \
+          "frontend/updateScoopFormula" \
           "frontend/githubRelease"
   OS:
     - windows
