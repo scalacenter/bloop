@@ -12,7 +12,7 @@ object Dependencies {
   val zincVersion = "1.2.1+106-0dad4a69"
   val bspVersion = "2.0.0-M1" 
   val scalazVersion = "7.2.20"
-  val coursierVersion = "1.1.0-M3"
+  val coursierVersion = "1.1.0-M8"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
   val caseAppVersion = "1.2.0-faster-compile-time"

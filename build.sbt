@@ -118,6 +118,19 @@ val jsonConfig212 = project
     }
   )
 
+lazy val launcher: Project = project
+  .disablePlugins(ScriptedPlugin)
+  .settings(
+    name := "bloop-launcher",
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.coursierScalaz,
+      Dependencies.nuprocess,
+      Dependencies.ipcsocket
+    )
+  )
+
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
@@ -129,6 +142,7 @@ lazy val frontend: Project = project
     name := "bloop-frontend",
     bloopName := "bloop",
     mainClass in Compile in run := Some("bloop.Cli"),
+    bloopMainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,

@@ -46,7 +46,9 @@ object DependencyResolution {
               logger: Logger,
               additionalRepositories: Seq[Repository] = Nil): Array[AbsolutePath] = {
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
-    val dependency = Dependency(Module(organization, module), version)
+    val org = coursier.Organization(organization)
+    val moduleName = coursier.ModuleName(module)
+    val dependency = Dependency(Module(org, moduleName), version)
     val start = Resolution(Set(dependency))
     val repositories = {
       val baseRepositories = Seq(
