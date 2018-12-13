@@ -3,11 +3,11 @@ package bloop
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.{Files, Path, Paths}
-import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.Properties
 
 import bloop.internal.build.BloopScalaInfo
-import bloop.logging.{ DebugFilter, Logger }
+import bloop.logging.{DebugFilter, Logger}
 
 import scala.util.control.NonFatal
 
@@ -59,9 +59,17 @@ final class ScalaInstance private (
   override val hashCode: Int = {
     val attributedJars =
       allJars.toSeq.map { jar =>
-        val attrs = Files.readAttributes(jar.toPath, classOf[BasicFileAttributes])
-        (jar, attrs.lastModifiedTime(), attrs.size())
+        val (lastModified, size) = {
+          if (jar.exists()) (FileTime.fromMillis(0), 0)
+          else {
+            val attrs = Files.readAttributes(jar.toPath, classOf[BasicFileAttributes])
+            (attrs.lastModifiedTime(), attrs.size())
+          }
+        }
+
+        (jar, lastModified, size)
       }
+
     attributedJars.hashCode()
   }
 }
@@ -83,11 +91,13 @@ object ScalaInstance {
    * cannot be resolved, users will get a resolution error instead of a weird compilation
    * error when compilation via Zinc starts.
    */
-  def apply(scalaOrg: String,
-            scalaName: String,
-            scalaVersion: String,
-            allJars: Seq[AbsolutePath],
-            logger: Logger): ScalaInstance = {
+  def apply(
+      scalaOrg: String,
+      scalaName: String,
+      scalaVersion: String,
+      allJars: Seq[AbsolutePath],
+      logger: Logger
+  ): ScalaInstance = {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
       def newInstance = {
@@ -129,25 +139,25 @@ object ScalaInstance {
   private[this] var cachedBloopScalaInstance: Option[ScalaInstance] = null
 
   /**
-    * Returns the default scala instance that is used in bloop's classloader.
-    *
-    * A Scala instance is always required to compile with Zinc. As a result,
-    * Java projects that have no Scala configuration and want to be able to
-    * re-use Zinc's Javac infrastructure for incremental compilation need to
-    * have a dummy Scala instance available.
-    *
-    * This method is responsible for creating this dummy Scala instance. The
-    * instance is fully functional and the jars for the instance come from Bloop
-    * class loader which depends on all the Scala jars. Here we get the jars that are
-    * usually used in scala jars from the protected domain of every class.
-    *
-    * This could not work in case a user has set a strict security manager in the
-    * environment in which Bloop is running at. However, this is unlikely because
-    * Bloop will run on different machines that normal production-ready machines.
-    * In these machines, security managers don't usually exist and if they do don't
-    * happen to be so strict as to prevent getting the location from the protected
-    * domain.
-    */
+   * Returns the default scala instance that is used in bloop's classloader.
+   *
+   * A Scala instance is always required to compile with Zinc. As a result,
+   * Java projects that have no Scala configuration and want to be able to
+   * re-use Zinc's Javac infrastructure for incremental compilation need to
+   * have a dummy Scala instance available.
+   *
+   * This method is responsible for creating this dummy Scala instance. The
+   * instance is fully functional and the jars for the instance come from Bloop
+   * class loader which depends on all the Scala jars. Here we get the jars that are
+   * usually used in scala jars from the protected domain of every class.
+   *
+   * This could not work in case a user has set a strict security manager in the
+   * environment in which Bloop is running at. However, this is unlikely because
+   * Bloop will run on different machines that normal production-ready machines.
+   * In these machines, security managers don't usually exist and if they do don't
+   * happen to be so strict as to prevent getting the location from the protected
+   * domain.
+   */
   def scalaInstanceFromBloop(logger: Logger): Option[ScalaInstance] = {
     def findLocationForClazz(clazz: Class[_]): Option[Path] = {
       try Some(Paths.get(clazz.getProtectionDomain.getCodeSource.getLocation.toURI))
