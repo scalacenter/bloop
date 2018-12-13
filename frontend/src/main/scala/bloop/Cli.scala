@@ -283,28 +283,14 @@ object Cli {
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
     val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
 
-    def interpretActionIn(dir: Path) = {
-      waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
-        Interpreter.execute(action, currentState).map { newState =>
-          State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-          // Persist successful result on the background for the new state -- it doesn't block!
-          val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
-          Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
-          newState
-        }
-      }
-    }
-
     val dir = configDirectory.underlying
-    if (Files.exists(configDirectory.underlying)) interpretActionIn(dir)
-    else {
-      action match {
-        case Run(Commands.Help(_) | Commands.About(_), _) =>
-          // Interpret the action only if the commands are help or about
-          interpretActionIn(dir)
-        case _ =>
-          logger.error(Feedback.missingConfigDirectory(configDirectory))
-          ExitStatus.InvalidCommandLineOption
+    waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
+      Interpreter.execute(action, currentState).map { newState =>
+        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        // Persist successful result on the background for the new state -- it doesn't block!
+        val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
+        Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
+        newState
       }
     }
   }

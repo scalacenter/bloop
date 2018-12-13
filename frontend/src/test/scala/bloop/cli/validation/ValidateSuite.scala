@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, ExitStatus}
-import bloop.engine.{Action, Exit, Print, Run}
+import bloop.engine.{Action, Exit, Feedback, Print, Run}
 import org.junit.Test
 
 class ValidateSuite {

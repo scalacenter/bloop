@@ -48,11 +48,15 @@ class ForkerSpec {
       val logger = new RecordingLogger
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
       val mainClass = s"$packageName.$mainClassName"
-      val wait = Duration.apply(15, TimeUnit.SECONDS)
-      val exitCode =
-        TestUtil.await(wait)(config.runMain(cwdPath, mainClass, args, logger.asVerbose, opts))
-      val messages = logger.getMessages()
-      op(exitCode, messages)
+      try {
+        val wait = Duration.apply(25, TimeUnit.SECONDS)
+        val exitCode =
+          TestUtil.await(wait)(config.runMain(cwdPath, mainClass, args, logger.asVerbose, opts))
+        val messages = logger.getMessages()
+        op(exitCode, messages)
+      } finally {
+        logger.dump()
+      }
     }
 
   @Test

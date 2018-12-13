@@ -3,7 +3,7 @@ package bloop.nailgun
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, RelativePath}
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import bloop.logging.RecordingLogger
@@ -36,6 +36,21 @@ class NailgunSpec extends NailgunTestUtils {
   }
 
   @Test
+  def testHelpCommandInProjectWithNoConfigurationFiles(): Unit = {
+    val tmpDir = Files.createTempDirectory("bloop-nailgun-empty")
+    tmpDir.toFile.deleteOnExit()
+    withServer(tmpDir, false, new RecordingLogger()) { (logger, client) =>
+      client.success("help")
+      val messages = logger.getMessages()
+      def contains(needle: String): Unit = {
+        assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
+      }
+
+      contains(s"bloop ")
+    }
+  }
+
+  @Test
   def testAboutCommandInProjectWithNoConfigurationFiles(): Unit = {
     val tmpDir = Files.createTempDirectory("bloop-nailgun-empty")
     tmpDir.toFile.deleteOnExit()
@@ -64,6 +79,30 @@ class NailgunSpec extends NailgunTestUtils {
       contains("bloop v")
       contains("Running on Scala v")
       contains("Maintained by the Scala Center")
+    }
+  }
+
+  @Test
+  def testFailedRecursiveBuild(): Unit = {
+    val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath(".bloop")).underlying
+    withServer(configDir, false, new RecordingLogger()) { (logger, client) =>
+      client.success("about")
+      val messages = logger.getMessages()
+
+      val msg = s"bloop v"
+      assertTrue(
+        s"'$msg' not found in $messages",
+        messages.exists(_._2.contains(msg))
+      )
+
+      // Check that any operation fails whenever there is a recursive cycle
+      client.fail("projects")
+      val messages2 = logger.getMessages()
+      val msg2 = "Fatal recursive dependency detected in 'g': List(g, g)"
+      assertTrue(
+        s"'$msg2' not found in $messages2",
+        messages2.exists(_._2.contains(msg2))
+      )
     }
   }
 

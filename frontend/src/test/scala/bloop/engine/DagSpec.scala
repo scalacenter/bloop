@@ -5,7 +5,7 @@ import org.junit.experimental.categories.Category
 import bloop.logging.RecordingLogger
 import bloop.config.Config
 import bloop.data.Project
-import bloop.engine.Dag.DagResult
+import bloop.engine.Dag.{DagResult, RecursiveTrace}
 import bloop.tasks.{CompilationHelpers, TestUtil}
 import guru.nidi.graphviz.parse.Parser
 
@@ -83,7 +83,7 @@ class DagSpec {
 
   @Test def CompleteDAGWithMissingDependencies(): Unit = {
     val projectsMap = TestProjects.completeWithFailedDependency.map(p => p.name -> p).toMap
-    val DagResult(dags, missingDeps) = Dag.fromMap(projectsMap)
+    val DagResult(dags, missingDeps, traces) = Dag.fromMap(projectsMap)
 
     checkLeaf(dags.head, TestProjects.e)
     // Check that f has no registered dependency
@@ -98,28 +98,31 @@ class DagSpec {
     checkParent(dags.tail.tail.tail.head, TestProjects.d)
   }
 
-  @Test(expected = classOf[Dag.RecursiveCycle])
+  @Test
   def SimpleRecursiveDAG(): Unit = {
     import TestProjects.g
     val projectsMap = Map(g.name -> g)
-    fromMap(projectsMap)
+    val result = Dag.fromMap(projectsMap)
+    Assert.assertTrue(result.traces == List(RecursiveTrace(List(g, g))))
     ()
   }
 
-  @Test(expected = classOf[Dag.RecursiveCycle])
+  @Test
   def CompleteRecursiveDAG(): Unit = {
     import TestProjects.g
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap + (g.name -> g)
-    fromMap(projectsMap)
+    val result = Dag.fromMap(projectsMap)
+    Assert.assertTrue(result.traces == List(RecursiveTrace(List(g, g))))
     ()
   }
 
-  @Test(expected = classOf[Dag.RecursiveCycle])
+  @Test
   def LongerRecursiveDAG(): Unit = {
     import TestProjects.{h, i}
     val recursiveProjects = Map(h.name -> h, i.name -> i)
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap ++ recursiveProjects
-    fromMap(projectsMap)
+    val result = Dag.fromMap(projectsMap)
+    Assert.assertTrue(result.traces == List(RecursiveTrace(List(i, h, i))))
     ()
   }
 

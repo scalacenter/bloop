@@ -12,7 +12,7 @@ import bloop.data.{Origin, Project}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.ScalaInstance
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, RelativePath}
 import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
 import bloop.logging.{BloopLogger, BufferedLogger, Logger, RecordingLogger}
@@ -369,5 +369,23 @@ object TestUtil {
     if (!diff.isEmpty) {
       Assert.fail("\n" + diff)
     }
+  }
+
+  def createSimpleRecursiveBuild(bloopDir: RelativePath): AbsolutePath = {
+    import bloop.config.Config
+    val baseDir = Files.createTempDirectory("bloop-recursive-project")
+    baseDir.toFile.deleteOnExit()
+    val configDir = AbsolutePath(baseDir).resolve(bloopDir)
+    Files.createDirectory(configDir.underlying)
+    val jsonTargetG = configDir.resolve("g.json").underlying
+    val outDir = Files.createDirectory(baseDir.resolve("out"))
+    val classesDir = Files.createDirectory(outDir.resolve("classes"))
+
+    // format: OFF
+    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Nil, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None))
+    bloop.config.write(configFileG, jsonTargetG)
+    // format: ON
+
+    configDir
   }
 }

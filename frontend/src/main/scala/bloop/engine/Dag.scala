@@ -3,6 +3,8 @@ import bloop.data.Project
 import bloop.util.CacheHashCode
 import scalaz.Show
 
+import scala.collection.mutable.ListBuffer
+
 sealed trait Dag[T]
 
 final case class Leaf[T](value: T) extends Dag[T] with CacheHashCode
@@ -10,12 +12,11 @@ final case class Leaf[T](value: T) extends Dag[T] with CacheHashCode
 final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T] with CacheHashCode
 
 object Dag {
-  class RecursiveCycle(path: List[Project])
-      extends Exception(s"Not a DAG, cycle detected in ${path.map(_.name).mkString(" -> ")} ")
-
+  case class RecursiveTrace(visited: List[Project])
   case class DagResult(
       dags: List[Dag[Project]],
-      missingDependencies: Map[Project, List[String]]
+      missingDependencies: Map[Project, List[String]],
+      traces: List[RecursiveTrace]
   )
 
   def fromMap(projectsMap: Map[String, Project]): DagResult = {
@@ -24,51 +25,59 @@ object Dag {
     val visiting = new scala.collection.mutable.LinkedHashSet[Project]()
     val dependents = new scala.collection.mutable.HashSet[Dag[Project]]()
     val projects = projectsMap.values.toList
-    def loop(project: Project, dependent: Boolean): Dag[Project] = {
+    val traces = new ListBuffer[RecursiveTrace]()
+    def loop(project: Project, dependent: Boolean): Option[Dag[Project]] = {
       def markVisited(dag: Dag[Project]): Dag[Project] = { visited.+=(project -> dag); dag }
-      def register(dag: Dag[Project]): Dag[Project] = {
-        if (dependent && !dependents.contains(dag)) dependents.+=(dag); dag
+      def register(dagOpt: Option[Dag[Project]]): Option[Dag[Project]] = {
+        dagOpt.map { dag =>
+          if (dependent && !dependents.contains(dag)) dependents.+=(dag); dag
+        }
       }
 
       register {
         // Check that there are no cycles
-        if (visiting.contains(project))
-          throw new RecursiveCycle(visiting.toList :+ project)
-        else visiting.+=(project)
+        if (visiting.contains(project)) {
+          // We register the recursive cycle and return none
+          traces.+=(RecursiveTrace(visiting.toList :+ project))
+          None
+        } else {
+          visiting.+=(project)
 
-        val dag = visited.get(project).getOrElse {
-          markVisited {
-            project match {
-              case leaf if project.dependencies.isEmpty => Leaf(leaf)
-              case parent =>
-                val childrenNodes = project.dependencies.iterator.flatMap { name =>
-                  projectsMap.get(name) match {
-                    case Some(project) => List(project)
-                    case None =>
-                      val newMissingDeps = missingDeps.get(parent) match {
-                        case Some(prev) => name :: prev
-                        case None => name :: Nil
-                      }
+          val dag = visited.get(project).getOrElse {
+            markVisited {
+              project match {
+                case leaf if project.dependencies.isEmpty => Leaf(leaf)
+                case parent =>
+                  val childrenNodes = project.dependencies.iterator.flatMap { name =>
+                    projectsMap.get(name) match {
+                      case Some(project) => List(project)
+                      case None =>
+                        val newMissingDeps = missingDeps.get(parent) match {
+                          case Some(prev) => name :: prev
+                          case None => name :: Nil
+                        }
 
-                      missingDeps.+=((parent, newMissingDeps))
-                      Nil
+                        missingDeps.+=((parent, newMissingDeps))
+                        Nil
+                    }
                   }
-                }
-                Parent(parent, childrenNodes.map(loop(_, true)).toList)
+                  Parent(parent, childrenNodes.flatMap(loop(_, true)).toList)
+              }
             }
           }
-        }
 
-        visiting.-=(project)
-        dag
+          visiting.-=(project)
+          Some(dag)
+        }
       }
     }
 
     // Traverse through all the projects and only get the root nodes
-    val dags = projects.map(loop(_, false))
+    val dags = projects.flatMap(loop(_, false))
     DagResult(
       dags.filterNot(node => dependents.contains(node)),
-      missingDeps.toMap
+      missingDeps.toMap,
+      traces.toList
     )
   }
 

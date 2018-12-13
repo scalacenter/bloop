@@ -119,8 +119,7 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseNotes := { tagName =>
-      IO.read(buildBase.value / "notes" / s"$tagName.md")
+    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md")
     },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
@@ -374,55 +373,69 @@ object BuildImplementation {
           }
         }
 
-        import java.util.Locale
-        val isWindows: Boolean =
-          System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+        exportProjectsInTestResources(newState, enableCache = true)
+      }
+    }
 
-        // Generate bloop configuration files for projects we use in our test suite upfront
-        val resourcesDir = newState.baseDir / "frontend" / "src" / "test" / "resources"
-        val pluginSourceDir = newState.baseDir / "integrations" / "sbt-bloop" / "src" / "main"
-        val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
-        projectDirs.foreach { projectDir =>
-          val targetDir = projectDir / "target"
-          val cacheDirectory = targetDir / "generation-cache-dir"
-          if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
-            IO.delete(cacheDirectory)
-          java.nio.file.Files.createDirectories(cacheDirectory.toPath)
+    def exportProjectsInTestResources(state: State, enableCache: Boolean): State = {
+      import java.util.Locale
+      val isWindows: Boolean =
+        System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
 
-          val projectsFiles = sbt.io.Path
-            .allSubpaths(projectDir)
-            .map(_._1)
-            .filter { f =>
-              val filename = f.toString
-              filename.endsWith(".sbt") || filename.endsWith(".scala")
-            }
-            .toSet
+      // Generate bloop configuration files for projects we use in our test suite upfront
+      val resourcesDir = state.baseDir / "frontend" / "src" / "test" / "resources"
+      val pluginSourceDir = state.baseDir / "integrations" / "sbt-bloop" / "src" / "main"
+      val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
+      projectDirs.foreach { projectDir =>
+        val targetDir = projectDir / "target"
+        val cacheDirectory = targetDir / "generation-cache-dir"
+        if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
+          IO.delete(cacheDirectory)
+        java.nio.file.Files.createDirectories(cacheDirectory.toPath)
 
-          val pluginFiles = sbt.io.Path
-            .allSubpaths(pluginSourceDir)
-            .map(_._1)
-            .filter(f => f.toString.endsWith(".scala"))
-            .toSet
+        val projectsFiles = sbt.io.Path
+          .allSubpaths(projectDir)
+          .map(_._1)
+          .filter { f =>
+            val filename = f.toString
+            filename.endsWith(".sbt") || filename.endsWith(".scala")
+          }
+          .toSet
 
-          import scala.sys.process.Process
+        val pluginFiles = sbt.io.Path
+          .allSubpaths(pluginSourceDir)
+          .map(_._1)
+          .filter(f => f.toString.endsWith(".scala"))
+          .toSet
+
+        import scala.sys.process.Process
+
+        val generate = { (changedFiles: Set[File]) =>
+          state.log.info(s"Generating bloop configuration files for ${projectDir}")
+          val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
+          val cmd = cmdBase ::: List("bloopInstall")
+          val exitGenerate = Process(cmd, projectDir).!
+          if (exitGenerate != 0)
+            throw new sbt.MessageOnlyException(
+              s"Failed to generate bloop config for ${projectDir}.")
+          state.log.success(s"Generated bloop configuration files for ${projectDir}")
+          changedFiles
+        }
+
+        if (enableCache) {
           val cached = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { changedFiles =>
-            newState.log.info(s"Generating bloop configuration files for ${projectDir}")
-            val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
-            val cmd = cmdBase ::: List("bloopInstall")
-            val exitGenerate = Process(cmd, projectDir).!
-            if (exitGenerate != 0)
-              throw new sbt.MessageOnlyException(
-                s"Failed to generate bloop config for ${projectDir}.")
-            newState.log.success(s"Generated bloop configuration files for ${projectDir}")
-            changedFiles
+            generate(changedFiles)
           }
 
           cached(projectsFiles ++ pluginFiles)
-        }
-
-        newState
+        } else generate(Set.empty)
       }
+
+      state
     }
+
+    val exportProjectsInTestResourcesCmd: sbt.Command =
+      sbt.Command.command("exportProjectsInTestResources")(exportProjectsInTestResources(_, false))
 
     def getStagingDirectory(state: State): File = {
       // Use the default staging directory, we don't care if the user changed it.
@@ -586,6 +599,7 @@ object BuildImplementation {
               "Failed to publish locally dodo snapshots for twitter projects.")
         }
 
+        val sbtVersion013Property = "-Dsbt.version=0.13.17"
         val globalPluginsBase = buildIntegrationsBase / "global"
         val globalSettingsBase = globalPluginsBase / "settings"
         val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
@@ -595,34 +609,51 @@ object BuildImplementation {
         val schemaProperty = s"-Dbloop.integrations.schemaVersion=$schemaVersion"
         val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: schemaProperty :: Nil
         val toRun = "cleanAllBuilds" :: "bloopInstall" :: "buildIndex" :: Nil
-        val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
-        val cmd = cmdBase ::: properties ::: toRun
+
+        val cmd = {
+          if (isWindows) {
+            // We'll override system properties in .jvmopts
+            val exe = "cmd.exe" :: "/C" :: "sbt.bat" :: Nil
+            exe ::: toRun
+          } else {
+            // Use system properties in Linux
+            "sbt" :: properties ::: toRun
+          }
+        }
 
         IO.delete(buildIndexFile)
 
-        val exitGenerate013 = Process(cmd, buildIntegrationsBase / "sbt-0.13").!
-        if (exitGenerate013 != 0)
-          throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13.")
+        def generateSbt(cmd: List[String], base: File): Unit = {
+          val jvmoptsFile = base / ".jvmopts"
+          val existing = if (jvmoptsFile.exists()) IO.read(jvmoptsFile) else ""
+          try {
+            // In Windows, system properties don't work (!?), so add them to the .jvmopts
+            if (isWindows) {
+              val version = if (base.getName.contains("0.13")) List(sbtVersion013Property) else Nil
+              IO.write(
+                jvmoptsFile,
+                ((existing.stripLineEnd :: version) ::: properties).mkString("\n")
+              )
+            }
 
-        val exitGenerate0132 = Process(cmd, buildIntegrationsBase / "sbt-0.13-2").!
-        if (exitGenerate0132 != 0)
-          throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13 (2).")
+            val exit = Process(cmd, base).!
+            if (exit != 0)
+              throw new MessageOnlyException(s"Failed to generate bloop configs for: ${base}.")
+          } finally {
+            if (isWindows) {
+              // Restore always the previous contents
+              IO.write(jvmoptsFile, existing)
+            }
+          }
+        }
 
-        val exitGenerate0133 = Process(cmd, buildIntegrationsBase / "sbt-0.13-3").!
-        if (exitGenerate0133 != 0)
-          throw new MessageOnlyException("Failed to generate bloop config with sbt 0.13 (3).")
+        generateSbt(cmd, buildIntegrationsBase / "sbt-0.13")
+        generateSbt(cmd, buildIntegrationsBase / "sbt-0.13-2")
+        generateSbt(cmd, buildIntegrationsBase / "sbt-0.13-3")
 
-        val exitGenerate10 = Process(cmd, buildIntegrationsBase / "sbt-1.0").!
-        if (exitGenerate10 != 0)
-          throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0.")
-
-        val exitGenerate102 = Process(cmd, buildIntegrationsBase / "sbt-1.0-2").!
-        if (exitGenerate102 != 0)
-          throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0 (2).")
-
-        val exitGenerate103 = Process(cmd, buildIntegrationsBase / "sbt-1.0-3").!
-        if (exitGenerate103 != 0)
-          throw new MessageOnlyException("Failed to generate bloop config with sbt 1.0 (3).")
+        generateSbt(cmd, buildIntegrationsBase / "sbt-1.0")
+        generateSbt(cmd, buildIntegrationsBase / "sbt-1.0-2")
+        generateSbt(cmd, buildIntegrationsBase / "sbt-1.0-3")
 
         Set(buildIndexFile)
       }

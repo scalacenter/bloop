@@ -9,7 +9,7 @@ import bloop.cli.validation.Validate
 import bloop.cli.{BspProtocol, CliOptions, Commands, CommonOptions}
 import bloop.data.Project
 import bloop.engine.{BuildLoader, Run}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, RelativePath}
 import bloop.tasks.TestUtil
 import bloop.logging.{BspClientLogger, RecordingLogger}
 import org.junit.Test
@@ -47,7 +47,7 @@ class BspProtocolSpec {
   def isTestProject(targetUri: BuildTargetIdentifier): Boolean =
     targetUri.uri == testProject.bspUri
 
-  def validateBsp(bspCommand: Commands.Bsp): Commands.ValidatedBsp = {
+  def validateBsp(bspCommand: Commands.Bsp, configDir: AbsolutePath): Commands.ValidatedBsp = {
     val baseDir = AbsolutePath(configDir.underlying.getParent)
     Validate.bsp(bspCommand, BspServer.isWindows) match {
       case Run(bsp: Commands.ValidatedBsp, _) =>
@@ -64,7 +64,8 @@ class BspProtocolSpec {
         protocol = BspProtocol.Local,
         socket = Some(socketFile),
         pipeName = Some(s"\\\\.\\pipe\\test-$uniqueId")
-      )
+      ),
+      configDir
     )
   }
 
@@ -73,7 +74,7 @@ class BspProtocolSpec {
       verbose: Boolean = false
   ): Commands.ValidatedBsp = {
     val opts = if (verbose) CliOptions.default.copy(verbose = true) else CliOptions.default
-    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts))
+    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts), configDir)
   }
 
   def reportIfError(logger: BspClientLogger[RecordingLogger])(thunk: => Unit): Unit = {
@@ -170,6 +171,25 @@ class BspProtocolSpec {
       Assert.assertEquals(1, msgs.count(_.contains(BuildInitialize)))
       Assert.assertEquals(1, msgs.count(_.contains(BuildInitialized)))
       Assert.assertEquals(1, msgs.count(_.contains(BuildTargets)))
+    }
+  }
+
+  def testBuildTargetsEmpty(bspCmd: Commands.ValidatedBsp, configDir: AbsolutePath): Unit = {
+    val logger = new BspClientLogger(new RecordingLogger)
+    def clientWork(implicit client: LanguageClient) = {
+      endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
+        case Right(workspaceTargets) =>
+          if (workspaceTargets.targets.isEmpty) Right(())
+          else Left(Response.internalError(s"Workspace targets are not empty ${workspaceTargets}"))
+        case Left(error) => Left(error)
+      }
+    }
+
+    reportIfError(logger) {
+      BspClientTest.runTest(bspCmd, configDir, logger)(c => clientWork(c))
+      val recursiveError = "Fatal recursive dependency detected in 'g': List(g, g)"
+      val errors = logger.underlying.getMessagesAt(Some("error"))
+      Assert.assertEquals(1, errors.count(_.contains(recursiveError)))
     }
   }
 
@@ -317,7 +337,8 @@ class BspProtocolSpec {
                   Assert.assertEquals(obtainedUri, expectedUri)
                   val obtainedOptions =
                     stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
-                  val classpath = p.compilationClasspath.iterator.map(i => bsp.Uri(i.toBspUri)).toList
+                  val classpath =
+                    p.compilationClasspath.iterator.map(i => bsp.Uri(i.toBspUri)).toList
                   val classesDir = bsp.Uri(p.classesDir.toBspUri)
                   val expectedOptions =
                     stringifyOptions(p.scalacOptions.toList, classpath, classesDir)
@@ -936,7 +957,7 @@ class BspProtocolSpec {
       BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
       // Make sure that the compilation is logged back to the client via logs in stdout
       val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
-/*      Assert.assertTrue(
+      /*      Assert.assertTrue(
         "Test execution did not compile the main and test projects.",
         msgs.filter(_.contains("Done compiling.")).size == 2
       )*/
@@ -994,7 +1015,7 @@ class BspProtocolSpec {
       BspClientTest.runTest(bspCmd, configDir, logger, addServicesTest)(c => clientWork(c))
       // Make sure that the compilation is logged back to the client via logs in stdout
       val msgs = logger.underlying.getMessages.iterator.filter(_._1 == "info").map(_._2).toList
-/*      Assert.assertTrue(
+      /*      Assert.assertTrue(
         s"Run execution did not compile $MainProject.",
         msgs.filter(_.contains("Done compiling.")).size == 1
       )*/
@@ -1054,6 +1075,11 @@ class BspProtocolSpec {
 
   @Test def TestInitializationViaTcp(): Unit = {
     testInitialization(createTcpBspCommand(configDir))
+  }
+
+  @Test def TestBuildWithRecursiveDependenciesViaTcp(): Unit = {
+    val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath("bloop-config"))
+    testBuildTargetsEmpty(createTcpBspCommand(configDir), configDir)
   }
 
   @Test def TestBuildTargetsViaLocal(): Unit = {

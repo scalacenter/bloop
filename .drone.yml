@@ -40,12 +40,13 @@ matrix:
           "show version" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
-          "docs/docusaurusPublishGhpages" \
-          "releaseBloop"
+          "releaseBloop" \
+          "docs/docusaurusPublishGhpages"
 
   RELEASE_GITHUB_BREW:
     - bin/sbt-ci.sh \
           "frontend/updateHomebrewFormula" \
+          "frontend/updateScoopFormula" \
           "frontend/githubRelease"
   OS:
     - windows
@@ -85,7 +86,7 @@ pipeline:
       - ./frontend/src/test/resources/cross-test-build-1.0/target/generation-cache-file
     volumes:
       - /cache:/cache
-    cache_key: [ DRONE_REPO_OWNER, DRONE_REPO_NAME, DRONE_BRANCH ]
+    cache_key: [ DRONE_REPO_OWNER, DRONE_REPO_NAME ]
     when:
       ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
       matrix:
@@ -214,4 +215,4 @@ pipeline:
       - ./frontend/src/test/resources/cross-test-build-1.0/target/generation-cache-file
     volumes:
       - /cache:/cache
-    cache_key: [ DRONE_REPO_OWNER, DRONE_REPO_NAME, DRONE_BRANCH ]
+    cache_key: [ DRONE_REPO_OWNER, DRONE_REPO_NAME ]

@@ -15,7 +15,7 @@ import java.nio.file.{
 }
 import java.util
 
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import io.github.soc.directories.ProjectDirectories
 
 object Paths {
@@ -112,6 +112,7 @@ object Paths {
 
       def visitFileFailed(t: Path, e: IOException): FileVisitResult = {
         logger.error(s"Unexpected failure when visiting ${t}: '${e.getMessage}'")
+        logger.trace(e)
         FileVisitResult.CONTINUE
       }
 
@@ -126,9 +127,12 @@ object Paths {
       ): FileVisitResult = FileVisitResult.CONTINUE
     }
 
-    val opts = util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
-    Files.walkFileTree(base.underlying, opts, maxDepth, visitor)
-    out.toList
+    if (!base.exists) Nil
+    else {
+      val opts = util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
+      Files.walkFileTree(base.underlying, opts, maxDepth, visitor)
+      out.toList
+    }
   }
 
   /**
