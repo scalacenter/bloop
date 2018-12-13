@@ -193,7 +193,7 @@ const Features2 = () => (
       },
       {
         title: 'Use it with IDEs',
-        content: 'Bloop integrates with IDEs and text editors to provide a short feedback cycle and reliable compiler diagnostics. Use Bloop with IntelliJ and [Metals](https://metals.rocks) (Visual Studio Code, Sublime Text, `vim` and Atom).',
+        content: 'Bloop integrates with IDEs and text editors to provide a short feedback cycle and reliable compiler diagnostics. Use Bloop with IntelliJ and [Metals](https://scalameta.org/metals/) (Visual Studio Code, Sublime Text, `vim` and Atom).',
       },
     ]}
   </Block>
