@@ -45,11 +45,11 @@ class LauncherSpec extends AbstractLauncherSpec {
         throw t
     }
   }
-
   @Test
   def testSystemPropertiesMockingWork(): Unit = {
     // Test from https://stefanbirkner.github.io/system-rules/index.html
     val parentDir = Files.createTempDirectory("boooo").getParent
+    parentDir.toFile.deleteOnExit()
     Assert.assertEquals(parentDir, Paths.get(System.getProperty("user.dir")).getParent)
     Assert.assertEquals(parentDir, Paths.get(System.getProperty("user.home")).getParent)
   }
@@ -74,7 +74,8 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  @Test def dontDetectSystemBloop(): Unit = {
+  @Test
+  def dontDetectSystemBloop(): Unit = {
     val run = runLauncher { launcher =>
       // We should not detect the server state unless we have installed it via the launcher
       val state = launcher.detectServerState(bloopVersion)
@@ -90,7 +91,8 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  @Test def testInstallationViaInstallpy(): Unit = {
+  @Test
+  def testInstallationViaInstallpy(): Unit = {
     val run = runLauncher { launcher =>
       // Install the launcher via `install.py`, which is the preferred installation method
       val tempDir = Files.createTempDirectory("bloop-install")
@@ -102,17 +104,33 @@ class LauncherSpec extends AbstractLauncherSpec {
         launcher.detectServerState(_)
       )
 
-      System.out.println(state)
+      // We should detect the bloop binary in the place where we installed it!
       val bloopDir = launcher.defaultBloopDirectory.resolve("bloop")
-      if (state == Some(AvailableAt(bloopDir.toString))) true
-      else {
+      if (state == Some(AvailableAt(bloopDir.toString))) {
+        deleteRecursively(tempDir)
+        true
+      } else {
+        deleteRecursively(tempDir)
         launcher.out.println(s"The installation in ${bloopDir} didn't succeed, obtained ${state}!")
         false
       }
     }
 
     testLauncher(run) { run =>
-      Assert.assertTrue(run.successful)
+      Assert.assertTrue("The exit code of the installation was not 0", run.successful)
+    }
+  }
+
+  @Test
+  def testBloopResolution(): Unit = {
+    val run = runLauncher { launcher =>
+      val (_, resolution) = Installer.resolveServer(bloopVersion, true)
+      Assert.assertTrue(s"Resolution errors ${resolution.errors}", resolution.errors.isEmpty)
+      Installer.fetchJars(resolution, launcher.out).nonEmpty
+    }
+
+    testLauncher(run) { run =>
+      Assert.assertTrue("Jars were not fetched!", run.successful)
     }
   }
 }

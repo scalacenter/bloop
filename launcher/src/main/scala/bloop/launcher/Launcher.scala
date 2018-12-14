@@ -248,44 +248,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     false
   }
 
-  def recoverFromUninstalledServer(bloopVersion: String): Option[ServerState] = {
-    import java.io.File
-    import scala.concurrent.ExecutionContext.Implicits.global
-    import coursier._
-    import coursier.util.{Task, Gather}
-
-    def resolveServer(withScalaSuffix: Boolean): (Dependency, Resolution) = {
-      val moduleName = if (withScalaSuffix) name"bloop-frontend_2.12" else name"bloop-frontend"
-      val bloopDependency = Dependency(Module(org"ch.epfl.scala", moduleName), bloopVersion)
-      val start = Resolution(Set(bloopDependency))
-
-      val repositories = Seq(
-        Cache.ivy2Local,
-        MavenRepository("https://repo1.maven.org/maven2"),
-        MavenRepository("https://oss.sonatype.org/content/repositories/staging/"),
-        MavenRepository("https://dl.bintray.com/scalacenter/releases/"),
-        MavenRepository("https://dl.bintray.com/scalameta/maven/")
-      )
-
-      val fetch = Fetch.from(repositories, Cache.fetch[Task]())
-      (bloopDependency, start.process.run(fetch).unsafeRun())
-    }
-
-    def fetchJars(r: Resolution): Seq[Path] = {
-      val localArtifacts: Seq[Either[FileError, File]] =
-        Gather[Task].gather(r.artifacts().map(Cache.file[Task](_).run)).unsafeRun()
-      val fileErrors = localArtifacts.collect { case Left(error) => error }
-      if (fileErrors.isEmpty) {
-        localArtifacts.collect { case Right(f) => f }.map(_.toPath)
-      } else {
-        val prettyFileErrors = fileErrors.map(_.describe).mkString("\n")
-        val errorMsg = s"Fetch error(s):\n${prettyFileErrors.mkString("\n")}"
-        printError(errorMsg)
-        Nil
-      }
-    }
-
-    println(s"Bloop is not available in the machine, installing bloop ${bloopVersion}")
+  def recoverFromUninstalledServer(bloopVersion: String): Option[ServerState] = { println(s"Bloop is not available in the machine, installing bloop ${bloopVersion}")
     val fullyInstalled = Installer.installBloopBinaryInHomeDir(
       tempDir,
       defaultBloopDirectory,
@@ -295,15 +258,15 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     )
 
     fullyInstalled.orElse {
-      val (bloopDependency, vanillaResolution) = resolveServer(true)
+      val (bloopDependency, vanillaResolution) = Installer.resolveServer(bloopVersion, true)
       if (vanillaResolution.errors.isEmpty) {
-        val jars = fetchJars(vanillaResolution)
+        val jars = Installer.fetchJars(vanillaResolution, out)
         if (jars.isEmpty) None else Some(ResolvedAt(jars))
       } else {
         // Before failing, let's try resolving bloop without a scala suffix to support future versions
-        val (_, versionlessResolution) = resolveServer(false)
+        val (_, versionlessResolution) = Installer.resolveServer(bloopVersion, false)
         if (versionlessResolution.errors.isEmpty) {
-          val jars = fetchJars(versionlessResolution)
+          val jars = Installer.fetchJars(versionlessResolution, out)
           if (jars.isEmpty) None else Some(ResolvedAt(jars))
         } else {
           // Only report errors coming from the first resolution (second resolution was a backup)
