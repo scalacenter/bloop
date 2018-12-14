@@ -6,7 +6,7 @@ import java.util.concurrent.ExecutionException
 import bloop.cli.Commands
 import bloop.data.Project
 import bloop.engine.State
-import bloop.engine.caches.{ResultsCache, StateCache}
+import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
