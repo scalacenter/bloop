@@ -118,7 +118,7 @@ val jsonConfig212 = project
     }
   )
 
-lazy val launcher: Project = project
+val launcher: Project = project
   .disablePlugins(ScriptedPlugin)
   .settings(
     name := "bloop-launcher",
@@ -127,7 +127,9 @@ lazy val launcher: Project = project
       Dependencies.coursierCache,
       Dependencies.coursierScalaz,
       Dependencies.nuprocess,
-      Dependencies.ipcsocket
+      Dependencies.ipcsocket,
+      Dependencies.junit % Test,
+      Dependencies.junitSystemRules % Test
     )
   )
 

@@ -1,5 +1,6 @@
 package bloop.launcher
 
+import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Path, Paths}
 
@@ -9,7 +10,8 @@ import io.github.soc.directories.ProjectDirectories
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-object Launcher {
+object Launcher extends LauncherMain(System.err, nailgunPort = None)
+class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
   private lazy val tempDir = Files.createTempDirectory(s"bsp-launcher")
   private val isWindows: Boolean = scala.util.Properties.isWin
   private val homeDirectory: Path = Paths.get(System.getProperty("user.home"))
@@ -18,52 +20,59 @@ object Launcher {
   private val bloopDataLogsDir: Path =
     Files.createDirectories(Paths.get(projectDirectories.dataDir).resolve("logs"))
 
+  private val bloopAdditionalArgs: List[String] = nailgunPort match {
+    case Some(port) => List("--nailgun-port", port.toString)
+    case None => Nil
+  }
+
   // Override print to redirect msgs to System.err (as mandated by the BSP spec)
-  def print(msg: String): Unit = System.err.print(msg)
-  def println(msg: String): Unit = System.err.println(msg)
-  def printError(msg: String): Unit = println(s"error: ${msg}")
+  def print(msg: String): Unit = bloop.launcher.print(msg, out)
+  def println(msg: String): Unit = bloop.launcher.println(msg, out)
+  def printError(msg: String): Unit = bloop.launcher.println(s"error: ${msg}", out)
   def printQuoted(msg: String): Unit = {
-    println {
+    bloop.launcher.println(
       msg
         .split(System.lineSeparator())
         .map(l => s"> $l")
-        .mkString(System.lineSeparator())
-    }
+        .mkString(System.lineSeparator()),
+      out
+    )
   }
 
   def main(args: Array[String]): Unit = {
+    cli(args, b => if (b) exitWithSuccess() else exitWithFailure())
+  }
+
+  def cli(args: Array[String], exitWithSuccess: Boolean => Unit): Unit = {
     // TODO: Add support of java arguments passed in to the launcher
     if (args.size == 1) {
       val bloopVersion = args.apply(0)
-      runLauncher(bloopVersion)
+      runLauncher(bloopVersion, exitWithSuccess)
     } else {
       printError("The bloop launcher accepts only one argument: the bloop version.")
+      exitWithSuccess(false)
     }
   }
 
-  def runLauncher(bloopVersionToInstall: String): Unit = {
+  def runLauncher(bloopVersionToInstall: String, exitWithSuccess: Boolean => Unit): Unit = {
     println("Starting the bsp launcher for bloop")
     if (isPythonInClasspath) {
       printError("Python must be installed, it's not accessible via classpath")
+      exitWithSuccess(connectToServer(bloopVersionToInstall))
     }
   }
 
-  sealed trait ServerState
-  case class AvailableAt(binary: String) extends ServerState
-  case class ResolvedAt(files: Seq[Path]) extends ServerState
-  case class ListeningAndAvailableAt(binary: String) extends ServerState
-
   def isPythonInClasspath: Boolean = {
-    Utils.runCommand(List("python", "--help"), Some(3)).isOk
+    Utils.runCommand(List("python", "--help"), Some(2)).isOk
   }
 
-  def detectBloopInClasspath(binary: String): Option[ServerState] = {
+  def detectBloopInSystemPath(binary: String): Option[ServerState] = {
     // --nailgun-help is always interpreted in the script, no connection with the server is required
     val status = Utils.runCommand(List(binary, "--nailgun-help"), Some(10))
     if (!status.isOk) None
     else {
       // bloop is installed, let's check if it's running now
-      val statusAbout = Utils.runCommand(List(binary, "about"), Some(10))
+      val statusAbout = Utils.runCommand(List(binary, "about") ++ bloopAdditionalArgs, Some(10))
       Some {
         if (statusAbout.isOk) ListeningAndAvailableAt(binary)
         else AvailableAt(binary)
@@ -71,29 +80,30 @@ object Launcher {
     }
   }
 
-  def connectToServer(bloopVersion: String): Unit = {
-    def handleServerState(establishConnection: => Unit): Unit = {
+  def connectToServer(bloopVersion: String): Boolean = {
+    def handleServerState(establishConnection: => Boolean): Boolean = {
       serverStatusCommand match {
         case Some((cmd, status)) if status.isOk =>
           printError(s"Unexpected successful early exit of the bsp server with '$cmd'!")
           if (!status.output.isEmpty) printQuoted(status.output)
-          exitWithFailure()
+          false
 
         case Some((cmd, status)) =>
           printError(s"Failed to start bloop bsp server with '$cmd'!")
           if (!status.output.isEmpty) printQuoted(status.output)
-          exitWithFailure()
+          false
 
         case None => establishConnection
       }
     }
 
-    detectServerState(bloopVersion).getOrElse(recoverFromUninstalledServer(bloopVersion)) match {
-      case ListeningAndAvailableAt(binary) =>
+    val status = detectServerState(bloopVersion).orElse(recoverFromUninstalledServer(bloopVersion))
+    status match {
+      case Some(ListeningAndAvailableAt(binary)) =>
         // We don't use tcp by default, only if a local connection fails
         establishBspConnectionViaBinary(binary, false)
 
-      case AvailableAt(binary) =>
+      case Some(AvailableAt(binary)) =>
         // Start the server if we only have a bloop binary
         startServerViaScript(binary)
         // Sleep a little bit to give some time to the server to start up
@@ -107,7 +117,7 @@ object Launcher {
         }
 
       // The build server has been resolved because the python installation failed in this system
-      case ResolvedAt(classpath) =>
+      case Some(ResolvedAt(classpath)) =>
         startServerViaClasspath(classpath)
 
         // Sleep a little bit to give some time to the server to start up
@@ -119,13 +129,18 @@ object Launcher {
           // The server cmd is still running, try connection
           establishManualBspConnection(false)
         }
+
+      case None =>
+        printInstallationInstructions()
+        false
     }
   }
 
+  def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
   def detectServerState(bloopVersion: String): Option[ServerState] = {
-    detectBloopInClasspath("bloop").orElse {
+    detectBloopInSystemPath("bloop").orElse {
       // The binary is not available in the classpath
-      val homeBloopDir = homeDirectory.resolve(".bloop")
+      val homeBloopDir = defaultBloopDirectory
       if (!Files.exists(homeBloopDir)) None
       else {
         // This is the nailgun script that we can use to run bloop
@@ -134,27 +149,24 @@ object Launcher {
         if (!Files.exists(pybloop)) None
         else {
           val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          detectBloopInClasspath(binaryInHome)
+          detectBloopInSystemPath(binaryInHome)
         }
       }
     }
   }
 
-  // A valid tcp random port can be fr
-  private def portNumberWithin(from: Int, to: Int): Int = {
-    require(from > 24 && to < 65535)
-    val r = new scala.util.Random
-    from + r.nextInt(to - from)
-  }
-
   private val alreadyInUseMsg = "Address already in use"
 
   // TODO: Improve to enable repeated local connections in case the server is not yet up and running
-  def establishBspConnectionViaBinary(binary: String, useTcp: Boolean, attempts: Int = 1): Unit = {
+  def establishBspConnectionViaBinary(
+      binary: String,
+      useTcp: Boolean,
+      attempts: Int = 1
+  ): Boolean = {
     val bspCmd: List[String] = {
       // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
       if (useTcp || isWindows) {
-        val randomPort = portNumberWithin(17812, 18222).toString
+        val randomPort = Utils.portNumberWithin(17812, 18222).toString
         List(binary, "bsp", "--protocol", "tcp", "--port", randomPort)
       } else {
         // Let's be conservative with names here, socket files have a 100 char limit
@@ -174,7 +186,7 @@ object Launcher {
     if (status.isOk) {
       // The bsp connection was finished successfully, the launcher exits too
       println("The bsp connection finished successfully, exiting...")
-      exitWithSuccess()
+      true
     } else {
       if (status.output.contains(alreadyInUseMsg)) {
         if (attempts <= 5) establishBspConnectionViaBinary(binary, useTcp, attempts + 1)
@@ -183,7 +195,7 @@ object Launcher {
           printError(s"Received '${alreadyInUseMsg}' > 5 times when attempting connection...")
           printError(s"Printing the output of the last invocation: ${bspCmd.mkString(" ")}")
           printQuoted(status.output)
-          exitWithFailure()
+          false
         }
       } else {
         printError(s"Failed to establish bsp connection with ${bspCmd.mkString(" ")}")
@@ -191,18 +203,17 @@ object Launcher {
 
         println("\nTrying connection via TCP before failing...")
         establishBspConnectionViaBinary(binary, true, attempts + 1)
-        exitWithFailure()
       }
     }
   }
 
-  def establishManualBspConnection(useTcp: Boolean): Unit = {
+  def establishManualBspConnection(useTcp: Boolean): Boolean = {
     import scala.util.Try
     def establishSocketConnection(useTcp: Boolean): Try[java.net.Socket] = {
       import org.scalasbt.ipcsocket.UnixDomainSocket
       Try {
         if (useTcp || isWindows) {
-          val randomPort = portNumberWithin(17812, 18222)
+          val randomPort = Utils.portNumberWithin(17812, 18222)
           new java.net.Socket("127.0.0.1", randomPort)
         } else {
           val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath.toString
@@ -214,12 +225,12 @@ object Launcher {
     val socketConnection = establishSocketConnection(useTcp).recoverWith {
       case NonFatal(t) =>
         Thread.sleep(250)
-        t.printStackTrace(System.err)
+        t.printStackTrace(out)
         println("First connection failed, trying again...")
         establishSocketConnection(useTcp).recoverWith {
           case NonFatal(t) =>
             Thread.sleep(500)
-            t.printStackTrace(System.err)
+            t.printStackTrace(out)
             println("Second connection failed, trying the last attempt...")
             establishSocketConnection(useTcp)
         }
@@ -233,10 +244,11 @@ object Launcher {
       // Start thread pumping stdin
       ???
     }
-    ()
+
+    false
   }
 
-  def recoverFromUninstalledServer(bloopVersion: String): ServerState = {
+  def recoverFromUninstalledServer(bloopVersion: String): Option[ServerState] = {
     import java.io.File
     import scala.concurrent.ExecutionContext.Implicits.global
     import coursier._
@@ -269,65 +281,30 @@ object Launcher {
         val prettyFileErrors = fileErrors.map(_.describe).mkString("\n")
         val errorMsg = s"Fetch error(s):\n${prettyFileErrors.mkString("\n")}"
         printError(errorMsg)
-        exitWithFailureAndPrintInstallationInstructions()
-      }
-    }
-
-    def installBloopBinaryInHomeDir: Option[ServerState] = {
-      import java.net.URL
-      import java.nio.channels.Channels
-      import java.io.FileOutputStream
-
-      val website = new URL(
-        s"https://github.com/scalacenter/bloop/releases/download/v${bloopVersion}/install.py"
-      )
-
-      import scala.util.{Try, Success, Failure}
-      val installpyPath = Try {
-        val target = tempDir.resolve("install.py")
-        val targetPath = target.toAbsolutePath.toString
-        val channel = Channels.newChannel(website.openStream())
-        val fos = new FileOutputStream(targetPath)
-        val bytesTransferred = fos.getChannel().transferFrom(channel, 0, Long.MaxValue)
-
-        // The file should already be created, make it executable so that we can run it
-        target.toFile.setExecutable(true)
-        targetPath
-      }
-
-      installpyPath match {
-        case Success(targetPath) =>
-          // Run the installer without a timeout (no idea how much it can last)
-          val installCmd = List("python", targetPath)
-          val installStatus = Utils.runCommand(installCmd, None)
-          if (installStatus.isOk) {
-            // We've just installed bloop in `$HOME/.bloop`, let's now detect the installation
-            detectServerState(bloopVersion)
-          } else {
-            printError(s"Failed to run '${installCmd.mkString(" ")}'")
-            printQuoted(installStatus.output)
-            None
-          }
-
-        case Failure(NonFatal(t)) =>
-          t.printStackTrace(System.err)
-          printError(s"^ An error happened when downloading installer ${website}...")
-          println("The launcher will now try to resolve and run the build server")
-          None
-        case Failure(t) => throw t // Throw non-fatal exceptions
+        Nil
       }
     }
 
     println(s"Bloop is not available in the machine, installing bloop ${bloopVersion}")
-    installBloopBinaryInHomeDir.getOrElse {
+    val fullyInstalled = Installer.installBloopBinaryInHomeDir(
+      tempDir,
+      defaultBloopDirectory,
+      bloopVersion,
+      out,
+      detectServerState(_)
+    )
+
+    fullyInstalled.orElse {
       val (bloopDependency, vanillaResolution) = resolveServer(true)
       if (vanillaResolution.errors.isEmpty) {
-        ResolvedAt(fetchJars(vanillaResolution))
+        val jars = fetchJars(vanillaResolution)
+        if (jars.isEmpty) None else Some(ResolvedAt(jars))
       } else {
         // Before failing, let's try resolving bloop without a scala suffix to support future versions
         val (_, versionlessResolution) = resolveServer(false)
         if (versionlessResolution.errors.isEmpty) {
-          ResolvedAt(fetchJars(versionlessResolution))
+          val jars = fetchJars(versionlessResolution)
+          if (jars.isEmpty) None else Some(ResolvedAt(jars))
         } else {
           // Only report errors coming from the first resolution (second resolution was a backup)
           val prettyErrors = vanillaResolution.errors.map {
@@ -337,7 +314,7 @@ object Launcher {
 
           printError(s"Failed to resolve '${bloopDependency}'... the server cannot start!")
           val errorMsg = s"Resolution error:\n${prettyErrors.mkString("\n")}"
-          exitWithFailureAndPrintInstallationInstructions()
+          None
         }
       }
     }
@@ -413,17 +390,17 @@ object Launcher {
     }
   }
 
-  def exitWithSuccess(): Nothing = {
+  def exitWithSuccess(): Unit = {
     shutdownAllNonDaemonThreads()
     sys.exit(0)
   }
 
-  def exitWithFailure(): Nothing = {
+  def exitWithFailure(): Unit = {
     shutdownAllNonDaemonThreads()
     sys.exit(1)
   }
 
-  def exitWithFailureAndPrintInstallationInstructions(): Nothing = {
+  def printInstallationInstructions(): Unit = {
     println(
       """Bloop was not found in your machine and the resolution of the build server failed.
         |Check that you're connected to the Internet and try again.

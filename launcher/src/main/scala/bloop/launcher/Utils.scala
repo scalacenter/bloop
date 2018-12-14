@@ -3,6 +3,7 @@ import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
+import java.util.Properties
 import java.util.concurrent.TimeUnit
 
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
@@ -22,6 +23,7 @@ object Utils {
       forwardOutputTo: Option[PrintStream] = None,
       beforeWait: NuProcess => Unit = _ => ()
   ): StatusCommand = {
+    System.out.println("Running " + cmd.mkString(" "))
     val outBuilder = StringBuilder.newBuilder
     def printOut(msg: String): Unit = {
       outBuilder.++=(msg)
@@ -51,8 +53,17 @@ object Utils {
     val builder = new NuProcessBuilder(cmd: _*)
     builder.setProcessListener(new ProcessHandler)
     builder.setCwd(cwd)
+    val currentEnv = builder.environment()
+    currentEnv.putAll(System.getenv())
     val process = builder.start()
     val code = Try(process.waitFor(timeoutInSeconds.getOrElse(0), TimeUnit.SECONDS)).getOrElse(1)
     StatusCommand(code, outBuilder.toString)
+  }
+
+  // A valid tcp random port can be fr
+  def portNumberWithin(from: Int, to: Int): Int = {
+    require(from > 24 && to < 65535)
+    val r = new scala.util.Random
+    from + r.nextInt(to - from)
   }
 }

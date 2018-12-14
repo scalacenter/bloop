@@ -20,6 +20,7 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.0.4"
   val junitVersion = "0.11"
+  val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val mavenApiVersion = "3.5.2"
@@ -63,6 +64,7 @@ object Dependencies {
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
+  val junitSystemRules = "com.github.stefanbirkner" % "system-rules" % junitSystemRulesVersion
 
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
