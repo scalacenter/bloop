@@ -11,9 +11,10 @@ object Installer {
       bloopDirectory: Path,
       bloopVersion: String,
       out: PrintStream,
-      detectServerState: String => Option[ServerState]
+      detectServerState: String => Option[ServerState],
+      shell: Shell
   ): Option[ServerState] = {
-    if (!isPythonInClasspath) {
+    if (!shell.isPythonInClasspath) {
       printError("Python not detected in the classpath, don't attempt full bloop installation", out)
       None
     } else {
@@ -43,7 +44,7 @@ object Installer {
           // Run the installer without a timeout (no idea how much it can last)
           val bloopPath = bloopDirectory.toAbsolutePath.toString
           val installCmd = List("python", targetPath, "--dest", bloopPath)
-          val installStatus = Utils.runCommand(installCmd, None)
+          val installStatus = shell.runCommand(installCmd, None)
           if (installStatus.isOk) {
             // We've just installed bloop in `$HOME/.bloop`, let's now detect the installation
             if (!installStatus.output.isEmpty)
@@ -99,9 +100,5 @@ object Installer {
       printError(errorMsg, out)
       Nil
     }
-  }
-
-  def isPythonInClasspath: Boolean = {
-    Utils.runCommand(List("python", "--help"), Some(2)).isOk
   }
 }

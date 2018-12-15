@@ -2,6 +2,7 @@ package bloop.launcher;
 
 import coursier.CoursierPaths;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,10 +14,11 @@ import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.contrib.java.lang.system.ProvideSystemProperty;
 
 public abstract class AbstractLauncherSpec {
-  @Rule
-  public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-  @Rule
-  public final ProvideSystemProperty myPropertyHasMyValue;
+  // The rules must be defined in a java file because they require public fields in the class file
+  @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+  @Rule public final ProvideSystemProperty myPropertyHasMyValue;
+
+  public final Path binDirectory = Files.createTempDirectory("bsp-bin");
   public final String realHomeDirectory = System.getProperty("user.home");
 
   // Every test will get a new user.home and user.dir directories where it can play with
@@ -36,24 +38,23 @@ public abstract class AbstractLauncherSpec {
             .and("ivy.home", ivyHome)
             .and("coursier.cache", coursierCache);
 
-    // We mock the PATH environment variable not to find the user's bloop in the PATH
-    String path = System.getenv("PATH");
-    if (path != null) {
-      // We have to write a bloop binary in the first PATH entry because we cannot redefine PATH
-      Path firstPathDir = Paths.get(path.split(":")[0]);
-      Path fakeBloopPath = firstPathDir.resolve("bloop");
-      byte[] bytes = "i am not an executable and will be found by the OS and fail".getBytes();
-      Files.write(fakeBloopPath, bytes);
-      fakeBloopPath.toFile().setExecutable(true);
-      fakeBloopPath.toFile().deleteOnExit();
-    } else {
-      // Only log, let's not throw in the initializer of the spec
-      System.err.println("Error: environment variable PATH is empty");
-    }
+    // Install new directory at the beginning of the PATH so that we can make commands succeed/fail
+    String oldPath = System.getenv("PATH");
+    String tempBinDirectory = binDirectory.toAbsolutePath().toString();
+    String newPath = tempBinDirectory + ":" + oldPath;
+    environmentVariables.set("PATH", newPath);
+
+    // Install a fake bloop so that the system bloop is not detected by the launcher
+    Path fakeBloopPath = binDirectory.resolve("bloop");
+    byte[] bytes = "I am not a script and I must fail to be executed".getBytes(StandardCharsets.UTF_8);
+    Files.write(fakeBloopPath, bytes);
+    fakeBloopPath.toFile().setExecutable(true);
+    fakeBloopPath.toFile().deleteOnExit();
 
     Thread thread = new Thread(() -> {
       deleteRecursively(cwdPath);
       deleteRecursively(homePath);
+      deleteRecursively(binDirectory);
     });
 
     // Do this so that we remove all the crap we generate per test case

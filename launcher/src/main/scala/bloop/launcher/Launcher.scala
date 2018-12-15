@@ -3,12 +3,13 @@ package bloop.launcher
 import java.io._
 import java.net.Socket
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file._
 
 import io.github.soc.directories.ProjectDirectories
 
-object Launcher extends LauncherMain(System.err, nailgunPort = None)
-class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
+object Launcher extends LauncherMain(System.err, Shell(), nailgunPort = None)
+class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Option[Int]) {
   private val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
   private val isWindows: Boolean = scala.util.Properties.isWin
   private val homeDirectory: Path = Paths.get(System.getProperty("user.home"))
@@ -16,6 +17,13 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     ProjectDirectories.from("", "", "bloop")
   private val bloopDataLogsDir: Path =
     Files.createDirectories(Paths.get(projectDirectories.dataDir).resolve("logs"))
+
+  // TODO: Should we run this? How does this interact with current processes?
+/*  Runtime.getRuntime.addShutdownHook(new Thread {
+    override def run(): Unit = {
+      deleteRecursively(launcherTmpDir)
+    }
+  })*/
 
   private val bloopAdditionalArgs: List[String] = nailgunPort match {
     case Some(port) => List("--nailgun-port", port.toString)
@@ -82,7 +90,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     }
 
     def waitForCLIToStart(): Unit = {
-      val waitMs = if (isWindows) 300 else 100
+      val waitMs = 2000 //if (isWindows) 300 else 100
       // Sleep a little bit to give some time to the server to start up
       println(s"Embedded CLI started, waiting for ${waitMs}ms until it's up and running...")
       Thread.sleep(waitMs.toLong)
@@ -92,7 +100,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
       .orElse(recoverFromUninstalledServer(bloopVersion))
       .flatMap {
         case ListeningAndAvailableAt(binary) =>
-          establishBspConnectionViaBinary(List(binary), useTcp = false)
+          establishBspConnectionViaBinary(binary, useTcp = false)
             .flatMap(c => connectToOpenSession(c))
 
         case AvailableAt(binary) =>
@@ -114,14 +122,14 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
             val waitMs = if (attempts <= 2) 200 else 500
             totalMs += waitMs
             println(s"Sleeping for ${waitMs}ms until we run `bloop about` to check server")
-            listening = Utils.runBloopAbout(binary, bloopAdditionalArgs)
+            listening = shell.runBloopAbout(binary ++ bloopAdditionalArgs)
             attempts += 1
           }
 
           listening match {
             case Some(state) =>
               // After the server is open, let's open a bsp connection
-              establishBspConnectionViaBinary(List(binary), useTcp = false)
+              establishBspConnectionViaBinary(binary, useTcp = false)
                 .flatMap(c => connectToOpenSession(c))
 
             case None =>
@@ -156,7 +164,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
 
   def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
   def detectServerState(bloopVersion: String): Option[ServerState] = {
-    Utils.detectBloopInSystemPath("bloop", bloopAdditionalArgs).orElse {
+    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalArgs).orElse {
       // The binary is not available in the classpath
       val homeBloopDir = defaultBloopDirectory
       if (!Files.exists(homeBloopDir)) None
@@ -167,7 +175,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
         if (!Files.exists(pybloop)) None
         else {
           val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          Utils.detectBloopInSystemPath(binaryInHome, bloopAdditionalArgs)
+          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalArgs)
         }
       }
     }
@@ -202,15 +210,15 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
       useTcp: Boolean,
       attempts: Int = 1
   ): Option[OpenBspConnection] = {
-    var status: Option[Utils.StatusCommand] = None
-    val bspCmd: List[String] = Utils.deriveBspInvocation(bloopServerCmd, useTcp, launcherTmpDir)
+    var status: Option[shell.StatusCommand] = None
+    val bspCmd: List[String] = shell.deriveBspInvocation(bloopServerCmd, useTcp, launcherTmpDir)
     val thread = new Thread {
       override def run(): Unit = {
         // Whenever the connection is broken or the server legitimately stops, this returns
         status = Some {
-          Utils.runCommand(
+          shell.runCommand(
             bspCmd,
-            Some(0)
+            Some(0),
           )
         }
       }
@@ -221,7 +229,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     // We wait until the OS has got an opportunity to run our thread
     Thread.sleep(50)
 
-    def printStatus(status: Utils.StatusCommand): Unit = {
+    def printStatus(status: shell.StatusCommand): Unit = {
       if (status.isOk) {
         printError(s"The command ${bspCmd.mkString(" ")} returned with a successful code")
       } else {
@@ -267,7 +275,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
       Try {
         connection match {
           case OpenTcpConnection =>
-            val randomPort = Utils.portNumberWithin(17812, 18222)
+            val randomPort = shell.portNumberWithin(17812, 18222)
             new Socket("127.0.0.1", randomPort)
           case OpenLocalConnection =>
             val socketPath = launcherTmpDir.resolve(s"bsp.socket").toAbsolutePath.toString
@@ -311,7 +319,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
       }
     }
 
-    val pumpStdinToSocketStdout = Utils.startThread("bsp-client-to-server", false) {
+    val pumpStdinToSocketStdout = shell.startThread("bsp-client-to-server", false) {
       while (sharedActive) {
         val socketOut = socket.getOutputStream()
         val reader = new BufferedReader(new InputStreamReader(System.in))
@@ -330,7 +338,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
       }
     }
 
-    val pumpSocketStdinToStdout = Utils.startThread("bsp-server-to-client", false) {
+    val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", false) {
       while (sharedActive) {
         val reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
         try forwardInput(reader, System.out)
@@ -375,7 +383,8 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
       defaultBloopDirectory,
       bloopVersion,
       out,
-      detectServerState(_)
+      detectServerState(_),
+      shell
     )
 
     fullyInstalled.orElse {
@@ -405,7 +414,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
   }
 
   // Reused across the two different ways we can run a server
-  private var bloopBackgroundError: Option[(String, Utils.StatusCommand)] = None
+  private var bloopBackgroundError: Option[(String, shell.StatusCommand)] = None
 
   /**
    * Start a server in the background by using the python script `bloop server`.
@@ -413,16 +422,16 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
    * This operation can take a while in some operating systems (most notably Windows, Unix is fast).
    * After running a thread in the background, we will wait until the server is up.
    *
-   * @param binary The python binary script we want to run.
+   * @param binary The list of arguments that make the python binary script we want to run.
    */
-  def startServerViaScriptInBackground(binary: String): Unit = {
+  def startServerViaScriptInBackground(binary: List[String]): Unit = {
     bloopBackgroundError = None
     // Always keep a server running in the background by making it a daemon thread
-    Utils.startThread("bsp-server-background", true) {
+    shell.startThread("bsp-server-background", true) {
       // Running 'bloop server' should always work if v > 1.1.0
-      val startCmd = List(binary, "server")
+      val startCmd = binary ++ List("server")
       println(s"Starting the bloop server with '${startCmd.mkString(" ")}'")
-      val status = Utils.runCommand(startCmd, None)
+      val status = shell.runCommand(startCmd, None)
 
       // Communicate to the driver logic in `connectToServer` if server failed or not
       bloopBackgroundError = Some(startCmd.mkString(" ") -> status)
@@ -439,17 +448,17 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     bloopBackgroundError = None
     val connection = if (isWindows || forceTcp) OpenTcpConnection else OpenLocalConnection
     // In the embedded mode, the cli bsp invocation is not a daemon
-    Utils.startThread("bsp-cli-embedded", false) {
+    shell.startThread("bsp-cli-embedded", false) {
       // NOTE: We don't need to support `$HOME/.bloop/.jvmopts` b/c `$HOME/.bloop` doesn't exist
       val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(":")
       val startCmd = List("java", "-classpath", stringClasspath, "bloop.Cli")
-      val cmd = Utils.deriveBspInvocation(startCmd, isWindows || forceTcp, launcherTmpDir)
-      println(s"Starting the bloop server with '${startCmd.mkString(" ")}'")
+      val cmd = shell.deriveBspInvocation(startCmd, isWindows || forceTcp, launcherTmpDir)
+      println(s"Starting the bloop server with '${cmd.mkString(" ")}'")
 
-      val status = Utils.runCommand(startCmd, None)
+      val status = shell.runCommand(cmd, None)
 
       // Communicate to the driver logic in `connectToServer` if server failed or not
-      bloopBackgroundError = Some(startCmd.mkString(" ") -> status)
+      bloopBackgroundError = Some(cmd.mkString(" ") -> status)
 
       ()
     }
@@ -482,5 +491,29 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
         |connect
       """.stripMargin
     )
+  }
+
+  def deleteRecursively(directory: Path): Unit = {
+    try {
+      Files.walkFileTree(
+        directory,
+        new SimpleFileVisitor[Path]() {
+          @Override
+          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            Files.delete(file)
+            FileVisitResult.CONTINUE
+          }
+
+          override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+            Files.delete(dir)
+            FileVisitResult.CONTINUE
+          }
+        }
+      )
+      ()
+    } catch {
+      // Ignore any IO exception...
+      case io: IOException => ()
+    }
   }
 }
