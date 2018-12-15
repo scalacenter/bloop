@@ -65,13 +65,7 @@ class LauncherSpec extends AbstractLauncherSpec {
 
   @Test
   def checkThatPythonIsInClasspath(): Unit = {
-    val run = runLauncher { launcher =>
-      launcher.isPythonInClasspath
-    }
-
-    testLauncher(run) { run =>
-      Assert.assertTrue(run.successful)
-    }
+    Assert.assertTrue(Installer.isPythonInClasspath)
   }
 
   @Test

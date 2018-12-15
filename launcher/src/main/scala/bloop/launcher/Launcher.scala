@@ -1,18 +1,15 @@
 package bloop.launcher
 
-import java.io.PrintStream
-import java.nio.ByteBuffer
+import java.io._
+import java.net.Socket
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
-import com.zaxxer.nuprocess.NuProcess
 import io.github.soc.directories.ProjectDirectories
-
-import scala.collection.mutable
-import scala.util.control.NonFatal
 
 object Launcher extends LauncherMain(System.err, nailgunPort = None)
 class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
-  private lazy val tempDir = Files.createTempDirectory(s"bsp-launcher")
+  private val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
   private val isWindows: Boolean = scala.util.Properties.isWin
   private val homeDirectory: Path = Paths.get(System.getProperty("user.home"))
   private val projectDirectories: ProjectDirectories =
@@ -39,6 +36,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
     )
   }
 
+  // TODO: Add a --bsp/--no-bsp mode to enable bsp connection or just start server
   def main(args: Array[String]): Unit = {
     cli(args, b => if (b) exitWithSuccess() else exitWithFailure())
   }
@@ -55,90 +53,110 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
   }
 
   def runLauncher(bloopVersionToInstall: String, exitWithSuccess: Boolean => Unit): Unit = {
-    println("Starting the bsp launcher for bloop")
-    if (isPythonInClasspath) {
-      printError("Python must be installed, it's not accessible via classpath")
-      exitWithSuccess(connectToServer(bloopVersionToInstall))
+    println("Starting the bsp launcher for bloop...")
+    connectToServer(bloopVersionToInstall) match {
+      case Some(socket) =>
+        wireBspConnectionStreams(socket)
+        exitWithSuccess(true)
+      case None =>
+        printErrorReport()
+        exitWithSuccess(false)
     }
   }
 
-  def isPythonInClasspath: Boolean = {
-    Utils.runCommand(List("python", "--help"), Some(2)).isOk
-  }
-
-  def detectBloopInSystemPath(binary: String): Option[ServerState] = {
-    // --nailgun-help is always interpreted in the script, no connection with the server is required
-    val status = Utils.runCommand(List(binary, "--nailgun-help"), Some(10))
-    if (!status.isOk) None
-    else {
-      // bloop is installed, let's check if it's running now
-      val statusAbout = Utils.runCommand(List(binary, "about") ++ bloopAdditionalArgs, Some(10))
-      Some {
-        if (statusAbout.isOk) ListeningAndAvailableAt(binary)
-        else AvailableAt(binary)
-      }
-    }
-  }
-
-  def connectToServer(bloopVersion: String): Boolean = {
-    def handleServerState(establishConnection: => Boolean): Boolean = {
-      serverStatusCommand match {
+  def connectToServer(bloopVersion: String): Option[Socket] = {
+    def checkBspSessionIsLive[T](establishConnection: => Option[T]): Option[T] = {
+      bloopBackgroundError match {
         case Some((cmd, status)) if status.isOk =>
           printError(s"Unexpected successful early exit of the bsp server with '$cmd'!")
           if (!status.output.isEmpty) printQuoted(status.output)
-          false
+          None
 
         case Some((cmd, status)) =>
           printError(s"Failed to start bloop bsp server with '$cmd'!")
           if (!status.output.isEmpty) printQuoted(status.output)
-          false
+          None
 
         case None => establishConnection
       }
     }
 
-    val status = detectServerState(bloopVersion).orElse(recoverFromUninstalledServer(bloopVersion))
-    status match {
-      case Some(ListeningAndAvailableAt(binary)) =>
-        // We don't use tcp by default, only if a local connection fails
-        establishBspConnectionViaBinary(binary, false)
-
-      case Some(AvailableAt(binary)) =>
-        // Start the server if we only have a bloop binary
-        startServerViaScript(binary)
-        // Sleep a little bit to give some time to the server to start up
-        println("Server was started in a thread, waiting until it's up and running...")
-        // Let's be conservative in Windows as any IO is usually considerably slower
-        if (isWindows) Thread.sleep(700) else Thread.sleep(250)
-
-        handleServerState {
-          // The server cmd is still running, try connection
-          establishBspConnectionViaBinary(binary, false)
-        }
-
-      // The build server has been resolved because the python installation failed in this system
-      case Some(ResolvedAt(classpath)) =>
-        startServerViaClasspath(classpath)
-
-        // Sleep a little bit to give some time to the server to start up
-        println("Server was started in a thread, waiting until it's up and running...")
-        // We need to be less conservative with the java execution in Windows than the script above
-        if (isWindows) Thread.sleep(500) else Thread.sleep(250)
-
-        handleServerState {
-          // The server cmd is still running, try connection
-          establishManualBspConnection(false)
-        }
-
-      case None =>
-        printInstallationInstructions()
-        false
+    def waitForCLIToStart(): Unit = {
+      val waitMs = if (isWindows) 300 else 100
+      // Sleep a little bit to give some time to the server to start up
+      println(s"Embedded CLI started, waiting for ${waitMs}ms until it's up and running...")
+      Thread.sleep(waitMs.toLong)
     }
+
+    detectServerState(bloopVersion)
+      .orElse(recoverFromUninstalledServer(bloopVersion))
+      .flatMap {
+        case ListeningAndAvailableAt(binary) =>
+          establishBspConnectionViaBinary(List(binary), useTcp = false)
+            .flatMap(c => connectToOpenSession(c))
+
+        case AvailableAt(binary) =>
+          // Start the server if we only have a bloop binary
+          startServerViaScriptInBackground(binary)
+          println("Server was started in a thread, waiting until it's up and running...")
+
+          // Run `bloop about` until server is running for a max of 5 attempts
+          var attempts: Int = 1
+          var totalMs: Int = 0
+          var listening: Option[ServerState] = None
+          while ({
+            listening match {
+              case Some(ListeningAndAvailableAt(_)) => false
+              case _ if attempts <= 5 => true
+              case _ => false
+            }
+          }) {
+            val waitMs = if (attempts <= 2) 200 else 500
+            totalMs += waitMs
+            println(s"Sleeping for ${waitMs}ms until we run `bloop about` to check server")
+            listening = Utils.runBloopAbout(binary, bloopAdditionalArgs)
+            attempts += 1
+          }
+
+          listening match {
+            case Some(state) =>
+              // After the server is open, let's open a bsp connection
+              establishBspConnectionViaBinary(List(binary), useTcp = false)
+                .flatMap(c => connectToOpenSession(c))
+
+            case None =>
+              // Let's diagnose why `bloop about` failed to run for more than 5 attempts
+              checkBspSessionIsLive {
+                printError(
+                  s"Failed to connect to the server with `bloop about` for a total waiting time of ${totalMs}ms")
+                println("Check that the server is running or try again...")
+                None
+              }
+          }
+
+        // The build server is resolved when `install.py` failed in the system
+        case ResolvedAt(classpath) =>
+          val connection = runEmbeddedBspInvocationInBackground(classpath, false)
+          waitForCLIToStart()
+
+          // If after wait command failed, force tcp in case local connection is problematic
+          if (bloopBackgroundError.isEmpty) {
+            checkBspSessionIsLive {
+              connectToOpenSession(connection)
+            }
+          } else {
+            val connection2 = runEmbeddedBspInvocationInBackground(classpath, true)
+            waitForCLIToStart()
+            checkBspSessionIsLive {
+              connectToOpenSession(connection2)
+            }
+          }
+      }
   }
 
   def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
   def detectServerState(bloopVersion: String): Option[ServerState] = {
-    detectBloopInSystemPath("bloop").orElse {
+    Utils.detectBloopInSystemPath("bloop", bloopAdditionalArgs).orElse {
       // The binary is not available in the classpath
       val homeBloopDir = defaultBloopDirectory
       if (!Files.exists(homeBloopDir)) None
@@ -149,7 +167,7 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
         if (!Files.exists(pybloop)) None
         else {
           val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          detectBloopInSystemPath(binaryInHome)
+          Utils.detectBloopInSystemPath(binaryInHome, bloopAdditionalArgs)
         }
       }
     }
@@ -158,99 +176,202 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
   private val alreadyInUseMsg = "Address already in use"
 
   // TODO: Improve to enable repeated local connections in case the server is not yet up and running
+
+  sealed trait OpenBspConnection
+  final case object OpenTcpConnection extends OpenBspConnection
+  final case object OpenLocalConnection extends OpenBspConnection
+
+  /**
+   * Establish a bsp connection by telling the backtground server to open a BSP session.
+   *
+   * This routine is only called when a background server is running. The retry logic
+   * and the waits are done because the server might be still starting up and the
+   * bsp command may fail.
+   *
+   * The bsp connection will be attempted 5 times with several delays in between.
+   * When more than 3 local connections have failed in non Windows systems, we use TCP
+   * for the two remaining. After the 5 attempts, we just fail.
+   *
+   * @param bloopServerCmd The command we use to run
+   * @param useTcp
+   * @param attempts
+   * @return
+   */
   def establishBspConnectionViaBinary(
-      binary: String,
+      bloopServerCmd: List[String],
       useTcp: Boolean,
       attempts: Int = 1
-  ): Boolean = {
-    val bspCmd: List[String] = {
-      // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
-      if (useTcp || isWindows) {
-        val randomPort = Utils.portNumberWithin(17812, 18222).toString
-        List(binary, "bsp", "--protocol", "tcp", "--port", randomPort)
-      } else {
-        // Let's be conservative with names here, socket files have a 100 char limit
-        val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath.toString
-        List(binary, "bsp", "--protocol", "local", "--socket", socketPath)
+  ): Option[OpenBspConnection] = {
+    var status: Option[Utils.StatusCommand] = None
+    val bspCmd: List[String] = Utils.deriveBspInvocation(bloopServerCmd, useTcp, launcherTmpDir)
+    val thread = new Thread {
+      override def run(): Unit = {
+        // Whenever the connection is broken or the server legitimately stops, this returns
+        status = Some {
+          Utils.runCommand(
+            bspCmd,
+            Some(0)
+          )
+        }
       }
     }
 
-    // The nailgun bloop script is in the classpath, let's run it
-    val status = Utils.runCommand(
-      bspCmd,
-      Some(0),
-      forwardOutputTo = Some(System.out),
-      beforeWait = redirectStdinTo(_)
-    )
+    thread.start()
 
-    if (status.isOk) {
-      // The bsp connection was finished successfully, the launcher exits too
-      println("The bsp connection finished successfully, exiting...")
-      true
-    } else {
-      if (status.output.contains(alreadyInUseMsg)) {
-        if (attempts <= 5) establishBspConnectionViaBinary(binary, useTcp, attempts + 1)
-        else {
-          // Too many attempts, the connection seems off, let's report
-          printError(s"Received '${alreadyInUseMsg}' > 5 times when attempting connection...")
-          printError(s"Printing the output of the last invocation: ${bspCmd.mkString(" ")}")
-          printQuoted(status.output)
-          false
-        }
+    // We wait until the OS has got an opportunity to run our thread
+    Thread.sleep(50)
+
+    def printStatus(status: Utils.StatusCommand): Unit = {
+      if (status.isOk) {
+        printError(s"The command ${bspCmd.mkString(" ")} returned with a successful code")
       } else {
-        printError(s"Failed to establish bsp connection with ${bspCmd.mkString(" ")}")
-        printQuoted(status.output)
-
-        println("\nTrying connection via TCP before failing...")
-        establishBspConnectionViaBinary(binary, true, attempts + 1)
+        printError(s"The command ${bspCmd.mkString(" ")} returned with an error")
       }
+
+      printQuoted(status.output)
+    }
+
+    status match {
+      // The connection is established (the process hasn't finished), proceed
+      case None => if (useTcp) Some(OpenTcpConnection) else Some(OpenLocalConnection)
+      case Some(status) if attempts == 2 =>
+        printStatus(status)
+        println(s"The command ${bspCmd.mkString(" ")} failed again, aborting...")
+        None
+      case Some(status) =>
+        printStatus(status)
+
+        // Try again, this time with tcp in case it's a problem of the local connection
+        if (useTcp) None
+        else {
+          println("Try connecting to the server via TCP in case the local connection was a problem")
+          establishBspConnectionViaBinary(bloopServerCmd, true, attempts + 1)
+        }
     }
   }
 
-  def establishManualBspConnection(useTcp: Boolean): Boolean = {
+  /**
+   * Open a client session from the launcher when a bsp server session is available.
+   *
+   * A `bloop bsp` / embedded bsp cli invocation opens a bsp server session, but we
+   * still need to connect to it so that we can redirect stdin/stdout as the BSP server
+   * discovery protocol mandates.
+   *
+   * @param serverConnection An open bsp server connection.
+   * @return A socket if the connection succeeded, none otherwise.
+   */
+  def connectToOpenSession(serverConnection: OpenBspConnection): Option[Socket] = {
     import scala.util.Try
-    def establishSocketConnection(useTcp: Boolean): Try[java.net.Socket] = {
+    def establishSocketConnection(connection: OpenBspConnection): Try[Socket] = {
       import org.scalasbt.ipcsocket.UnixDomainSocket
       Try {
-        if (useTcp || isWindows) {
-          val randomPort = Utils.portNumberWithin(17812, 18222)
-          new java.net.Socket("127.0.0.1", randomPort)
-        } else {
-          val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath.toString
-          new UnixDomainSocket(socketPath)
+        connection match {
+          case OpenTcpConnection =>
+            val randomPort = Utils.portNumberWithin(17812, 18222)
+            new Socket("127.0.0.1", randomPort)
+          case OpenLocalConnection =>
+            val socketPath = launcherTmpDir.resolve(s"bsp.socket").toAbsolutePath.toString
+            new UnixDomainSocket(socketPath)
         }
       }
     }
 
-    val socketConnection = establishSocketConnection(useTcp).recoverWith {
-      case NonFatal(t) =>
-        Thread.sleep(250)
+    establishSocketConnection(serverConnection) match {
+      case scala.util.Success(socket) => Some(socket)
+      case scala.util.Failure(t) =>
+        printError("The bsp launcher couldn't open a socket to a bsp server session!")
         t.printStackTrace(out)
-        println("First connection failed, trying again...")
-        establishSocketConnection(useTcp).recoverWith {
-          case NonFatal(t) =>
-            Thread.sleep(500)
-            t.printStackTrace(out)
-            println("Second connection failed, trying the last attempt...")
-            establishSocketConnection(useTcp)
-        }
+        None
     }
-
-    socketConnection.flatMap { socket =>
-      // Wire the streams to System.in and System.out
-      System.setIn(socket.getInputStream)
-      System.setOut(new java.io.PrintStream(socket.getOutputStream))
-
-      // Start thread pumping stdin
-      ???
-    }
-
-    false
   }
 
-  def recoverFromUninstalledServer(bloopVersion: String): Option[ServerState] = { println(s"Bloop is not available in the machine, installing bloop ${bloopVersion}")
+  /**
+   * Wires the client streams with the server streams so that they can communicate to each other.
+   *
+   * After a connection has been successfully established, we create two threads that will pump
+   * contents in the streams in and out in a way that the server receives everything that we read
+   * and the client receives everything we read from the server socket stream.
+   *
+   * This operation is the last thing the launcher does to set up a bsp connection. We don't care
+   * if the operation succeeds or fails nor we have a way to know if an error is legit. If an error
+   * happens we report it but return with a successful exit code.
+   *
+   * @param socket The socket connection established with the server.
+   */
+  def wireBspConnectionStreams(socket: Socket): Unit = {
+    @volatile var sharedActive: Boolean = false
+
+    def forwardInput(reader: BufferedReader, out: OutputStream): Unit = {
+      var line: String = null
+      // This is blocking, but will fail if any of the input streams is closed
+      while ({ line = reader.readLine(); line != null }) {
+        val bytes = line.getBytes(StandardCharsets.UTF_8)
+        out.write(bytes)
+        out.flush()
+      }
+    }
+
+    val pumpStdinToSocketStdout = Utils.startThread("bsp-client-to-server", false) {
+      while (sharedActive) {
+        val socketOut = socket.getOutputStream()
+        val reader = new BufferedReader(new InputStreamReader(System.in))
+        try forwardInput(reader, socketOut)
+        catch {
+          case e: IOException =>
+            // Mark this as active so that we don't attempt more read/writes
+            sharedActive = false
+            println("Unexpected error when forwarding client stdin ---> server stdout")
+            e.printStackTrace(out)
+        } finally {
+          reader.close()
+          try socketOut.close()
+          catch { case t: Throwable => () }
+        }
+      }
+    }
+
+    val pumpSocketStdinToStdout = Utils.startThread("bsp-server-to-client", false) {
+      while (sharedActive) {
+        val reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
+        try forwardInput(reader, System.out)
+        catch {
+          case e: IOException =>
+            // Mark this as active so that we don't attempt more read/writes
+            sharedActive = false
+            println("Unexpected exception when forwarding server stdin ---> client stdout")
+            e.printStackTrace(out)
+        } finally {
+          reader.close()
+          try System.out.close()
+          catch { case t: Throwable => () }
+        }
+      }
+    }
+
+    // We block here, if the connection terminates the threads will
+    pumpStdinToSocketStdout.join()
+    pumpSocketStdinToStdout.join()
+
+    () // The threads were terminated (either successfully or not, we don't care, return)
+  }
+
+  /**
+   * Install the server by the universal method (install.py) or, if that fails, by resolving it.
+   *
+   * When the server is not installed, we need to figure out a way to bring it to the user's
+   * computer. Therefore, we first try the `install.py` universal method to install bloop and
+   * all its scripts. This method can fail if, for example, python is not in the classpath or
+   * the installation script errors. As a fallback, we resolve bloop with coursier and execute
+   * an embedded cli as the last attempt to obtain a bloop instance running. This method does
+   * not depend on bloop, it just requires internet connection.
+   *
+   * @param bloopVersion The version we want to install, passed in by the client.
+   * @return An optional server state depending on whether any of the installation method succeeded.
+   */
+  def recoverFromUninstalledServer(bloopVersion: String): Option[ServerState] = {
+    println(s"Bloop is not available in the machine, installing bloop ${bloopVersion}")
     val fullyInstalled = Installer.installBloopBinaryInHomeDir(
-      tempDir,
+      launcherTmpDir,
       defaultBloopDirectory,
       bloopVersion,
       out,
@@ -284,88 +405,73 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
   }
 
   // Reused across the two different ways we can run a server
-  private var serverStatusCommand: Option[(String, Utils.StatusCommand)] = None
+  private var bloopBackgroundError: Option[(String, Utils.StatusCommand)] = None
 
-  def startServerViaScript(binary: String): Unit = {
-    startServerThread {
+  /**
+   * Start a server in the background by using the python script `bloop server`.
+   *
+   * This operation can take a while in some operating systems (most notably Windows, Unix is fast).
+   * After running a thread in the background, we will wait until the server is up.
+   *
+   * @param binary The python binary script we want to run.
+   */
+  def startServerViaScriptInBackground(binary: String): Unit = {
+    bloopBackgroundError = None
+    // Always keep a server running in the background by making it a daemon thread
+    Utils.startThread("bsp-server-background", true) {
       // Running 'bloop server' should always work if v > 1.1.0
       val startCmd = List(binary, "server")
       println(s"Starting the bloop server with '${startCmd.mkString(" ")}'")
       val status = Utils.runCommand(startCmd, None)
 
       // Communicate to the driver logic in `connectToServer` if server failed or not
-      serverStatusCommand = Some(startCmd.mkString(" ") -> status)
+      bloopBackgroundError = Some(startCmd.mkString(" ") -> status)
 
       ()
     }
+    ()
   }
 
-  def startServerViaClasspath(classpath: Seq[Path]): Unit = {
-    startServerThread {
-      // Running 'bloop server' should always work if v > 1.1.0
-      val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(":")
+  def runEmbeddedBspInvocationInBackground(
+      classpath: Seq[Path],
+      forceTcp: Boolean
+  ): OpenBspConnection = {
+    bloopBackgroundError = None
+    val connection = if (isWindows || forceTcp) OpenTcpConnection else OpenLocalConnection
+    // In the embedded mode, the cli bsp invocation is not a daemon
+    Utils.startThread("bsp-cli-embedded", false) {
       // NOTE: We don't need to support `$HOME/.bloop/.jvmopts` b/c `$HOME/.bloop` doesn't exist
-      val startCmd = List("java", "-classpath", stringClasspath, "bloop.Server")
+      val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(":")
+      val startCmd = List("java", "-classpath", stringClasspath, "bloop.Cli")
+      val cmd = Utils.deriveBspInvocation(startCmd, isWindows || forceTcp, launcherTmpDir)
       println(s"Starting the bloop server with '${startCmd.mkString(" ")}'")
+
       val status = Utils.runCommand(startCmd, None)
 
       // Communicate to the driver logic in `connectToServer` if server failed or not
-      serverStatusCommand = Some(startCmd.mkString(" ") -> status)
+      bloopBackgroundError = Some(startCmd.mkString(" ") -> status)
 
       ()
     }
-  }
 
-  def startServerThread(thunk: => Unit): Unit = {
-    val serverThread = new Thread {
-      override def run(): Unit = thunk
-    }
-
-    serverThread.setName("bsp-server-driver")
-    // Extremely important so that future invocations can reuse the same server
-    serverThread.setDaemon(true)
-    serverThread.start()
-  }
-
-  private val shutdownSignalsPerThreadId: mutable.Map[Long, Boolean] = mutable.Map.empty
-  def redirectStdinTo(process: NuProcess): Unit = {
-    val backgroundThread = new Thread {
-      private val in = System.in
-      private val id = this.getId
-      shutdownSignalsPerThreadId.+=(id -> false)
-      override def run(): Unit = {
-        // Redirect input in chunks of 128 (to ensure that messages are not buffered)
-        val buffer = new Array[Byte](128)
-        val read = in.read(buffer, 0, buffer.length)
-        if (read == -1 || shutdownSignalsPerThreadId(id) || !process.isRunning) ()
-        else process.writeStdin(ByteBuffer.wrap(buffer))
-      }
-    }
-
-    backgroundThread.setName("bloop-bsp-launcher-stdin")
-    backgroundThread.start()
-  }
-
-  def shutdownAllNonDaemonThreads(): Unit = {
-    // Make sure that any thread pumping stdin running in the background is stopped
-    shutdownSignalsPerThreadId.keysIterator.foreach { threadId =>
-      shutdownSignalsPerThreadId.update(threadId, true)
-    }
+    connection
   }
 
   def exitWithSuccess(): Unit = {
-    shutdownAllNonDaemonThreads()
     sys.exit(0)
   }
 
   def exitWithFailure(): Unit = {
-    shutdownAllNonDaemonThreads()
     sys.exit(1)
   }
 
-  def printInstallationInstructions(): Unit = {
+  def printErrorReport(): Unit = {
     println(
-      """Bloop was not found in your machine and the resolution of the build server failed.
+      """------------------
+        |-- Error Report --
+        |------------------
+        |
+        |Bloop was not found in your machine and the resolution of the build server failed.
         |Check that you're connected to the Internet and try again.
         |
         |You can also install bloop manually by following the installations instructions in:
@@ -376,6 +482,5 @@ class LauncherMain(val out: PrintStream, nailgunPort: Option[Int]) {
         |connect
       """.stripMargin
     )
-    exitWithFailure()
   }
 }
