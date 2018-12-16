@@ -133,7 +133,7 @@ def macos_launch_script_contents(is_local):
       -r bintray:scalameta/maven \
       -r bintray:scalacenter/releases \
       -r https://oss.sonatype.org/content/repositories/staging \
-      --main bloop.Server $@
+      --main bloop.Server "$@"
     """ % (BLOOP_COURSIER_BINARY_NAME, configuration_ivy_home, BLOOP_ARTIFACT)
 
     return textwrap.dedent(contents)
