@@ -2,14 +2,36 @@ package bloop.launcher
 
 import java.io._
 import java.net.Socket
-import java.nio.charset.StandardCharsets
+import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file._
 
 import io.github.soc.directories.ProjectDirectories
 
-object Launcher extends LauncherMain(System.err, Shell(), nailgunPort = None)
-class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Option[Int]) {
+import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.concurrent.Promise
+
+object Launcher
+    extends LauncherMain(
+      System.in,
+      System.out,
+      System.err,
+      StandardCharsets.UTF_8,
+      Shell(),
+      nailgunPort = None,
+      Promise[Unit]()
+    )
+
+class LauncherMain(
+    clientIn: InputStream,
+    clientOut: OutputStream,
+    val out: PrintStream,
+    charset: Charset,
+    val shell: Shell,
+    val nailgunPort: Option[Int],
+    startedServer: Promise[Unit]
+) {
   private val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
   private val isWindows: Boolean = scala.util.Properties.isWin
   private val homeDirectory: Path = Paths.get(System.getProperty("user.home"))
@@ -19,7 +41,7 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
     Files.createDirectories(Paths.get(projectDirectories.dataDir).resolve("logs"))
 
   // TODO: Should we run this? How does this interact with current processes?
-/*  Runtime.getRuntime.addShutdownHook(new Thread {
+  /*  Runtime.getRuntime.addShutdownHook(new Thread {
     override def run(): Unit = {
       deleteRecursively(launcherTmpDir)
     }
@@ -67,6 +89,7 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
         wireBspConnectionStreams(socket)
         exitWithSuccess(true)
       case None =>
+        startedServer.failure(new RuntimeException("The server was not started"))
         printErrorReport()
         exitWithSuccess(false)
     }
@@ -108,31 +131,33 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
           startServerViaScriptInBackground(binary)
           println("Server was started in a thread, waiting until it's up and running...")
 
-          // Run `bloop about` until server is running for a max of 5 attempts
+          // Run `bloop about` until server is running for a max of N attempts
+          val maxAttempts: Int = 6
           var attempts: Int = 1
           var totalMs: Int = 0
           var listening: Option[ServerState] = None
           while ({
             listening match {
               case Some(ListeningAndAvailableAt(_)) => false
-              case _ if attempts <= 5 => true
+              case _ if attempts <= maxAttempts => true
               case _ => false
             }
           }) {
-            val waitMs = if (attempts <= 2) 200 else 500
+            val waitMs = if (attempts <= 2) 300 else 700
+            Thread.sleep(waitMs.toLong)
             totalMs += waitMs
             println(s"Sleeping for ${waitMs}ms until we run `bloop about` to check server")
-            listening = shell.runBloopAbout(binary ++ bloopAdditionalArgs)
+            listening = shell.runBloopAbout(binary, out)
             attempts += 1
           }
 
           listening match {
-            case Some(state) =>
+            case Some(ListeningAndAvailableAt(binary)) =>
               // After the server is open, let's open a bsp connection
               establishBspConnectionViaBinary(binary, useTcp = false)
                 .flatMap(c => connectToOpenSession(c))
 
-            case None =>
+            case _ =>
               // Let's diagnose why `bloop about` failed to run for more than 5 attempts
               checkBspSessionIsLive {
                 printError(
@@ -164,7 +189,7 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
 
   def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
   def detectServerState(bloopVersion: String): Option[ServerState] = {
-    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalArgs).orElse {
+    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalArgs, out).orElse {
       // The binary is not available in the classpath
       val homeBloopDir = defaultBloopDirectory
       if (!Files.exists(homeBloopDir)) None
@@ -175,7 +200,7 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
         if (!Files.exists(pybloop)) None
         else {
           val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalArgs)
+          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalArgs, out)
         }
       }
     }
@@ -212,12 +237,13 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
   ): Option[OpenBspConnection] = {
     var status: Option[shell.StatusCommand] = None
     val bspCmd: List[String] = shell.deriveBspInvocation(bloopServerCmd, useTcp, launcherTmpDir)
+    println(s"Opening a bsp server connection with ${bspCmd.mkString(" ")}")
     val thread = new Thread {
       override def run(): Unit = {
         // Whenever the connection is broken or the server legitimately stops, this returns
         status = Some {
           shell.runCommand(
-            bspCmd,
+            bspCmd ++ List("--verbose"),
             Some(0),
           )
         }
@@ -269,6 +295,8 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
    * @return A socket if the connection succeeded, none otherwise.
    */
   def connectToOpenSession(serverConnection: OpenBspConnection): Option[Socket] = {
+    // TODO(jvican): Make this sleep adjustable
+    Thread.sleep(700)
     import scala.util.Try
     def establishSocketConnection(connection: OpenBspConnection): Try[Socket] = {
       import org.scalasbt.ipcsocket.UnixDomainSocket
@@ -287,11 +315,15 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
     establishSocketConnection(serverConnection) match {
       case scala.util.Success(socket) => Some(socket)
       case scala.util.Failure(t) =>
-        printError("The bsp launcher couldn't open a socket to a bsp server session!")
+        printError("The launcher couldn't open a socket to a bsp server session!")
         t.printStackTrace(out)
         None
     }
   }
+
+  private final val LspLineEnd = "\r\n"
+  private final val LspLineEndBytes = LspLineEnd.getBytes(StandardCharsets.UTF_8)
+  final class LspParseError(msg: String) extends Exception
 
   /**
    * Wires the client streams with the server streams so that they can communicate to each other.
@@ -307,58 +339,70 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
    * @param socket The socket connection established with the server.
    */
   def wireBspConnectionStreams(socket: Socket): Unit = {
-    @volatile var sharedActive: Boolean = false
+    @volatile var isConnectionOpen: Boolean = true
 
-    def forwardInput(reader: BufferedReader, out: OutputStream): Unit = {
-      var line: String = null
-      // This is blocking, but will fail if any of the input streams is closed
-      while ({ line = reader.readLine(); line != null }) {
-        val bytes = line.getBytes(StandardCharsets.UTF_8)
-        out.write(bytes)
-        out.flush()
-      }
+    def closeInconditionally(c: Closeable): Unit = {
+      try c.close()
+      catch { case t: Throwable => () }
     }
 
+    println("Starting thread that pumps stdin and redirects it to the bsp server...")
     val pumpStdinToSocketStdout = shell.startThread("bsp-client-to-server", false) {
-      while (sharedActive) {
+      while (isConnectionOpen) {
         val socketOut = socket.getOutputStream()
-        val reader = new BufferedReader(new InputStreamReader(System.in))
-        try forwardInput(reader, socketOut)
-        catch {
+        val parser = new LspParser(out, StandardCharsets.US_ASCII)
+        try {
+          parser.forward(clientIn, socketOut)
+          isConnectionOpen = false
+          println("No more data in the client stdin, exiting...")
+        } catch {
           case e: IOException =>
-            // Mark this as active so that we don't attempt more read/writes
-            sharedActive = false
-            println("Unexpected error when forwarding client stdin ---> server stdout")
-            e.printStackTrace(out)
+            if (isConnectionOpen) {
+              // Mark this as active so that we don't attempt more read/writes
+              isConnectionOpen = false
+              printError("Unexpected error when forwarding client stdin ---> server stdout")
+              e.printStackTrace(out)
+            }
         } finally {
-          reader.close()
-          try socketOut.close()
-          catch { case t: Throwable => () }
+          closeInconditionally(clientIn)
+          closeInconditionally(socketOut)
         }
       }
     }
 
+    println("Starting thread that pumps server stdout and redirects it to the client stdout...")
     val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", false) {
-      while (sharedActive) {
-        val reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
-        try forwardInput(reader, System.out)
+      while (isConnectionOpen) {
+        val socketIn = socket.getInputStream()
+        val parser = new LspParser(out, StandardCharsets.US_ASCII)
+        try {
+          parser.forward(socketIn, clientOut)
+          isConnectionOpen = false
+          println("No more data in the server stdin, exiting...")
+        }
         catch {
           case e: IOException =>
-            // Mark this as active so that we don't attempt more read/writes
-            sharedActive = false
-            println("Unexpected exception when forwarding server stdin ---> client stdout")
-            e.printStackTrace(out)
+            if (isConnectionOpen) {
+              // Mark this as active so that we don't attempt more read/writes
+              isConnectionOpen = false
+              println("Unexpected exception when forwarding server stdin ---> client stdout")
+              e.printStackTrace(out)
+            }
         } finally {
-          reader.close()
-          try System.out.close()
-          catch { case t: Throwable => () }
+          closeInconditionally(socketIn)
+          closeInconditionally(clientOut)
         }
       }
     }
 
-    // We block here, if the connection terminates the threads will
-    pumpStdinToSocketStdout.join()
-    pumpSocketStdinToStdout.join()
+    if (isConnectionOpen) {
+      // We need to complete the promise immediately after the threads are started
+      startedServer.success(())
+
+      // We block here, if the connection terminates the threads will
+      pumpStdinToSocketStdout.join()
+      pumpSocketStdinToStdout.join()
+    }
 
     () // The threads were terminated (either successfully or not, we don't care, return)
   }
@@ -429,7 +473,11 @@ class LauncherMain(val out: PrintStream, val shell: Shell, val nailgunPort: Opti
     // Always keep a server running in the background by making it a daemon thread
     shell.startThread("bsp-server-background", true) {
       // Running 'bloop server' should always work if v > 1.1.0
-      val startCmd = binary ++ List("server")
+      val startCmd = nailgunPort match {
+        case Some(port) => binary.diff(bloopAdditionalArgs) ++ List("server", port.toString)
+        case None => binary ++ List("server")
+      }
+
       println(s"Starting the bloop server with '${startCmd.mkString(" ")}'")
       val status = shell.runCommand(startCmd, None)
 

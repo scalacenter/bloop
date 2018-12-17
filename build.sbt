@@ -118,8 +118,9 @@ val jsonConfig212 = project
     }
   )
 
-val launcher: Project = project
+lazy val launcher: Project = project
   .disablePlugins(ScriptedPlugin)
+  .dependsOn(frontend % "test->test")
   .settings(
     name := "bloop-launcher",
     libraryDependencies ++= List(

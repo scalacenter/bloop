@@ -1,5 +1,6 @@
 package bloop.launcher
 
+import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Paths}
@@ -29,6 +30,7 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
         val bytes = new Array[Byte](buffer.remaining())
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
+        System.err.println(s"Shell ${msg}")
         outBuilder.++=(msg)
       }
 
@@ -36,6 +38,7 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
         val bytes = new Array[Byte](buffer.remaining())
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
+        System.err.println(s"Shell ${msg}")
         outBuilder.++=(msg)
       }
     }
@@ -116,9 +119,10 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
     }
   }
 
-  def runBloopAbout(binaryCmd: List[String]): Option[ServerState] = {
+  def runBloopAbout(binaryCmd: List[String], out: PrintStream): Option[ServerState] = {
     // bloop is installed, let's check if it's running now
     val statusAbout = runCommand(binaryCmd ++ List("about"), Some(10))
+    //System.out.println(statusAbout.toString)
     Some {
       if (statusAbout.isOk) ListeningAndAvailableAt(binaryCmd)
       else AvailableAt(binaryCmd)
@@ -126,12 +130,13 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
   }
 
   def detectBloopInSystemPath(
-      binaryCmd: List[String]
+      binaryCmd: List[String],
+      out: PrintStream
   ): Option[ServerState] = {
     // --nailgun-help is always interpreted in the script, no connection with the server is required
     val status = runCommand(binaryCmd ++ List("--nailgun-help"), Some(2))
     if (!status.isOk) None
-    else runBloopAbout(binaryCmd)
+    else runBloopAbout(binaryCmd, out)
   }
 
   def isPythonInClasspath: Boolean = {

@@ -128,12 +128,12 @@ def macos_launch_script_contents(is_local):
 
     BASE_BIN_DIR=$(dirname "$0")
     COURSIER_BIN="$BASE_BIN_DIR/%s"
-    /usr/libexec/java_home -v 1.8 -F -R --exec java \
-      %s-jar "$COURSIER_BIN" launch %s \
-      -r bintray:scalameta/maven \
-      -r bintray:scalacenter/releases \
-      -r https://oss.sonatype.org/content/repositories/staging \
-      --main bloop.Server "$@"
+    /usr/libexec/java_home -v 1.8 -F -R --exec java \\
+      %s-jar "$COURSIER_BIN" launch %s \\
+      -r bintray:scalameta/maven \\
+      -r bintray:scalacenter/releases \\
+      -r https://oss.sonatype.org/content/repositories/staging \\
+      --main bloop.Server -- "$@"
     """ % (BLOOP_COURSIER_BINARY_NAME, configuration_ivy_home, BLOOP_ARTIFACT)
 
     return textwrap.dedent(contents)
