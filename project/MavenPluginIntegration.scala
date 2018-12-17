@@ -192,13 +192,13 @@ object MavenPluginImplementation {
       }
 
       import scala.collection.JavaConverters._
-      val existingParameters = mojoDescriptor.getParameters().asScala
+      val existingParameters = mojoDescriptor.getParameters().asScala.toList.asInstanceOf[List[Parameter]]
       val pluginParameters = selectedMojos
         .flatMap(_.getParameters().asScala.toList.asInstanceOf[List[Parameter]])
         .filter(!existingParameters.contains(_))
       val pluginRequirementParameters = selectedMojos
         .flatMap(_.getRequirements().asScala.toList.asInstanceOf[List[ComponentRequirement]])
-        .filter(p => !existingParameters.exists(p2 => p.getFieldName() == p2.getName()))
+        .filter(p => !existingParameters.exists((p2: Parameter) => p.getFieldName() == p2.getName()))
         .map(fromRequirementToParameter)
       val newPluginParameters = pluginParameters ++ pluginRequirementParameters
       mojoDescriptor.setParameters(newPluginParameters.toList.asJava)
