@@ -12,7 +12,7 @@ And start up or reload your sbt shell to add the plugin to your working build.
 
 The sbt command `bloopInstall` exports your sbt build to bloop.
 
-In bloop, an sbt project is repesented as a pair of `(sbt project, sbt configuration)` and it's
+In bloop, an sbt project is represented as a pair of `(sbt project, sbt configuration)` and it's
 written to a configuration directory. The default location of this directory in your workspace is
 `.bloop/` (you may want to add `.bloop/` to your `.gitignore` file).
 
