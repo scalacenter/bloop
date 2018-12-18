@@ -1,6 +1,7 @@
 package bloop.launcher
 
 import java.io._
+import java.net.{ServerSocket, Socket}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
 

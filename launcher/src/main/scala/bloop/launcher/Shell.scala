@@ -30,7 +30,6 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
         val bytes = new Array[Byte](buffer.remaining())
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
-        System.err.println(s"Shell ${msg}")
         outBuilder.++=(msg)
       }
 
@@ -38,7 +37,6 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
         val bytes = new Array[Byte](buffer.remaining())
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
-        System.err.println(s"Shell ${msg}")
         outBuilder.++=(msg)
       }
     }

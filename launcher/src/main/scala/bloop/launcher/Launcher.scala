@@ -352,7 +352,7 @@ class LauncherMain(
         val socketOut = socket.getOutputStream()
         val parser = new LspParser(out, StandardCharsets.US_ASCII)
         try {
-          parser.forward(clientIn, socketOut)
+          parser.forward2(clientIn, socketOut)
           isConnectionOpen = false
           println("No more data in the client stdin, exiting...")
         } catch {
@@ -376,7 +376,7 @@ class LauncherMain(
         val socketIn = socket.getInputStream()
         val parser = new LspParser(out, StandardCharsets.US_ASCII)
         try {
-          parser.forward(socketIn, clientOut)
+          parser.forward2(socketIn, clientOut)
           isConnectionOpen = false
           println("No more data in the server stdin, exiting...")
         }
