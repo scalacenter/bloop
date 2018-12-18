@@ -8,22 +8,36 @@ import java.util.concurrent.TimeUnit
 
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 
+import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
-class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
+/**
+ * Defines shell utilities to run programs via system process.
+ *
+ * `runWithInterpreter` is necessary for testing because it allows us to shell out to an
+ * independent shell whose environment variables we can modify (for example, we can modify
+ * PATH so that the shell we run executes a mock version of bloop or python that fails).
+ *
+ * @param runWithInterpreter Decides whether we add a layer of indirection when running commands.
+ *                           Uses `sh -c` in unix systems, `cmd.exe` in Windows systems */
+final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
+
   case class StatusCommand(code: Int, output: String) {
     def isOk: Boolean = code == 0
   }
 
   protected val isWindows: Boolean = scala.util.Properties.isWin
   protected val cwd = Paths.get(System.getProperty("user.dir"))
+
   def runCommand(
       cmd0: List[String],
-      timeoutInSeconds: Option[Long]
+      timeoutInSeconds: Option[Long],
+      msgsBuffer: Option[ListBuffer[String]] = None
   ): StatusCommand = {
     val outBuilder = StringBuilder.newBuilder
     final class ProcessHandler extends NuAbstractProcessHandler {
       override def onStart(nuProcess: NuProcess): Unit = ()
+
       override def onExit(statusCode: Int): Unit = ()
 
       override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
@@ -31,6 +45,7 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
         outBuilder.++=(msg)
+        msgsBuffer.foreach(b => b += msg)
       }
 
       override def onStderr(buffer: ByteBuffer, closed: Boolean): Unit = {
@@ -38,18 +53,16 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
         outBuilder.++=(msg)
+        msgsBuffer.foreach(b => b += msg)
       }
     }
 
     val cmd = {
       if (!runWithInterpreter) cmd0
       else {
-        if (cmd0.headOption.exists(c => whitelist.contains(c))) cmd0
-        else {
-          if (isWindows) List("cmd.exe", "/C") ++ cmd0
-          // If sh -c is used, wrap the whole command in single quotes
-          else List("sh", "-c", cmd0.mkString(" "))
-        }
+        if (isWindows) List("cmd.exe", "/C") ++ cmd0
+        // If sh -c is used, wrap the whole command in single quotes
+        else List("sh", "-c", cmd0.mkString(" "))
       }
     }
 
@@ -101,26 +114,27 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
   }
 
   def deriveBspInvocation(
-      bloopServerCmd: List[String],
+      serverCmd: List[String],
       useTcp: Boolean,
       tempDir: Path
-  ): List[String] = {
+  ): (List[String], OpenBspConnection) = {
     // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
     if (useTcp || isWindows) {
       // We draw a random port from a "safe" tcp port range...
-      val randomPort = portNumberWithin(17812, 18222).toString
-      bloopServerCmd ++ List("bsp", "--protocol", "tcp", "--port", randomPort)
+      val randomPort = portNumberWithin(17812, 18222)
+      val cmd = serverCmd ++ List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
+      (cmd, OpenBspConnection.Tcp("127.0.0.1", randomPort))
     } else {
       // Let's be conservative with names here, socket files have a 100 char limit
-      val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath.toString
-      bloopServerCmd ++ List("bsp", "--protocol", "local", "--socket", socketPath)
+      val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath
+      val cmd = serverCmd ++ List("bsp", "--protocol", "local", "--socket", socketPath.toString)
+      (cmd, OpenBspConnection.UnixLocal(socketPath))
     }
   }
 
   def runBloopAbout(binaryCmd: List[String], out: PrintStream): Option[ServerState] = {
     // bloop is installed, let's check if it's running now
     val statusAbout = runCommand(binaryCmd ++ List("about"), Some(10))
-    //System.out.println(statusAbout.toString)
     Some {
       if (statusAbout.isOk) ListeningAndAvailableAt(binaryCmd)
       else AvailableAt(binaryCmd)
@@ -138,24 +152,11 @@ class Shell private (runWithInterpreter: Boolean, whitelist: List[String]) {
   }
 
   def isPythonInClasspath: Boolean = {
-    runCommand(List("python", "--help"), Some(2)).isOk
+    if (!detectPython) false
+    else runCommand(List("python", "--help"), Some(2)).isOk
   }
 }
 
 object Shell {
-  def apply(): Shell = new Shell(false, Nil)
-
-  /**
-   * Defines an instance of a shell that adds a layer of indirection when executing scripts.
-   *
-   * This extra layer of indirection allows us to modify the PATH environment variable in our
-   * tests and use that PATH to find binaries (such as bloop). We also whitelist python so
-   * that it always uses the host python computer.
-   *
-   * @return A shell instance prepared to be used for tests.
-   */
-  private[launcher] def forTests: Shell = new Shell(true, List()) {
-    // Note this will fail in operating systems that are not Windows but don't provide `sh`
-    val shellInterpreter = if (isWindows) List("cmd.exe", "/C") else List("sh", "-c")
-  }
+  def default: Shell = new Shell(false, true)
 }

@@ -5,27 +5,26 @@ import java.nio.charset.{Charset, StandardCharsets}
 
 import scala.collection.mutable.ArrayBuffer
 
-final class LspParser(logsOut: PrintStream, charset: Charset) {
+final class JsonRpcParser(logsOut: PrintStream, charset: Charset) {
+  /**
+    * Forwarding bytes from an input stream to an output stream requires
+    * parsing JSON-RPC messages because some parsers (such as the parser
+    * in lsp4s) depend on the frequence and order of `flush` invocations.
+    *
+    * For example, if we flush in the middle of a JSON message, the parser
+    * will interpret that as the end of the message and circe will fail
+    * to parse.
+    *
+    * Parsing these messages looks like the most robust way of forwarding
+    * messages without special casing for a concrete client implementation.
+    * The performance of this solution has not been benchmarked but it
+    * should not be a problem in the large scheme of things -- this is not
+    * a bottleneck.
+    *
+    * @param in The input stream from where we read messages.
+    * @param out The output stream where we write messages.
+    */
   def forward(in: InputStream, out: OutputStream): Unit = {
-    var read: Int = 0
-    var bytes: Array[Byte] = null
-    var keepReading: Boolean = true
-    do {
-      bytes = new Array[Byte](1)
-      read = in.read(bytes)
-      if (read == -1) {
-        keepReading = false
-      } else {
-        if (read != 0) {
-          val data = new Array[Byte](read)
-          bytes.copyToArray(data, 0, read)
-          parse(data, out)
-        }
-      }
-    } while (keepReading)
-  }
-
-  def forward2(in: InputStream, out: OutputStream): Unit = {
     var read: Int = 0
     var bytes: Array[Byte] = null
     var keepReading: Boolean = true
@@ -45,6 +44,7 @@ final class LspParser(logsOut: PrintStream, charset: Charset) {
     } while (keepReading)
   }
 
+  // Parser comes from https://github.com/scalameta/lsp4s/blob/master/jsonrpc/src/main/scala/scala/meta/jsonrpc/BaseProtocolMessageParser.scala
   private[this] val EmptyPair = "" -> ""
   private[this] val data = ArrayBuffer.empty[Byte]
   private[this] var contentLength = -1

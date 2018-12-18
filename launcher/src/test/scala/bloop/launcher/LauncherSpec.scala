@@ -1,16 +1,14 @@
 package bloop.launcher
 
 import java.io._
-import java.net.{ServerSocket, Socket}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths, StandardOpenOption}
+import java.nio.file.Paths
 
-import bloop.cli.{CliOptions, CommonOptions}
-import bloop.logging.{BloopLogger, BspClientLogger, DebugFilter, RecordingLogger}
+import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger}
 import bloop.tasks.TestUtil
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
-import org.junit.{Assert, Ignore, Test}
+import org.junit.{Assert, Test}
 import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.Promise
@@ -21,7 +19,8 @@ import scala.util.control.NonFatal
 class LauncherSpec extends AbstractLauncherSpec {
   // Update the bsp version whenever we change the bloop version
   private final val bloopVersion = "1.1.2"
-  private final val shell = Shell.forTests
+  private final val shellWithPython = new Shell(true, true)
+  private final val shellWithNoPython = new Shell(true, false)
   private class LauncherFailure extends Exception("The bloop launcher didn't finish successfully.")
   val successfulCliExit = (successful: Boolean) => if (successful) () else throw new LauncherFailure
 
@@ -33,23 +32,16 @@ class LauncherSpec extends AbstractLauncherSpec {
     import java.io.PrintStream
     val baos = new ByteArrayOutputStream()
     val ps = new PrintStream(baos, true, "UTF-8")
+
+    def logs: String = new String(baos.toByteArray, StandardCharsets.UTF_8)
     try {
-      val port = shell.portNumberWithin(8997, 9002)
-      val launcher = new LauncherMain(
-        in,
-        out,
-        System.err,
-        StandardCharsets.UTF_8,
-        shell,
-        Some(port),
-        startedServer
-      )
+      val port = shell.portNumberWithin(8997, 9020)
+      val launcher =
+        new LauncherMain(in, out, ps, StandardCharsets.UTF_8, shell, Some(port), startedServer)
       val successful = launcherLogic(launcher)
-      val logs = new String(baos.toByteArray, StandardCharsets.UTF_8)
       LauncherRun(successful, logs.split(System.lineSeparator()).toList)
     } finally {
-      val logs = new String(baos.toByteArray, StandardCharsets.UTF_8)
-      System.err.println(logs.mkString(System.lineSeparator()))
+      System.err.println(logs)
       if (ps != null) ps.close()
     }
   }
@@ -58,7 +50,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       args: Array[String],
       in: InputStream = System.in,
       out: OutputStream = System.out,
-      shell: Shell = shell,
+      shell: Shell = shellWithPython,
       startedServer: Promise[Unit] = Promise[Unit]()
   ): LauncherRun = {
     runLauncher(in, out, shell, startedServer) { launcher =>
@@ -68,7 +60,7 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  def testLauncher[T](run: LauncherRun, printLogs: Boolean = true)(
+  def testLauncher[T](run: LauncherRun)(
       testFunction: LauncherRun => T
   ): Unit = {
     try {
@@ -76,16 +68,17 @@ class LauncherSpec extends AbstractLauncherSpec {
       ()
     } catch {
       case NonFatal(t) =>
-        if (printLogs)
+        if (!run.successful) {
           System.err.println(run.logs.mkString(System.lineSeparator()))
+        }
         throw t
     }
   }
 
-  /*  @Test
+  @Test
   def testSystemPropertiesMockingWork(): Unit = {
     // Test from https://stefanbirkner.github.io/system-rules/index.html
-    val parentDir = this.binDirectory.getParent()
+    val parentDir = this.binDirectory.getParent
     parentDir.toFile.deleteOnExit()
     Assert.assertEquals(parentDir, Paths.get(System.getProperty("user.dir")).getParent)
     Assert.assertEquals(parentDir, Paths.get(System.getProperty("user.home")).getParent)
@@ -103,12 +96,12 @@ class LauncherSpec extends AbstractLauncherSpec {
   @Test
   def checkThatPythonIsInClasspath(): Unit = {
     // Python must always be in the classpath in order to run these tests, if this fails install it
-    Assert.assertTrue(shell.isPythonInClasspath)
+    Assert.assertTrue(shellWithPython.isPythonInClasspath)
   }
 
   @Test
   def dontDetectSystemBloop(): Unit = {
-    val run = runLauncher(shell) { launcher =>
+    val run = runLauncher(System.in, System.out, shellWithPython, Promise[Unit]()) { launcher =>
       // We should not detect the server state unless we have installed it via the launcher
       val state = launcher.detectServerState(bloopVersion)
       if (state == None) true
@@ -125,7 +118,7 @@ class LauncherSpec extends AbstractLauncherSpec {
 
   @Test
   def testInstallationViaInstallpy(): Unit = {
-    val run = runLauncher(shell) { launcher =>
+    val run = runLauncher(System.in, System.out, shellWithPython, Promise[Unit]()) { launcher =>
       // Install the launcher via `install.py`, which is the preferred installation method
       val state = Installer.installBloopBinaryInHomeDir(
         this.binDirectory,
@@ -144,14 +137,14 @@ class LauncherSpec extends AbstractLauncherSpec {
       }
     }
 
-    testLauncher(run, false) { run =>
+    testLauncher(run) { run =>
       Assert.assertTrue("Failed to install.py and run bloop", run.successful)
     }
   }
 
-  @Test
+  /*  @Test
   def testBloopResolution(): Unit = {
-    val run = runLauncher(shell) { launcher =>
+    val run = runLauncher(System.in, System.out, shell, Promise[Unit]()) { launcher =>
       val (_, resolution) = Installer.resolveServer(bloopVersion, true)
       Assert.assertTrue(s"Resolution errors ${resolution.errors}", resolution.errors.isEmpty)
       Installer.fetchJars(resolution, launcher.out).nonEmpty
@@ -238,9 +231,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
       _ = endpoints.Build.exit.notify(bsp.Exit())
     } yield {
-      System.err.println("Closing the client input stream")
       in.close()
-      System.err.println("Closing the client output stream")
       out.close()
       otherCalls match {
         case Right(t) => t
@@ -249,16 +240,7 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  /*  def redirect(common: CommonOptions): (InputStream, OutputStream, ByteArrayOutputStream) = { val outMemory = new ByteArrayOutputStream()
-    val newOut = new PrintStream(outMemory)
-    val newIn = new PipedInputStream()
-    val testOut = new PipedOutputStream(newIn)
-    (newIn, newOut)
-    (cliOptions, testOut, outMemory)
-  }*/
-
-  @Test
-  def runBspLauncherWithBloopVersion(): Unit = {
+  def runBspLauncherWithEnvironment(shell: Shell): Unit = {
     val launcherIn = new PipedInputStream()
     val clientOut = new PipedOutputStream(launcherIn)
 
@@ -268,25 +250,54 @@ class LauncherSpec extends AbstractLauncherSpec {
     val startedServer = Promise[Unit]()
     val startServer = Task {
       testLauncher(
-        runCli(Array("1.1.2"), in = launcherIn, out = launcherOut, startedServer = startedServer)
+        runCli(
+          Array("1.1.2"),
+          in = launcherIn,
+          out = launcherOut,
+          startedServer = startedServer,
+          shell = shell
+        )
       ) { run =>
-        System.err.println(run.logs.mkString("\n"))
+        if (!run.successful) {
+          // Print if exit code is not successsful
+          System.err.println(run.logs.mkString("\n"))
+        }
       }
     }
 
     startServer.runAsync(bspScheduler)
 
-    val logger = BloopLogger.at("asdfasdf", System.err, System.err, true, false, DebugFilter.Bsp)
+    val logger = new RecordingLogger()
     val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>
       val bspLogger = new BspClientLogger(logger)
       startBspInitializeHandshake(clientIn, clientOut, bspLogger) { c =>
+        // Just return, we're only interested in the init handhake + exit
         monix.eval.Task.eval(Right(()))
       }
     }
 
     try TestUtil.await(FiniteDuration(25, "s"))(connectToServer)
-    finally {
-      //logger.dump(System.err)
+    catch {
+      case NonFatal(t) =>
+        // Dumps the bsp test client logs
+        logger.dump(System.err)
+        throw t
     }
+  }
+
+  /**
+   * Tests the most critical case of the launcher: bloop is not installed and the launcher
+   * installs it in `$HOME/.bloop`. After installing it, it starts up the server, it opens
+   * a bsp server session and connects to it, redirecting stdin and stdout appropiately to
+   * the server via sockets.
+   */
+  @Test
+  def testBspLauncherWhenUninstalled(): Unit = {
+    runBspLauncherWithEnvironment(shellWithPython)
+  }
+
+  @Test
+  def testBspLauncherWhenUninstalledNoPython(): Unit = {
+    runBspLauncherWithEnvironment(shellWithNoPython)
   }
 }

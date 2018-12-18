@@ -62,7 +62,7 @@ object DependencyResolution {
     val errors = resolution.errors
     if (errors.isEmpty) {
       val localArtifacts: List[Either[FileError, File]] =
-        Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
+        Task.gatherUnordered(resolution.artifacts().map(Cache.file(_).run)).unsafePerformSync
       localArtifacts.collect { case Right(f) => AbsolutePath(f.toPath) }.toArray
     } else {
       val moduleInfo = s"$organization:$module:$version"

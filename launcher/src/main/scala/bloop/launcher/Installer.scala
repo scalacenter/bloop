@@ -32,7 +32,7 @@ object Installer {
         val targetPath = target.toAbsolutePath.toString
         val channel = Channels.newChannel(website.openStream())
         val fos = new FileOutputStream(targetPath)
-        val bytesTransferred = fos.getChannel().transferFrom(channel, 0, Long.MaxValue)
+        val bytesTransferred = fos.getChannel.transferFrom(channel, 0, Long.MaxValue)
 
         // The file should already be created, make it executable so that we can run it
         target.toFile.setExecutable(true)
@@ -49,6 +49,8 @@ object Installer {
             // We've just installed bloop in `$HOME/.bloop`, let's now detect the installation
             if (!installStatus.output.isEmpty)
               printQuoted(installStatus.output, out)
+            println(s"The launcher has installed bloop in ${bloopPath}", out)
+            println(s"Add bloop to your PATH with `export PATH=$$PATH/${bloopPath}`", out)
             detectServerState(bloopVersion)
           } else {
             printError(s"Failed to run '${installCmd.mkString(" ")}'", out)
