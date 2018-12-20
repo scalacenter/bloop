@@ -394,11 +394,16 @@ class LauncherSpec extends AbstractLauncherSpec {
       Feedback.installingBloop(bloopVersion),
       Feedback.installationLogs(bloopDirectory),
       Feedback.downloadingInstallerAt(websiteURL),
-      s"Starting the bloop server with",
+      Feedback.startingBloopServer(Nil),
+    )
+
+    val prohibitedLogs = List(
+      Feedback.SkippingFullInstallation,
+      Feedback.UseFallbackInstallation
     )
 
     result.throwIfFailed
-    assertLogsContain(expectedLogs, result.launcherLogs)
+    assertLogsContain(expectedLogs, result.launcherLogs, prohibitedLogs)
   }
 
   /**
@@ -413,11 +418,15 @@ class LauncherSpec extends AbstractLauncherSpec {
       Feedback.SkippingFullInstallation,
       Feedback.UseFallbackInstallation,
       Feedback.resolvingDependency(bloopDependency),
-      "Starting the bloop server with",
+      Feedback.startingBloopServer(Nil),
+    )
+
+    val prohibitedLogs = List(
+      Feedback.installationLogs(bloopDirectory),
     )
 
     result.throwIfFailed
-    assertLogsContain(expectedLogs, result.launcherLogs)
+    assertLogsContain(expectedLogs, result.launcherLogs, prohibitedLogs)
   }
 
   @After
