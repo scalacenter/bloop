@@ -141,7 +141,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       state match {
         case Some(AvailableAt(binary)) if binary.headOption.exists(_.contains(bloopDir.toString)) =>
           // After installing, let's run the launcher in an environment where bloop is available
-          val result1 = runBspLauncherWithEnvironment(shellWithPython)
+          val result1 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
 
           val expectedLogs1 = List(
             Feedback.DetectedBloopinstallation,
@@ -173,7 +173,7 @@ class LauncherSpec extends AbstractLauncherSpec {
           )
 
           // Now, the server should be running, check we can open a connection again
-          val result2 = runBspLauncherWithEnvironment(shellWithPython)
+          val result2 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
           result2.throwIfFailed
           assertLogsContain(expectedLogs2, result2.launcherLogs, prohibitedLogs2)
         case _ => Assert.fail(s"Obtained unexpected ${state}")
@@ -244,7 +244,7 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  def runBspLauncherWithEnvironment(shell: Shell): BspLauncherResult = {
+  def runBspLauncherWithEnvironment(args: Array[String], shell: Shell): BspLauncherResult = {
     val launcherIn = new PipedInputStream()
     val clientOut = new PipedOutputStream(launcherIn)
 
@@ -262,7 +262,7 @@ class LauncherSpec extends AbstractLauncherSpec {
         shell = shell
       ) { run =>
         serverRun = Some(run)
-        serverStatus = Some(run.launcher.cli(Array("1.1.2")))
+        serverStatus = Some(run.launcher.cli(args))
       }
     }
 
@@ -346,6 +346,12 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
+  def installpyURL(version: String): java.net.URL = {
+    new java.net.URL(
+      s"https://github.com/scalacenter/bloop/releases/download/v${version}/install.py"
+    )
+  }
+
   /**
    * Tests the most critical case of the launcher: bloop is not installed and the launcher
    * installs it in `$HOME/.bloop`. After installing it, it starts up the server, it opens
@@ -354,16 +360,11 @@ class LauncherSpec extends AbstractLauncherSpec {
    */
   @Test
   def testBspLauncherWhenUninstalled(): Unit = {
-    val result = runBspLauncherWithEnvironment(shellWithPython)
-
-    val websiteURL = new java.net.URL(
-      s"https://github.com/scalacenter/bloop/releases/download/v${bloopVersion}/install.py"
-    )
-
+    val result = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
     val expectedLogs = List(
       Feedback.installingBloop(bloopVersion),
       Feedback.installationLogs(Environment.defaultBloopDirectory),
-      Feedback.downloadingInstallerAt(websiteURL),
+      Feedback.downloadingInstallerAt(installpyURL(bloopVersion)),
       Feedback.startingBloopServer(Nil),
     )
 
@@ -382,7 +383,7 @@ class LauncherSpec extends AbstractLauncherSpec {
    */
   @Test
   def testBspLauncherWhenUninstalledNoPython(): Unit = {
-    val result = runBspLauncherWithEnvironment(shellWithNoPython)
+    val result = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithNoPython)
     val expectedLogs = List(
       Feedback.installingBloop(bloopVersion),
       Feedback.SkippingFullInstallation,
@@ -397,6 +398,64 @@ class LauncherSpec extends AbstractLauncherSpec {
 
     result.throwIfFailed
     assertLogsContain(expectedLogs, result.launcherLogs, prohibitedLogs)
+  }
+
+  /**
+   * Tests the behavior of `--skip-bsp-connection` where the launcher has to
+   * install bloop, start a server and return early without establishing a
+   * bsp connection.
+   *
+   * This mode is useful for developer tools wanting to have a way to immediately
+   * depend on bloop and start using it without bothering if it's installed or not
+   * in a given machine.
+   */
+  @Test
+  def testSkipBspConnectionWithPythonShell(): Unit = {
+    val args = Array(bloopVersion, "--skip-bsp-connection")
+    setUpLauncher(
+      in = System.in,
+      out = System.out,
+      startedServer = Promise[Unit](),
+      shell = shellWithPython
+    ) { run =>
+      val status = run.launcher.cli(args)
+      val expectedLogs = List(
+        Feedback.installingBloop(bloopVersion),
+        Feedback.installationLogs(Environment.defaultBloopDirectory),
+        Feedback.startingBloopServer(Nil),
+        Feedback.downloadingInstallerAt(installpyURL(bloopVersion)),
+      )
+
+      val prohibitedLogs = List(
+        Feedback.SkippingFullInstallation,
+        Feedback.UseFallbackInstallation,
+        Feedback.resolvingDependency(bloopDependency),
+        Feedback.openingBspConnection(Nil),
+      )
+
+      Assert.assertEquals(LauncherStatus.SuccessfulRun, status)
+      assertLogsContain(expectedLogs, run.logs, prohibitedLogs)
+    }
+  }
+
+  /**
+   * Tests the behavior of `--skip-bsp-connection` when no python is installed:
+   * the launcher aborts directly because bloop cannot be installed via the
+   * universal method, which means it cannot be used from the client of the
+   * launcher.
+   */
+  @Test
+  def testSkipBspConnectionWithNoPythonShell(): Unit = {
+    val args = Array(bloopVersion, "--skip-bsp-connection")
+    setUpLauncher(
+      in = System.in,
+      out = System.out,
+      startedServer = Promise[Unit](),
+      shell = shellWithNoPython
+    ) { run =>
+      val status = run.launcher.cli(args)
+      Assert.assertEquals(LauncherStatus.FailedToInstallBloop, status)
+    }
   }
 
   @After

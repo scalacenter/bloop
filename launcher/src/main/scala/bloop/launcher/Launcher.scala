@@ -70,29 +70,36 @@ class LauncherMain(
       else args0.splitAt(index)
     }
 
-    val (jvmOptions, cliOptions) = args.span(_.startsWith("-J"))
-    val (cliFlags, cliArgs) = cliOptions.span(_.startsWith("--"))
+    val (jvmOptions, cliOptions) = args.partition(_.startsWith("-J"))
+    val (cliFlags, cliArgs) = cliOptions.toList.partition(_.startsWith("--"))
+    val skipBspConnection = cliFlags.exists(_ == SkipBspConnection)
     if (cliArgs.size == 1) {
       val bloopVersion = cliArgs.apply(0)
-      runLauncher(bloopVersion, jvmOptions.toList)
+      runLauncher(bloopVersion, skipBspConnection, jvmOptions.toList)
     } else {
       printError(Feedback.NoBloopVersion, out)
       FailedToParseArguments
     }
   }
 
-  def runLauncher(bloopVersionToInstall: String, serverJvmOptions: List[String]): LauncherStatus = {
+  def runLauncher(
+      bloopVersionToInstall: String,
+      skipBspConnection: Boolean,
+      serverJvmOptions: List[String]
+  ): LauncherStatus = {
     def failPromise(status: LauncherStatus) =
       startedServer.failure(new RuntimeException(s"The server did not start, got $status"))
     println("Starting the bsp launcher for bloop...", out)
     val bridge = new BspBridge(clientIn, clientOut, startedServer, out, shell, launcherTmpDir)
 
-    connectToBloopBspServer(bloopVersionToInstall, bridge, serverJvmOptions) match {
-      case Right(Some(socket)) =>
+    connectToBloopBspServer(bloopVersionToInstall, skipBspConnection, bridge, serverJvmOptions) match {
+      case Right(Left(_)) => SuccessfulRun
+
+      case Right(Right(Some(socket))) =>
         bridge.wireBspConnectionStreams(socket)
         SuccessfulRun
 
-      case Right(None) =>
+      case Right(Right(None)) =>
         failPromise(FailedToOpenBspConnection)
         FailedToOpenBspConnection
 
@@ -102,11 +109,14 @@ class LauncherMain(
     }
   }
 
+  // A connection result can be empty if no bsp connection is done, otherwise a socket
+  type ConnectionResult = Either[Unit, Option[Socket]]
   def connectToBloopBspServer(
       bloopVersion: String,
+      skipBspConnection: Boolean,
       bridge: BspBridge,
       serverJvmOptions: List[String]
-  ): Either[LauncherStatus, Option[Socket]] = {
+  ): Either[LauncherStatus, ConnectionResult] = {
     def ifSessionIsLive[T](establishConnection: => LauncherStatus): LauncherStatus = {
       bloopBackgroundError match {
         case Some((cmd, status)) if status.isOk =>
@@ -125,10 +135,10 @@ class LauncherMain(
 
     def openBspSocket(forceTcp: Boolean = false)(
         connect: Boolean => bridge.RunningBspConnection
-    ): Either[LauncherStatus, Option[Socket]] = {
+    ): Either[LauncherStatus, Either[Unit, Option[Socket]]] = {
       val connection = connect(forceTcp)
       bridge.waitForOpenBsp(connection) match {
-        case Some(c) => Right(bridge.connectToOpenSession(c))
+        case Some(c) => Right(Right(bridge.connectToOpenSession(c)))
         case None =>
           connection match {
             case bridge.RunningBspConnection(BspConnection.Tcp(_, _), _) =>
@@ -153,8 +163,11 @@ class LauncherMain(
 
     latestServerStatus match {
       case Some(ListeningAndAvailableAt(binary)) =>
-        openBspSocket(false) { useTcp =>
-          bridge.establishBspConnectionViaBinary(binary, useTcp)
+        if (skipBspConnection) Right(Left(()))
+        else {
+          openBspSocket(false) { useTcp =>
+            bridge.establishBspConnectionViaBinary(binary, useTcp)
+          }
         }
 
       case Some(AvailableAt(binary)) =>
@@ -185,8 +198,11 @@ class LauncherMain(
 
         listening match {
           case Some(ListeningAndAvailableAt(binary)) =>
-            openBspSocket(false) { forceTcp =>
-              bridge.establishBspConnectionViaBinary(binary, forceTcp)
+            if (skipBspConnection) Right(Left(()))
+            else {
+              openBspSocket(false) { forceTcp =>
+                bridge.establishBspConnectionViaBinary(binary, forceTcp)
+              }
             }
 
           case _ =>
@@ -201,8 +217,11 @@ class LauncherMain(
 
       // The build server is resolved when `install.py` failed in the system
       case Some(ResolvedAt(classpath)) =>
-        openBspSocket(false) { forceTcp =>
-          bridge.runEmbeddedBspInvocationInBackground(classpath, forceTcp, serverJvmOptions)
+        if (skipBspConnection) Left(FailedToInstallBloop)
+        else {
+          openBspSocket(false) { forceTcp =>
+            bridge.runEmbeddedBspInvocationInBackground(classpath, forceTcp, serverJvmOptions)
+          }
         }
 
       case None => Left(FailedToInstallBloop)
