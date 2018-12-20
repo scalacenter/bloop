@@ -15,12 +15,20 @@ import bloop.ScalaInstance
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
-import bloop.logging.{BloopLogger, BufferedLogger, Logger, RecordingLogger}
+import bloop.logging.{
+  BloopLogger,
+  BspClientLogger,
+  BufferedLogger,
+  DebugFilter,
+  Logger,
+  RecordingLogger
+}
 import monix.eval.Task
 import org.junit.Assert
 
 import scala.concurrent.{Await, ExecutionException}
 import scala.concurrent.duration.Duration
+import scala.meta.jsonrpc.Services
 import scala.util.control.NonFatal
 
 object TestUtil {
@@ -147,12 +155,11 @@ object TestUtil {
       .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
   }
 
-
   def getBloopConfigDir(buildName: String): Path = {
     def fallbackToIntegrationBaseDir(buildName: String): Path = {
       testProjectsIndex
         .get(buildName)
-        .getOrElse(sys.error(s"Project ${ buildName} does not exist at ${integrationsIndexPath}"))
+        .getOrElse(sys.error(s"Project ${buildName} does not exist at ${integrationsIndexPath}"))
     }
 
     val baseDirURL = ThisClassLoader.getResource(buildName)
@@ -212,7 +219,8 @@ object TestUtil {
       noDependencies,
       rootProjectName = cmd.project,
       javaEnv = javaEnv,
-      quiet = true) { state => runAndCheck(state, cmd)(check)
+      quiet = true) { state =>
+      runAndCheck(state, cmd)(check)
     }
   }
 
@@ -362,9 +370,16 @@ object TestUtil {
     val diff =
       if (patch.getDeltas.isEmpty) ""
       else {
-        difflib.DiffUtils.generateUnifiedDiff(
-          "expected", "obtained", obtainedLines, patch, 1
-        ).asScala.mkString("\n")
+        difflib.DiffUtils
+          .generateUnifiedDiff(
+            "expected",
+            "obtained",
+            obtainedLines,
+            patch,
+            1
+          )
+          .asScala
+          .mkString("\n")
       }
     if (!diff.isEmpty) {
       Assert.fail("\n" + diff)
@@ -387,5 +402,45 @@ object TestUtil {
     // format: ON
 
     configDir
+  }
+
+  def createTestServices(addDiagnosticsHandler: Boolean, logger0: BspClientLogger[_]): Services = {
+    implicit val ctx: DebugFilter = DebugFilter.Bsp
+    import ch.epfl.scala.bsp
+    import ch.epfl.scala.bsp.endpoints
+    val logger: bloop.logging.Logger = logger0
+    val rawServices = Services
+      .empty(logger0)
+      .notification(endpoints.Build.showMessage) {
+        case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
+      }
+      .notification(endpoints.Build.logMessage) {
+        case bsp.LogMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
+      }
+
+    // Lsp4s fails if we try to repeat a handler for a given notification
+    if (!addDiagnosticsHandler) rawServices
+    else {
+      rawServices.notification(endpoints.Build.publishDiagnostics) {
+        case bsp.PublishDiagnosticsParams(uri, _, _, diagnostics, _) =>
+          // We prepend diagnostics so that tests can check they came from this notification
+          def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
+          diagnostics.foreach { d =>
+            d.severity match {
+              case Some(bsp.DiagnosticSeverity.Error) => logger.error(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Information) => logger.info(printDiagnostic(d))
+              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(printDiagnostic(d))
+              case None => logger.info(printDiagnostic(d))
+            }
+          }
+      }
+    }
   }
 }

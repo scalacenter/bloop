@@ -6,7 +6,7 @@ import java.nio.file.Files
 
 import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
 import bloop.launcher.util.Environment
-import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger}
+import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.tasks.TestUtil
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
@@ -79,6 +79,18 @@ class LauncherSpec extends AbstractLauncherSpec {
       Assert.assertTrue(
         s"Missing '${Feedback.NoBloopVersion}'",
         run.logs.exists(_.contains(Feedback.NoBloopVersion))
+      )
+    }
+  }
+
+  @Test
+  def failForOutdatedBloopVersion(): Unit = {
+    setUpLauncher(System.in, System.out, shellWithPython) { run =>
+      val args = Array("1.0.0")
+      val status = run.launcher.cli(args)
+      Assert.assertTrue(
+        s"Expected failure in launcher run for ${args}",
+        status == LauncherStatus.FailedToInstallBloop
       )
     }
   }
@@ -180,49 +192,11 @@ class LauncherSpec extends AbstractLauncherSpec {
       out: OutputStream,
       logger: BspClientLogger[_]
   )(runEndpoints: LanguageClient => Task[Either[Response.Error, T]]): Task[T] = {
-    implicit val ctx: DebugFilter = DebugFilter.Bsp
     import ch.epfl.scala.bsp
     import ch.epfl.scala.bsp.endpoints
-    def createServices(addDiagnosticsHandler: Boolean, logger0: BspClientLogger[_]): Services = {
-      val logger: bloop.logging.Logger = logger0
-      val rawServices = Services
-        .empty(logger0)
-        .notification(endpoints.Build.showMessage) {
-          case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
-          case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
-          case bsp.ShowMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
-          case bsp.ShowMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
-        }
-        .notification(endpoints.Build.logMessage) {
-          case bsp.LogMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
-          case bsp.LogMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
-          case bsp.LogMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
-          case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
-        }
-
-      // Lsp4s fails if we try to repeat a handler for a given notification
-      if (!addDiagnosticsHandler) rawServices
-      else {
-        rawServices.notification(endpoints.Build.publishDiagnostics) {
-          case bsp.PublishDiagnosticsParams(uri, _, _, diagnostics, _) =>
-            // We prepend diagnostics so that tests can check they came from this notification
-            def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
-            diagnostics.foreach { d =>
-              d.severity match {
-                case Some(bsp.DiagnosticSeverity.Error) => logger.error(printDiagnostic(d))
-                case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(printDiagnostic(d))
-                case Some(bsp.DiagnosticSeverity.Information) => logger.info(printDiagnostic(d))
-                case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(printDiagnostic(d))
-                case None => logger.info(printDiagnostic(d))
-              }
-            }
-        }
-      }
-    }
-
     implicit val lsClient = new LanguageClient(out, logger)
     val messages = BaseProtocolMessage.fromInputStream(in, logger)
-    val services = createServices(false, logger)
+    val services = TestUtil.createTestServices(false, logger)
     val lsServer = new LanguageServer(messages, lsClient, services, bspScheduler, logger)
     val runningClientServer = lsServer.startTask.runAsync(bspScheduler)
 

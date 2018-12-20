@@ -54,43 +54,6 @@ object BspClientTest {
     ExecutionModel.AlwaysAsyncExecution
   )
 
-  def createServices(addDiagnosticsHandler: Boolean, logger0: BspClientLogger[_]): Services = {
-    val logger: bloop.logging.Logger = logger0
-    val rawServices = Services
-      .empty(logger0)
-      .notification(endpoints.Build.showMessage) {
-        case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
-        case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
-        case bsp.ShowMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
-        case bsp.ShowMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
-      }
-      .notification(endpoints.Build.logMessage) {
-        case bsp.LogMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
-        case bsp.LogMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
-        case bsp.LogMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
-        case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
-      }
-
-    // Lsp4s fails if we try to repeat a handler for a given notification
-    if (!addDiagnosticsHandler) rawServices
-    else {
-      rawServices.notification(endpoints.Build.publishDiagnostics) {
-        case bsp.PublishDiagnosticsParams(uri, _, _, diagnostics, _) =>
-          // We prepend diagnostics so that tests can check they came from this notification
-          def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
-          diagnostics.foreach { d =>
-            d.severity match {
-              case Some(bsp.DiagnosticSeverity.Error) => logger.error(printDiagnostic(d))
-              case Some(bsp.DiagnosticSeverity.Warning) => logger.warn(printDiagnostic(d))
-              case Some(bsp.DiagnosticSeverity.Information) => logger.info(printDiagnostic(d))
-              case Some(bsp.DiagnosticSeverity.Hint) => logger.debug(printDiagnostic(d))
-              case None => logger.info(printDiagnostic(d))
-            }
-          }
-      }
-    }
-  }
-
   type TestLogger = Slf4jAdapter[RecordingLogger]
   def runTest[T](
       cmd: Commands.ValidatedBsp,
@@ -122,7 +85,7 @@ object BspClientTest {
 
       implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
-      val services = customServices(createServices(addDiagnosticsHandler, logger))
+      val services = customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
       val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(scheduler)
 

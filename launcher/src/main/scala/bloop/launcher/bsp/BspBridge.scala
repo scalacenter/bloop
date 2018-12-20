@@ -78,7 +78,8 @@ final class BspBridge(
 
   def runEmbeddedBspInvocationInBackground(
       classpath: Seq[Path],
-      forceTcp: Boolean
+      forceTcp: Boolean,
+      jvmOptions: List[String]
   ): RunningBspConnection = {
     // Reset the status as it can be called several times
     resetServerStatus()
@@ -87,7 +88,8 @@ final class BspBridge(
     val delimiter = if (Environment.isWindows) ";" else ":"
     val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(delimiter)
     val (cmd, connection) = {
-      val startCmd = List("java", "-classpath", stringClasspath, "bloop.Cli")
+      val opts = jvmOptions.map(_.stripPrefix("-J"))
+      val startCmd = List("java") ++ opts ++ List("-classpath", stringClasspath, "bloop.Cli")
       shell.deriveBspInvocation(startCmd, forceTcp, launcherTmpDir)
     }
 
