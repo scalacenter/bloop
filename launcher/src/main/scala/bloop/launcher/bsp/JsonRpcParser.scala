@@ -1,7 +1,9 @@
-package bloop.launcher
+package bloop.launcher.bsp
 
 import java.io.{InputStream, OutputStream, PrintStream}
 import java.nio.charset.{Charset, StandardCharsets}
+
+import bloop.launcher.printError
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -30,7 +32,7 @@ final class JsonRpcParser(logsOut: PrintStream, charset: Charset) {
     var keepReading: Boolean = true
     do {
       val available = in.available()
-      bytes = if (available > 0) new Array[Byte](available) else new Array[Byte](1)
+      bytes = if (available > 0) new Array[Byte](available) else new Array[Byte](1024)
       read = in.read(bytes)
       if (read == -1) {
         keepReading = false
@@ -120,12 +122,10 @@ final class JsonRpcParser(logsOut: PrintStream, charset: Charset) {
           b.++=("\r\n")
           val headerString = b.toString
           out.write(headerString.getBytes(StandardCharsets.US_ASCII))
-          out.flush()
         case _ => ()
       }
 
       out.write("\r\n".getBytes(charset))
-      out.flush()
       out.write(contentBytes)
       out.flush()
 

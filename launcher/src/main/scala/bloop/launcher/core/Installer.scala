@@ -1,7 +1,9 @@
-package bloop.launcher
+package bloop.launcher.core
 
 import java.io.PrintStream
 import java.nio.file.Path
+
+import bloop.launcher.{printError, printQuoted, println}
 
 import scala.util.control.NonFatal
 
@@ -11,26 +13,27 @@ object Installer {
       bloopDirectory: Path,
       bloopVersion: String,
       out: PrintStream,
-      detectServerState: String => Option[ServerState],
+      detectServerState: String => Option[ServerStatus],
       shell: Shell
-  ): Option[ServerState] = {
+  ): Option[ServerStatus] = {
     if (!shell.isPythonInClasspath) {
-      printError("Python not detected in the classpath, don't attempt full bloop installation", out)
+      printError(Feedback.SkippingFullInstallation, out)
       None
     } else {
+      import java.io.FileOutputStream
       import java.net.URL
       import java.nio.channels.Channels
-      import java.io.FileOutputStream
 
-      val website = new URL(
+      val websiteURL = new URL(
         s"https://github.com/scalacenter/bloop/releases/download/v${bloopVersion}/install.py"
       )
 
-      import scala.util.{Try, Success, Failure}
+      import scala.util.{Failure, Success, Try}
       val installpyPath = Try {
+        println(Feedback.downloadingInstallerAt(websiteURL), out)
         val target = downloadDir.resolve("install.py")
         val targetPath = target.toAbsolutePath.toString
-        val channel = Channels.newChannel(website.openStream())
+        val channel = Channels.newChannel(websiteURL.openStream())
         val fos = new FileOutputStream(targetPath)
         val bytesTransferred = fos.getChannel.transferFrom(channel, 0, Long.MaxValue)
 
@@ -49,8 +52,7 @@ object Installer {
             // We've just installed bloop in `$HOME/.bloop`, let's now detect the installation
             if (!installStatus.output.isEmpty)
               printQuoted(installStatus.output, out)
-            println(s"The launcher has installed bloop in ${bloopPath}", out)
-            println(s"Add bloop to your PATH with `export PATH=$$PATH/${bloopPath}`", out)
+            println(Feedback.installationLogs(bloopDirectory), out)
             detectServerState(bloopVersion)
           } else {
             printError(s"Failed to run '${installCmd.mkString(" ")}'", out)
@@ -60,8 +62,7 @@ object Installer {
 
         case Failure(NonFatal(t)) =>
           t.printStackTrace(out)
-          printError(s"^ An error happened when downloading installer ${website}...", out)
-          println("The launcher will now try to resolve and run the build server", out)
+          printError(Feedback.failedToDownloadInstallerAt(websiteURL), out)
           None
         case Failure(t) => throw t // Throw non-fatal exceptions
       }
@@ -69,9 +70,11 @@ object Installer {
   }
 
   import java.io.File
-  import scala.concurrent.ExecutionContext.Implicits.global
+
   import coursier._
-  import coursier.util.{Task, Gather}
+  import coursier.util.{Gather, Task}
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   def resolveServer(bloopVersion: String, withScalaSuffix: Boolean): (Dependency, Resolution) = {
     val moduleName = if (withScalaSuffix) name"bloop-frontend_2.12" else name"bloop-frontend"

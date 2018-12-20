@@ -1,11 +1,12 @@
-package bloop.launcher
+package bloop.launcher.core
 
 import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
+import bloop.launcher.bsp.BspConnection
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 
 import scala.collection.mutable.ListBuffer
@@ -34,6 +35,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       timeoutInSeconds: Option[Long],
       msgsBuffer: Option[ListBuffer[String]] = None
   ): StatusCommand = {
+    val isServerRun = cmd0.exists(_.contains("server"))
     val outBuilder = StringBuilder.newBuilder
     final class ProcessHandler extends NuAbstractProcessHandler {
       override def onStart(nuProcess: NuProcess): Unit = ()
@@ -94,13 +96,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     }
   }
 
-  // A valid tcp random port can be fr
-  def portNumberWithin(from: Int, to: Int): Int = {
-    require(from > 24 && to < 65535)
-    val r = new scala.util.Random
-    from + r.nextInt(to - from)
-  }
-
   def startThread(name: String, daemon: Boolean)(thunk: => Unit): Thread = {
     val thread = new Thread {
       override def run(): Unit = thunk
@@ -117,22 +112,23 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       serverCmd: List[String],
       useTcp: Boolean,
       tempDir: Path
-  ): (List[String], OpenBspConnection) = {
+  ): (List[String], BspConnection) = {
     // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
     if (useTcp || isWindows) {
       // We draw a random port from a "safe" tcp port range...
-      val randomPort = portNumberWithin(17812, 18222)
+      val randomPort = Shell.portNumberWithin(17812, 18222)
       val cmd = serverCmd ++ List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
-      (cmd, OpenBspConnection.Tcp("127.0.0.1", randomPort))
+      (cmd, BspConnection.Tcp("127.0.0.1", randomPort))
     } else {
       // Let's be conservative with names here, socket files have a 100 char limit
       val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath
+      Files.deleteIfExists(socketPath)
       val cmd = serverCmd ++ List("bsp", "--protocol", "local", "--socket", socketPath.toString)
-      (cmd, OpenBspConnection.UnixLocal(socketPath))
+      (cmd, BspConnection.UnixLocal(socketPath))
     }
   }
 
-  def runBloopAbout(binaryCmd: List[String], out: PrintStream): Option[ServerState] = {
+  def runBloopAbout(binaryCmd: List[String], out: PrintStream): Option[ServerStatus] = {
     // bloop is installed, let's check if it's running now
     val statusAbout = runCommand(binaryCmd ++ List("about"), Some(10))
     Some {
@@ -144,7 +140,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
   def detectBloopInSystemPath(
       binaryCmd: List[String],
       out: PrintStream
-  ): Option[ServerState] = {
+  ): Option[ServerStatus] = {
     // --nailgun-help is always interpreted in the script, no connection with the server is required
     val status = runCommand(binaryCmd ++ List("--nailgun-help"), Some(2))
     if (!status.isOk) None
@@ -159,4 +155,10 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 
 object Shell {
   def default: Shell = new Shell(false, true)
+
+  def portNumberWithin(from: Int, to: Int): Int = {
+    require(from > 24 && to < 65535)
+    val r = new scala.util.Random
+    from + r.nextInt(to - from)
+  }
 }

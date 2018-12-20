@@ -2,13 +2,15 @@ package bloop.launcher
 
 import java.io._
 import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 
+import bloop.launcher.LauncherStatus.SuccessfulRun
+import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger}
 import bloop.tasks.TestUtil
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
-import org.junit.{Assert, Test}
+import org.junit.{After, Assert, Test}
 import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.Promise
@@ -18,60 +20,40 @@ import scala.util.control.NonFatal
 
 class LauncherSpec extends AbstractLauncherSpec {
   // Update the bsp version whenever we change the bloop version
+  private final val bspVersion = "2.0.0-M1"
   private final val bloopVersion = "1.1.2"
+  private final val bloopServerPort = 9012
   private final val shellWithPython = new Shell(true, true)
   private final val shellWithNoPython = new Shell(true, false)
-  private class LauncherFailure extends Exception("The bloop launcher didn't finish successfully.")
-  val successfulCliExit = (successful: Boolean) => if (successful) () else throw new LauncherFailure
 
-  case class LauncherRun(successful: Boolean, logs: List[String])
-  def runLauncher(in: InputStream, out: OutputStream, shell: Shell, startedServer: Promise[Unit])(
-      launcherLogic: LauncherMain => Boolean
-  ): LauncherRun = {
+  case class LauncherRun(launcher: LauncherMain, output: ByteArrayOutputStream) {
+    def logs: List[String] =
+      (new String(output.toByteArray, StandardCharsets.UTF_8)).split(System.lineSeparator()).toList
+  }
+
+  def setUpLauncher(
+      in: InputStream,
+      out: OutputStream,
+      shell: Shell,
+      startedServer: Promise[Unit] = Promise[Unit]()
+  )(
+      launcherLogic: LauncherRun => Unit
+  ): Unit = {
     import java.io.ByteArrayOutputStream
     import java.io.PrintStream
     val baos = new ByteArrayOutputStream()
     val ps = new PrintStream(baos, true, "UTF-8")
+    val port = Some(bloopServerPort)
+    val launcher = new LauncherMain(in, out, ps, StandardCharsets.UTF_8, shell, port, startedServer)
+    val run = new LauncherRun(launcher, baos)
 
-    def logs: String = new String(baos.toByteArray, StandardCharsets.UTF_8)
-    try {
-      val port = shell.portNumberWithin(8997, 9020)
-      val launcher =
-        new LauncherMain(in, out, ps, StandardCharsets.UTF_8, shell, Some(port), startedServer)
-      val successful = launcherLogic(launcher)
-      LauncherRun(successful, logs.split(System.lineSeparator()).toList)
-    } finally {
-      System.err.println(logs)
-      if (ps != null) ps.close()
-    }
-  }
-
-  def runCli(
-      args: Array[String],
-      in: InputStream = System.in,
-      out: OutputStream = System.out,
-      shell: Shell = shellWithPython,
-      startedServer: Promise[Unit] = Promise[Unit]()
-  ): LauncherRun = {
-    runLauncher(in, out, shell, startedServer) { launcher =>
-      var successful: Boolean = false
-      launcher.cli(args, runSuccessfully => if (runSuccessfully) successful = true else ())
-      successful
-    }
-  }
-
-  def testLauncher[T](run: LauncherRun)(
-      testFunction: LauncherRun => T
-  ): Unit = {
-    try {
-      testFunction(run)
-      ()
-    } catch {
+    try launcherLogic(run)
+    catch {
       case NonFatal(t) =>
-        if (!run.successful) {
-          System.err.println(run.logs.mkString(System.lineSeparator()))
-        }
-        throw t
+        println("Test case failed with the following logs: ", System.err)
+        printQuoted(run.logs.mkString(System.lineSeparator()), System.err)
+    } finally {
+      if (ps != null) ps.close()
     }
   }
 
@@ -86,10 +68,17 @@ class LauncherSpec extends AbstractLauncherSpec {
 
   @Test
   def failIfEmptyArguments(): Unit = {
-    testLauncher(runCli(Array.empty)) { run =>
-      Assert.assertTrue("Expected failed bloop launcher", !run.successful)
-      val errorMsg = "The bloop launcher accepts only one argument: the bloop version"
-      Assert.assertTrue(s"Missing '${errorMsg}'", run.logs.exists(_.contains(errorMsg)))
+    setUpLauncher(System.in, System.out, shellWithPython) { run =>
+      val status = run.launcher.cli(Array())
+      Assert.assertTrue(
+        "Expected failed bloop launcher",
+        status == LauncherStatus.FailedToParseArguments
+      )
+
+      Assert.assertTrue(
+        s"Missing '${Feedback.NoBloopVersion}'",
+        run.logs.exists(_.contains(Feedback.NoBloopVersion))
+      )
     }
   }
 
@@ -101,25 +90,30 @@ class LauncherSpec extends AbstractLauncherSpec {
 
   @Test
   def dontDetectSystemBloop(): Unit = {
-    val run = runLauncher(System.in, System.out, shellWithPython, Promise[Unit]()) { launcher =>
+    setUpLauncher(System.in, System.out, shellWithPython) { setup =>
       // We should not detect the server state unless we have installed it via the launcher
-      val state = launcher.detectServerState(bloopVersion)
-      if (state == None) true
-      else {
-        launcher.out.println(s"Found bloop binary in ${state}, expected none!")
-        false
-      }
-    }
-
-    testLauncher(run) { run =>
-      Assert.assertTrue(run.successful)
+      val status = setup.launcher.detectServerState(bloopVersion)
+      Assert.assertEquals(s"Expected missing bloop binary, found status ${status}", None, status)
     }
   }
 
+  /**
+   * Defines a test that starts from an environment where bloop is installed and the
+   * server is not running. The following invariants are tested:
+   *
+   * 1. A bsp launcher execution is executed. This run starts a bloop server and then
+   *    uses the nailgun script to open a bsp connection. The bsp initialization handhake
+   *    completes successfully.
+   *
+   * 2. Another bsp launcher execution is executed, but this time the server is running
+   *    in the background. This run detects the server and uses the nailgun script to
+   *    open a bsp connection. The bsp initialization handhake completes successfully.
+   */
   @Test
-  def testInstallationViaInstallpy(): Unit = {
-    val run = runLauncher(System.in, System.out, shellWithPython, Promise[Unit]()) { launcher =>
+  def testInstallationAndRunBspServer(): Unit = {
+    val run = setUpLauncher(System.in, System.out, shellWithPython) { run =>
       // Install the launcher via `install.py`, which is the preferred installation method
+      val launcher = run.launcher
       val state = Installer.installBloopBinaryInHomeDir(
         this.binDirectory,
         launcher.defaultBloopDirectory,
@@ -132,30 +126,18 @@ class LauncherSpec extends AbstractLauncherSpec {
       // We should detect the bloop binary in the place where we installed it!
       val bloopDir = launcher.defaultBloopDirectory.resolve("bloop")
       state match {
-        case Some(AvailableAt(binary)) if binary.head == bloopDir.toString => true
-        case _ => System.err.println(s"Obtained unexpected ${state}"); false
+        case Some(AvailableAt(binary)) if binary.head == bloopDir.toString =>
+          // After installing, let's run the launcher in an environment where bloop is available
+          runBspLauncherWithEnvironment(shellWithPython)
+          // Now, the server should be running, check we can open a connection again
+          runBspLauncherWithEnvironment(shellWithPython)
+        case _ => Assert.fail(s"Obtained unexpected ${state}")
       }
-    }
-
-    testLauncher(run) { run =>
-      Assert.assertTrue("Failed to install.py and run bloop", run.successful)
     }
   }
 
-  /*  @Test
-  def testBloopResolution(): Unit = {
-    val run = runLauncher(System.in, System.out, shell, Promise[Unit]()) { launcher =>
-      val (_, resolution) = Installer.resolveServer(bloopVersion, true)
-      Assert.assertTrue(s"Resolution errors ${resolution.errors}", resolution.errors.isEmpty)
-      Installer.fetchJars(resolution, launcher.out).nonEmpty
-    }
-
-    testLauncher(run) { run =>
-      Assert.assertTrue("Jars were not fetched!", run.successful)
-    }
-  }*/
-
-  val bspScheduler: Scheduler = Scheduler(
+  // We constrain # of threads to guarantee no hanging threads/resources
+  private val bspScheduler: Scheduler = Scheduler(
     java.util.concurrent.Executors.newFixedThreadPool(4),
     ExecutionModel.AlwaysAsyncExecution
   )
@@ -215,8 +197,8 @@ class LauncherSpec extends AbstractLauncherSpec {
     val initializeServer = endpoints.Build.initialize.request(
       bsp.InitializeBuildParams(
         "test-bloop-client",
-        "1.0.0",
-        "2.0.0-M1",
+        bloopVersion,
+        bspVersion,
         rootUri = bsp.Uri(cwd.toUri),
         capabilities = bsp.BuildClientCapabilities(List("scala")),
         None
@@ -231,8 +213,8 @@ class LauncherSpec extends AbstractLauncherSpec {
       _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
       _ = endpoints.Build.exit.notify(bsp.Exit())
     } yield {
-      in.close()
-      out.close()
+      closeForcibly(in)
+      closeForcibly(out)
       otherCalls match {
         case Right(t) => t
         case Left(error) => throw new MessageOnlyException(s"Unexpectd BSP client error: ${error}")
@@ -240,25 +222,26 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  def runBspLauncherWithEnvironment(shell: Shell): Unit = {
+  case class BspSessionLogs(launcher: List[String], client: List[String])
+  def runBspLauncherWithEnvironment(shell: Shell): BspSessionLogs = {
     val launcherIn = new PipedInputStream()
     val clientOut = new PipedOutputStream(launcherIn)
 
     val clientIn = new PipedInputStream()
     val launcherOut = new PipedOutputStream(clientIn)
 
+    var serverRun: Option[LauncherRun] = None
     val startedServer = Promise[Unit]()
     val startServer = Task {
-      testLauncher(
-        runCli(
-          Array("1.1.2"),
-          in = launcherIn,
-          out = launcherOut,
-          startedServer = startedServer,
-          shell = shell
-        )
+      setUpLauncher(
+        in = launcherIn,
+        out = launcherOut,
+        startedServer = startedServer,
+        shell = shell
       ) { run =>
-        if (!run.successful) {
+        serverRun = Some(run)
+        val status = run.launcher.cli(Array("1.1.2"))
+        if (status != SuccessfulRun) {
           // Print if exit code is not successsful
           System.err.println(run.logs.mkString("\n"))
         }
@@ -276,13 +259,28 @@ class LauncherSpec extends AbstractLauncherSpec {
       }
     }
 
-    try TestUtil.await(FiniteDuration(25, "s"))(connectToServer)
-    catch {
-      case NonFatal(t) =>
-        // Dumps the bsp test client logs
-        logger.dump(System.err)
-        throw t
+    def captureLogs: BspSessionLogs = {
+      val clientLogs = logger.getMessages().map(kv => s"${kv._1}: ${kv._2}")
+      val launcherLogs = serverRun.map(_.logs).getOrElse(Nil)
+      BspSessionLogs(launcherLogs, clientLogs)
     }
+
+    try {
+      TestUtil.await(FiniteDuration(25, "s"))(connectToServer)
+      captureLogs
+    } catch {
+      case NonFatal(t) =>
+        logger.trace(t)
+        captureLogs
+    } finally {
+      closeForcibly(launcherIn)
+      closeForcibly(launcherOut)
+    }
+  }
+
+  def closeForcibly(c: Closeable): Unit = {
+    try c.close()
+    catch { case _: Throwable => () }
   }
 
   /**
@@ -296,8 +294,33 @@ class LauncherSpec extends AbstractLauncherSpec {
     runBspLauncherWithEnvironment(shellWithPython)
   }
 
+  /**
+   * Tests the fallback mechanism when python is not installed: resolves bloop with coursier
+   * and runs an embedded bsp server that dies together with the launcher.
+   */
   @Test
   def testBspLauncherWhenUninstalledNoPython(): Unit = {
-    runBspLauncherWithEnvironment(shellWithNoPython)
+    val logs = runBspLauncherWithEnvironment(shellWithNoPython)
+    System.err.println(logs.launcher.mkString("\n"))
+  }
+
+  @After
+  def killServerIfRunning(): Unit = {
+    val pythonScriptPath =
+      Paths.get(System.getProperty("user.home")).resolve(".bloop").resolve("bloop")
+
+    // If the script exists, then bloop is installed, delete it
+    if (Files.exists(pythonScriptPath)) {
+      // Kill the server in case it's potentially running in the background
+      val script = pythonScriptPath.toAbsolutePath.toString
+      // Use ng-stop instead of exit b/c it closes the nailgun server but leaves threads hanging
+      val exitCmd = List(script, "--nailgun-port", bloopServerPort.toString, "ng-stop")
+      val exitStatus = shellWithPython.runCommand(exitCmd, Some(5))
+      if (!exitStatus.isOk) {
+        System.err.println(s"${exitCmd.mkString(" ")} produced:")
+        if (!exitStatus.output.isEmpty)
+          printQuoted(exitStatus.output, System.err)
+      }
+    }
   }
 }
