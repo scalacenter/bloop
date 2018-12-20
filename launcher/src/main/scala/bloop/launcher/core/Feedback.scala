@@ -9,6 +9,8 @@ object Feedback {
     "The launcher will now try to resolve bloop and spawn an embedded build server..."
   val NoBloopVersion: String =
     "The bloop launcher accepts only one argument: the bloop version."
+  val DetectedBloopinstallation: String =
+    "A bloop installation has been detected either in the PATH or $HOME/.bloop"
 
   def installationLogs(bloopDirectory: Path): String = {
     val bloopDir = bloopDirectory.toAbsolutePath.toString
@@ -26,10 +28,16 @@ object Feedback {
   }
 
   def startingBloopServer(cmd: List[String]): String = {
-    s"Starting the bloop server with '${cmd.mkString(" ")}'..."
+    val suffix = if (cmd.isEmpty) "" else s" with '${cmd.mkString(" ")}'..."
+    s"Starting the bloop server$suffix"
   }
 
   def resolvingDependency(dependency: String): String = s"Resolving $dependency..."
   def resolvingDependencyWithNoScalaSuffix(dependency: String): String =
     s"Resolution of $dependency failed, let's try to resolve bloop with no scala suffix..."
+
+  def openingBspConnection(cmd: List[String]): String = {
+    val suffix = if (cmd.isEmpty) "" else s" with '${cmd.mkString(" ")}'..."
+    s"Opening a bsp server connection$suffix"
+  }
 }

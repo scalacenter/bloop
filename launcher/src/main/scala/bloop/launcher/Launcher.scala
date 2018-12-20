@@ -143,10 +143,12 @@ class LauncherMain(
       }
     }
 
-    val latestServerState =
-      detectServerState(bloopVersion).orElse(recoverFromUninstalledServer(bloopVersion))
+    val latestServerStatus = detectServerState(bloopVersion) match {
+      case s @ Some(_) => println(Feedback.DetectedBloopinstallation, out); s
+      case None => recoverFromUninstalledServer(bloopVersion)
+    }
 
-    latestServerState match {
+    latestServerStatus match {
       case Some(ListeningAndAvailableAt(binary)) =>
         openBspSocket(false) { useTcp =>
           bridge.establishBspConnectionViaBinary(binary, useTcp)

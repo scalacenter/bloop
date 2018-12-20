@@ -22,6 +22,7 @@ class LauncherSpec extends AbstractLauncherSpec {
   private final val bspVersion = "2.0.0-M1"
   private final val bloopVersion = "1.1.2"
   private final val bloopServerPort = 9012
+  private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   private final val shellWithPython = new Shell(true, true)
   private final val shellWithNoPython = new Shell(true, false)
 
@@ -51,6 +52,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       case NonFatal(t) =>
         println("Test case failed with the following logs: ", System.err)
         printQuoted(run.logs.mkString(System.lineSeparator()), System.err)
+        t.printStackTrace(System.err)
     } finally {
       if (ps != null) ps.close()
     }
@@ -113,7 +115,7 @@ class LauncherSpec extends AbstractLauncherSpec {
    */
   @Test
   def testInstallationAndRunBspServer(): Unit = {
-    val run = setUpLauncher(System.in, System.out, shellWithPython) { run =>
+    setUpLauncher(System.in, System.out, shellWithPython) { run =>
       // Install the launcher via `install.py`, which is the preferred installation method
       val launcher = run.launcher
       val state = Installer.installBloopBinaryInHomeDir(
@@ -130,9 +132,41 @@ class LauncherSpec extends AbstractLauncherSpec {
       state match {
         case Some(AvailableAt(binary)) if binary.head == bloopDir.toString =>
           // After installing, let's run the launcher in an environment where bloop is available
-          runBspLauncherWithEnvironment(shellWithPython)
+          val result1 = runBspLauncherWithEnvironment(shellWithPython)
+
+          val expectedLogs1 = List(
+            Feedback.DetectedBloopinstallation,
+            Feedback.startingBloopServer(Nil),
+            Feedback.openingBspConnection(Nil)
+          )
+
+          val prohibitedLogs1 = List(
+            Feedback.installingBloop(bloopVersion),
+            Feedback.SkippingFullInstallation,
+            Feedback.UseFallbackInstallation,
+            Feedback.resolvingDependency(bloopDependency),
+          )
+
+          result1.throwIfFailed
+          assertLogsContain(expectedLogs1, result1.launcherLogs)
+
+          val expectedLogs2 = List(
+            Feedback.DetectedBloopinstallation,
+            Feedback.openingBspConnection(Nil)
+          )
+
+          val prohibitedLogs2 = List(
+            Feedback.installingBloop(bloopVersion),
+            Feedback.SkippingFullInstallation,
+            Feedback.UseFallbackInstallation,
+            Feedback.resolvingDependency(bloopDependency),
+            Feedback.startingBloopServer(Nil),
+          )
+
           // Now, the server should be running, check we can open a connection again
-          runBspLauncherWithEnvironment(shellWithPython)
+          val result2 = runBspLauncherWithEnvironment(shellWithPython)
+          result2.throwIfFailed
+          assertLogsContain(expectedLogs2, result2.launcherLogs, prohibitedLogs2)
         case _ => Assert.fail(s"Obtained unexpected ${state}")
       }
     }
@@ -299,7 +333,11 @@ class LauncherSpec extends AbstractLauncherSpec {
     catch { case _: Throwable => () }
   }
 
-  def assertLogsContain(expected0: List[String], total0: List[String]): Unit = {
+  def assertLogsContain(
+      expected0: List[String],
+      total0: List[String],
+      prohibited0: List[String] = Nil
+  ): Unit = {
     def splitLinesCorrectly(logs: List[String]): List[String] =
       logs.flatMap(_.split(System.lineSeparator()).toList)
     val expected = splitLinesCorrectly(expected0)
@@ -318,6 +356,23 @@ class LauncherSpec extends AbstractLauncherSpec {
            |${total.map(l => s"> $l").mkString(System.lineSeparator)}
        """.stripMargin
       )
+    } else {
+      val prohibited = splitLinesCorrectly(prohibited0)
+      val prohibitedLogs = prohibited.filter { expectedLog =>
+        total.exists(_.contains(expectedLog))
+      }
+
+      if (prohibitedLogs.nonEmpty) {
+        Assert.fail(
+          s"""Prohibited logs:
+             |${prohibitedLogs.map(l => s"-> $l").mkString(System.lineSeparator)}
+             |
+             |appear in the actually received logs:
+             |
+             |${total.map(l => s"> $l").mkString(System.lineSeparator)}
+       """.stripMargin
+        )
+      }
     }
   }
 
@@ -357,7 +412,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       Feedback.installingBloop(bloopVersion),
       Feedback.SkippingFullInstallation,
       Feedback.UseFallbackInstallation,
-      Feedback.resolvingDependency(s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"),
+      Feedback.resolvingDependency(bloopDependency),
       "Starting the bloop server with",
     )
 

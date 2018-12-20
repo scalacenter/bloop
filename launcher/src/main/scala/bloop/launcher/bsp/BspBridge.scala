@@ -55,7 +55,7 @@ ection by telling the background server to open a BSP session.
 
     val logsBuffer = new ListBuffer[String]()
     val (bspCmd, openConnection) = shell.deriveBspInvocation(bloopServerCmd, useTcp, launcherTmpDir)
-    println(s"Opening a bsp server connection with ${bspCmd.mkString(" ")}", out)
+    println(Feedback.openingBspConnection(bspCmd), out)
     val thread = new Thread {
       override def run(): Unit = {
         // Whenever the connection is broken or the server legitimately stops, this returns
