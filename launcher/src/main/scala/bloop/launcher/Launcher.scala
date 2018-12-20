@@ -23,7 +23,7 @@ import bloop.launcher.core.{
   ServerStatus,
   Shell
 }
-import io.github.soc.directories.ProjectDirectories
+import bloop.launcher.util.Environment
 
 import scala.concurrent.Promise
 
@@ -48,16 +48,11 @@ class LauncherMain(
     startedServer: Promise[Unit]
 ) {
   private final val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
-  private final val isWindows: Boolean = scala.util.Properties.isWin
-  private final val homeDirectory: Path = Paths.get(System.getProperty("user.home"))
-  private final val projectDirectories: ProjectDirectories =
-    ProjectDirectories.from("", "", "bloop")
-  private final val bloopDataLogsDir: Path =
-    Files.createDirectories(Paths.get(projectDirectories.dataDir).resolve("logs"))
-
-  private final val bloopAdditionalArgs: List[String] = nailgunPort match {
-    case Some(port) => List("--nailgun-port", port.toString)
-    case None => Nil
+  private final val bloopAdditionalArgs: List[String] = {
+    nailgunPort match {
+      case Some(port) => List("--nailgun-port", port.toString)
+      case None => Nil
+    }
   }
 
   def main(args: Array[String]): Unit = {
@@ -206,15 +201,14 @@ class LauncherMain(
     }
   }
 
-  def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
   def detectServerState(bloopVersion: String): Option[ServerStatus] = {
     shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalArgs, out).orElse {
       // The binary is not available in the classpath
-      val homeBloopDir = defaultBloopDirectory
+      val homeBloopDir = Environment.defaultBloopDirectory
       if (!Files.exists(homeBloopDir)) None
       else {
         // This is the nailgun script that we can use to run bloop
-        val binaryName = if (isWindows) "bloop.cmd" else "bloop"
+        val binaryName = if (Environment.isWindows) "bloop.cmd" else "bloop"
         val pybloop = homeBloopDir.resolve(binaryName)
         if (!Files.exists(pybloop)) None
         else {
@@ -262,7 +256,7 @@ class LauncherMain(
         println(Feedback.installingBloop(bloopVersion), out)
         val fullyInstalled = Installer.installBloopBinaryInHomeDir(
           launcherTmpDir,
-          defaultBloopDirectory,
+          Environment.defaultBloopDirectory,
           bloopVersion,
           out,
           detectServerState(_),

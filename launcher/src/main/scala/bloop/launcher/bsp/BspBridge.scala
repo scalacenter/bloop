@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 import bloop.launcher.core.{Feedback, Shell}
+import bloop.launcher.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
 
 import scala.collection.mutable.ListBuffer
@@ -29,8 +30,7 @@ final class BspBridge(
   case class RunningBspConnection(bsp: BspConnection, logs: ListBuffer[String])
 
   /**
-   * Establish a bsp conn      t.map(t => s"Exception caught")
-ection by telling the background server to open a BSP session.
+   * Establish a bsp connection by telling the background server to open a BSP session.
    *
    * This routine is only called when a background server is running. The retry logic
    * and the waits are done because the server might be still starting up and the
@@ -84,7 +84,8 @@ ection by telling the background server to open a BSP session.
     resetServerStatus()
 
     // NOTE: We don't need to support `$HOME/.bloop/.jvmopts` b/c `$HOME/.bloop` doesn't exist
-    val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(":")
+    val delimiter = if (Environment.isWindows) ";" else ":"
+    val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(delimiter)
     val (cmd, connection) = {
       val startCmd = List("java", "-classpath", stringClasspath, "bloop.Cli")
       shell.deriveBspInvocation(startCmd, forceTcp, launcherTmpDir)

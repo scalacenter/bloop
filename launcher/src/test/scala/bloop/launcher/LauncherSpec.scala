@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
 import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
+import bloop.launcher.util.Environment
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger}
 import bloop.tasks.TestUtil
 import monix.eval.Task
@@ -58,16 +59,12 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  def bloopDirectory: Path =
-    Paths.get(System.getProperty("user.home")).resolve(".bloop")
-
   @Test
   def testSystemPropertiesMockingWork(): Unit = {
-    // Test from https://stefanbirkner.github.io/system-rules/index.html
     val parentDir = this.binDirectory.getParent
     parentDir.toFile.deleteOnExit()
-    Assert.assertEquals(parentDir, Paths.get(System.getProperty("user.dir")).getParent)
-    Assert.assertEquals(parentDir, Paths.get(System.getProperty("user.home")).getParent)
+    Assert.assertEquals(parentDir, Environment.cwd.getParent)
+    Assert.assertEquals(parentDir, Environment.homeDirectory.getParent)
   }
 
   @Test
@@ -120,7 +117,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       val launcher = run.launcher
       val state = Installer.installBloopBinaryInHomeDir(
         this.binDirectory,
-        launcher.defaultBloopDirectory,
+        Environment.defaultBloopDirectory,
         bloopVersion,
         launcher.out,
         launcher.detectServerState(_),
@@ -128,7 +125,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       )
 
       // We should detect the bloop binary in the place where we installed it!
-      val bloopDir = launcher.defaultBloopDirectory.resolve("bloop")
+      val bloopDir = Environment.defaultBloopDirectory.resolve("bloop")
       state match {
         case Some(AvailableAt(binary)) if binary.head == bloopDir.toString =>
           // After installing, let's run the launcher in an environment where bloop is available
@@ -229,13 +226,12 @@ class LauncherSpec extends AbstractLauncherSpec {
     val lsServer = new LanguageServer(messages, lsClient, services, bspScheduler, logger)
     val runningClientServer = lsServer.startTask.runAsync(bspScheduler)
 
-    val cwd = Paths.get(System.getProperty("user.dir"))
     val initializeServer = endpoints.Build.initialize.request(
       bsp.InitializeBuildParams(
         "test-bloop-client",
         bloopVersion,
         bspVersion,
-        rootUri = bsp.Uri(cwd.toUri),
+        rootUri = bsp.Uri(Environment.cwd.toUri),
         capabilities = bsp.BuildClientCapabilities(List("scala")),
         None
       )
@@ -392,7 +388,7 @@ class LauncherSpec extends AbstractLauncherSpec {
 
     val expectedLogs = List(
       Feedback.installingBloop(bloopVersion),
-      Feedback.installationLogs(bloopDirectory),
+      Feedback.installationLogs(Environment.defaultBloopDirectory),
       Feedback.downloadingInstallerAt(websiteURL),
       Feedback.startingBloopServer(Nil),
     )
@@ -422,7 +418,7 @@ class LauncherSpec extends AbstractLauncherSpec {
     )
 
     val prohibitedLogs = List(
-      Feedback.installationLogs(bloopDirectory),
+      Feedback.installationLogs(Environment.defaultBloopDirectory),
     )
 
     result.throwIfFailed
@@ -431,8 +427,7 @@ class LauncherSpec extends AbstractLauncherSpec {
 
   @After
   def killServerIfRunning(): Unit = {
-    val pythonScriptPath =
-      Paths.get(System.getProperty("user.home")).resolve(".bloop").resolve("bloop")
+    val pythonScriptPath = Environment.defaultBloopDirectory.resolve("bloop")
 
     // If the script exists, then bloop is installed, delete it
     if (Files.exists(pythonScriptPath)) {

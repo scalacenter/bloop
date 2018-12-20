@@ -3,10 +3,11 @@ package bloop.launcher.core
 import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
 import bloop.launcher.bsp.BspConnection
+import bloop.launcher.util.Environment
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 
 import scala.collection.mutable.ListBuffer
@@ -26,9 +27,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
   case class StatusCommand(code: Int, output: String) {
     def isOk: Boolean = code == 0
   }
-
-  protected val isWindows: Boolean = scala.util.Properties.isWin
-  protected val cwd = Paths.get(System.getProperty("user.dir"))
 
   def runCommand(
       cmd0: List[String],
@@ -62,7 +60,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     val cmd = {
       if (!runWithInterpreter) cmd0
       else {
-        if (isWindows) List("cmd.exe", "/C") ++ cmd0
+        if (Environment.isWindows) List("cmd.exe", "/C") ++ cmd0
         // If sh -c is used, wrap the whole command in single quotes
         else List("sh", "-c", cmd0.mkString(" "))
       }
@@ -70,7 +68,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 
     val builder = new NuProcessBuilder(cmd: _*)
     builder.setProcessListener(new ProcessHandler)
-    builder.setCwd(cwd)
+    builder.setCwd(Environment.cwd)
 
     val currentEnv = builder.environment()
     currentEnv.putAll(System.getenv())
@@ -114,7 +112,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       tempDir: Path
   ): (List[String], BspConnection) = {
     // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
-    if (useTcp || isWindows) {
+    if (useTcp || Environment.isWindows) {
       // We draw a random port from a "safe" tcp port range...
       val randomPort = Shell.portNumberWithin(17812, 18222)
       val cmd = serverCmd ++ List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
