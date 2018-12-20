@@ -53,7 +53,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       case NonFatal(t) =>
         println("Test case failed with the following logs: ", System.err)
         printQuoted(run.logs.mkString(System.lineSeparator()), System.err)
-        t.printStackTrace(System.err)
+        throw t
     } finally {
       if (ps != null) ps.close()
     }
@@ -127,7 +127,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       // We should detect the bloop binary in the place where we installed it!
       val bloopDir = Environment.defaultBloopDirectory.resolve("bloop")
       state match {
-        case Some(AvailableAt(binary)) if binary.head == bloopDir.toString =>
+        case Some(AvailableAt(binary)) if binary.headOption.exists(_.contains(bloopDir.toString)) =>
           // After installing, let's run the launcher in an environment where bloop is available
           val result1 = runBspLauncherWithEnvironment(shellWithPython)
 
