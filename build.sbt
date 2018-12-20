@@ -318,7 +318,8 @@ val allProjects = Seq(
   millBloop,
   nativeBridge,
   jsBridge06,
-  jsBridge10
+  jsBridge10,
+  launcher
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -356,6 +357,7 @@ addCommandAlias(
     s"${nativeBridge.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
+    s"${launcher.id}/$publishLocalCmd",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
   ).mkString(";", ";", "")
@@ -377,7 +379,8 @@ val allBloopReleases = List(
   s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
-  s"${jsBridge10.id}/$releaseEarlyCmd"
+  s"${jsBridge10.id}/$releaseEarlyCmd",
+  s"${launcher}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")
