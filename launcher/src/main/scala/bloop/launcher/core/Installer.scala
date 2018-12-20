@@ -17,7 +17,7 @@ object Installer {
       shell: Shell
   ): Option[ServerStatus] = {
     if (!shell.isPythonInClasspath) {
-      printError(Feedback.SkippingFullInstallation, out)
+      println(Feedback.SkippingFullInstallation, out)
       None
     } else {
       import java.io.FileOutputStream
@@ -76,9 +76,18 @@ object Installer {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def resolveServer(bloopVersion: String, withScalaSuffix: Boolean): (Dependency, Resolution) = {
+  def fromDependencyToString(dep: coursier.Dependency): String =
+    s"${dep.mavenPrefix}:${dep.version}"
+
+  def resolveServer(
+      bloopVersion: String,
+      withScalaSuffix: Boolean,
+      out: PrintStream
+  ): (Dependency, Resolution) = {
     val moduleName = if (withScalaSuffix) name"bloop-frontend_2.12" else name"bloop-frontend"
     val bloopDependency = Dependency(Module(org"ch.epfl.scala", moduleName), bloopVersion)
+    val stringBloopDep = fromDependencyToString(bloopDependency)
+    println(Feedback.resolvingDependency(stringBloopDep), out)
     val start = Resolution(Set(bloopDependency))
 
     val repositories = Seq(

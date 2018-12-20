@@ -269,13 +269,17 @@ class LauncherMain(
 
         fullyInstalled.orElse {
           println(Feedback.UseFallbackInstallation, out)
-          val (bloopDependency, vanillaResolution) = Installer.resolveServer(bloopVersion, true)
+          val (bloopDependency, vanillaResolution) =
+            Installer.resolveServer(bloopVersion, true, out)
           if (vanillaResolution.errors.isEmpty) {
             val jars = Installer.fetchJars(vanillaResolution, out)
             if (jars.isEmpty) None else Some(ResolvedAt(jars))
           } else {
+            val stringBloopDep = Installer.fromDependencyToString(bloopDependency)
+            printError(Feedback.resolvingDependencyWithNoScalaSuffix(stringBloopDep), out)
+
             // Before failing, let's try resolving bloop without a scala suffix to support future versions out of the box
-            val (_, versionlessResolution) = Installer.resolveServer(bloopVersion, false)
+            val (_, versionlessResolution) = Installer.resolveServer(bloopVersion, false, out)
             if (versionlessResolution.errors.isEmpty) {
               val jars = Installer.fetchJars(versionlessResolution, out)
               if (jars.isEmpty) None else Some(ResolvedAt(jars))

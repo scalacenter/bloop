@@ -2,9 +2,8 @@ package bloop.launcher
 
 import java.io._
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
-import bloop.launcher.LauncherStatus.SuccessfulRun
 import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger}
 import bloop.tasks.TestUtil
@@ -13,7 +12,7 @@ import monix.execution.{ExecutionModel, Scheduler}
 import org.junit.{After, Assert, Test}
 import sbt.internal.util.MessageOnlyException
 
-import scala.concurrent.Promise
+import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc._
 import scala.util.control.NonFatal
@@ -56,6 +55,9 @@ class LauncherSpec extends AbstractLauncherSpec {
       if (ps != null) ps.close()
     }
   }
+
+  def bloopDirectory: Path =
+    Paths.get(System.getProperty("user.home")).resolve(".bloop")
 
   @Test
   def testSystemPropertiesMockingWork(): Unit = {
@@ -222,8 +224,23 @@ class LauncherSpec extends AbstractLauncherSpec {
     }
   }
 
-  case class BspSessionLogs(launcher: List[String], client: List[String])
-  def runBspLauncherWithEnvironment(shell: Shell): BspSessionLogs = {
+  case class BspLauncherResult(
+      // The status can be optional if server didn't terminate
+      status: Option[LauncherStatus],
+      launcherLogs: List[String],
+      clientLogs: List[String]
+  ) {
+    def throwIfFailed: Unit = {
+      status match {
+        case Some(LauncherStatus.SuccessfulRun) => ()
+        case unexpected =>
+          System.err.println(launcherLogs.mkString(System.lineSeparator))
+          Assert.fail(s"Expected 'SuccessfulRun', obtained ${unexpected}! Printing logs:")
+      }
+    }
+  }
+
+  def runBspLauncherWithEnvironment(shell: Shell): BspLauncherResult = {
     val launcherIn = new PipedInputStream()
     val clientOut = new PipedOutputStream(launcherIn)
 
@@ -231,6 +248,7 @@ class LauncherSpec extends AbstractLauncherSpec {
     val launcherOut = new PipedOutputStream(clientIn)
 
     var serverRun: Option[LauncherRun] = None
+    var serverStatus: Option[LauncherStatus] = None
     val startedServer = Promise[Unit]()
     val startServer = Task {
       setUpLauncher(
@@ -240,15 +258,11 @@ class LauncherSpec extends AbstractLauncherSpec {
         shell = shell
       ) { run =>
         serverRun = Some(run)
-        val status = run.launcher.cli(Array("1.1.2"))
-        if (status != SuccessfulRun) {
-          // Print if exit code is not successsful
-          System.err.println(run.logs.mkString("\n"))
-        }
+        serverStatus = Some(run.launcher.cli(Array("1.1.2")))
       }
     }
 
-    startServer.runAsync(bspScheduler)
+    val runServer = startServer.runAsync(bspScheduler)
 
     val logger = new RecordingLogger()
     val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>
@@ -259,17 +273,19 @@ class LauncherSpec extends AbstractLauncherSpec {
       }
     }
 
-    def captureLogs: BspSessionLogs = {
+    def captureLogs: BspLauncherResult = {
       val clientLogs = logger.getMessages().map(kv => s"${kv._1}: ${kv._2}")
       val launcherLogs = serverRun.map(_.logs).getOrElse(Nil)
-      BspSessionLogs(launcherLogs, clientLogs)
+      BspLauncherResult(serverStatus, launcherLogs, clientLogs)
     }
 
     try {
       TestUtil.await(FiniteDuration(25, "s"))(connectToServer)
+      Await.result(runServer, FiniteDuration(5, "s"))
       captureLogs
     } catch {
       case NonFatal(t) =>
+        t.printStackTrace(System.err)
         logger.trace(t)
         captureLogs
     } finally {
@@ -283,6 +299,28 @@ class LauncherSpec extends AbstractLauncherSpec {
     catch { case _: Throwable => () }
   }
 
+  def assertLogsContain(expected0: List[String], total0: List[String]): Unit = {
+    def splitLinesCorrectly(logs: List[String]): List[String] =
+      logs.flatMap(_.split(System.lineSeparator()).toList)
+    val expected = splitLinesCorrectly(expected0)
+    val total = splitLinesCorrectly(total0)
+    val missingLogs = expected.filterNot { expectedLog =>
+      total.exists(_.contains(expectedLog))
+    }
+
+    if (missingLogs.nonEmpty) {
+      Assert.fail(
+        s"""Missing logs:
+           |${missingLogs.map(l => s"-> $l").mkString(System.lineSeparator)}
+           |
+           |in the actually received logs:
+           |
+           |${total.map(l => s"> $l").mkString(System.lineSeparator)}
+       """.stripMargin
+      )
+    }
+  }
+
   /**
    * Tests the most critical case of the launcher: bloop is not installed and the launcher
    * installs it in `$HOME/.bloop`. After installing it, it starts up the server, it opens
@@ -291,7 +329,21 @@ class LauncherSpec extends AbstractLauncherSpec {
    */
   @Test
   def testBspLauncherWhenUninstalled(): Unit = {
-    runBspLauncherWithEnvironment(shellWithPython)
+    val result = runBspLauncherWithEnvironment(shellWithPython)
+
+    val websiteURL = new java.net.URL(
+      s"https://github.com/scalacenter/bloop/releases/download/v${bloopVersion}/install.py"
+    )
+
+    val expectedLogs = List(
+      Feedback.installingBloop(bloopVersion),
+      Feedback.installationLogs(bloopDirectory),
+      Feedback.downloadingInstallerAt(websiteURL),
+      s"Starting the bloop server with",
+    )
+
+    result.throwIfFailed
+    assertLogsContain(expectedLogs, result.launcherLogs)
   }
 
   /**
@@ -300,8 +352,17 @@ class LauncherSpec extends AbstractLauncherSpec {
    */
   @Test
   def testBspLauncherWhenUninstalledNoPython(): Unit = {
-    val logs = runBspLauncherWithEnvironment(shellWithNoPython)
-    System.err.println(logs.launcher.mkString("\n"))
+    val result = runBspLauncherWithEnvironment(shellWithNoPython)
+    val expectedLogs = List(
+      Feedback.installingBloop(bloopVersion),
+      Feedback.SkippingFullInstallation,
+      Feedback.UseFallbackInstallation,
+      Feedback.resolvingDependency(s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"),
+      "Starting the bloop server with",
+    )
+
+    result.throwIfFailed
+    assertLogsContain(expectedLogs, result.launcherLogs)
   }
 
   @After

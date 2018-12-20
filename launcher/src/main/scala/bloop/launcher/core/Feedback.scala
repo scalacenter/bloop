@@ -12,10 +12,9 @@ object Feedback {
 
   def installationLogs(bloopDirectory: Path): String = {
     val bloopDir = bloopDirectory.toAbsolutePath.toString
-    s"""
-       |The launcher has installed `bloop` in $bloopDir
-       |-> Recommendation: Add bloop to your PATH with `export PATH=$$PATH:$bloopDir <-
-     """.stripMargin
+    s"""The launcher has installed `bloop` in $bloopDir
+       |Recommendation: Add bloop to your $$PATH to use the command-line tool with:
+       |    export PATH=$$PATH:$bloopDir""".stripMargin
   }
 
   def installingBloop(version: String): String =
@@ -29,4 +28,8 @@ object Feedback {
   def startingBloopServer(cmd: List[String]): String = {
     s"Starting the bloop server with '${cmd.mkString(" ")}'..."
   }
+
+  def resolvingDependency(dependency: String): String = s"Resolving $dependency..."
+  def resolvingDependencyWithNoScalaSuffix(dependency: String): String =
+    s"Resolution of $dependency failed, let's try to resolve bloop with no scala suffix..."
 }

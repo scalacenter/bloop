@@ -5,7 +5,7 @@ import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
-import bloop.launcher.core.Shell
+import bloop.launcher.core.{Feedback, Shell}
 import bloop.launcher.{printError, printQuoted, println}
 
 import scala.collection.mutable.ListBuffer
@@ -29,7 +29,8 @@ final class BspBridge(
   case class RunningBspConnection(bsp: BspConnection, logs: ListBuffer[String])
 
   /**
-   * Establish a bsp connection by telling the background server to open a BSP session.
+   * Establish a bsp conn      t.map(t => s"Exception caught")
+ection by telling the background server to open a BSP session.
    *
    * This routine is only called when a background server is running. The retry logic
    * and the waits are done because the server might be still starting up and the
@@ -93,7 +94,7 @@ final class BspBridge(
 
     // In the embedded mode, the cli bsp invocation is not a daemon
     shell.startThread("bsp-cli-embedded", false) {
-      println(s"Starting the bloop server with '${cmd.mkString(" ")}'", out)
+      println(Feedback.startingBloopServer(cmd), out)
       val status = shell.runCommand(
         cmd ++ List("--verbose"),
         None,
@@ -189,7 +190,7 @@ final class BspBridge(
 
     println("Starting thread that pumps stdin and redirects it to the bsp server...", out)
     val pumpStdinToSocketStdout = shell.startThread("bsp-client-to-server", false) {
-      var hasReportedError: Boolean = false
+      var hasReportedClientError: Boolean = false
       while (isConnectionOpen) {
         val socketOut = socket.getOutputStream
         val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
@@ -200,7 +201,7 @@ final class BspBridge(
           case e: IOException =>
             if (isConnectionOpen) {
               // Mark this as active so that we don't attempt more read/writes
-              hasReportedError = true
+              hasReportedClientError = true
               isConnectionOpen = false
               printError("Unexpected error when forwarding client stdin ---> server stdout", out)
               e.printStackTrace(out)
@@ -211,14 +212,16 @@ final class BspBridge(
         }
       }
 
-      if (!hasReportedError) {
+      if (!hasReportedClientError) {
         println("No more data in the client stdin, exiting...", out)
       }
     }
 
-    println("Starting thread that pumps server stdout and redirects it to the client stdout...", out)
+    println(
+      "Starting thread that pumps server stdout and redirects it to the client stdout...",
+      out)
     val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", false) {
-      var hasReportedError: Boolean = false
+      var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {
         val socketIn = socket.getInputStream
         val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
@@ -229,7 +232,7 @@ final class BspBridge(
         } catch {
           case e: IOException =>
             if (isConnectionOpen) {
-              hasReportedError = true
+              hasReportedServerError = true
               // Mark this as active so that we don't attempt more read/writes
               isConnectionOpen = false
               println("Unexpected exception when forwarding server stdin ---> client stdout", out)
@@ -241,7 +244,7 @@ final class BspBridge(
         }
       }
 
-      if (!hasReportedError) {
+      if (!hasReportedServerError) {
         println("No more data in the server stdin, exiting...", out)
       }
     }
@@ -252,7 +255,14 @@ final class BspBridge(
 
       // We block here, if the connection terminates the threads will
       pumpStdinToSocketStdout.join()
-      pumpSocketStdinToStdout.join()
+
+      try {
+        pumpSocketStdinToStdout.interrupt()
+        // Join this thread for 500ms before interrupting it
+        pumpSocketStdinToStdout.join(500)
+      } catch {
+        case t: InterruptedException => ()
+      }
     }
   }
 }
