@@ -20,6 +20,11 @@ import scala.util.Try
  * independent shell whose environment variables we can modify (for example, we can modify
  * PATH so that the shell we run executes a mock version of bloop or python that fails).
  *
+ * Note that there is an exception when the interpretation is enabled: `java` invocations
+ * will be executed as they are because in Windows systems there can be execution problems
+ * if the command is too long, which can happen with biggish classpaths
+ * (see https://github.com/sbt/sbt-native-packager/issues/72).
+ *
  * @param runWithInterpreter Decides whether we add a layer of indirection when running commands.
  *                           Uses `sh -c` in unix systems, `cmd.exe` in Windows systems */
 final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
@@ -60,9 +65,14 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     val cmd = {
       if (!runWithInterpreter) cmd0
       else {
-        if (Environment.isWindows) List("cmd.exe", "/C") ++ cmd0
-        // If sh -c is used, wrap the whole command in single quotes
-        else List("sh", "-c", cmd0.mkString(" "))
+        if (Environment.isWindows) {
+          // Avoid long classpath issues in Windows (e.g. https://github.com/sbt/sbt-native-packager/issues/72)
+          if (cmd0.headOption.exists(_.startsWith("java"))) cmd0
+          else List("cmd.exe", "/C") ++ cmd0
+        } else {
+          // If sh -c is used, wrap the whole command in single quotes
+          List("sh", "-c", cmd0.mkString(" "))
+        }
       }
     }
 
