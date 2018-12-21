@@ -30,8 +30,8 @@ object TestTask {
    * @param project The project to test.
    * @param cwd The current working directory.
    * @param userTestOptions0 The test options that are passed by the user via CLI. If they
-    *                         contain arguments starting with `-J`, they will be interpreted
-    *                         as java options.
+   *                         contain arguments starting with `-J`, they will be interpreted
+   *                         as jvm options.
    * @param testFilter The test filter for test suites.
    * @param failureHandler The handler that will intervene if there's an error.
    * @return A status code that will signal success or failure.

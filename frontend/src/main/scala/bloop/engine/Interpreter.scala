@@ -367,7 +367,15 @@ object Interpreter {
                     else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
                 }
               case Platform.Jvm(javaEnv, _, _) =>
-                Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray)
+                Tasks.runJVM(
+                  state,
+                  project,
+                  javaEnv,
+                  cwd,
+                  mainClass,
+                  cmd.args.toArray,
+                  cmd.skipJargs
+                )
             }
         }
       }

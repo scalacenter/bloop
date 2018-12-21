@@ -43,7 +43,9 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
    *
    * @param cwd            The directory in which to start the forked JVM
    * @param mainClass      The fully qualified name of the class to run
-   * @param args0           The arguments to pass to the main method
+   * @param args0          The arguments to pass to the main method. If they contain args
+   *                       starting with `-J`, they will be interpreted as jvm options.
+   * @param skipJargs      Skip the interpretation of `-J` options in `args`.
    * @param logger         Where to log the messages from execution
    * @param opts           The options to run the program with
    * @param extraClasspath Paths to append to the classpath before running
@@ -53,17 +55,20 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
       cwd: AbsolutePath,
       mainClass: String,
       args0: Array[String],
+      skipJargs: Boolean,
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath] = Array.empty
   ): Task[Int] = {
-    val (userJavaOptions, userArgs) = args0.partition(_.startsWith("-J"))
-    val javaOptions = userJavaOptions ++ userJavaOptions
+    val (userJvmOptions, userArgs) =
+      if (skipJargs) (Array.empty, args0) else args0.partition(_.startsWith("-J"))
+    val jvmOptions = userJvmOptions.map(_.stripPrefix("-J")) ++ javaEnv.javaOptions
+
     val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
     val java = javaEnv.javaHome.resolve("bin").resolve("java")
     val classpathOption = "-cp" :: fullClasspath :: Nil
     val appOptions = mainClass :: userArgs.toList
-    val cmd = java.syntax :: javaOptions.toList ::: classpathOption ::: appOptions
+    val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
     val logTask =
       if (logger.isVerbose) {
         val debugOptions =
@@ -73,7 +78,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
              |   cwd          = '$cwd'
              |   classpath    = '$fullClasspath'
              |   java_home    = '${javaEnv.javaHome}'
-             |   java_options = '${javaOptions.mkString(" ")}""".stripMargin
+             |   java_options = '${jvmOptions.mkString(" ")}""".stripMargin
         Task(logger.debug(debugOptions)(DebugFilter.All))
       } else Task.unit
     logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
@@ -122,11 +127,10 @@ object Forker {
       var gobbleInput: Cancelable = null
       final class ProcessHandler extends NuAbstractProcessHandler {
         override def onStart(nuProcess: NuProcess): Unit = {
-          logger.debug(
-            s"""Starting forked process:
-               |  cwd = '$cwd'
-               |  pid = '${nuProcess.getPID}'
-               |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
+          logger.debug(s"""Starting forked process:
+                          |  cwd = '$cwd'
+                          |  pid = '${nuProcess.getPID}'
+                          |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
         }
 
         override def onExit(statusCode: Int): Unit =

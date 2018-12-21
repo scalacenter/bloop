@@ -125,7 +125,7 @@ object TestInternals {
 
     val listener = server.listenToTests
     val runner = {
-      val runTask = forker.runMain(cwd, forkMain, arguments, logger, opts, testAgentJars)
+      val runTask = forker.runMain(cwd, forkMain, arguments, false, logger, opts, testAgentJars)
       runTask.map(exitCode => Forker.exitStatus(exitCode).code)
     }
 

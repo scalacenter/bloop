@@ -367,7 +367,7 @@ final class BloopBspServices(
         case Right(mainClass) =>
           project.platform match {
             case Platform.Jvm(javaEnv, _, _) =>
-              Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray)
+              Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray, false)
             case platform @ Platform.Native(config, _, _) =>
               val target = ScalaNativeToolchain.linkTargetFrom(project, config)
               linkMainWithNative(cmd, project, state, mainClass, target, platform).flatMap {
