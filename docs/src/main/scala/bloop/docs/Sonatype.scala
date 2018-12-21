@@ -17,18 +17,19 @@ case class Release(version: String, lastModified: Date) {
 }
 
 object Sonatype {
-  lazy val release = Sonatype.fetchLatest("staging")
+  lazy val releaseBloop = Sonatype.fetchLatest("bloop-frontend_2.12", "staging")
+  lazy val releaseLauncher = Sonatype.fetchLatest("bloop-launcher_2.12", "staging")
 
   // Copy-pasted from https://github.com/scalameta/metals/blob/994e5e6746ad327ce727d688ad9831e0fbb69b3f/metals-docs/src/main/scala/docs/Snapshot.scala
   lazy val current: Release = Release(BuildInfo.version, new Date())
 
   /** Returns the latest published snapshot release, or the current release if. */
-  private def fetchLatest(repo: String): Release = {
+  private def fetchLatest(artifact: String, repo: String): Release = {
     // maven-metadata.xml is consistently outdated so we scrape the "Last modified" column
     // of the HTML page that lists all snapshot releases instead.
     val doc = Jsoup
       .connect(
-        s"https://oss.sonatype.org/content/repositories/$repo/ch/epfl/scala/bloop-frontend_2.12/"
+        s"https://oss.sonatype.org/content/repositories/$repo/ch/epfl/scala/$artifact/"
       )
       .get
     val dateTime = new SimpleDateFormat("EEE MMM d H:m:s z yyyy")

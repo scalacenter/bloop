@@ -118,6 +118,22 @@ val jsonConfig212 = project
     }
   )
 
+lazy val launcher: Project = project
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(frontend % "test->test")
+  .settings(
+    name := "bloop-launcher",
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.coursierScalaz,
+      Dependencies.nuprocess,
+      Dependencies.ipcsocket,
+      Dependencies.junit % Test,
+      Dependencies.junitSystemRules % Test
+    )
+  )
+
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
@@ -129,6 +145,7 @@ lazy val frontend: Project = project
     name := "bloop-frontend",
     bloopName := "bloop",
     mainClass in Compile in run := Some("bloop.Cli"),
+    bloopMainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,
@@ -301,7 +318,8 @@ val allProjects = Seq(
   millBloop,
   nativeBridge,
   jsBridge06,
-  jsBridge10
+  jsBridge10,
+  launcher
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -339,6 +357,7 @@ addCommandAlias(
     s"${nativeBridge.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
+    s"${launcher.id}/$publishLocalCmd",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
   ).mkString(";", ";", "")
@@ -360,7 +379,8 @@ val allBloopReleases = List(
   s"${millBloop.id}/$releaseEarlyCmd",
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
-  s"${jsBridge10.id}/$releaseEarlyCmd"
+  s"${jsBridge10.id}/$releaseEarlyCmd",
+  s"${launcher}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

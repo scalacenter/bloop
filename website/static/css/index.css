@@ -36,6 +36,11 @@ li ul {
   margin-top: 0.5em;
 }
 
+li > p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
 table thead {
   background-color: rgb(237, 252, 255);
 }
@@ -84,6 +89,10 @@ table tr:nth-child(2n) {
 
 .mainContainer h1, .mainContainer h2, .mainContainer h3, .mainContainer h4, .mainContainer h5, .mainContainer h6 {
     color: #005068 !important;
+}
+
+.mainContainer .wrapper .post .postHeaderTitle {
+  margin-top: 1em;
 }
 
 .mainContainer h2:first-child {

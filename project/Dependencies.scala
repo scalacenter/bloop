@@ -7,12 +7,12 @@ object Dependencies {
 
   val nailgunVersion = "6992a3bf"
   // Used to download the python client instead of resolving
-  val nailgunCommit = "dc1dd806"
+  val nailgunCommit = "db48d66f"
 
   val zincVersion = "1.2.1+106-0dad4a69"
   val bspVersion = "2.0.0-M1" 
   val scalazVersion = "7.2.20"
-  val coursierVersion = "1.1.0-M3"
+  val coursierVersion = "1.1.0-M8"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
   val caseAppVersion = "1.2.0-faster-compile-time"
@@ -20,6 +20,7 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.0.4"
   val junitVersion = "0.11"
+  val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val mavenApiVersion = "3.5.2"
@@ -63,6 +64,7 @@ object Dependencies {
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
+  val junitSystemRules = "com.github.stefanbirkner" % "system-rules" % junitSystemRulesVersion
 
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided

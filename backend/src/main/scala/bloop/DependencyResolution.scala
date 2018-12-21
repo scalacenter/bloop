@@ -46,7 +46,9 @@ object DependencyResolution {
               logger: Logger,
               additionalRepositories: Seq[Repository] = Nil): Array[AbsolutePath] = {
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
-    val dependency = Dependency(Module(organization, module), version)
+    val org = coursier.Organization(organization)
+    val moduleName = coursier.ModuleName(module)
+    val dependency = Dependency(Module(org, moduleName), version)
     val start = Resolution(Set(dependency))
     val repositories = {
       val baseRepositories = Seq(
@@ -60,7 +62,7 @@ object DependencyResolution {
     val errors = resolution.errors
     if (errors.isEmpty) {
       val localArtifacts: List[Either[FileError, File]] =
-        Task.gatherUnordered(resolution.artifacts.map(Cache.file(_).run)).unsafePerformSync
+        Task.gatherUnordered(resolution.artifacts().map(Cache.file(_).run)).unsafePerformSync
       localArtifacts.collect { case Right(f) => AbsolutePath(f.toPath) }.toArray
     } else {
       val moduleInfo = s"$organization:$module:$version"

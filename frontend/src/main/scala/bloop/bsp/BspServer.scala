@@ -78,7 +78,8 @@ object BspServer {
     import state.logger
     def startServer(handle: ConnectionHandle): Task[State] = {
       val connectionURI = uri(handle)
-      logger.debug(s"The server is listening for incoming connections at $connectionURI...")
+      // WARNING: Do NOT change this log, it's used by clients and bsp launcher to know when to start a connection
+      logger.info(s"The server is listening for incoming connections at $connectionURI...")
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 

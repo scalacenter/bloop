@@ -61,6 +61,10 @@
         "title": "Integrate with the Build Server",
         "sidebar_label": "Integration Guide"
       },
+      "launcher-reference": {
+        "title": "Launcher",
+        "sidebar_label": "Launcher Reference"
+      },
       "release-table": {
         "title": "release-table"
       },
