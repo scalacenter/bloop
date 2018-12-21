@@ -21,12 +21,18 @@ const SetupHeader = () => {
       <h1>
         <translate desc="setup page - header">Installation Guide</translate>
       </h1>
-    <p>
-      The installation guide walks you through all the steps to to install and get any
-      of the supported build tools working with Bloop.
+    <p style={{"justifyContent": "center", "marginLeft": "1.5em", "marginRight": "1.5em", "textAlign": "center", "maxWidth": "1024px"}}>
+      The installation guide walks <b>users</b> through all the steps to install bloop and get any
+      of the supported build tools export their build definitions to Bloop's build server.
     </p>
-      
+
+    <p style={{"justifyContent": "center", "marginLeft": "1.5em", "marginRight": "1.5em", "textAlign": "center"}}>
+      If you are a <b>tooling author</b> that want to automatically install and configure bloop without requiring your users to do so, head to the <a href={`${siteConfig.baseUrl}docs/launcher-reference.html`}>Launcher Reference</a> to read about the recommended approach.
+    </p>
+
       <div style={{"display": "flex", "justifyContent": "center", "marginBottom": "1em"}}>
+        <MarkdownBlock key={"release-table-description"}>
+        </MarkdownBlock>
         <MarkdownBlock key={"release-table"}>{releaseTableMD}</MarkdownBlock>
       </div>
     </div>

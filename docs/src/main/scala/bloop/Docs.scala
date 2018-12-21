@@ -1,6 +1,6 @@
 package bloop
 
-import bloop.docs.{ReleasesModifier, Sonatype}
+import bloop.docs.{ReleasesModifier, LauncherReleasesModifier, Sonatype}
 import mdoc.MainSettings
 
 import scala.meta.io.AbsolutePath
@@ -14,7 +14,7 @@ object Docs {
     val settings = MainSettings()
       .withSiteVariables(
         Map(
-          "VERSION" -> Sonatype.release.version,
+          "VERSION" -> Sonatype.releaseBloop.version,
           "LATEST_VERSION" -> bloop.internal.build.BuildInfo.version
         )
       )
@@ -22,7 +22,7 @@ object Docs {
       // it should work with mdoc when run inside bloop but it doesn't, let's wait until it's fixed
       .withIn(cwd.resolve("docs"))
       .withOut(cwd.resolve("out"))
-      .withStringModifiers(List(new ReleasesModifier))
+      .withStringModifiers(List(new ReleasesModifier, new LauncherReleasesModifier))
 
     val exitCode = _root_.mdoc.Main.process(settings)
     if (exitCode != 0) sys.exit(exitCode)
