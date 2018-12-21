@@ -9,7 +9,7 @@ import bloop.config.util.ConfigUtil
 
 object Bloop extends ExternalModule {
 
-  def install(ev: Evaluator[Any]) = T.command {
+  def install(ev: Evaluator) = T.command {
     val bloopDir = pwd / ".bloop"
     mkdir(bloopDir)
 
