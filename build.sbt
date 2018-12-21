@@ -380,7 +380,7 @@ val allBloopReleases = List(
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
-  s"${launcher}/$releaseEarlyCmd"
+  s"${launcher.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")
