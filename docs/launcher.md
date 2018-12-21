@@ -1,7 +1,7 @@
 ---
 id: launcher-reference
-title: Launcher
-sidebar_label: Launcher Reference
+title: Launcher Reference
+sidebar_label: Built-in Launcher
 ---
 
 The launcher is a lightweight artifact (~122K) that installs and configures

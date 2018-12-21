@@ -19,6 +19,7 @@
     ],
     "References": [
       "cli-reference",
+      "server-reference",
       "launcher-reference",
       "configuration-format"
     ]

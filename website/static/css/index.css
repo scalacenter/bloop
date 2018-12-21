@@ -19,6 +19,11 @@ a .button {
   color: #primaryColor;
 }
 
+.grab-attention {
+  background-color: #fff8fc;
+  border-left: 8px solid #ffd6ff;
+}
+
 .button {
   border-radius: 8px;
 }

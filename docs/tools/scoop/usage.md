@@ -25,6 +25,13 @@ times it's restarted.
 Bloop does not have a service file for Windows so you have to start and stop the bloop server
 manually. It is recommended to have the bloop server running in a long-lived terminal session.
 
+> If you want to improve this situation, check this
+[ticket](https://github.com/scalacenter/bloop/issues/766) which proposes a solution to this problem
+that is compatible with Windows Services.
+
+To learn more about `bloop server` and managing the server lifecycle automatically, head to the
+[Build Server Reference](docs/server-reference).
+
 ### Command-line completions
 
 Bloop does not support Powershell completions at the moment. However, it does support Bash/Zsh
