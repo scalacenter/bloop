@@ -22,49 +22,10 @@ Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">S
 <p>Bloop's build server is a long-running process designed to provide the fastest compilation possible
 to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
 times it's restarted.</p>
-<p>Depending on your setup, there are several mechanisms to start automatically the build server and
-manage its lifetime (and they are all installed by default).</p>
-<blockquote>
-<p>
-The following section is Unix only. If you're a Windows user, you will need to run the bloop
-server manually in a long-running terminal session.
-</p>
-</blockquote>
-<h4><a class="anchor" aria-hidden="true" id="systemd"></a><a href="#systemd" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Systemd</h4>
-<p>To have the Bloop server be automatically managed by systemd, install Bloop's systemd service:</p>
-<pre><code class="hljs css language-bash">$ systemctl --user <span class="token function">enable</span> <span class="token variable">$HOME</span>/.bloop/systemd/bloop.service
-$ systemctl --user daemon-reload
-</code></pre>
-<p>The build server will be started whenever you log in your computer and killed whenever your session
-is closed.</p>
-<blockquote>
-<p>
-It is also possible to only kill the build server when the machine is shut down. Please refer to <a
-href="https://wiki.archlinux.org/index.php/Systemd/Users">Systemd's documentation about user
-services</a> for advanced configuration.
-</p>
-</blockquote>
-<p>Command examples:</p>
-<ol>
-<li><code>journalctl --user-unit bloop</code>: check the build server logs.</li>
-<li><code>systemctl --user status bloop</code>: checks the status of the build server.</li>
-<li><code>systemctl --user start bloop</code>: starts up the bloop server.</li>
-<li><code>systemctl --user stop bloop</code>: stops the bloop server.</li>
-<li><code>systemctl --user restart bloop</code>: restarts the build server.</li>
-</ol>
-<h4><a class="anchor" aria-hidden="true" id="desktop-entry"></a><a href="#desktop-entry" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Desktop Entry</h4>
-<p>A desktop entry is a <code>bloop.desktop</code> file which your desktop environment recognizes as a launcher if
-it supports the <a href="https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html">freedesktop.org Desktop Entry
-specification</a>.
-For example, Ubuntu recognizes and displays desktop entries in the application menu next to an icon.</p>
-<p>Install a desktop entry with:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">mkdir</span> -p <span class="token variable">$HOME</span>/.local/share/applications
-$ <span class="token function">ln</span> -s <span class="token variable">$HOME</span>/.bloop/xdg/bloop.desktop <span class="token variable">$HOME</span>/.local/share/applications/
-</code></pre>
-<p>If you want to start the server automatically, add the desktop entry to <code>autostart</code>:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">mkdir</span> -p <span class="token variable">$HOME</span>/.config/autostart
-$ <span class="token function">ln</span> -s <span class="token variable">$HOME</span>/.bloop/xdg/bloop.desktop <span class="token variable">$HOME</span>/.config/autostart/
-</code></pre>
+<p>We have seen how to manually start the server with <code>bloop server</code>. However, you may prefer an
+automatic solution that starts the server in the background when you log in and allows you to
+quickly restart it. There are several mechanisms to do so, read the <a href="docs/server-reference">Build Server
+Reference</a>.</p>
 <h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-Line Completions</h3>
 <p>Bloop supports command-line completions in bash, zsh and fish. The use of command-line
 autocompletions is recommended as it significantly improves the user experience. The installation

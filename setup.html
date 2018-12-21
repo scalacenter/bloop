@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/index.html"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/solarized-dark.min.css"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><link rel="stylesheet" href="/bloop/css/prism.css"/><link rel="stylesheet" href="/bloop/css/main.css"/></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/orca-whale-white.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="justify-content:center;margin-left:1.5em;margin-right:1.5em;text-align:center;max-width:1024px">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools export their build definitions to Bloop&#x27;s build server.</p><p style="justify-content:center;margin-left:1.5em;margin-right:1.5em;text-align:center">If you are a <b>tooling author</b> that want to automatically install and configure bloop without requiring your users to do so, head to the <a href="/bloop/docs/launcher-reference.html">Launcher Reference</a> to read about the recommended approach.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/index.html"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/solarized-dark.min.css"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><link rel="stylesheet" href="/bloop/css/prism.css"/><link rel="stylesheet" href="/bloop/css/main.css"/></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/orca-whale-white.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="justify-content:center;margin-left:1.5em;margin-right:1.5em;text-align:center;max-width:1024px">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools to successfully export their build definitions.</p><p style="justify-content:center;margin-left:1.5em;margin-right:1.5em;text-align:center">If you are a <b>tooling author</b> that want to automatically install and configure bloop without requiring your users to do so, head to the <a href="/bloop/docs/launcher-reference.html">Launcher Reference</a> to read about the recommended approach.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
 <thead>
 <th>Version</th>
 <th>Published</th>
@@ -11,8 +11,8 @@
 <td><code>-r sonatype:releases</code></td>
 </tr>
 <tr>
-<td>1.1.2+38-ed272159</td>
-<td>21 Dec 2018 14:19</td>
+<td>1.1.2+42-634ff140</td>
+<td>21 Dec 2018 16:59</td>
 <td><code>-r bintray:scalacenter/releases</code></td>
 </tr>
 </tbody>
@@ -100,6 +100,8 @@ process of starting the build server before running any bloop CLI command.</p>
 <li><code>brew services stop bloop</code>: stops the bloop server.</li>
 <li><code>brew services restart bloop</code>: restarts the bloop server.</li>
 </ol>
+<p>To learn more about <code>bloop server</code> and managing the server lifecycle automatically, head to the
+<a href="docs/server-reference">Build Server Reference</a>.</p>
 <h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
 <p>The installation script will automatically install completions for bash, zsh and fish.</p>
 </span></div></div><div class="items" data-title="nix"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
@@ -117,49 +119,10 @@ Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">S
 <p>Bloop's build server is a long-running process designed to provide the fastest compilation possible
 to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
 times it's restarted.</p>
-<p>Depending on your setup, there are several mechanisms to start automatically the build server and
-manage its lifetime.</p>
-<blockquote>
-<p>
-The following section is Unix only. If you're a Windows user, you will need to run the bloop
-server manually in a long-running terminal session.
-</p>
-</blockquote>
-<h4><a class="anchor" aria-hidden="true" id="systemd"></a><a href="#systemd" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Systemd</h4>
-<p>To have the Bloop server be automatically managed by systemd, install Bloop's systemd service:</p>
-<pre><code class="hljs css language-bash">$ systemctl --user <span class="token function">enable</span> <span class="token variable">$HOME</span>/.bloop/systemd/bloop.service
-$ systemctl --user daemon-reload
-</code></pre>
-<p>The build server will be started whenever you log in your computer and killed whenever your session
-is closed.</p>
-<blockquote>
-<p>
-It is also possible to only kill the build server when the machine is shut down. Please refer to <a
-href="https://wiki.archlinux.org/index.php/Systemd/Users">Systemd's documentation about user
-services</a> for advanced configuration.
-</p>
-</blockquote>
-<p>Command examples:</p>
-<ol>
-<li><code>journalctl --user-unit bloop</code>: check the build server logs.</li>
-<li><code>systemctl --user status bloop</code>: checks the status of the build server.</li>
-<li><code>systemctl --user start bloop</code>: starts up the bloop server.</li>
-<li><code>systemctl --user stop bloop</code>: stops the bloop server.</li>
-<li><code>systemctl --user restart bloop</code>: restarts the build server.</li>
-</ol>
-<h4><a class="anchor" aria-hidden="true" id="desktop-entry"></a><a href="#desktop-entry" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Desktop Entry</h4>
-<p>A desktop entry is a <code>bloop.desktop</code> file which your desktop environment recognizes as a launcher if
-it supports the <a href="https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html">freedesktop.org Desktop Entry
-specification</a>.
-For example, Ubuntu recognizes and displays desktop entries in the application menu next to an icon.</p>
-<p>Install a desktop entry with:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">mkdir</span> -p <span class="token variable">$HOME</span>/.local/share/applications
-$ <span class="token function">ln</span> -s <span class="token variable">$HOME</span>/.bloop/xdg/bloop.desktop <span class="token variable">$HOME</span>/.local/share/applications/
-</code></pre>
-<p>If you want to start the server automatically, add the desktop entry to <code>autostart</code>:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">mkdir</span> -p <span class="token variable">$HOME</span>/.config/autostart
-$ <span class="token function">ln</span> -s <span class="token variable">$HOME</span>/.bloop/xdg/bloop.desktop <span class="token variable">$HOME</span>/.config/autostart/
-</code></pre>
+<p>We have seen how to manually start the server with <code>bloop server</code>. However, you may prefer an
+automatic solution that starts the server in the background when you log in and allows you to
+quickly restart it. There are several mechanisms to do so, read the <a href="docs/server-reference">Build Server
+Reference</a>.</p>
 <h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
 <p>The installation script will automatically install completions for bash, zsh and fish.</p>
 </span></div></div><div class="items" data-title="scoop"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
@@ -180,6 +143,13 @@ to users. As such, users are responsible for managing its lifecycle and minimizi
 times it's restarted.</p>
 <p>Bloop does not have a service file for Windows so you have to start and stop the bloop server
 manually. It is recommended to have the bloop server running in a long-lived terminal session.</p>
+<blockquote>
+<p>If you want to improve this situation, check this
+<a href="https://github.com/scalacenter/bloop/issues/766">ticket</a> which proposes a solution to this problem
+that is compatible with Windows Services.</p>
+</blockquote>
+<p>To learn more about <code>bloop server</code> and managing the server lifecycle automatically, head to the
+<a href="docs/server-reference">Build Server Reference</a>.</p>
 <h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
 <p>Bloop does not support Powershell completions at the moment. However, it does support Bash/Zsh
 command-line completions which are installed by default in the bloop installation directory (under
@@ -211,49 +181,10 @@ Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">S
 <p>Bloop's build server is a long-running process designed to provide the fastest compilation possible
 to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
 times it's restarted.</p>
-<p>Depending on your setup, there are several mechanisms to start automatically the build server and
-manage its lifetime (and they are all installed by default).</p>
-<blockquote>
-<p>
-The following section is Unix only. If you're a Windows user, you will need to run the bloop
-server manually in a long-running terminal session.
-</p>
-</blockquote>
-<h4><a class="anchor" aria-hidden="true" id="systemd"></a><a href="#systemd" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Systemd</h4>
-<p>To have the Bloop server be automatically managed by systemd, install Bloop's systemd service:</p>
-<pre><code class="hljs css language-bash">$ systemctl --user <span class="token function">enable</span> <span class="token variable">$HOME</span>/.bloop/systemd/bloop.service
-$ systemctl --user daemon-reload
-</code></pre>
-<p>The build server will be started whenever you log in your computer and killed whenever your session
-is closed.</p>
-<blockquote>
-<p>
-It is also possible to only kill the build server when the machine is shut down. Please refer to <a
-href="https://wiki.archlinux.org/index.php/Systemd/Users">Systemd's documentation about user
-services</a> for advanced configuration.
-</p>
-</blockquote>
-<p>Command examples:</p>
-<ol>
-<li><code>journalctl --user-unit bloop</code>: check the build server logs.</li>
-<li><code>systemctl --user status bloop</code>: checks the status of the build server.</li>
-<li><code>systemctl --user start bloop</code>: starts up the bloop server.</li>
-<li><code>systemctl --user stop bloop</code>: stops the bloop server.</li>
-<li><code>systemctl --user restart bloop</code>: restarts the build server.</li>
-</ol>
-<h4><a class="anchor" aria-hidden="true" id="desktop-entry"></a><a href="#desktop-entry" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Desktop Entry</h4>
-<p>A desktop entry is a <code>bloop.desktop</code> file which your desktop environment recognizes as a launcher if
-it supports the <a href="https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html">freedesktop.org Desktop Entry
-specification</a>.
-For example, Ubuntu recognizes and displays desktop entries in the application menu next to an icon.</p>
-<p>Install a desktop entry with:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">mkdir</span> -p <span class="token variable">$HOME</span>/.local/share/applications
-$ <span class="token function">ln</span> -s <span class="token variable">$HOME</span>/.bloop/xdg/bloop.desktop <span class="token variable">$HOME</span>/.local/share/applications/
-</code></pre>
-<p>If you want to start the server automatically, add the desktop entry to <code>autostart</code>:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">mkdir</span> -p <span class="token variable">$HOME</span>/.config/autostart
-$ <span class="token function">ln</span> -s <span class="token variable">$HOME</span>/.bloop/xdg/bloop.desktop <span class="token variable">$HOME</span>/.config/autostart/
-</code></pre>
+<p>We have seen how to manually start the server with <code>bloop server</code>. However, you may prefer an
+automatic solution that starts the server in the background when you log in and allows you to
+quickly restart it. There are several mechanisms to do so, read the <a href="docs/server-reference">Build Server
+Reference</a>.</p>
 <h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-Line Completions</h3>
 <p>Bloop supports command-line completions in bash, zsh and fish. The use of command-line
 autocompletions is recommended as it significantly improves the user experience. The installation
@@ -549,7 +480,7 @@ foo-test
 IDEs</a>.</p>
 <p>If you want to configure the installation step or learn more about the integration, visit the
 <a href="docs/build-tools/sbt">sbt documentation page</a>.</p>
-</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1545402021107"></script><script src="/bloop/scripts/build-tools.js?t=1545402021107"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1545411621449"></script><script src="/bloop/scripts/build-tools.js?t=1545411621449"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
