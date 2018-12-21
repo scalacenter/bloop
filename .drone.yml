@@ -44,7 +44,7 @@ matrix:
           "releaseBloop" \
           "docs/docusaurusPublishGhpages"
 
-  RELEASE_GITHUB_BREW:
+  UPDATE_GITHUB_AND_INSTALLERS:
     - bin/sbt-ci.sh \
           "frontend/updateHomebrewFormula" \
           "frontend/updateScoopFormula" \
@@ -195,7 +195,8 @@ pipeline:
       - export DRONE_DIR="/drone"
       - . bin/set-up-dodo.sh # Source it because it exports variables
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
-      - ${RELEASE_GITHUB_BREW}
+      - ${UPDATE_GITHUB_AND_INSTALLERS}
+      - git status # Print to see what may be polluting the git state
 
   rebuild-cache:
     image: drillster/drone-volume-cache

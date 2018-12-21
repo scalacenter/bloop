@@ -15,6 +15,9 @@ Command examples:
 1. `brew services stop bloop`: stops the bloop server.
 1. `brew services restart bloop`: restarts the bloop server.
 
+To learn more about `bloop server` and managing the server lifecycle automatically, head to the
+[Build Server Reference](docs/server-reference).
+
 ### Command-line completions
 
 The installation script will automatically install completions for bash, zsh and fish.

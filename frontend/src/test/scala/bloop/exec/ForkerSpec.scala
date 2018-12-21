@@ -51,7 +51,8 @@ class ForkerSpec {
       try {
         val wait = Duration.apply(25, TimeUnit.SECONDS)
         val exitCode =
-          TestUtil.await(wait)(config.runMain(cwdPath, mainClass, args, logger.asVerbose, opts))
+          TestUtil.await(wait)(
+            config.runMain(cwdPath, mainClass, args, false, logger.asVerbose, opts))
         val messages = logger.getMessages()
         op(exitCode, messages)
       } finally {

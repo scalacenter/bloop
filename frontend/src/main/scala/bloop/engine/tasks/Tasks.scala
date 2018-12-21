@@ -173,6 +173,7 @@ object Tasks {
    * @param cwd       The directory in which to start the forked JVM.
    * @param fqn       The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
+   * @param skipJargs Skip the interpretation of `-J` options in `args`.
    */
   def runJVM(
       state: State,
@@ -180,11 +181,12 @@ object Tasks {
       javaEnv: JavaEnv,
       cwd: AbsolutePath,
       fqn: String,
-      args: Array[String]
+      args: Array[String],
+      skipJargs: Boolean
   ): Task[State] = {
     val classpath = project.fullClasspathFor(state.build.getDagFor(project))
     val processConfig = Forker(javaEnv, classpath)
-    val runTask = processConfig.runMain(cwd, fqn, args, state.logger, state.commonOptions)
+    val runTask = processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
     runTask.map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
       state.mergeStatus(exitStatus)

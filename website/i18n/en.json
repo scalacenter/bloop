@@ -62,11 +62,15 @@
         "sidebar_label": "Integration Guide"
       },
       "launcher-reference": {
-        "title": "Launcher",
-        "sidebar_label": "Launcher Reference"
+        "title": "Launcher Reference",
+        "sidebar_label": "Built-in Launcher"
       },
       "release-table": {
         "title": "release-table"
+      },
+      "server-reference": {
+        "title": "Build Server Reference",
+        "sidebar_label": "Build Server"
       },
       "target/scala-2.12/classes/LICENSE": {
         "title": "target/scala-2.12/classes/LICENSE"

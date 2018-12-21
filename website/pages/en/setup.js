@@ -23,7 +23,7 @@ const SetupHeader = () => {
       </h1>
     <p style={{"justifyContent": "center", "marginLeft": "1.5em", "marginRight": "1.5em", "textAlign": "center", "maxWidth": "1024px"}}>
       The installation guide walks <b>users</b> through all the steps to install bloop and get any
-      of the supported build tools export their build definitions to Bloop's build server.
+      of the supported build tools to successfully export their build definitions.
     </p>
 
     <p style={{"justifyContent": "center", "marginLeft": "1.5em", "marginRight": "1.5em", "textAlign": "center"}}>

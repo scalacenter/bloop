@@ -122,6 +122,7 @@ class JvmTestSpec(
             classLoader,
             tests,
             Nil,
+            Nil,
             NoopEventHandler,
             logger,
             opts)
@@ -154,6 +155,7 @@ class JvmTestSpec(
             config,
             classLoader,
             tests,
+            Nil,
             Nil,
             NoopEventHandler,
             logger,

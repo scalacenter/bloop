@@ -29,7 +29,9 @@ object TestTask {
    * @param state The state with which to test.
    * @param project The project to test.
    * @param cwd The current working directory.
-   * @param userTestOptions The test options that are passed by the user via CLI.
+   * @param userTestOptions0 The test options that are passed by the user via CLI. If they
+   *                         contain arguments starting with `-J`, they will be interpreted
+   *                         as jvm options.
    * @param testFilter The test filter for test suites.
    * @param failureHandler The handler that will intervene if there's an error.
    * @return A status code that will signal success or failure.
@@ -38,7 +40,7 @@ object TestTask {
       state: State,
       project: Project,
       cwd: AbsolutePath,
-      userTestOptions: List[String],
+      rawTestOptions: List[String],
       testFilter: String => Boolean,
       failureHandler: LoggingEventHandler
   ): Task[Int] = {
@@ -50,6 +52,7 @@ object TestTask {
         if (frameworks.isEmpty) logger.error("No test frameworks found")
         else logger.debug(s"Found test frameworks: ${frameworks.map(_.name).mkString(", ")}")
 
+        val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
         val frameworkArgs = considerFrameworkArgs(frameworks, userTestOptions, logger)
         val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
         logger.debug(s"Running test suites with arguments: $args")
@@ -65,8 +68,17 @@ object TestTask {
         found match {
           case DiscoveredTestFrameworks.Jvm(_, forker, loader) =>
             val opts = state.commonOptions
-            TestInternals
-              .execute(cwd, forker, loader, discovered, args, failureHandler, logger, opts)
+            TestInternals.execute(
+              cwd,
+              forker,
+              loader,
+              discovered,
+              args,
+              userJvmOptions,
+              failureHandler,
+              logger,
+              opts
+            )
           case DiscoveredTestFrameworks.Js(_, closeResources) =>
             val cancelled: AtomicBoolean = AtomicBoolean(false)
             def cancel(): Unit = {

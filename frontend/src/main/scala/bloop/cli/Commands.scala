@@ -4,7 +4,6 @@ import java.net.InetAddress
 import java.nio.file.Path
 
 import bloop.cli.CliParsers.CommandsMessages
-import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import caseapp.{CommandName, ExtraName, HelpMessage, Hidden, Recurse}
 import caseapp.core.CommandMessages
@@ -176,6 +175,8 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @HelpMessage("Ignore arguments starting with `-J` and forward them instead.")
+      skipJargs: Boolean = false,
       @ExtraName("O")
       @HelpMessage(
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
