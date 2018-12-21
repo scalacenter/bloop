@@ -15,6 +15,18 @@ There are two ways to implement a client integration with Bloop's build server:
   </p>
 </div>
 
+### Note on installation requirements
+
+Every of the above mechanisms require you to have an environment with `bloop`
+installed and a server running in the background. It's likely that won't always
+hold for all your users. Can you still use `bloop`?
+
+The answer is yes. The [Launcher Reference](launcher.md) explains how you can
+use bloop's launcher to automatically install bloop and start a background
+server, as well as establish an open bsp connection with it. Therefore, clients
+that wish to integrate with bloop can provide an out-of-the-box experience to
+their users.
+
 ## Build Server Protocol (BSP)
 
 The [Build Server Protocol][bsp] is a work-in-progress protocol designed by the [Scala
