@@ -63,24 +63,14 @@ final class BspProjectReporter(
       currentAnalysis: Option[CompileAnalysis],
       code: bsp.StatusCode
   ): Unit = {
-    val isNoOp = previousAnalysis match {
-      case Some(previous) =>
-        currentAnalysis match {
-          case Some(current) => current == previous
-          case None => false
-        }
-      case None => false
-    }
-
     val clearedFiles = new mutable.HashSet[File]
     previouslyReportedProblems.foreach { problem =>
       InterfaceUtil.toOption(problem.position().sourceFile).foreach { source =>
-        if (reportAllPreviousProblems) logger
         // Do nothing if problem maps to a file with problems, assume it's already reported
         if (filesWithProblems.contains(source)) ()
         else {
-          // Only log errors if it was a no-op (previous failed result could have logged errors)
-          if (isNoOp && !source.exists())
+          // Log no diagnostics for files that are gone
+          if (!source.exists())
             logger.noDiagnostic(project, source)
           else if (compiledFiles.contains(source)) {
             // Log no diagnostic if there was a problem in a file that now compiled without problems
