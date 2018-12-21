@@ -175,8 +175,8 @@ class LauncherMain(
         startServerViaScriptInBackground(binary, serverJvmOptions)
         println("Server was started in a thread, waiting until it's up and running...", out)
 
-        // Run `bloop about` until server is running for a max of N attempts
-        val maxAttempts: Int = 20
+        // Run `bloop about` until server is running for a max of N attempts (about 10s)
+        val maxAttempts: Int = 25
         var attempts: Int = 1
         var totalMs: Long = 0
         var listening: Option[ServerStatus] = None
@@ -187,7 +187,7 @@ class LauncherMain(
             case _ => false
           }
         }) {
-          val waitMs = 300.toLong
+          val waitMs = 400.toLong
           Thread.sleep(waitMs)
           totalMs += waitMs
           // In total, we wait about 6 seconds until the server starts...
