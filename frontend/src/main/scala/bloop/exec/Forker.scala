@@ -43,7 +43,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
    *
    * @param cwd            The directory in which to start the forked JVM
    * @param mainClass      The fully qualified name of the class to run
-   * @param args           The arguments to pass to the main method
+   * @param args0           The arguments to pass to the main method
    * @param logger         Where to log the messages from execution
    * @param opts           The options to run the program with
    * @param extraClasspath Paths to append to the classpath before running
@@ -52,16 +52,18 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
   def runMain(
       cwd: AbsolutePath,
       mainClass: String,
-      args: Array[String],
+      args0: Array[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath] = Array.empty
   ): Task[Int] = {
+    val (userJavaOptions, userArgs) = args0.partition(_.startsWith("-J"))
+    val javaOptions = userJavaOptions ++ userJavaOptions
     val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
     val java = javaEnv.javaHome.resolve("bin").resolve("java")
     val classpathOption = "-cp" :: fullClasspath :: Nil
-    val appOptions = mainClass :: args.toList
-    val cmd = java.syntax :: javaEnv.javaOptions.toList ::: classpathOption ::: appOptions
+    val appOptions = mainClass :: userArgs.toList
+    val cmd = java.syntax :: javaOptions.toList ::: classpathOption ::: appOptions
     val logTask =
       if (logger.isVerbose) {
         val debugOptions =
@@ -71,7 +73,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
              |   cwd          = '$cwd'
              |   classpath    = '$fullClasspath'
              |   java_home    = '${javaEnv.javaHome}'
-             |   java_options = '${javaEnv.javaOptions.mkString(" ")}""".stripMargin
+             |   java_options = '${javaOptions.mkString(" ")}""".stripMargin
         Task(logger.debug(debugOptions)(DebugFilter.All))
       } else Task.unit
     logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))

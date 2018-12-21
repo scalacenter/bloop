@@ -94,6 +94,7 @@ object TestInternals {
    * @param classLoader      The class loader used for discovering the tests
    * @param discovered       The test tasks that were discovered, grouped by their `Framework`
    * @param args             The test arguments to pass to the framework
+   * @param userJvmOptions   The jvm options to run tests with.
    * @param testEventHandler Handler that reacts on messages from the testing frameworks
    * @param logger           Logger receiving test output
    * @param opts             The options to run the program with
@@ -104,6 +105,7 @@ object TestInternals {
       classLoader: ClassLoader,
       discovered: Map[Framework, List[TaskDef]],
       args: List[Config.TestArgument],
+      userJvmOptions: List[String],
       testEventHandler: TestSuiteEventHandler,
       logger: Logger,
       opts: CommonOptions
@@ -115,7 +117,7 @@ object TestInternals {
 
     val server = new TestServer(logger, testEventHandler, classLoader, discovered, args, opts)
     val forkMain = classOf[sbt.ForkMain].getCanonicalName
-    val arguments = Array(server.port.toString)
+    val arguments = userJvmOptions.toArray ++ Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
     logger.debug("Test agent JARs: " + testAgentJars.mkString(", "))
 
