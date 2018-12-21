@@ -355,6 +355,7 @@ addCommandAlias(
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
     s"${nativeBridge.id}/$publishLocalCmd",
+    s"${millBloop.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
