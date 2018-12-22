@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/index.html"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/solarized-dark.min.css"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><link rel="stylesheet" href="/bloop/css/prism.css"/><link rel="stylesheet" href="/bloop/css/main.css"/></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/orca-whale-white.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="justify-content:center;margin-left:1.5em;margin-right:1.5em;text-align:center;max-width:1024px">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools to successfully export their build definitions.</p><p style="justify-content:center;margin-left:1.5em;margin-right:1.5em;text-align:center">If you are a <b>tooling author</b> that want to automatically install and configure bloop without requiring your users to do so, head to the <a href="/bloop/docs/launcher-reference.html">Launcher Reference</a> to read about the recommended approach.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/index.html"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/orca-whale-white.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="text-align:justify;margin:1em auto;max-width:70%">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools to successfully export their build definitions.</p><p style="text-align:justify;margin:1em auto;max-width:70%">It&#x27;s recommended to install bloop globally. However, it&#x27;s not mandatory to do so. If you want to depend on bloop, the <a href="/bloop/docs/launcher-reference.html">Launcher </a>will install and configure bloop automatically, providing an out-of-the-box experience.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
 <thead>
 <th>Version</th>
 <th>Published</th>
@@ -11,13 +11,13 @@
 <td><code>-r sonatype:releases</code></td>
 </tr>
 <tr>
-<td>1.1.2+42-634ff140</td>
-<td>21 Dec 2018 16:59</td>
+<td>1.1.2+43-d73e247b</td>
+<td>22 Dec 2018 00:30</td>
 <td><code>-r bintray:scalacenter/releases</code></td>
 </tr>
 </tbody>
 </table>
-</span></div></div></div><div class="container paddingBottom"><div class="wrapper"><div class="step"><div class="step-setup"><h2><span class="step-no">1</span>Pick your preferred method</h2><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">curl (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="nix" class="tools-button">Nix</button></div></div><div class="step-hidden step-setup"><h2 id="installation"><span class="step-no">2</span>Installation</h2><div class="items" data-title="homebrew"><div><span><pre><code class="hljs css language-bash">$ brew <span class="token function">install</span> scalacenter/bloop/bloop
+</span></div></div></div><div class="container paddingBottom"><div class="wrapper"><div class="step"><div class="step-setup"><h2><span class="step-no">1</span>Pick your preferred method</h2><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">curl (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="nix" class="tools-button">Nix</button></div></div><div class="step-hidden step-setup"><h2 id="installation"><span class="step-no">2</span>Installation</h2><div class="items" data-title="homebrew"><div><span><pre><code class="hljs css language-bash">$ brew install scalacenter/bloop/bloop
 </code></pre>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
@@ -52,7 +52,7 @@ $ scoop search bloop
 // You should see the bloop scoop package listed here
 </code></pre>
 <p>Then, install it with:</p>
-<pre><code class="hljs css language-bash">$ scoop <span class="token function">install</span> bloop
+<pre><code class="hljs css language-bash">$ scoop install bloop
 </code></pre>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
@@ -214,7 +214,7 @@ directory (usually <code>~/.config/fish/completions</code>).</p>
 <p>Bloop CLI completions will not work if the build server is not running when the shell is reloaded.
 Make sure that, before reloading the fish shell, the build server is started.</p>
 <p>If you still experience problems, reload the completion script:</p>
-<pre><code class="hljs css language-bash">$ <span class="token function">source</span> <span class="token variable">$HOME</span>/.bloop/fish/bloop.fish bloop.fish
+<pre><code class="hljs css language-bash">$ <span class="hljs-built_in">source</span> <span class="hljs-variable">$HOME</span>/.bloop/fish/bloop.fish bloop.fish
 </code></pre>
 <p>Or, if you use <a href="https://github.com/oh-my-fish/oh-my-fish">Oh My Fish</a>:</p>
 <pre><code class="hljs css language-bash">$ omf reload
@@ -225,25 +225,25 @@ on a lot of improvements with regards to performance and correctness in
 difference in Gradle builds.</p>
 <h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
 <p>Install bloop in <code>build.gradle</code>:</p>
-<pre><code class="hljs css language-groovy">buildscript <span class="token punctuation">{</span>
-  repositories <span class="token punctuation">{</span>
-    <span class="token comment">// Add here whatever repositories you're already using</span>
-    <span class="token function">mavenCentral</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-  <span class="token punctuation">}</span>
+<pre><code class="hljs css language-groovy">buildscript {
+  repositories {
+    <span class="hljs-comment">// Add here whatever repositories you're already using</span>
+    mavenCentral()
+  }
 
-  dependencies <span class="token punctuation">{</span>
-    classpath <span class="token string">'ch.epfl.scala:gradle-bloop_2.11:1.1.2'</span>
-  <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+  dependencies {
+    classpath <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.11:1.1.2'</span>
+  }
+}
 </code></pre>
 <p>Then, apply the plugin to the build projects you use to use from bloop. You can do it for all the
 projects in the build (the most common use case).</p>
-<pre><code class="hljs css language-groovy">allprojects <span class="token punctuation">{</span>
-  apply plugin <span class="token string">'bloop'</span>
-<span class="token punctuation">}</span>
+<pre><code class="hljs css language-groovy">allprojects {
+  apply plugin <span class="hljs-string">'bloop'</span>
+}
 </code></pre>
 <p>Or, selectively per project:</p>
-<pre><code class="hljs css language-groovy">apply plugin <span class="token string">'bloop'</span>
+<pre><code class="hljs css language-groovy">apply plugin <span class="hljs-string">'bloop'</span>
 </code></pre>
 <h2><a class="anchor" aria-hidden="true" id="export-the-build"></a><a href="#export-the-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export the build</h2>
 <p>The gradle command <code>bloopInstall</code> exports your gradle build to bloop.</p>
@@ -255,9 +255,9 @@ generation for those projects that are not either Java or Scala.</p>
 </code></pre>
 <p>For example, a build with a single Scala project <code>foo</code> generates two configuration files by default:</p>
 <pre><code class="hljs css language-bash">$ ./gradlew bloopInstall
-<span class="token punctuation">(</span><span class="token punctuation">..</span>.<span class="token punctuation">)</span>
-Generated <span class="token string">'/disk/foo/.bloop/foo.json'</span><span class="token keyword">.</span>
-Generated <span class="token string">'/disk/foo/.bloop/foo-test.json'</span><span class="token keyword">.</span>
+(...)
+Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
+Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
 </code></pre>
 <p>where:</p>
 <ol>
@@ -289,7 +289,7 @@ foo-test
 </blockquote>
 <p>If you suspect bloop is loading the configuration files from somewhere else, run <code>--verbose</code>:</p>
 <pre><code class="hljs css language-bash">$ bloop projects --verbose
-<span class="token punctuation">[</span>D<span class="token punctuation">]</span> Projects loaded from <span class="token string">'/my-project/.bloop'</span><span class="token keyword">:</span>
+[D] Projects loaded from <span class="hljs-string">'/my-project/.bloop'</span>:
 foo
 foo-test
 </code></pre>
@@ -322,9 +322,9 @@ not either Java or Scala.</p>
 </code></pre>
 <p>For example, a build with a single Scala project <code>foo</code> generates two configuration files:</p>
 <pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.1.2:bloopInstall
-<span class="token punctuation">(</span><span class="token punctuation">..</span>.<span class="token punctuation">)</span>
-Generated <span class="token string">'/disk/foo/.bloop/foo.json'</span><span class="token keyword">.</span>
-Generated <span class="token string">'/disk/foo/.bloop/foo-test.json'</span><span class="token keyword">.</span>
+(...)
+Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
+Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
 </code></pre>
 <p>where:</p>
 <ol>
@@ -349,7 +349,7 @@ foo-test
 </ol>
 <p>If you suspect bloop is loading the configuration files from somewhere else, run <code>--verbose</code>:</p>
 <pre><code class="hljs css language-bash">$ bloop projects --verbose
-<span class="token punctuation">[</span>D<span class="token punctuation">]</span> Projects loaded from <span class="token string">'/my-project/.bloop'</span><span class="token keyword">:</span>
+[D] Projects loaded from <span class="hljs-string">'/my-project/.bloop'</span>:
 foo
 foo-test
 </code></pre>
@@ -368,7 +368,7 @@ IDEs</a>.</p>
 <a href="docs/build-tools/maven">Maven documentation page</a>.</p>
 </span></div></div><div class="build-items" data-title="mill"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
 <p>Install bloop in <code>build.sc</code>:</p>
-<pre><code class="hljs css language-scala"><span class="token keyword">import</span> $ivy<span class="token punctuation">.</span>`ch<span class="token punctuation">.</span>epfl<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token operator">:</span>mill<span class="token operator">-</span>bloop<span class="token operator">:</span><span class="token number">1.1</span><span class="token number">.2</span>`
+<pre><code class="hljs css language-scala"><span class="hljs-keyword">import</span> $ivy.`ch.epfl.scala::mill-bloop:<span class="hljs-number">1.1</span><span class="hljs-number">.2</span>`
 </code></pre>
 <h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
 <p>The mill command <code>bloopInstall</code> exports your mill build to bloop.</p>
@@ -376,9 +376,9 @@ IDEs</a>.</p>
 definition. For example, a build with a single Scala project <code>foo</code> generates two configuration files
 by default:</p>
 <pre><code class="hljs css language-bash">$ mill bloop.integrations.mill.Bloop/install
-<span class="token punctuation">(</span><span class="token punctuation">..</span>.<span class="token punctuation">)</span>
-info Generated <span class="token string">'/disk/foo/.bloop/foo.json'</span><span class="token keyword">.</span>
-info Generated <span class="token string">'/disk/foo/.bloop/foo-test.json'</span><span class="token keyword">.</span>
+(...)
+info Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
+info Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
 </code></pre>
 <p>where:</p>
 <ol>
@@ -407,7 +407,7 @@ foo-test
 </ol>
 <p>If you suspect bloop is loading the configuration files from somewhere else, run <code>--verbose</code>:</p>
 <pre><code class="hljs css language-bash">$ bloop projects --verbose
-<span class="token punctuation">[</span>D<span class="token punctuation">]</span> Projects loaded from <span class="token string">'/my-project/.bloop'</span><span class="token keyword">:</span>
+[D] Projects loaded from <span class="hljs-string">'/my-project/.bloop'</span>:
 foo
 foo-test
 </code></pre>
@@ -426,7 +426,7 @@ IDEs</a>.</p>
 <a href="docs/build-tools/mill">Mill documentation page</a>.</p>
 </span></div></div><div class="build-items" data-title="sbt"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
 <p>Install bloop in <code>project/plugins.sbt</code>:</p>
-<pre><code class="hljs css language-scala">addSbtPlugin<span class="token punctuation">(</span><span class="token string">"ch.epfl.scala"</span> <span class="token operator">%</span> <span class="token string">"sbt-bloop"</span> <span class="token operator">%</span> <span class="token string">"1.1.2"</span><span class="token punctuation">)</span>
+<pre><code class="hljs css language-scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.1.2"</span>)
 </code></pre>
 <p>And start up or reload your sbt shell to add the plugin to your working build.</p>
 <h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
@@ -437,10 +437,10 @@ written to a configuration directory. The default location of this directory in 
 <p>For example, a build with a single project <code>foo</code> generates two configuration files by
 default (one per [sbt configuration][sbt-configuration]):</p>
 <pre><code class="hljs css language-bash">$ sbt bloopInstall
-<span class="token punctuation">[</span>info<span class="token punctuation">]</span> Loading global plugins from /Users/John/.sbt/1.0/plugins
-<span class="token punctuation">(</span><span class="token punctuation">..</span>.<span class="token punctuation">)</span>
-<span class="token punctuation">[</span>success<span class="token punctuation">]</span> Generated <span class="token string">'/disk/foo/.bloop/foo.json'</span><span class="token keyword">.</span>
-<span class="token punctuation">[</span>success<span class="token punctuation">]</span> Generated <span class="token string">'/disk/foo/.bloop/foo-test.json'</span><span class="token keyword">.</span>
+[info] Loading global plugins from /Users/John/.sbt/1.0/plugins
+(...)
+[success] Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
+[success] Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
 </code></pre>
 <p>where:</p>
 <ol>
@@ -465,7 +465,7 @@ foo-test
 </ol>
 <p>If you suspect bloop is loading the configuration files from somewhere else, use <code>--verbose</code>:</p>
 <pre><code class="hljs css language-bash">$ bloop projects --verbose
-<span class="token punctuation">[</span>D<span class="token punctuation">]</span> Projects loaded from <span class="token string">'/my-project/.bloop'</span><span class="token keyword">:</span>
+[D] Projects loaded from <span class="hljs-string">'/my-project/.bloop'</span>:
 foo
 foo-test
 </code></pre>
@@ -480,7 +480,7 @@ foo-test
 IDEs</a>.</p>
 <p>If you want to configure the installation step or learn more about the integration, visit the
 <a href="docs/build-tools/sbt">sbt documentation page</a>.</p>
-</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1545411620912"></script><script src="/bloop/scripts/build-tools.js?t=1545411620912"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1545438660682"></script><script src="/bloop/scripts/build-tools.js?t=1545438660682"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
