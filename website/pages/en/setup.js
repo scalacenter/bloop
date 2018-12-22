@@ -21,13 +21,15 @@ const SetupHeader = () => {
       <h1>
         <translate desc="setup page - header">Installation Guide</translate>
       </h1>
-    <p style={{"justifyContent": "center", "marginLeft": "1.5em", "marginRight": "1.5em", "textAlign": "center", "maxWidth": "1024px"}}>
+    <p style={{"textAlign": "justify", "margin": "1em auto", "maxWidth": "70%"}}>
       The installation guide walks <b>users</b> through all the steps to install bloop and get any
       of the supported build tools to successfully export their build definitions.
     </p>
 
-    <p style={{"justifyContent": "center", "marginLeft": "1.5em", "marginRight": "1.5em", "textAlign": "center"}}>
-      If you are a <b>tooling author</b> that want to automatically install and configure bloop without requiring your users to do so, head to the <a href={`${siteConfig.baseUrl}docs/launcher-reference.html`}>Launcher Reference</a> to read about the recommended approach.
+    <p style={{"textAlign": "justify", "margin": "1em auto", "maxWidth": "70%"}}>
+      It's recommended to install bloop globally. However, it's not mandatory to do so. If you want
+      to depend on bloop, the <a href={`${siteConfig.baseUrl}docs/launcher-reference.html`}>Launcher </a>
+      will install and configure bloop automatically, providing an out-of-the-box experience.
     </p>
 
       <div style={{"display": "flex", "justifyContent": "center", "marginBottom": "1em"}}>

@@ -177,6 +177,7 @@ pipeline:
       - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
       - curl -o- -L https://yarnpkg.com/install.sh | bash
       - yarn --help
+      - git status # Print to see what may be polluting the git state
       - ${PUBLISH_ARTIFACTS}
 
   release:
@@ -196,7 +197,6 @@ pipeline:
       - . bin/set-up-dodo.sh # Source it because it exports variables
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${UPDATE_GITHUB_AND_INSTALLERS}
-      - git status # Print to see what may be polluting the git state
 
   rebuild-cache:
     image: drillster/drone-volume-cache

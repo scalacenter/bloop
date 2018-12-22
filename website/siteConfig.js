@@ -131,13 +131,11 @@ const siteConfig = {
 
   highlight: {
     // Highlight.js theme to use for syntax highlighting in code blocks.
-    theme: 'solarized-dark',
+    theme: 'mono-blue',
   },
 
   // Necessary for sbt-docusaurus
   customDocsPath: 'out',
-
-  usePrism: ['javascript', 'js', 'jsx', 'java', 'objective-c', 'json', 'scala', 'diff', 'bash', 'groovy'],
 
   // Add custom scripts here that would be placed in <script> tags.
   scripts: [
@@ -164,7 +162,7 @@ const siteConfig = {
   // enableUpdateBy: true,
 
   // Show documentation's last update time.
-  // enableUpdateTime: true,
+  enableUpdateTime: true,
 
   // You may provide arbitrary config keys to be used as needed by your
   // template. For example, if you need your repo's URL...

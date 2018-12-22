@@ -32,9 +32,8 @@ The bloop installation directory is the directory where `bloop` is located. In U
 systems, the bloop installation directory can be found by running `which bloop`.
 
 <blockquote class="grab-attention">
-Do you want to install and start the server <i>automatically</i> in the background?
-The <a href="launcher-reference">Launcher</a> is a lightweight artifact that will
-provide clients an out-of-the-box bloop experience.
+If you are integrating your tool with bloop and want to install and start the server
+<i>automatically</i> in the background, you can use Bloop's built-in <a href="launcher-reference">Launcher</a>.
 </blockquote>
 
 ### `bloop server`

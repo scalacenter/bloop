@@ -19,11 +19,6 @@ a .button {
   color: #primaryColor;
 }
 
-.grab-attention {
-  background-color: #fff8fc;
-  border-left: 8px solid #ffd6ff;
-}
-
 .button {
   border-radius: 8px;
 }
@@ -52,6 +47,15 @@ table thead {
 
 table tr:nth-child(2n) {
   background-color: rgb(237, 252, 255);
+}
+
+.mainContainer .wrapper .post .postHeader {
+    margin-bottom: 0px;
+}
+
+article::before {
+  content: '';
+  display: block;
 }
 
 .mainContainer a:not(.button) {
@@ -98,10 +102,7 @@ table tr:nth-child(2n) {
 
 .mainContainer .wrapper .post .postHeaderTitle {
   margin-top: 1em;
-}
-
-.mainContainer h2:first-child {
-  margin-top: 0.25em;
+  margin-bottom: 1em;
 }
 
 .token.keyword {
@@ -251,6 +252,7 @@ blockquote {
     background: #fff;
     border-left-color: #e0e0e0;
     color: inherit;
+    max-width: 97.5%;
 }
 
 @media only screen and (min-width: 736px) {
@@ -346,7 +348,28 @@ blockquote {
   }
 }
 
-.wrapper {
+@media only screen and (min-device-width: 736px) {
+  .installationContainer .wrapper {
+    max-width: 80%;
+    padding: 0 20px;
+  }
+}
+
+@media only screen and (max-device-width: 736px) {
+  .installationContainer .wrapper {
+    max-width: 100%;
+    padding: 0 20px;
+  }
+}
+
+@media only screen and (min-width: 1400px) {
+  .installationContainer .wrapper {
+    max-width: 70%;
+    padding: 0 20px;
+  }
+}
+
+.installationContainer {
   max-width: 1200px;
 }
 

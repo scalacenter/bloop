@@ -32,3 +32,4 @@ website/build/bloop-gh-pages/
 node_modules/
 package-lock.json
 .metals/
+*.lock

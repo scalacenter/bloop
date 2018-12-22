@@ -1,17 +1,19 @@
 /* your custom css */
 
 @media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
+  .installationContainer .wrapper {
+    max-width: 100% !important;
+    padding: 0 20px;
+  }
 }
 
-@media only screen and (min-width: 1024px) {
-  .installationContainer {
-    margin: 0px auto;
-    max-width: 60%;
-  }
-
+@media only screen and (min-width: 736px) {
   .installation-header table {
     display: initial !important;
   }
+}
+
+@media only screen and (min-width: 1024px) {
 }
 
 @media only screen and (max-width: 1023px) {
@@ -21,4 +23,8 @@
 }
 
 @media only screen and (min-width: 1500px) {
+  .installationContainer {
+    margin: 0px auto;
+    max-width: 80%;
+  }
 }
