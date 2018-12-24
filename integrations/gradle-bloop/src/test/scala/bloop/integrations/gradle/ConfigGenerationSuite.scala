@@ -521,7 +521,7 @@ class ConfigGenerationSuite {
   def compileBloopProject(projectName: String, bloopDir: File, verbose: Boolean = false): State = {
     val state0 = loadBloopState(bloopDir)
     val state = if (verbose) state0.copy(logger = state0.logger.asVerbose) else state0
-    val action = Run(Commands.Compile(project = projectName))
+    val action = Run(Commands.Compile(List(projectName)))
     TestUtil.blockingExecute(action, state0)
   }
 

@@ -34,7 +34,7 @@ class ScalaJsToolchainSpec {
   @Test def canLinkScalaJsProject(): Unit = {
     val logger = new RecordingLogger
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject))
+    val action = Run(Commands.Link(List(MainProject)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -45,7 +45,7 @@ class ScalaJsToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = MainProject, optimize = Some(mode)))
+    val action = Run(Commands.Link(List(MainProject), optimize = Some(mode)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -56,7 +56,7 @@ class ScalaJsToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Run(project = MainProject))
+    val action = Run(Commands.Run(List(MainProject)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)

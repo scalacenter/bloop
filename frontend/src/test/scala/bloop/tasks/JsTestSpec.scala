@@ -43,8 +43,9 @@ object JsTestSpec {
     val format = ReporterConfig.defaultFormat
     val createReporter = (project: Project, cwd: AbsolutePath) =>
       CompilationTask.toReporter(project, cwd, format, state0.logger)
+    val dag = state0.build.getDagFor(project)
     val compileTask =
-      CompilationTask.compile(state0, project, createReporter, false, order, false, false)
+      CompilationTask.compile(state0, dag, createReporter, false, order, false, false)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
@@ -93,7 +94,7 @@ class JsTestSpec(
   def canRunTest(): Unit = {
     val logger = new RecordingLogger()
     val blockingDuration = Duration.apply(15, TimeUnit.SECONDS)
-    val action = Run(Commands.Test(project = testProject.name))
+    val action = Run(Commands.Test(projects = List(testProject.name)))
     val resultingState: State =
       TestUtil.blockingExecute(action, testState.copy(logger = logger), blockingDuration)
     assertTrue(

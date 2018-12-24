@@ -161,7 +161,7 @@ object Interpreter {
       deduplicateFailures: Boolean
   ): Task[State] = {
     val (projects, missingProjects) =
-      lookupProjects(cmd.project, state, state.build.getProjectFor(_))
+      lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
     if (missingProjects.nonEmpty) Task.now(reportMissing(missingProjects, state))
     else {
       if (!cmd.watch) runCompile(cmd, state, projects, deduplicateFailures)
@@ -204,7 +204,7 @@ object Interpreter {
   }
 
   private def console(cmd: Commands.Console, state: State, sequential: Boolean): Task[State] = {
-    cmd.project match {
+    cmd.projects match {
       case Nil =>
         Task.now (
           state
@@ -231,7 +231,7 @@ object Interpreter {
 
   private def test(cmd: Commands.Test, state: State, sequential: Boolean): Task[State] = {
     val (projects, missingProjects) =
-      lookupProjects(cmd.project, state, Tasks.pickTestProject(_, state))
+      lookupProjects(cmd.projects, state, Tasks.pickTestProject(_, state))
     if (missingProjects.nonEmpty) Task.now(reportMissing(missingProjects, state))
     else {
       def testAllProjects(state: State) = {
@@ -328,12 +328,12 @@ object Interpreter {
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
-    if (cmd.project.isEmpty)
+    if (cmd.projects.isEmpty)
       Tasks
         .clean(state, state.build.projects, cmd.includeDependencies)
         .map(_.mergeStatus(ExitStatus.Ok))
     else {
-      val (projects, missing) = lookupProjects(cmd.project, state, state.build.getProjectFor(_))
+      val (projects, missing) = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
       if (missing.isEmpty)
         Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
       else Task.now(reportMissing(missing, state))
@@ -363,7 +363,7 @@ object Interpreter {
       }
     }
 
-    val (projects, missing) = lookupProjects(cmd.project, state, state.build.getProjectFor(_))
+    val (projects, missing) = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
     if (missing.nonEmpty)
       Task.now(reportMissing(missing, state))
     else {
@@ -418,7 +418,7 @@ object Interpreter {
       }
     }
 
-    val (projects, missing) = lookupProjects(cmd.project, state, state.build.getProjectFor(_))
+    val (projects, missing) = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
     if (missing.nonEmpty)
       Task.now(reportMissing(missing, state))
     else {

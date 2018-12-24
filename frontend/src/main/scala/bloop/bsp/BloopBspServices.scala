@@ -349,7 +349,7 @@ final class BloopBspServices(
     ): Task[State] = {
       import bloop.engine.tasks.LinkTask.{linkMainWithJs, linkMainWithNative}
       val cwd = state.commonOptions.workingPath
-      val cmd = Commands.Run(project.name)
+      val cmd = Commands.Run(List(project.name))
       Interpreter.getMainClass(state, project, cmd.main) match {
         case Left(state) =>
           Task.now(sys.error(s"Failed to run main class in ${project.name}"))

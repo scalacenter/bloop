@@ -3,7 +3,7 @@ package bloop.testing
 import org.junit.Test
 import org.junit.Assert.{assertFalse, assertTrue}
 
-import bloop.engine.{Interpreter, Run}
+import bloop.engine.Run
 import bloop.cli.Commands
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
@@ -98,7 +98,7 @@ class TestFilterSpec {
     val projectName = "with-tests"
     val testName = "hello.ScalaTestTest"
     val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
-    val command = Run(Commands.Test(projectName, only = testName :: Nil))
+    val command = Run(Commands.Test(List(projectName), only = testName :: Nil))
     val newState = TestUtil.blockingExecute(command, state)
     assertTrue("Test execution failed.", newState.status.isOk)
     val messages = logger.getMessages
@@ -118,7 +118,7 @@ class TestFilterSpec {
     val testName = "hello.ScalaTestTest"
     val exclusionFilter = s"-$testName"
     val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
-    val command = Run(Commands.Test(projectName, only = exclusionFilter :: Nil))
+    val command = Run(Commands.Test(List(projectName), only = exclusionFilter :: Nil))
     val newState = TestUtil.blockingExecute(command, state)
     assertTrue("Test execution failed.", newState.status.isOk)
     val messages = logger.getMessages
@@ -139,7 +139,7 @@ class TestFilterSpec {
     val inclusionFilter = "hello.*a*"
     val state = TestUtil.loadTestProject(projectName).copy(logger = logger)
     val command = Run(
-      Commands.Test(projectName, only = exclusionFilter :: inclusionFilter :: Nil))
+      Commands.Test(List(projectName), only = exclusionFilter :: inclusionFilter :: Nil))
     val newState = TestUtil.blockingExecute(command, state)
     assertTrue("Test execution failed.", newState.status.isOk)
     val messages = logger.getMessages

@@ -14,7 +14,7 @@ class TestResourcesSpec {
   def testsCanSeeResources: Unit = {
     val projectName = "with-resources"
     val state = loadTestProject(projectName)
-    val command = Commands.Test(projectName)
+    val command = Commands.Test(List(projectName))
     runAndCheck(state, command) { messages =>
       val cleanMessages = messages.map { case (l, m) => (l, removeEscapeSequences(m)) }
       assert(cleanMessages.contains(("info", "Resources")))

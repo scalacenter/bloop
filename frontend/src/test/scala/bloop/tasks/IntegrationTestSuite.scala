@@ -114,7 +114,7 @@ class IntegrationTestSuite(testDirectory: Path) {
     val enablePipelining = isPipeliningEnabled
     val action = Run(
       Commands.Compile(
-        projectToCompile.name,
+        List(projectToCompile.name),
         incremental = true,
         pipeline = isPipeliningEnabled
       ),

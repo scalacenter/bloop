@@ -117,17 +117,22 @@ object Cli {
   private def printErrorAndExit(msg: String, commonOptions: CommonOptions): Print =
     Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
+  private def withProjects(
+      currentProjects: List[String],
+      commandName: String,
+      remainingArgs: Seq[String],
+      commonOptions: CommonOptions
+  )(f: List[String] => Action): Action = {
+    // We interpret remaining args as projects too
+    val potentialProjects = currentProjects ++ remainingArgs
+    if (potentialProjects.nonEmpty) f(potentialProjects)
+    else {
+      printErrorAndExit(s"Required project name not specified for '$commandName'.", commonOptions)
+    }
+  }
+
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
     import caseapp.core.WithHelp
-
-    def inferProjectFromRemaining(args: Seq[String], cmd: String): Either[Action, String] = {
-      if (args.isEmpty)
-        Left(printErrorAndExit(s"Required project name not specified for '$cmd'.", commonOptions))
-      else if (args.size >= 2)
-        Left(printErrorAndExit(s"Too many projects have been specified for '$cmd'.", commonOptions))
-      else Right(args.head)
-    }
-
     CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
       case Left(err) => printErrorAndExit(err, commonOptions)
       case Right((WithHelp(_, help @ true, _), _, _)) =>
@@ -148,21 +153,6 @@ object Cli {
               else Run(Commands.About(cliOptions), Run(command, Exit(ExitStatus.Ok)))
             }
 
-            // Infer project from the context if the current project is empty.
-            def withProject(currentProject: String)(f: String => Action) = {
-              if (currentProject.nonEmpty) f(currentProject)
-              else {
-                inferProjectFromRemaining(remainingArgs, commandName) match {
-                  case Left(action) => action
-                  case Right(inferredProject) if currentProject.isEmpty => f(inferredProject)
-                  case Right(inferredProject) =>
-                    printErrorAndExit(
-                      s"Detected '$currentProject' and '$inferredProject' are ambiguous projects for '${commandName}'.",
-                      commonOptions)
-                }
-              }
-            }
-
             command match {
               case Left(err) => printErrorAndExit(err, commonOptions)
               case Right(v: Commands.Help) =>
@@ -176,39 +166,40 @@ object Cli {
                 Validate.bsp(newCommand, BspServer.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProject(c.project) { (p: String) =>
-                  val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
-                  run(cmd, newCommand.cliOptions)
+                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                  run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
               case Right(c: Commands.Autocomplete) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Console) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProject(c.project) { (p: String) =>
-                  val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
-                  run(cmd, newCommand.cliOptions)
+                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                  run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProject(c.project) { (p: String) =>
-                  val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
-                  // Infer everything after '--' as if they were test framework args
-                  run(cmd.copy(args = c.args ++ extraArgs), newCommand.cliOptions)
+                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                  run(
+                    // Infer everything after '--' as if they were execution args
+                    newCommand.copy(projects = ps, args = c.args ++ extraArgs),
+                    newCommand.cliOptions
+                  )
                 }
               case Right(c: Commands.Run) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProject(c.project) { (p: String) =>
-                  val cmd0 = if (p != c.project) newCommand.copy(project = p) else newCommand
-                  // Infer everything after '--' as if they were execution args
-                  val cmd = cmd0.copy(args = c.args ++ extraArgs)
-                  run(cmd, newCommand.cliOptions)
+                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                  run(
+                    // Infer everything after '--' as if they were execution args
+                    newCommand.copy(projects = ps, args = c.args ++ extraArgs),
+                    newCommand.cliOptions
+                  )
                 }
               case Right(c: Commands.Clean) =>
-                val newCommand = c
-                  .copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                  .copy(project = c.project ++ remainingArgs)
-                run(newCommand, newCommand.cliOptions)
+                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                  val cliOptions = c.cliOptions.copy(common = commonOptions)
+                  run(c.copy(projects = ps, cliOptions = cliOptions), c.cliOptions)
+                }
               case Right(c: Commands.Projects) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
@@ -217,9 +208,8 @@ object Cli {
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Link) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProject(c.project) { (p: String) =>
-                  val cmd = if (p != c.project) newCommand.copy(project = p) else newCommand
-                  run(cmd, newCommand.cliOptions)
+                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                  run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
             }
         }

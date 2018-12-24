@@ -33,7 +33,7 @@ class ScalaNativeToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = "crossNative"))
+    val action = Run(Commands.Link(List("crossNative")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -44,7 +44,7 @@ class ScalaNativeToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(project = "crossNative", optimize = Some(mode)))
+    val action = Run(Commands.Link(List("crossNative"), optimize = Some(mode)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 3)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
@@ -55,7 +55,7 @@ class ScalaNativeToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Debug
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Run(project = "crossNative"))
+    val action = Run(Commands.Run(List("crossNative")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
     assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
