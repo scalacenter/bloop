@@ -258,7 +258,6 @@ object Interpreter {
       state: State,
       lookupFunction: String => Option[Project]
   ): ProjectLookup = {
-    // FIXME: THis is *very* similar to what we need
     val build = state.build
     val result = List[Project]() -> List[String]()
     names.foldLeft(result) {
@@ -382,7 +381,7 @@ object Interpreter {
       val cwd = project.baseDirectory
       compileAnd(cmd, state, project, false, sequential, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
-          case Left(state) => Task.now(state) // If we got here, we have already reported errors
+          case Left(failedState) => Task.now(failedState)
           case Right(mainClass) =>
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
