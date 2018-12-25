@@ -33,7 +33,6 @@ object CompilationTask {
       state: State,
       dag: Dag[Project],
       createReporter: (Project, AbsolutePath) => Reporter,
-      sequentialCompilation: Boolean,
       userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
       excludeRoot: Boolean
@@ -137,50 +136,32 @@ object CompilationTask {
     }
 
     def setup(project: Project): CompileBundle = CompileBundle(project)
-    def triggerCompile: Task[State] = {
-      CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
-        val partialResults = Dag.dfs(partialDag)
-        val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
-        Task.gatherUnordered(finalResults).map(_.flatten).map { results =>
-          cleanStatePerBuildRun(dag, results, state)
-          val newState = state.copy(results = state.results.addFinalResults(results))
-          val failures = results.collect {
-            case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
+    CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
+      val partialResults = Dag.dfs(partialDag)
+      val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
+      Task.gatherUnordered(finalResults).map(_.flatten).map { results =>
+        cleanStatePerBuildRun(dag, results, state)
+        val newState = state.copy(results = state.results.addFinalResults(results))
+        val failures = results.collect {
+          case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
+        }
+
+        if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
+        else {
+          results.foreach {
+            case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
+              val project = bundle.project
+              logger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
+              // Make a better job here at reporting any throwable that happens during compilation
+              t.printStackTrace()
+              logger.trace(t)
+            case _ => () // Do nothing when the final compilation result is not an actual error
           }
 
-          if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
-          else {
-            results.foreach {
-              case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
-                val project = bundle.project
-                logger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
-                // Make a better job here at reporting any throwable that happens during compilation
-                t.printStackTrace()
-                logger.trace(t)
-              case _ => () // Do nothing when the final compilation result is not an actual error
-            }
-
-            failures.foreach(b => logger.error(s"'${b.project.name}' failed to compile."))
-            newState.copy(status = ExitStatus.CompilationError)
-          }
+          failures.foreach(b => logger.error(s"'${b.project.name}' failed to compile."))
+          newState.copy(status = ExitStatus.CompilationError)
         }
       }
-    }
-
-    if (!sequentialCompilation) triggerCompile
-    else {
-      // Check dependent projects didn't fail in previous sequential compile
-      val allDependencies = Dag.dfs(dag).toSet
-      val dependentResults = state.results.allResults.filter(pr => allDependencies.contains(pr._1))
-      val failedDependentProjects =
-        dependentResults.collect { case (p, Compiler.Result.NotOk(_)) => p }
-      if (!failedDependentProjects.isEmpty) {
-        val failedProjects = failedDependentProjects.map(p => s"'${p.name}'").mkString(", ")
-        // FIXME: What to print?!?
-//        logger.warn(
-//          s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
-        Task.now(state.copy(status = ExitStatus.CompilationError))
-      } else triggerCompile
     }
   }
 

@@ -58,12 +58,13 @@ object BspClientTest {
   def runTest[T](
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
-      logger: BspClientLogger[_],
+      logger0: BspClientLogger[_],
       customServices: Services => Services = identity[Services],
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
       addDiagnosticsHandler: Boolean = true
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Unit = {
+    val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
     val state = {
       val id = identity[List[Project]] _

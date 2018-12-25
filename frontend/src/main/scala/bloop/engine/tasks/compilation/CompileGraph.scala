@@ -136,14 +136,7 @@ object CompileGraph {
             case Aggregate(dags) =>
               val downstream = dags.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
-                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) Task.now(Parent(PartialEmpty, dagResults))
-                else {
-                  val failures = Dag.directDependencies(dagResults)
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent(PartialFailures(failures, blocked), dagResults))
-                }
+                Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
@@ -240,14 +233,7 @@ object CompileGraph {
             case Aggregate(dags) =>
               val downstream = dags.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
-                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) Task.now(Parent(PartialEmpty, dagResults))
-                else {
-                  val failures = Dag.directDependencies(dagResults)
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent(PartialFailures(failures, blocked), dagResults))
-                }
+                Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>

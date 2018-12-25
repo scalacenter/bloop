@@ -112,9 +112,13 @@ class CompileSpec {
       order = Config.JavaThenScala
     )(_ => ())
 
-    val errors = TestUtil.errorsFromLogger(logger)
-    assert(errors.size == 3)
-    assert(errors.exists(_.contains("cannot find symbol")))
+    try {
+      val errors = TestUtil.errorsFromLogger(logger)
+      assert(errors.size == 3)
+      assert(errors.exists(_.contains("cannot find symbol")))
+    } finally {
+      //logger.dump()
+    }
   }
 
   @Test
@@ -457,15 +461,19 @@ class CompileSpec {
         assert(projects.forall(p => noPreviousAnalysis(p, state)))
         val projectA = getProject("A", state)
         val projectB = getProject("B", state)
-        val action = Run(Commands.Compile(List("B")), Run(Commands.Compile(List("C"))))
+        val action = Run(Commands.Compile(List("B", "C")))
         val compiledState = TestUtil.blockingExecute(action, state)
-        Assert.assertFalse("Sequential compilation didn't fail!", compiledState.status.isOk)
+        Assert.assertFalse("Expected compilation error", compiledState.status.isOk)
 
         // Check that A failed to compile and that `C` was skipped
-        val msgs = logger.getMessages
-        assert(msgs.exists(m => m._1 == "error" && m._2.contains("'A' failed to compile.")))
-        val targetMsg = s"Skipping compilation of project 'C'; dependent 'A' failed to compile."
-        assert(msgs.exists(m => m._1 == "warn" && m._2.contains(targetMsg)))
+        val errors = logger.getMessagesAt(Some("error"))
+        val compileErrors = errors.filter(_.contains("failed to compile")).sorted.mkString("\n")
+        Assert.assertEquals(
+          compileErrors,
+          """'A' failed to compile.
+            |'B' failed to compile.
+            |'C' failed to compile.""".stripMargin
+        )
     }
   }
 

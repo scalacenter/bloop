@@ -1,13 +1,12 @@
 package bloop.bsp
 
 import java.io.InputStream
-import java.nio.file.{FileSystems, PathMatcher}
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.cli.validation.Validate
 import bloop.{CompileMode, Compiler, ScalaInstance}
-import bloop.cli.{BloopReporter, Commands, ExitStatus, ReporterKind}
+import bloop.cli.{Commands, ExitStatus}
 import bloop.data.{Platform, Project}
 import bloop.engine.tasks.{CompilationTask, Tasks}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
@@ -15,7 +14,7 @@ import bloop.engine._
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
-import bloop.reporter.{BspProjectReporter, Reporter, ReporterConfig}
+import bloop.reporter.{BspProjectReporter, ReporterConfig}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
 import ch.epfl.scala.bsp.{
@@ -191,36 +190,18 @@ final class BloopBspServices(
     }
   }
 
-  private val compiledTargetsAtLeastOnce =
-    new TrieMap[bsp.BuildTargetIdentifier, Boolean]()
-
   /**
-   * Checks whether a project should compile with fresh reporting enabled.
-   *
-   * Enabling fresh reporting in a project will allow the bloop server to
-   * publish diagnostics from previous runs to the client. For an example
-   * of where this is required, see https://github.com/scalacenter/bloop/issues/726
-   *
-   * @param mappings The projects mappings we work with.
-   * @return The list of projects we want to enable fresh reporting for.
-   */
-  def detectProjectsWithFreshReporting(mappings: Seq[ProjectMapping]): Seq[Project] = {
-    val filteredMappings = mappings.filter {
-      case (btid, project) =>
-        compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
-          case Some(_) => false
-          case None => true
-        }
-    }
-
-    filteredMappings.map(_._2)
-  }
+    * Keep track of those projects that were compiled at least once so that we can
+    * decide to enable fresh reporting for projects that are compiled for the first time.
+    *
+    * Required by https://github.com/scalacenter/bloop/issues/726
+    */
+  private val compiledTargetsAtLeastOnce = new TrieMap[bsp.BuildTargetIdentifier, Boolean]()
 
   def compileProjects(
       projects0: Seq[ProjectMapping],
       state: State
   ): BspResult[bsp.CompileResult] = {
-    val projectsWithFreshReporting = detectProjectsWithFreshReporting(projects0).toSet
     def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
@@ -231,7 +212,14 @@ final class BloopBspServices(
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
       val createReporter = (project: Project, cwd: AbsolutePath) => {
-        val reportAllPreviousProblems = projectsWithFreshReporting.contains(project)
+        val btid = bsp.BuildTargetIdentifier(project.bspUri)
+        val reportAllPreviousProblems = {
+          compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
+            case Some(_) => false
+            case None => true
+          }
+        }
+
         new BspProjectReporter(
           project,
           bspLogger,
@@ -243,15 +231,7 @@ final class BloopBspServices(
       }
 
       val dag = Aggregate(projects.toList.map(p => state.build.getDagFor(p)))
-      CompilationTask.compile(
-        state,
-        dag,
-        createReporter,
-        false,
-        CompileMode.Sequential,
-        false,
-        false
-      )
+      CompilationTask.compile(state, dag, createReporter, CompileMode.Sequential, false, false)
     }
 
     val projects = Dag.reduce(state.build.dags, projects0.map(_._2).toSet)

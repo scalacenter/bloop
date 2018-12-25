@@ -63,6 +63,15 @@ final class BspProjectReporter(
       currentAnalysis: Option[CompileAnalysis],
       code: bsp.StatusCode
   ): Unit = {
+    val isNoOp = previousAnalysis match {
+      case Some(previous) =>
+        currentAnalysis match {
+          case Some(current) => current == previous
+          case None => false
+        }
+      case None => false
+    }
+
     val clearedFiles = new mutable.HashSet[File]
     previouslyReportedProblems.foreach { problem =>
       InterfaceUtil.toOption(problem.position().sourceFile).foreach { source =>
