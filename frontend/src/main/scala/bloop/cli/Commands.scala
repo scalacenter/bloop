@@ -76,6 +76,7 @@ object Commands {
 
   case class Clean(
       @ExtraName("p")
+      @ExtraName("project")
       @HelpMessage("The projects to clean (you can specify multiple). If none, all are cleaned.")
       projects: List[String] = Nil,
       @ExtraName("propagate")

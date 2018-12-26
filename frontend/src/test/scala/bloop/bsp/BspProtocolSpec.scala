@@ -1126,8 +1126,8 @@ class BspProtocolSpec {
   }
 
   @Test def TestCompileViaTcp(): Unit = {
-    testCompile(createTcpBspCommand(configDir))
-    testFreshReportingInNoOpCompilation(createTcpBspCommand(configDir))
+    testCompile(createTcpBspCommand(configDir, verbose = true))
+    testFreshReportingInNoOpCompilation(createTcpBspCommand(configDir, verbose = true))
   }
 
   // TODO(jvican): Enable these tests back after partial migration to v2 is done

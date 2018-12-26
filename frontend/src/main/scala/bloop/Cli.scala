@@ -117,7 +117,7 @@ object Cli {
   private def printErrorAndExit(msg: String, commonOptions: CommonOptions): Print =
     Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
 
-  private def withProjects(
+  private def withNonEmptyProjects(
       currentProjects: List[String],
       commandName: String,
       remainingArgs: Seq[String],
@@ -166,7 +166,7 @@ object Cli {
                 Validate.bsp(newCommand, BspServer.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
                   run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
               case Right(c: Commands.Autocomplete) =>
@@ -174,12 +174,12 @@ object Cli {
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Console) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
                   run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
                   run(
                     // Infer everything after '--' as if they were execution args
                     newCommand.copy(projects = ps, args = c.args ++ extraArgs),
@@ -188,7 +188,7 @@ object Cli {
                 }
               case Right(c: Commands.Run) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
                   run(
                     // Infer everything after '--' as if they were execution args
                     newCommand.copy(projects = ps, args = c.args ++ extraArgs),
@@ -196,10 +196,10 @@ object Cli {
                   )
                 }
               case Right(c: Commands.Clean) =>
-                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
-                  val cliOptions = c.cliOptions.copy(common = commonOptions)
-                  run(c.copy(projects = ps, cliOptions = cliOptions), c.cliOptions)
-                }
+                // We accept no project arguments in clean
+                val potentialProjects = c.projects ++ remainingArgs
+                val cliOptions = c.cliOptions.copy(common = commonOptions)
+                run(c.copy(projects = potentialProjects, cliOptions = cliOptions), c.cliOptions)
               case Right(c: Commands.Projects) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
@@ -208,7 +208,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Link) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
                   run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
             }

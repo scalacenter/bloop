@@ -467,7 +467,8 @@ class CompileSpec {
 
         // Check that A failed to compile and that `C` was skipped
         val errors = logger.getMessagesAt(Some("error"))
-        val compileErrors = errors.filter(_.contains("failed to compile")).sorted.mkString("\n")
+        val compileErrors =
+          errors.filter(_.contains("failed to compile")).sorted.mkString(System.lineSeparator())
         Assert.assertEquals(
           compileErrors,
           """'A' failed to compile.
