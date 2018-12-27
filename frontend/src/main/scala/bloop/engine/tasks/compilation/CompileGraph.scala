@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture
 import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.monix.Java8Compat.JavaCompletableFutureUtils
-import bloop.engine.{Dag, ExecutionContext, Leaf, Parent}
+import bloop.engine._
 import bloop.logging.Logger
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
@@ -58,11 +58,37 @@ object CompileGraph {
   }
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
+    def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
+      results match {
+        case Nil => None
+        case result :: rest =>
+          result match {
+            case PartialEmpty => None
+            case _: PartialSuccess => None
+            case f: PartialFailure => Some(f.bundle.project)
+            case fs: PartialFailures => blockedFromResults(results)
+          }
+      }
+    }
+
     dag match {
       case Leaf(_: PartialSuccess) => None
-      case Leaf(result) => Some(result.bundle.project)
+      case Leaf(f: PartialFailure) => Some(f.bundle.project)
+      case Leaf(fs: PartialFailures) => blockedFromResults(fs.failures)
+      case Leaf(PartialEmpty) => None
       case Parent(_: PartialSuccess, _) => None
-      case Parent(result, _) => Some(result.bundle.project)
+      case Parent(f: PartialFailure, _) => Some(f.bundle.project)
+      case Parent(fs: PartialFailures, _) => blockedFromResults(fs.failures)
+      case Parent(PartialEmpty, _) => None
+      case Aggregate(dags) =>
+        dags.foldLeft(None: Option[Project]) {
+          case (acc, dag) =>
+            acc match {
+              case Some(_) => acc
+              case None => blockedBy(dag)
+            }
+
+        }
     }
   }
 
@@ -105,6 +131,12 @@ object CompileGraph {
                 case Compiler.Result.Ok(res) =>
                   Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res)))
                 case res => Leaf(toPartialFailure(bundle, res))
+              }
+
+            case Aggregate(dags) =>
+              val downstream = dags.map(loop)
+              Task.gatherUnordered(downstream).flatMap { dagResults =>
+                Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
@@ -198,6 +230,12 @@ object CompileGraph {
                   }
               }
 
+            case Aggregate(dags) =>
+              val downstream = dags.map(loop)
+              Task.gatherUnordered(downstream).flatMap { dagResults =>
+                Task.now(Parent(PartialEmpty, dagResults))
+              }
+
             case Parent(project, dependencies) =>
               val bundle = setup(project)
               val downstream = dependencies.map(loop)
@@ -225,7 +263,6 @@ object CompileGraph {
                   val javaSignal: Task[JavaSignal] =
                     aggregateJavaSignals(results.map(_.javaTrigger))
 
-                  val transitiveJava = results.flatMap(_.bundle.javaSources)
                   val oracle = CompilerOracle(results.map(r => (r.completeJava, r.bundle.javaSources)))
                   Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                     val jcf = new CompletableFuture[Unit]()

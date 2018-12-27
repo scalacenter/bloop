@@ -766,10 +766,13 @@ class BspProtocolSpec {
     }
   }
 
-  def testCompileNoOp(bspCmd: Commands.ValidatedBsp): Unit = {
+  // Check that we send diagnostics stored in previous analysis when a new bsp session is established
+  def testFreshReportingInNoOpCompilation(bspCmd: Commands.ValidatedBsp): Unit = {
     var mainReportsIndex: Int = 0
     var testReportsIndex: Int = 0
     val logger = new BspClientLogger(new RecordingLogger)
+    val startedTask = scala.collection.mutable.HashSet[bsp.TaskId]()
+    val stringifiedDiagnostics = new ConcurrentHashMap[DiagnosticKey, StringBuilder]()
 
     def clientWork(implicit client: LanguageClient) = {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
@@ -788,10 +791,6 @@ class BspProtocolSpec {
         }
       }
     }
-
-    val startedTask = scala.collection.mutable.HashSet[bsp.TaskId]()
-    type DiagnosticKey = (bsp.BuildTargetIdentifier, Int) // Int = Cycle starts at 0
-    val stringifiedDiagnostics = new ConcurrentHashMap[DiagnosticKey, StringBuilder]()
 
     val addServicesTest = { (s: Services) =>
       val services = s
@@ -840,6 +839,7 @@ class BspProtocolSpec {
                 case Left(failure) =>
                   Assert.fail(s"Decoding `$json` as a scala build target failed: $failure")
               }
+
             case _ => Assert.fail(s"Got an unknown task finish $taskFinish")
           }
         }
@@ -1121,13 +1121,13 @@ class BspProtocolSpec {
   @Test def TestCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) {
       testCompile(createLocalBspCommand(configDir))
-      testCompileNoOp(createLocalBspCommand(configDir))
+      testFreshReportingInNoOpCompilation(createLocalBspCommand(configDir))
     }
   }
 
   @Test def TestCompileViaTcp(): Unit = {
     testCompile(createTcpBspCommand(configDir, verbose = true))
-    testCompileNoOp(createTcpBspCommand(configDir, verbose = true))
+    testFreshReportingInNoOpCompilation(createTcpBspCommand(configDir, verbose = true))
   }
 
   // TODO(jvican): Enable these tests back after partial migration to v2 is done

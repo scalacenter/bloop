@@ -27,7 +27,7 @@ object Commands {
   sealed trait RawCommand extends Command
 
   sealed trait CompilingCommand extends RawCommand {
-    def project: String
+    def projects: List[String]
     def reporter: ReporterKind
     def incremental: Boolean
     def pipeline: Boolean
@@ -76,8 +76,9 @@ object Commands {
 
   case class Clean(
       @ExtraName("p")
-      @HelpMessage("The projects to clean (you can specify multiple). By default, all.")
-      project: List[String] = Nil,
+      @ExtraName("project")
+      @HelpMessage("The projects to clean (you can specify multiple). If none, all are cleaned.")
+      projects: List[String] = Nil,
       @ExtraName("propagate")
       @HelpMessage("Run clean for the project's dependencies. By default, false.")
       includeDependencies: Boolean = false,
@@ -103,8 +104,9 @@ object Commands {
   private lazy val DefaultBatches: ParallelBatches = ParallelBatches.Default
   case class Compile(
       @ExtraName("p")
-      @HelpMessage("The project to compile (will be inferred from remaining cli args).")
-      project: String = "",
+      @ExtraName("project")
+      @HelpMessage("The projects to compile (will be inferred from remaining cli args).")
+      projects: List[String] = Nil,
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
@@ -119,8 +121,9 @@ object Commands {
 
   case class Test(
       @ExtraName("p")
-      @HelpMessage("The project to test (will be inferred from remaining cli args).")
-      project: String = "",
+      @ExtraName("project")
+      @HelpMessage("The projects to test (will be inferred from remaining cli args).")
+      projects: List[String] = Nil,
       @ExtraName("propagate")
       @HelpMessage("Run tests for the project dependencies. By default, false.")
       includeDependencies: Boolean = false,
@@ -143,8 +146,9 @@ object Commands {
 
   case class Console(
       @ExtraName("p")
-      @HelpMessage("The project to run the console at (will be inferred from remaining cli args).")
-      project: String = "",
+      @ExtraName("project")
+      @HelpMessage("The projects to run the console at (will be inferred from remaining cli args).")
+      projects: List[String] = Nil,
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
@@ -158,9 +162,9 @@ object Commands {
 
   case class Run(
       @ExtraName("p")
-      @HelpMessage(
-        "The project to run (will be inferred from remaining cli args). Requires Node.js to be in $PATH for Scala.js.")
-      project: String = "",
+      @ExtraName("project")
+      @HelpMessage("The projects to run (will be inferred from remaining cli args).")
+      projects: List[String] = Nil,
       @ExtraName("m")
       @HelpMessage("The main class to run. Leave unset to let bloop select automatically.")
       main: Option[String] = None,
@@ -185,9 +189,10 @@ object Commands {
   ) extends LinkingCommand
 
   case class Link(
+      @ExtraName("project")
       @ExtraName("p")
-      @HelpMessage("The project to run (will be inferred from remaining cli args).")
-      project: String = "",
+      @HelpMessage("The projects to link (will be inferred from remaining cli args).")
+      projects: List[String] = Nil,
       @ExtraName("m")
       @HelpMessage("The main class to link. Leave unset to let bloop select automatically.")
       main: Option[String] = None,

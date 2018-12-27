@@ -43,7 +43,7 @@ class FileWatchingSpec {
     withState(structures, dependencies, scalaInstance = instance, javaEnv = JavaEnv.default) {
       (state: State) =>
         val load = (logger: Logger) => state.copy(logger = logger)
-        val cmd = Run(Commands.Compile(RootProject, watch = true))
+        val cmd = Run(Commands.Compile(List(RootProject), watch = true))
         val messagesToCheck = List(
           s"Compiling ${RootProject}" -> 3,
           "Compiling parent0" -> 1,
@@ -58,7 +58,7 @@ class FileWatchingSpec {
   def testFileWatchingForTests(): Unit = {
     val targetProject = "with-tests-test"
     val load = (logger: Logger) => TestUtil.loadTestProject("with-tests").copy(logger = logger)
-    val runTest = Run(Commands.Test(targetProject, watch = true))
+    val runTest = Run(Commands.Test(List(targetProject), watch = true))
     val messagesToCheck = List(
       "Compiling with-tests" -> 5,
       s"Compiling ${targetProject}" -> 3,
@@ -188,7 +188,7 @@ class FileWatchingSpec {
     withState(structures, Map.empty, scalaInstance = instance, javaEnv = javaEnv) {
       (state: State) =>
         val rootProject = state.build.getProjectFor(RootProject).get
-        val watchTask = Interpreter.watch(rootProject, state)(simulation _)
+        val watchTask = Interpreter.watch(List(rootProject), state)(simulation _)
         val s1 = Scheduler.computation(parallelism = 2)
         val handle = watchTask.runAsync(ExecutionContext.scheduler)
 

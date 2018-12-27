@@ -3,7 +3,7 @@ package bloop.testing
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
 import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Interpreter, Run}
+import bloop.engine.Run
 import bloop.logging.RecordingLogger
 import bloop.tasks.TestUtil
 
@@ -14,7 +14,7 @@ class TestOptionsSpec {
   def exclusionsInTestOptionsAreRespected(): Unit = {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
-    val action = Run(Commands.Test(ProjectName))
+    val action = Run(Commands.Test(List(ProjectName)))
     val newState = TestUtil.blockingExecute(action, state)
 
     assertEquals(newState.status, ExitStatus.Ok)
@@ -22,9 +22,10 @@ class TestOptionsSpec {
     val needle = ("debug", "The following tests were excluded by the filter: hello.WritingTest")
     val messages = logger.getMessages
 
-    assertTrue(s"""Message not found: $needle
-                  |Logs: $messages""".stripMargin,
-               messages.contains(needle))
+    assertTrue(
+      s"""Message not found: $needle
+         |Logs: $messages""".stripMargin,
+      messages.contains(needle))
   }
 
   case class TestMsg(level: String, msg: String)
@@ -34,7 +35,8 @@ class TestOptionsSpec {
     val logger = new RecordingLogger
     val state = TestUtil.loadTestProject(ProjectName).copy(logger = logger)
     val junitArgs = List("-a")
-    val action = Run(Commands.Test(ProjectName, only = "hello.JUnitTest" :: Nil, args = junitArgs))
+    val action = Run(
+      Commands.Test(List(ProjectName), only = "hello.JUnitTest" :: Nil, args = junitArgs))
     val newState = TestUtil.blockingExecute(action, state)
 
     // The levels won't be correct, and the messages won't match

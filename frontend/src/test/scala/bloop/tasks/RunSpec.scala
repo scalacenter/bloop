@@ -64,9 +64,10 @@ class RunSpec {
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
-      rootProjectName = projectName,
+      rootProjects = List(projectName),
       javaEnv = javaEnv,
-      quiet = true) { state =>
+      quiet = true
+    ) { state =>
       val project = getProject(projectName, state)
       val mainClasses = Tasks.findMainClasses(state, project)
       assertEquals(0, mainClasses.length.toLong)
@@ -81,9 +82,10 @@ class RunSpec {
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
-      rootProjectName = projectName,
+      rootProjects = List(projectName),
       javaEnv = javaEnv,
-      quiet = true) { state =>
+      quiet = true
+    ) { state =>
       val project = getProject(projectName, state)
       val mainClasses = Tasks.findMainClasses(state, project)
       assertEquals(1, mainClasses.length.toLong)
@@ -102,9 +104,10 @@ class RunSpec {
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
-      rootProjectName = projectName,
+      rootProjects = List(projectName),
       javaEnv = javaEnv,
-      quiet = true) { state =>
+      quiet = true
+    ) { state =>
       val project = getProject(projectName, state)
       val mainClasses = Tasks.findMainClasses(state, project).sorted
       assertEquals(2, mainClasses.length.toLong)
@@ -117,7 +120,7 @@ class RunSpec {
   def runCanSeeCompileResources: Unit = {
     val mainClassName = "hello.AppWithResources"
     val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
+    val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
     runAndCheck(state, command) { messages =>
       assert(messages.contains(("info", "Resources were found")))
     }
@@ -144,8 +147,9 @@ class RunSpec {
   def canRunMainFromSourceDependency: Unit = {
     val mainClassName = "hello.App"
     val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run("test-project-test", Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages => assert(messages.contains(("info", "Hello, world!")))
+    val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "Hello, world!")))
     }
   }
 
@@ -153,7 +157,7 @@ class RunSpec {
   def canRunDefaultMainClass: Unit = {
     // The default main class is set to hello.App build.sbt. Therefore, no error must be triggered here.
     val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run("test-project", None, args = List.empty)
+    val command = Commands.Run(List("test-project"), None, args = List.empty)
     runAndCheck(state, command) { messages =>
       assert(messages.contains(("info", "Hello, world!")))
     }
@@ -163,8 +167,9 @@ class RunSpec {
   def canRunMainFromBinaryDependency: Unit = {
     val mainClassName = "App"
     val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages => assert(messages.contains(("info", "Hello, world!")))
+    val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
+    runAndCheck(state, command) { messages =>
+      assert(messages.contains(("info", "Hello, world!")))
     }
   }
 
@@ -172,7 +177,7 @@ class RunSpec {
   def setCorrectCwd: Unit = {
     val mainClassName = "hello.ShowCwd"
     val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run("test-project", Some(mainClassName), args = List.empty)
+    val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
     val targetMsg = {
       if (BspServer.isWindows) "cross-test-build-0.6\\test-project\\jvm"
       else "cross-test-build-0.6/test-project/jvm"
@@ -190,8 +195,8 @@ class RunSpec {
     val projectName = "test-project"
     val sources = ArtificialSources.InheritedRunnable :: Nil
     val mainClass = s"$packageName.$mainClassName2"
-    val command = Commands.Run(projectName, Some(mainClass), args = args)
-    runAndCheck(sources, command) { messages =>
+    val command = Commands.Run(List(projectName), Some(mainClass), args = args)
+    runAndCheck(projectName, sources, command) { messages =>
       assert(messages.contains(("info", s"$mainClassName2: ${args.mkString(", ")}")))
     }
   }
@@ -201,8 +206,8 @@ class RunSpec {
     val projectName = "test-project"
     val sources = ArtificialSources.RunnableClass0 :: Nil
     val mainClass = s"$packageName.$mainClassName0"
-    val command = Commands.Run(projectName, Some(mainClass), args = args)
-    runAndCheck(sources, command) { messages =>
+    val command = Commands.Run(List(projectName), Some(mainClass), args = args)
+    runAndCheck(projectName, sources, command) { messages =>
       assert(messages.contains(("info", s"$mainClassName0: ${args.mkString(", ")}")))
     }
   }
@@ -212,8 +217,8 @@ class RunSpec {
     val projectName = "test-project"
     val sources = ArtificialSources.RunnableClass0 :: ArtificialSources.RunnableClass1 :: Nil
     val mainClass = s"$packageName.$mainClassName1"
-    val command = Commands.Run(projectName, Some(mainClass), args = args)
-    runAndCheck(sources, command) { messages =>
+    val command = Commands.Run(List(projectName), Some(mainClass), args = args)
+    runAndCheck(projectName, sources, command) { messages =>
       assert(messages.contains(("info", s"$mainClassName1: ${args.mkString(", ")}")))
     }
   }
@@ -244,7 +249,7 @@ class RunSpec {
         val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
         val projects = state.build.projects
         val projectA = getProject("A", state)
-        val action = Run(Commands.Run("A"))
+        val action = Run(Commands.Run(List("A")))
         val duration = Duration.apply(15, TimeUnit.SECONDS)
         def msgs = logger.getMessages
         val compiledState =
@@ -279,7 +284,7 @@ class RunSpec {
         val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
         val projects = state.build.projects
         val projectA = getProject("A", state)
-        val action = Run(Commands.Run("A"))
+        val action = Run(Commands.Run(List("A")))
         val duration = Duration.apply(13, TimeUnit.SECONDS)
         val cancelTime = Duration.apply(7, TimeUnit.SECONDS)
         def msgs = logger.getMessages
@@ -330,7 +335,7 @@ class RunSpec {
       assert(Files.exists(sourceA.underlying), s"Source $sourceA does not exist")
       Files.write(sourceA.underlying, Sources.`A2.scala`.getBytes(StandardCharsets.UTF_8))
 
-      val action = Run(Commands.Run(RootProject, incremental = true))
+      val action = Run(Commands.Run(List(RootProject), incremental = true))
       val state2 = TestUtil.blockingExecute(action, state)
 
       assertEquals(4.toLong, logger.compilingInfos.size.toLong)

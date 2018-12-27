@@ -57,7 +57,7 @@ class CompileSpec {
       Files.write(newSourcePath.underlying, "object A".getBytes(StandardCharsets.UTF_8))
 
       // Let's compile the root project again, we should have no more logs
-      val newState = TestUtil.blockingExecute(Run(Commands.Compile(RootProject)), state)
+      val newState = TestUtil.blockingExecute(Run(Commands.Compile(List(RootProject))), state)
       assertTrue(newState.status.isOk)
       assertTrue(hasPreviousResult(targetProject, newState))
       assertFalse(logger.getMessages.exists(_._2.contains("Compiling")))
@@ -112,9 +112,13 @@ class CompileSpec {
       order = Config.JavaThenScala
     )(_ => ())
 
-    val errors = TestUtil.errorsFromLogger(logger)
-    assert(errors.size == 3)
-    assert(errors.exists(_.contains("cannot find symbol")))
+    try {
+      val errors = TestUtil.errorsFromLogger(logger)
+      assert(errors.size == 3)
+      assert(errors.exists(_.contains("cannot find symbol")))
+    } finally {
+      //logger.dump()
+    }
   }
 
   @Test
@@ -156,7 +160,8 @@ class CompileSpec {
       val newProjects =
         state.build.projects.map(p => p.copy(scalacOptions = "-Ytyper-degug" :: p.scalacOptions))
       val newState = state.copy(build = state.build.copy(projects = newProjects))
-      val erroneousState = TestUtil.blockingExecute(Run(Commands.Compile(RootProject)), newState)
+      val erroneousState =
+        TestUtil.blockingExecute(Run(Commands.Compile(List(RootProject))), newState)
       assertFalse(erroneousState.status.isOk)
 
       val errors = TestUtil.errorsFromLogger(logger)
@@ -229,7 +234,7 @@ class CompileSpec {
       assert(Files.exists(sourceC))
       Files.write(sourceC, "package p2; class C".getBytes)
 
-      val action = Run(Commands.Compile(RootProject, incremental = true))
+      val action = Run(Commands.Compile(List(RootProject), incremental = true))
       val state2 = TestUtil.blockingExecute(action, state)
 
       assertTrue(state2.status.isOk)
@@ -410,7 +415,7 @@ class CompileSpec {
       assert(Files.exists(sourceA.underlying), s"Source $sourceA does not exist")
       Files.write(sourceA.underlying, Sources.`A2.scala`.getBytes(StandardCharsets.UTF_8))
 
-      val action = Run(Commands.Compile(RootProject, incremental = true))
+      val action = Run(Commands.Compile(List(RootProject), incremental = true))
       val state2 = TestUtil.blockingExecute(action, state)
 
       assertEquals(4.toLong, logger.compilingInfos.size.toLong)
@@ -456,15 +461,20 @@ class CompileSpec {
         assert(projects.forall(p => noPreviousAnalysis(p, state)))
         val projectA = getProject("A", state)
         val projectB = getProject("B", state)
-        val action = Run(Commands.Compile("B"), Run(Commands.Compile("C")))
+        val action = Run(Commands.Compile(List("B", "C")))
         val compiledState = TestUtil.blockingExecute(action, state)
-        Assert.assertFalse("Sequential compilation didn't fail!", compiledState.status.isOk)
+        Assert.assertFalse("Expected compilation error", compiledState.status.isOk)
 
         // Check that A failed to compile and that `C` was skipped
-        val msgs = logger.getMessages
-        assert(msgs.exists(m => m._1 == "error" && m._2.contains("'A' failed to compile.")))
-        val targetMsg = s"Skipping compilation of project 'C'; dependent 'A' failed to compile."
-        assert(msgs.exists(m => m._1 == "warn" && m._2.contains(targetMsg)))
+        val errors = logger.getMessagesAt(Some("error"))
+        val compileErrors =
+          errors.filter(_.contains("failed to compile")).sorted.mkString(System.lineSeparator())
+        Assert.assertEquals(
+          compileErrors,
+          """'A' failed to compile.
+            |'B' failed to compile.
+            |'C' failed to compile.""".stripMargin
+        )
     }
   }
 
@@ -484,7 +494,7 @@ class CompileSpec {
     val testProject = "with-resources"
     val logger = new RecordingLogger()
     val state = TestUtil.loadTestProject(testProject).copy(logger = logger)
-    val action = Run(Commands.Compile(testProject))
+    val action = Run(Commands.Compile(List(testProject)))
     val compiledState = TestUtil.blockingExecute(action, state)
     val persistOut = (msg: String) => compiledState.commonOptions.ngout.println(msg)
     val t = Tasks.persist(compiledState, persistOut)

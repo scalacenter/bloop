@@ -13,6 +13,8 @@ matrix:
           "gradleBloop211/compile" \
           "gradleBloop212/compile" \
           "show schemaVersion" \
+          "sbtBloop013/publishLocal" \
+          "sbtBloop10/publishLocal" \
           "integrationSetUpBloop" \
           "backend/test" \
           "nativeBridge/test" \
@@ -27,6 +29,8 @@ matrix:
 
   RUN_COMMUNITY_BUILD_EXTRA:
     - bin/sbt-ci.sh \
+          "sbtBloop013/publishLocal" \
+          "sbtBloop10/publishLocal" \
           "integrationSetUpBloop" \
           "frontend/testOnly bloop.tasks.IntegrationTestSuite"
 

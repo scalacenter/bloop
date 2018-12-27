@@ -48,7 +48,7 @@ object TestUtil {
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
-      rootProjectName: String = RootProject,
+      rootProjects: List[String] = List(RootProject),
       scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default,
       quiet: Boolean = false,
@@ -62,7 +62,7 @@ object TestUtil {
         // Check that this is a clean compile!
         val projects = state.build.projects
         assert(projects.forall(p => noPreviousAnalysis(p, state)))
-        val action = Run(Commands.Compile(rootProjectName, incremental = true))
+        val action = Run(Commands.Compile(rootProjects, incremental = true))
         val compiledState = TestUtil.blockingExecute(action, state)
         afterCompile(compiledState)
       }
@@ -208,18 +208,19 @@ object TestUtil {
    * @param cmd     The command to execute after compiling.
    * @param check   A function that'll receive the resulting log messages.
    */
-  def runAndCheck(sources: Seq[String], cmd: Commands.CompilingCommand)(
+  def runAndCheck(projectName: String, sources: Seq[String], cmd: Commands.CompilingCommand)(
       check: List[(String, String)] => Unit): Unit = {
     val noDependencies = Map.empty[String, Set[String]]
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
-    val projectsStructure = Map(cmd.project -> namedSources)
+    val projectsStructure = Map(projectName -> namedSources)
     val javaEnv = JavaEnv.default
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
-      rootProjectName = cmd.project,
+      rootProjects = List(projectName),
       javaEnv = javaEnv,
-      quiet = true) { state =>
+      quiet = true
+    ) { state =>
       runAndCheck(state, cmd)(check)
     }
   }

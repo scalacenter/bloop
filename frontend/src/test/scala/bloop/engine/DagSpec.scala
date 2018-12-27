@@ -46,15 +46,18 @@ class DagSpec {
   private def checkParent(d: Dag[Project], p: Project) = d match {
     case Parent(p2, _) => assert(p2 == p, s"$p2 is not $p")
     case Leaf(f) => sys.error(s"$p is a leaf!")
+    case Aggregate(_) => sys.error(s"$p is an aggregate")
   }
 
   private def checkDependencies(d: Dag[Project], ps: Seq[Project]) = d match {
     case Parent(_, deps) => assert(deps == ps, s"$deps != $ps")
     case Leaf(f) => sys.error(s"$d is a leaf!")
+    case Aggregate(_) => sys.error(s"$d is an aggregate")
   }
 
   private def checkLeaf(d: Dag[Project], p: Project) = d match {
     case Parent(p, _) => sys.error(s"$p is a parent!")
+    case Aggregate(dags) => sys.error(s"$p is an aggregate")
     case Leaf(f) => assert(f == p, s"$f is not $p")
   }
 
@@ -91,7 +94,7 @@ class DagSpec {
       case Parent(p, deps) =>
         assert(p.name == "f")
         assert(deps == Nil, s"$deps != Nil")
-      case l @ Leaf(_) => sys.error(s"$l is a leaf!")
+      case a => sys.error(s"$a is not a parent node!")
     }
 
     checkParent(dags.tail.tail.head, TestProjects.b)

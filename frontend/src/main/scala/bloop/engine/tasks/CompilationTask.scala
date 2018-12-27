@@ -3,7 +3,7 @@ package bloop.engine.tasks
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine._
-import bloop.engine.tasks.compilation._
+import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.AbsolutePath
 import bloop.logging.{BspServerLogger, DebugFilter, Logger}
 import bloop.reporter._
@@ -23,7 +23,7 @@ object CompilationTask {
    * `excludeRoot` is `false`, excluding it otherwise.
    *
    * @param state          The current state of Bloop.
-   * @param project        The project to compile.
+   * @param dag            The project dag to compile.
    * @param createReporter A function that creates a per-project compilation reporter.
    * @param excludeRoot    If `true`, compile only the dependencies of `project`.
    *                       Otherwise, also compile `project`.
@@ -31,9 +31,8 @@ object CompilationTask {
    */
   def compile(
       state: State,
-      project: Project,
+      dag: Dag[Project],
       createReporter: (Project, AbsolutePath) => Reporter,
-      sequentialCompilation: Boolean,
       userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
       excludeRoot: Boolean
@@ -137,55 +136,38 @@ object CompilationTask {
     }
 
     def setup(project: Project): CompileBundle = CompileBundle(project)
-    val dag = state.build.getDagFor(project)
-    def triggerCompile: Task[State] = {
-      CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
-        val partialResults = Dag.dfs(partialDag)
-        Task.gatherUnordered(partialResults.map(_.toFinalResult)).map { results =>
-          val failures = results.collect {
-            case FinalCompileResult(p, Compiler.Result.NotOk(_), _) => p
+    CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
+      val partialResults = Dag.dfs(partialDag)
+      val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
+      Task.gatherUnordered(finalResults).map(_.flatten).map { results =>
+        cleanStatePerBuildRun(dag, results, state)
+        val newState = state.copy(results = state.results.addFinalResults(results))
+        val failures = results.collect {
+          case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
+        }
+
+        if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
+        else {
+          results.foreach {
+            case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
+              val project = bundle.project
+              logger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
+              // Make a better job here at reporting any throwable that happens during compilation
+              t.printStackTrace()
+              logger.trace(t)
+            case _ => () // Do nothing when the final compilation result is not an actual error
           }
 
-          cleanStatePerBuildRun(project, results, state)
-          val newState = state.copy(results = state.results.addFinalResults(results))
-          if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
-          else {
-            results.foreach {
-              case FinalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
-                val project = bundle.project
-                logger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
-                // Make a better job here at reporting any throwable that happens during compilation
-                t.printStackTrace()
-                logger.trace(t)
-              case _ => () // Do nothing when the final compilation result is not an actual error
-            }
-
-            failures.foreach(b => logger.error(s"'${b.project.name}' failed to compile."))
-            newState.copy(status = ExitStatus.CompilationError)
-          }
+          failures.foreach(b => logger.error(s"'${b.project.name}' failed to compile."))
+          newState.copy(status = ExitStatus.CompilationError)
         }
       }
-    }
-
-    if (!sequentialCompilation) triggerCompile
-    else {
-      // Check dependent projects didn't fail in previous sequential compile
-      val allDependencies = Dag.dfs(dag).toSet
-      val dependentResults = state.results.allResults.filter(pr => allDependencies.contains(pr._1))
-      val failedDependentProjects =
-        dependentResults.collect { case (p, Compiler.Result.NotOk(_)) => p }
-      if (!failedDependentProjects.isEmpty) {
-        val failedProjects = failedDependentProjects.map(p => s"'${p.name}'").mkString(", ")
-        logger.warn(
-          s"Skipping compilation of project '$project'; dependent $failedProjects failed to compile.")
-        Task.now(state.copy(status = ExitStatus.CompilationError))
-      } else triggerCompile
     }
   }
 
   // Running this method takes around 10ms per compiler and it's rare to have more than one to reset!
   private def cleanStatePerBuildRun(
-      project: Project,
+      dag: Dag[Project],
       results: List[FinalCompileResult],
       state: State
   ): Unit = {
@@ -198,14 +180,19 @@ object CompilationTask {
         case (acc, result) => acc.merge(result.store)
       }
 
-      val instances = results.iterator.flatMap(_.bundle.project.scalaInstance.toIterator).toSet
+      val instances = results.iterator.flatMap {
+        case FinalNormalCompileResult(bundle, _, _) => bundle.project.scalaInstance
+        case FinalEmptyResult => Nil
+      }.toSet
+
       instances.foreach { i =>
         // Initialize a compiler so that we can reset the global state after a build compilation
         val logger = state.logger
         val scalac = state.compilerCache.get(i).scalac().asInstanceOf[AnalyzingCompiler]
         val config = ReporterConfig.defaultFormat
         val cwd = state.commonOptions.workingPath
-        val reporter = new LogReporter(project, logger, cwd, identity, config)
+        val randomProjectFromDag = Dag.dfs(dag).head
+        val reporter = new LogReporter(randomProjectFromDag, logger, cwd, identity, config)
         val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
         val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
         // Reset the global ir caches on the cached compiler only for the store IRs
@@ -231,7 +218,8 @@ object CompilationTask {
           cwd,
           identity,
           config.copy(reverseOrder = false),
-          false)
+          false
+        )
       case _ => new LogReporter(project, logger, cwd, identity, config)
     }
   }

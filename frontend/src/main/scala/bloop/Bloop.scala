@@ -68,33 +68,34 @@ object Bloop extends CaseApp[CliOptions] {
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("compile", projectName) =>
-        val action = Run(Commands.Compile(projectName), Exit(ExitStatus.Ok))
+        val action = Run(Commands.Compile(List(projectName)), Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("compile", "--pipeline", projectName1) =>
-        val action = Run(Commands.Compile(projectName1, pipeline = true))
+        val action = Run(Commands.Compile(List(projectName1), pipeline = true))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("compile", projectName1, projectName2) =>
-        val action = Run(Commands.Compile(projectName1), Run(Commands.Compile(projectName2)))
+        val action =
+          Run(Commands.Compile(List(projectName1)), Run(Commands.Compile(List(projectName2))))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("console", projectName) =>
-        val action = Run(Commands.Console(projectName), Exit(ExitStatus.Ok))
+        val action = Run(Commands.Console(List(projectName)), Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("test", projectName) =>
-        val command = Commands.Test(projectName)
+        val command = Commands.Test(List(projectName))
         val action = Run(command, Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("runMain", projectName, mainClass, args @ _*) =>
-        val command = Commands.Run(projectName, Some(mainClass), args = args.toList)
+        val command = Commands.Run(List(projectName), Some(mainClass), args = args.toList)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("run", projectName, args @ _*) =>
-        val command = Commands.Run(projectName, None, args = args.toList)
+        val command = Commands.Run(List(projectName), None, args = args.toList)
         val action = Run(command, Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
