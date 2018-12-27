@@ -224,9 +224,9 @@ class JsTestSpec(
   }
 
   @Test
-  def testsFQCNAreDetected(): Unit = {
+  def discoverFullyQualifiedTestNames(): Unit = {
     TestUtil.quietIfSuccess(testState.logger) { logger =>
-      val testsFQCNTask = TestTask.findTestsFQCN(testProject, testState).map { testsFQCN =>
+      val task = TestTask.findFullyQualifiedTestNames(testProject, testState).map { testsFQCN =>
         targetFrameworks.foreach { framework =>
           assertTrue(
             s"hello.${framework}Test not detected.",
@@ -234,7 +234,7 @@ class JsTestSpec(
           )
         }
       }
-      TestUtil.blockOnTask(testsFQCNTask, 10)
+      TestUtil.blockOnTask(task, 10)
       ()
     }
   }
