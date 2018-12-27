@@ -45,6 +45,7 @@ matrix:
           "show version" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
+          "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
           "releaseBloop" \
           "docs/docusaurusPublishGhpages"
 
