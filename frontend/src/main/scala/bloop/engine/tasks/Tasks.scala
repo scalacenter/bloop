@@ -111,21 +111,18 @@ object Tasks {
   }
 
   /**
-   * Run the tests for `project` and its dependencies (optional).
+   * Run the tests for all projects in `projectsToTest`.
+   *
+   * The projects have been already compiled.
    *
    * @param state The current state of Bloop.
-   * @param project The project for which to run the tests.
-   * @param cwd      The directory in which to start the forked JVM.
-   * @param includeDependencies Run test in the dependencies of `project`.
-   * @param testFilter A function from a fully qualified class name to a Boolean, indicating whether
-   *                   a test must be included.
-   * @return The new state of Bloop.
+   * @param projectsToTest The projects we want to run tests for.
+   * @param testFilter A function that filters fully qualified test class names.
+   * @return A new state after testing.
    */
   def test(
       state: State,
-      project: Project,
-      cwd: AbsolutePath,
-      includeDependencies: Boolean,
+      projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler
@@ -134,8 +131,6 @@ object Tasks {
     implicit val logContext: DebugFilter = DebugFilter.Test
 
     var failure = false
-    val projectsToTest =
-      if (!includeDependencies) List(project) else Dag.dfs(state.build.getDagFor(project))
     val testTasks = projectsToTest.filter(_.testFrameworks.nonEmpty).map { project =>
       /* Intercept test failures to set the correct error code */
       val failureHandler = new LoggingEventHandler(state.logger) {
@@ -151,6 +146,7 @@ object Tasks {
         }
       }
 
+      val cwd = project.baseDirectory
       TestTask.runTestSuites(state, project, cwd, userTestOptions, testFilter, failureHandler)
     }
 
@@ -186,7 +182,8 @@ object Tasks {
   ): Task[State] = {
     val classpath = project.fullClasspathFor(state.build.getDagFor(project))
     val processConfig = Forker(javaEnv, classpath)
-    val runTask = processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
+    val runTask =
+      processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
     runTask.map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
       state.mergeStatus(exitStatus)

@@ -169,8 +169,8 @@ object Dag {
     loop(dags.toSet, targets)
   }
 
-  def directDependencies[T](dag: List[Dag[T]]): List[T] = {
-    dag.foldLeft(List.empty[T]) {
+  def directDependencies[T](dags: List[Dag[T]]): List[T] = {
+    dags.foldLeft(List.empty[T]) {
       case (acc, dag) =>
         dag match {
           case Leaf(value) => value :: acc
@@ -178,6 +178,67 @@ object Dag {
           case Aggregate(dags) => directDependencies(dags)
         }
     }
+  }
+
+  /**
+    * Represent the result of [[inverseDependencies()]].
+    *
+    * @param reduced The minimal set of nodes that subsume `targets`.
+    * @param all The set of all nodes that are strictly inverse dependencies of `targets`.
+    */
+  case class InverseDependencies[T](reduced: List[T], all: List[T])
+
+  def inverseDependencies[T](dags: List[Dag[T]], targets: List[T]): InverseDependencies[T] = {
+    val nonTargetsVisited = scala.collection.mutable.HashSet[Dag[T]]()
+    val roots = scala.collection.mutable.HashSet[T]()
+    val cascaded = scala.collection.mutable.HashSet[T]()
+    val targetsSet = targets.toSet
+
+    def loopDag(dag: Dag[T], trace: List[T]): Unit = {
+      if (nonTargetsVisited.contains(dag)) ()
+      else {
+        def processTrace(trace: List[T]): Unit = {
+          trace.lastOption match {
+            case Some(last) =>
+              // Remove those subsumed by the first root
+              trace.init.foreach { x =>
+                // Try to remove it only if `x` was seen before
+                if (cascaded.contains(x)) roots.remove(x)
+                else cascaded.+=(x)
+              }
+
+              // Proceed if this node hasn't been processed before
+              if (cascaded.contains(last)) ()
+              else {
+                cascaded.+=(last)
+                // Add as root the outermost node
+                roots.+=(last)
+              }
+            case None => ()
+          }
+        }
+
+        dag match {
+          case Leaf(value) if targetsSet.contains(value) =>
+            processTrace(value :: trace)
+          case Parent(value, children) if targetsSet.contains(value) =>
+            processTrace(value :: trace)
+            // Collect subsumed targets so that targets subsumed by this parent appear in `cascaded`
+            children.foreach(dag => loopDag(dag, value :: trace))
+          case Leaf(value) =>
+            nonTargetsVisited.+=(dag)
+          case Parent(value, children) =>
+            children.foreach(dag => loopDag(dag, value :: trace))
+            nonTargetsVisited.+=(dag)
+          case Aggregate(dags) =>
+            dags.foreach(dag => loopDag(dag, trace))
+            nonTargetsVisited.+=(dag)
+        }
+      }
+    }
+
+    dags.foreach(dag => loopDag(dag, Nil))
+    InverseDependencies(roots.toList, cascaded.toList)
   }
 
   def dfs[T](dag: Dag[T]): List[T] = {
