@@ -209,4 +209,20 @@ class JvmTestSpec(
       ()
     }
   }
+
+  @Test
+  def discoverFullyQualifiedTestNames(): Unit = {
+    TestUtil.quietIfSuccess(testState.logger) { logger =>
+      val task = TestTask.findFullyQualifiedTestNames(testProject, testState).map { testsFQCN =>
+        targetFrameworks.foreach { framework =>
+          assertTrue(
+            s"hello.${framework}Test not detected.",
+            testsFQCN.contains(s"hello.${framework}Test")
+          )
+        }
+      }
+      TestUtil.blockOnTask(task, 5)
+      ()
+    }
+  }
 }

@@ -96,6 +96,11 @@ _bloop() {
             command=${COMP_WORDS[1]}
 
             case "${prev}" in
+                --only|-o)
+                if [ "$command" == "test" ]; then
+                    _testsfqcn
+                fi
+                ;;
                 -*)
                 flag="$prev"
                 _callCompletionForCommandAndFlag "$command" "$flag"

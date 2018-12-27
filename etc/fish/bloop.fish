@@ -48,6 +48,19 @@ function __assert_args_at_least_count -a count
     test (count $cmd) -ge $count
 end
 
+function __assert_prev_arg_in
+    set -l tokens (commandline -poc)
+    if not __assert_args_at_least_count 1
+        return 0
+    end
+    for arg in $argv
+        if string match -q -- $tokens[-1] $argv[0]
+            return 1
+        end
+    end
+    return 0
+end
+
 function _project_commands
     bloop autocomplete --format bash --mode project-commands 2> /dev/null
 end
@@ -82,6 +95,7 @@ complete -c bloop -f -n "__assert_args_count 0" -a '(_commands)'
 # Only a project command has been provided
 complete -c bloop -f -n "__assert_args_count 1; and __fish_seen_subcommand_from_project_commands" -a '(_projects)'
 
+complete -c bloop -x -n "__fish_seen_subcommand_from test; and __assert_prev_arg_in --only -o" -a '(_testsfqcn)'
 
 for cmd in (_commands)
     set -l minTokens (_is_project_command $cmd)

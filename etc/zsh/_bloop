@@ -52,6 +52,16 @@ _flags_for_cmd() {
     return 0
 }
 
+_tests_or_flags() {
+    local prev=${words[CURRENT-1]}
+    local cmd=${words[1]}
+    if [[ $prev = '--only' || $prev = '-o' ]] && [[ $cmd = 'test' ]] then
+        _testsfqcn
+    else
+        _flags
+    fi
+}
+
 _project_or_flags() {
     local project_cmd=($(bloop autocomplete --format zsh --mode project-commands))
     local cmd=${words[2]}
@@ -74,6 +84,6 @@ _project_or_flags() {
 _arguments \
     ":command:_commands" \
     ":project_or_flags:_project_or_flags" \
-    "*::flags:_flags"
+    "*::flags:_tests_or_flags"
 
 return 0

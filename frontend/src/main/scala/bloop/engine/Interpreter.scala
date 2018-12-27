@@ -8,7 +8,7 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks}
+import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.validation.Validate
 import bloop.data.{Platform, Project}
@@ -152,7 +152,7 @@ object Interpreter {
     compileTask.map(_.mergeStatus(ExitStatus.Ok))
   }
 
-  private def compile( cmd: Commands.Compile, state: State ): Task[State] = {
+  private def compile(cmd: Commands.Compile, state: State): Task[State] = {
     val (projects, missingProjects) =
       lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
     if (missingProjects.nonEmpty) Task.now(reportMissing(missingProjects, state))
@@ -261,53 +261,78 @@ object Interpreter {
     }
   }
 
-  private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = Task {
+  private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = {
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
-        state.logger.info(Commands.projectBound)
+        Task(state.withInfo(Commands.projectBound))
       case Mode.Commands =>
-        for {
-          (name, args) <- CommandsMessages.messages
-          completion <- cmd.format.showCommand(name, args)
-        } state.logger.info(completion)
+        Task {
+          for {
+            (name, args) <- CommandsMessages.messages
+            completion <- cmd.format.showCommand(name, args)
+          } state.logger.info(completion)
+          state
+        }
       case Mode.Projects =>
-        for {
-          project <- state.build.projects
-          completion <- cmd.format.showProject(project)
-        } state.logger.info(completion)
+        Task {
+          for {
+            project <- state.build.projects
+            completion <- cmd.format.showProject(project)
+          } state.logger.info(completion)
+          state
+        }
       case Mode.Flags =>
-        for {
-          command <- cmd.command
-          message <- CommandsMessages.messages.toMap.get(command)
-          arg <- message.args
-          completion <- cmd.format.showArg(command, Case.kebabizeArg(arg))
-        } state.logger.info(completion)
+        Task {
+          for {
+            command <- cmd.command
+            message <- CommandsMessages.messages.toMap.get(command)
+            arg <- message.args
+            completion <- cmd.format.showArg(command, Case.kebabizeArg(arg))
+          } state.logger.info(completion)
+          state
+        }
       case Mode.Reporters =>
-        for {
-          reporter <- ReporterKind.reporters
-          completion <- cmd.format.showReporter(reporter)
-        } state.logger.info(completion)
+        Task {
+          for {
+            reporter <- ReporterKind.reporters
+            completion <- cmd.format.showReporter(reporter)
+          } state.logger.info(completion)
+          state
+        }
       case Mode.Protocols =>
-        for {
-          protocol <- BspProtocol.protocols
-          completion <- cmd.format.showProtocol(protocol)
-        } state.logger.info(completion)
+        Task {
+          for {
+            protocol <- BspProtocol.protocols
+            completion <- cmd.format.showProtocol(protocol)
+          } state.logger.info(completion)
+          state
+        }
       case Mode.MainsFQCN =>
-        for {
-          projectName <- cmd.project
-          project <- state.build.getProjectFor(projectName)
-          main <- Tasks.findMainClasses(state, project)
-          completion <- cmd.format.showMainName(main)
-        } state.logger.info(completion)
+        Task {
+          for {
+            projectName <- cmd.project
+            project <- state.build.getProjectFor(projectName)
+            main <- Tasks.findMainClasses(state, project)
+            completion <- cmd.format.showMainName(main)
+          } state.logger.info(completion)
+          state
+        }
       case Mode.TestsFQCN =>
-        for {
+        val printTestTask = for {
           projectName <- cmd.project
-          placeholder <- List.empty[String]
-          completion <- cmd.format.showTestName(placeholder)
-        } state.logger.info(completion)
-    }
+          project <- Tasks.pickTestProject(projectName, state)
+        } yield {
+          TestTask.findFullyQualifiedTestNames(project, state).map { testsFqcn =>
+            for {
+              testFqcn <- testsFqcn
+              completion <- cmd.format.showTestName(testFqcn)
+            } state.logger.info(completion)
+            state
+          }
+        }
 
-    state
+        printTestTask.getOrElse(Task.now(state))
+    }
   }
 
   private def configure(cmd: Commands.Configure, state: State): Task[State] = Task {
