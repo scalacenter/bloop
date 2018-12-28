@@ -191,16 +191,17 @@ final class BloopBspServices(
   }
 
   /**
-    * Keep track of those projects that were compiled at least once so that we can
-    * decide to enable fresh reporting for projects that are compiled for the first time.
-    *
-    * Required by https://github.com/scalacenter/bloop/issues/726
-    */
+   * Keep track of those projects that were compiled at least once so that we can
+   * decide to enable fresh reporting for projects that are compiled for the first time.
+   *
+   * Required by https://github.com/scalacenter/bloop/issues/726
+   */
   private val compiledTargetsAtLeastOnce = new TrieMap[bsp.BuildTargetIdentifier, Boolean]()
 
   def compileProjects(
-      projects0: Seq[ProjectMapping],
-      state: State
+      userProjects: Seq[ProjectMapping],
+      state: State,
+      compileArgs: List[String]
   ): BspResult[bsp.CompileResult] = {
     def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
@@ -208,7 +209,8 @@ final class BloopBspServices(
       s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"
     }
 
-    def compile(projects: Set[Project]): Task[State] = {
+    val pipeline = compileArgs.exists(_ == "--pipeline")
+    def compile(projects: List[Project]): Task[State] = {
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
       val createReporter = (project: Project, cwd: AbsolutePath) => {
@@ -230,11 +232,16 @@ final class BloopBspServices(
         )
       }
 
-      val dag = Aggregate(projects.toList.map(p => state.build.getDagFor(p)))
-      CompilationTask.compile(state, dag, createReporter, CompileMode.Sequential, false, false)
+      val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
+      CompilationTask.compile(state, dag, createReporter, CompileMode.Sequential, pipeline, false)
     }
 
-    val projects = Dag.reduce(state.build.dags, projects0.map(_._2).toSet)
+    val projects: List[Project] = {
+      val projects0 = Dag.reduce(state.build.dags, userProjects.map(_._2).toSet).toList
+      if (!compileArgs.exists(_ == "--cascade")) projects0
+      else Dag.inverseDependencies(state.build.dags, projects0).reduced
+    }
+
     compile(projects).map { newState =>
       val compiledResults = state.results.diffLatest(newState.results)
       val errorMsgs = compiledResults.flatMap {
@@ -272,7 +279,9 @@ final class BloopBspServices(
           // Log the mapping error to the user via a log event + an error status code
           bspLogger.error(error)
           Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None))))
-        case Right(mappings) => compileProjects(mappings, state)
+        case Right(mappings) =>
+          val compileArgs = params.arguments.getOrElse(Nil)
+          compileProjects(mappings, state, compileArgs)
       }
     }
   }
@@ -295,7 +304,8 @@ final class BloopBspServices(
           bspLogger.error(error)
           Task.now((state, Right(bsp.TestResult(None, bsp.StatusCode.Error, None))))
         case Right(mappings) =>
-          compileProjects(mappings, state).flatMap {
+          val args = params.arguments.getOrElse(Nil)
+          compileProjects(mappings, state, args).flatMap {
             case (newState, compileResult) =>
               compileResult match {
                 case Right(result) =>
@@ -363,7 +373,8 @@ final class BloopBspServices(
           bspLogger.error(error)
           Task.now((state, Right(bsp.RunResult(None, bsp.StatusCode.Error))))
         case Right((tid, project)) =>
-          compileProjects(List((tid, project)), state).flatMap {
+          val args = params.arguments.getOrElse(Nil)
+          compileProjects(List((tid, project)), state, args).flatMap {
             case (newState, compileResult) =>
               compileResult match {
                 case Right(result) =>
