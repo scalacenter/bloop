@@ -361,11 +361,11 @@ object Interpreter {
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
-    if (cmd.projects.isEmpty)
+    if (cmd.projects.isEmpty) {
       Tasks
         .clean(state, state.build.projects, cmd.includeDependencies)
         .map(_.mergeStatus(ExitStatus.Ok))
-    else {
+    } else {
       val lookup = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
       if (!lookup.missing.isEmpty)
         Task.now(reportMissing(lookup.missing, state))
