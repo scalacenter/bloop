@@ -119,7 +119,8 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseNotes := { tagName => IO.read(buildBase.value / "notes" / s"$tagName.md")
+    GHReleaseKeys.ghreleaseNotes := { tagName =>
+      IO.read(buildBase.value / "notes" / s"$tagName.md")
     },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
@@ -486,6 +487,24 @@ object BuildImplementation {
         BuildInfoKeys.buildInfoKeys in Test := BuildKeys.GradleInfoKeys,
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
         BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration",
+      )
+    }
+
+    val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
+      sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
+        BuildInfoKeys.buildInfoKeys in Test := {
+          import sbtbuildinfo.BuildInfoKey
+          val junitTestJars = BuildInfoKey.map(Keys.externalDependencyClasspath in Test) {
+            case (_, classpath) =>
+              val jars = classpath.map(_.data.getAbsolutePath)
+              val junitJars = jars.filter(j => j.contains("junit") || j.contains("hamcrest"))
+              "junitTestJars" -> junitJars
+          }
+
+          List(junitTestJars)
+        },
+        BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
+        BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo",
       )
     }
 

@@ -8,6 +8,7 @@ import scala.collection.JavaConverters.asScalaIteratorConverter
 final class RecordingLogger(
     debug: Boolean = false,
     debugOut: Option[PrintStream] = None,
+    val ansiCodesSupported: Boolean = true,
     val debugFilter: DebugFilter = DebugFilter.All
 ) extends Logger {
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
@@ -32,7 +33,6 @@ final class RecordingLogger(
   }
 
   override val name: String = "TestRecordingLogger"
-  override val ansiCodesSupported: Boolean = true
 
   def add(key: String, value: String): Unit = {
     if (debug) {
@@ -77,7 +77,13 @@ final class RecordingLogger(
     }
   }
 
-  /** Returns all the infos detected about the state of compilation */
-  def compilingInfos: List[String] =
-    getMessages().iterator.filter(m => m._1 == "info" && m._2.contains("Compiling ")).map(_._2).toList
+  /** Returns all infos that contain the word `Compiling` */
+  def compilingInfos: List[String] = {
+    getMessagesAt(Some("info")).filter(_.contains("Compiling "))
+  }
+
+  /** Returns all infos that contain the word `Test` */
+  def startedTestInfos: List[String] = {
+    getMessagesAt(Some("info")).filter(m => m.contains("Test ") && m.contains("started"))
+  }
 }

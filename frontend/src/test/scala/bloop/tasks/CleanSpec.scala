@@ -17,10 +17,10 @@ import org.junit.experimental.categories.Category
 class CleanSpec {
 
   private def dummyProject(
-    buildPath: AbsolutePath,
-    name: String,
-    dependencies: Set[String],
-    logger: Logger
+      buildPath: AbsolutePath,
+      name: String,
+      dependencies: Set[String],
+      logger: Logger
   ): Project = {
     TestUtil.makeProject(
       buildPath.underlying,
@@ -30,7 +30,8 @@ class CleanSpec {
       scalaInstance = None,
       logger = logger,
       javaEnv = JavaEnv.default,
-      compileOrder = Config.Mixed
+      compileOrder = Config.Mixed,
+      extraJars = Array()
     )
   }
 
@@ -43,10 +44,10 @@ class CleanSpec {
    * @param expectedStatus   The exit status expected to be set by `command`.
    */
   private def cleanAndCheck(
-    projectsWithDeps: Set[(String, Set[String])],
-    command: Commands.Clean,
-    expectedProjects: Set[String],
-    expectedStatus: ExitStatus = ExitStatus.Ok
+      projectsWithDeps: Set[(String, Set[String])],
+      command: Commands.Clean,
+      expectedProjects: Set[String],
+      expectedStatus: ExitStatus = ExitStatus.Ok
   ): Unit = {
     TestUtil.withTemporaryDirectory { temp =>
       val buildPath = AbsolutePath(temp)
@@ -58,7 +59,8 @@ class CleanSpec {
       val results = projects.foldLeft(ResultsCache.emptyForTests) { (cache, project) =>
         cache.addResult(project, Compiler.Result.Empty)
       }
-      val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+      val state = State
+        .forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
         .copy(results = results)
 
       val cleanState = TestUtil.blockingExecute(Run(command), state)

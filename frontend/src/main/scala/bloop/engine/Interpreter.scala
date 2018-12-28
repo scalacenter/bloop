@@ -227,6 +227,7 @@ object Interpreter {
   }
 
   private def test(cmd: Commands.Test, state: State): Task[State] = {
+    import state.logger
     val lookup = lookupProjects(cmd.projects, state, Tasks.pickTestProject(_, state))
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
@@ -245,6 +246,14 @@ object Interpreter {
           (result.reduced, result.all)
         }
       }
+
+      logger.debug(
+        s"Test command will compile ${projectsToCompile.mkString(", ")} transitively"
+      )(DebugFilter.Test)
+
+      logger.debug(
+        s"Test command will test ${projectsToTest.mkString(", ")}"
+      )(DebugFilter.Test)
 
       def testAllProjects(state: State): Task[State] = {
         val testFilter = TestInternals.parseFilters(cmd.only)
