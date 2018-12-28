@@ -85,10 +85,12 @@
 <h2><a class="anchor" aria-hidden="true" id="bloop-clean"></a><a href="#bloop-clean" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>bloop clean</code></h2>
 <h4><a class="anchor" aria-hidden="true" id="usage-3"></a><a href="#usage-3" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Usage</h4>
 <dl>
-<dt><code>--project</code> or <code>-p</code> (type: <code>string*</code>)</dt>
-<dd><p>The projects to clean (you can specify multiple). By default, all.</p></dd>
+<dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+<dd><p>The projects to clean (you can specify multiple). If none, all are cleaned.</p></dd>
 <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
-<dd><p>Run clean for the project's dependencies. By default, false.</p></dd>
+<dd><p>Clean a project and all its dependencies. By default, false.</p></dd>
+<dt><code>--cascade</code> (type: <code>bool</code>)</dt>
+<dd><p>Clean a project and all projects depending on it. By default, false.</p></dd>
 <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
 <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
 <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
@@ -110,8 +112,8 @@
 <h2><a class="anchor" aria-hidden="true" id="bloop-compile"></a><a href="#bloop-compile" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>bloop compile</code></h2>
 <h4><a class="anchor" aria-hidden="true" id="usage-4"></a><a href="#usage-4" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Usage</h4>
 <dl>
-<dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-<dd><p>The project to compile (will be inferred from remaining cli args).</p></dd>
+<dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+<dd><p>The projects to compile (will be inferred from remaining cli args).</p></dd>
 <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
 <dd><p>Compile the project incrementally. By default, true.</p></dd>
 <dt><code>--pipeline</code> (type: <code>bool</code>)</dt>
@@ -120,6 +122,8 @@
 <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
 <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
 <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
+<dt><code>--cascade</code> (type: <code>bool</code>)</dt>
+<dd><p>Compile a project and all projects depending on it. By default, false.</p></dd>
 <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
 <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
 <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
@@ -157,8 +161,8 @@
 <h2><a class="anchor" aria-hidden="true" id="bloop-console"></a><a href="#bloop-console" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>bloop console</code></h2>
 <h4><a class="anchor" aria-hidden="true" id="usage-6"></a><a href="#usage-6" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Usage</h4>
 <dl>
-<dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-<dd><p>The project to run the console at (will be inferred from remaining cli args).</p></dd>
+<dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+<dd><p>The projects to run the console at (will be inferred from remaining cli args).</p></dd>
 <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
 <dd><p>Compile the project incrementally. By default, true.</p></dd>
 <dt><code>--pipeline</code> (type: <code>bool</code>)</dt>
@@ -200,8 +204,8 @@
 <h2><a class="anchor" aria-hidden="true" id="bloop-link"></a><a href="#bloop-link" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>bloop link</code></h2>
 <h4><a class="anchor" aria-hidden="true" id="usage-8"></a><a href="#usage-8" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Usage</h4>
 <dl>
-<dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-<dd><p>The project to run (will be inferred from remaining cli args).</p></dd>
+<dt><code>--projects</code> or <code>--project</code> or <code>-p</code> (type: <code>string*</code>)</dt>
+<dd><p>The projects to link (will be inferred from remaining cli args).</p></dd>
 <dt><code>--main</code> or <code>-m</code> (type: <code>string?</code>)</dt>
 <dd><p>The main class to link. Leave unset to let bloop select automatically.</p></dd>
 <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
@@ -257,8 +261,8 @@
 <h2><a class="anchor" aria-hidden="true" id="bloop-run"></a><a href="#bloop-run" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>bloop run</code></h2>
 <h4><a class="anchor" aria-hidden="true" id="usage-10"></a><a href="#usage-10" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Usage</h4>
 <dl>
-<dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-<dd><p>The project to run (will be inferred from remaining cli args). Requires Node.js to be in $PATH for Scala.js.</p></dd>
+<dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+<dd><p>The projects to run (will be inferred from remaining cli args).</p></dd>
 <dt><code>--main</code> or <code>-m</code> (type: <code>string?</code>)</dt>
 <dd><p>The main class to run. Leave unset to let bloop select automatically.</p></dd>
 <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
@@ -271,6 +275,8 @@
 <dd><p>The arguments to pass in to the main class.</p></dd>
 <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
 <dd><p>If set, run the command whenever projects' source files change.</p></dd>
+<dt><code>--skip-jargs</code> (type: <code>bool</code>)</dt>
+<dd><p>Ignore arguments starting with `-J` and forward them instead.</p></dd>
 <dt><code>--optimize</code> or <code>-O</code> (type: <code>"debug" | "release"?</code>)</dt>
 <dd><p>If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.</p></dd>
 <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
@@ -294,10 +300,12 @@
 <h2><a class="anchor" aria-hidden="true" id="bloop-test"></a><a href="#bloop-test" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>bloop test</code></h2>
 <h4><a class="anchor" aria-hidden="true" id="usage-11"></a><a href="#usage-11" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Usage</h4>
 <dl>
-<dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-<dd><p>The project to test (will be inferred from remaining cli args).</p></dd>
+<dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+<dd><p>The projects to test (will be inferred from remaining cli args).</p></dd>
 <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
-<dd><p>Run tests for the project dependencies. By default, false.</p></dd>
+<dd><p>Test a project and all its dependencies. By default, false.</p></dd>
+<dt><code>--cascade</code> (type: <code>bool</code>)</dt>
+<dd><p>Test a project and all projects depending on it. By default, false.</p></dd>
 <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
 <dd><p>Compile the project incrementally. By default, true.</p></dd>
 <dt><code>--pipeline</code> (type: <code>bool</code>)</dt>
