@@ -80,8 +80,10 @@ object Commands {
       @HelpMessage("The projects to clean (you can specify multiple). If none, all are cleaned.")
       projects: List[String] = Nil,
       @ExtraName("propagate")
-      @HelpMessage("Run clean for the project's dependencies. By default, false.")
+      @HelpMessage("Clean a project and all its dependencies. By default, false.")
       includeDependencies: Boolean = false,
+      @HelpMessage("Clean a project and all projects depending on it. By default, false.")
+      cascade: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends RawCommand
 
@@ -116,6 +118,8 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
+      @HelpMessage("Compile a project and all projects depending on it. By default, false.")
+      cascade: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default,
   ) extends CompilingCommand
 
@@ -125,8 +129,10 @@ object Commands {
       @HelpMessage("The projects to test (will be inferred from remaining cli args).")
       projects: List[String] = Nil,
       @ExtraName("propagate")
-      @HelpMessage("Run tests for the project dependencies. By default, false.")
+      @HelpMessage("Test a project and all its dependencies. By default, false.")
       includeDependencies: Boolean = false,
+      @HelpMessage("Test a project and all projects depending on it. By default, false.")
+      cascade: Boolean = false,
       @HelpMessage("Compile the project incrementally. By default, true.")
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")

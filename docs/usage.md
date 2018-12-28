@@ -31,12 +31,68 @@ The first time you compile, Bloop resolves and compiles the compilation bridges 
 version if they are not found in the bloop cache. Then, it follows up with the incremental
 compilation.
 
-As our logs tell us, Bloop has compiled both `foo-test` and `foo`. This is expected given that `foo`
-is a dependency of `foo-test` and it was not already compiled.
+## Compile downstream projects
+
+The compilation of a project always requires the compilation of all downstream projects (its
+dependencies).
+
+The previous logs show Bloop has compiled both `foo-test` and `foo`. This is expected given that
+`foo` is a dependency of `foo-test` and `foo` wasn't already compiled.
+
+## Compile upstream projects 
+
+The `--cascade` flag allows you to change the public signature of a project (say, `foo`) and have
+bloop compile all the transitive projects depending on `foo` to detect compilation errors.
+
+Assuming we have not compiled `foo` and `foo-test` before, cascade compilation of `foo` will compile
+`foo` and projects depending on `foo`; in our build, only `foo-test`.
+
+```bash
+→ bloop compile --cascade foo
+Compiling foo (1 Scala source)
+Compiled foo (13176ms)
+Compiling foo-test (1 Scala source)
+Compiled foo-test (578ms)
+```
+
+We say that cascade compilation compiles projects upstream because it's the inverse of compiling
+projects downstream. Use `--cascade` whenever you know you're going to work in a subset of your
+build graph but you don't remember the projects that are part of it.
+
+## Clean the caches
+
+Clean the compilation caches in your build with:
+
+```bash
+→ bloop clean foo-test
+→
+```
+
+This operation is uncommon but might be useful if the incremental compiler state is causing spurious
+errors. `clean` does not remove class files, it only cleans the incremental compilation state. If
+you want to remove the class files, do it manually.
+ 
+By default, `bloop clean` only cleans the cache of a given project. Run `clean` with `--propagate`
+to clean the cache of downstream projects.
+
+```bash
+→ bloop clean foo-test --propagate
+→
+```
+
+Compiling again `foo-test` should trigger the compilation of both `foo` and `foo-test`.
+
+```bash
+→ bloop compile foo-test
+Compiling foo (1 Scala source)
+Compiled foo (290ms)
+Compiling foo-test (1 Scala source)
+Compiled foo-test (455ms)
+```
 
 ## Test
 
-Once the tests are compiled, we can test them.
+Once `foo` and `foo-test` are compiled, let's test them:
 
 ```bash
 → bloop test foo
@@ -52,112 +108,14 @@ All 1 test suites passed.
 ===============================================
 ```
 
-If you notice, we run `bloop test foo` instead of `bloop test foo-test`, the project that actually
-contains the test sources. Bloop assumes that when you run `bloop test foo` you really mean the
-latter and therefore treats both the same. It's idiomatic to use the shorter version.
-
-## Run an application
-
-If our application defines one main method, we can run it:
-
-```bash
-→ bloop run foo
-Hello, World!
-```
-
-The `bloop run` command only accepts a project as a command.
-
-## Run a concrete main method
-
-Bloop complains where there is more than one main method defined in your project and you run a
-vanilla `bloop run` invocation.
-
-```bash
-→ bloop run foo
-[E] Multiple main classes found. Expected a default main class via command-line or in the configuration of project 'foo'
-[E] Use the following main classes:
-[E]  * CubeCalculator2
-[E]  * CubeCalculator
-```
-
-To fix the error, specify the main class you want to run with `-m` or `--main`:
-
-```bash
-→ bloop run foo -m foo.HelloWorld
-Hello, World!
-```
-
-## Enable file watching
-
-When using the command-line tool, it's common to run a bloop task with file watching enabled. For
-example, you can run your tests in a loop with:
-
-```bash
-→ bloop test foo -w
-CubeCalculatorTest:
-- CubeCalculator.cube
-Execution took 18ms
-1 tests, 1 passed
-All tests in CubeCalculatorTest passed
-
-===============================================
-Total duration: 18ms
-All 1 test suites passed.
-===============================================
-Watching 2 directories... (press Ctrl-C to interrupt)
-```
-
-`-w` or `--watch` is available for `compile`, `test` and `run`. As the last line tells us, you can
-interrupt file watching by pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>.
-
-> It's not recommended for the moment to run `-w` for the moment if you use [Bloop via a text editor](ides/overview).
-
-## Clean the caches
-
-Clean the compilation caches in your build with:
-
-```bash
-→ bloop clean foo-test
-→
-```
-
-This operation is uncommon but might be useful if the incremental compiler state is causing spurious
-errors. `clean` does not remove class files, it only cleans the incremental compilation state. If
-you want to remove the class files, do it manually.
- 
-By default, `bloop clean` only cleans the cache of a given project. If you want to clean the cache
-of all the dependent projects too, you can run it with `--include-dependencies` or `--propagate`.
-
-```bash
-→ bloop clean foo-test --propagate
-→
-```
-
-Now testing again should trigger the compilation of both `foo` and `foo-test`.
-
-```bash
-→ bloop test foo
-Compiling foo (1 Scala source)
-Compiled foo (290ms)
-Compiling foo-test (1 Scala source)
-Compiled foo-test (455ms)
-CubeCalculatorTest:
-- CubeCalculator.cube
-Execution took 16ms
-1 tests, 1 passed
-All tests in CubeCalculatorTest passed
-
-===============================================
-Total duration: 16ms
-All 1 test suites passed.
-===============================================
-```
+We use `bloop test foo` instead of `bloop test foo-test` out of habit even though only `foo-test`
+defines test cases. In fact, Bloop interprets `bloop test foo` as a shortcut for `bloop test
+foo-test` if `foo-test` exists in the build.
 
 ## Test downstream projects
 
-Just as `bloop clean`, `bloop test` only runs tests on a concrete project. You can run tests for
-your project and all your dependencies by using `--propagate` too, just as in the previous `clean`
-example.
+`bloop test` only runs tests of a concrete project. You can run tests for your project and all your
+dependencies with the `--propagate` flag:
 
 ```bash
 → bloop test foo --propagate
@@ -175,6 +133,58 @@ All 1 test suites passed.
 
 As expected, the output is the same as `bloop test foo` because `foo` has no dependencies defining
 test sources.
+
+## Test upstream projects
+
+Like [`compile foo --cascade`](#compile-upstream-projects), `test foo --cascade`:
+
+1. triggers the compilation of `foo` and all projects depending on `foo` (with their dependencies)
+1. runs tests of `foo` and all projects depending on `foo` (without their dependencies)
+
+In our case, testing `foo` with or without `--cascade` will compile and test the same number of
+projects because our build graph is simple enough and only `foo-test` defines tests.
+
+```bash
+→ bloop test foo --cascade
+CubeCalculatorTest:
+- CubeCalculator.cube
+Execution took 16ms
+1 tests, 1 passed
+All tests in CubeCalculatorTest passed
+
+===============================================
+Total duration: 16ms
+All 1 test suites passed.
+===============================================
+```
+
+However, given:
+1. two new projects `bar` and `bar-test`
+1. two dependencies;
+      * one between `foo-test` and `bar-test`
+      * another one between `bar-test` and `bar`
+
+`test foo --cascade` will:
+ 
+1. compile `foo`, `foo-test`, `bar` and `bar-test`
+1. test `foo` (skipping it, as it has no tests) and `foo-test`
+
+```bash
+→ bloop test foo --cascade
+CubeCalculatorTest:
+- CubeCalculator.cube
+Execution took 16ms
+1 tests, 1 passed
+All tests in CubeCalculatorTest passed
+
+===============================================
+Total duration: 16ms
+All 1 test suites passed.
+===============================================
+```
+
+Enabling `--cascade` for test execution is a powerful tool to run tests on all projects that could
+be possibly affected by a change in a project.
 
 ## Test only a specific test suite
 
@@ -219,6 +229,111 @@ specific to one test framework will work only if:
 1. Your test project uses only one test framework
 1. You have a project with tests of different test frameworks (e.g. Scalacheck and Scalatest) but
 you're filtering out tests that are part of only one framework (for example, via `--only`)
+
+To specify test arguments per test framework, you can add the arguments in your build definition or
+in the test field of the bloop configuration files.
+
+## Pass JVM arguments to test
+
+The configuration file of a project contains the options the tests should be run with.
+
+To add new arguments to a test execution, append `-J` to every argument after `--`. These arguments
+will be passed directly to the forked virtual machine. For example, let's increase the heap size of
+our tests until 4gb.
+
+```bash
+→ bloop test foo -- -J-Xms2g -J-Xmx4g
+CubeCalculatorTest:
+- CubeCalculator.cube
+Execution took 11ms
+1 tests, 1 passed
+All tests in CubeCalculatorTest passed
+
+===============================================
+Total duration: 11ms
+All 1 test suites passed.
+===============================================
+```
+
+To debug our tests, we can use instead
+`-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005`.
+
+
+## Run an application
+
+If our application defines one main method, we can run it:
+
+```bash
+→ bloop run foo
+Hello, World!
+```
+
+The `bloop run` command only accepts a project as a command.
+
+## Run a concrete main method
+
+Bloop complains where there is more than one main method defined in your project and you run a
+vanilla `bloop run` invocation.
+
+Assuming we duplicate the main entrypoint with a scond `CubeCalculator2`, bloop emits an error:
+
+```bash
+→ bloop run foo
+[E] Multiple main classes found. Expected a default main class via command-line or in the configuration of project 'foo'
+[E] Use the following main classes:
+[E]  * CubeCalculator2
+[E]  * CubeCalculator
+```
+
+To fix the error, specify the main class you want to run with `-m` or `--main`:
+
+```bash
+→ bloop run foo -m foo.HelloWorld
+Hello, World!
+```
+
+## Pass JVM arguments to run
+
+Like [Pass JVM arguments to test](#pass-jvm-arguments-to-test), you can add new arguments to the
+execution by appending `-J` to every argument after `--`. These arguments will be passed directly to
+the forked virtual machine.
+
+```bash
+→ bloop run foo -- -J-Xms2g -J-Xmx4g
+Hello, World!
+```
+
+To debug an application, pass the following JVM argument instead
+`-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005`.
+
+
+## Enable file watching
+
+When using the command-line tool, it's common to run a bloop task with file watching enabled. For
+example, you can run your tests in a loop with:
+
+```bash
+→ bloop test foo -w
+CubeCalculatorTest:
+- CubeCalculator.cube
+Execution took 18ms
+1 tests, 1 passed
+All tests in CubeCalculatorTest passed
+
+===============================================
+Total duration: 18ms
+All 1 test suites passed.
+===============================================
+Watching 2 directories... (press Ctrl-C to interrupt)
+```
+
+`-w` or `--watch` is available for `compile`, `test` and `run`. You can interrupt file watching by
+pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>.
+
+> It's not recommended to run `-w` at the same time you use [Bloop via a text editor](ides/overview)
+> given that concurrent actions may collide. Such actions will be handled gracefully in future bloop
+> releases.
+
 
 ## Summary
 

@@ -56,7 +56,7 @@ object TestUtil {
       useSiteLogger: Option[Logger] = None,
       order: CompileOrder = Config.Mixed
   )(afterCompile: State => Unit = (_ => ())) = {
-    withState(structures, dependencies, scalaInstance, javaEnv, order) { (state: State) =>
+    testState(structures, dependencies, scalaInstance, javaEnv, order) { (state: State) =>
       def action(state0: State): Unit = {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
         // Check that this is a clean compile!
@@ -246,23 +246,36 @@ object TestUtil {
     }
   }
 
-  def withState[T](
+  def testState[T](
       projectStructures: Map[String, Map[String, String]],
-      dependencies: Map[String, Set[String]],
-      scalaInstance: ScalaInstance,
-      javaEnv: JavaEnv,
-      order: CompileOrder = Config.Mixed
+      dependenciesMap: Map[String, Set[String]],
+      instance: ScalaInstance = CompilationHelpers.scalaInstance,
+      env: JavaEnv = JavaEnv.default,
+      order: CompileOrder = Config.Mixed,
+      userLogger: Option[Logger] = None,
+      extraJars: Array[AbsolutePath] = Array()
   )(op: State => T): T = {
     withTemporaryDirectory { temp =>
-      val logger = BloopLogger.default(temp.toString)
+      val logger = userLogger.getOrElse(BloopLogger.default(temp.toString))
       val projects = projectStructures.map {
         case (name, sources) =>
-          val projectDeps = dependencies.getOrElse(name, Set.empty)
-          makeProject(temp, name, sources, projectDeps, Some(scalaInstance), javaEnv, logger, order)
+          val deps = dependenciesMap.getOrElse(name, Set.empty)
+          makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
       }
       val build = Build(AbsolutePath(temp), projects.toList)
       val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
-      op(state)
+      try op(state)
+      catch {
+        case NonFatal(t) =>
+          userLogger match {
+            case Some(logger: RecordingLogger) =>
+              System.err.println("Printing logs before rethrowing exception...")
+              logger.dump()
+            case _ => ()
+          }
+
+          throw t
+      }
     }
   }
 
@@ -283,19 +296,24 @@ object TestUtil {
       scalaInstance: Option[ScalaInstance],
       javaEnv: JavaEnv,
       logger: Logger,
-      compileOrder: CompileOrder
+      compileOrder: CompileOrder,
+      extraJars: Array[AbsolutePath]
   ): Project = {
     val origin = syntheticOriginFor(AbsolutePath(baseDir))
     val baseDirectory = projectDir(baseDir, name)
     val (srcs, classes) = makeProjectStructure(baseDir, name)
     val tempDir = baseDirectory.resolve("tmp")
     Files.createDirectories(tempDir)
-
     val target = classesDir(baseDir, name)
+
+    // Requires dependencies to be transitively listed
     val depsTargets = (dependencies.map(classesDir(baseDir, _))).map(AbsolutePath.apply).toList
     val allJars = scalaInstance.map(_.allJars.map(AbsolutePath.apply)).getOrElse(Array.empty)
-    val classpath = depsTargets ++ allJars
+    val classpath = depsTargets ++ allJars ++ extraJars
     val sourceDirectories = List(AbsolutePath(srcs))
+    val testFrameworks =
+      if (classpath.exists(_.syntax.contains("junit"))) List(Config.TestFramework.JUnit) else Nil
+
     writeSources(srcs, sources)
     Project(
       name = name,
@@ -309,7 +327,7 @@ object TestUtil {
       scalacOptions = Nil,
       javacOptions = Nil,
       sources = sourceDirectories,
-      testFrameworks = Nil,
+      testFrameworks = testFrameworks,
       testOptions = Config.TestOptions.empty,
       out = AbsolutePath(baseDirectory), // This means nothing in tests
       // Let's store the analysis file in target even though we usually do it in `out`

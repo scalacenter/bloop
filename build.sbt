@@ -140,7 +140,8 @@ lazy val frontend: Project = project
   .dependsOn(backend, backend % "test->test", jsonConfig212)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
-  .settings(testSettings, assemblySettings, releaseSettings, integrationTestSettings)
+  .settings(assemblySettings, releaseSettings)
+  .settings(testSettings, integrationTestSettings, BuildDefaults.frontendTestBuildSettings)
   .settings(
     name := "bloop-frontend",
     bloopName := "bloop",

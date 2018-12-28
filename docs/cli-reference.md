@@ -79,10 +79,12 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--project</code> or <code>-p</code> (type: <code>string*</code>)</dt>
-  <dd><p>The projects to clean (you can specify multiple). By default, all.</p></dd>
+  <dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to clean (you can specify multiple). If none, all are cleaned.</p></dd>
   <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
-  <dd><p>Run clean for the project's dependencies. By default, false.</p></dd>
+  <dd><p>Clean a project and all its dependencies. By default, false.</p></dd>
+  <dt><code>--cascade</code> (type: <code>bool</code>)</dt>
+  <dd><p>Clean a project and all projects depending on it. By default, false.</p></dd>
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
@@ -107,8 +109,8 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-  <dd><p>The project to compile (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to compile (will be inferred from remaining cli args).</p></dd>
   <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
   <dd><p>Compile the project incrementally. By default, true.</p></dd>
   <dt><code>--pipeline</code> (type: <code>bool</code>)</dt>
@@ -117,6 +119,8 @@ sidebar_label: CLI --help
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
   <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
+  <dt><code>--cascade</code> (type: <code>bool</code>)</dt>
+  <dd><p>Compile a project and all projects depending on it. By default, false.</p></dd>
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
@@ -161,8 +165,8 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-  <dd><p>The project to run the console at (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to run the console at (will be inferred from remaining cli args).</p></dd>
   <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
   <dd><p>Compile the project incrementally. By default, true.</p></dd>
   <dt><code>--pipeline</code> (type: <code>bool</code>)</dt>
@@ -211,8 +215,8 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-  <dd><p>The project to run (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--projects</code> or <code>--project</code> or <code>-p</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to link (will be inferred from remaining cli args).</p></dd>
   <dt><code>--main</code> or <code>-m</code> (type: <code>string?</code>)</dt>
   <dd><p>The main class to link. Leave unset to let bloop select automatically.</p></dd>
   <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
@@ -274,8 +278,8 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-  <dd><p>The project to run (will be inferred from remaining cli args). Requires Node.js to be in $PATH for Scala.js.</p></dd>
+  <dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to run (will be inferred from remaining cli args).</p></dd>
   <dt><code>--main</code> or <code>-m</code> (type: <code>string?</code>)</dt>
   <dd><p>The main class to run. Leave unset to let bloop select automatically.</p></dd>
   <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
@@ -288,6 +292,8 @@ sidebar_label: CLI --help
   <dd><p>The arguments to pass in to the main class.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, run the command whenever projects' source files change.</p></dd>
+  <dt><code>--skip-jargs</code> (type: <code>bool</code>)</dt>
+  <dd><p>Ignore arguments starting with `-J` and forward them instead.</p></dd>
   <dt><code>--optimize</code> or <code>-O</code> (type: <code>"debug" | "release"?</code>)</dt>
   <dd><p>If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.</p></dd>
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
@@ -314,10 +320,12 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--project</code> or <code>-p</code> (type: <code>string</code>)</dt>
-  <dd><p>The project to test (will be inferred from remaining cli args).</p></dd>
+  <dt><code>--projects</code> or <code>-p</code> or <code>--project</code> (type: <code>string*</code>)</dt>
+  <dd><p>The projects to test (will be inferred from remaining cli args).</p></dd>
   <dt><code>--include-dependencies</code> or <code>--propagate</code> (type: <code>bool</code>)</dt>
-  <dd><p>Run tests for the project dependencies. By default, false.</p></dd>
+  <dd><p>Test a project and all its dependencies. By default, false.</p></dd>
+  <dt><code>--cascade</code> (type: <code>bool</code>)</dt>
+  <dd><p>Test a project and all projects depending on it. By default, false.</p></dd>
   <dt><code>--incremental</code> (type: <code>bool</code>)</dt>
   <dd><p>Compile the project incrementally. By default, true.</p></dd>
   <dt><code>--pipeline</code> (type: <code>bool</code>)</dt>

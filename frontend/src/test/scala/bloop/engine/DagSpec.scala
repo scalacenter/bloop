@@ -162,7 +162,7 @@ class DagSpec {
     assert(dfss.tail.tail.head == List(TestProjects.b, TestProjects.a))
   }
 
-  @Test def CheckFromMap(): Unit = {
+  @Test def TestUniqueDagFromMap(): Unit = {
     val f = dummyProject("f", List())
     val g = dummyProject("g", List("f"))
     val h = dummyProject("h", List("f"))
@@ -171,7 +171,7 @@ class DagSpec {
     Assert.assertTrue("fromMap returns only one dag", dags.size == 2)
   }
 
-  @Test def CheckDagReduction(): Unit = {
+  private object ComplexDag {
     /*
      *         E       B        I
      *         |      /         |
@@ -182,6 +182,8 @@ class DagSpec {
      *       \ | /
      *        \|/
      *         A
+     *
+     * Note that dependencies flow from top to bottom.
      */
     val a = dummyProject("a", List())
     val b = dummyProject("b", List("a"))
@@ -192,8 +194,12 @@ class DagSpec {
     val g = dummyProject("g", List("f"))
     val h = dummyProject("h", List("f"))
     val i = dummyProject("i", List("h"))
-    val dags = fromMap(List(a, b, c, d, e, f, g, h, i).map(p => p.name -> p).toMap)
+  }
 
+  @Test def TestDagReduction(): Unit = {
+    import ComplexDag._
+    val allProjects = List(a, b, c, d, e, f, g, h, i)
+    val dags = fromMap(allProjects.map(p => p.name -> p).toMap)
     def reduce(targets: Set[Project]): Set[Project] = Dag.reduce(dags, targets)
 
     Assert.assertEquals("case 1", Set(a, f), reduce(Set(a, f)))
@@ -212,5 +218,37 @@ class DagSpec {
     Assert.assertEquals("case 14", Set(i, g), reduce(Set(i, h, g, f)))
     Assert.assertEquals("case 14", Set(e, b, i, g), reduce(Set(e, d, c, a, b, i, h, f, g)))
     ()
+  }
+
+  @Test
+  def TestMinimalInverseDependencies(): Unit = {
+    import ComplexDag._
+    val allProjects = List(a, b, c, d, e, f, g, h, i)
+    val dags = fromMap(allProjects.map(p => p.name -> p).toMap)
+    def reduceInverseDeps(targets: List[Project]): Set[Project] =
+      Dag.inverseDependencies(dags, targets).reduced.toSet
+
+    Assert.assertEquals("reduced case 1", Set(e, g, i, b), reduceInverseDeps(List(a, f)))
+    Assert.assertEquals("reduced case 2", Set(e, g, i, b), reduceInverseDeps(List(e, g, i, b)))
+    Assert.assertEquals("reduced case 3", Set(e, b), reduceInverseDeps(List(a, c, d)))
+    Assert.assertEquals("reduced case 4", Set(e, b), reduceInverseDeps(List(a, d)))
+    Assert.assertEquals("reduced case 5", Set(e, b), reduceInverseDeps(List(c, b)))
+    Assert.assertEquals("reduced case 6", Set(e), reduceInverseDeps(List(d)))
+    Assert.assertEquals("reduced case 7", Set(e), reduceInverseDeps(List(c)))
+    Assert.assertEquals("reduced case 8", Set(g, i), reduceInverseDeps(List(g, h)))
+    Assert.assertEquals("reduced case 9", Set(g, i), reduceInverseDeps(List(f)))
+
+    def allInverseDeps(targets: List[Project]): Set[Project] =
+      Dag.inverseDependencies(dags, targets).all.toSet
+
+    Assert.assertEquals("all case 1", allProjects.toSet, allInverseDeps(List(a, f)))
+    Assert.assertEquals("all case 2", Set(e, g, i, b), allInverseDeps(List(e, g, i, b)))
+    Assert.assertEquals("all case 3", Set(a, c, d, e, b), allInverseDeps(List(a, c, d)))
+    Assert.assertEquals("all case 4", Set(a, c, d, e, b), allInverseDeps(List(a, c)))
+    Assert.assertEquals("all case 5", Set(c, d, e), allInverseDeps(List(c, d)))
+    Assert.assertEquals("all case 6", Set(i, h, f, g), allInverseDeps(List(f)))
+    Assert.assertEquals("all case 7", Set(i, h), allInverseDeps(List(h, i)))
+    Assert.assertEquals("all case 8", Set(i, h), allInverseDeps(List(h)))
+    Assert.assertEquals("all case 9", Set(i), allInverseDeps(List(i)))
   }
 }

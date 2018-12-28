@@ -450,31 +450,27 @@ class CompileSpec {
 
     val logger = new RecordingLogger
     val deps = Map("B" -> Set("A"), "C" -> Set("A"))
+    TestUtil.testState(structure, deps, userLogger = Some(logger)) { (state: State) =>
+      // Check that this is a clean compile!
+      val projects = state.build.projects
+      assert(projects.forall(p => noPreviousAnalysis(p, state)))
 
-    val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
-    val javaEnv: JavaEnv = JavaEnv.default
-    TestUtil.withState(structure, deps, scalaInstance = scalaInstance, javaEnv = javaEnv) {
-      (state0: State) =>
-        val state = state0.copy(logger = logger)
-        // Check that this is a clean compile!
-        val projects = state.build.projects
-        assert(projects.forall(p => noPreviousAnalysis(p, state)))
-        val projectA = getProject("A", state)
-        val projectB = getProject("B", state)
-        val action = Run(Commands.Compile(List("B", "C")))
-        val compiledState = TestUtil.blockingExecute(action, state)
-        Assert.assertFalse("Expected compilation error", compiledState.status.isOk)
+      val projectA = getProject("A", state)
+      val projectB = getProject("B", state)
+      val action = Run(Commands.Compile(List("B", "C")))
+      val compiledState = TestUtil.blockingExecute(action, state)
+      Assert.assertFalse("Expected compilation error", compiledState.status.isOk)
 
-        // Check that A failed to compile and that `C` was skipped
-        val errors = logger.getMessagesAt(Some("error"))
-        val compileErrors =
-          errors.filter(_.contains("failed to compile")).sorted.mkString(System.lineSeparator())
-        Assert.assertEquals(
-          compileErrors,
-          """'A' failed to compile.
-            |'B' failed to compile.
-            |'C' failed to compile.""".stripMargin
-        )
+      // Check that A failed to compile and that `C` was skipped
+      val errors = logger.getMessagesAt(Some("error"))
+      val compileErrors =
+        errors.filter(_.contains("failed to compile")).sorted.mkString(System.lineSeparator())
+      Assert.assertEquals(
+        compileErrors,
+        """'A' failed to compile.
+          |'B' failed to compile.
+          |'C' failed to compile.""".stripMargin
+      )
     }
   }
 
@@ -504,5 +500,47 @@ class CompileSpec {
 
     val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
     assertTrue(Files.exists(analysisOutFile.underlying))
+  }
+
+  @Test
+  def testCascadeCompilation(): Unit = {
+    /*
+     *    I
+     *    |\
+     *    | \
+     *    H  G
+     *    |
+     *    F
+     */
+
+    object Sources {
+      val `F.scala` = "package p0\nclass F"
+      val `H.scala` = "package p1\nimport p0.F\nclass H extends F"
+      val `G.scala` = "package p3\ntrait G"
+      val `I.scala` = "package p2\nimport p1.H\nimport p3.G\nclass I extends H with G"
+    }
+
+    val structure = Map(
+      "F" -> Map("F.scala" -> Sources.`F.scala`),
+      "H" -> Map("H.scala" -> Sources.`H.scala`),
+      "I" -> Map("I.scala" -> Sources.`I.scala`),
+      "G" -> Map("G.scala" -> Sources.`G.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map("I" -> Set("H", "G", "F"), "H" -> Set("F"))
+    TestUtil.testState(structure, deps, userLogger = Some(logger)) { (state: State) =>
+      val action = Run(Commands.Compile(List("F"), cascade = true))
+      val compiledState = TestUtil.blockingExecute(action, state)
+      Assert.assertTrue("Unexpected compilation error", compiledState.status.isOk)
+      TestUtil.assertNoDiff(
+        """Compiling F (1 Scala source)
+          |Compiling G (1 Scala source)
+          |Compiling H (1 Scala source)
+          |Compiling I (1 Scala source)
+          """.stripMargin,
+        logger.compilingInfos.sorted.mkString(System.lineSeparator)
+      )
+    }
   }
 }

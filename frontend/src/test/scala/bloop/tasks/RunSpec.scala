@@ -241,7 +241,7 @@ class RunSpec {
     val structure = Map("A" -> Map("A.scala" -> Sources.`A.scala`))
     val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
     val javaEnv: JavaEnv = JavaEnv.default
-    TestUtil.withState(structure, Map.empty, scalaInstance = scalaInstance, javaEnv = javaEnv) {
+    TestUtil.testState(structure, Map.empty, instance = scalaInstance, env = javaEnv) {
       (state0: State) =>
         // It has to contain a new line for the process to finish! ;)
         val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
@@ -276,7 +276,7 @@ class RunSpec {
     val structure = Map("A" -> Map("A.scala" -> Sources.`A.scala`))
     val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
     val javaEnv: JavaEnv = JavaEnv.default
-    TestUtil.withState(structure, Map.empty, scalaInstance = scalaInstance, javaEnv = javaEnv) {
+    TestUtil.testState(structure, Map.empty, instance = scalaInstance, env = javaEnv) {
       (state0: State) =>
         // It has to contain a new line for the process to finish! ;)
         val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))

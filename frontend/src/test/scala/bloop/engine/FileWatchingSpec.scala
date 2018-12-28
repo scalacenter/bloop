@@ -11,7 +11,7 @@ import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.io.Paths.delete
 import bloop.tasks.{CompilationHelpers, TestUtil}
-import bloop.tasks.TestUtil.{RootProject, withState}
+import bloop.tasks.TestUtil.{RootProject, testState}
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.{MulticastStrategy, Observable}
@@ -40,7 +40,7 @@ class FileWatchingSpec {
 
     val dependencies = Map(RootProject -> Set("parent0", "parent1"))
     val instance = CompilationHelpers.scalaInstance
-    withState(structures, dependencies, scalaInstance = instance, javaEnv = JavaEnv.default) {
+    testState(structures, dependencies, instance = instance, env = JavaEnv.default) {
       (state: State) =>
         val load = (logger: Logger) => state.copy(logger = logger)
         val cmd = Run(Commands.Compile(List(RootProject), watch = true))
@@ -185,7 +185,7 @@ class FileWatchingSpec {
     val javaEnv = JavaEnv.default
     val instance = CompilationHelpers.scalaInstance
     val structures = Map(RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
-    withState(structures, Map.empty, scalaInstance = instance, javaEnv = javaEnv) {
+    testState(structures, Map.empty, instance = instance, env = javaEnv) {
       (state: State) =>
         val rootProject = state.build.getProjectFor(RootProject).get
         val watchTask = Interpreter.watch(List(rootProject), state)(simulation _)
