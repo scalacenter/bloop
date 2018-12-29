@@ -136,6 +136,7 @@ sidebar_label: CLI --help
 #### Examples
 
   * <samp>bloop compile foobar</samp>
+  * <samp>bloop compile foobar baz</samp>
   * <samp>bloop compile foobar -w</samp>
   * <samp>bloop compile foobar --reporter bloop</samp>
   * <samp>bloop compile foobar --reporter scalac</samp>
@@ -311,7 +312,7 @@ sidebar_label: CLI --help
 #### Examples
 
   * <samp>bloop run foobar</samp>
-  * <samp>bloop run foobar -m com.acme.Main -- arg1 arg2</samp>
+  * <samp>bloop run foobar -m com.acme.Main -- -J-Xmx4g arg1 arg2</samp>
   * <samp>bloop run foobar -O debug -- arg1</samp>
   * <samp>bloop run foobar -m com.acme.Main -O release -w</samp>
 
@@ -353,7 +354,9 @@ sidebar_label: CLI --help
 #### Examples
 
   * <samp>bloop test foobar</samp>
+  * <samp>bloop test foobar baz</samp>
   * <samp>bloop test foobar -w</samp>
   * <samp>bloop test foobar --propagate</samp>
   * <samp>bloop test foobar --propagate -w</samp>
   * <samp>bloop test foobar --only com.acme.StringSpecification</samp>
+  * <samp>bloop test foobar --only com.acme.StringSpecification -- -J-Xmx4g</samp>
