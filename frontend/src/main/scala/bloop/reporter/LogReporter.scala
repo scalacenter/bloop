@@ -43,6 +43,8 @@ final class LogReporter(
     }
   }
 
+  override def reportCompilationProgress(phase: String, sourceFile: String): Unit = ()
+
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site

@@ -46,6 +46,12 @@ object Compiler {
     }
   }
 
+  private final class BloopProgress(reporter: Reporter) extends CompileProgress {
+    override def startUnit(phase: String, unitPath: String): Unit =
+      reporter.reportCompilationProgress(phase, unitPath)
+    override def advance(current: Int, total: Int): Boolean = true
+  }
+
   sealed trait Result
   object Result {
     final case object Empty extends Result with CacheHashCode
@@ -126,7 +132,7 @@ object Compiler {
         if (!compileInputs.scalaInstance.isDotty) opts
         else Ecosystem.supportDotty(opts)
       }
-      val progress = Optional.empty[CompileProgress]
+      val progress = Optional.of[CompileProgress](new BloopProgress(reporter))
       val setup =
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
       // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
