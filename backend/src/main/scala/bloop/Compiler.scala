@@ -81,7 +81,7 @@ object Compiler {
 
     object NotOk {
       def unapply(result: Result): Option[Result] = result match {
-        case f @ (Failed(_, _, _) | Cancelled(_, _) | Blocked(_)) => Some(f)
+        case f @ (Failed(_, _, _) | Cancelled(_, _) | Blocked(_) | GlobalError(_)) => Some(f)
         case _ => None
       }
     }

@@ -2,7 +2,7 @@ package bloop
 
 import java.io.File
 import java.net.URLClassLoader
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.Properties
 
@@ -159,23 +159,53 @@ object ScalaInstance {
    * domain.
    */
   def scalaInstanceFromBloop(logger: Logger): Option[ScalaInstance] = {
-    def findLocationForClazz(clazz: Class[_]): Option[Path] = {
-      try Some(Paths.get(clazz.getProtectionDomain.getCodeSource.getLocation.toURI))
-      catch { case NonFatal(_) => None }
+    lazy val tempDirectory = Files.createTempDirectory("bloop-scala-instance")
+    implicit val filter = DebugFilter.Compilation
+    def findLocationForClazz(clazz: Class[_], jarName: String): Option[Path] = {
+      try {
+        val expectedPath = clazz.getProtectionDomain.getCodeSource.getLocation.toURI
+        logger.debug(s"${clazz} detected in ${expectedPath}")
+
+        try Some(Paths.get(expectedPath))
+        catch {
+          case t: java.nio.file.FileSystemNotFoundException =>
+            // When bloop is bootstrapped by coursier, jars are available from resources instead
+            logger.debug(
+              s"Load jar from resource because scheme '${expectedPath.getScheme}' has no file system provider"
+            )
+
+            val fromResourceStream =
+              clazz.getResourceAsStream("/" + expectedPath.getSchemeSpecificPart)
+            if (fromResourceStream == null) None
+            else {
+              val outPath = tempDirectory.resolve(jarName)
+              logger.debug(s"${clazz} detected in resource, dumping to ${outPath}...")
+              Files.copy(fromResourceStream, outPath)
+              Some(outPath)
+            }
+        }
+      } catch {
+        case NonFatal(t) =>
+          logger.debug("Unexpected error when creting Bloop's classloader")
+          logger.trace(t)
+          None
+      }
     }
 
     if (cachedBloopScalaInstance != null) {
       cachedBloopScalaInstance
     } else {
+      logger.debug("Creating a scala instance from Bloop's classloader...")
       val instance = {
         for {
-          scalaLibraryJar <- findLocationForClazz(scala.Predef.getClass)
-          scalaReflectJar <- findLocationForClazz(classOf[scala.reflect.api.Trees])
-          scalaCompilerJar <- findLocationForClazz(scala.tools.nsc.Main.getClass)
-          scalaXmlJar <- findLocationForClazz(classOf[scala.xml.Node])
-          jlineJar <- findLocationForClazz(classOf[jline.console.ConsoleReader])
+          libraryJar <- findLocationForClazz(scala.Predef.getClass, "scala-library.jar")
+          reflectJar <- findLocationForClazz(classOf[scala.reflect.api.Trees], "scala-reflect.jar")
+          compilerJar <- findLocationForClazz(scala.tools.nsc.Main.getClass, "scala-compiler.jar")
+          xmlJar <- findLocationForClazz(classOf[scala.xml.Node], "scala-xml.jar")
+          jlineJar <- findLocationForClazz(classOf[jline.console.ConsoleReader], "jline.jar")
         } yield {
-          val jars = List(scalaLibraryJar, scalaReflectJar, scalaCompilerJar, scalaXmlJar, jlineJar)
+          logger.debug(s"Created Bloop scala instance for ${BloopScalaInfo.scalaVersion}")
+          val jars = List(libraryJar, reflectJar, compilerJar, xmlJar, jlineJar)
           ScalaInstance(
             BloopScalaInfo.scalaOrganization,
             ScalacCompilerName,
