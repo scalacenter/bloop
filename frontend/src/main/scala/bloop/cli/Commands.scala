@@ -3,10 +3,8 @@ package bloop.cli
 import java.net.InetAddress
 import java.nio.file.Path
 
-import bloop.cli.CliParsers.CommandsMessages
 import bloop.io.AbsolutePath
-import caseapp.{CommandName, ExtraName, HelpMessage, Hidden, Recurse}
-import caseapp.core.CommandMessages
+import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
 
 object Commands {
 
@@ -49,13 +47,6 @@ object Commands {
       command: Option[String],
       project: Option[String]
   ) extends RawCommand
-
-  /** List of commands accepting a project as argument, used for autopomcletion */
-  val projectBound: String = {
-    CommandsMessages.messages
-      .collect { case (name, CommandMessages(args, _)) if args.exists(_.name == "project") => name }
-      .mkString(" ")
-  }
 
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default

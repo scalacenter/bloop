@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import bloop.io.AbsolutePath
 import bloop.logging.NoopLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import org.openjdk.jmh.annotations.Benchmark
 import java.util.concurrent.TimeUnit
 

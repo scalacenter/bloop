@@ -5,7 +5,11 @@ import java.util.Optional
 import bloop.Compiler
 import bloop.data.Project
 import bloop.Compiler.Result
-import bloop.engine.tasks.compilation.{FinalCompileResult, FinalEmptyResult, FinalNormalCompileResult}
+import bloop.engine.tasks.compilation.{
+  FinalCompileResult,
+  FinalEmptyResult,
+  FinalNormalCompileResult
+}
 import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}

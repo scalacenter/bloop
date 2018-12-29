@@ -10,7 +10,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
 import monix.execution.{ExecutionModel, Scheduler}

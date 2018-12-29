@@ -4,7 +4,7 @@ import java.io._
 import java.util.concurrent.TimeUnit
 
 import bloop.benchmarks.BuildInfo
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
 

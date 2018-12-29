@@ -4,14 +4,14 @@ import java.util.concurrent.TimeUnit
 
 import bloop.io.Timer
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import org.junit.Test
 import org.junit.experimental.categories.Category
 
 import scala.concurrent.duration.FiniteDuration
 
 @Category(Array(classOf[bloop.FastTests]))
-class ClasspathHashingTest {
+class ClasspathHashingSpec {
   @Test
   def detectsMacrosInClasspath(): Unit = {
     val logger = new RecordingLogger()

@@ -1,7 +1,8 @@
-package bloop.logging
+package bloop
 
-import org.junit.Test
+import bloop.logging.{ProcessLogger, RecordingLogger}
 import org.junit.Assert.assertEquals
+import org.junit.Test
 import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))

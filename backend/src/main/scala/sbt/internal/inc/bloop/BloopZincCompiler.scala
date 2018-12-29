@@ -121,19 +121,19 @@ object BloopZincCompiler {
   }
 
   /**
-    * Invalidates the analysis file to be used depending if the setup is the same or not.
-    *
-    * This logic used to be in `compileInternal` in
-    * [[sbt.internal.inc.IncrementalCompilerImpl.compileInternal]], but we've moved it here
-    * to reason more accurately about it.
-    *
-    * @param setup The current setup that we use to compile.
-    * @param previousSetup The previous setup, [[None]] if first compilation.
-    * @param ignoredScalacOptions The scalac options we should ignore for equivalence.
-    * @param sources The sources with which we prune the analysis file.
-    * @param previousAnalysis The analysis from the previous compilation.
-    * @return An analysis, either empty if the setups are not the same, pruned or the previous analysis.
-    */
+   * Invalidates the analysis file to be used depending if the setup is the same or not.
+   *
+   * This logic used to be in `compileInternal` in
+   * [[sbt.internal.inc.IncrementalCompilerImpl.compileInternal]], but we've moved it here
+   * to reason more accurately about it.
+   *
+   * @param setup The current setup that we use to compile.
+   * @param previousSetup The previous setup, [[None]] if first compilation.
+   * @param ignoredScalacOptions The scalac options we should ignore for equivalence.
+   * @param sources The sources with which we prune the analysis file.
+   * @param previousAnalysis The analysis from the previous compilation.
+   * @return An analysis, either empty if the setups are not the same, pruned or the previous analysis.
+   */
   def invalidateAnalysisFromSetup(
       setup: MiniSetup,
       previousSetup: Option[MiniSetup],

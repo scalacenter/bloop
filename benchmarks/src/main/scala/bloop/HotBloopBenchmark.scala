@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 
 import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler
 
 @State(Scope.Benchmark)

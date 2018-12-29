@@ -4,7 +4,7 @@ import java.net.URI
 import java.net.MalformedURLException
 
 import bloop.logging.Logger
-import monix.execution.atomic.{Atomic, AtomicAny}
+import _root_.monix.execution.atomic.{Atomic, AtomicAny}
 
 import scala.util.Try
 import scala.collection.JavaConverters._

@@ -1,12 +1,10 @@
-package bloop.tasks
-
-import org.junit.Test
-import org.junit.experimental.categories.Category
-
-import sbt.internal.util.EscHelpers.removeEscapeSequences
+package bloop
 
 import bloop.cli.Commands
-import bloop.tasks.TestUtil.{loadTestProject, runAndCheck}
+import bloop.util.TestUtil.{loadTestProject, runAndCheck}
+import org.junit.Test
+import org.junit.experimental.categories.Category
+import sbt.internal.util.EscHelpers.removeEscapeSequences
 
 @Category(Array(classOf[bloop.FastTests]))
 class TestResourcesSpec {

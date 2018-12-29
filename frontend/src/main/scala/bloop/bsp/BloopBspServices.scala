@@ -4,9 +4,8 @@ import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.cli.validation.Validate
 import bloop.{CompileMode, Compiler, ScalaInstance}
-import bloop.cli.{Commands, ExitStatus}
+import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.data.{Platform, Project}
 import bloop.engine.tasks.{CompilationTask, Tasks}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}

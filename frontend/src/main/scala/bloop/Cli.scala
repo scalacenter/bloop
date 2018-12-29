@@ -1,12 +1,11 @@
 package bloop
 
 import java.io.{InputStream, PrintStream}
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 import bloop.bsp.BspServer
-import bloop.cli.validation.Validate
-import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus}
+import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
 import caseapp.core.{DefaultBaseCommand, Messages}
@@ -319,7 +318,7 @@ object Cli {
 
     if (!cancel.isDone) {
       // Add support for a client to cancel bloop via Java's completable future
-      import bloop.monix.Java8Compat.JavaCompletableFutureUtils
+      import bloop.util.Java8Compat.JavaCompletableFutureUtils
       val cancelCliClient = Task
         .deferFutureAction(cancel.asScala(_))
         .map { cancel =>

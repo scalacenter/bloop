@@ -11,7 +11,7 @@ import bloop.config.ConfigEncoderDecoders._
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
-import bloop.tasks.{CompilationHelpers, TestUtil}
+import bloop.util.TestUtil
 import io.circe.parser._
 import org.gradle.testkit.runner.{BuildResult, GradleRunner}
 import org.gradle.testkit.runner.TaskOutcome._
@@ -515,7 +515,7 @@ class ConfigGenerationSuite {
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects)
-    State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+    State.forTests(build, TestUtil.getCompilerCache(logger), logger)
   }
 
   def compileBloopProject(projectName: String, bloopDir: File, verbose: Boolean = false): State = {

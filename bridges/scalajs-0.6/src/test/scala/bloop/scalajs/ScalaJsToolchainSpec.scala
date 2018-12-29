@@ -3,13 +3,13 @@ package bloop.scalajs
 import bloop.cli.{Commands, OptimizerConfig}
 import bloop.engine.{Run, State}
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
 
 import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
 import bloop.data.{Platform, Project}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.util.TestUtil
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category

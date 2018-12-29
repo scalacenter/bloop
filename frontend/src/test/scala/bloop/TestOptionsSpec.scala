@@ -1,11 +1,11 @@
-package bloop.testing
+package bloop
 
+import bloop.cli.{Commands, ExitStatus}
+import bloop.logging.RecordingLogger
+import bloop.util.TestUtil
+import bloop.engine.Run
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
-import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.Run
-import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
 
 class TestOptionsSpec {
   final val ProjectName = "with-tests"

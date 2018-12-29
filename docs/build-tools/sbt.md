@@ -15,6 +15,36 @@ Install and learn how to export the build in the Installation Guide:
 The following page only walks you through all the configuration options that the `sbt-bloop` plugin
 allows, but it does not explain neither how to install the plugin nor the basic concepts around exporting the build.
 
+> The options in this page can only be done if the sbt bloop is in your build. If you're using Bloop
+through a built-in editor integration (e.g. Metals), head to the installation guide, skip the global
+installation process and follow the instructions to add bloop to your build. Next time you export
+with Metals, Metals will respect the configuration in your build.
+
+## Don't export certain targets
+
+`bloopInstall` exports every project in your build. To disable exporting a project, you can
+customize the result of the `bloopGenerate` task (which is scoped at the configuration level).
+
+```scala
+val foo = project
+  .settings(
+    // Bloop will not generate a target for the compile configuration of `foo`
+    bloopGenerate in Compile := None,
+    // Bloop will not generate a target for the test configuration of `foo`
+    bloopGenerate in Test := None,
+  )
+```
+
+Next time you export, Bloop will automatically remove the old projects.
+
+```bash
+$ sbt bloopInstall
+...
+[warn] Removed stale /disk/foo/.bloop/foo.json
+[warn] Removed stale /disk/foo/.bloop/foo-test.json
+...
+```
+
 ## Enable custom configurations
 
 By default, `bloopInstall` exports projects for the standard `Compile` and `Test` sbt

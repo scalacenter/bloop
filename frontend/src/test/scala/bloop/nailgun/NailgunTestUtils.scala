@@ -9,7 +9,7 @@ import java.util.concurrent.{ExecutionException, TimeUnit}
 import bloop.Server
 import bloop.bsp.BspServer
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
 import monix.eval.Task
 import monix.execution.Scheduler

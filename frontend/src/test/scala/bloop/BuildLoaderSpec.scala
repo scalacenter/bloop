@@ -1,12 +1,12 @@
-package bloop.engine
+package bloop
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.data.Project
+import bloop.engine.{Build, BuildLoader, State}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import monix.eval.Task
 import org.junit.Test
 

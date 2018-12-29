@@ -32,11 +32,11 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
 }
 
 /**
-  * Define an intermediary trait that extends sbt's Logger and overrides
-  * `debug` to help the linearized lookup find the `debug` that takes an
-  * implicit instead of sbt's `debug` that doesn't. This technique enables
-  * us avoid modifying the call-sites of `debug`.
-  */
+ * Define an intermediary trait that extends sbt's Logger and overrides
+ * `debug` to help the linearized lookup find the `debug` that takes an
+ * implicit instead of sbt's `debug` that doesn't. This technique enables
+ * us avoid modifying the call-sites of `debug`.
+ */
 private[logging] trait BaseSbtLogger extends sbt.testing.Logger {
   private[logging] def printDebug(line: String): Unit
   override def debug(msg: String): Unit = printDebug(msg)

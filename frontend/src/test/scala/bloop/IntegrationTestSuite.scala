@@ -1,26 +1,26 @@
-package bloop.tasks
+package bloop
 
 import java.nio.file.{Files, Path}
 import java.util.Arrays
 
+import bloop.cli.{Commands, ExitStatus}
+import bloop.config.Config
+import bloop.data.Project
+import bloop.io.AbsolutePath
+import bloop.util.TestUtil
+import bloop.engine.{Dag, Exit, Run}
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Dag, Exit, Run}
-import bloop.exec.JavaEnv
-import bloop.data.Project
-import bloop.config.Config
-import bloop.io.AbsolutePath
 
 object IntegrationTestSuite {
   @Parameters
   def data() = {
     def filterIndex(index: Map[String, Path]): Map[String, Path] =
-      index//.filter(_._1.contains("frontend"))//.filterKeys(!_.contains("scalatra"))
+      index //.filter(_._1.contains("frontend"))//.filterKeys(!_.contains("scalatra"))
     val projects = filterIndex(TestUtil.testProjectsIndex).map(_._2).toArray.map(Array.apply(_))
     Arrays.asList(projects: _*)
   }
@@ -107,8 +107,9 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     reachable.foreach(removeClassFiles)
     reachable.foreach { p =>
-      assertTrue(s"Project `$integrationTestName/${p.name}` is already compiled.",
-                 TestUtil.noPreviousAnalysis(p, state))
+      assertTrue(
+        s"Project `$integrationTestName/${p.name}` is already compiled.",
+        TestUtil.noPreviousAnalysis(p, state))
     }
 
     val enablePipelining = isPipeliningEnabled
@@ -123,8 +124,9 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     val state1 = TestUtil.blockingExecute(action, state)
     reachable.foreach { p =>
-      assertTrue(s"Project `$integrationTestName/${p.name}` has not been compiled.",
-                 TestUtil.hasPreviousResult(p, state1))
+      assertTrue(
+        s"Project `$integrationTestName/${p.name}` has not been compiled.",
+        TestUtil.hasPreviousResult(p, state1))
     }
   }
 

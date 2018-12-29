@@ -1,13 +1,13 @@
-package bloop.cli.validation
+package bloop
 
 import java.nio.file.Files
 
 import bloop.bsp.BspServer
-import bloop.cli.{BspProtocol, Commands, ExitStatus}
+import bloop.cli.{BspProtocol, Commands, ExitStatus, Validate}
 import bloop.engine.{Action, Exit, Feedback, Print, Run}
 import org.junit.Test
 
-class ValidateSuite {
+class CliSpec {
   val tempDir = Files.createTempDirectory("validate")
   tempDir.toFile.deleteOnExit()
 

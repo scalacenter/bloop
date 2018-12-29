@@ -42,7 +42,8 @@ object ExecutionContext {
     )
   }
 
-  implicit lazy val ioScheduler: Scheduler = ExecutorScheduler(ioExecutor, ioReporter, ExecutionModel.AlwaysAsyncExecution)
+  implicit lazy val ioScheduler: Scheduler =
+    ExecutorScheduler(ioExecutor, ioReporter, ExecutionModel.AlwaysAsyncExecution)
 
   // Inlined from `monix.execution.schedulers.ThreadFactoryBuilder`
   private def monixThreadFactoryBuilder(

@@ -1,25 +1,25 @@
-package bloop.tasks
+package bloop
 
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import bloop.ScalaInstance
-import org.junit.{Assert, Test}
 import bloop.bsp.BspServer
-import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.experimental.categories.Category
 import bloop.cli.Commands
-import bloop.engine.{Dag, ExecutionContext, Run, State}
-import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
-import monix.execution.misc.NonFatal
+import bloop.util.TestUtil
+import bloop.util.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
+import bloop.engine.tasks.Tasks
+import bloop.engine.{Dag, ExecutionContext, Run, State}
+import org.junit.Assert.{assertEquals, assertTrue}
+import org.junit.experimental.categories.Category
+import org.junit.{Assert, Test}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 @Category(Array(classOf[bloop.FastTests]))
 class RunSpec {
@@ -239,23 +239,20 @@ class RunSpec {
 
     val logger = new RecordingLogger
     val structure = Map("A" -> Map("A.scala" -> Sources.`A.scala`))
-    val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
-    val javaEnv: JavaEnv = JavaEnv.default
-    TestUtil.testState(structure, Map.empty, instance = scalaInstance, env = javaEnv) {
-      (state0: State) =>
-        // It has to contain a new line for the process to finish! ;)
-        val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
-        val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
-        val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
-        val projects = state.build.projects
-        val projectA = getProject("A", state)
-        val action = Run(Commands.Run(List("A")))
-        val duration = Duration.apply(15, TimeUnit.SECONDS)
-        def msgs = logger.getMessages
-        val compiledState =
-          try TestUtil.blockingExecute(action, state, duration)
-          catch { case t: Throwable => println(msgs.mkString("\n")); throw t }
-        assert(compiledState.status.isOk)
+    TestUtil.testState(structure, Map.empty) { (state0: State) =>
+      // It has to contain a new line for the process to finish! ;)
+      val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
+      val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
+      val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
+      val projects = state.build.projects
+      val projectA = getProject("A", state)
+      val action = Run(Commands.Run(List("A")))
+      val duration = Duration.apply(15, TimeUnit.SECONDS)
+      def msgs = logger.getMessages
+      val compiledState =
+        try TestUtil.blockingExecute(action, state, duration)
+        catch { case t: Throwable => println(msgs.mkString("\n")); throw t }
+      assert(compiledState.status.isOk)
     }
   }
 
@@ -274,44 +271,40 @@ class RunSpec {
 
     val logger = new RecordingLogger
     val structure = Map("A" -> Map("A.scala" -> Sources.`A.scala`))
-    val scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance
-    val javaEnv: JavaEnv = JavaEnv.default
-    TestUtil.testState(structure, Map.empty, instance = scalaInstance, env = javaEnv) {
-      (state0: State) =>
-        // It has to contain a new line for the process to finish! ;)
-        val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
-        val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
-        val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
-        val projects = state.build.projects
-        val projectA = getProject("A", state)
-        val action = Run(Commands.Run(List("A")))
-        val duration = Duration.apply(13, TimeUnit.SECONDS)
-        val cancelTime = Duration.apply(7, TimeUnit.SECONDS)
-        def msgs = logger.getMessages
-        val runTask = TestUtil.interpreterTask(action, state)
-        val handle = runTask.runAsync(ExecutionContext.ioScheduler)
-        val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { handle.cancel() }
+    TestUtil.testState(structure, Map.empty) { (state0: State) =>
+      // It has to contain a new line for the process to finish! ;)
+      val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
+      val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
+      val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
+      val projects = state.build.projects
+      val projectA = getProject("A", state)
+      val action = Run(Commands.Run(List("A")))
+      val duration = Duration.apply(13, TimeUnit.SECONDS)
+      val cancelTime = Duration.apply(7, TimeUnit.SECONDS)
+      def msgs = logger.getMessages
+      val runTask = TestUtil.interpreterTask(action, state)
+      val handle = runTask.runAsync(ExecutionContext.ioScheduler)
+      val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { handle.cancel() }
 
-        val runState = {
-          try Await.result(handle, duration)
-          catch {
-            case NonFatal(t) =>
-              driver.cancel()
-              handle.cancel()
-              println(msgs.mkString("\n"))
-              throw t
-          }
+      val runState = {
+        try Await.result(handle, duration)
+        catch {
+          case NonFatal(t) =>
+            driver.cancel()
+            handle.cancel()
+            println(msgs.mkString("\n"))
+            throw t
         }
+      }
 
-        assert(msgs.filter(_._1 == "info").exists(_._2.contains("Starting infinity.")))
-        assert(!runState.status.isOk)
+      assert(msgs.filter(_._1 == "info").exists(_._2.contains("Starting infinity.")))
+      assert(!runState.status.isOk)
     }
   }
 
   @Test
   def runApplicationAfterIncrementalChanges(): Unit = {
     val RootProject = "target-project"
-    import TestUtil.{checkAfterCleanCompilation, ensureCompilationInAllTheBuild}
     object Sources {
       val `A.scala` = "object Dep { val s = 1 }"
       val `B.scala` = "object TestRoot extends App { println(Dep.s) }"
@@ -327,7 +320,7 @@ class RunSpec {
     val deps = Map(RootProject -> Set("A"))
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
       assertEquals(logger.compilingInfos.size.toLong, 2.toLong)
-      ensureCompilationInAllTheBuild(state)
+      TestUtil.ensureCompilationInAllTheBuild(state)
 
       // Modify the contents of a source in `A` to trigger recompilation in root
       val projectA = state.build.getProjectFor("A").get
@@ -344,7 +337,7 @@ class RunSpec {
       assertTrue("A compilation error is missing", compilationError.size == 1)
       val msgs = errors.filter(_._2.contains("Could not find or load main class TestRoot"))
       assertTrue("An application was run when compilation failed.", msgs.size == 0)
-      ensureCompilationInAllTheBuild(state)
+      TestUtil.ensureCompilationInAllTheBuild(state)
     }
   }
 }

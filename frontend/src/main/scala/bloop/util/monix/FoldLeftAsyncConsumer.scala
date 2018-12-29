@@ -1,12 +1,12 @@
-package bloop.monix
+package bloop.util.monix
 
 import monix.eval.{Callback, Task}
 import monix.execution.Ack.{Continue, Stop}
-import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.execution.cancelables.{AssignableCancelable, CompositeCancelable}
 import monix.execution.misc.NonFatal
-import monix.reactive.{Consumer, Observable}
+import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.observers.Subscriber
+import monix.reactive.{Consumer, Observable}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future

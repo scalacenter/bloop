@@ -1,9 +1,10 @@
-package bloop.tasks
+package bloop
 
 import bloop.cli.Commands
-import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
+import bloop.util.TestUtil
+import bloop.engine.Run
 import org.junit.{Assert, Test}
 
 class GenericTestSpec {

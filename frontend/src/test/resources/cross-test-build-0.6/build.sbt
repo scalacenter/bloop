@@ -17,7 +17,6 @@ lazy val `test-project` =
       libraryDependencies += "org.specs2" %%% "specs2-core" % "4.3.3" % "test",
       libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
       testFrameworks += new TestFramework("utest.runner.Framework"),
-
       List(Compile, Test).flatMap(inConfig(_) {
         resourceGenerators += Def.task {
           val configName = configuration.value.name
@@ -28,7 +27,6 @@ lazy val `test-project` =
           Seq(out)
         }.taskValue
       }),
-
       testOptions in Test ++= Seq(
         Tests.Exclude("hello.WritingTest" :: Nil),
         Tests.Exclude("hello.EternalUTest" :: Nil),

@@ -1,19 +1,14 @@
-package bloop.tasks
+package bloop
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import org.junit.{Assert, Test}
-import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
-import org.junit.experimental.categories.Category
-import bloop.ScalaInstance
 import bloop.cli.Commands
 import bloop.config.Config
-import bloop.engine.tasks.Tasks
-import bloop.engine.{Feedback, Run, State}
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.tasks.TestUtil.{
+import bloop.util.TestUtil
+import bloop.util.TestUtil.{
   RootProject,
   checkAfterCleanCompilation,
   ensureCompilationInAllTheBuild,
@@ -21,6 +16,11 @@ import bloop.tasks.TestUtil.{
   hasPreviousResult,
   noPreviousAnalysis
 }
+import bloop.engine.tasks.Tasks
+import bloop.engine.{Feedback, Run, State}
+import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
+import org.junit.experimental.categories.Category
+import org.junit.{Assert, Test}
 
 import scala.concurrent.duration.FiniteDuration
 

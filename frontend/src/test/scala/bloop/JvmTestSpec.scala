@@ -1,29 +1,29 @@
-package bloop.tasks
+package bloop
 
 import java.util.concurrent.TimeUnit
 import java.util.{Arrays, Collection}
 
-import bloop.CompileMode
+import bloop.cli.CommonOptions
+import bloop.data.Project
+import bloop.exec.{Forker, JavaEnv}
+import bloop.io.AbsolutePath
+import bloop.reporter.ReporterConfig
+import bloop.testing.{DiscoveredTestFrameworks, NoopEventHandler, TestInternals}
+import bloop.util.TestUtil
+import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
+import bloop.engine.{ExecutionContext, State}
 import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.{Assert, Test}
 import org.junit.experimental.categories.Category
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import bloop.data.Project
-import bloop.cli.CommonOptions
-import bloop.engine.{ExecutionContext, State}
-import bloop.exec.{Forker, JavaEnv}
-import bloop.io.AbsolutePath
-import bloop.reporter.ReporterConfig
+import org.junit.{Assert, Test}
 import sbt.testing.Framework
-import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
-import bloop.testing.{DiscoveredTestFrameworks, NoopEventHandler, TestInternals}
-import monix.execution.misc.NonFatal
 import xsbti.compile.CompileAnalysis
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 object JvmTestSpec {
   // Test that frameworks are class-loaded, detected and that test classes exist and can be run.

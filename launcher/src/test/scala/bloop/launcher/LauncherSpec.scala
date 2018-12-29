@@ -7,7 +7,7 @@ import java.nio.file.Files
 import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
 import bloop.launcher.util.Environment
 import bloop.logging.{BspClientLogger, RecordingLogger}
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
 import org.junit.{After, Assert, Test}

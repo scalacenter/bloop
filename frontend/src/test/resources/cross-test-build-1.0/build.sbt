@@ -18,18 +18,18 @@ lazy val `test-project` =
         Tests.Argument(TestFrameworks.JUnit, "-v", "+q", "-n")
       )
     )
-    .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin).settings(
-      // Make `%%%` whenever there is a version that supports 1.0.0-M5
-      libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test",
-      libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test",
-      libraryDependencies += "org.specs2" %% "specs2-core" % "4.3.3" % "test",
-    ))
+    .jsConfigure(
+      _.enablePlugins(ScalaJSJUnitPlugin).settings(
+        // Make `%%%` whenever there is a version that supports 1.0.0-M5
+        libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test",
+        libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test",
+        libraryDependencies += "org.specs2" %% "specs2-core" % "4.3.3" % "test",
+      ))
     .jvmSettings(
       libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test",
       libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.0" % "test",
       libraryDependencies += "org.specs2" %% "specs2-core" % "4.3.3" % "test",
     )
-
 
 lazy val `test-project-js` = `test-project`.js
 lazy val `test-project-jvm` = `test-project`.jvm

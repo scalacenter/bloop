@@ -211,6 +211,7 @@ val gradleBloop211 = project
   .settings(
     sourceDirectories in Test := Nil,
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211)).value,
+    bloopGenerate in Test := None,
     test in Test := Def.task {
       Keys.streams.value.log.error("Run 'gradleBloopTests/test' instead to test the gradle plugin.")
     },
