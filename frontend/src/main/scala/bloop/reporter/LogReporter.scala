@@ -3,7 +3,7 @@ import java.io.File
 
 import bloop.data.Project
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import xsbti.compile.CompileAnalysis
 import xsbti.{Position, Severity}
 import ch.epfl.scala.bsp
@@ -43,7 +43,17 @@ final class LogReporter(
     }
   }
 
-  override def reportCompilationProgress(phase: String, sourceFile: String): Unit = ()
+  override def reportCompilationProgress(
+      progress: Long,
+      total: Long,
+      phase: String,
+      sourceFile: String
+  ): Unit = ()
+
+  override def reportCancelledCompilation(): Unit = {
+    logger.warn(s"Cancelling compilation of ${project.name}")
+    ()
+  }
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here

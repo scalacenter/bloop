@@ -54,7 +54,7 @@ object TestUtil {
     }
   }
 
-  final val scalaInstance: ScalaInstance = {
+  final lazy val scalaInstance: ScalaInstance = {
     val logger = new RecordingLogger
     ScalaInstance.resolve(
       "org.scala-lang",

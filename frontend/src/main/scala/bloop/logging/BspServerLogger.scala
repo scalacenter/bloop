@@ -123,12 +123,12 @@ final class BspServerLogger private (
    *
    * The following fields of the progress notification are not populated:
    *
-   * 1. total: Option[Long] -- there seems to be no way of detecting total compilation units.
    * 1. data: Option[Json] -- there is no additional metadata we want to share with the client.
    */
   def publishCompileProgress(
       taskId: bsp.TaskId,
-      id: Long,
+      progress: Long,
+      total: Long,
       phase: String,
       sourceFile: String
   ): Unit = {
@@ -138,8 +138,8 @@ final class BspServerLogger private (
         taskId,
         Some(System.currentTimeMillis()),
         Some(msg),
-        None,
-        Some(id),
+        Some(progress),
+        Some(total),
         Some("phase/file"),
         Some("compile"),
         None

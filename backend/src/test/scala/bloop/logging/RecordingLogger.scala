@@ -16,6 +16,8 @@ final class RecordingLogger(
   def clear(): Unit = messages.clear()
 
   def infos: List[String] = getMessagesAt(Some("info"))
+  def warnings: List[String] = getMessagesAt(Some("warn"))
+  def errors: List[String] = getMessagesAt(Some("error"))
   def getMessagesAt(level: Option[String]): List[String] = getMessages(level).map(_._2)
   def getMessages(): List[(String, String)] = getMessages(None)
   private def getMessages(level: Option[String]): List[(String, String)] = {

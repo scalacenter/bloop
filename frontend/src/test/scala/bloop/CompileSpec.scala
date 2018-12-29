@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import bloop.cli.Commands
+import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
 import bloop.logging.{Logger, RecordingLogger}
 import bloop.util.TestUtil
@@ -18,11 +18,14 @@ import bloop.util.TestUtil.{
 }
 import bloop.engine.tasks.Tasks
 import bloop.engine.{Feedback, Run, State}
+import bloop.io.AbsolutePath
+import monix.execution.CancelableFuture
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.experimental.categories.Category
 import org.junit.{Assert, Test}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 @Category(Array(classOf[bloop.FastTests]))
 class CompileSpec {
@@ -539,6 +542,78 @@ class CompileSpec {
           |Compiling I (1 Scala source)
           """.stripMargin,
         logger.compilingInfos.sorted.mkString(System.lineSeparator)
+      )
+    }
+  }
+
+  @Test
+  def cancelCompilation(): Unit = {
+    object Sources {
+      val `SleepMacro.scala` =
+        """
+          |package macros
+          |
+          |import scala.reflect.macros.blackbox.Context
+          |import scala.language.experimental.macros
+          |
+          |object SleepMacro {
+          |  def sleep(): Unit = macro sleepImpl
+          |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+          |    import c.universe._
+          |    // Sleep for 5 seconds to give time to cancel compilation
+          |    Thread.sleep(5000)
+          |    reify { () }
+          |  }
+          |}
+          |
+        """.stripMargin
+      val `User.scala` =
+        """
+          |package user
+          |
+          |object User extends App {
+          |  macros.SleepMacro.sleep()
+          |}
+        """.stripMargin
+    }
+
+    val deps = Map("user" -> Set("macros"))
+    val structure = Map(
+      "macros" -> Map("SleepMacro.scala" -> Sources.`SleepMacro.scala`),
+      "user" -> Map("User.scala" -> Sources.`User.scala`)
+    )
+
+    import bloop.engine.ExecutionContext
+    val logger = new RecordingLogger
+    val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
+    TestUtil.testState(structure, deps, userLogger = Some(logger), extraJars = scalaJars) { state =>
+      val compileMacroProject = Run(Commands.Compile(List("macros")))
+      val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
+      Assert.assertTrue(
+        "Unexpected compilation error when compiling macros",
+        compiledMacrosState.status.isOk
+      )
+
+      val compileUserProject = Run(Commands.Compile(List("user")))
+      val handle: CancelableFuture[State] = TestUtil
+        .interpreterTask(compileUserProject, compiledMacrosState)
+        .runAsync(ExecutionContext.scheduler)
+      ExecutionContext.scheduler.scheduleOnce(3, TimeUnit.SECONDS, new Runnable {
+        override def run(): Unit = handle.cancel()
+      })
+
+      val finalState = {
+        try scala.concurrent.Await.result(handle, scala.concurrent.duration.Duration(20, "s"))
+        catch {
+          case NonFatal(t) => handle.cancel(); throw t
+          case i: InterruptedException => handle.cancel(); compiledMacrosState
+        }
+      }
+
+      Assert.assertEquals(ExitStatus.CompilationError, finalState.status)
+      TestUtil.assertNoDiff(
+        "Cancelling compilation of user",
+        logger.warnings.mkString(System.lineSeparator())
       )
     }
   }

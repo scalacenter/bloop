@@ -21,7 +21,7 @@ import org.junit.{Assert, Test}
 import sbt.testing.Framework
 import xsbti.compile.CompileAnalysis
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
@@ -40,7 +40,7 @@ object JvmTestSpec {
       CompilationTask.toReporter(project, cwd, format, state0.logger)
     val dag = state0.build.getDagFor(project)
     val compileTask =
-      CompilationTask.compile(state0, dag, createReporter, order, false, false)
+      CompilationTask.compile(state0, dag, createReporter, order, false, false, Promise[Unit]())
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))

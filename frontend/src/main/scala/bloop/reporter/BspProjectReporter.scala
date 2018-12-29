@@ -45,9 +45,18 @@ final class BspProjectReporter(
   override def printSummary(): Unit = ()
 
   val compileProgressCounter = AtomicLong(0)
-  override def reportCompilationProgress(phase: String, sourceFile: String): Unit = {
+  override def reportCompilationProgress(
+      progress: Long,
+      total: Long,
+      phase: String,
+      sourceFile: String
+  ): Unit = {
     val id = compileProgressCounter.addAndGet(1)
-    logger.publishCompileProgress(taskId, id, phase, sourceFile)
+    logger.publishCompileProgress(taskId, progress, total, phase, sourceFile)
+  }
+
+  override def reportCancelledCompilation(): Unit = {
+    ()
   }
 
   // Includes problems of both successful and failed compilations

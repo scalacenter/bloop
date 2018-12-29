@@ -31,6 +31,7 @@ import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import monix.execution.atomic.AtomicInt
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 
 final class BloopBspServices(
@@ -202,6 +203,7 @@ final class BloopBspServices(
       state: State,
       compileArgs: List[String]
   ): BspResult[bsp.CompileResult] = {
+    val cancelCompilation = Promise[Unit]()
     def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
@@ -232,7 +234,15 @@ final class BloopBspServices(
       }
 
       val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
-      CompilationTask.compile(state, dag, createReporter, CompileMode.Sequential, pipeline, false)
+      CompilationTask.compile(
+        state,
+        dag,
+        createReporter,
+        CompileMode.Sequential,
+        pipeline,
+        false,
+        cancelCompilation
+      )
     }
 
     val projects: List[Project] = {
@@ -261,10 +271,15 @@ final class BloopBspServices(
           }
       }
 
-      // TODO(jvican): Support cancelled status code
-      val response = errorMsgs match {
-        case Nil => Right(bsp.CompileResult(None, bsp.StatusCode.Ok, None))
-        case xs => Right(bsp.CompileResult(None, bsp.StatusCode.Error, None))
+      val response: Either[ProtocolError, bsp.CompileResult] = {
+        if (cancelCompilation.isCompleted)
+          Right(bsp.CompileResult(None, bsp.StatusCode.Cancelled, None))
+        else {
+          errorMsgs match {
+            case Nil => Right(bsp.CompileResult(None, bsp.StatusCode.Ok, None))
+            case xs => Right(bsp.CompileResult(None, bsp.StatusCode.Error, None))
+          }
+        }
       }
 
       (newState, response)
