@@ -12,7 +12,6 @@ import bloop.cli.Commands
 import bloop.config.Config
 import bloop.engine.tasks.Tasks
 import bloop.engine.{Feedback, Run, State}
-import bloop.exec.JavaEnv
 import bloop.logging.{Logger, RecordingLogger}
 import bloop.tasks.TestUtil.{
   RootProject,
