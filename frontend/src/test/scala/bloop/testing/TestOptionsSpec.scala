@@ -5,7 +5,7 @@ import org.junit.Test
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.Run
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 
 class TestOptionsSpec {
   final val ProjectName = "with-tests"

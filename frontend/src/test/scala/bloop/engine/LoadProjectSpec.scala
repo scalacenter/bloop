@@ -6,7 +6,7 @@ import bloop.config.Config
 import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import org.junit.Test
 
 import scala.concurrent.duration.FiniteDuration

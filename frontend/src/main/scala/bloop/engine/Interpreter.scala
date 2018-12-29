@@ -14,6 +14,7 @@ import bloop.cli.validation.Validate
 import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import caseapp.core.CommandMessages
 import monix.eval.Task
 
 object Interpreter {
@@ -290,7 +291,13 @@ object Interpreter {
   private def autocomplete(cmd: Commands.Autocomplete, state: State): Task[State] = {
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
-        Task(state.withInfo(Commands.projectBound))
+        Task {
+          val commandsAcceptingProjects = CommandsMessages.messages.collect {
+            case (name, CommandMessages(args, _)) if args.exists(_.name == "projects") => name
+          }
+
+          state.withInfo(commandsAcceptingProjects.mkString(" "))
+        }
       case Mode.Commands =>
         Task {
           for {

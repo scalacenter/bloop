@@ -8,7 +8,8 @@ import bloop.engine.{Build, Run, State}
 import bloop.engine.caches.ResultsCache
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
-import bloop.logging.{BloopLogger, Logger}
+import bloop.logging.Logger
+import bloop.util.TestUtil
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.experimental.categories.Category
@@ -60,7 +61,7 @@ class CleanSpec {
         cache.addResult(project, Compiler.Result.Empty)
       }
       val state = State
-        .forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+        .forTests(build, TestUtil.getCompilerCache(logger), logger)
         .copy(results = results)
 
       val cleanState = TestUtil.blockingExecute(Run(command), state)

@@ -1,20 +1,20 @@
-package bloop.tasks
+package bloop.util
 
 import java.nio.charset.Charset
-import java.nio.file._
 import java.nio.file.attribute.FileTime
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
+import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
 import bloop.data.{Origin, Project}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
-import bloop.ScalaInstance
-import bloop.io.{AbsolutePath, RelativePath}
-import bloop.io.Paths.delete
 import bloop.internal.build.BuildInfo
+import bloop.io.Paths.delete
+import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{
   BloopLogger,
   BspClientLogger,
@@ -25,31 +25,51 @@ import bloop.logging.{
 }
 import monix.eval.Task
 import org.junit.Assert
+import sbt.internal.inc.bloop.ZincInternals
 
-import scala.concurrent.{Await, ExecutionException}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionException}
 import scala.meta.jsonrpc.Services
+import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
-
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
-
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
-
+  def getBaseFromConfigDir(configDir: Path): Path = configDir.getParent.getParent
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
-  def getBaseFromConfigDir(configDir: Path): Path = configDir.getParent.getParent
+  final val componentProvider =
+    ZincInternals.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
 
-  val RootProject = "target-project"
+  private var singleCompilerCache: CompilerCache = null
+  def getCompilerCache(logger: Logger): CompilerCache = synchronized {
+    if (singleCompilerCache != null) singleCompilerCache
+    else {
+      val jars = bloop.io.Paths.getCacheDirectory("scala-jars")
+      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, Nil)
+      singleCompilerCache
+    }
+  }
 
+  final val scalaInstance: ScalaInstance = {
+    val logger = new RecordingLogger
+    ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      Properties.versionNumberString,
+      logger
+    )
+  }
+
+  final val RootProject = "target-project"
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
       rootProjects: List[String] = List(RootProject),
-      scalaInstance: ScalaInstance = CompilationHelpers.scalaInstance,
+      scalaInstance: ScalaInstance = TestUtil.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default,
       quiet: Boolean = false,
       failure: Boolean = false,
@@ -191,7 +211,7 @@ object TestUtil {
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = transformProjects(BuildLoader.loadSynchronously(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
-    val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+    val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
     state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
   }
 
@@ -249,7 +269,7 @@ object TestUtil {
   def testState[T](
       projectStructures: Map[String, Map[String, String]],
       dependenciesMap: Map[String, Set[String]],
-      instance: ScalaInstance = CompilationHelpers.scalaInstance,
+      instance: ScalaInstance = TestUtil.scalaInstance,
       env: JavaEnv = JavaEnv.default,
       order: CompileOrder = Config.Mixed,
       userLogger: Option[Logger] = None,
@@ -263,7 +283,7 @@ object TestUtil {
           makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
       }
       val build = Build(AbsolutePath(temp), projects.toList)
-      val state = State.forTests(build, CompilationHelpers.getCompilerCache(logger), logger)
+      val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
       try op(state)
       catch {
         case NonFatal(t) =>

@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import bloop.io.Timer
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import org.junit.Test
 import org.junit.experimental.categories.Category
 

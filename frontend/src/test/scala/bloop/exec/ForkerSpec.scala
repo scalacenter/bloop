@@ -11,8 +11,7 @@ import org.junit.experimental.categories.Category
 import bloop.cli.ExitStatus
 import bloop.logging.RecordingLogger
 import bloop.io.AbsolutePath
-import bloop.tasks.TestUtil
-import bloop.tasks.TestUtil.withTemporaryDirectory
+import bloop.util.TestUtil
 
 import scala.concurrent.duration.Duration
 
@@ -91,7 +90,7 @@ class ForkerSpec {
   }
 
   @Test
-  def canRun(): Unit = withTemporaryDirectory { tmp =>
+  def canRun(): Unit = TestUtil.withTemporaryDirectory { tmp =>
     run(tmp, Array("foo", "bar", "baz")) {
       case (exitCode, messages) =>
         assertEquals(0, exitCode.toLong)
@@ -101,7 +100,7 @@ class ForkerSpec {
   }
 
   @Test
-  def reportsExceptions(): Unit = withTemporaryDirectory { tmp =>
+  def reportsExceptions(): Unit = TestUtil.withTemporaryDirectory { tmp =>
     run(tmp, Array("crash")) {
       case (exitCode, messages) =>
         assertNotEquals(0, exitCode.toLong)
@@ -110,7 +109,7 @@ class ForkerSpec {
   }
 
   @Test
-  def runReportsMissingCWD(): Unit = withTemporaryDirectory { tmp =>
+  def runReportsMissingCWD(): Unit = TestUtil.withTemporaryDirectory { tmp =>
     val nonExisting = "does-not-exist"
     val cwd = tmp.resolve(nonExisting)
     run(cwd, Array.empty) {
@@ -126,7 +125,7 @@ class ForkerSpec {
   }
 
   @Test
-  def runHasCorrectWorkingDirectory(): Unit = withTemporaryDirectory { tmp =>
+  def runHasCorrectWorkingDirectory(): Unit = TestUtil.withTemporaryDirectory { tmp =>
     val cwd = tmp.resolve("expected-dir")
     Files.createDirectory(cwd)
     run(cwd, Array.empty) {

@@ -7,7 +7,7 @@ import bloop.io.{AbsolutePath, RelativePath}
 import org.junit.Test
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 
 class NailgunSpec extends NailgunTestUtils {
   @Test

@@ -19,6 +19,7 @@ import bloop.reporter.ReporterConfig
 import sbt.testing.Framework
 import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
 import bloop.testing.{DiscoveredTestFrameworks, NoopEventHandler, TestInternals}
+import bloop.util.TestUtil
 import monix.execution.misc.NonFatal
 import xsbti.compile.CompileAnalysis
 

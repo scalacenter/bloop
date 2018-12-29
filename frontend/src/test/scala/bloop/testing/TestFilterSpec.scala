@@ -2,11 +2,10 @@ package bloop.testing
 
 import org.junit.Test
 import org.junit.Assert.{assertFalse, assertTrue}
-
 import bloop.engine.Run
 import bloop.cli.Commands
 import bloop.logging.RecordingLogger
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 
 class TestFilterSpec {
   private def neg(filter: String): String =

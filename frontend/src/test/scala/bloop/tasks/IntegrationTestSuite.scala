@@ -15,6 +15,7 @@ import bloop.exec.JavaEnv
 import bloop.data.Project
 import bloop.config.Config
 import bloop.io.AbsolutePath
+import bloop.util.TestUtil
 
 object IntegrationTestSuite {
   @Parameters

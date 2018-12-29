@@ -6,7 +6,7 @@ import java.nio.file.Files
 import bloop.data.Project
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.tasks.TestUtil
+import bloop.util.TestUtil
 import monix.eval.Task
 import org.junit.Test
 

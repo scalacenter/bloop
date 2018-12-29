@@ -13,6 +13,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteEvent}
+import bloop.util.TestUtil
 import monix.execution.Cancelable
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category

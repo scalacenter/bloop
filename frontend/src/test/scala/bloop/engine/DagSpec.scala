@@ -6,7 +6,7 @@ import bloop.logging.RecordingLogger
 import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.Dag.{DagResult, RecursiveTrace}
-import bloop.tasks.{CompilationHelpers, TestUtil}
+import bloop.util.TestUtil
 import guru.nidi.graphviz.parse.Parser
 
 @Category(Array(classOf[bloop.FastTests]))
@@ -14,7 +14,7 @@ class DagSpec {
 
   private val logger = new RecordingLogger
   private val compileOptions = Config.CompileSetup.empty
-  private val dummyInstance = CompilationHelpers.scalaInstance
+  private val dummyInstance = TestUtil.scalaInstance
   private val dummyPath = bloop.io.AbsolutePath.completelyUnsafe("")
 
   // format: OFF

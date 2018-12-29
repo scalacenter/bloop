@@ -4,8 +4,8 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
-import bloop.logging.{DebugFilter, BloopLogger}
-import bloop.tasks.TestUtil
+import bloop.logging.{BloopLogger, DebugFilter}
+import bloop.util.TestUtil
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import guru.nidi.graphviz.parse.Parser

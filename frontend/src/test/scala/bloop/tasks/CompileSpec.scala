@@ -13,14 +13,8 @@ import bloop.config.Config
 import bloop.engine.tasks.Tasks
 import bloop.engine.{Feedback, Run, State}
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.tasks.TestUtil.{
-  RootProject,
-  checkAfterCleanCompilation,
-  ensureCompilationInAllTheBuild,
-  getProject,
-  hasPreviousResult,
-  noPreviousAnalysis
-}
+import bloop.util.TestUtil
+import bloop.util.TestUtil.{RootProject, checkAfterCleanCompilation, ensureCompilationInAllTheBuild, getProject, hasPreviousResult, noPreviousAnalysis}
 
 import scala.concurrent.duration.FiniteDuration
 

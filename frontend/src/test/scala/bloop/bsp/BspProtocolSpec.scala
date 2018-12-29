@@ -10,8 +10,8 @@ import bloop.cli.{BspProtocol, CliOptions, Commands, CommonOptions}
 import bloop.data.Project
 import bloop.engine.{BuildLoader, Run}
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.tasks.TestUtil
 import bloop.logging.{BspClientLogger, RecordingLogger}
+import bloop.util.TestUtil
 import org.junit.Test
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, ScalaBuildTarget, endpoints}
