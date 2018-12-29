@@ -3,10 +3,8 @@ package bloop.cli
 import java.net.InetAddress
 import java.nio.file.Path
 
-import bloop.cli.CliParsers.CommandsMessages
 import bloop.io.AbsolutePath
 import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
-import caseapp.core.CommandMessages
 
 object Commands {
 
