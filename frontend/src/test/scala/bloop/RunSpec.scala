@@ -1,25 +1,25 @@
-package bloop.tasks
+package bloop
 
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import org.junit.{Assert, Test}
 import bloop.bsp.BspServer
-import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.experimental.categories.Category
 import bloop.cli.Commands
-import bloop.engine.{Dag, ExecutionContext, Run, State}
-import bloop.engine.tasks.Tasks
 import bloop.exec.JavaEnv
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import bloop.util.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
-import monix.execution.misc.NonFatal
+import bloop.engine.tasks.Tasks
+import bloop.engine.{Dag, ExecutionContext, Run, State}
+import org.junit.Assert.{assertEquals, assertTrue}
+import org.junit.experimental.categories.Category
+import org.junit.{Assert, Test}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 @Category(Array(classOf[bloop.FastTests]))
 class RunSpec {

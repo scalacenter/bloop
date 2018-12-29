@@ -1,23 +1,24 @@
-package bloop.engine
+package bloop
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import bloop.data.Project
 import bloop.cli.Commands
-import bloop.logging.{DebugFilter, Logger, PublisherLogger}
+import bloop.data.Project
+import bloop.engine.{Action, Dag, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.io.Paths.delete
+import bloop.logging.{DebugFilter, Logger, PublisherLogger}
 import bloop.util.TestUtil
 import bloop.util.TestUtil.RootProject
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.{MulticastStrategy, Observable}
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
-import org.junit.Assert.assertTrue
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -136,24 +137,24 @@ class FileWatchingSpec {
     val existingSourceDir = project.sources.collectFirst { case d if d.exists => d }.get
     val newSource = existingSourceDir.resolve("D.scala")
     if (Files.exists(newSource.underlying)) delete(newSource)
-    Thread.sleep(50)
+    Thread.sleep(100)
 
     val runTest = TestUtil.interpreterTask(commandToRun, state)
     val testFuture = runTest.runAsync(ExecutionContext.scheduler)
 
     val checkTests = isIterationOver(observable, 1).flatMap { _ =>
       // Ugly, but we need to wait a little bit here so that file watching is active
-      Thread.sleep(200)
+      Thread.sleep(300)
 
       // Write the contents of a source back to the same source and force another test execution
       //Files.write(singleFile.underlying, "object Hello".getBytes("UTF-8"))
       Files.write(newSource.underlying, "object ForceRecompilation {}".getBytes("UTF-8"))
-      Thread.sleep(50)
+      Thread.sleep(100)
 
       isIterationOver(observable, 2).flatMap { _ =>
         // Write the contents of a source back to the same source and force another test execution
         Files.write(singleFile.underlying, "object ForceRecompilation2 {}".getBytes("UTF-8"))
-        Thread.sleep(50)
+        Thread.sleep(100)
 
         isIterationOver(observable, 3).map { _ =>
           testFuture.cancel()

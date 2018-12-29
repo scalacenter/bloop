@@ -5,8 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 
-import bloop.cli.validation.Validate
-import bloop.cli.{BspProtocol, CliOptions, Commands, CommonOptions}
+import bloop.cli.{BspProtocol, CliOptions, Commands, CommonOptions, Validate}
 import bloop.data.Project
 import bloop.engine.{BuildLoader, Run}
 import bloop.io.{AbsolutePath, RelativePath}

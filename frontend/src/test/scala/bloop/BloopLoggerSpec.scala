@@ -1,19 +1,20 @@
-package bloop.logging
+package bloop
 
 import java.io.{
   BufferedReader,
-  ByteArrayOutputStream,
   ByteArrayInputStream,
+  ByteArrayOutputStream,
   InputStreamReader,
   PrintStream
 }
 import java.util.UUID
 
-import scala.collection.mutable
-
-import org.junit.Test
+import bloop.logging.{BloopLogger, DebugFilter}
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
+import org.junit.Test
 import org.junit.experimental.categories.Category
+
+import scala.collection.mutable
 
 @Category(Array(classOf[bloop.FastTests]))
 class BloopLoggerSpec {
@@ -32,7 +33,8 @@ class BloopLoggerSpec {
 
   @Test
   def errorMessagesGoToErr(): Unit =
-    runAndCheck { logger => logger.error("error")
+    runAndCheck { logger =>
+      logger.error("error")
     } { (outMsgs, errMsgs) =>
       assertEquals(0, outMsgs.length.toLong)
       assertEquals(1, errMsgs.length.toLong)
@@ -207,7 +209,8 @@ class BloopLoggerSpec {
 
   private def runAndCheck(
       op: BloopLogger => Unit
-  )(check: (Seq[String], Seq[String]) => Unit)(implicit ctx: DebugFilter = DebugFilter.All): Unit = {
+  )(check: (Seq[String], Seq[String]) => Unit)(
+      implicit ctx: DebugFilter = DebugFilter.All): Unit = {
     val outStream = new ByteArrayOutputStream
     val errStream = new ByteArrayOutputStream
 

@@ -1,10 +1,9 @@
-package bloop.cli.validation
+package bloop.cli
 
 import java.nio.charset.Charset
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 import bloop.bsp.BspServer
-import bloop.cli.{BspProtocol, Commands, CommonOptions, ExitStatus}
 import bloop.engine.{Action, Exit, Feedback, Print, Run, State}
 import bloop.io.AbsolutePath
 import monix.eval.Task

@@ -1,15 +1,14 @@
-package bloop.tasks
+package bloop
 
-import bloop.Compiler
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
 import bloop.data.Project
-import bloop.engine.{Build, Run, State}
-import bloop.engine.caches.ResultsCache
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.util.TestUtil
+import bloop.engine.caches.ResultsCache
+import bloop.engine.{Build, Run, State}
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.experimental.categories.Category

@@ -151,7 +151,7 @@ final class BloopHighLevelCompiler(
             }
           }
 
-          import bloop.monix.Java8Compat.JavaCompletableFutureUtils
+          import bloop.util.Java8Compat.JavaCompletableFutureUtils
           val scalacOptions = setup.options.scalacOptions
           firstCompilation
             .flatMap(_ => Task.deferFutureAction(s => outlinePromise.asScala(s)))

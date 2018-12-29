@@ -1,9 +1,10 @@
-package bloop.engine
+package bloop
 
 import java.util.concurrent.TimeUnit
 
 import bloop.config.Config
 import bloop.data.Project
+import bloop.engine.{BuildLoader, Dag}
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil

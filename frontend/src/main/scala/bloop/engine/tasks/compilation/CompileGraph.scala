@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture
 
 import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
-import bloop.monix.Java8Compat.JavaCompletableFutureUtils
+import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine._
 import bloop.logging.Logger
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}

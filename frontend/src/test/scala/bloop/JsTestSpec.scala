@@ -1,19 +1,17 @@
-package bloop.tasks
+package bloop
 
 import java.net.URLClassLoader
-import java.util
 import java.util.concurrent.{ExecutionException, TimeUnit}
 
-import bloop.CompileMode
 import bloop.cli.Commands
 import bloop.data.Project
-import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
-import bloop.engine.{ExecutionContext, Run, State}
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.reporter.ReporterConfig
 import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteEvent}
 import bloop.util.TestUtil
+import bloop.engine.tasks.{CompilationTask, Tasks, TestTask}
+import bloop.engine.{ExecutionContext, Run, State}
 import monix.execution.Cancelable
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
@@ -64,10 +62,10 @@ object JsTestSpec {
   }
 
   @Parameters
-  def data(): util.Collection[Array[Object]] = {
+  def data(): java.util.Collection[Array[Object]] = {
     val firstBatch = Array(Array[AnyRef](frameworks06, testState0, testProject0, testAnalysis0))
     val secondBatch = Array(Array[AnyRef](frameworks10, testState1, testProject1, testAnalysis1))
-    util.Arrays.asList((firstBatch ++ secondBatch): _*)
+    java.util.Arrays.asList((firstBatch ++ secondBatch): _*)
   }
 }
 

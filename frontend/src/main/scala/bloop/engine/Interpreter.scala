@@ -10,7 +10,7 @@ import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
-import bloop.cli.validation.Validate
+import bloop.cli.Validate
 import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}

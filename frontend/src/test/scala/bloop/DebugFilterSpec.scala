@@ -1,7 +1,7 @@
-package bloop.logging
+package bloop
 
-import bloop.Cli
 import bloop.cli.{Commands, CommonOptions, ExitStatus}
+import bloop.logging.DebugFilter
 import bloop.engine.{Exit, Print, Run}
 import org.junit.{Assert, Test}
 

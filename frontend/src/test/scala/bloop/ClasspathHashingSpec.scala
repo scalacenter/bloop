@@ -11,7 +11,7 @@ import org.junit.experimental.categories.Category
 import scala.concurrent.duration.FiniteDuration
 
 @Category(Array(classOf[bloop.FastTests]))
-class ClasspathHashingTest {
+class ClasspathHashingSpec {
   @Test
   def detectsMacrosInClasspath(): Unit = {
     val logger = new RecordingLogger()

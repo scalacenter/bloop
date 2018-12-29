@@ -32,7 +32,15 @@ object Mode {
   case object MainsFQCN extends Mode("mainsfqcn")
 
   val modes: List[Mode] =
-    List(Commands, Projects, ProjectBoundCommands, Flags, Reporters, Protocols, TestsFQCN, MainsFQCN)
+    List(
+      Commands,
+      Projects,
+      ProjectBoundCommands,
+      Flags,
+      Reporters,
+      Protocols,
+      TestsFQCN,
+      MainsFQCN)
 
   implicit val completionModeRead: ArgParser[Mode] = {
     ArgParser.instance[Mode]("mode") { input =>

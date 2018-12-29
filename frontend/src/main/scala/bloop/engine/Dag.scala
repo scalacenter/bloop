@@ -181,11 +181,11 @@ object Dag {
   }
 
   /**
-    * Represent the result of [[inverseDependencies()]].
-    *
-    * @param reduced The minimal set of nodes that subsume `targets`.
-    * @param all The set of all nodes that are strictly inverse dependencies of `targets`.
-    */
+   * Represent the result of [[inverseDependencies()]].
+   *
+   * @param reduced The minimal set of nodes that subsume `targets`.
+   * @param all The set of all nodes that are strictly inverse dependencies of `targets`.
+   */
   case class InverseDependencies[T](reduced: List[T], all: List[T])
 
   def inverseDependencies[T](dags: List[Dag[T]], targets: List[T]): InverseDependencies[T] = {

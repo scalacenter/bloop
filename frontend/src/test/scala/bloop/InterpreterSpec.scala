@@ -1,14 +1,15 @@
-package bloop.engine
+package bloop
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.util.UUID
 
 import bloop.cli.{CliOptions, Commands}
+import bloop.engine.{Run, State}
 import bloop.logging.{BloopLogger, DebugFilter}
 import bloop.util.TestUtil
+import guru.nidi.graphviz.parse.Parser
 import org.junit.Test
 import org.junit.experimental.categories.Category
-import guru.nidi.graphviz.parse.Parser
 
 @Category(Array(classOf[bloop.FastTests]))
 class InterpreterSpec {

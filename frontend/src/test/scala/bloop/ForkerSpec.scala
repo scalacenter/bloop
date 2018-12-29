@@ -1,17 +1,18 @@
-package bloop.exec
+package bloop
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
-import org.junit.Test
-import org.junit.Assert.{assertEquals, assertNotEquals}
-import org.junit.experimental.categories.Category
 import bloop.cli.ExitStatus
-import bloop.logging.RecordingLogger
+import bloop.exec.{Forker, JavaEnv}
 import bloop.io.AbsolutePath
+import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
+import org.junit.Assert.{assertEquals, assertNotEquals}
+import org.junit.Test
+import org.junit.experimental.categories.Category
 
 import scala.concurrent.duration.Duration
 

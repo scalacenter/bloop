@@ -1,6 +1,6 @@
 package bloop
 
-import bloop.logging.{ DebugFilter, Logger }
+import bloop.logging.{DebugFilter, Logger}
 import bloop.io.AbsolutePath
 
 import sbt.librarymanagement._
@@ -40,11 +40,13 @@ object DependencyResolution {
    * @param additionalRepositories Additional repositories to include in resolition.
    * @return All the files that compose the module and that could be found.
    */
-  def resolve(organization: String,
-              module: String,
-              version: String,
-              logger: Logger,
-              additionalRepositories: Seq[Repository] = Nil): Array[AbsolutePath] = {
+  def resolve(
+      organization: String,
+      module: String,
+      version: String,
+      logger: Logger,
+      additionalRepositories: Seq[Repository] = Nil
+  ): Array[AbsolutePath] = {
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)

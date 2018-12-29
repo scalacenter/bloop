@@ -23,7 +23,7 @@ import bloop.logging.{
   Logger,
   RecordingLogger
 }
-import monix.eval.Task
+import _root_.monix.eval.Task
 import org.junit.Assert
 import sbt.internal.inc.bloop.ZincInternals
 

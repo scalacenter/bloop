@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.{DebugFilter, Logger, Slf4jAdapter}
-import bloop.monix.FoldLeftAsyncConsumer
+import bloop.util.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
 import io.methvin.watcher.DirectoryChangeEvent.EventType

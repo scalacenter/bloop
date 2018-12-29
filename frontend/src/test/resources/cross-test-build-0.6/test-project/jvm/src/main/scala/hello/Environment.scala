@@ -5,4 +5,3 @@ object Environment {
     sys.env.get("BLOOP_OWNER").getOrElse(sys.error("Missing BLOOP_OWNER env variable!"))
   }
 }
-

@@ -1,13 +1,14 @@
-package bloop.engine
+package bloop
 
-import org.junit.{Assert, Test}
-import org.junit.experimental.categories.Category
-import bloop.logging.RecordingLogger
 import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.Dag.{DagResult, RecursiveTrace}
+import bloop.engine.{Aggregate, Dag, Leaf, Parent}
+import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import guru.nidi.graphviz.parse.Parser
+import org.junit.experimental.categories.Category
+import org.junit.{Assert, Test}
 
 @Category(Array(classOf[bloop.FastTests]))
 class DagSpec {

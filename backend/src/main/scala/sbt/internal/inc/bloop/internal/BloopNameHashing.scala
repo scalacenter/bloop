@@ -82,9 +82,10 @@ private final class BloopNameHashing(reporter: Reporter, options: IncOptions, pr
             }
 
             val newApiChanges =
-              detectAPIChanges(recompiledClasses,
-                               previous.apis.internalAPI,
-                               current.apis.internalAPI)
+              detectAPIChanges(
+                recompiledClasses,
+                previous.apis.internalAPI,
+                current.apis.internalAPI)
             debug("\nChanges:\n" + newApiChanges)
             val nextInvalidations = invalidateAfterInternalCompilation(
               current.relations,
