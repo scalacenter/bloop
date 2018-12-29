@@ -334,6 +334,20 @@ pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>.
 > given that concurrent actions may collide. Such actions will be handled gracefully in future bloop
 > releases.
 
+## Compile, test and run several projects
+
+The `compile`, `test` and `run` actions take several projects as arguments which allows you to
+process several projects in one go. For example, compile `foo`, `bar` and `baz` with:
+
+```bash
+→ bloop compile foo bar baz
+Compiling foo (1 Scala source)
+Compiled foo (290ms)
+Compiling bar (1 Scala source)
+Compiled bar (455ms)
+Compiling baz (1 Scala source)
+Compiled baz (229ms)
+```
 
 ## Summary
 

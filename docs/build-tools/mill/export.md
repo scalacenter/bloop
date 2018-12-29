@@ -6,6 +6,13 @@ Install bloop in `build.sc`:
 import $ivy.`ch.epfl.scala::mill-bloop:@VERSION@`
 ```
 
+### Requirements
+
+* `mill` >= 0.3.5.
+
+> bloop makes a best effort to support always the latest mill version. The current plugin may not
+work for older and newer versions due to breaking binary changes in mill's public API.
+
 ## Generate configuration files
 
 The mill command `bloopInstall` exports your mill build to bloop.
