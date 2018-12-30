@@ -16,7 +16,7 @@ import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
 import scala.util.{Failure, Success}
 
 object CompileGraph {
-  type CompileTask = Task[Dag[PartialCompileResult]]
+  type CompileTraversal = Task[Dag[PartialCompileResult]]
 
   type IRs = Array[IR]
   case class Inputs(
@@ -44,7 +44,7 @@ object CompileGraph {
       compile: Inputs => Task[Compiler.Result],
       pipeline: Boolean,
       logger: Logger
-  ): CompileTask = {
+  ): CompileTraversal = {
     /* We use different traversals for normal and pipeline compilation because the
      * pipeline traversal has an small overhead (2-3%) for some projects. Check
      * https://benchs.scala-lang.org/dashboard/snapshot/sLrZTBfntTxMWiXJPtIa4DIrmT0QebYF */
@@ -104,9 +104,9 @@ object CompileGraph {
       setup: (Project, Dag[Project]) => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
-  ): CompileTask = {
-    val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
-    def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
+  ): CompileTraversal = {
+    val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
+    def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
 
     /*
      * [[PartialCompileResult]] is our way to represent errors at the build graph
@@ -119,7 +119,7 @@ object CompileGraph {
       PartialFailure(bundle, CompileExceptions.FailPromise, Task.now(res))
 
     val es = EmptyIRStore.getStore
-    def loop(dag: Dag[Project]): CompileTask = {
+    def loop(dag: Dag[Project]): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>
@@ -195,12 +195,12 @@ object CompileGraph {
       setup: (Project, Dag[Project]) => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
-  ): CompileTask = {
-    val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTask]()
-    def register(k: Dag[Project], v: CompileTask): CompileTask = { tasks.put(k, v); v }
+  ): CompileTraversal = {
+    val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
+    def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
 
     val es = EmptyIRStore.getStore
-    def loop(dag: Dag[Project]): CompileTask = {
+    def loop(dag: Dag[Project]): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>

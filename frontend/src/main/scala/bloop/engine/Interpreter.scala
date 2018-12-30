@@ -8,7 +8,7 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.DebugFilter
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks, TestTask}
+import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.data.{Platform, Project}
@@ -141,8 +141,8 @@ object Interpreter {
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       val dag = getProjectsDag(projects, state)
       val createReporter = (project: Project, cwd: AbsolutePath) =>
-        CompilationTask.toReporter(project, cwd, config, state.logger)
-      CompilationTask.compile(
+        CompileTask.toReporter(project, cwd, config, state.logger)
+      CompileTask.compile(
         state,
         dag,
         createReporter,

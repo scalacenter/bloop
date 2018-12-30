@@ -174,7 +174,6 @@ object BloopZincCompiler {
       incrementalCompilerOptions: IncOptions,
       extra: List[(String, String)]
   ): Task[CompileConfiguration] = {
-    val lookup = incrementalCompilerOptions.externalHooks().getExternalLookup
     ClasspathHashing.hash(classpath).map { classpathHashes =>
       val compileSetup = MiniSetup.of(
         output,

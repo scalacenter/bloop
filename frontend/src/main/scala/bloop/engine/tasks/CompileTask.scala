@@ -13,7 +13,7 @@ import sbt.internal.inc.AnalyzingCompiler
 
 import scala.concurrent.Promise
 
-object CompilationTask {
+object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())

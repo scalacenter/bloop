@@ -9,13 +9,13 @@ import bloop.{Compiler, ScalaInstance}
 /**
  * Define a bundle of high-level information about a project that is going to be compiled.
  * It packs several derived data from the project and makes it available both to the
- * implementation of compile in [[bloop.engine.tasks.CompilationTask]] and the logic
+ * implementation of compile in [[bloop.engine.tasks.CompileTask]] and the logic
  * that runs the compile graph. The latter needs information about Java and Scala sources
  * to appropriately (and efficiently) do build pipelining in mixed Java and Scala setups.
  *
  * A [[CompileBundle]] has the same [[hashCode()]] and [[equals()]] than [[Project]]
  * for performance reasons. [[CompileBundle]] is a class that is heavily used in
- * the guts of the compilation logic (namely [[CompileGraph]] and [[bloop.engine.tasks.CompilationTask]]).
+ * the guts of the compilation logic (namely [[CompileGraph]] and [[bloop.engine.tasks.CompileTask]]).
  * Because these classes depend on a fast [[hashCode()]] to cache dags and other
  * instances that contain bundles, our implementation of [[hashCode()]] is as fast
  * as the hash code of a project, which is cached. Using `project`'s hash code does
