@@ -136,6 +136,7 @@ sidebar_label: CLI --help
 #### Examples
 
   * <samp>bloop compile foobar</samp>
+  * <samp>bloop compile foobar --cascade</samp>
   * <samp>bloop compile foobar baz</samp>
   * <samp>bloop compile foobar -w</samp>
   * <samp>bloop compile foobar --reporter bloop</samp>
@@ -354,6 +355,7 @@ sidebar_label: CLI --help
 #### Examples
 
   * <samp>bloop test foobar</samp>
+  * <samp>bloop test foobar --cascade</samp>
   * <samp>bloop test foobar baz</samp>
   * <samp>bloop test foobar -w</samp>
   * <samp>bloop test foobar --propagate</samp>
