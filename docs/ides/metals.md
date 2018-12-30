@@ -34,4 +34,14 @@ documentation](https://scalameta.org/metals/docs/editors/overview.html).
 
 Metals requires the [Download dependencies
 sources](build-tools/sbt.md#download-dependencies-sources) option enabled in your build for
-navigation in external dependencies to work.
+navigation in external dependencies to work, which is enabled by Metals automatically.
+
+The [Sbt page](build-tools/sbt.md) explains how to configure the build export step but requires you
+to add manually bloop's plugin in your build. If you're using Metals, you will need to:
+
+1. Head to the [installation guide](/bloop/setup).
+1. Skip the global installation step (click on 'Universal').
+1. Select your build tool and add bloop to your build.
+1. Follow the build customization you want.
+
+Next time you export with Metals, Metals will respect the configuration in your build.

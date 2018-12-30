@@ -13,12 +13,8 @@ Install and learn how to export the build in the Installation Guide:
 </br>
 
 The following page only walks you through all the configuration options that the `sbt-bloop` plugin
-allows, but it does not explain neither how to install the plugin nor the basic concepts around exporting the build.
-
-> The options in this page can only be done if the sbt bloop is in your build. If you're using Bloop
-through a built-in editor integration (e.g. Metals), head to the installation guide, skip the global
-installation process and follow the instructions to add bloop to your build. Next time you export
-with Metals, Metals will respect the configuration in your build.
+allows when it's configured in your build. To learn how to install the plugin or the basic concepts
+of exporting your build via bloopp head to the installation guide linked above.
 
 ## Don't export certain targets
 
