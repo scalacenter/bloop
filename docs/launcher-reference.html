@@ -86,10 +86,25 @@ and spawn a bloop version, but that do not wish to use BSP and instead prefer
 to detect manually the installed <code>bloop</code> version by the launcher and <a href="/bloop/docs/cli-reference">run the
 CLI</a>.</p>
 <h4><a class="anchor" aria-hidden="true" id="install-the-launcher"></a><a href="#install-the-launcher" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the launcher</h4>
-<blockquote>
-The launcher module has not yet hit Maven Central. This section will
-be updated next time there is a change in the bloop docs.
-</blockquote>
+<table>
+<thead>
+<th>Version</th>
+<th>Published</th>
+<th>Resolver</th>
+</thead>
+<tbody>
+<tr>
+<td>1.2.0</td>
+<td>30 Dec 2018 13:00</td>
+<td><code>-r sonatype:releases</code></td>
+</tr>
+<tr>
+<td>1.2.0</td>
+<td>30 Dec 2018 13:01</td>
+<td><code>-r bintray:scalacenter/releases</code></td>
+</tr>
+</tbody>
+</table>
 <p>The launcher is independent from bloop but it's released with the same cadence than the bloop build server. Therefore, you can expect a build server version to have an accompanying launcher version.</p>
 <h3><a class="anchor" aria-hidden="true" id="open-a-bsp-connection"></a><a href="#open-a-bsp-connection" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Open a BSP connection</h3>
 <p>To open a bsp a bsp connection with Bloop's build server you need
