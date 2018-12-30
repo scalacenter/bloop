@@ -7,6 +7,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.BspServerLogger
 import xsbti.Position
 import ch.epfl.scala.bsp
+import monix.execution.atomic.AtomicLong
 import sbt.util.InterfaceUtil
 import xsbti.compile.CompileAnalysis
 
@@ -42,6 +43,21 @@ final class BspProjectReporter(
 
   // Report summary manually via `reportEndCompilation` for BSP clients
   override def printSummary(): Unit = ()
+
+  val compileProgressCounter = AtomicLong(0)
+  override def reportCompilationProgress(
+      progress: Long,
+      total: Long,
+      phase: String,
+      sourceFile: String
+  ): Unit = {
+    val id = compileProgressCounter.addAndGet(1)
+    logger.publishCompileProgress(taskId, progress, total, phase, sourceFile)
+  }
+
+  override def reportCancelledCompilation(): Unit = {
+    ()
+  }
 
   // Includes problems of both successful and failed compilations
   private var previouslyReportedProblems: List[xsbti.Problem] = Nil

@@ -119,6 +119,36 @@ final class BspServerLogger private (
   private def now: Long = System.currentTimeMillis()
 
   /**
+   * Publish a compile progress notification to the client via BSP.
+   *
+   * The following fields of the progress notification are not populated:
+   *
+   * 1. data: Option[Json] -- there is no additional metadata we want to share with the client.
+   */
+  def publishCompileProgress(
+      taskId: bsp.TaskId,
+      progress: Long,
+      total: Long,
+      phase: String,
+      sourceFile: String
+  ): Unit = {
+    val msg = s"Compiling ${sourceFile} (phase ${phase})"
+    Build.taskProgress.notify(
+      bsp.TaskProgressParams(
+        taskId,
+        Some(System.currentTimeMillis()),
+        Some(msg),
+        Some(progress),
+        Some(total),
+        Some("phase/file"),
+        Some("compile"),
+        None
+      )
+    )
+    ()
+  }
+
+  /**
    * Publish a compile start notification to the client via BSP.
    *
    * The compile start notification must always have a corresponding
@@ -132,7 +162,7 @@ final class BspServerLogger private (
       bsp.CompileTask(bsp.BuildTargetIdentifier(project.bspUri))
     )
 
-    val ack = Build.taskStart.notify(
+    Build.taskStart.notify(
       bsp.TaskStartParams(
         taskId,
         Some(now),

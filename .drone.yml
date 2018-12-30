@@ -23,6 +23,7 @@ matrix:
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
+          "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
           "frontend/test" \
           "gradleBloop212/test" \
           "docs/run"
@@ -45,7 +46,6 @@ matrix:
           "show version" \
           "set pgpPublicRing in Global := file(\"/drone/.gnupg/pubring.asc\")" \
           "set pgpSecretRing in Global := file(\"/drone/.gnupg/secring.asc\")" \
-          "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
           "releaseBloop" \
           "docs/docusaurusPublishGhpages"
 
@@ -116,6 +116,7 @@ pipeline:
       - curl -o- -L https://yarnpkg.com/install.sh | bash
       - yarn --help
       - ${TEST_BLOOP}
+      - . bin/check-good-practices.sh # Check that good practices in the repo hold
 
   run_benchmarks_scripted:
     image: scalacenter/scala-docs:1.4

@@ -17,6 +17,8 @@ import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import caseapp.core.CommandMessages
 import monix.eval.Task
 
+import scala.concurrent.Promise
+
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
   def execute(action: Action, stateTask: Task[State]): Task[State] = {
@@ -146,7 +148,8 @@ object Interpreter {
         createReporter,
         compilerMode,
         cmd.pipeline,
-        excludeRoot
+        excludeRoot,
+        Promise[Unit]()
       )
     }
 

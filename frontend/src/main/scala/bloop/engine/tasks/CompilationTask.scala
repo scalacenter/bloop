@@ -11,6 +11,8 @@ import bloop.{CompileInputs, CompileMode, Compiler}
 import monix.eval.Task
 import sbt.internal.inc.AnalyzingCompiler
 
+import scala.concurrent.Promise
+
 object CompilationTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
@@ -22,11 +24,13 @@ object CompilationTask {
    * Performs incremental compilation of the dependencies of `project`, including `project` if
    * `excludeRoot` is `false`, excluding it otherwise.
    *
-   * @param state          The current state of Bloop.
-   * @param dag            The project dag to compile.
-   * @param createReporter A function that creates a per-project compilation reporter.
-   * @param excludeRoot    If `true`, compile only the dependencies of `project`.
-   *                       Otherwise, also compile `project`.
+   * @param state             The current state of Bloop.
+   * @param dag               The project dag to compile.
+   * @param createReporter    A function that creates a per-project compilation reporter.
+   * @param pipeline          Enable build pipelining for this compilation run.
+   * @param excludeRoot       Compile only the dependencies of `project` (required by `console`).
+   * @param cancelCompilation A promise that is completed when the user cancels compilation.
+   *
    * @return The new state of Bloop after compilation.
    */
   def compile(
@@ -35,7 +39,8 @@ object CompilationTask {
       createReporter: (Project, AbsolutePath) => Reporter,
       userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
-      excludeRoot: Boolean
+      excludeRoot: Boolean,
+      cancelCompilation: Promise[Unit]
   ): Task[State] = {
     val cwd = state.build.origin.getParent
     import state.{logger, compilerCache}
@@ -101,7 +106,8 @@ object CompilationTask {
             previousResult,
             reporter,
             compileMode,
-            graphInputs.dependentResults
+            graphInputs.dependentResults,
+            cancelCompilation
           )
 
           Compiler.compile(backendInputs).map { result =>

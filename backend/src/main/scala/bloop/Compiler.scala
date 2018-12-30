@@ -15,6 +15,8 @@ import bloop.util.CacheHashCode
 import sbt.internal.inc.bloop.internal.StopPipelining
 import sbt.util.InterfaceUtil
 
+import scala.concurrent.Promise
+
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
@@ -31,7 +33,8 @@ case class CompileInputs(
     previousCompilerResult: Compiler.Result,
     reporter: Reporter,
     mode: CompileMode,
-    dependentResults: Map[File, PreviousResult]
+    dependentResults: Map[File, PreviousResult],
+    cancelPromise: Promise[Unit]
 )
 
 object Compiler {
@@ -43,6 +46,23 @@ object Compiler {
 
     override def definesClass(classpathEntry: File): DefinesClass = {
       Locate.definesClass(classpathEntry)
+    }
+  }
+
+  private final class BloopProgress(
+      reporter: Reporter,
+      cancelPromise: Promise[Unit]
+  ) extends CompileProgress {
+    private var current = 0.toLong
+    private var total = 26.toLong
+    override def startUnit(phase: String, unitPath: String): Unit = {
+      reporter.reportCompilationProgress(current, total, phase, unitPath)
+    }
+
+    override def advance(current0: Int, total0: Int): Boolean = {
+      current = current0.toLong
+      total = total0.toLong
+      !cancelPromise.isCompleted
     }
   }
 
@@ -126,7 +146,8 @@ object Compiler {
         if (!compileInputs.scalaInstance.isDotty) opts
         else Ecosystem.supportDotty(opts)
       }
-      val progress = Optional.empty[CompileProgress]
+      val progress =
+        Optional.of[CompileProgress](new BloopProgress(reporter, compileInputs.cancelPromise))
       val setup =
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
       // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
@@ -150,6 +171,16 @@ object Compiler {
     import scala.util.{Success, Failure}
     val reporter = compileInputs.reporter
 
+    def cancel(): Unit = {
+      // Avoid illegal state exception if client cancellation promise is completed
+      if (!compileInputs.cancelPromise.isCompleted) {
+        compileInputs.cancelPromise.success(())
+      }
+
+      // Always report the compilation of a project no matter if it's completed
+      reporter.reportCancelledCompilation()
+    }
+
     val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
     val previousProblems: List[Problem] = compileInputs.previousCompilerResult match {
       case f: Compiler.Result.Failed => f.problems
@@ -166,6 +197,7 @@ object Compiler {
     BloopZincCompiler
       .compile(inputs, compileInputs.mode, reporter)
       .materialize
+      .doOnCancel(Task(cancel()))
       .map {
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs

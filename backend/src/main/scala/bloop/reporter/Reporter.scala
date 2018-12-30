@@ -65,6 +65,17 @@ abstract class Reporter(
   private def hasWarnings(problems: Seq[Problem]): Boolean =
     problems.exists(_.severity == Severity.Warn)
 
+  /** Report the progress from the compiler. */
+  def reportCompilationProgress(
+      progress: Long,
+      total: Long,
+      phase: String,
+      sourceFile: String
+  ): Unit
+
+  /** Report the compile cancellation of this project. */
+  def reportCancelledCompilation(): Unit
+
   /** A function called *always* at the very beginning of compilation. */
   def reportStartCompilation(previousProblems: List[xsbti.Problem]): Unit
 

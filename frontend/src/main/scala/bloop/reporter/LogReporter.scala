@@ -3,7 +3,7 @@ import java.io.File
 
 import bloop.data.Project
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{DebugFilter, Logger}
 import xsbti.compile.CompileAnalysis
 import xsbti.{Position, Severity}
 import ch.epfl.scala.bsp
@@ -41,6 +41,18 @@ final class LogReporter(
       case Severity.Warn => logger.warn(text)
       case Severity.Info => logger.info(text)
     }
+  }
+
+  override def reportCompilationProgress(
+      progress: Long,
+      total: Long,
+      phase: String,
+      sourceFile: String
+  ): Unit = ()
+
+  override def reportCancelledCompilation(): Unit = {
+    logger.warn(s"Cancelling compilation of ${project.name}")
+    ()
   }
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
