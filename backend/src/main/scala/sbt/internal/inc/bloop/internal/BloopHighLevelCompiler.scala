@@ -97,9 +97,9 @@ final class BloopHighLevelCompiler(
         case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
         case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
         case CompileMode.Pipelined(_, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
-          (true, None, completeJava, fireJavaCompilation, oracle.getTransitiveJavaSourcesOfOngoingCompilations, separateJavaAndScala)
+          (true, None, completeJava, fireJavaCompilation, oracle.askForJavaSourcesOfIncompleteCompilations, separateJavaAndScala)
         case CompileMode.ParallelAndPipelined(batches, _, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
-          (true, Some(batches), completeJava, fireJavaCompilation, oracle.getTransitiveJavaSourcesOfOngoingCompilations, separateJavaAndScala)
+          (true, Some(batches), completeJava, fireJavaCompilation, oracle.askForJavaSourcesOfIncompleteCompilations, separateJavaAndScala)
       }
     }
 

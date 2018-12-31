@@ -2,7 +2,7 @@
 package bloop.engine.tasks.compilation
 
 import java.io.File
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
 import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
@@ -25,7 +25,7 @@ object CompileGraph {
       irPromise: CompletableFuture[IRs],
       completeJava: CompletableFuture[Unit],
       transitiveJavaSignal: Task[JavaSignal],
-      oracle: CompilerOracle,
+      oracle: CompilerOracle[PartialSuccess],
       separateJavaAndScala: Boolean,
       dependentResults: Map[File, PreviousResult] = Map.empty
   )
@@ -92,6 +92,12 @@ object CompileGraph {
     }
   }
 
+  type RunningCompilationsInAllClients = ConcurrentHashMap[Compiler.RequestInputs, CompileTraversal]
+  private val runningCompilations: RunningCompilationsInAllClients =
+    new ConcurrentHashMap[Compiler.RequestInputs, CompileTraversal]()
+
+  private val emptyOracle = AllKnowingCompilerOracle.empty(runningCompilations)
+
   /**
    * Traverses the dag of projects in a normal way.
    *
@@ -127,7 +133,7 @@ object CompileGraph {
             case Leaf(project) =>
               val bundle = setup(project, dag)
               val cf = new CompletableFuture[IRs]()
-              compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false)).map {
+              compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false)).map {
                 case Compiler.Result.Ok(res) =>
                   Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res)))
                 case res => Leaf(toPartialFailure(bundle, res))
@@ -158,7 +164,7 @@ object CompileGraph {
                     }.toMap
 
                     val cf = new CompletableFuture[IRs]()
-                    compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false, dr)).map {
+                    compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false, dr)).map {
                       case Compiler.Result.Ok(res) =>
                         val partial = PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res))
                         Parent(partial, dagResults)
@@ -209,7 +215,7 @@ object CompileGraph {
               Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                 val bundle = setup(project, dag)
                 val jcf = new CompletableFuture[Unit]()
-                val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, CompilerOracle.empty, true))
+                val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
                 val running =
                   Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                 val completeJavaTask = Task
@@ -263,7 +269,7 @@ object CompileGraph {
                   val javaSignal: Task[JavaSignal] =
                     aggregateJavaSignals(results.map(_.javaTrigger))
 
-                  val oracle = CompilerOracle(results.map(r => (r.completeJava, r.bundle.javaSources)))
+                  val oracle = new AllKnowingCompilerOracle(results, Map.empty, runningCompilations)
                   Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                     val jcf = new CompletableFuture[Unit]()
                     val t = compile(Inputs(bundle, dependentStore, cf, jcf, javaSignal, oracle, true))

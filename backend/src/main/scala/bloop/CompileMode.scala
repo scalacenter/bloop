@@ -26,7 +26,7 @@ object CompileMode {
       irs: CompletableFuture[Array[IR]],
       completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal],
-      oracle: CompilerOracle,
+      oracle: CompilerOracle[_],
       separateJavaAndScala: Boolean
   ) extends CompileMode
 
@@ -35,7 +35,7 @@ object CompileMode {
       irs: CompletableFuture[Array[IR]],
       completeJavaCompilation: CompletableFuture[Unit],
       fireJavaCompilation: Task[JavaSignal],
-      oracle: CompilerOracle,
+      oracle: CompilerOracle[_],
       separateJavaAndScala: Boolean
   ) extends CompileMode
 }

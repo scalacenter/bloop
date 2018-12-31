@@ -9,7 +9,7 @@ import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
 import bloop.reporter.{ProblemPerPhase, Reporter}
 import sbt.internal.inc.bloop.BloopZincCompiler
-import sbt.internal.inc.{FreshCompilerCache, Locate}
+import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
 import _root_.monix.eval.Task
 import bloop.util.{AnalysisUtils, CacheHashCode}
 import sbt.internal.inc.bloop.internal.StopPipelining
@@ -107,6 +107,13 @@ object Compiler {
       }
     }
   }
+
+  case class RequestInputs(
+      sources: InitialChanges,
+      classpath: Seq[FileHash],
+      originProjectPath: String,
+      originProjectHash: Int
+  )
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val classesDir = compileInputs.classesDir.toFile
