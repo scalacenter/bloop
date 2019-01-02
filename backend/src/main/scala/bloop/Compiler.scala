@@ -109,6 +109,7 @@ object Compiler {
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val classesDir = compileInputs.classesDir.toFile
+    val classesDirBak = compileInputs.classesDir.getParent.resolve("classes.bak").toFile
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -141,8 +142,14 @@ object Compiler {
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = {
+        def withTransactional(opts: IncOptions): IncOptions = {
+          opts.withClassfileManagerType(Optional.of(
+            xsbti.compile.TransactionalManagerType.of(classesDirBak, reporter.logger)
+          ))
+        }
+
         val disableIncremental = java.lang.Boolean.getBoolean("bloop.zinc.disabled")
-        val opts = IncOptions.create().withEnabled(!disableIncremental)
+        val opts = withTransactional(IncOptions.create().withEnabled(!disableIncremental))
         if (!compileInputs.scalaInstance.isDotty) opts
         else Ecosystem.supportDotty(opts)
       }

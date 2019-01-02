@@ -62,16 +62,6 @@ object BloopIncremental {
       // TODO(jvican): Enable profiling of the invalidation algorithm down the road
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
-    def manageClassfiles[T](options: IncOptions)(run: ClassFileManager => T): T = {
-      import sbt.internal.inc.{ClassFileManager => ClassFileManagerImpl}
-      val classfileManager = ClassFileManagerImpl.getClassFileManager(options)
-      val result =
-        try run(classfileManager)
-        catch { case e: Throwable => classfileManager.complete(false); throw e }
-      classfileManager.complete(true)
-      result
-    }
-
     val setOfSources = sources.toSet
     val incremental = new BloopNameHashing(reporter, options, profiler.profileRun)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
@@ -102,13 +92,16 @@ object BloopIncremental {
         } yield callback.get
       }
 
-      try incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, classfileManager, 1)
-      catch { case e: Throwable => classfileManager.complete(false); throw e }
+      incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, classfileManager, 1)
     }
 
-    analysisTask.map { analysis =>
-      classfileManager.complete(true)
-      (initialInvClasses.nonEmpty || initialInvSources.nonEmpty, analysis)
+    analysisTask.materialize.map {
+      case scala.util.Success(analysis) =>
+        classfileManager.complete(true)
+        (initialInvClasses.nonEmpty || initialInvSources.nonEmpty, analysis)
+      case scala.util.Failure(e) =>
+        classfileManager.complete(false)
+        throw e
     }
   }
 }
