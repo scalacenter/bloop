@@ -4,14 +4,15 @@ package bloop.engine.tasks.compilation
 import java.io.File
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
-import bloop.data.Project
+import bloop.data.{Origin, Project}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine._
 import bloop.logging.Logger
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
-import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
+import sbt.internal.inc.InitialChanges
+import xsbti.compile.{EmptyIRStore, FileHash, IR, IRStore, PreviousResult}
 
 import scala.util.{Failure, Success}
 
@@ -92,11 +93,11 @@ object CompileGraph {
     }
   }
 
-  type RunningCompilationsInAllClients = ConcurrentHashMap[Compiler.RequestInputs, CompileTraversal]
+  type RunningCompilationsInAllClients = ConcurrentHashMap[Compiler.UniqueInputs, CompileTraversal]
   private val runningCompilations: RunningCompilationsInAllClients =
-    new ConcurrentHashMap[Compiler.RequestInputs, CompileTraversal]()
+    new ConcurrentHashMap[Compiler.UniqueInputs, CompileTraversal]()
 
-  private val emptyOracle = AllKnowingCompilerOracle.empty(runningCompilations)
+  private val emptyOracle = ImmutableCompilerOracle.empty(runningCompilations)
 
   /**
    * Traverses the dag of projects in a normal way.
@@ -269,7 +270,7 @@ object CompileGraph {
                   val javaSignal: Task[JavaSignal] =
                     aggregateJavaSignals(results.map(_.javaTrigger))
 
-                  val oracle = new AllKnowingCompilerOracle(results, Map.empty, runningCompilations)
+                  val oracle = new ImmutableCompilerOracle(results, Map.empty, runningCompilations)
                   Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                     val jcf = new CompletableFuture[Unit]()
                     val t = compile(Inputs(bundle, dependentStore, cf, jcf, javaSignal, oracle, true))

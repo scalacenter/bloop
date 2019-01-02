@@ -5,6 +5,7 @@ import bloop.engine.Feedback
 import bloop.engine.Dag
 import bloop.io.{AbsolutePath, Paths}
 import bloop.{Compiler, ScalaInstance}
+import sbt.internal.inc.InitialChanges
 
 /**
  * Define a bundle of high-level information about a project that is going to be compiled.
@@ -19,7 +20,7 @@ import bloop.{Compiler, ScalaInstance}
  * Because these classes depend on a fast [[hashCode()]] to cache dags and other
  * instances that contain bundles, our implementation of [[hashCode()]] is as fast
  * as the hash code of a project, which is cached. Using `project`'s hash code does
- * not poses any problem given that the rest of the members of a bundle are derived
+ * not pose any problem given that the rest of the members of a bundle are derived
  * from a project.
  *
  * @param project The project we want to compile.

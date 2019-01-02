@@ -145,7 +145,10 @@ object CompileTask {
       }
     }
 
-    def setup(project: Project, dag: Dag[Project]): CompileBundle = CompileBundle(project, dag)
+    def setup(project: Project, dag: Dag[Project]): CompileBundle = {
+      CompileBundle(project, dag)
+    }
+
     CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline, logger).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))

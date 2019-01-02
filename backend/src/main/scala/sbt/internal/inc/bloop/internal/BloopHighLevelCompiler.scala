@@ -2,16 +2,15 @@
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
-import java.net.URI
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
 import bloop.reporter.Reporter
-import bloop.{CompileMode, CompilerOracle, JavaSignal, SimpleIRStore}
+import bloop.{CompileMode, JavaSignal, SimpleIRStore}
 import monix.eval.Task
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
 import sbt.internal.inc.javac.AnalyzingJavaCompiler
-import sbt.internal.inc.{Analysis, AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler, ScalaInstance, Stamper, Stamps}
+import sbt.internal.inc.{AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler, ScalaInstance, Stamper, Stamps}
 import sbt.util.Logger
 import xsbti.{AnalysisCallback, CompileFailed}
 import xsbti.compile._

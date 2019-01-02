@@ -8,6 +8,7 @@ import java.io.File
  */
 abstract class CompilerOracle[T] {
   def askForJavaSourcesOfIncompleteCompilations: List[File]
-  def askForClassesDirectory(inputs: Compiler.RequestInputs): File
+  def askForClassesDirectory(inputs: Compiler.UniqueInputs): File
   def learnScheduledCompilations(scheduled: List[T]): CompilerOracle[T]
+  def learnClassesDirectoryFor(inputs: Compiler.UniqueInputs, file: File): CompilerOracle[T]
 }
