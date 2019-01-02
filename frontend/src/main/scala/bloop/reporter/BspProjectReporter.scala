@@ -72,45 +72,58 @@ final class BspProjectReporter(
     }
   }
 
-  override def reportEndIncrementalCycle(durationMs: Long): Unit = ()
+  /**
+   * Report previous problems according to the BSP specification, with the pertinent
+   * handling of diagnostics in non-existing files, diagnostics of files that have
+   * already been compiled and non-error diagnostics cached from previous compiler runs.
+   *
+   * @param reportAllPreviousProblems `true` if called by [[reportEndCompilation()]] in
+   *                                  the first compilation of a target via BSP
+   */
+  private def reportPreviousProblems(reportAllPreviousProblems: Boolean): Unit = {
+    val clearedFiles = new mutable.HashSet[File]
+    // Process `previouslyReportedProblems` and filter out those that have already been handled
+    previouslyReportedProblems = previouslyReportedProblems.filterNot { problem =>
+      val markAsReported = InterfaceUtil.toOption(problem.position().sourceFile).map { source =>
+        if (!source.exists()) {
+          // Clear diagnostics if file doesn't exist anymore
+          logger.noDiagnostic(project, source)
+          true
+        } else if (filesWithProblems.contains(source)) {
+          // Do nothing if problem maps to a file with problems, assume it's already reported
+          true
+        } else if (compiledFiles.contains(source)) {
+          // Log no diagnostic if there was a problem in a file that now compiled without problems
+          logger.noDiagnostic(project, source)
+          true
+        } else if (reportAllPreviousProblems) { // `true` in the first compilation via BSP
+          // Log all previous problems when target file has not been compiled and it exists
+          val clear = !clearedFiles.contains(source)
+          logger.diagnostic(project, problem, clear)
+          clearedFiles.+=(source)
+          true
+        } else {
+          // It can still be reported in next incremental cycles/end of compilation
+          false
+        }
+      }
+
+      markAsReported.getOrElse(false)
+    }
+  }
+
+  override def reportEndIncrementalCycle(durationMs: Long): Unit = {
+    reportPreviousProblems(false)
+  }
 
   override def reportEndCompilation(
       previousAnalysis: Option[CompileAnalysis],
       currentAnalysis: Option[CompileAnalysis],
       code: bsp.StatusCode
   ): Unit = {
-    val isNoOp = previousAnalysis match {
-      case Some(previous) =>
-        currentAnalysis match {
-          case Some(current) => current == previous
-          case None => false
-        }
-      case None => false
-    }
+    reportPreviousProblems(reportAllPreviousProblems)
 
-    val clearedFiles = new mutable.HashSet[File]
-    previouslyReportedProblems.foreach { problem =>
-      InterfaceUtil.toOption(problem.position().sourceFile).foreach { source =>
-        // Do nothing if problem maps to a file with problems, assume it's already reported
-        if (filesWithProblems.contains(source)) ()
-        else {
-          // Log no diagnostics for files that are gone
-          if (!source.exists())
-            logger.noDiagnostic(project, source)
-          else if (compiledFiles.contains(source)) {
-            // Log no diagnostic if there was a problem in a file that now compiled without problems
-            logger.noDiagnostic(project, source)
-          } else if (reportAllPreviousProblems) {
-            // If we start compilation in BSP for this module, resend all previous diagnostics
-            val clear = !clearedFiles.contains(source)
-            logger.diagnostic(project, problem, clear)
-            clearedFiles.+=(source)
-          } else ()
-        }
-      }
-    }
-
-    // Clear the state of files with problems at the end of copmilation
+    // Clear the state of files with problems at the end of compilation
     filesWithProblems.clear()
     compiledFiles.clear()
     logger.publishCompileEnd(project, taskId, allProblems, code)
