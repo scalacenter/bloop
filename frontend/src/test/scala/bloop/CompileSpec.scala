@@ -425,6 +425,45 @@ class CompileSpec {
     }
   }
 
+  @Test
+  def compileWithErrorAndRollbackToNoOp(): Unit = {
+    // This test checks that we're using a transactional class file manager
+    object Sources {
+      val `A.scala` = "object A {\n  def foo(i: String): String = s\"i\"\n}"
+      val `A2WithError.scala` = "object A {\n  def foo(i: Int): String = i\n}"
+    }
+
+    val structure = Map(
+      RootProject -> Map("A.scala" -> Sources.`A.scala`)
+    )
+
+    val logger = new RecordingLogger
+    val deps = Map(RootProject -> Set[String]())
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      assertEquals(logger.compilingInfos.size.toLong, 1.toLong)
+      assertEquals(logger.errors.size.toLong, 0.toLong)
+      ensureCompilationInAllTheBuild(state)
+
+      // Force a compilation cycle and get an error
+      val rootProject = state.build.getProjectFor(RootProject).get
+      val sourceA = rootProject.sources.head.resolve("A.scala")
+      assert(Files.exists(sourceA.underlying), s"Source $sourceA does not exist")
+      Files.write(sourceA.underlying, Sources.`A2WithError.scala`.getBytes(StandardCharsets.UTF_8))
+      val action = Run(Commands.Compile(List(RootProject), incremental = true))
+      val state2 = TestUtil.blockingExecute(action, state)
+      assertEquals(2.toLong, logger.compilingInfos.size.toLong)
+      assertEquals(logger.errors.size.toLong, 3.toLong)
+      ensureCompilationInAllTheBuild(state)
+
+      // Rollback to previous source and force a compile, we shouldn't trigger another compile
+      Files.write(sourceA.underlying, Sources.`A.scala`.getBytes(StandardCharsets.UTF_8))
+      val noopAction = Run(Commands.Compile(List(RootProject), incremental = true))
+      val noopState = TestUtil.blockingExecute(noopAction, state2)
+      assertEquals(2.toLong, logger.compilingInfos.size.toLong)
+      ensureCompilationInAllTheBuild(state)
+    }
+  }
+
   private def simpleProject(scalaInstance: ScalaInstance): Unit = {
     val dependencies = Map.empty[String, Set[String]]
     val structures = Map(RootProject -> Map("A.scala" -> "object A"))
