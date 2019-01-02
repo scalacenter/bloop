@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 class LauncherSpec extends AbstractLauncherSpec {
   // Update the bsp version whenever we change the bloop version
   private final val bspVersion = "2.0.0-M1"
-  private final val bloopVersion = "1.1.2"
+  private final val bloopVersion = "1.2.0"
   private final val bloopServerPort = 9012
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   private final val shellWithPython = new Shell(true, true)

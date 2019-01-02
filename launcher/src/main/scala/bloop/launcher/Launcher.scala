@@ -257,9 +257,14 @@ class LauncherMain(
     import coursier.core.Version
     Version(version).items match {
       case Version.Number(major) :: Version.Number(minor) :: Version.Number(patch) :: xs =>
-        Some(major >= 1 && minor >= 1 && patch >= 2)
-      case _ =>
-        printError(s"Bloop version ${version} does not follow semantic versioning", out)
+        Some((major == 1 && minor == 1 && patch == 2) || (major >= 1 && minor >= 2))
+      case Version.Number(major) :: Version.Number(minor) :: xs =>
+        Some((major >= 1 && minor >= 2))
+      case xs =>
+        printError(
+          s"Bloop version ${version} does not follow semantic versioning, parsed as ${xs}",
+          out
+        )
         None
     }
   }
