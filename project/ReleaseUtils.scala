@@ -215,25 +215,12 @@ object ReleaseUtils {
     val repository = "https://github.com/scalacenter/scoop-bloop.git"
     val buildBase = BuildKeys.buildBase.value
     val version = Keys.version.value
+    val installScript = versionedInstallScript.value
+    val installSha = sha256(installScript)
     cloneAndPushTag(repository, buildBase, version) { inputs =>
       val formulaFileName = "bloop.json"
       val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
-      val contents =
-        s"""{
-           |  "version": "$version",
-           |  "url": "$url",
-           |  "depends": "python",
-           |  "bin": "bloop.cmd",
-           |  "env_add_path": "$$dir",
-           |  "env_set": {
-           |    "HOME": "$$dir",
-           |    "SCOOP": "true"
-           |  },
-           |  "installer": {
-           |    "script": "python $$dir/install.py --dest $$dir"
-           |  }
-           |}
-        """.stripMargin
+      val contents = generateScoopFormulaContents(version, installSha, Right(inputs.tag))
       FormulaArtifact(inputs.base / formulaFileName, contents)
     }
   }
