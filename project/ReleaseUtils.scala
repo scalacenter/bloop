@@ -94,6 +94,7 @@ object ReleaseUtils {
        |  sha256 "$installSha"
        |  bottle :unneeded
        |
+       |  depends_on "bash-completion"
        |  depends_on "python3"
        |  depends_on :java => "1.8+"
        |
@@ -167,7 +168,7 @@ object ReleaseUtils {
     }
   }
 
-  def generateScoopFormulaContents(version: String, origin: FormulaOrigin): String = {
+  def generateScoopFormulaContents(version: String, sha: String, origin: FormulaOrigin): String = {
     val url = {
       origin match {
         case Left(f) => s"""${f.toPath.toUri.toString.replace("\\", "\\\\")}"""
@@ -178,6 +179,7 @@ object ReleaseUtils {
     s"""{
        |  "version": "$version",
        |  "url": "$url",
+       |  "hash": "sha256:$sha",
        |  "depends": "python",
        |  "bin": "bloop.cmd",
        |  "env_add_path": "$$dir",
@@ -197,10 +199,11 @@ object ReleaseUtils {
     val version = Keys.version.value
     val versionDir = Keys.target.value / version
     val installScript = versionedInstallScript.value
+    val installSha = sha256(installScript)
 
     val formulaFileName = "bloop.json"
     val targetLocalFormula = versionDir / formulaFileName
-    val contents = generateScoopFormulaContents(version, Left(installScript))
+    val contents = generateScoopFormulaContents(version, installSha, Left(installScript))
 
     if (!versionDir.exists()) IO.createDirectory(versionDir)
     IO.write(targetLocalFormula, contents)
