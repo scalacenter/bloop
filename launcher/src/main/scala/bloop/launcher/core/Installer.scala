@@ -110,7 +110,7 @@ object Installer {
       localArtifacts.collect { case Right(f) => f }.map(_.toPath)
     } else {
       val prettyFileErrors = fileErrors.map(_.describe).mkString("\n")
-      val errorMsg = s"Fetch error(s):\n${prettyFileErrors.mkString("\n")}"
+      val errorMsg = s"Fetch error(s):\n${prettyFileErrors}"
       printError(errorMsg, out)
       Nil
     }
