@@ -92,22 +92,54 @@ object CompileGraph {
     }
   }
 
-  type RunningCompilationsInAllClients = ConcurrentHashMap[Compiler.UniqueInputs, CompileTraversal]
+  type RunningCompilationsInAllClients = ConcurrentHashMap[CompilerOracle.Inputs, CompileTraversal]
   private val runningCompilations: RunningCompilationsInAllClients =
-    new ConcurrentHashMap[Compiler.UniqueInputs, CompileTraversal]()
+    new ConcurrentHashMap[CompilerOracle.Inputs, CompileTraversal]()
 
   private val emptyOracle = ImmutableCompilerOracle.empty(runningCompilations)
+
+  /**
+   * Sets up project compilation, deduplicates compilation based on ongoing compilations
+   * in all clients and otherwise runs the compilation of a project.
+   *
+   * @param project The project we want to set up and compile.
+   * @param setup The setup function that yields a bundle with unique oracle inputs.
+   * @param compile The function that will compile the project.
+   * @return A task that may be created by `compile` or may be a reference to a previous task.
+   */
+  def setupAndDeduplicate(
+      project: Project,
+      dag: Dag[Project],
+      setup: (Project, Dag[Project]) => Task[CompileBundle]
+  )(
+      compile: CompileBundle => CompileTraversal
+  ): CompileTraversal = {
+    setup(project, dag).flatMap { bundle =>
+      val compileAndUnsubscribe = {
+        compile(bundle).map { result =>
+          // Remove as ongoing compilation before returning result
+          runningCompilations.remove(bundle.oracleInputs)
+          result
+        }
+      }.memoize // Super important to memoize the compilation task
+
+      val ongoingCompilation =
+        runningCompilations.putIfAbsent(bundle.oracleInputs, compileAndUnsubscribe)
+      if (ongoingCompilation == null) compileAndUnsubscribe else ongoingCompilation
+    }
+  }
 
   /**
    * Traverses the dag of projects in a normal way.
    *
    * @param dag is the dag of projects.
+   * @param computeBundle is the function that sets up the project on every node.
    * @param compile is the task we use to compile on every node.
    * @return A task that returns a dag of compilation results.
    */
   private def normalTraversal(
       dag: Dag[Project],
-      setup: (Project, Dag[Project]) => Task[CompileBundle],
+      computeBundle: (Project, Dag[Project]) => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTraversal = {
@@ -131,7 +163,7 @@ object CompileGraph {
         case None =>
           val task: Task[Dag[PartialCompileResult]] = dag match {
             case Leaf(project) =>
-              setup(project, dag).flatMap { bundle =>
+              setupAndDeduplicate(project, dag, computeBundle) { bundle =>
                 val cf = new CompletableFuture[IRs]()
                 compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false))
                   .map {
@@ -148,7 +180,7 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              setup(project, dag).flatMap { bundle =>
+              setupAndDeduplicate(project, dag, computeBundle) { bundle =>
                 val downstream = dependencies.map(loop)
                 Task.gatherUnordered(downstream).flatMap { dagResults =>
                   val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
@@ -199,13 +231,13 @@ object CompileGraph {
    * implementation where the pickles are generated and the promise in [[Inputs]] completed.
    *
    * @param dag is the dag of projects.
-   * @param setup is the function that sets up the project on every node.
+   * @param computeBundle is the function that sets up the project on every node.
    * @param compile is the function that compiles every node, returning a Task.
    * @return A task that returns a dag of compilation results.
    */
   private def pipelineTraversal(
       dag: Dag[Project],
-      setup: (Project, Dag[Project]) => Task[CompileBundle],
+      computeBundle: (Project, Dag[Project]) => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTraversal = {
@@ -220,7 +252,7 @@ object CompileGraph {
           val task = dag match {
             case Leaf(project) =>
               Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
-                setup(project, dag).flatMap { bundle =>
+                setupAndDeduplicate(project, dag, computeBundle) { bundle =>
                   val jcf = new CompletableFuture[Unit]()
                   val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
                   val running =
@@ -251,7 +283,7 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              setup(project, dag).flatMap { bundle =>
+              setupAndDeduplicate(project, dag, computeBundle) { bundle =>
                 val downstream = dependencies.map(loop)
                 Task.gatherUnordered(downstream).flatMap { dagResults =>
                   val failed = dagResults.flatMap(dag => blockedBy(dag).toList)

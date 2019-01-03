@@ -712,8 +712,7 @@ class CompileSpec {
     }
   }
 
-  @Test
-  def cancelCompilation(): Unit = {
+  def testSlowBuild(logger: RecordingLogger)(testLogic: State => Unit): Unit = {
     object Sources {
       val `SleepMacro.scala` =
         """
@@ -749,10 +748,18 @@ class CompileSpec {
       "user" -> Map("User.scala" -> Sources.`User.scala`)
     )
 
+    val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
+    TestUtil.testState(structure, deps, userLogger = Some(logger), extraJars = scalaJars) { state =>
+      testLogic(state)
+    }
+  }
+
+  @Test
+  def cancelCompilation(): Unit = {
     import bloop.engine.ExecutionContext
     val logger = new RecordingLogger
     val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
-    TestUtil.testState(structure, deps, userLogger = Some(logger), extraJars = scalaJars) { state =>
+    testSlowBuild(logger) { state =>
       val compileMacroProject = Run(Commands.Compile(List("macros")))
       val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
       Assert.assertTrue(
@@ -781,6 +788,46 @@ class CompileSpec {
         "Cancelling compilation of user",
         logger.warnings.mkString(System.lineSeparator())
       )
+    }
+  }
+
+  @Test
+  def deduplicateCompilation(): Unit = {
+    val logger = new RecordingLogger
+    val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
+    testSlowBuild(logger) { state =>
+      val compileMacroProject = Run(Commands.Compile(List("macros")))
+      val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
+      Assert.assertTrue(
+        "Unexpected compilation error when compiling macros",
+        compiledMacrosState.status.isOk
+      )
+
+      val compileUserProject = Run(Commands.Compile(List("user")))
+      val firstCompilation = TestUtil.interpreterTask(compileUserProject, compiledMacrosState)
+      val secondCompilation = TestUtil
+        .interpreterTask(compileUserProject, compiledMacrosState)
+        .delayExecution(FiniteDuration(2, TimeUnit.SECONDS))
+
+      val finalTask = firstCompilation.zip(secondCompilation)
+      val (firstCompilationState, secondCompilationState) = TestUtil.blockOnTask(finalTask, 10)
+
+      logger.dump()
+      println(logger.compilingInfos.mkString(System.lineSeparator))
+
+/*      val finalState = {
+        try scala.concurrent.Await.result(handle, scala.concurrent.duration.Duration(20, "s"))
+        catch {
+          case NonFatal(t) => handle.cancel(); throw t
+          case i: InterruptedException => handle.cancel(); compiledMacrosState
+        }
+      }
+
+      Assert.assertEquals(ExitStatus.CompilationError, finalState.status)
+      TestUtil.assertNoDiff(
+        "Cancelling compilation of user",
+        logger.warnings.mkString(System.lineSeparator())
+      )*/
     }
   }
 }

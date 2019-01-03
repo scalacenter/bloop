@@ -17,7 +17,7 @@ import bloop.{Compiler, CompilerOracle}
  */
 final class ImmutableCompilerOracle(
     scheduledCompilations: List[PartialSuccess],
-    transientClassesDirectories: Map[Compiler.UniqueInputs, File],
+    transientClassesDirectories: Map[CompilerOracle.Inputs, File],
     ongoingCompilations: CompileGraph.RunningCompilationsInAllClients
 ) extends CompilerOracle[PartialSuccess] {
 
@@ -34,7 +34,7 @@ final class ImmutableCompilerOracle(
     }
   }
 
-  override def askForClassesDirectory(inputs: Compiler.UniqueInputs): File = {
+  override def askForClassesDirectory(inputs: CompilerOracle.Inputs): File = {
     ???
   }
 
@@ -49,7 +49,7 @@ final class ImmutableCompilerOracle(
   }
 
   override def learnClassesDirectoryFor(
-      inputs: Compiler.UniqueInputs,
+      inputs: CompilerOracle.Inputs,
       file: File
   ): CompilerOracle[PartialSuccess] = {
     new ImmutableCompilerOracle(

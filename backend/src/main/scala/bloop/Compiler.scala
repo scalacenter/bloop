@@ -108,13 +108,6 @@ object Compiler {
     }
   }
 
-  case class UniqueInputs(
-      sources: InitialChanges,
-      classpath: Seq[FileHash],
-      originProjectPath: String,
-      originProjectHash: Int
-  ) extends CacheHashCode
-
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val classesDir = compileInputs.classesDir.toFile
     val classesDirBak = compileInputs.classesDir.getParent.resolve("classes.bak").toFile
