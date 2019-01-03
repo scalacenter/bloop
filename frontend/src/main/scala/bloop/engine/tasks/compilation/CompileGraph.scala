@@ -1,18 +1,17 @@
-// scalafmt: { maxColumn = 120 }
+// scalafmt: { maxcolumn = 130 }
 package bloop.engine.tasks.compilation
 
 import java.io.File
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
-import bloop.data.{Origin, Project}
+import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine._
 import bloop.logging.Logger
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
-import sbt.internal.inc.InitialChanges
-import xsbti.compile.{EmptyIRStore, FileHash, IR, IRStore, PreviousResult}
+import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
 
 import scala.util.{Failure, Success}
 
@@ -41,7 +40,7 @@ object CompileGraph {
    */
   def traverse(
       dag: Dag[Project],
-      setup: (Project, Dag[Project]) => CompileBundle,
+      setup: (Project, Dag[Project]) => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
       pipeline: Boolean,
       logger: Logger
@@ -108,7 +107,7 @@ object CompileGraph {
    */
   private def normalTraversal(
       dag: Dag[Project],
-      setup: (Project, Dag[Project]) => CompileBundle,
+      setup: (Project, Dag[Project]) => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTraversal = {
@@ -132,12 +131,14 @@ object CompileGraph {
         case None =>
           val task: Task[Dag[PartialCompileResult]] = dag match {
             case Leaf(project) =>
-              val bundle = setup(project, dag)
-              val cf = new CompletableFuture[IRs]()
-              compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false)).map {
-                case Compiler.Result.Ok(res) =>
-                  Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res)))
-                case res => Leaf(toPartialFailure(bundle, res))
+              setup(project, dag).flatMap { bundle =>
+                val cf = new CompletableFuture[IRs]()
+                compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false))
+                  .map {
+                    case Compiler.Result.Ok(res) =>
+                      Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res)))
+                    case res => Leaf(toPartialFailure(bundle, res))
+                  }
               }
 
             case Aggregate(dags) =>
@@ -147,35 +148,40 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              val bundle = setup(project, dag)
-              val downstream = dependencies.map(loop)
-              Task.gatherUnordered(downstream).flatMap { dagResults =>
-                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) {
-                  val results: List[PartialSuccess] = {
-                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
-                    transitive.collect { case s: PartialSuccess => s }
-                  }
-
-                  val projectResults = results.map(ps => ps.result.map(r => ps.bundle.project -> r))
-                  // These tasks have already been completing, so collecting its results is super fast
-                  Task.gatherUnordered(projectResults).flatMap { results =>
-                    val dr = results.collect {
-                      case (p, s: Compiler.Result.Success) => p.classesDir.toFile -> s.previous
-                    }.toMap
-
-                    val cf = new CompletableFuture[IRs]()
-                    compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false, dr)).map {
-                      case Compiler.Result.Ok(res) =>
-                        val partial = PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res))
-                        Parent(partial, dagResults)
-                      case res => Parent(toPartialFailure(bundle, res), dagResults)
+              setup(project, dag).flatMap { bundle =>
+                val downstream = dependencies.map(loop)
+                Task.gatherUnordered(downstream).flatMap { dagResults =>
+                  val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
+                  if (failed.isEmpty) {
+                    val results: List[PartialSuccess] = {
+                      val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                      transitive.collect { case s: PartialSuccess => s }
                     }
+
+                    val projectResults =
+                      results.map(ps => ps.result.map(r => ps.bundle.project -> r))
+                    // These tasks have already been completing, so collecting its results is super fast
+                    Task.gatherUnordered(projectResults).flatMap { results =>
+                      val dr = results.collect {
+                        case (p, s: Compiler.Result.Success) => p.classesDir.toFile -> s.previous
+                      }.toMap
+
+                      val cf = new CompletableFuture[IRs]()
+                      compile(
+                        Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false, dr)
+                      ).map {
+                        case Compiler.Result.Ok(res) =>
+                          val partial =
+                            PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res))
+                          Parent(partial, dagResults)
+                        case res => Parent(toPartialFailure(bundle, res), dagResults)
+                      }
+                    }
+                  } else {
+                    // Register the name of the projects we're blocked on (intransitively)
+                    val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                    Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                   }
-                } else {
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                 }
               }
           }
@@ -199,7 +205,7 @@ object CompileGraph {
    */
   private def pipelineTraversal(
       dag: Dag[Project],
-      setup: (Project, Dag[Project]) => CompileBundle,
+      setup: (Project, Dag[Project]) => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTraversal = {
@@ -214,27 +220,28 @@ object CompileGraph {
           val task = dag match {
             case Leaf(project) =>
               Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
-                val bundle = setup(project, dag)
-                val jcf = new CompletableFuture[Unit]()
-                val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
-                val running =
-                  Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
-                val completeJavaTask = Task
-                  .deferFutureAction(jcf.asScala(_))
-                  .materialize
-                  .map {
-                    case Success(_) => JavaSignal.ContinueCompilation
-                    case Failure(_) => JavaSignal.FailFastCompilation(bundle.project.name)
-                  }
-                  .memoize
+                setup(project, dag).flatMap { bundle =>
+                  val jcf = new CompletableFuture[Unit]()
+                  val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
+                  val running =
+                    Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
+                  val completeJavaTask = Task
+                    .deferFutureAction(jcf.asScala(_))
+                    .materialize
+                    .map {
+                      case Success(_) => JavaSignal.ContinueCompilation
+                      case Failure(_) => JavaSignal.FailFastCompilation(bundle.project.name)
+                    }
+                    .memoize
 
-                Task
-                  .deferFutureAction(c => cf.asScala(c))
-                  .materialize
-                  .map { irs =>
-                    val store = irs.map(irs => SimpleIRStore(Array(irs)))
-                    Leaf(PartialCompileResult(bundle, store, jcf, completeJavaTask, running))
-                  }
+                  Task
+                    .deferFutureAction(c => cf.asScala(c))
+                    .materialize
+                    .map { irs =>
+                      val store = irs.map(irs => SimpleIRStore(Array(irs)))
+                      Leaf(PartialCompileResult(bundle, store, jcf, completeJavaTask, running))
+                    }
+                }
               }
 
             case Aggregate(dags) =>
@@ -244,62 +251,76 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              val bundle = setup(project, dag)
-              val downstream = dependencies.map(loop)
-              Task.gatherUnordered(downstream).flatMap { dagResults =>
-                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                if (failed.isEmpty) {
-                  val directResults =
-                    Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
+              setup(project, dag).flatMap { bundle =>
+                val downstream = dependencies.map(loop)
+                Task.gatherUnordered(downstream).flatMap { dagResults =>
+                  val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
+                  if (failed.isEmpty) {
+                    val directResults =
+                      Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
 
-                  val results: List[PartialSuccess] = {
-                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
-                    transitive.collect { case s: PartialSuccess => s }
-                  }
-
-                  // Let's order the IRs exactly in the same order as provided in the classpath!
-                  // Required for symbol clashes in dependencies (`AppLoader` in guardian/frontend)
-                  val indexDirs = bundle.classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
-                  val dependentStore = {
-                    val transitiveStores =
-                      results.flatMap(r => indexDirs.get(r.bundle.project.classesDir).iterator.map(i => i -> r.store))
-                    SimpleIRStore(transitiveStores.sortBy(_._1).iterator.flatMap(_._2.getDependentsIRs).toArray)
-                  }
-
-                  // Signals whether java compilation can proceed or not
-                  val javaSignal: Task[JavaSignal] =
-                    aggregateJavaSignals(results.map(_.javaTrigger))
-
-                  val oracle = new ImmutableCompilerOracle(results, Map.empty, runningCompilations)
-                  Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
-                    val jcf = new CompletableFuture[Unit]()
-                    val t = compile(Inputs(bundle, dependentStore, cf, jcf, javaSignal, oracle, true))
-                    val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
-                    val ongoing = Task.fromFuture(running)
-                    val completeJavaTask = {
-                      Task
-                        .deferFutureAction(jcf.asScala(_))
-                        .materialize
-                        .map {
-                          case Success(_) => JavaSignal.ContinueCompilation
-                          case Failure(_) => JavaSignal.FailFastCompilation(project.name)
-                        }
-                        .memoize
+                    val results: List[PartialSuccess] = {
+                      val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                      transitive.collect { case s: PartialSuccess => s }
                     }
 
-                    Task
-                      .deferFutureAction(c => cf.asScala(c))
-                      .materialize
-                      .map { irs =>
-                        val store = irs.map(irs => dependentStore.merge(SimpleIRStore(Array(irs))))
-                        val res = PartialCompileResult(bundle, store, jcf, completeJavaTask, ongoing)
-                        Parent(res, dagResults)
+                    // Let's order the IRs exactly in the same order as provided in the classpath!
+                    // Required for symbol clashes in dependencies (`AppLoader` in guardian/frontend)
+                    val indexDirs =
+                      bundle.classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
+                    val dependentStore = {
+                      val transitiveStores = results.flatMap(
+                        r =>
+                          indexDirs.get(r.bundle.project.classesDir).iterator.map(i => i -> r.store)
+                      )
+                      SimpleIRStore(
+                        transitiveStores
+                          .sortBy(_._1)
+                          .iterator
+                          .flatMap(_._2.getDependentsIRs)
+                          .toArray
+                      )
+                    }
+
+                    // Signals whether java compilation can proceed or not
+                    val javaSignal: Task[JavaSignal] =
+                      aggregateJavaSignals(results.map(_.javaTrigger))
+
+                    val oracle =
+                      new ImmutableCompilerOracle(results, Map.empty, runningCompilations)
+                    Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
+                      val jcf = new CompletableFuture[Unit]()
+                      val t =
+                        compile(Inputs(bundle, dependentStore, cf, jcf, javaSignal, oracle, true))
+                      val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                      val ongoing = Task.fromFuture(running)
+                      val completeJavaTask = {
+                        Task
+                          .deferFutureAction(jcf.asScala(_))
+                          .materialize
+                          .map {
+                            case Success(_) => JavaSignal.ContinueCompilation
+                            case Failure(_) => JavaSignal.FailFastCompilation(project.name)
+                          }
+                          .memoize
                       }
+
+                      Task
+                        .deferFutureAction(c => cf.asScala(c))
+                        .materialize
+                        .map { irs =>
+                          val store =
+                            irs.map(irs => dependentStore.merge(SimpleIRStore(Array(irs))))
+                          val res =
+                            PartialCompileResult(bundle, store, jcf, completeJavaTask, ongoing)
+                          Parent(res, dagResults)
+                        }
+                    }
+                  } else {
+                    // Register the name of the projects we're blocked on (intransitively)
+                    val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                    Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                   }
-                } else {
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                  Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                 }
               }
           }

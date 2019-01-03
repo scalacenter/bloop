@@ -145,8 +145,8 @@ object CompileTask {
       }
     }
 
-    def setup(project: Project, dag: Dag[Project]): CompileBundle = {
-      CompileBundle(project, dag)
+    def setup(project: Project, dag: Dag[Project]): Task[CompileBundle] = {
+      CompileBundle.computeFrom(project, dag)
     }
 
     CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline, logger).flatMap { partialDag =>
