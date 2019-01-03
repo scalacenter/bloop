@@ -94,6 +94,7 @@ object ReleaseUtils {
        |  sha256 "$installSha"
        |  bottle :unneeded
        |
+       |  depends_on "bash-completion"
        |  depends_on "python3"
        |  depends_on :java => "1.8+"
        |
