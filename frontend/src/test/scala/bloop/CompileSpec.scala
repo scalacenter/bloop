@@ -725,8 +725,8 @@ class CompileSpec {
           |  def sleep(): Unit = macro sleepImpl
           |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
           |    import c.universe._
-          |    // Sleep for 5 seconds to give time to cancel compilation
-          |    Thread.sleep(5000)
+          |    // Sleep for 3 seconds to give time to cancel compilation
+          |    Thread.sleep(3000)
           |    reify { () }
           |  }
           |}
@@ -771,7 +771,7 @@ class CompileSpec {
       val handle: CancelableFuture[State] = TestUtil
         .interpreterTask(compileUserProject, compiledMacrosState)
         .runAsync(ExecutionContext.scheduler)
-      ExecutionContext.scheduler.scheduleOnce(3, TimeUnit.SECONDS, new Runnable {
+      ExecutionContext.scheduler.scheduleOnce(2, TimeUnit.SECONDS, new Runnable {
         override def run(): Unit = handle.cancel()
       })
 
@@ -809,25 +809,47 @@ class CompileSpec {
         .interpreterTask(compileUserProject, compiledMacrosState)
         .delayExecution(FiniteDuration(2, TimeUnit.SECONDS))
 
-      val finalTask = firstCompilation.zip(secondCompilation)
-      val (firstCompilationState, secondCompilationState) = TestUtil.blockOnTask(finalTask, 10)
+      val compileConcurrently = firstCompilation.zip(secondCompilation)
+      val (firstCompilationState, secondCompilationState) =
+        TestUtil.blockOnTask(compileConcurrently, 10)
 
-      logger.dump()
-      println(logger.compilingInfos.mkString(System.lineSeparator))
-
-/*      val finalState = {
-        try scala.concurrent.Await.result(handle, scala.concurrent.duration.Duration(20, "s"))
-        catch {
-          case NonFatal(t) => handle.cancel(); throw t
-          case i: InterruptedException => handle.cancel(); compiledMacrosState
-        }
-      }
-
-      Assert.assertEquals(ExitStatus.CompilationError, finalState.status)
+      // Expect bloop to deduplicate the concurrent compilation of `user`
       TestUtil.assertNoDiff(
-        "Cancelling compilation of user",
-        logger.warnings.mkString(System.lineSeparator())
-      )*/
+        s"""
+           |Compiling macros (1 Scala source)
+           |Compiling user (1 Scala source)
+         """.stripMargin,
+        logger.compilingInfos.mkString(System.lineSeparator())
+      )
+
+      val cleanAndCompile = Run(Commands.Clean(List("user")), Run(Commands.Compile(List("user"))))
+      val stateAfterFreshCompile =
+        TestUtil.blockOnTask(TestUtil.interpreterTask(cleanAndCompile, secondCompilationState), 10)
+
+      // Expect bloop to recompile user (e.g. compilation is removed from ongoing compilations map)
+      TestUtil.assertNoDiff(
+        s"""
+           |Compiling macros (1 Scala source)
+           |Compiling user (1 Scala source)
+           |Compiling user (1 Scala source)
+         """.stripMargin,
+        logger.compilingInfos.mkString(System.lineSeparator())
+      )
+
+      val noopCompilation =
+        TestUtil.interpreterTask(Run(Commands.Compile(List("user"))), stateAfterFreshCompile)
+      val noopCompiles = noopCompilation.zip(noopCompilation)
+      val _ = TestUtil.blockOnTask(noopCompiles, 10)
+
+      // Expect noop compilations (no change in the compilation output wrt previous iteration)
+      TestUtil.assertNoDiff(
+        s"""
+           |Compiling macros (1 Scala source)
+           |Compiling user (1 Scala source)
+           |Compiling user (1 Scala source)
+         """.stripMargin,
+        logger.compilingInfos.mkString(System.lineSeparator())
+      )
     }
   }
 }
