@@ -155,9 +155,10 @@ final class BspServerLogger private (
    * compile end notification, published by [[publishCompileEnd()]].
    *
    * @param project The project to which the compilation is associated.
+   * @param msg The message summarizing the triggered incremental compilation cycle.
    * @param taskId The task id to use for this publication.
    */
-  def publishCompileStart(project: Project, taskId: bsp.TaskId): Unit = {
+  def publishCompileStart(project: Project, msg: String, taskId: bsp.TaskId): Unit = {
     val json = bsp.CompileTask.encodeCompileTask(
       bsp.CompileTask(bsp.BuildTargetIdentifier(project.bspUri))
     )
@@ -166,7 +167,7 @@ final class BspServerLogger private (
       bsp.TaskStartParams(
         taskId,
         Some(now),
-        Some(s"Compiling '${project.name}'"),
+        Some(msg),
         Some(bsp.TaskDataKind.CompileTask),
         Some(json)
       )

@@ -113,4 +113,14 @@ abstract class Reporter(
    *               bloop backend, where this method is used, should not depend on bsp4j.
    */
   def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit
+
+  /** Create a compilation message summarizing the compilation of `sources` in `projectName`. */
+  def compilationMsgFor(projectName: String, sources: Seq[File]): String = {
+    import sbt.internal.inc.Analysis
+    val (javaSources, scalaSources) = sources.partition(_.getName.endsWith(".java"))
+    val scalaMsg = Analysis.counted("Scala source", "", "s", scalaSources.size)
+    val javaMsg = Analysis.counted("Java source", "", "s", javaSources.size)
+    val combined = scalaMsg ++ javaMsg
+    combined.mkString(s"Compiling $projectName (", " and ", ")")
+  }
 }

@@ -393,7 +393,7 @@ class BspProtocolSpec {
       task.eventTime.isDefined
     )
     if (isMainProject(compileTask.target)) {
-      val msg = s"Compiling '$MainProject'"
+      val msg = s"Compiling $MainProject"
       Assert.assertTrue(
         s"Message '${task.message}' doesn't start with ${msg}",
         task.message.exists(_.startsWith(msg))
@@ -403,7 +403,7 @@ class BspProtocolSpec {
         compileTask.target.uri.value.contains(MainProject)
       )
     } else if (isTestProject(compileTask.target)) {
-      val msg = s"Compiling '$TestProject'"
+      val msg = s"Compiling $TestProject"
       Assert.assertTrue(
         s"Message '${task.message}' doesn't start with ${msg}",
         task.message.exists(_.startsWith(msg))

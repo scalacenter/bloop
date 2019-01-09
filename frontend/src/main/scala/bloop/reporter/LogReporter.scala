@@ -59,12 +59,7 @@ final class LogReporter(
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site
     compilingFiles ++= sources
-
-    val (javaSources, scalaSources) = sources.partition(_.getName.endsWith(".java"))
-    val scalaMsg = Analysis.counted("Scala source", "", "s", scalaSources.size)
-    val javaMsg = Analysis.counted("Java source", "", "s", javaSources.size)
-    val combined = scalaMsg ++ javaMsg
-    logger.info(combined.mkString(s"Compiling ${project.name} (", " and ", ")"))
+    logger.info(compilationMsgFor(project.name, sources))
   }
 
   override def reportEndIncrementalCycle(durationMs: Long, result: scala.util.Try[Unit]): Unit = {

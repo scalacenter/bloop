@@ -90,7 +90,8 @@ final class BspProjectReporter(
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
     cycleCount += 1
     reportEndPreviousCycleThunk( /* is the last incremental cycle? */ false)(None)
-    logger.publishCompileStart(project, taskId)
+    val msg = compilationMsgFor(project.name, sources)
+    logger.publishCompileStart(project, msg, taskId)
     sources.foreach(sourceFile => compiledFiles.putIfAbsent(sourceFile, true))
   }
 
@@ -159,7 +160,7 @@ final class BspProjectReporter(
   ): Unit = {
     if (cycleCount == 0) {
       // When no-op, we keep reporting the start and the end of compilation for consistency
-      logger.publishCompileStart(project, taskId)
+      logger.publishCompileStart(project, s"Start no-op compilation for ${project.name}", taskId)
       reportPreviousProblems(reportAllPreviousProblems)
       logger.publishCompileEnd(project, taskId, allProblems, code)
     } else {
