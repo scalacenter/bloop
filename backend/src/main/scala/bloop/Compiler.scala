@@ -61,12 +61,12 @@ object Compiler {
     }
 
     override def advance(current: Int, total: Int): Boolean = {
-      val isCancelled = !cancelPromise.isCompleted
-      if (isCancelled) {
+      val isNotCancelled = !cancelPromise.isCompleted
+      if (isNotCancelled) {
         reporter.reportCompilationProgress(current, total, lastPhase, lastUnitPath)
       }
 
-      isCancelled
+      isNotCancelled
     }
   }
 
