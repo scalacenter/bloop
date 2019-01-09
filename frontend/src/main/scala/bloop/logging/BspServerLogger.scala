@@ -138,8 +138,8 @@ final class BspServerLogger private (
         taskId,
         Some(System.currentTimeMillis()),
         Some(msg),
-        Some(progress),
         Some(total),
+        Some(progress),
         Some("phase/file"),
         Some("compile"),
         None
