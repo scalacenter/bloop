@@ -128,7 +128,7 @@ object Compiler {
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
         .withStore(inputs.store)
-        .withScalacOptions(inputs.scalacOptions)
+        .withScalacOptions(inputs.scalacOptions ++ Array("-Ycache-plugin-class-loader:last-modified"))
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)

@@ -2,11 +2,19 @@ bloopExportJarClassifiers in Global := Some(Set("sources"))
 bloopConfigDir in Global := baseDirectory.value / "bloop-config"
 import _root_.sbtcrossproject.CrossPlugin.autoImport.{crossProject => crossProjects}
 
+scalaVersion in ThisBuild := "2.12.8"
+
+lazy val `bloop-test-plugin` = project
+  .settings(
+    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+    publishArtifact in Compile := false
+  )
+
 val silencerVersion = "1.3.1"
 val derivingVersion = "1.0.0"
+// Don't add -Ycache-plugin-class-loader:last-modified, the point is that bloop will do it automatically
 lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
   .settings(
-    scalaVersion := "2.12.8",
     wartremoverErrors ++= Warts.unsafe,
     addCompilerPlugin(scalafixSemanticdb),
     addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
@@ -37,5 +45,29 @@ lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
     libraryDependencies ++= List(
       "org.scalaz" %% "deriving-macro" % derivingVersion,
       compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion),
-    )
+    ),
+
+    // Now let's add our test plugin to the whitelist
+    scalacOptions in Compile ++= {
+      val jar = (Keys.`package` in (`bloop-test-plugin`, Compile)).value
+      val addPlugin = "-Xplugin:" + jar.getAbsolutePath
+      Seq(addPlugin)
+    }
+  )
+
+// This is just a project to play with when making changes in this build
+lazy val sandbox = project
+  .settings(
+    // Now let's add our test plugin to the whitelist
+    scalacOptions in Compile ++= {
+      val jar = (Keys.`package` in (`bloop-test-plugin`, Compile)).value
+      val addPlugin = "-Xplugin:" + jar.getAbsolutePath
+      Seq(addPlugin, "-Ycache-plugin-class-loader:last-modified")
+    },
+
+    scalacOptions in Compile := {
+      val (pluginOptions, rest) =
+        (scalacOptions in Compile).value.partition(_.contains("-Xplugin"))
+      pluginOptions.filter(_.contains("bloop-test-plugin")) ++ rest
+    }
   )

@@ -602,6 +602,25 @@ class CompileSpec {
   }
 
   @Test
+  def cacheCompilerPluginClassloaders(): Unit = {
+    val target = "whitelistJS"
+    val logger = new RecordingLogger()
+    val state = TestUtil.loadTestProject("compiler-plugin-whitelist").copy(logger = logger)
+    val action = Run(Commands.Compile(List(target)))
+    val compiledState = TestUtil.blockingExecute(action, state)
+    def loggerInfos = logger.getMessagesAt(Some("info"))
+
+    val targetMsg = "Bloop test plugin classloader: scala.reflect.internal.util.ScalaClassLoader"
+    loggerInfos.find(_.contains(targetMsg)) match {
+      case Some(found) =>
+        val cleanCompile = Run(Commands.Clean(List(target)), Run(Commands.Compile(List(target))))
+        val cleanCompiledState = TestUtil.blockingExecute(cleanCompile, compiledState)
+        Assert.assertEquals(loggerInfos.count(_ == found), 2)
+      case None => Assert.fail("Expected log by `bloop-test-plugin` about classloader id")
+    }
+  }
+
+  @Test
   def testCascadeCompilation(): Unit = {
     /*
      *    I
