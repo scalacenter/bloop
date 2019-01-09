@@ -57,8 +57,12 @@ final class BspProjectReporter(
       phase: String,
       sourceFile: String
   ): Unit = {
-    val id = compileProgressCounter.addAndGet(1)
-    logger.publishCompileProgress(taskId, progress, total, phase, sourceFile)
+    val percentage = progress * 100 / total
+    // We only report percentages every 5% increments
+    val shouldReportPercentage = percentage % 5 == 0
+    if (shouldReportPercentage) {
+      logger.publishCompileProgress(taskId, progress, total, phase, sourceFile)
+    }
   }
 
   override def reportCancelledCompilation(): Unit = {
