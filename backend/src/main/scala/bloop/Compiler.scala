@@ -53,16 +53,20 @@ object Compiler {
       reporter: Reporter,
       cancelPromise: Promise[Unit]
   ) extends CompileProgress {
-    private var current = 0.toLong
-    private var total = 26.toLong
+    private var lastPhase: String = ""
+    private var lastUnitPath: String = ""
     override def startUnit(phase: String, unitPath: String): Unit = {
-      reporter.reportCompilationProgress(current, total, phase, unitPath)
+      lastPhase = phase
+      lastUnitPath = unitPath
     }
 
-    override def advance(current0: Int, total0: Int): Boolean = {
-      current = current0.toLong
-      total = total0.toLong
-      !cancelPromise.isCompleted
+    override def advance(current: Int, total: Int): Boolean = {
+      val isCancelled = !cancelPromise.isCompleted
+      if (isCancelled) {
+        reporter.reportCompilationProgress(current, total, lastPhase, lastUnitPath)
+      }
+
+      isCancelled
     }
   }
 
