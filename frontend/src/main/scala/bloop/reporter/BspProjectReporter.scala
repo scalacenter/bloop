@@ -13,6 +13,7 @@ import xsbti.compile.CompileAnalysis
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
+import scala.util.Try
 
 final class BspProjectReporter(
     val project: Project,
@@ -25,10 +26,15 @@ final class BspProjectReporter(
 ) extends Reporter(logger, cwd, sourcePositionMapper, config, _problems) {
   private val taskId = logger.nextTaskId
 
+  /** A cycle count, initialized to 0 when it's a no-op. */
+  private var cycleCount: Int = 0
+
+  /** A thread-safe map with all the compiled files. */
+  private val compiledFiles = TrieMap.empty[File, Boolean]
+
   /** A thread-safe map containing files with reported problems (from this cycle and
    * previous ones, such as buffered warnings from previously compiled source files). */
   private val filesWithProblems = TrieMap.empty[File, Boolean]
-  private val compiledFiles = TrieMap.empty[File, Boolean]
 
   /** Log a problem in a thread-safe manner. */
   override protected def logFull(problem: Problem): Unit = {
@@ -63,13 +69,29 @@ final class BspProjectReporter(
   private var previouslyReportedProblems: List[xsbti.Problem] = Nil
   override def reportStartCompilation(previousProblems: List[xsbti.Problem]): Unit = {
     previouslyReportedProblems = previousProblems
-    logger.publishCompileStart(project, taskId)
   }
 
+  /** Holds a thunk that reports the end of the previous incremental cycle. It's added by
+   * `reportEndIncrementalCycle` and we don't run it eagerly because we need to ensure that
+   * all diagnostics (those, for example, coming from previous problemsii and only reported in
+   * concrete scenarios) are sent in between task start and task end notifications. This guarantee
+   * is violated when we report the end eagerly because:
+   *
+   *   1. We need to run `reportPreviousProblems` with a value of `reportAllPreviousProblems` at
+   *      the very end of compilation (when the last incremental cycle has finished); and
+   *   2. There is no way to know if an incremental cycle will be the last one in
+   *      `reportEndIncrementalCycle`. We work around this limitation with this approach, so that
+   *      when the thunk is run from `reportStartIncrementalCycle` we know a new cycle is coming
+   *      and when it's run from `reportEndIncrementalCompilation` we know it's the last cycle.
+   */
+  private var reportEndPreviousCycleThunk: Boolean => Option[bsp.StatusCode] => Unit =
+    (_: Boolean) => (_: Option[bsp.StatusCode]) => ()
+
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
-    sources.foreach { sourceFile =>
-      compiledFiles.putIfAbsent(sourceFile, true)
-    }
+    cycleCount += 1
+    reportEndPreviousCycleThunk( /* is the last incremental cycle? */ false)(None)
+    logger.publishCompileStart(project, taskId)
+    sources.foreach(sourceFile => compiledFiles.putIfAbsent(sourceFile, true))
   }
 
   /**
@@ -112,8 +134,22 @@ final class BspProjectReporter(
     }
   }
 
-  override def reportEndIncrementalCycle(durationMs: Long): Unit = {
-    reportPreviousProblems(false)
+  override def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit = {
+    val codeRightAfterCycle = result match {
+      case scala.util.Success(()) => bsp.StatusCode.Ok
+      case scala.util.Failure(_: xsbti.CompileCancelled) => bsp.StatusCode.Cancelled
+      case scala.util.Failure(_) => bsp.StatusCode.Error
+    }
+
+    // Add a thunk that we will run whenever we know if this is the last cycle or not
+    reportEndPreviousCycleThunk = (isLastCycle: Boolean) => {
+      (finalCompilationStatusCode: Option[bsp.StatusCode]) => {
+        val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
+        if (!isLastCycle) reportPreviousProblems(false)
+        else reportPreviousProblems(reportAllPreviousProblems)
+        logger.publishCompileEnd(project, taskId, allProblems, statusCode)
+      }
+    }
   }
 
   override def reportEndCompilation(
@@ -121,11 +157,18 @@ final class BspProjectReporter(
       currentAnalysis: Option[CompileAnalysis],
       code: bsp.StatusCode
   ): Unit = {
-    reportPreviousProblems(reportAllPreviousProblems)
+    if (cycleCount == 0) {
+      // When no-op, we keep reporting the start and the end of compilation for consistency
+      logger.publishCompileStart(project, taskId)
+      reportPreviousProblems(reportAllPreviousProblems)
+      logger.publishCompileEnd(project, taskId, allProblems, code)
+    } else {
+      // Great, let's report the pending end incremental cycle as the last one
+      reportEndPreviousCycleThunk( /* is the last incremental cycle? */ true)(Some(code))
+    }
 
     // Clear the state of files with problems at the end of compilation
     filesWithProblems.clear()
     compiledFiles.clear()
-    logger.publishCompileEnd(project, taskId, allProblems, code)
   }
 }

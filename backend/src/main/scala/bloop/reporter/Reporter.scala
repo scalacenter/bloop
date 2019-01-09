@@ -9,6 +9,7 @@ import ch.epfl.scala.bsp
 import xsbti.compile.CompileAnalysis
 
 import scala.collection.mutable
+import scala.util.Try
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -86,7 +87,8 @@ abstract class Reporter(
    *
    * @param previousAnalysis An instance of a previous compiler analysis, if any.
    * @param analysis An instance of a new compiler analysis, if no error happened.
-   * @param code The status code for a given compilation.
+   * @param code The status code for a given compilation. The status code can be used whenever
+   *             there is a noop compile and it's successful or cancelled.
    */
   def reportEndCompilation(
       previousAnalysis: Option[CompileAnalysis],
@@ -105,6 +107,10 @@ abstract class Reporter(
    * A function called after every incremental cycle, even if any compilation errors happen.
    *
    * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   *
+   * @param durationMs The time it took to complete the incremental compiler cycle.
+   * @param result The result of the incremental cycle. We don't use `bsp.StatusCode` because the
+   *               bloop backend, where this method is used, should not depend on bsp4j.
    */
-  def reportEndIncrementalCycle(durationMs: Long): Unit
+  def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit
 }

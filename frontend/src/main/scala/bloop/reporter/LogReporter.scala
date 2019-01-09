@@ -67,7 +67,7 @@ final class LogReporter(
     logger.info(combined.mkString(s"Compiling ${project.name} (", " and ", ")"))
   }
 
-  override def reportEndIncrementalCycle(durationMs: Long): Unit = {
+  override def reportEndIncrementalCycle(durationMs: Long, result: scala.util.Try[Unit]): Unit = {
     logger.info(s"Compiled ${project.name} (${durationMs}ms)")
   }
 
