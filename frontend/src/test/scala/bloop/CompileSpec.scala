@@ -472,7 +472,8 @@ class CompileSpec {
       structures,
       dependencies,
       scalaInstance = scalaInstance,
-      quiet = false)(_ => ())
+      quiet = false
+    )(_ => ())
   }
 
   @Test
