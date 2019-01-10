@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.util.TestUtil
+import bloop.util.{TestProject, TestUtil}
 import bloop.util.TestUtil.{
   RootProject,
   checkAfterCleanCompilation,
@@ -80,7 +80,8 @@ class CompileSpec {
     val missingDependency = "i-dont-exist"
     val dependencies = Map[String, Set[String]](RootProject -> Set(missingDependency))
     val structures = Map(
-      RootProject -> Map("A.scala" -> "object A", "B.java" -> "public class B {}"))
+      RootProject -> Map("A.scala" -> "object A", "B.java" -> "public class B {}")
+    )
 
     checkAfterCleanCompilation(
       structures,
@@ -259,17 +260,21 @@ class CompileSpec {
       projectsStructures,
       dependencies,
       quiet = false,
-      useSiteLogger = Some(logger)) { (state: State) =>
+      useSiteLogger = Some(logger)
+    ) { (state: State) =>
       // The unrelated project should not have been compiled
       assertTrue(
         s"Project `unrelated` was compiled",
-        noPreviousAnalysis(getProject("unrelated", state), state))
+        noPreviousAnalysis(getProject("unrelated", state), state)
+      )
       assertTrue(
         s"Project `parent` was not compiled",
-        hasPreviousResult(getProject("parent", state), state))
+        hasPreviousResult(getProject("parent", state), state)
+      )
       assertTrue(
         s"Project `RootProject` was not compiled",
-        hasPreviousResult(getProject(RootProject, state), state))
+        hasPreviousResult(getProject(RootProject, state), state)
+      )
     }
   }
 
@@ -280,6 +285,53 @@ class CompileSpec {
       state.build.projects.foreach { p =>
         assertTrue(s"${p.name} has a compilation result", noPreviousAnalysis(p, state))
       }
+    }
+  }
+
+  @Test
+  def ticket787(): Unit = {
+    TestUtil.withinWorkspace { baseDir =>
+      val project = TestProject(
+        baseDir,
+        "ticket-787",
+        List(
+          """/main/scala/A.scala
+            |object A {
+            |  "".lengthCompare("1".substring(0))
+            |
+            |  // Make range pos multi-line to ensure range pos doesn't work here
+            |  "".lengthCompare("1".
+            |    substring(0))
+            |}""".stripMargin
+        ),
+        scalacOptions = List("-Yrangepos")
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A.scala` = project.srcFor("main/scala/A.scala")
+      val state = TestUtil.loadStateFromProjects(baseDir, List(project)).copy(logger = logger)
+      val action = Run(Commands.Compile(List("ticket-787")))
+      val compiledState = TestUtil.blockingExecute(action, state)
+      TestUtil.assertNoDiff(
+        """
+          |[E2] ticket-787/src/main/scala/A.scala:6:14
+          |     type mismatch;
+          |      found   : String
+          |      required: Int
+          |     L6:     substring(0))
+          |                      ^
+          |[E1] ticket-787/src/main/scala/A.scala:2:33
+          |     type mismatch;
+          |      found   : String
+          |      required: Int
+          |     L2:   "".lengthCompare("1".substring(0))
+          |                            ^^^^^^^^^^^^^^^^
+          |ticket-787/src/main/scala/A.scala: L2 [E1], L6 [E2]
+          |'ticket-787' failed to compile.""".stripMargin,
+        logger.errors.mkString(System.lineSeparator())
+      )
+
+      ()
     }
   }
 
@@ -320,13 +372,16 @@ class CompileSpec {
       // The unrelated project should not have been compiled
       assertTrue(
         s"Project `unrelated` was compiled",
-        noPreviousAnalysis(getProject("unrelated", state), state))
+        noPreviousAnalysis(getProject("unrelated", state), state)
+      )
       assertTrue(
         s"Project `parent` was not compiled",
-        hasPreviousResult(getProject("parent", state), state))
+        hasPreviousResult(getProject("parent", state), state)
+      )
       assertTrue(
         s"Project `RootProject` was not compiled",
-        hasPreviousResult(getProject(RootProject, state), state))
+        hasPreviousResult(getProject(RootProject, state), state)
+      )
     }
   }
 
@@ -353,7 +408,8 @@ class CompileSpec {
       RootProject -> Set("A", "B", "C", "D"),
       "B" -> Set("A"),
       "C" -> Set("A"),
-      "D" -> Set("B", "C"))
+      "D" -> Set("B", "C")
+    )
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
       assertEquals(5.toLong, logger.compilingInfos.size.toLong)
       state.build.projects.foreach { p =>
@@ -385,7 +441,8 @@ class CompileSpec {
       RootProject -> Set("A", "B", "C", "D"),
       "B" -> Set("A"),
       "C" -> Set("B", "A"),
-      "D" -> Set("B", "A"))
+      "D" -> Set("B", "A")
+    )
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
       assertEquals(5.toLong, logger.compilingInfos.size.toLong)
       ensureCompilationInAllTheBuild(state)
