@@ -13,7 +13,7 @@ import bloop.engine._
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
-import bloop.reporter.{BspProjectReporter, ReporterConfig}
+import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
 import ch.epfl.scala.bsp.{
@@ -25,7 +25,6 @@ import ch.epfl.scala.bsp.{
 }
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-import xsbti.Problem
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import monix.execution.atomic.AtomicInt
@@ -204,7 +203,7 @@ final class BloopBspServices(
       compileArgs: List[String]
   ): BspResult[bsp.CompileResult] = {
     val cancelCompilation = Promise[Unit]()
-    def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
+    def reportError(p: Project, problems: List[ProblemPerPhase], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
       s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"

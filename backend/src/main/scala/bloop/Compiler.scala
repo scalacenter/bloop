@@ -1,13 +1,13 @@
 package bloop
 
 import xsbti.compile._
-import xsbti.{Problem, T2}
+import xsbti.T2
 import java.util.Optional
 import java.io.File
 
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
-import bloop.reporter.Reporter
+import bloop.reporter.{ProblemPerPhase, Reporter}
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, Locate}
 import _root_.monix.eval.Task
@@ -53,17 +53,14 @@ object Compiler {
       reporter: Reporter,
       cancelPromise: Promise[Unit]
   ) extends CompileProgress {
-    private var lastPhase: String = ""
-    private var lastUnitPath: String = ""
     override def startUnit(phase: String, unitPath: String): Unit = {
-      lastPhase = phase
-      lastUnitPath = unitPath
+      reporter.reportNextPhase(phase, new java.io.File(unitPath))
     }
 
     override def advance(current: Int, total: Int): Boolean = {
       val isNotCancelled = !cancelPromise.isCompleted
       if (isNotCancelled) {
-        reporter.reportCompilationProgress(current.toLong, total.toLong, lastPhase, lastUnitPath)
+        reporter.reportCompilationProgress(current.toLong, total.toLong)
       }
 
       isNotCancelled
@@ -84,14 +81,14 @@ object Compiler {
         with CacheHashCode
 
     final case class Failed(
-        problems: List[xsbti.Problem],
+        problems: List[ProblemPerPhase],
         t: Option[Throwable],
         elapsed: Long
     ) extends Result
         with CacheHashCode
 
     final case class Cancelled(
-        problems: List[xsbti.Problem],
+        problems: List[ProblemPerPhase],
         elapsed: Long
     ) extends Result
         with CacheHashCode
@@ -147,9 +144,10 @@ object Compiler {
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = {
         def withTransactional(opts: IncOptions): IncOptions = {
-          opts.withClassfileManagerType(Optional.of(
-            xsbti.compile.TransactionalManagerType.of(classesDirBak, reporter.logger)
-          ))
+          opts.withClassfileManagerType(
+            Optional.of(
+              xsbti.compile.TransactionalManagerType.of(classesDirBak, reporter.logger)
+            ))
         }
 
         val disableIncremental = java.lang.Boolean.getBoolean("bloop.zinc.disabled")
@@ -193,14 +191,18 @@ object Compiler {
     }
 
     val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
-    val previousProblems: List[Problem] = compileInputs.previousCompilerResult match {
+    val previousProblems: List[ProblemPerPhase] = compileInputs.previousCompilerResult match {
       case f: Compiler.Result.Failed => f.problems
       case c: Compiler.Result.Cancelled => c.problems
       case _: Compiler.Result.Success =>
+        // TODO(jvican): replace for problems already present in success reporter
         import scala.collection.JavaConverters._
         val infos =
           previousAnalysis.toList.flatMap(_.readSourceInfos().getAllSourceInfos.asScala.values)
-        infos.flatMap(info => info.getReportedProblems.toList).toList
+        infos.iterator
+          .flatMap(info => info.getReportedProblems.toList)
+          .map(p => ProblemPerPhase(p, None))
+          .toList
       case _ => Nil
     }
 
@@ -217,12 +219,21 @@ object Compiler {
           Result.Success(compileInputs.reporter, res, elapsed)
         case Failure(_: xsbti.CompileCancelled) =>
           reporter.reportEndCompilation(previousAnalysis, None, bsp.StatusCode.Cancelled)
-          Result.Cancelled(reporter.allProblems.toList, elapsed)
+          Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed)
         case Failure(cause) =>
           reporter.reportEndCompilation(previousAnalysis, None, bsp.StatusCode.Error)
           cause match {
             case f: StopPipelining => Result.Blocked(f.failedProjectNames)
-            case f: xsbti.CompileFailed => Result.Failed(f.problems().toList, None, elapsed)
+            case f: xsbti.CompileFailed =>
+              // We cannot assert reporter.problems == f.problems, so we aggregate them together
+              val reportedProblems = reporter.allProblemsPerPhase.toList
+              val rawProblemsFromReporter = reportedProblems.iterator.map(_.problem).toSet
+              val newProblems = f.problems().flatMap { p =>
+                if (rawProblemsFromReporter.contains(p)) Nil
+                else List(ProblemPerPhase(p, None))
+              }.toList
+              val failedProblems = reportedProblems ++ newProblems
+              Result.Failed(failedProblems, None, elapsed)
             case t: Throwable =>
               t.printStackTrace()
               Result.Failed(Nil, Some(t), elapsed)

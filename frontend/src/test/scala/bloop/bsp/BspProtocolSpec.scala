@@ -723,10 +723,10 @@ class BspProtocolSpec {
            |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/TestIncrementalCompilation2.scala
            |  -> List(Diagnostic(Range(Position(2,68),Position(2,68)),Some(Error),None,None,type mismatch;  found   : Int(1)  required: String,None))
            |  -> reset = true
-           |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/TestIncrementalCompilation.scala
+           |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/TestWarning.scala
            |  -> List()
            |  -> reset = true
-           |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/TestWarning.scala
+           |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/TestIncrementalCompilation.scala
            |  -> List()
            |  -> reset = true
            |#4: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/TestIncrementalCompilation2.scala

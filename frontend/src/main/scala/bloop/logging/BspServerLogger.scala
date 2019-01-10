@@ -11,6 +11,7 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.endpoints.Build
 import monix.execution.atomic.AtomicInt
 
@@ -118,21 +119,24 @@ final class BspServerLogger private (
 
   private def now: Long = System.currentTimeMillis()
 
-  /**
-   * Publish a compile progress notification to the client via BSP.
-   *
-   * The following fields of the progress notification are not populated:
-   *
-   * 1. data: Option[Json] -- there is no additional metadata we want to share with the client.
-   */
+  import io.circe.ObjectEncoder
+  private case class BloopProgress(
+      target: BuildTargetIdentifier
+  )
+
+  private implicit val bloopProgressEncoder: ObjectEncoder[BloopProgress] =
+    io.circe.derivation.deriveEncoder
+
+  /** Publish a compile progress notification to the client via BSP every 5% progress increments. */
   def publishCompileProgress(
       taskId: bsp.TaskId,
+      project: Project,
       progress: Long,
       total: Long,
-      phase: String,
-      sourceFile: String
+      percentage: Long
   ): Unit = {
-    val msg = s"Compiling ${sourceFile} (phase ${phase})"
+    val msg = s"Compiling ${project.name} (${percentage}%)"
+    val json = bloopProgressEncoder(BloopProgress(bsp.BuildTargetIdentifier(project.bspUri)))
     Build.taskProgress.notify(
       bsp.TaskProgressParams(
         taskId,
@@ -140,9 +144,9 @@ final class BspServerLogger private (
         Some(msg),
         Some(total),
         Some(progress),
-        Some("phase/file"),
-        Some("compile"),
-        None
+        None,
+        Some("bloop-progress"),
+        Some(json)
       )
     )
     ()
