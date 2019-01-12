@@ -10,7 +10,7 @@ import bloop.data.Project
 import bloop.engine.{BuildLoader, Run}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, RecordingLogger}
-import bloop.util.TestUtil
+import bloop.util.{TestProject, TestUtil}
 import org.junit.Test
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, ScalaBuildTarget, endpoints}
@@ -25,21 +25,21 @@ class BspProtocolSpec {
   private final val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
-  private final val MainProject = "test-project"
-  private final val TestProject = "test-project-test"
+  private final val MainProjectName = "test-project"
+  private final val TestProjectName = "test-project-test"
 
-  private final val MainJsProject = "test-projectJS"
-  private final val TestJsProject = "test-projectJS-test"
+  private final val MainJsProjectName = "test-projectJS"
+  private final val TestJsProjectName = "test-projectJS-test"
 
   // Load the current build associated with the configuration directory to test project metadata
   private final val crossTestBuild = BuildLoader.loadSynchronously(configDir, new RecordingLogger)
   private val mainProject = crossTestBuild
-    .find(_.name == MainProject)
-    .getOrElse(sys.error(s"Missing main project $MainProject in $crossTestBuild"))
+    .find(_.name == MainProjectName)
+    .getOrElse(sys.error(s"Missing main project $MainProjectName in $crossTestBuild"))
   Files.createDirectories(mainProject.baseDirectory.underlying)
   private val testProject = crossTestBuild
-    .find(_.name == TestProject)
-    .getOrElse(sys.error(s"Missing main project $TestProject in $crossTestBuild"))
+    .find(_.name == TestProjectName)
+    .getOrElse(sys.error(s"Missing main project $TestProjectName in $crossTestBuild"))
 
   Files.createDirectories(testProject.baseDirectory.underlying)
   private val testTargetId = bsp.BuildTargetIdentifier(testProject.bspUri)
@@ -121,10 +121,10 @@ class BspProtocolSpec {
 
                   val platform = target.platform
                   val expectedPlatform = t.displayName match {
-                    case Some(MainProject) => bsp.ScalaPlatform.Jvm
-                    case Some(TestProject) => bsp.ScalaPlatform.Jvm
-                    case Some(MainJsProject) => bsp.ScalaPlatform.Js
-                    case Some(TestJsProject) => bsp.ScalaPlatform.Js
+                    case Some(MainProjectName) => bsp.ScalaPlatform.Jvm
+                    case Some(TestProjectName) => bsp.ScalaPlatform.Jvm
+                    case Some(MainJsProjectName) => bsp.ScalaPlatform.Js
+                    case Some(TestJsProjectName) => bsp.ScalaPlatform.Js
                     // For the rest of the projects, assume JVM
                     case Some(_) => bsp.ScalaPlatform.Jvm
                     // This should never happen, bloop should always pass in the display name
@@ -203,12 +203,12 @@ class BspProtocolSpec {
       endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(error) => Task.now(Left(error))
         case Right(workspaceTargets) =>
-          workspaceTargets.targets.find(_.displayName == Some(MainProject)) match {
+          workspaceTargets.targets.find(_.displayName == Some(MainProjectName)) match {
             case Some(mainTarget) =>
               testSourcePerTarget(mainTarget.id, mainProject).flatMap {
                 case Left(e) => Task.now(Left(e))
                 case Right(_) =>
-                  workspaceTargets.targets.find(_.displayName == Some(TestProject)) match {
+                  workspaceTargets.targets.find(_.displayName == Some(TestProjectName)) match {
                     case Some(testTarget) => testSourcePerTarget(testTarget.id, testProject)
                     case None =>
                       Task.now(
@@ -263,12 +263,12 @@ class BspProtocolSpec {
         case Left(error) => Task.now(Left(error))
         case Right(workspaceTargets) =>
           val btis = workspaceTargets.targets.map(_.id)
-          workspaceTargets.targets.find(_.displayName == Some(MainProject)) match {
+          workspaceTargets.targets.find(_.displayName == Some(MainProjectName)) match {
             case Some(mainTarget) =>
               testSourcePerTarget(mainTarget.id, mainProject).flatMap {
                 case Left(e) => Task.now(Left(e))
                 case Right(_) =>
-                  workspaceTargets.targets.find(_.displayName == Some(TestProject)) match {
+                  workspaceTargets.targets.find(_.displayName == Some(TestProjectName)) match {
                     case Some(testTarget) => testSourcePerTarget(testTarget.id, testProject)
                     case None =>
                       Task.now(
@@ -438,7 +438,7 @@ class BspProtocolSpec {
       """#1: task start 1
         |  -> Msg: Compiling test-project (5 Scala sources)
         |  -> Data kind: compile-task
-        |#1: src/test/resources/cross-test-build-0.6/test-project/shared/src/main/scala/hello/App.scala
+        |#1: test-project/shared/src/main/scala/hello/App.scala
         |  -> List(Diagnostic(Range(Position(5,8),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
         |  -> reset = true
         |#1: task finish 1
@@ -448,13 +448,13 @@ class BspProtocolSpec {
         |#2: task start 3
         |  -> Msg: Compiling test-project (3 Scala sources)
         |  -> Data kind: compile-task
-        |#2: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source1.scala
+        |#2: test-project/jvm/src/main/scala/Source1.scala
         |  -> List(Diagnostic(Range(Position(2,36),Position(2,36)),Some(Warning),None,None,local val in method foo is never used,None))
         |  -> reset = true
-        |#2: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source2.scala
+        |#2: test-project/jvm/src/main/scala/Source2.scala
         |  -> List(Diagnostic(Range(Position(2,29),Position(2,29)),Some(Error),None,None,type mismatch;  found   : String("")  required: Int,None))
         |  -> reset = true
-        |#2: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source3.scala
+        |#2: test-project/jvm/src/main/scala/Source3.scala
         |  -> List(Diagnostic(Range(Position(2,68),Position(2,68)),Some(Error),None,None,type mismatch;  found   : Int(1)  required: String,None))
         |  -> reset = true
         |#2: task finish 3
@@ -464,13 +464,13 @@ class BspProtocolSpec {
         |#3: task start 4
         |  -> Msg: Compiling test-project (3 Scala sources)
         |  -> Data kind: compile-task
-        |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source3.scala
+        |#3: test-project/jvm/src/main/scala/Source3.scala
         |  -> List(Diagnostic(Range(Position(2,68),Position(2,68)),Some(Error),None,None,type mismatch;  found   : Int(1)  required: String,None))
         |  -> reset = true
-        |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source2.scala
+        |#3: test-project/jvm/src/main/scala/Source2.scala
         |  -> List()
         |  -> reset = true
-        |#3: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source1.scala
+        |#3: test-project/jvm/src/main/scala/Source1.scala
         |  -> List()
         |  -> reset = true
         |#3: task finish 4
@@ -480,7 +480,7 @@ class BspProtocolSpec {
         |#4: task start 5
         |  -> Msg: Start no-op compilation for test-project
         |  -> Data kind: compile-task
-        |#4: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source3.scala
+        |#4: test-project/jvm/src/main/scala/Source3.scala
         |  -> List()
         |  -> reset = true
         |#4: task finish 5
@@ -490,7 +490,7 @@ class BspProtocolSpec {
         |#5: task start 7
         |  -> Msg: Compiling test-project (1 Scala source)
         |  -> Data kind: compile-task
-        |#5: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source2.scala
+        |#5: test-project/jvm/src/main/scala/Source2.scala
         |  -> List(Diagnostic(Range(Position(2,33),Position(2,33)),Some(Error),None,None,']' expected but ')' found.,None))
         |  -> reset = true
         |#5: task finish 7
@@ -500,7 +500,7 @@ class BspProtocolSpec {
         |#6: task start 8
         |  -> Msg: Compiling test-project (1 Scala source)
         |  -> Data kind: compile-task
-        |#6: src/test/resources/cross-test-build-0.6/test-project/jvm/src/main/scala/Source2.scala
+        |#6: test-project/jvm/src/main/scala/Source2.scala
         |  -> List()
         |  -> reset = true
         |#6: task finish 8
@@ -577,6 +577,82 @@ class BspProtocolSpec {
     )
   }
 
+  def testCompileClearingDiagnostics(
+      createBspCommand: AbsolutePath => Commands.ValidatedBsp
+  ): Unit = {
+    import BspClientTest.BspClientAction._
+    TestUtil.withinWorkspace { baseDir =>
+      val validContents =
+        """object A {
+          |  val x = 2
+          |}
+        """.stripMargin
+
+      val projectA = TestProject(
+        baseDir,
+        "ticket-785",
+        List(
+          s"""
+             |/main/scala/A.scala
+             |${validContents}""".stripMargin
+        )
+      )
+
+      val `A.scala` = projectA.srcFor("main/scala/A.scala")
+      val configDir = TestProject.populateWorkspace(baseDir, List(projectA))
+      val cmd = createBspCommand(configDir)
+      val actions = List(
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `A.scala`,
+          """object A {
+            |  val x = 1
+            |  val x = 2
+            |}
+          """.stripMargin
+        ),
+        Compile(projectA.bspId),
+        OverwriteFile(`A.scala`, validContents),
+        Compile(projectA.bspId)
+      )
+
+      val diagnostics = BspClientTest.runCompileTest(cmd, actions, configDir)
+      BspClientTest.checkDiagnostics(diagnostics)(
+        projectA.bspId,
+        s"""#1: task start 1
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#1: task finish 1
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#2: task start 2
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#2: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),None,None,x is already defined as value x,None))
+           |  -> reset = true
+           |#2: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),None,None,x  is already defined as value x,None))
+           |  -> reset = false
+           |#2: task finish 2
+           |  -> errors 2, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#3: task start 3
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#3: ticket-785/src/main/scala/A.scala
+           |  -> List()
+           |  -> reset = true
+           |#3: task finish 3
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report""".stripMargin
+      )
+    }
+  }
+
   def testCompilePreviousProblemsAreReported(bspCmd: Commands.ValidatedBsp): Unit = {
     import BspClientTest.BspClientAction._
     val actions = List(Compile(testTargetId))
@@ -587,7 +663,7 @@ class BspProtocolSpec {
       s"""#1: task start 1
          |  -> Msg: Compiling test-project (5 Scala sources)
          |  -> Data kind: compile-task
-         |#1: src/test/resources/cross-test-build-0.6/test-project/shared/src/main/scala/hello/App.scala
+         |#1: test-project/shared/src/main/scala/hello/App.scala
          |  -> List(Diagnostic(Range(Position(5,8),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
          |  -> reset = true
          |#1: task finish 1
@@ -626,7 +702,7 @@ class BspProtocolSpec {
                     if (valid) Right(report)
                     else Left(Response.internalError("Didn't receive all compile or test reports."))
                 }
-              case None => Task.now(Left(Response.internalError(s"Missing '$TestProject'")))
+              case None => Task.now(Left(Response.internalError(s"Missing '$TestProjectName'")))
             }
           case Left(error) =>
             Task.now(Left(Response.internalError(s"Target request failed testing with $error.")))
@@ -696,7 +772,7 @@ class BspProtocolSpec {
                       Left(Response.internalError("The test didn't receive any compile report."))
                     }
                 }
-              case None => Task.now(Left(Response.internalError(s"Missing '$MainProject'")))
+              case None => Task.now(Left(Response.internalError(s"Missing '$MainProjectName'")))
             }
           case Left(error) =>
             Task.now(Left(Response.internalError(s"Target request failed testing with $error.")))
@@ -812,6 +888,8 @@ class BspProtocolSpec {
     if (!BspServer.isWindows) {
       testCompile(createLocalBspCommand(configDir))
       testCompilePreviousProblemsAreReported(createLocalBspCommand(configDir))
+
+      testCompileClearingDiagnostics(createLocalBspCommand(_))
     }
   }
 

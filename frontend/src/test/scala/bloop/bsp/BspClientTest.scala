@@ -80,9 +80,8 @@ object BspClientTest {
       }
     }
 
-    val configPath = RelativePath("bloop-config")
+    val configPath = RelativePath(configDirectory.underlying.getFileName)
     val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
-
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
       val out = socket.getOutputStream
@@ -197,13 +196,13 @@ object BspClientTest {
     case class OverwriteFile(path: AbsolutePath, contents: String) extends BspClientAction
   }
 
-  // Computes the base directory for bloop frontend's project -- used to relativize paths
+/*  // Computes the base directory for bloop frontend's project -- used to relativize paths
   private val baseDir: AbsolutePath = {
     // Works for tests executed from bloop (forked tests) and sbt (non-forked tests)
     val wp = CommonOptions.default.workingPath
     if (wp.underlying.endsWith("frontend")) wp
     else wp.resolve("frontend")
-  }
+  }*/
 
   private type Result = Either[Response.Error, bsp.CompileResult]
   def runCompileTest(
@@ -212,6 +211,7 @@ object BspClientTest {
       configDir: AbsolutePath,
       expectErrors: Boolean = false
   ): Map[bsp.BuildTargetIdentifier, String] = {
+    val baseDir = bspCmd.cliOptions.common.workingPath
     var compileIteration = 1
     val compilationResults = new StringBuilder()
     val logger = new BspClientLogger(new RecordingLogger)
@@ -354,6 +354,7 @@ object BspClientTest {
       ()
     }
 
+    val baseDirPath = baseDir.underlying.toString
     val addServicesTest: Services => Services = { (s: Services) =>
       s.notification(endpoints.Build.taskStart) { taskStart =>
           taskStart.dataKind match {
@@ -404,8 +405,13 @@ object BspClientTest {
             addToStringReport(
               btid,
               (builder: StringBuilder) => {
-                val relativePath = AbsolutePath(tid.uri.toPath).toRelative(baseDir)
-                val canonical = relativePath.toString.replace(File.separatorChar, '/')
+                val pathString = {
+                  val abs = AbsolutePath(tid.uri.toPath)
+                  if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
+                  else abs.toRelative(baseDir).toString
+                }
+
+                val canonical = pathString.replace(File.separatorChar, '/')
                 val report = diagnostics.map(
                   _.toString
                     .replace("\n", " ")

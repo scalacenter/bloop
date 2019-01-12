@@ -20,6 +20,10 @@ object JavaEnv {
     JavaEnv(jvmHome, jvm.options.toArray)
   }
 
+  def toConfig(env: JavaEnv): Config.JvmConfig = {
+    Config.JvmConfig(Some(env.javaHome.underlying), env.javaOptions.toList)
+  }
+
   /**
    * Default `JavaEnv` constructed from this JVM. Uses the same `javaHome`,
    * and specifies no arguments.
