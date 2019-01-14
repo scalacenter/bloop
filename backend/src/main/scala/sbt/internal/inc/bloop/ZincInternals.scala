@@ -65,12 +65,14 @@ object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
   object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
-      position.line.toOption
-        .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
-        .orElse {
-          position.startLine.toOption.flatMap(startLine =>
-            position.startColumn().toOption.map(startColumn => (startLine, startColumn)))
-        }
+      // Use the range position if available first. Otherwise fallback in pointer information.
+      val rangePosition = position.startLine.toOption.flatMap(startLine =>
+        position.startColumn().toOption.map(startColumn => (startLine.toInt, startColumn.toInt)))
+
+      rangePosition.orElse {
+        position.line.toOption
+          .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
+      }
     }
   }
 
