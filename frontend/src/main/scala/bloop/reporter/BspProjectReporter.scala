@@ -6,6 +6,7 @@ import java.nio.file.{Path, Paths}
 import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.logging.BspServerLogger
+import bloop.util.AnalysisUtils
 import xsbti.Position
 import ch.epfl.scala.bsp
 import sbt.util.InterfaceUtil
@@ -68,22 +69,22 @@ final class BspProjectReporter(
     ()
   }
 
-  private var allPreviouslyReportedProblems: List[ProblemPerPhase] = Nil
-  private var previouslyReportedProblemsWithFile: Map[File, List[ProblemPerPhase]] = Map.empty
+  private var recentlyReportProblemsPerFile: Map[File, List[ProblemPerPhase]] = Map.empty
 
-  override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = {
-    allPreviouslyReportedProblems = previousProblems
-
-    val previousProblemsWithFiles = mutable.HashMap[File, List[ProblemPerPhase]]()
-    previousProblems.foreach {
+  private def groupProblemsByFile(ps: List[ProblemPerPhase]): Map[File, List[ProblemPerPhase]] = {
+    val problemsPerFile = mutable.HashMap[File, List[ProblemPerPhase]]()
+    ps.foreach {
       case pp @ ProblemPerPhase(p, phase) =>
         InterfaceUtil.toOption(p.position().sourceFile).foreach { file =>
-          val problemsPerFile = pp :: previousProblemsWithFiles.getOrElse(file, Nil)
-          previousProblemsWithFiles.+=(file -> problemsPerFile)
+          val newProblemsPerFile = pp :: problemsPerFile.getOrElse(file, Nil)
+          problemsPerFile.+=(file -> newProblemsPerFile)
         }
     }
+    problemsPerFile.toMap
+  }
 
-    previouslyReportedProblemsWithFile = previousProblemsWithFiles.toMap
+  override def reportStartCompilation(recentProblems: List[ProblemPerPhase]): Unit = {
+    recentlyReportProblemsPerFile = groupProblemsByFile(recentProblems)
   }
 
   override def reportNextPhase(phase: String, sourceFile: File): Unit = {
@@ -93,11 +94,11 @@ final class BspProjectReporter(
       case Nil => ()
       case x :: Nil => ()
       case x :: finishedPhase :: xs =>
-        // Report previous problems for this source file once a phase has finished
-        previouslyReportedProblemsWithFile.get(sourceFile).foreach { problems =>
-          val unreported = reportPreviousProblemAfterPhase(sourceFile, finishedPhase, problems)
-          previouslyReportedProblemsWithFile =
-            previouslyReportedProblemsWithFile + (sourceFile -> unreported)
+        // Report recent problems for this source file once a phase has finished
+        recentlyReportProblemsPerFile.get(sourceFile).foreach { problems =>
+          val unreported = clearProblemsAtPhase(sourceFile, finishedPhase, problems)
+          recentlyReportProblemsPerFile =
+            recentlyReportProblemsPerFile + (sourceFile -> unreported)
         }
     }
   }
@@ -126,7 +127,7 @@ final class BspProjectReporter(
     sources.foreach(sourceFile => compilingFiles.+=(sourceFile -> true))
   }
 
-  private def reportPreviousProblemAfterPhase(
+  private def clearProblemsAtPhase(
       source: File,
       finishedPhase: String,
       problems: List[ProblemPerPhase]
@@ -146,26 +147,45 @@ final class BspProjectReporter(
     }
   }
 
-  private def reportRemainingProblems(reportAllPreviousProblemsIfNoOp: Boolean): Unit = {
-    previouslyReportedProblemsWithFile.foreach {
-      case (sourceFile, remaining) =>
-        remaining.foreach {
-          case ProblemPerPhase(problem, _) =>
-            if (!sourceFile.exists()) {
-              // Clear diagnostics if file doesn't exist anymore
-              logger.noDiagnostic(project, sourceFile)
-            } else if (clearedFilesForClient.contains(sourceFile)) {
-              // Ignore, if file has been cleared then > 0 diagnostics have been reported
-              ()
-            } else if (compilingFiles.contains(sourceFile)) {
-              // Log no diagnostic if there was a problem in a file that now compiled without problems
-              logger.noDiagnostic(project, sourceFile)
-            } else if (reportAllPreviousProblemsIfNoOp) {
-              // Log all previous problems when target file has not been compiled and it exists
-              val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-              logger.diagnostic(project, problem, clear)
-            }
+  /**
+   * Defines the logic to report remaining problems that were:
+   *
+   *   1. received from a previous, successful analysis read from disk.
+   *   2. received from a previous, successful incremental compiler run.
+   *   2. received from a previous compiler run that may or may not have failed.
+   *
+   * @param reportProblemsForTheFirstTime Whether we should report all problems known for a source
+   *                                      file. This is typically true whenever the server starts
+   *                                      up and it has not yet compiled a target for a client.
+   */
+  private def reportRemainingProblems(
+      reportProblemsForTheFirstTime: Boolean,
+  ): Unit = {
+    recentlyReportProblemsPerFile.foreach {
+      case (sourceFile, problemsPerFile) =>
+        if (!sourceFile.exists()) {
+          // Clear diagnostics if file doesn't exist anymore
+          logger.noDiagnostic(project, sourceFile)
+        } else if (clearedFilesForClient.contains(sourceFile)) {
+          // Ignore, if file has been cleared then > 0 diagnostics have been reported
+          ()
+        } else if (compilingFiles.contains(sourceFile)) {
+          // Log no diagnostic if there was a problem in a file that now compiled without problems
+          logger.noDiagnostic(project, sourceFile)
+        } else {
+          if (reportProblemsForTheFirstTime) {
+            // Log all problems received from analysis; this is 1st compilation of this target
+            reportAllProblems(sourceFile, problemsPerFile)
+          }
         }
+    }
+  }
+
+  private def reportAllProblems(sourceFile: File, problems: List[ProblemPerPhase]): Unit = {
+    problems.foreach {
+      case ProblemPerPhase(problem, _) =>
+        val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
+        logger.diagnostic(project, problem, clear)
     }
   }
 
@@ -178,12 +198,13 @@ final class BspProjectReporter(
 
     // Add a thunk that we will run whenever we know if this is the last cycle or not
     reportEndPreviousCycleThunk = (isLastCycle: Boolean) => {
-      (finalCompilationStatusCode: Option[bsp.StatusCode]) => {
-        val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
-        if (!isLastCycle) reportRemainingProblems(false)
-        else reportRemainingProblems(reportAllPreviousProblems)
-        logger.publishCompileEnd(project, taskId, allProblems, statusCode)
-      }
+      (finalCompilationStatusCode: Option[bsp.StatusCode]) =>
+        {
+          val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
+          if (!isLastCycle) reportRemainingProblems(false)
+          else reportRemainingProblems(reportAllPreviousProblems)
+          logger.publishCompileEnd(project, taskId, allProblems, statusCode)
+        }
     }
   }
 
@@ -195,7 +216,33 @@ final class BspProjectReporter(
     if (cycleCount == 0) {
       // When no-op, we keep reporting the start and the end of compilation for consistency
       logger.publishCompileStart(project, s"Start no-op compilation for ${project.name}", taskId)
-      reportRemainingProblems(reportAllPreviousProblems)
+
+      // Note the analysis file only contains non-error problems
+      val problemsInPreviousAnalysisPerFile =
+        groupProblemsByFile(AnalysisUtils.problemsFrom(previousAnalysis))
+
+      recentlyReportProblemsPerFile.foreach {
+        case (sourceFile, problemsPerFile) if reportAllPreviousProblems =>
+          reportAllProblems(sourceFile, problemsPerFile)
+        case (sourceFile, problemsPerFile) =>
+          problemsInPreviousAnalysisPerFile.get(sourceFile) match {
+            case Some(problemsInPreviousAnalysis) =>
+              if (problemsInPreviousAnalysis.map(_.problem) == problemsPerFile.map(_.problem)) {
+                // If problems are the same, diagnostics in the editor are up-to-date, do nothing
+                ()
+              } else {
+                // Otherwise, log the diagnostics that were known in the previous successful iteration
+                problemsInPreviousAnalysis.foreach {
+                  case ProblemPerPhase(problem, _) =>
+                    val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
+                    logger.diagnostic(project, problem, clear)
+                }
+              }
+
+            case None => logger.noDiagnostic(project, sourceFile)
+          }
+      }
+
       logger.publishCompileEnd(project, taskId, allProblems, code)
     } else {
       // Great, let's report the pending end incremental cycle as the last one

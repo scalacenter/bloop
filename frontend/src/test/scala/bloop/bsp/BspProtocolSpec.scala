@@ -585,17 +585,16 @@ class BspProtocolSpec {
       val validContents =
         """object A {
           |  val x = 2
-          |}
-        """.stripMargin
+          |}""".stripMargin
 
       val projectA = TestProject(
         baseDir,
         "ticket-785",
         List(
-          s"""
-             |/main/scala/A.scala
+          s"""/main/scala/A.scala
              |${validContents}""".stripMargin
-        )
+        ),
+        scalacOptions = List("-Ywarn-unused:imports")
       )
 
       val `A.scala` = projectA.srcFor("main/scala/A.scala")
@@ -608,12 +607,47 @@ class BspProtocolSpec {
           """object A {
             |  val x = 1
             |  val x = 2
-            |}
-          """.stripMargin
+            |}""".stripMargin
         ),
         Compile(projectA.bspId),
         OverwriteFile(`A.scala`, validContents),
-        Compile(projectA.bspId)
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `A.scala`,
+          """import java.nio.file.Files
+            |object A {
+            |  val x = 1
+            |  val x = 2
+            |}""".stripMargin
+        ),
+        Compile(projectA.bspId),
+        OverwriteFile(`A.scala`, validContents),
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `A.scala`,
+          """import java.nio.file.Files
+            |object A {
+            |  val x = 2
+            |}""".stripMargin
+        ),
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `A.scala`,
+          """import java.nio.file.Files
+            |object A {
+            |  val x = 1
+            |  val x = 2
+            |}""".stripMargin
+        ),
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `A.scala`,
+          """import java.nio.file.Files
+            |object A {
+            |  val x = 2
+            |}""".stripMargin
+        ),
+        Compile(projectA.bspId),
       )
 
       val diagnostics = BspClientTest.runCompileTest(cmd, actions, configDir)
@@ -640,12 +674,74 @@ class BspProtocolSpec {
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#3: task start 3
-           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Msg: Start no-op compilation for ticket-785
            |  -> Data kind: compile-task
            |#3: ticket-785/src/main/scala/A.scala
            |  -> List()
            |  -> reset = true
            |#3: task finish 3
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#4: task start 4
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#4: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
+           |  -> reset = true
+           |#4: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x  is already defined as value x,None))
+           |  -> reset = false
+           |#4: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> reset = false
+           |#4: task finish 4
+           |  -> errors 2, warnings 1
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#5: task start 5
+           |  -> Msg: Start no-op compilation for ticket-785
+           |  -> Data kind: compile-task
+           |#5: ticket-785/src/main/scala/A.scala
+           |  -> List()
+           |  -> reset = true
+           |#5: task finish 5
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#6: task start 6
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#6: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> reset = true
+           |#6: task finish 6
+           |  -> errors 0, warnings 1
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#7: task start 7
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#7: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
+           |  -> reset = true
+           |#7: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x  is already defined as value x,None))
+           |  -> reset = false
+           |#7: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> reset = false
+           |#7: task finish 7
+           |  -> errors 2, warnings 1
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#8: task start 8
+           |  -> Msg: Start no-op compilation for ticket-785
+           |  -> Data kind: compile-task
+           |#8: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> reset = true
+           |#8: task finish 8
            |  -> errors 0, warnings 0
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report""".stripMargin

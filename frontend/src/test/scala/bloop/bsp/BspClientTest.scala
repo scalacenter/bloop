@@ -3,6 +3,7 @@ package bloop.bsp
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
 
 import bloop.cli.{Commands, CommonOptions}
@@ -196,7 +197,7 @@ object BspClientTest {
     case class OverwriteFile(path: AbsolutePath, contents: String) extends BspClientAction
   }
 
-/*  // Computes the base directory for bloop frontend's project -- used to relativize paths
+  /*  // Computes the base directory for bloop frontend's project -- used to relativize paths
   private val baseDir: AbsolutePath = {
     // Works for tests executed from bloop (forked tests) and sbt (non-forked tests)
     val wp = CommonOptions.default.workingPath

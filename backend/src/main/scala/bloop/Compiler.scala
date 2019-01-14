@@ -11,7 +11,7 @@ import bloop.reporter.{ProblemPerPhase, Reporter}
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, Locate}
 import _root_.monix.eval.Task
-import bloop.util.CacheHashCode
+import bloop.util.{AnalysisUtils, CacheHashCode}
 import sbt.internal.inc.bloop.internal.StopPipelining
 import sbt.util.InterfaceUtil
 
@@ -196,13 +196,7 @@ object Compiler {
       case c: Compiler.Result.Cancelled => c.problems
       case _: Compiler.Result.Success =>
         // TODO(jvican): replace for problems already present in success reporter
-        import scala.collection.JavaConverters._
-        val infos =
-          previousAnalysis.toList.flatMap(_.readSourceInfos().getAllSourceInfos.asScala.values)
-        infos.iterator
-          .flatMap(info => info.getReportedProblems.toList)
-          .map(p => ProblemPerPhase(p, None))
-          .toList
+        AnalysisUtils.problemsFrom(previousAnalysis)
       case _ => Nil
     }
 
