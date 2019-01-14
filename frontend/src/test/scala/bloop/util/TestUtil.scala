@@ -438,6 +438,10 @@ object TestUtil {
     }
   }
 
+  def universalPath(path: String): String = {
+    path.split("/").mkString(java.io.File.separator)
+  }
+
   def createSimpleRecursiveBuild(bloopDir: RelativePath): AbsolutePath = {
     import bloop.config.Config
     val baseDir = Files.createTempDirectory("bloop-recursive-project")

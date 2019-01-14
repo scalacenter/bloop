@@ -289,7 +289,7 @@ class CompileSpec {
   }
 
   @Test
-  def ticket787(): Unit = {
+  def printRangePositionsInDiagnostics(): Unit = {
     TestUtil.withinWorkspace { baseDir =>
       val project = TestProject(
         baseDir,
@@ -313,20 +313,20 @@ class CompileSpec {
       val action = Run(Commands.Compile(List("ticket-787")))
       val compiledState = TestUtil.blockingExecute(action, state)
       TestUtil.assertNoDiff(
-        """
-          |[E2] ticket-787/src/main/scala/A.scala:6:14
+        s"""
+          |[E2] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:6:14
           |     type mismatch;
           |      found   : String
           |      required: Int
           |     L6:     substring(0))
           |                      ^
-          |[E1] ticket-787/src/main/scala/A.scala:2:33
+          |[E1] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:2:33
           |     type mismatch;
           |      found   : String
           |      required: Int
           |     L2:   "".lengthCompare("1".substring(0))
           |                            ^^^^^^^^^^^^^^^^
-          |ticket-787/src/main/scala/A.scala: L2 [E1], L6 [E2]
+          |${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}: L2 [E1], L6 [E2]
           |'ticket-787' failed to compile.""".stripMargin,
         logger.errors.mkString(System.lineSeparator())
       )

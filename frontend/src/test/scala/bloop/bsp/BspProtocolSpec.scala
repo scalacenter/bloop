@@ -666,11 +666,8 @@ class BspProtocolSpec {
            |#2: ticket-785/src/main/scala/A.scala
            |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),None,None,x is already defined as value x,None))
            |  -> reset = true
-           |#2: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(2,2),Position(2,11)),Some(Error),None,None,x  is already defined as value x,None))
-           |  -> reset = false
            |#2: task finish 2
-           |  -> errors 2, warnings 0
+           |  -> errors 1, warnings 0
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#3: task start 3
@@ -690,13 +687,10 @@ class BspProtocolSpec {
            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
            |  -> reset = true
            |#4: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(3,2),Position(3,11)),Some(Error),None,None,x  is already defined as value x,None))
-           |  -> reset = false
-           |#4: ticket-785/src/main/scala/A.scala
            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = false
            |#4: task finish 4
-           |  -> errors 2, warnings 1
+           |  -> errors 1, warnings 1
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#5: task start 5
@@ -726,13 +720,10 @@ class BspProtocolSpec {
            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
            |  -> reset = true
            |#7: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(3,2),Position(3,11)),Some(Error),None,None,x  is already defined as value x,None))
-           |  -> reset = false
-           |#7: ticket-785/src/main/scala/A.scala
            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = false
            |#7: task finish 7
-           |  -> errors 2, warnings 1
+           |  -> errors 1, warnings 1
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#8: task start 8
