@@ -23,7 +23,7 @@ class CleanSpec {
       logger: Logger
   ): Project = {
     TestUtil.makeProject(
-      buildPath.underlying,
+      buildPath,
       name,
       sources = Map.empty,
       dependencies = dependencies,
@@ -49,8 +49,7 @@ class CleanSpec {
       expectedProjects: Set[String],
       expectedStatus: ExitStatus = ExitStatus.Ok
   ): Unit = {
-    TestUtil.withTemporaryDirectory { temp =>
-      val buildPath = AbsolutePath(temp)
+    TestUtil.withinWorkspace { buildPath =>
       val logger = new bloop.logging.RecordingLogger
       val projects = projectsWithDeps.map {
         case (project, deps) => dummyProject(buildPath, project, deps, logger)

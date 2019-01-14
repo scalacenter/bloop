@@ -15,14 +15,7 @@ import bloop.exec.JavaEnv
 import bloop.internal.build.BuildInfo
 import bloop.io.Paths.delete
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{
-  BloopLogger,
-  BspClientLogger,
-  BufferedLogger,
-  DebugFilter,
-  Logger,
-  RecordingLogger
-}
+import bloop.logging.{BloopLogger, BspClientLogger, BufferedLogger, DebugFilter, Logger, RecordingLogger}
 import _root_.monix.eval.Task
 import org.junit.Assert
 import sbt.internal.inc.bloop.ZincInternals
@@ -275,14 +268,14 @@ object TestUtil {
       userLogger: Option[Logger] = None,
       extraJars: Array[AbsolutePath] = Array()
   )(op: State => T): T = {
-    withTemporaryDirectory { temp =>
+    withinWorkspace { temp =>
       val logger = userLogger.getOrElse(BloopLogger.default(temp.toString))
       val projects = projectStructures.map {
         case (name, sources) =>
           val deps = dependenciesMap.getOrElse(name, Set.empty)
           makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
       }
-      val build = Build(AbsolutePath(temp), projects.toList)
+      val build = Build(temp, projects.toList)
       val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
       try op(state)
       catch {
@@ -309,7 +302,7 @@ object TestUtil {
     Origin(path, FileTime.fromMillis(0), scala.util.Random.nextInt())
 
   def makeProject(
-      baseDir: Path,
+      baseDir: AbsolutePath,
       name: String,
       sources: Map[String, String],
       dependencies: Set[String],
@@ -319,22 +312,23 @@ object TestUtil {
       compileOrder: CompileOrder,
       extraJars: Array[AbsolutePath]
   ): Project = {
-    val origin = syntheticOriginFor(AbsolutePath(baseDir))
-    val baseDirectory = projectDir(baseDir, name)
-    val (srcs, classes) = makeProjectStructure(baseDir, name)
+    val origin = syntheticOriginFor(baseDir)
+    val baseDirectory = projectDir(baseDir.underlying, name)
+    val ProjectArchetype(srcs, _, _, classes) = createProjectArchetype(baseDir.underlying, name)
     val tempDir = baseDirectory.resolve("tmp")
     Files.createDirectories(tempDir)
-    val target = classesDir(baseDir, name)
+    val target = classesDir(baseDir.underlying, name)
 
     // Requires dependencies to be transitively listed
-    val depsTargets = (dependencies.map(classesDir(baseDir, _))).map(AbsolutePath.apply).toList
+    val depsTargets =
+      (dependencies.map(classesDir(baseDir.underlying, _))).map(AbsolutePath.apply).toList
     val allJars = scalaInstance.map(_.allJars.map(AbsolutePath.apply)).getOrElse(Array.empty)
     val classpath = depsTargets ++ allJars ++ extraJars
-    val sourceDirectories = List(AbsolutePath(srcs))
+    val sourceDirectories = List(srcs)
     val testFrameworks =
       if (classpath.exists(_.syntax.contains("junit"))) List(Config.TestFramework.JUnit) else Nil
 
-    writeSources(srcs, sources)
+    writeFilesToBase(srcs, sources.map(kv => RelativePath(kv._1) -> kv._2))
     Project(
       name = name,
       baseDirectory = AbsolutePath(baseDirectory),
@@ -359,12 +353,28 @@ object TestUtil {
     )
   }
 
-  def makeProjectStructure(base: Path, name: String): (Path, Path) = {
-    val srcs = sourcesDir(base, name)
-    val classes = classesDir(base, name)
-    Files.createDirectories(srcs)
+  case class ProjectArchetype(
+      sourceDir: AbsolutePath,
+      targetDir: AbsolutePath,
+      resourcesDir: AbsolutePath,
+      classesDir: AbsolutePath
+  )
+
+  def createProjectArchetype(base: Path, name: String): ProjectArchetype = {
+    val sourceDir = sourcesDir(base, name)
+    val targetDir = base.resolve("target")
+    val resourcesDir = base.resolve("resources")
+    val classes = classesDir(targetDir, name)
+    Files.createDirectories(sourceDir)
+    Files.createDirectories(targetDir)
+    Files.createDirectories(resourcesDir)
     Files.createDirectories(classes)
-    (srcs, classes)
+    ProjectArchetype(
+      AbsolutePath(sourceDir),
+      AbsolutePath(targetDir),
+      AbsolutePath(resourcesDir),
+      AbsolutePath(classes)
+    )
   }
 
   def ensureCompilationInAllTheBuild(state: State): Unit = {
@@ -373,18 +383,21 @@ object TestUtil {
     }
   }
 
-  def writeSources(srcDir: Path, sources: Map[String, String]): Unit = {
-    sources.foreach {
-      case (name, contents) =>
-        val writer = Files.newBufferedWriter(srcDir.resolve(name), Charset.forName("UTF-8"))
+  def writeFilesToBase(base: AbsolutePath, pathsToContents: Map[RelativePath, String]): Unit = {
+    pathsToContents.foreach {
+      case (relativePath, contents) =>
+        val fullPath = relativePath.toAbsolute(base)
+        Files.createDirectories(fullPath.getParent.underlying)
+        val writer = Files.newBufferedWriter(fullPath.underlying, Charset.forName("UTF-8"))
         try writer.write(contents)
         finally writer.close()
     }
   }
 
-  def withTemporaryDirectory[T](op: Path => T): T = {
-    val temp = Files.createTempDirectory("tmp-test")
-    try op(temp)
+  /** Creates an empty workspace where operations can happen. */
+  def withinWorkspace[T](op: AbsolutePath => T): T = {
+    val temp = Files.createTempDirectory("bloop-test-workspace")
+    try op(AbsolutePath(temp))
     finally delete(AbsolutePath(temp))
   }
 
@@ -481,5 +494,38 @@ object TestUtil {
           }
       }
     }
+  }
+
+  case class ParsedFile(relativePath: RelativePath, contents: String)
+  def parseFile(contents0: String): ParsedFile = {
+    val contents = contents0.trim
+    contents.split(System.lineSeparator()) match {
+      case Array() =>
+        sys.error(
+          s"""Expected parsed file format:
+             |
+             |```
+             |/relative/path/file.txt
+             |contents of txt
+             |file
+             |```
+             |
+             |Obtained ${contents}
+        """.stripMargin
+        )
+      case lines =>
+        val potentialPath = lines.head
+        if (!potentialPath.startsWith("/")) {
+          sys.error("First line of contents file does not start with `/`")
+        } else {
+          val contents = lines.tail.mkString(System.lineSeparator)
+          ParsedFile(RelativePath(potentialPath.stripPrefix("/")), contents)
+        }
+    }
+  }
+
+  def loadStateFromProjects(baseDir: AbsolutePath, projects: List[TestProject]): State = {
+    val configDir = TestProject.populateWorkspace(baseDir, projects)
+    TestUtil.loadTestProject(configDir.underlying, identity(_))
   }
 }

@@ -11,6 +11,7 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.endpoints.Build
 import monix.execution.atomic.AtomicInt
 
@@ -118,31 +119,34 @@ final class BspServerLogger private (
 
   private def now: Long = System.currentTimeMillis()
 
-  /**
-   * Publish a compile progress notification to the client via BSP.
-   *
-   * The following fields of the progress notification are not populated:
-   *
-   * 1. data: Option[Json] -- there is no additional metadata we want to share with the client.
-   */
+  import io.circe.ObjectEncoder
+  private case class BloopProgress(
+      target: BuildTargetIdentifier
+  )
+
+  private implicit val bloopProgressEncoder: ObjectEncoder[BloopProgress] =
+    io.circe.derivation.deriveEncoder
+
+  /** Publish a compile progress notification to the client via BSP every 5% progress increments. */
   def publishCompileProgress(
       taskId: bsp.TaskId,
+      project: Project,
       progress: Long,
       total: Long,
-      phase: String,
-      sourceFile: String
+      percentage: Long
   ): Unit = {
-    val msg = s"Compiling ${sourceFile} (phase ${phase})"
+    val msg = s"Compiling ${project.name} (${percentage}%)"
+    val json = bloopProgressEncoder(BloopProgress(bsp.BuildTargetIdentifier(project.bspUri)))
     Build.taskProgress.notify(
       bsp.TaskProgressParams(
         taskId,
         Some(System.currentTimeMillis()),
         Some(msg),
-        Some(progress),
         Some(total),
-        Some("phase/file"),
-        Some("compile"),
-        None
+        Some(progress),
+        None,
+        Some("bloop-progress"),
+        Some(json)
       )
     )
     ()
@@ -155,9 +159,10 @@ final class BspServerLogger private (
    * compile end notification, published by [[publishCompileEnd()]].
    *
    * @param project The project to which the compilation is associated.
+   * @param msg The message summarizing the triggered incremental compilation cycle.
    * @param taskId The task id to use for this publication.
    */
-  def publishCompileStart(project: Project, taskId: bsp.TaskId): Unit = {
+  def publishCompileStart(project: Project, msg: String, taskId: bsp.TaskId): Unit = {
     val json = bsp.CompileTask.encodeCompileTask(
       bsp.CompileTask(bsp.BuildTargetIdentifier(project.bspUri))
     )
@@ -166,7 +171,7 @@ final class BspServerLogger private (
       bsp.TaskStartParams(
         taskId,
         Some(now),
-        Some(s"Compiling '${project.name}'"),
+        Some(msg),
         Some(bsp.TaskDataKind.CompileTask),
         Some(json)
       )

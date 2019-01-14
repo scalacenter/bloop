@@ -103,9 +103,8 @@ class JvmTestSpec(
 
   @Test
   def canRunTestFramework(): Unit = {
-    TestUtil.withTemporaryDirectory { tmp =>
+    TestUtil.withinWorkspace { cwd =>
       TestUtil.quietIfSuccess(testState.logger) { logger =>
-        val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
         val classLoader = loaderForTestCode(config)
         val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader)).toList
@@ -135,9 +134,8 @@ class JvmTestSpec(
 
   @Test
   def canCancelTestFramework(): Unit = {
-    TestUtil.withTemporaryDirectory { tmp =>
+    TestUtil.withinWorkspace { cwd =>
       TestUtil.quietIfSuccess(testState.logger) { logger =>
-        val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
         val classLoader = loaderForTestCode(config)
         val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader)).toList

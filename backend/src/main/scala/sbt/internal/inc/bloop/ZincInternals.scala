@@ -50,6 +50,7 @@ object ZincInternals {
    *
    * Example: "org.scala-sbt-compiler-bridge-1.0.0-bin_2.11.7__50.0".
    *
+   *
    * @param sources The moduleID representing the compiler bridge sources.
    * @param scalaInstance The scala instance that sets the scala version for the id.
    * @return The complete jar identifier for the bridge sources.
