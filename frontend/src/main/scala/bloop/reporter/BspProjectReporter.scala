@@ -1,7 +1,6 @@
 package bloop.reporter
 
 import java.io.File
-import java.nio.file.{Path, Paths}
 
 import bloop.data.Project
 import bloop.io.AbsolutePath

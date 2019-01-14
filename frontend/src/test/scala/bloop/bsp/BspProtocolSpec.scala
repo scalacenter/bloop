@@ -439,7 +439,7 @@ class BspProtocolSpec {
         |  -> Msg: Compiling test-project (5 Scala sources)
         |  -> Data kind: compile-task
         |#1: test-project/shared/src/main/scala/hello/App.scala
-        |  -> List(Diagnostic(Range(Position(5,8),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
+        |  -> List(Diagnostic(Range(Position(5,4),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
         |  -> reset = true
         |#1: task finish 1
         |  -> errors 0, warnings 1
@@ -449,7 +449,7 @@ class BspProtocolSpec {
         |  -> Msg: Compiling test-project (3 Scala sources)
         |  -> Data kind: compile-task
         |#2: test-project/jvm/src/main/scala/Source1.scala
-        |  -> List(Diagnostic(Range(Position(2,36),Position(2,36)),Some(Warning),None,None,local val in method foo is never used,None))
+        |  -> List(Diagnostic(Range(Position(2,32),Position(2,36)),Some(Warning),None,None,local val in method foo is never used,None))
         |  -> reset = true
         |#2: test-project/jvm/src/main/scala/Source2.scala
         |  -> List(Diagnostic(Range(Position(2,29),Position(2,29)),Some(Error),None,None,type mismatch;  found   : String("")  required: Int,None))
@@ -594,7 +594,7 @@ class BspProtocolSpec {
           s"""/main/scala/A.scala
              |${validContents}""".stripMargin
         ),
-        scalacOptions = List("-Ywarn-unused:imports")
+        scalacOptions = List("-Ywarn-unused:imports", "-Yrangepos")
       )
 
       val `A.scala` = projectA.srcFor("main/scala/A.scala")
@@ -666,11 +666,8 @@ class BspProtocolSpec {
            |#2: ticket-785/src/main/scala/A.scala
            |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),None,None,x is already defined as value x,None))
            |  -> reset = true
-           |#2: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),None,None,x  is already defined as value x,None))
-           |  -> reset = false
            |#2: task finish 2
-           |  -> errors 2, warnings 0
+           |  -> errors 1, warnings 0
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#3: task start 3
@@ -690,13 +687,10 @@ class BspProtocolSpec {
            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
            |  -> reset = true
            |#4: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x  is already defined as value x,None))
-           |  -> reset = false
-           |#4: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = false
            |#4: task finish 4
-           |  -> errors 2, warnings 1
+           |  -> errors 1, warnings 1
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#5: task start 5
@@ -713,7 +707,7 @@ class BspProtocolSpec {
            |  -> Msg: Compiling ticket-785 (1 Scala source)
            |  -> Data kind: compile-task
            |#6: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = true
            |#6: task finish 6
            |  -> errors 0, warnings 1
@@ -726,20 +720,17 @@ class BspProtocolSpec {
            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
            |  -> reset = true
            |#7: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x  is already defined as value x,None))
-           |  -> reset = false
-           |#7: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = false
            |#7: task finish 7
-           |  -> errors 2, warnings 1
+           |  -> errors 1, warnings 1
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report
            |#8: task start 8
            |  -> Msg: Start no-op compilation for ticket-785
            |  -> Data kind: compile-task
            |#8: ticket-785/src/main/scala/A.scala
-           |  -> List(Diagnostic(Range(Position(0,21),Position(0,7)),Some(Warning),None,None,Unused import,None))
+           |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = true
            |#8: task finish 8
            |  -> errors 0, warnings 0
@@ -760,7 +751,7 @@ class BspProtocolSpec {
          |  -> Msg: Compiling test-project (5 Scala sources)
          |  -> Data kind: compile-task
          |#1: test-project/shared/src/main/scala/hello/App.scala
-         |  -> List(Diagnostic(Range(Position(5,8),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
+         |  -> List(Diagnostic(Range(Position(5,4),Position(5,8)),Some(Warning),None,None,local val in method main is never used,None))
          |  -> reset = true
          |#1: task finish 1
          |  -> errors 0, warnings 1

@@ -6,6 +6,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import xsbti.{Position, Severity}
 import ch.epfl.scala.bsp
+import sbt.util.InterfaceUtil
 import xsbti.compile.CompileAnalysis
 
 import scala.collection.concurrent.TrieMap
@@ -32,10 +33,19 @@ abstract class Reporter(
     val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
 ) extends xsbti.Reporter
     with ConfigurableReporter {
+  case class PositionId(sourcePath: String, pointer: Int)
+  private val _severities = TrieMap.empty[PositionId, Severity]
+  private val _messages = TrieMap.empty[PositionId, List[String]]
 
   private var _nextID = 1
-  override def reset(): Unit = { _problems.clear(); _nextID = 1; () }
   private def nextID(): Int = { val id = _nextID; _nextID += 1; id }
+  override def reset(): Unit = {
+    _problems.clear()
+    _severities.clear()
+    _messages.clear()
+    _nextID = 1
+    ()
+  }
 
   override def hasErrors(): Boolean = hasErrors(_problems)
   override def hasWarnings(): Boolean = hasWarnings(_problems)
@@ -59,19 +69,57 @@ abstract class Reporter(
 
   protected val phasesAtFile = TrieMap.empty[File, String]
   protected val filesToPhaseStack = TrieMap.empty[File, List[String]]
-  override def log(xproblem: xsbti.Problem): Unit = {
-    val problem = liftProblem(xproblem)
-    val problemPerPhase = sbt.util.InterfaceUtil.toOption(problem.position.sourceFile()) match {
-      case Some(file) => ProblemPerPhase(problem, filesToPhaseStack.get(file).flatMap(_.headOption))
-      case None => ProblemPerPhase(problem, None)
+
+  // Adapted from https://github.com/scala/scala/blob/2.12.x/src/compiler/scala/tools/nsc/reporters/AbstractReporter.scala#L68-L88
+  private def deduplicate(problem: xsbti.Problem): Boolean = {
+    val pos = problem.position
+    val msg = problem.message()
+    def processNewPosition(id: PositionId, supress: Boolean): Boolean = {
+      _severities.putIfAbsent(id, problem.severity())
+      val old = _messages.getOrElseUpdate(id, List(msg))
+      if (old != List(msg)) _messages.update(id, msg :: old)
+      supress
     }
 
-    _problems += problemPerPhase
+    (InterfaceUtil.toOption(pos.sourcePath()), InterfaceUtil.toOption(pos.pointer())) match {
+      case (Some(sourcePath), Some(pointer)) =>
+        val positionId = PositionId(sourcePath, pointer)
+        _severities.get(positionId) match {
+          case Some(xsbti.Severity.Error) => processNewPosition(positionId, true)
+          case Some(severity) if severity == problem.severity =>
+            val supress = _messages.getOrElse(positionId, Nil).contains(problem.message())
+            processNewPosition(positionId, supress)
+          case Some(severity) =>
+            val supress = (severity, problem.severity) match {
+              case (xsbti.Severity.Error, xsbti.Severity.Info) => true
+              case (xsbti.Severity.Error, xsbti.Severity.Warn) => true
+              case (xsbti.Severity.Warn, xsbti.Severity.Info) => true
+              case _ => false
+            }
+            processNewPosition(positionId, supress)
+          case _ => processNewPosition(positionId, false)
+        }
+      case _ => false
+    }
+  }
 
-    // If we show errors in reverse order, they'll all be shown
-    // in `printSummary`.
-    if (!config.reverseOrder) {
-      logFull(problem)
+  override def log(xproblem: xsbti.Problem): Unit = {
+    if (deduplicate(xproblem)) ()
+    else {
+      val problem = liftProblem(xproblem)
+      val problemPerPhase = InterfaceUtil.toOption(problem.position.sourceFile()) match {
+        case Some(file) =>
+          ProblemPerPhase(problem, filesToPhaseStack.get(file).flatMap(_.headOption))
+        case None => ProblemPerPhase(problem, None)
+      }
+
+      _problems += problemPerPhase
+
+      // If we show errors in reverse order, they'll all be shown
+      // in `printSummary`.
+      if (!config.reverseOrder) {
+        logFull(problem)
+      }
     }
   }
 
