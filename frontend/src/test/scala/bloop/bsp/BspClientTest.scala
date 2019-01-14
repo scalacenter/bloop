@@ -197,14 +197,6 @@ object BspClientTest {
     case class OverwriteFile(path: AbsolutePath, contents: String) extends BspClientAction
   }
 
-  /*  // Computes the base directory for bloop frontend's project -- used to relativize paths
-  private val baseDir: AbsolutePath = {
-    // Works for tests executed from bloop (forked tests) and sbt (non-forked tests)
-    val wp = CommonOptions.default.workingPath
-    if (wp.underlying.endsWith("frontend")) wp
-    else wp.resolve("frontend")
-  }*/
-
   private type Result = Either[Response.Error, bsp.CompileResult]
   def runCompileTest(
       bspCmd: Commands.ValidatedBsp,
@@ -212,7 +204,6 @@ object BspClientTest {
       configDir: AbsolutePath,
       expectErrors: Boolean = false
   ): Map[bsp.BuildTargetIdentifier, String] = {
-    val baseDir = bspCmd.cliOptions.common.workingPath
     var compileIteration = 1
     val compilationResults = new StringBuilder()
     val logger = new BspClientLogger(new RecordingLogger)
@@ -355,7 +346,6 @@ object BspClientTest {
       ()
     }
 
-    val baseDirPath = baseDir.underlying.toString
     val addServicesTest: Services => Services = { (s: Services) =>
       s.notification(endpoints.Build.taskStart) { taskStart =>
           taskStart.dataKind match {
@@ -407,6 +397,16 @@ object BspClientTest {
               btid,
               (builder: StringBuilder) => {
                 val pathString = {
+                  val baseDir = {
+                    // Find out the current working directory of the workspace instead of project
+                    var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
+                    val workspaceFileName = configDir.underlying.getParent.getFileName
+                    while (!bdir.underlying.endsWith(workspaceFileName)) {
+                      bdir = bdir.getParent
+                    }
+                    bdir
+                  }
+
                   val abs = AbsolutePath(tid.uri.toPath)
                   if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
                   else abs.toRelative(baseDir).toString
