@@ -72,11 +72,13 @@ final case class Project(
     // Add the resources right before the classes directory if found in the classpath
     Dag.dfs(dag).foreach { p =>
       val index = cp.indexOf(p.classesDir)
-      // If there is an anomaly and the classes dir of a dependency is missing, add resource at end
+      // Only add those resources that exist at the moment of creating the classpath
+      val resources = p.resources.filter(_.exists)
       if (index == -1) {
-        cp.appendAll(p.resources)
+        // If anomaly and classes dir of a dependency is missing, add resources at end
+        cp.appendAll(resources)
       } else {
-        cp.insertAll(index, p.resources)
+        cp.insertAll(index, resources)
       }
     }
     cp.toArray
