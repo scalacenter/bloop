@@ -314,20 +314,20 @@ class CompileSpec {
       val compiledState = TestUtil.blockingExecute(action, state)
       TestUtil.assertNoDiff(
         s"""
-          |[E2] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:6:14
-          |     type mismatch;
-          |      found   : String
-          |      required: Int
-          |     L6:     substring(0))
-          |                      ^
-          |[E1] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:2:33
-          |     type mismatch;
-          |      found   : String
-          |      required: Int
-          |     L2:   "".lengthCompare("1".substring(0))
-          |                            ^^^^^^^^^^^^^^^^
-          |${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}: L2 [E1], L6 [E2]
-          |'ticket-787' failed to compile.""".stripMargin,
+           |[E2] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:6:14
+           |     type mismatch;
+           |      found   : String
+           |      required: Int
+           |     L6:     substring(0))
+           |                      ^
+           |[E1] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:2:33
+           |     type mismatch;
+           |      found   : String
+           |      required: Int
+           |     L2:   "".lengthCompare("1".substring(0))
+           |                            ^^^^^^^^^^^^^^^^
+           |${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}: L2 [E1], L6 [E2]
+           |'ticket-787' failed to compile.""".stripMargin,
         logger.errors.mkString(System.lineSeparator())
       )
 
@@ -609,13 +609,34 @@ class CompileSpec {
     val action = Run(Commands.Compile(List(target)))
     val compiledState = TestUtil.blockingExecute(action, state)
     def loggerInfos = logger.getMessagesAt(Some("info"))
+    def loggerDebugs = logger.getMessagesAt(Some("debug"))
 
+    val cleanCompile = Run(Commands.Clean(List(target)), Run(Commands.Compile(List(target))))
+    val previousCacheHits = loggerDebugs.count(_.startsWith("Cache hit true")).toLong
     val targetMsg = "Bloop test plugin classloader: scala.reflect.internal.util.ScalaClassLoader"
     loggerInfos.find(_.contains(targetMsg)) match {
       case Some(found) =>
-        val cleanCompile = Run(Commands.Clean(List(target)), Run(Commands.Compile(List(target))))
+        // The found message contains the hashcode of the classloader, so if we repeat it we cache
         val cleanCompiledState = TestUtil.blockingExecute(cleanCompile, compiledState)
-        Assert.assertEquals(loggerInfos.count(_ == found), 2)
+        Assert.assertEquals(2.toLong, loggerInfos.count(_ == found).toLong)
+
+        // Ensure that the next time we compile we hit the cache that tells us to whitelist or not
+        val totalCacheHits = loggerDebugs.count(_.startsWith("Cache hit true")).toLong
+        // Update the counter whenever we add more plugins that we want to whitelist for this project
+        Assert.assertEquals(16, totalCacheHits - previousCacheHits)
+
+        // Clean and compile but this time by disabling the cache manually
+        val targetProject = cleanCompiledState.build.getProjectFor(target).get
+        val newProjects = {
+          val newTargetProject = targetProject.copy(
+            scalacOptions = "-Ycache-plugin-class-loader:none" :: targetProject.scalacOptions)
+          newTargetProject :: cleanCompiledState.build.projects.filter(_ != targetProject)
+        }
+        val changedState =
+          cleanCompiledState.copy(build = cleanCompiledState.build.copy(projects = newProjects))
+        val cleanCompiledState2 = TestUtil.blockingExecute(cleanCompile, changedState)
+        Assert.assertEquals(3.toLong, loggerInfos.count(_.contains(targetMsg)).toLong)
+        Assert.assertEquals(2.toLong, loggerInfos.count(_ == found).toLong)
       case None => Assert.fail("Expected log by `bloop-test-plugin` about classloader id")
     }
   }
