@@ -25,7 +25,17 @@ object Server {
 
   def nailMain(ngContext: NGContext): Unit = {
     val server = ngContext.getNGServer
-    shutDown(server)
+    import java.util.concurrent.ForkJoinPool
+
+    ForkJoinPool
+      .commonPool()
+      .submit(new Runnable {
+        override def run(): Unit = {
+          server.shutdown(false)
+        }
+      })
+
+    ()
   }
 
   private def run(server: NGServer): Unit = {
@@ -52,7 +62,7 @@ object Server {
       new Alias(
         "exit",
         "Kill the bloop server.",
-        classOf[com.martiansoftware.nailgun.builtins.NGStop]
+        classOf[Server]
       )
     )
 
@@ -60,9 +70,5 @@ object Server {
     server.setDefaultNailClass(classOf[Cli])
     // Disable nails by class name so that we prevent classloading incorrect aliases
     server.setAllowNailsByClassName(false)
-  }
-
-  private def shutDown(server: NGServer): Unit = {
-    server.shutdown( /* exitVM = */ false)
   }
 }
