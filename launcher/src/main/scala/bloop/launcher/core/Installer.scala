@@ -103,11 +103,19 @@ object Installer {
   }
 
   def fetchJars(r: Resolution, out: PrintStream): Seq[Path] = {
-    val localArtifacts: Seq[Either[FileError, File]] =
-      Gather[Task].gather(r.artifacts().map(Cache.file[Task](_).run)).unsafeRun()
-    val fileErrors = localArtifacts.collect { case Left(error) => error }
+    val localArtifacts: Seq[(Boolean, Either[FileError, File])] = {
+      Gather[Task]
+        .gather(r.artifacts().map { artifact =>
+          Cache.file[Task](artifact).run.map(artifact.optional -> _)
+        })
+        .unsafeRun()
+    }
+
+    val fileErrors = localArtifacts.collect {
+      case (isOptional, Left(error)) if !isOptional || !error.notFound => error
+    }
     if (fileErrors.isEmpty) {
-      localArtifacts.collect { case Right(f) => f }.map(_.toPath)
+      localArtifacts.collect { case (_, Right(f)) => f }.map(_.toPath)
     } else {
       val prettyFileErrors = fileErrors.map(_.describe).mkString("\n")
       val errorMsg = s"Fetch error(s):\n${prettyFileErrors}"
