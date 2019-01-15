@@ -426,7 +426,7 @@ object TestUtil {
           .generateUnifiedDiff(
             "expected",
             "obtained",
-            obtainedLines,
+            expectedLines,
             patch,
             1
           )

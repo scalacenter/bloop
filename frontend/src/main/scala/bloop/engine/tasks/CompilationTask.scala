@@ -63,10 +63,9 @@ object CompilationTask {
           }
 
           val (scalacOptions, compileMode) = {
-            if (!pipeline) (project.scalacOptions.toArray, userCompileMode)
+            if (!pipeline) (project.scalacOptions, userCompileMode)
             else {
-
-              val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions).toArray
+              val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions)
               val mode = userCompileMode match {
                 case CompileMode.Sequential =>
                   CompileMode.Pipelined(
@@ -90,27 +89,31 @@ object CompilationTask {
             }
           }
 
-          val backendInputs = CompileInputs(
-            instance,
-            compilerCache,
-            sources.toArray,
-            project.compilationClasspath,
-            graphInputs.store,
-            project.classesDir,
-            project.out,
-            scalacOptions,
-            project.javacOptions.toArray,
-            project.compileOrder,
-            project.classpathOptions,
-            previousSuccesful,
-            previousResult,
-            reporter,
-            compileMode,
-            graphInputs.dependentResults,
-            cancelCompilation
-          )
+          val inputs = CompilerPluginWhitelist
+            .enablePluginCaching(instance.version, scalacOptions, logger)
+            .map { scalacOptions =>
+              CompileInputs(
+                instance,
+                compilerCache,
+                sources.toArray,
+                project.compilationClasspath,
+                graphInputs.store,
+                project.classesDir,
+                project.out,
+                scalacOptions.toArray,
+                project.javacOptions.toArray,
+                project.compileOrder,
+                project.classpathOptions,
+                previousSuccesful,
+                previousResult,
+                reporter,
+                compileMode,
+                graphInputs.dependentResults,
+                cancelCompilation
+              )
+            }
 
-          Compiler.compile(backendInputs).map { result =>
+          inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
             // Do some implementation book-keeping before returning the compilation result
             if (!graphInputs.irPromise.isDone) {
               /*
