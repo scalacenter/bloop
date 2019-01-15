@@ -10,14 +10,20 @@ import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => Nat
 
 object NativeBridge {
   private implicit val ctx: DebugFilter = DebugFilter.Link
-  def nativeLink(config0: NativeConfig, project: Project, entry: String, target: Path, logger: Logger): Path = {
+  def nativeLink(
+      config0: NativeConfig,
+      project: Project,
+      classpath: Array[Path],
+      entry: String,
+      target: Path,
+      logger: Logger
+  ): Path = {
     val workdir = project.out.resolve("native")
     if (workdir.isDirectory) Paths.delete(workdir)
     Files.createDirectories(workdir.underlying)
 
-    val classpath = project.compilationClasspath.map(_.underlying)
     val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
-    val config = setUpNativeConfig(project, config0)
+    val config = setUpNativeConfig(project, classpath, config0)
     val nativeMode = config.mode match {
       case LinkerMode.Debug => Mode.debug
       case LinkerMode.Release => Mode.release
@@ -44,6 +50,7 @@ object NativeBridge {
 
   private[scalanative] def setUpNativeConfig(
       project: Project,
+      classpath: Array[Path],
       config: NativeConfig
   ): NativeConfig = {
     val mode = config.mode
@@ -66,7 +73,7 @@ object NativeBridge {
       if (config.nativelib.toString.nonEmpty) config.nativelib
       else {
         Discover
-          .nativelib(project.compilationClasspath.map(_.underlying))
+          .nativelib(classpath)
           .getOrElse(sys.error("Fatal: nativelib is missing and could not be found."))
       }
     }

@@ -180,7 +180,8 @@ class BspProtocolSpec {
 
   def testSources(bspCmd: Commands.ValidatedBsp): Unit = {
     def testSourcePerTarget(bti: BuildTargetIdentifier, project: Project)(
-        implicit client: LanguageClient) = {
+        implicit client: LanguageClient
+    ) = {
       endpoints.BuildTarget.sources.request(bsp.SourcesParams(List(bti))).map {
         case Left(error) => Left(error)
         case Right(sources) =>
@@ -212,8 +213,8 @@ class BspProtocolSpec {
                     case Some(testTarget) => testSourcePerTarget(testTarget.id, testProject)
                     case None =>
                       Task.now(
-                        Left(
-                          Response.internalError(s"Missing test project in ${workspaceTargets}")))
+                        Left(Response.internalError(s"Missing test project in ${workspaceTargets}"))
+                      )
                   }
               }
             case None =>
@@ -230,7 +231,8 @@ class BspProtocolSpec {
 
   def testDependencySources(bspCmd: Commands.ValidatedBsp): Unit = {
     def testSourcePerTarget(bti: BuildTargetIdentifier, project: Project)(
-        implicit client: LanguageClient) = {
+        implicit client: LanguageClient
+    ) = {
       endpoints.BuildTarget.dependencySources.request(bsp.DependencySourcesParams(List(bti))).map {
         case Left(error) => Left(error)
         case Right(sources) =>
@@ -272,8 +274,8 @@ class BspProtocolSpec {
                     case Some(testTarget) => testSourcePerTarget(testTarget.id, testProject)
                     case None =>
                       Task.now(
-                        Left(
-                          Response.internalError(s"Missing test project in ${workspaceTargets}")))
+                        Left(Response.internalError(s"Missing test project in ${workspaceTargets}"))
+                      )
                   }
               }
             case None =>
@@ -322,8 +324,11 @@ class BspProtocolSpec {
                   Assert.assertEquals(obtainedUri, expectedUri)
                   val obtainedOptions =
                     stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
-                  val classpath =
-                    p.compilationClasspath.iterator.map(i => bsp.Uri(i.toBspUri)).toList
+                  val state = TestUtil.loadTestProject(configDir.underlying, identity(_))
+                  val classpath = p
+                    .dependencyClasspath(state.build.getDagFor(p))
+                    .map(i => bsp.Uri(i.toBspUri))
+                    .toList
                   val classesDir = bsp.Uri(p.classesDir.toBspUri)
                   val expectedOptions =
                     stringifyOptions(p.scalacOptions.toList, classpath, classesDir)
@@ -647,7 +652,7 @@ class BspProtocolSpec {
             |  val x = 2
             |}""".stripMargin
         ),
-        Compile(projectA.bspId),
+        Compile(projectA.bspId)
       )
 
       val diagnostics = BspClientTest.runCompileTest(cmd, actions, configDir)

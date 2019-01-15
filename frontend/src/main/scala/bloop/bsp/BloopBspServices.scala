@@ -111,7 +111,8 @@ final class BloopBspServices(
    * @return An async computation that returns the response to the client.
    */
   def initialize(
-      params: bsp.InitializeBuildParams): BspEndpointResponse[bsp.InitializeBuildResult] = {
+      params: bsp.InitializeBuildParams
+  ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
     reloadState(configDir).map { state =>
@@ -561,7 +562,8 @@ final class BloopBspServices(
   }
 
   def scalacOptions(
-      request: bsp.ScalacOptionsParams): BspEndpointResponse[bsp.ScalacOptionsResult] = {
+      request: bsp.ScalacOptionsParams
+  ): BspEndpointResponse[bsp.ScalacOptionsResult] = {
     def scalacOptions(
         projects: Seq[ProjectMapping],
         state: State
@@ -569,10 +571,13 @@ final class BloopBspServices(
       val response = bsp.ScalacOptionsResult(
         projects.iterator.map {
           case (target, project) =>
+            val dag = state.build.getDagFor(project)
+            val fullClasspath = project.dependencyClasspath(dag)
+            val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
-              classpath = project.compilationClasspath.map(e => bsp.Uri(e.toBspUri)).toList,
+              classpath = classpath,
               classDirectory = bsp.Uri(project.classesDir.toBspUri)
             )
         }.toList

@@ -2,6 +2,7 @@ package bloop.engine.tasks.compilation
 
 import bloop.data.Project
 import bloop.engine.Feedback
+import bloop.engine.Dag
 import bloop.io.{AbsolutePath, Paths}
 import bloop.{Compiler, ScalaInstance}
 
@@ -27,8 +28,9 @@ import bloop.{Compiler, ScalaInstance}
  */
 final case class CompileBundle(
     project: Project,
+    classpath: Array[AbsolutePath],
     javaSources: List[AbsolutePath],
-    scalaSources: List[AbsolutePath],
+    scalaSources: List[AbsolutePath]
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
 
@@ -70,10 +72,11 @@ case class CompileSourcesAndInstance(
 )
 
 object CompileBundle {
-  def apply(project: Project): CompileBundle = {
+  def apply(project: Project, dag: Dag[Project]): CompileBundle = {
     val sources = project.sources.distinct
+    val classpath = project.dependencyClasspath(dag)
     val javaSources = sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.java")).distinct
     val scalaSources = sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.scala")).distinct
-    new CompileBundle(project, javaSources, scalaSources)
+    new CompileBundle(project, classpath, javaSources, scalaSources)
   }
 }

@@ -87,7 +87,7 @@ class JvmTestSpec(
 
   private val processRunnerConfig: Forker = {
     val javaEnv = JavaEnv.default
-    val classpath = testProject.fullClasspathFor(testState.build.getDagFor(testProject))
+    val classpath = testProject.dependencyClasspath(testState.build.getDagFor(testProject))
     val classpathEntries = classpath.map(_.underlying.toUri.toURL)
     Forker(javaEnv, classpath)
   }

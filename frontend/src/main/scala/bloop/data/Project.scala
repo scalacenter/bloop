@@ -40,9 +40,6 @@ final case class Project(
   /** The bsp uri associated with this project. */
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toURI(baseDirectory, name))
 
-  /** This project's full classpath (classes directory and raw classpath) */
-  val compilationClasspath: Array[AbsolutePath] = (classesDir :: rawClasspath).toArray
-
   val classpathOptions: ClasspathOptions = {
     ClasspathOptions.of(
       compileSetup.addLibraryToBootClasspath,
@@ -70,16 +67,18 @@ final case class Project(
     }
   }
 
-  def fullClasspathFor(dag: Dag[Project]): Array[AbsolutePath] = {
-    val cp = compilationClasspath.toBuffer
+  def dependencyClasspath(dag: Dag[Project]): Array[AbsolutePath] = {
+    val cp = (classesDir :: rawClasspath).toBuffer
     // Add the resources right before the classes directory if found in the classpath
     Dag.dfs(dag).foreach { p =>
       val index = cp.indexOf(p.classesDir)
-      // If there is an anomaly and the classes dir of a dependency is missing, add resource at end
+      // Only add those resources that exist at the moment of creating the classpath
+      val resources = p.resources.filter(_.exists)
       if (index == -1) {
-        cp.appendAll(p.resources)
+        // If anomaly and classes dir of a dependency is missing, add resources at end
+        cp.appendAll(resources)
       } else {
-        cp.insertAll(index, p.resources)
+        cp.insertAll(index, resources)
       }
     }
     cp.toArray

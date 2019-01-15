@@ -40,7 +40,7 @@ object CompileGraph {
    */
   def traverse(
       dag: Dag[Project],
-      setup: Project => CompileBundle,
+      setup: (Project, Dag[Project]) => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       pipeline: Boolean,
       logger: Logger
@@ -101,7 +101,7 @@ object CompileGraph {
    */
   private def normalTraversal(
       dag: Dag[Project],
-      setup: Project => CompileBundle,
+      setup: (Project, Dag[Project]) => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTask = {
@@ -125,7 +125,7 @@ object CompileGraph {
         case None =>
           val task: Task[Dag[PartialCompileResult]] = dag match {
             case Leaf(project) =>
-              val bundle = setup(project)
+              val bundle = setup(project, dag)
               val cf = new CompletableFuture[IRs]()
               compile(Inputs(bundle, es, cf, JavaCompleted, JavaContinue, CompilerOracle.empty, false)).map {
                 case Compiler.Result.Ok(res) =>
@@ -140,7 +140,7 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              val bundle = setup(project)
+              val bundle = setup(project, dag)
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
@@ -192,7 +192,7 @@ object CompileGraph {
    */
   private def pipelineTraversal(
       dag: Dag[Project],
-      setup: Project => CompileBundle,
+      setup: (Project, Dag[Project]) => CompileBundle,
       compile: Inputs => Task[Compiler.Result],
       logger: Logger
   ): CompileTask = {
@@ -207,7 +207,7 @@ object CompileGraph {
           val task = dag match {
             case Leaf(project) =>
               Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
-                val bundle = setup(project)
+                val bundle = setup(project, dag)
                 val jcf = new CompletableFuture[Unit]()
                 val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, CompilerOracle.empty, true))
                 val running =
@@ -237,7 +237,7 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              val bundle = setup(project)
+              val bundle = setup(project, dag)
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
@@ -252,7 +252,7 @@ object CompileGraph {
 
                   // Let's order the IRs exactly in the same order as provided in the classpath!
                   // Required for symbol clashes in dependencies (`AppLoader` in guardian/frontend)
-                  val indexDirs = project.compilationClasspath.iterator.filter(_.isDirectory).zipWithIndex.toMap
+                  val indexDirs = bundle.classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
                   val dependentStore = {
                     val transitiveStores =
                       results.flatMap(r => indexDirs.get(r.bundle.project.classesDir).iterator.map(i => i -> r.store))

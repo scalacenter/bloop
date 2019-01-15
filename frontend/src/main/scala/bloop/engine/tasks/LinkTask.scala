@@ -16,7 +16,7 @@ object LinkTask {
       state: State,
       mainClass: String,
       target: AbsolutePath,
-      platform: Platform.Js,
+      platform: Platform.Js
   ): Task[State] = {
     val config0 = platform.config
     platform.toolchain match {
@@ -24,14 +24,18 @@ object LinkTask {
         config0.output.flatMap(Tasks.reasonOfInvalidPath(_, ".js")) match {
           case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
           case None =>
+            val fullClasspath =
+              project.dependencyClasspath(state.build.getDagFor(project)).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain.link(config, project, true, Some(mainClass), target, state.logger).map {
-              case scala.util.Success(_) =>
-                state.withInfo(s"Generated JavaScript file '${target.syntax}'")
-              case scala.util.Failure(t) =>
-                val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
-                state.withError(msg, ExitStatus.LinkingError).withTrace(t)
-            }
+            toolchain
+              .link(config, project, fullClasspath, true, Some(mainClass), target, state.logger)
+              .map {
+                case scala.util.Success(_) =>
+                  state.withInfo(s"Generated JavaScript file '${target.syntax}'")
+                case scala.util.Failure(t) =>
+                  val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
+                  state.withError(msg, ExitStatus.LinkingError).withTrace(t)
+              }
         }
       case None =>
         val artifactName = ScalaJsToolchain.artifactNameFrom(config0.version)
@@ -54,8 +58,10 @@ object LinkTask {
         config0.output.flatMap(Tasks.reasonOfInvalidPath(_)) match {
           case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
           case None =>
+            val fullClasspath =
+              project.dependencyClasspath(state.build.getDagFor(project)).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain.link(config, project, mainClass, target, state.logger) map {
+            toolchain.link(config, project, fullClasspath, mainClass, target, state.logger) map {
               case scala.util.Success(_) =>
                 state.withInfo(s"Generated native binary '${target.syntax}'")
               case scala.util.Failure(t) =>
