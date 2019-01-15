@@ -26,7 +26,6 @@ object DependencyResolution {
     Repository,
     Resolution
   }
-  import coursier.interop.scalaz._
   import scalaz.concurrent.Task
 
   /**
@@ -46,7 +45,9 @@ object DependencyResolution {
       version: String,
       logger: Logger,
       additionalRepositories: Seq[Repository] = Nil
-  ): Array[AbsolutePath] = {
+  )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
+    import coursier._
+    import coursier.util.{Gather, Task}
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)
@@ -56,20 +57,30 @@ object DependencyResolution {
       val baseRepositories = Seq(
         Cache.ivy2Local,
         MavenRepository("https://repo1.maven.org/maven2"),
-        MavenRepository("https://dl.bintray.com/scalacenter/releases"))
+        MavenRepository("https://dl.bintray.com/scalacenter/releases")
+      )
       baseRepositories ++ additionalRepositories
     }
-    val fetch = Fetch.from(repositories, Cache.fetch())
-    val resolution = start.process.run(fetch).unsafePerformSync
-    val errors = resolution.errors
-    if (errors.isEmpty) {
-      val localArtifacts: List[Either[FileError, File]] =
-        Task.gatherUnordered(resolution.artifacts().map(Cache.file(_).run)).unsafePerformSync
-      localArtifacts.collect { case Right(f) => AbsolutePath(f.toPath) }.toArray
+    val fetch = Fetch.from(repositories, Cache.fetch[Task]())
+    val resolution = start.process.run(fetch).unsafeRun()
+    val localArtifacts: Seq[(Boolean, Either[FileError, File])] = {
+      Gather[Task]
+        .gather(resolution.artifacts().map { artifact =>
+          Cache.file[Task](artifact).run.map(artifact.optional -> _)
+        })
+        .unsafeRun()
+    }
+
+    val fileErrors = localArtifacts.collect {
+      case (isOptional, Left(error)) if !isOptional || !error.notFound => error
+    }
+    if (fileErrors.isEmpty) {
+      localArtifacts.collect { case (_, Right(f)) => AbsolutePath(f.toPath) }.toArray
     } else {
       val moduleInfo = s"$organization:$module:$version"
+      val prettyFileErrors = fileErrors.map(_.describe).mkString(System.lineSeparator)
       sys.error(
-        s"Resolution of module $moduleInfo failed with: ${errors.mkString("\n =>", "=> \n", "\n")}"
+        s"Resolution of module $moduleInfo failed with:${System.lineSeparator}${prettyFileErrors}"
       )
     }
   }

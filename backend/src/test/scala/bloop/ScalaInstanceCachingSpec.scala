@@ -10,6 +10,8 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
 object ScalaInstanceCachingSpec {
   val sameVersionPairs = Array("2.10.6", "2.10.1", "2.11.11", "2.12.0", "2.12.4")
   val unsharedVersionPairs =

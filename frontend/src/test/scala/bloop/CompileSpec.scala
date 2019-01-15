@@ -66,12 +66,14 @@ class CompileSpec {
     }
   }
 
-  def scalaInstance2124(logger: Logger): ScalaInstance = ScalaInstance.resolve(
-    "org.scala-lang",
-    "scala-compiler",
-    "2.12.4",
-    logger
-  )
+  def scalaInstance2124(logger: Logger): ScalaInstance = {
+    ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      "2.12.4",
+      logger
+    )(bloop.engine.ExecutionContext.ioScheduler)
+  }
 
   @Test
   def compileScalaAndJavaWithMissingDependency(): Unit = {
@@ -179,7 +181,9 @@ class CompileSpec {
   def compileWithScala2124(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     simpleProject(scalaInstance)
   }
 
@@ -187,7 +191,9 @@ class CompileSpec {
   def compileWithScala2123(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     simpleProject(scalaInstance)
   }
 
@@ -195,7 +201,9 @@ class CompileSpec {
   def compileWithScala21111(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     simpleProject(scalaInstance)
   }
 
@@ -577,7 +585,9 @@ class CompileSpec {
   def compileWithDotty080RC1(): Unit = {
     val logger = new RecordingLogger()
     val scalaInstance =
-      ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.8", "0.8.0-RC1", logger)
+      ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.8", "0.8.0-RC1", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     val structures = Map(RootProject -> Map("Dotty.scala" -> ArtificialSources.`Dotty.scala`))
     checkAfterCleanCompilation(structures, Map.empty, scalaInstance = scalaInstance) { state =>
       ensureCompilationInAllTheBuild(state)
@@ -629,7 +639,8 @@ class CompileSpec {
         val targetProject = cleanCompiledState.build.getProjectFor(target).get
         val newProjects = {
           val newTargetProject = targetProject.copy(
-            scalacOptions = "-Ycache-plugin-class-loader:none" :: targetProject.scalacOptions)
+            scalacOptions = "-Ycache-plugin-class-loader:none" :: targetProject.scalacOptions
+          )
           newTargetProject :: cleanCompiledState.build.projects.filter(_ != targetProject)
         }
         val changedState =
