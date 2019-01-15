@@ -25,7 +25,17 @@ object Server {
 
   def nailMain(ngContext: NGContext): Unit = {
     val server = ngContext.getNGServer
-    shutDown(server)
+    import java.util.concurrent.ForkJoinPool
+
+    ForkJoinPool
+      .commonPool()
+      .submit(new Runnable {
+        override def run(): Unit = {
+          server.shutdown(false)
+        }
+      })
+
+    ()
   }
 
   private def run(server: NGServer): Unit = {
@@ -39,22 +49,26 @@ object Server {
     aliasManager.addAlias(new Alias("compile", "Compile project(s) in the build.", classOf[Cli]))
     aliasManager.addAlias(new Alias("test", "Run project(s)' tests in the build.", classOf[Cli]))
     aliasManager.addAlias(
-      new Alias("run", "Run a main entrypoint for project(s) in the build.", classOf[Cli]))
+      new Alias("run", "Run a main entrypoint for project(s) in the build.", classOf[Cli])
+    )
     aliasManager.addAlias(new Alias("bsp", "Spawn a build server protocol instance.", classOf[Cli]))
     aliasManager.addAlias(
-      new Alias("console", "Run the console for project(s) in the build.", classOf[Cli]))
+      new Alias("console", "Run the console for project(s) in the build.", classOf[Cli])
+    )
     aliasManager.addAlias(new Alias("projects", "Show projects in the build.", classOf[Cli]))
     aliasManager.addAlias(new Alias("configure", "Configure the bloop server.", classOf[Cli]))
     aliasManager.addAlias(new Alias("help", "Show bloop help message.", classOf[Cli]))
-    aliasManager.addAlias(new Alias("exit", "Kill the bloop server.", classOf[Server]))
+    aliasManager.addAlias(
+      new Alias(
+        "exit",
+        "Kill the bloop server.",
+        classOf[Server]
+      )
+    )
 
     // Register the default entrypoint in case the user doesn't use the right alias
     server.setDefaultNailClass(classOf[Cli])
     // Disable nails by class name so that we prevent classloading incorrect aliases
     server.setAllowNailsByClassName(false)
-  }
-
-  private def shutDown(server: NGServer): Unit = {
-    server.shutdown( /* exitVM = */ false)
   }
 }

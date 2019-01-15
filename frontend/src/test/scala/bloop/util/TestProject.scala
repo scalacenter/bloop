@@ -68,6 +68,7 @@ object TestProject {
       .map(d => AbsolutePath(TestUtil.classesDir(baseDir.underlying, d)))
       .toList
 
+    import bloop.engine.ExecutionContext.ioScheduler
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
     val instance = scalaVersion
       .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, Nil, NoopLogger))

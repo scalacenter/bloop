@@ -15,7 +15,14 @@ import bloop.exec.JavaEnv
 import bloop.internal.build.BuildInfo
 import bloop.io.Paths.delete
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BloopLogger, BspClientLogger, BufferedLogger, DebugFilter, Logger, RecordingLogger}
+import bloop.logging.{
+  BloopLogger,
+  BspClientLogger,
+  BufferedLogger,
+  DebugFilter,
+  Logger,
+  RecordingLogger
+}
 import _root_.monix.eval.Task
 import org.junit.Assert
 import sbt.internal.inc.bloop.ZincInternals
@@ -54,7 +61,7 @@ object TestUtil {
       "scala-compiler",
       Properties.versionNumberString,
       logger
-    )
+    )(bloop.engine.ExecutionContext.ioScheduler)
   }
 
   final val RootProject = "target-project"
@@ -222,7 +229,8 @@ object TestUtil {
    * @param check   A function that'll receive the resulting log messages.
    */
   def runAndCheck(projectName: String, sources: Seq[String], cmd: Commands.CompilingCommand)(
-      check: List[(String, String)] => Unit): Unit = {
+      check: List[(String, String)] => Unit
+  ): Unit = {
     val noDependencies = Map.empty[String, Set[String]]
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
     val projectsStructure = Map(projectName -> namedSources)
@@ -246,7 +254,8 @@ object TestUtil {
    * @param check A function that'll receive the resulting log messages.
    */
   def runAndCheck(state: State, cmd: Commands.CompilingCommand)(
-      check: List[(String, String)] => Unit): Unit = {
+      check: List[(String, String)] => Unit
+  ): Unit = {
     val recordingLogger = new RecordingLogger
     val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)

@@ -76,6 +76,7 @@ final class ScalaInstance private (
 
 object ScalaInstance {
   import bloop.io.AbsolutePath
+  import scala.concurrent.ExecutionContext
 
   private[ScalaInstance] final val ScalacCompilerName = "scala-compiler"
 
@@ -97,12 +98,13 @@ object ScalaInstance {
       scalaVersion: String,
       allJars: Seq[AbsolutePath],
       logger: Logger
-  ): ScalaInstance = {
+  )(implicit ec: ExecutionContext): ScalaInstance = {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
       def newInstance = {
         logger.debug(s"Cache miss for scala instance ${scalaOrg}:${scalaName}:${scalaVersion}.")(
-          DebugFilter.Compilation)
+          DebugFilter.Compilation
+        )
         jarsKey.foreach(p => logger.debug(s"  => $p")(DebugFilter.Compilation))
         new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile).toArray)
       }
@@ -123,7 +125,7 @@ object ScalaInstance {
       scalaName: String,
       scalaVersion: String,
       logger: Logger
-  ): ScalaInstance = {
+  )(implicit ec: ExecutionContext): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
       val allPaths = DependencyResolution.resolve(scalaOrg, scalaName, scalaVersion, logger)
       val allJars = allPaths.collect {
@@ -158,7 +160,9 @@ object ScalaInstance {
    * happen to be so strict as to prevent getting the location from the protected
    * domain.
    */
-  def scalaInstanceFromBloop(logger: Logger): Option[ScalaInstance] = {
+  def scalaInstanceFromBloop(
+      logger: Logger
+  )(implicit ec: ExecutionContext): Option[ScalaInstance] = {
     lazy val tempDirectory = Files.createTempDirectory("bloop-scala-instance")
     implicit val filter = DebugFilter.Compilation
     def findLocationForClazz(clazz: Class[_], jarName: String): Option[Path] = {

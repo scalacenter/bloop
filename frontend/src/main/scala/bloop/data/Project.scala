@@ -97,6 +97,7 @@ object Project {
   }
 
   def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
+    import bloop.engine.ExecutionContext.ioScheduler
     val project = file.project
     val scala = project.`scala`
 
