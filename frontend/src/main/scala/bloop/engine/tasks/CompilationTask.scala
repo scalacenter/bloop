@@ -46,6 +46,7 @@ object CompilationTask {
     import state.{logger, compilerCache}
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val project = graphInputs.bundle.project
+      val classpath = graphInputs.bundle.classpath
       graphInputs.bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
@@ -96,7 +97,7 @@ object CompilationTask {
                 instance,
                 compilerCache,
                 sources.toArray,
-                project.compilationClasspath,
+                classpath,
                 graphInputs.store,
                 project.classesDir,
                 project.out,
@@ -144,8 +145,8 @@ object CompilationTask {
       }
     }
 
-    def setup(project: Project): CompileBundle = CompileBundle(project)
-    CompileGraph.traverse(dag, setup(_), compile(_), pipeline, logger).flatMap { partialDag =>
+    def setup(project: Project, dag: Dag[Project]): CompileBundle = CompileBundle(project, dag)
+    CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline, logger).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).map { results =>

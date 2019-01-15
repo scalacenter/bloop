@@ -18,15 +18,17 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
   /**
    * Compile down to native binary using Scala Native's toolchain.
    *
-   * @param config    The native configuration to use.
-   * @param project   The project to link
-   * @param mainClass The fully qualified main class name
-   * @param logger    The logger to use
+   * @param config        The native configuration to use.
+   * @param project       The project to link
+   * @param fullClasspath The full classpath to link with
+   * @param mainClass     The fully qualified main class name
+   * @param logger        The logger to use
    * @return The absolute path to the native binary.
    */
   def link(
       config: NativeConfig,
       project: Project,
+      fullClasspath: Array[Path],
       mainClass: String,
       target: AbsolutePath,
       logger: Logger
@@ -38,7 +40,7 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
     val fullEntry = if (mainClass.endsWith("$")) mainClass else mainClass + "$"
     val linkage = Task {
       nativeLinkMeth
-        .invoke(null, config, project, fullEntry, target.underlying, logger)
+        .invoke(null, config, project, fullClasspath, fullEntry, target.underlying, logger)
         .asInstanceOf[Unit]
     }.materialize
 
@@ -53,7 +55,7 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
   }
 
   // format: OFF
-  private val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
+  private val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[Array[Path]] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
   // format: ON
 }
 

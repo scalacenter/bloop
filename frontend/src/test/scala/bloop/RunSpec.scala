@@ -133,7 +133,7 @@ class RunSpec {
     state.build.getProjectFor(target) match {
       case Some(rootWithAggregation) =>
         val dag = state.build.getDagFor(rootWithAggregation)
-        val fullClasspath = rootWithAggregation.fullClasspathFor(dag).toList
+        val fullClasspath = rootWithAggregation.dependencyClasspath(dag).toList
         val dependentResources = Dag.dfs(dag).flatMap(_.resources)
         Assert.assertFalse(dependentResources.isEmpty)
         dependentResources.foreach { r =>

@@ -59,8 +59,8 @@ object TestTask {
 
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
         val analysis = lastCompileResult.analysis().toOption.getOrElse {
-          logger.warn(
-            s"Test execution was triggered, but no compilation detected for ${project.name}")
+          logger
+            .warn(s"Test execution was triggered, but no compilation detected for ${project.name}")
           Analysis.empty
         }
 
@@ -141,32 +141,39 @@ object TestTask {
     implicit val logContext: DebugFilter = DebugFilter.Test
     project.platform match {
       case Platform.Jvm(env, _, _) =>
-        val classpath = project.fullClasspathFor(state.build.getDagFor(project))
+        val classpath = project.dependencyClasspath(state.build.getDagFor(project))
         val forker = Forker(env, classpath)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
-        val frameworks = project.testFrameworks.flatMap(f =>
-          TestInternals.loadFramework(testLoader, f.names, logger))
+        val frameworks = project.testFrameworks.flatMap(
+          f => TestInternals.loadFramework(testLoader, f.names, logger)
+        )
         Task.now(Some(DiscoveredTestFrameworks.Jvm(frameworks, forker, testLoader)))
 
       case Platform.Js(config, toolchain, userMainClass) =>
         val target = ScalaJsToolchain.linkTargetFrom(project, config)
         toolchain match {
           case Some(toolchain) =>
-            toolchain.link(config, project, false, userMainClass, target, state.logger).map {
-              case Success(_) =>
-                logger.info(s"Generated JavaScript file '${target.syntax}'")
-                val fnames = project.testFrameworks.map(_.names)
-                logger.debug(s"Resolving test frameworks: $fnames")
-                val baseDir = project.baseDirectory
-                val env = state.commonOptions.env.toMap
-                Some(toolchain.discoverTestFrameworks(project, fnames, target, logger, config, env))
+            val fullClasspath =
+              project.dependencyClasspath(state.build.getDagFor(project)).map(_.underlying)
+            toolchain
+              .link(config, project, fullClasspath, false, userMainClass, target, state.logger)
+              .map {
+                case Success(_) =>
+                  logger.info(s"Generated JavaScript file '${target.syntax}'")
+                  val fnames = project.testFrameworks.map(_.names)
+                  logger.debug(s"Resolving test frameworks: $fnames")
+                  val baseDir = project.baseDirectory
+                  val env = state.commonOptions.env.toMap
+                  Some(
+                    toolchain.discoverTestFrameworks(project, fnames, target, logger, config, env)
+                  )
 
-              case Failure(ex) =>
-                ex.printStackTrace()
-                logger.trace(ex)
-                logger.error(s"JavaScript linking failed with '${ex.getMessage}'")
-                None
-            }
+                case Failure(ex) =>
+                  ex.printStackTrace()
+                  logger.trace(ex)
+                  logger.error(s"JavaScript linking failed with '${ex.getMessage}'")
+                  None
+              }
 
           case None =>
             val artifactName = ScalaJsToolchain.artifactNameFrom(config.version)

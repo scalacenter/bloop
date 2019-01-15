@@ -35,6 +35,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
    * initializers instead of the main module initializers.
    *
    * @param project The project to link
+   * @param fullClasspath The full classpath to link with
    * @param config The configuration for Scala.js
    * @param runMain Whether the link process should install module initializers for main.
    * @param mainClass The main class if invoked via `link` or `run`.
@@ -45,6 +46,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
   def link(
       config: JsConfig,
       project: Project,
+      fullClasspath: Array[Path],
       runMain: java.lang.Boolean,
       mainClass: Option[String],
       target: AbsolutePath,
@@ -54,7 +56,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
     val method = bridgeClazz.getMethod("link", paramTypesLink: _*)
     val linkage = Task(
       method
-        .invoke(null, config, project, runMain, mainClass, target.underlying, logger)
+        .invoke(null, config, project, fullClasspath, runMain, mainClass, target.underlying, logger)
         .asInstanceOf[Unit]
     ).materialize
     linkage.map {
@@ -96,7 +98,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
   }
 
   // format: OFF
-  private val paramTypesLink = classOf[JsConfig] :: classOf[Project] :: classOf[java.lang.Boolean] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: Nil
+  private val paramTypesLink = classOf[JsConfig] :: classOf[Project] :: classOf[Array[Path]] :: classOf[java.lang.Boolean] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: Nil
   private val paramTypesTestFrameworks = classOf[List[List[String]]] :: classOf[String] :: classOf[Path] :: classOf[Path] :: classOf[Logger] :: classOf[java.lang.Boolean] :: classOf[Map[String, String]] :: Nil
   // format: ON
 }
