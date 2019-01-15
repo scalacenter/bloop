@@ -99,7 +99,9 @@ class RunSpec {
     val projectsStructure = Map(
       projectName -> Map(
         "A.scala" -> ArtificialSources.RunnableClass0,
-        "B.scala" -> ArtificialSources.RunnableClass1))
+        "B.scala" -> ArtificialSources.RunnableClass1
+      )
+    )
     val javaEnv = JavaEnv.default
     checkAfterCleanCompilation(
       projectsStructure,
@@ -133,8 +135,14 @@ class RunSpec {
     state.build.getProjectFor(target) match {
       case Some(rootWithAggregation) =>
         val dag = state.build.getDagFor(rootWithAggregation)
-        val fullClasspath = rootWithAggregation.dependencyClasspath(dag).toList
+        // Create dependent resources so that they appear in the full dependency classpath
         val dependentResources = Dag.dfs(dag).flatMap(_.resources)
+        dependentResources.foreach { resource =>
+          if (resource.exists) ()
+          else Files.createDirectories(resource.underlying)
+        }
+
+        val fullClasspath = rootWithAggregation.dependencyClasspath(dag).toList
         Assert.assertFalse(dependentResources.isEmpty)
         dependentResources.foreach { r =>
           Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))
