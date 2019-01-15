@@ -33,7 +33,7 @@ matrix:
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
           "integrationSetUpBloop" \
-          "frontend/testOnly bloop.tasks.IntegrationTestSuite"
+          "frontend/testOnly bloop.IntegrationTestSuite"
 
   RUN_BENCHMARKS_AND_SCRIPTED:
     - bin/sbt-ci.sh \
