@@ -61,16 +61,17 @@ final class BspServerLogger private (
     ()
   }
 
-  def diagnostic(project: Project, problem: xsbti.Problem, clear: Boolean): Unit = {
+  def diagnostic(event: BspServerEvent.Diagnostic): Unit = {
     import sbt.util.InterfaceUtil.toOption
-    val message = problem.message
-    val problemPos = problem.position
+    val message = event.problem.message
+    val problemPos = event.problem.position
+    val problemSeverity = event.problem.severity
     val sourceFile = toOption(problemPos.sourceFile())
 
     (problemPos, sourceFile) match {
       case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
         // Lines in Scalac are indexed by 1, BSP expects 0-index positions
-        val pos = problem.position match {
+        val pos = problemPos match {
           case ZincInternals.ZincRangePos(endLine, endColumn) =>
             val start = bsp.Position(startLine - 1, startColumn)
             val end = bsp.Position(endLine - 1, endColumn)
@@ -80,7 +81,7 @@ final class BspServerLogger private (
             bsp.Range(pos, pos)
         }
 
-        val severity = problem.severity match {
+        val severity = problemSeverity match {
           case Severity.Error => bsp.DiagnosticSeverity.Error
           case Severity.Warn => bsp.DiagnosticSeverity.Warning
           case Severity.Info => bsp.DiagnosticSeverity.Information
@@ -89,12 +90,18 @@ final class BspServerLogger private (
         val uri = bsp.Uri(file.toPath.toUri)
         val diagnostic = bsp.Diagnostic(pos, Some(severity), None, None, message, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
-        val buildTargetId = bsp.BuildTargetIdentifier(project.bspUri)
-        val diagnostics =
-          bsp.PublishDiagnosticsParams(textDocument, buildTargetId, None, List(diagnostic), clear)
-        Build.publishDiagnostics.notify(diagnostics)
+        val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
+        Build.publishDiagnostics.notify(
+          bsp.PublishDiagnosticsParams(
+            textDocument,
+            buildTargetId,
+            None,
+            List(diagnostic),
+            event.clear
+          )
+        )
       case _ =>
-        problem.severity match {
+        problemSeverity match {
           case Severity.Error => error(message)
           case Severity.Warn => warn(message)
           case Severity.Info => info(message)
@@ -103,10 +110,10 @@ final class BspServerLogger private (
     ()
   }
 
-  def noDiagnostic(project: Project, file: File): Unit = {
-    val uri = bsp.Uri(file.toPath.toUri)
+  def noDiagnostic(event: BspServerEvent.NoDiagnostic): Unit = {
+    val uri = bsp.Uri(event.file.toPath.toUri)
     val textDocument = bsp.TextDocumentIdentifier(uri)
-    val buildTargetId = bsp.BuildTargetIdentifier(project.bspUri)
+    val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
     val diagnostics =
       bsp.PublishDiagnosticsParams(textDocument, buildTargetId, None, Nil, true)
     Build.publishDiagnostics.notify(diagnostics)

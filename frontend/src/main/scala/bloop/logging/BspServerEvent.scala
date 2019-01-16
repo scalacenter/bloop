@@ -2,6 +2,7 @@ package bloop.logging
 
 import ch.epfl.scala.bsp
 import bloop.reporter.Problem
+import java.io.File
 
 sealed abstract class BspServerEvent
 
@@ -67,5 +68,16 @@ object BspServerEvent {
       taskId: bsp.TaskId,
       problems: Seq[Problem],
       code: bsp.StatusCode
+  ) extends BspServerEvent
+
+  case class Diagnostic(
+      projectUri: bsp.Uri,
+      problem: xsbti.Problem,
+      clear: Boolean
+  ) extends BspServerEvent
+
+  case class NoDiagnostic(
+      projectUri: bsp.Uri,
+      file: File
   ) extends BspServerEvent
 }

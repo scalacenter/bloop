@@ -44,8 +44,8 @@ final class BspProjectReporter(
       case Some(file) =>
         // If it's the first diagnostic for this file, set clear to true
         val clear = clearedFilesForClient.putIfAbsent(file, true).isEmpty
-        logger.diagnostic(project, problem, clear)
-      case None => logger.diagnostic(project, problem, false)
+        logger.diagnostic(BspServerEvent.Diagnostic(project.bspUri, problem, clear))
+      case None => logger.diagnostic(BspServerEvent.Diagnostic(project.bspUri, problem, false))
     }
   }
 
@@ -154,7 +154,7 @@ final class BspProjectReporter(
             if (finishedPhase != phase) false
             else {
               val clear = clearedFilesForClient.putIfAbsent(source, true).isEmpty
-              if (clear) logger.noDiagnostic(project, source)
+              if (clear) logger.noDiagnostic(BspServerEvent.NoDiagnostic(project.bspUri, source))
               true // Always mark as processed if the phases coincide
             }
           case None => false
@@ -181,13 +181,13 @@ final class BspProjectReporter(
       case (sourceFile, problemsPerFile) =>
         if (!sourceFile.exists()) {
           // Clear diagnostics if file doesn't exist anymore
-          logger.noDiagnostic(project, sourceFile)
+          logger.noDiagnostic(BspServerEvent.NoDiagnostic(project.bspUri, sourceFile))
         } else if (clearedFilesForClient.contains(sourceFile)) {
           // Ignore, if file has been cleared then > 0 diagnostics have been reported
           ()
         } else if (compilingFiles.contains(sourceFile)) {
           // Log no diagnostic if there was a problem in a file that now compiled without problems
-          logger.noDiagnostic(project, sourceFile)
+          logger.noDiagnostic(BspServerEvent.NoDiagnostic(project.bspUri, sourceFile))
         } else {
           if (reportProblemsForTheFirstTime) {
             // Log all problems received from analysis; this is 1st compilation of this target
@@ -218,7 +218,7 @@ final class BspProjectReporter(
     problems.foreach {
       case ProblemPerPhase(problem, _) =>
         val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-        logger.diagnostic(project, problem, clear)
+        logger.diagnostic(BspServerEvent.Diagnostic(project.bspUri, problem, clear))
     }
   }
 
@@ -278,11 +278,12 @@ final class BspProjectReporter(
                 problemsInPreviousAnalysis.foreach {
                   case ProblemPerPhase(problem, _) =>
                     val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-                    logger.diagnostic(project, problem, clear)
+                    logger.diagnostic(BspServerEvent.Diagnostic(project.bspUri, problem, clear))
                 }
               }
 
-            case None => logger.noDiagnostic(project, sourceFile)
+            case None =>
+              logger.noDiagnostic(BspServerEvent.NoDiagnostic(project.bspUri, sourceFile))
           }
       }
 
