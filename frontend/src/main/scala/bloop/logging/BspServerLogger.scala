@@ -18,6 +18,9 @@ import monix.execution.atomic.AtomicInt
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
  * It does so via the replication of the `build/logMessage` LSP functionality.
+ *
+ * The bsp server logger defines some specific BSP endpoints that can only be used
+ * when the logger is known to be of this instance.
  */
 final class BspServerLogger private (
     override val name: String,
@@ -27,7 +30,6 @@ final class BspServerLogger private (
     ansiSupported: Boolean
 ) extends Logger
     with ScribeAdapter {
-
   override def debugFilter: DebugFilter = underlying.debugFilter
 
   override def isVerbose: Boolean = underlying.isVerbose
@@ -119,6 +121,23 @@ final class BspServerLogger private (
 
   private def now: Long = System.currentTimeMillis()
 
+  def publishCompilationStart(event: BspServerEvent.StartCompilation): Unit = {
+    val json = bsp.CompileTask.encodeCompileTask(
+      bsp.CompileTask(bsp.BuildTargetIdentifier(event.projectUri))
+    )
+
+    Build.taskStart.notify(
+      bsp.TaskStartParams(
+        event.taskId,
+        Some(now),
+        Some(event.msg),
+        Some(bsp.TaskDataKind.CompileTask),
+        Some(json)
+      )
+    )
+    ()
+  }
+
   import io.circe.ObjectEncoder
   private case class BloopProgress(
       target: BuildTargetIdentifier
@@ -128,22 +147,16 @@ final class BspServerLogger private (
     io.circe.derivation.deriveEncoder
 
   /** Publish a compile progress notification to the client via BSP every 5% progress increments. */
-  def publishCompileProgress(
-      taskId: bsp.TaskId,
-      project: Project,
-      progress: Long,
-      total: Long,
-      percentage: Long
-  ): Unit = {
-    val msg = s"Compiling ${project.name} (${percentage}%)"
-    val json = bloopProgressEncoder(BloopProgress(bsp.BuildTargetIdentifier(project.bspUri)))
+  def publishCompilationProgress(event: BspServerEvent.ProgressCompilation): Unit = {
+    val msg = s"Compiling ${event.projectName} (${event.percentage}%)"
+    val json = bloopProgressEncoder(BloopProgress(bsp.BuildTargetIdentifier(event.projectUri)))
     Build.taskProgress.notify(
       bsp.TaskProgressParams(
-        taskId,
-        Some(System.currentTimeMillis()),
+        event.taskId,
+        Some(now),
         Some(msg),
-        Some(total),
-        Some(progress),
+        Some(event.total),
+        Some(event.progress),
         None,
         Some("bloop-progress"),
         Some(json)
@@ -152,62 +165,25 @@ final class BspServerLogger private (
     ()
   }
 
-  /**
-   * Publish a compile start notification to the client via BSP.
-   *
-   * The compile start notification must always have a corresponding
-   * compile end notification, published by [[publishCompileEnd()]].
-   *
-   * @param project The project to which the compilation is associated.
-   * @param msg The message summarizing the triggered incremental compilation cycle.
-   * @param taskId The task id to use for this publication.
-   */
-  def publishCompileStart(project: Project, msg: String, taskId: bsp.TaskId): Unit = {
-    val json = bsp.CompileTask.encodeCompileTask(
-      bsp.CompileTask(bsp.BuildTargetIdentifier(project.bspUri))
-    )
-
-    Build.taskStart.notify(
-      bsp.TaskStartParams(
-        taskId,
-        Some(now),
-        Some(msg),
-        Some(bsp.TaskDataKind.CompileTask),
-        Some(json)
-      )
-    )
-    ()
-  }
-
-  /**
-   * Publish a compile start notification to the client via BSP.
-   *
-   * The compile end notification must always the same task id than
-   * its counterpart, published by [[publishCompileStart()]].
-   *
-   * @param project The project to which the compilation is associated.
-   * @param taskId The task id to use for this publication.
-   * @param problems The sequence of problems that were found during compilation.
-   * @param code The status code associated with the finished compilation event.
-   */
-  def publishCompileEnd(
-      project: Project,
-      taskId: bsp.TaskId,
-      problems: Seq[Problem],
-      code: bsp.StatusCode
-  ): Unit = {
-    val errors = problems.count(_.severity == Severity.Error)
-    val warnings = problems.count(_.severity == Severity.Warn)
+  def publishCompilationEnd(event: BspServerEvent.EndCompilation): Unit = {
+    val errors = event.problems.count(_.severity == Severity.Error)
+    val warnings = event.problems.count(_.severity == Severity.Warn)
     val json = bsp.CompileReport.encodeCompileReport(
-      bsp.CompileReport(bsp.BuildTargetIdentifier(project.bspUri), None, errors, warnings, None)
+      bsp.CompileReport(
+        bsp.BuildTargetIdentifier(event.projectUri),
+        None,
+        errors,
+        warnings,
+        None
+      )
     )
 
     Build.taskFinish.notify(
       bsp.TaskFinishParams(
-        taskId,
+        event.taskId,
         Some(now),
-        Some(s"Compiled '${project.name}'"),
-        code,
+        Some(s"Compiled '${event.projectName}'"),
+        event.code,
         Some(bsp.TaskDataKind.CompileReport),
         Some(json)
       )

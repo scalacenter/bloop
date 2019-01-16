@@ -4,7 +4,7 @@ import java.io.File
 
 import bloop.data.Project
 import bloop.io.AbsolutePath
-import bloop.logging.BspServerLogger
+import bloop.logging.{BspServerLogger, BspServerEvent}
 import bloop.util.AnalysisUtils
 import xsbti.Position
 import ch.epfl.scala.bsp
@@ -60,7 +60,16 @@ final class BspProjectReporter(
     // We only report percentages every 5% increments
     val shouldReportPercentage = percentage % 5 == 0
     if (shouldReportPercentage) {
-      logger.publishCompileProgress(taskId, project, progress, total, percentage)
+      logger.publishCompilationProgress(
+        BspServerEvent.ProgressCompilation(
+          project.name,
+          project.bspUri,
+          taskId,
+          progress,
+          total,
+          percentage
+        )
+      )
     }
   }
 
@@ -127,7 +136,9 @@ final class BspProjectReporter(
     cycleCount += 1
     reportEndPreviousCycleThunk(CycleInputs(false, Map.empty))(None)
     val msg = compilationMsgFor(project.name, sources)
-    logger.publishCompileStart(project, msg, taskId)
+    logger.publishCompilationStart(
+      BspServerEvent.StartCompilation(project.name, project.bspUri, msg, taskId)
+    )
     sources.foreach(sourceFile => compilingFiles.+=(sourceFile -> true))
   }
 
@@ -222,10 +233,17 @@ final class BspProjectReporter(
     reportEndPreviousCycleThunk = (inputs: CycleInputs) => {
       (finalCompilationStatusCode: Option[bsp.StatusCode]) => {
         val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
-        // Do not pass in previous successful problems until it's the last incremental cycle
-        if (!inputs.isLastCycle) reportRemainingProblems(false, Map.empty)
+        if (!isLastCycle) reportRemainingProblems(false, Map.empty)
         else reportRemainingProblems(reportAllPreviousProblems, inputs.previousSuccessfulProblems)
-        logger.publishCompileEnd(project, taskId, allProblems, statusCode)
+        logger.publishCompilationEnd(
+          BspServerEvent.EndCompilation(
+            project.name,
+            project.bspUri,
+            taskId,
+            allProblems,
+            statusCode
+          )
+        )
       }
     }
   }
@@ -241,7 +259,10 @@ final class BspProjectReporter(
 
     if (cycleCount == 0) {
       // When no-op, we keep reporting the start and the end of compilation for consistency
-      logger.publishCompileStart(project, s"Start no-op compilation for ${project.name}", taskId)
+      val startMsg = s"Start no-op compilation for ${project.name}"
+      logger.publishCompilationStart(
+        BspServerEvent.StartCompilation(project.name, project.bspUri, startMsg, taskId)
+      )
 
       recentlyReportProblemsPerFile.foreach {
         case (sourceFile, problemsPerFile) if reportAllPreviousProblems =>
@@ -265,7 +286,9 @@ final class BspProjectReporter(
           }
       }
 
-      logger.publishCompileEnd(project, taskId, allProblems, code)
+      logger.publishCompilationEnd(
+        BspServerEvent.EndCompilation(project.name, project.bspUri, taskId, allProblems, code)
+      )
     } else {
       // Great, let's report the pending end incremental cycle as the last one
       reportEndPreviousCycleThunk(CycleInputs(true, problemsInPreviousAnalysisPerFile))(Some(code))
