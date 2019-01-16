@@ -5,9 +5,11 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
+import java.util.logging.{Level, Logger}
 
 import bloop.launcher.bsp.BspConnection
 import bloop.launcher.util.Environment
+import com.zaxxer.nuprocess.internal.BasePosixProcess
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 
 import scala.collection.mutable.ListBuffer
@@ -162,6 +164,8 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 }
 
 object Shell {
+  Logger.getLogger(classOf[BasePosixProcess].getCanonicalName).setLevel(Level.SEVERE)
+
   def default: Shell = new Shell(false, true)
 
   def portNumberWithin(from: Int, to: Int): Int = {
