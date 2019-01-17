@@ -1,13 +1,19 @@
 package bloop.util
 
+import java.io.File
+
 import bloop.reporter.ProblemPerPhase
 import xsbti.compile.CompileAnalysis
+import xsbti.compile.analysis.SourceInfo
 
 object AnalysisUtils {
-  def problemsFrom(previousAnalysis: Option[CompileAnalysis]): List[ProblemPerPhase] = {
-    import scala.collection.JavaConverters._
-    val infos =
-      previousAnalysis.toList.flatMap(_.readSourceInfos().getAllSourceInfos.asScala.values)
+  import scala.collection.JavaConverters._
+  def sourceInfosFrom(previousAnalysis: CompileAnalysis): Map[File, SourceInfo] = {
+    previousAnalysis.readSourceInfos().getAllSourceInfos.asScala.toMap
+  }
+
+  def problemsFrom(previousAnalysis: CompileAnalysis): List[ProblemPerPhase] = {
+    val infos = sourceInfosFrom(previousAnalysis).values
     infos.iterator
       .flatMap(info => info.getReportedProblems.toList)
       .map(p => ProblemPerPhase(p, None))

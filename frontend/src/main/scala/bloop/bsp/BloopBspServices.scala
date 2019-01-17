@@ -13,7 +13,7 @@ import bloop.engine._
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
-import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig}
+import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
 import ch.epfl.scala.bsp.{
@@ -220,8 +220,8 @@ final class BloopBspServices(
     def compile(projects: List[Project]): Task[State] = {
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
-      val createReporter = (project: Project, cwd: AbsolutePath) => {
-        val btid = bsp.BuildTargetIdentifier(project.bspUri)
+      val createReporter = (inputs: ReporterInputs[BspServerLogger]) => {
+        val btid = bsp.BuildTargetIdentifier(inputs.project.bspUri)
         val reportAllPreviousProblems = {
           compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
             case Some(_) => false
@@ -230,9 +230,9 @@ final class BloopBspServices(
         }
 
         new BspProjectReporter(
-          project,
-          bspLogger,
-          cwd,
+          inputs.project,
+          inputs.logger,
+          inputs.cwd,
           identity,
           config,
           reportAllPreviousProblems
@@ -247,7 +247,8 @@ final class BloopBspServices(
         CompileMode.Sequential,
         pipeline,
         false,
-        cancelCompilation
+        cancelCompilation,
+        bspLogger
       )
     }
 

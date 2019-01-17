@@ -49,7 +49,8 @@ object BloopKeys {
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir")
   val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
     settingKey[Option[Set[String]]](
-      "The classifiers that will be exported with `updateClassifiers`")
+      "The classifiers that will be exported with `updateClassifiers`"
+    )
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopClassDirectory: SettingKey[File] =
@@ -366,7 +367,8 @@ object BloopDefaults {
             new java.util.function.Function[String, String] {
               override def apply(supposedName: String): String = {
                 logger.warn(
-                  s"Derived target name '${supposedName}' already exists in the build, changing to ${newUnambiguousName}")
+                  s"Derived target name '${supposedName}' already exists in the build, changing to ${newUnambiguousName}"
+                )
                 newUnambiguousName
               }
             }
@@ -506,8 +508,9 @@ object BloopDefaults {
 
   def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
     ms0.map { m0 =>
-      ms1.find(m =>
-        m0.organization == m.organization && m0.name == m.name && m0.version == m.version) match {
+      ms1.find(
+        m => m0.organization == m.organization && m0.name == m.name && m0.version == m.version
+      ) match {
         case Some(m1) => m0.copy(artifacts = m0.artifacts ++ m1.artifacts)
         case None => m0
       }
@@ -782,16 +785,17 @@ object BloopDefaults {
 
   private final val allJson = sbt.GlobFilter("*.json")
   private final val removeStaleProjects = {
-    allConfigDirs: Set[File] => { (s: State, generatedFiles: Set[Option[File]]) =>
-      val logger = s.globalLogging.full
-      val allConfigs =
-        allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
-      allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
-        sbt.IO.delete(configFile)
-        logger.warn(s"Removed stale $configFile")
+    allConfigDirs: Set[File] =>
+      { (s: State, generatedFiles: Set[Option[File]]) =>
+        val logger = s.globalLogging.full
+        val allConfigs =
+          allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
+        allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
+          sbt.IO.delete(configFile)
+          logger.warn(s"Removed stale $configFile")
+        }
+        s
       }
-      s
-    }
   }
 
   lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
@@ -851,7 +855,8 @@ object BloopDefaults {
       }
 
       val generatedTask = productDirs.toList.join.map(_.flatten.distinct).flatMap { a =>
-        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b => a.zip(b)
+        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b =>
+          a.zip(b)
         }
       }
 

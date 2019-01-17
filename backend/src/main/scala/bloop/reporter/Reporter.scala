@@ -3,7 +3,7 @@ package bloop.reporter
 import java.io.File
 
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{Logger, ObservedLogger}
 import xsbti.{Position, Severity}
 import ch.epfl.scala.bsp
 import sbt.util.InterfaceUtil
@@ -26,7 +26,7 @@ import scala.util.Try
  * @param config The configuration for this reporter.
  */
 abstract class Reporter(
-    val logger: Logger,
+    val logger: ObservedLogger[Logger],
     val cwd: AbsolutePath,
     sourcePositionMapper: Position => Position,
     val config: ReporterConfig,
@@ -104,6 +104,7 @@ abstract class Reporter(
   }
 
   override def log(xproblem: xsbti.Problem): Unit = {
+    registerAction(ReporterAction.ReportProblem(xproblem))
     if (deduplicate(xproblem)) ()
     else {
       val problem = liftProblem(xproblem)
@@ -128,6 +129,7 @@ abstract class Reporter(
     // Update the phase that we have for every source file
     val newPhaseStack = phase :: filesToPhaseStack.getOrElse(sourceFile, Nil)
     filesToPhaseStack.update(sourceFile, newPhaseStack)
+    registerAction(ReporterAction.ReportNextPhase(phase, sourceFile))
   }
 
   override def comment(pos: Position, msg: String): Unit = ()
@@ -138,51 +140,95 @@ abstract class Reporter(
   private def hasWarnings(problems: Seq[ProblemPerPhase]): Boolean =
     problems.exists(_.problem.severity == Severity.Warn)
 
+  private def registerAction(action: ReporterAction): Unit = {
+    logger.observer.onNext(Left(action))
+    ()
+  }
+
   /** Report the progress from the compiler. */
-  def reportCompilationProgress(progress: Long, total: Long): Unit
+  def reportCompilationProgress(progress: Long, total: Long): Unit = {
+    registerAction(ReporterAction.ReportCompilationProgress(progress, total))
+  }
 
   /** Report the compile cancellation of this project. */
-  def reportCancelledCompilation(): Unit
+  def reportCancelledCompilation(): Unit = {
+    registerAction(ReporterAction.ReportCancelledCompilation)
+  }
 
   /** A function called *always* at the very beginning of compilation. */
-  def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit
+  def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = {
+    registerAction(ReporterAction.ReportStartCompilation(previousProblems))
+  }
 
   /**
-   * A function called at the very end of compilation, before returning from Zinc to bloop.
+   * A function called at the very end of compilation, before returning from
+   * Zinc to bloop. This method **is** called if the compilation is a no-op.
    *
-   * This method **is** called if the compilation is a no-op.
-   *
-   * @param previousAnalysis An instance of a previous compiler analysis, if any.
+   * @param previousProblems The problems reported in the previous compiler analysis.
    * @param analysis An instance of a new compiler analysis, if no error happened.
    * @param code The status code for a given compilation. The status code can be used whenever
    *             there is a noop compile and it's successful or cancelled.
    */
   def reportEndCompilation(
-      previousAnalysis: Option[CompileAnalysis],
-      analysis: Option[CompileAnalysis],
+      previousSuccessfulProblems: List[ProblemPerPhase],
       code: bsp.StatusCode
   ): Unit = {
+    registerAction(ReporterAction.ReportEndCompilation(previousSuccessfulProblems, code))
     phasesAtFile.clear()
     filesToPhaseStack.clear()
   }
 
   /**
-   * A function called before every incremental cycle with the compilation inputs.
-   *
-   * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   * A function called before every incremental cycle with the compilation
+   * inputs. This method is not called if the compilation is a no-op (e.g. same
+   * analysis as before).
    */
-  def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit
+  def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
+    registerAction(ReporterAction.ReportStartIncrementalCycle(sources, outputDirs))
+  }
 
   /**
-   * A function called after every incremental cycle, even if any compilation errors happen.
-   *
-   * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   * A function called after every incremental cycle, even if any compilation
+   * errors happen. This method is not called if the compilation is a no-op
+   * (e.g. same analysis as before).
    *
    * @param durationMs The time it took to complete the incremental compiler cycle.
    * @param result The result of the incremental cycle. We don't use `bsp.StatusCode` because the
    *               bloop backend, where this method is used, should not depend on bsp4j.
    */
-  def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit
+  def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit = {
+    registerAction(ReporterAction.ReportEndIncrementalCycle(durationMs, result))
+  }
+
+  /**
+   * Replay a reporter action in this very implementation of the reporter.
+   *
+   * This method is one of the main ways we achieve mirror compilation side
+   * effects for deduplicated compile requests. Regardless of the origin reporter,
+   * a reporter will always register actions that can then be replayed in other
+   * reporter implementations. The same is achieved at a higher-level in
+   * `ObservableLogger` that registers high-level logger actions.
+   */
+  def replay(action: ReporterAction): Unit = {
+    action match {
+      case a: ReporterAction.ReportStartCompilation =>
+        reportStartCompilation(a.previousProblems)
+      case a: ReporterAction.ReportStartIncrementalCycle =>
+        reportStartIncrementalCycle(a.sources, a.outputDirs)
+      case a: ReporterAction.ReportProblem => log(a.problem)
+      case a: ReporterAction.ReportNextPhase => reportNextPhase(a.phase, a.sourceFile)
+      case a: ReporterAction.ReportCompilationProgress =>
+        reportCompilationProgress(a.progress, a.total)
+      case a: ReporterAction.ReportEndIncrementalCycle =>
+        reportEndIncrementalCycle(a.durationMs, a.result)
+      case ReporterAction.ReportCancelledCompilation => reportCancelledCompilation()
+      case a: ReporterAction.ReportEndCompilation =>
+        reportEndCompilation(a.previousSuccessfulProblems, a.code)
+    }
+  }
+}
+
+object Reporter {
 
   /** Create a compilation message summarizing the compilation of `sources` in `projectName`. */
   def compilationMsgFor(projectName: String, sources: Seq[File]): String = {
@@ -192,5 +238,18 @@ abstract class Reporter(
     val javaMsg = Analysis.counted("Java source", "", "s", javaSources.size)
     val combined = scalaMsg ++ javaMsg
     combined.mkString(s"Compiling $projectName (", " and ", ")")
+  }
+
+  /** Groups problems per file where they originated. */
+  def groupProblemsByFile(ps: List[ProblemPerPhase]): Map[File, List[ProblemPerPhase]] = {
+    val problemsPerFile = mutable.HashMap[File, List[ProblemPerPhase]]()
+    ps.foreach {
+      case pp @ ProblemPerPhase(p, phase) =>
+        InterfaceUtil.toOption(p.position().sourceFile).foreach { file =>
+          val newProblemsPerFile = pp :: problemsPerFile.getOrElse(file, Nil)
+          problemsPerFile.+=(file -> newProblemsPerFile)
+        }
+    }
+    problemsPerFile.toMap
   }
 }

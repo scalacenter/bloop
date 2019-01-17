@@ -12,8 +12,8 @@ import bloop.engine.tasks.compilation.{
 }
 import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
-import bloop.reporter.LogReporter
+import bloop.logging.{DebugFilter, Logger, ObservedLogger}
+import bloop.reporter.{LogReporter, ReporterConfig}
 import monix.eval.Task
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
@@ -36,7 +36,7 @@ import scala.concurrent.duration.Duration
  */
 final class ResultsCache private (
     all: Map[Project, Compiler.Result],
-    successful: Map[Project, PreviousResult],
+    successful: Map[Project, PreviousResult]
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
@@ -126,7 +126,8 @@ object ResultsCache {
             case Some(res) =>
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
-              val reporter = LogReporter.fromAnalysis(p, res.getAnalysis, cwd, logger)
+              val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
+              val reporter = new LogReporter(p, dummy, cwd, identity, ReporterConfig.defaultFormat)
               Result.Success(reporter, r, 0L)
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")

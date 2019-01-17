@@ -6,7 +6,7 @@ import bloop.cli._
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
-import bloop.logging.DebugFilter
+import bloop.logging.{DebugFilter, Logger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
@@ -14,6 +14,8 @@ import bloop.cli.Validate
 import bloop.data.{Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.reporter.{ReporterInputs, LogReporter}
+
 import caseapp.core.CommandMessages
 import monix.eval.Task
 
@@ -108,7 +110,8 @@ object Interpreter {
   }
 
   private[bloop] def watch(projects: List[Project], state: State)(
-      f: State => Task[State]): Task[State] = {
+      f: State => Task[State]
+  ): Task[State] = {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
@@ -116,7 +119,7 @@ object Interpreter {
       f(state).map { state =>
         watcher.notifyWatch()
         State.stateCache.updateBuild(state)
-    }
+      }
 
     if (!BspServer.isWindows)
       state.logger.info("\u001b[H\u001b[2J")
@@ -140,8 +143,8 @@ object Interpreter {
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       val dag = getProjectsDag(projects, state)
-      val createReporter = (project: Project, cwd: AbsolutePath) =>
-        CompileTask.toReporter(project, cwd, config, state.logger)
+      val createReporter = (inputs: ReporterInputs[Logger]) =>
+        new LogReporter(inputs.project, inputs.logger, inputs.cwd, identity, config)
       CompileTask.compile(
         state,
         dag,
@@ -149,7 +152,8 @@ object Interpreter {
         compilerMode,
         cmd.pipeline,
         excludeRoot,
-        Promise[Unit]()
+        Promise[Unit](),
+        state.logger
       )
     }
 

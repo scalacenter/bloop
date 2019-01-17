@@ -4,13 +4,13 @@ import ch.epfl.scala.bsp
 import bloop.reporter.Problem
 import java.io.File
 
-sealed abstract class BspServerEvent
+sealed abstract class CompilationEvent
 
-object BspServerEvent {
+object CompilationEvent {
 
   /**
-   * Defines all information required to report a compile start notification
-   * to the BSP client.
+   * Defines all information required to report a compile start notification to
+   * a client.
    *
    * The compile start notification must always have a corresponding compile
    * end notification, defined by [[EndCompilation]].
@@ -25,11 +25,11 @@ object BspServerEvent {
       projectUri: bsp.Uri,
       msg: String,
       taskId: bsp.TaskId
-  ) extends BspServerEvent
+  ) extends CompilationEvent
 
   /**
-   * Defines all information required to report a compile progress
-   * notification to the BSP client.
+   * Defines all information required to report a compile progress notification
+   * to a client.
    *
    * The compile progress notification must always the same task id than
    * [[StartCompilation]] and [[EndCompilation]].
@@ -47,11 +47,11 @@ object BspServerEvent {
       progress: Long,
       total: Long,
       percentage: Long
-  ) extends BspServerEvent
+  ) extends CompilationEvent
 
   /**
-   * Defines all information required to report a compile end notification to
-   * the BSP client.
+   * Defines all information required to report a compile end notification to a
+   * client.
    *
    * The compile end notification must always the same task id than its
    * counterpart, defined by [[StartCompilation]].
@@ -68,16 +68,30 @@ object BspServerEvent {
       taskId: bsp.TaskId,
       problems: Seq[Problem],
       code: bsp.StatusCode
-  ) extends BspServerEvent
+  ) extends CompilationEvent
 
+  /**
+   * Defines all information required to report a diagnostic to a client.
+   *
+   * @param projectUri The URI uniquely representing the project to the BSP client.
+   * @param problem The problem we're reporting to the client.
+   * @param clear Whether we should clear or not diagnostics in the client for
+   *              the problem URI.
+   */
   case class Diagnostic(
       projectUri: bsp.Uri,
       problem: xsbti.Problem,
       clear: Boolean
-  ) extends BspServerEvent
+  ) extends CompilationEvent
 
+  /**
+   * Defines all information required to report a no diagnostic to a client.
+   *
+   * @param projectUri The URI uniquely representing the project to the BSP client.
+   * @param file The file we're cleaning all diagnostics at.
+   */
   case class NoDiagnostic(
       projectUri: bsp.Uri,
       file: File
-  ) extends BspServerEvent
+  ) extends CompilationEvent
 }

@@ -8,9 +8,11 @@ import bloop.data.Project
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine._
-import bloop.logging.Logger
+import bloop.reporter.ReporterAction
+import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore}
 import monix.eval.Task
+import monix.reactive.{Observable, MulticastStrategy}
 import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
 
 import scala.util.{Failure, Success}
@@ -42,14 +44,13 @@ object CompileGraph {
       dag: Dag[Project],
       setup: (Project, Dag[Project]) => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
-      pipeline: Boolean,
-      logger: Logger
+      pipeline: Boolean
   ): CompileTraversal = {
     /* We use different traversals for normal and pipeline compilation because the
      * pipeline traversal has an small overhead (2-3%) for some projects. Check
      * https://benchs.scala-lang.org/dashboard/snapshot/sLrZTBfntTxMWiXJPtIa4DIrmT0QebYF */
-    if (pipeline) pipelineTraversal(dag, setup, compile, logger)
-    else normalTraversal(dag, setup, compile, logger)
+    if (pipeline) pipelineTraversal(dag, setup, compile)
+    else normalTraversal(dag, setup, compile)
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
@@ -92,15 +93,30 @@ object CompileGraph {
     }
   }
 
-  type RunningCompilationsInAllClients = ConcurrentHashMap[CompilerOracle.Inputs, CompileTraversal]
+  case class RunningCompilation(
+      traversal: CompileTraversal,
+      mirror: Observable[Either[ReporterAction, LoggerAction]]
+  )
+
+  type RunningCompilationsInAllClients =
+    ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]
   private val runningCompilations: RunningCompilationsInAllClients =
-    new ConcurrentHashMap[CompilerOracle.Inputs, CompileTraversal]()
+    new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
 
   private val emptyOracle = ImmutableCompilerOracle.empty(runningCompilations)
 
   /**
-   * Sets up project compilation, deduplicates compilation based on ongoing compilations
-   * in all clients and otherwise runs the compilation of a project.
+   * Sets up project compilation, deduplicates compilation based on ongoing compilations in all
+   * clients and otherwise runs the compilation of a project.
+   *
+   * The correctness of the compile deduplication depends on the effects that different clients
+   * perceive. For example, it would be incorrect to deduplicate the logic by memoizing the
+   * compilation task and not forwarding all the side effects produced during the compilation to
+   * all clients. This method takes care of replaying all the events that happen during the
+   * compilation of a given project, regardless of the time where clients ask for the same
+   * compilation. Most of the magic about how this is setup can be found in [[CompileTask]],
+   * where the `setup` function is defined. The compile bundle contains both the observer to append
+   * events, that is added to the reporter and logger, as well as the stream to consume the events.
    *
    * @param project The project we want to set up and compile.
    * @param setup The setup function that yields a bundle with unique oracle inputs.
@@ -115,17 +131,36 @@ object CompileGraph {
       compile: CompileBundle => CompileTraversal
   ): CompileTraversal = {
     setup(project, dag).flatMap { bundle =>
-      val compileAndUnsubscribe = {
-        compile(bundle).map { result =>
-          // Remove as ongoing compilation before returning result
-          runningCompilations.remove(bundle.oracleInputs)
-          result
-        }
-      }.memoize // Super important to memoize the compilation task
+      val logger = bundle.logger
+      val reporter = bundle.reporter
+      val ongoingCompilation = runningCompilations.computeIfAbsent(
+        bundle.oracleInputs,
+        (_: CompilerOracle.Inputs) => {
+          val compileAndUnsubscribe = compile(bundle).map { result =>
+            // Remove as ongoing compilation before returning
+            runningCompilations.remove(bundle.oracleInputs)
+            // Complete the observable
+            logger.observer.onComplete()
+            // Return compilation result after the book-keeping
+            result
+          }.memoize // Without memoization, there is no deduplication
 
-      val ongoingCompilation =
-        runningCompilations.putIfAbsent(bundle.oracleInputs, compileAndUnsubscribe)
-      if (ongoingCompilation == null) compileAndUnsubscribe else ongoingCompilation
+          RunningCompilation(compileAndUnsubscribe, bundle.mirror)
+        }
+      )
+
+      if (ongoingCompilation == null) ongoingCompilation.traversal
+      else {
+        // Replay events asynchronously to waiting for the compilation result
+        val replayEventsTask = ongoingCompilation.mirror.foreachL {
+          case Left(reporterAction) => reporter.replay(reporterAction)
+          case Right(loggerAction) => logger.replay(loggerAction)
+        }
+
+        Task.mapBoth(ongoingCompilation.traversal, replayEventsTask) {
+          case (result, _) => result
+        }
+      }
     }
   }
 
@@ -140,8 +175,7 @@ object CompileGraph {
   private def normalTraversal(
       dag: Dag[Project],
       computeBundle: (Project, Dag[Project]) => Task[CompileBundle],
-      compile: Inputs => Task[Compiler.Result],
-      logger: Logger
+      compile: Inputs => Task[Compiler.Result]
   ): CompileTraversal = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
@@ -238,8 +272,7 @@ object CompileGraph {
   private def pipelineTraversal(
       dag: Dag[Project],
       computeBundle: (Project, Dag[Project]) => Task[CompileBundle],
-      compile: Inputs => Task[Compiler.Result],
-      logger: Logger
+      compile: Inputs => Task[Compiler.Result]
   ): CompileTraversal = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
