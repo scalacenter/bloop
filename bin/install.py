@@ -18,7 +18,7 @@ if IS_PY2:
     from urlparse import urlparse
     from urllib2 import urlopen as urlopen
 else:
-    from urllib import parse as urlparse
+    from urllib.parse import urlparse as urlparse
     from urllib.request import urlopen as urlopen
 
 # INSERT_INSTALL_VARIABLES
