@@ -29,7 +29,7 @@ final case class ReporterConfig(
     /** The color to use to show an error ID. */
     errorIdColor: String,
     /** The format to use. */
-    format: ConfigurableReporter => ReporterFormat
+    format: Reporter => ReporterFormat
 )
 
 object ReporterConfig {

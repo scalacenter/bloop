@@ -4,7 +4,7 @@ package sbt.internal.inc.bloop.internal
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-import bloop.reporter.Reporter
+import bloop.reporter.ZincReporter
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
 import sbt.util.Logger
@@ -23,7 +23,7 @@ object BloopIncremental {
       previous0: CompileAnalysis,
       output: Output,
       log: Logger,
-      reporter: Reporter,
+      reporter: ZincReporter,
       options: IncOptions,
       irPromise: CompletableFuture[Array[IR]]
   ): Task[(Boolean, Analysis)] = {
@@ -56,14 +56,14 @@ object BloopIncremental {
       current: ReadStamps,
       compile: CompileFunction,
       callbackBuilder: AnalysisCallbackImpl.Builder,
-      reporter: Reporter,
+      reporter: ZincReporter,
       log: sbt.util.Logger,
       options: IncOptions,
       // TODO(jvican): Enable profiling of the invalidation algorithm down the road
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(reporter, options, profiler.profileRun)
+    val incremental = new BloopNameHashing(log, reporter, options, profiler.profileRun)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray
@@ -78,7 +78,8 @@ object BloopIncremental {
       else {
         incremental.log.debug(
           "All initially invalidated classes: " + initialInvClasses + "\n" +
-            "All initially invalidated sources:" + initialInvSources + "\n")
+            "All initially invalidated sources:" + initialInvSources + "\n"
+        )
       }
     }
 

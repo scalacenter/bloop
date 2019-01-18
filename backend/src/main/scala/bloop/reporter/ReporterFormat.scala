@@ -14,7 +14,7 @@ import bloop.io.AbsolutePath
  *
  * @param reporter The reporter that will use this format.
  */
-abstract class ReporterFormat(reporter: ConfigurableReporter) {
+abstract class ReporterFormat(reporter: Reporter) {
 
   /**
    * Returns a string representation of `Problem`, as it should be shown by

@@ -95,8 +95,7 @@ object TestUtil {
   }
 
   def await[T](duration: Duration)(t: Task[T]): T = {
-    val handle = t
-      .runAsync(ExecutionContext.scheduler)
+    val handle = t.runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

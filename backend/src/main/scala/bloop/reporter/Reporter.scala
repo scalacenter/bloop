@@ -22,18 +22,15 @@ import scala.util.Try
  *
  * @param logger The logger that will receive the output of the reporter.
  * @param cwd    The current working directory of the user who started compilation.
- * @param sourcePositionMapper A function that transforms positions.
  * @param config The configuration for this reporter.
  */
 abstract class Reporter(
-    val logger: ObservedLogger[Logger],
-    val cwd: AbsolutePath,
-    sourcePositionMapper: Position => Position,
-    val config: ReporterConfig,
+    val logger: Logger,
+    override val cwd: AbsolutePath,
+    override val config: ReporterConfig,
     val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
-) extends xsbti.Reporter
-    with ConfigurableReporter {
-  case class PositionId(sourcePath: String, offset: Int)
+) extends ZincReporter {
+  private case class PositionId(sourcePath: String, offset: Int)
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]
 
@@ -52,16 +49,15 @@ abstract class Reporter(
 
   override def problems(): Array[xsbti.Problem] = _problems.map(_.problem).toArray
   override def allProblems: Seq[Problem] = _problems.map(p => liftProblem(p.problem)).toList
+  override def allProblemsPerPhase: Seq[ProblemPerPhase] = _problems.toList
 
-  def allProblemsPerPhase: Seq[ProblemPerPhase] = _problems.toList
-
-  protected def logFull(problem: Problem): Unit
+  private[reporter] def logFull(problem: Problem): Unit
 
   protected def liftProblem(p: xsbti.Problem): Problem = {
     p match {
       case p: Problem => p
       case _ =>
-        val mappedPos = sourcePositionMapper(p.position)
+        val mappedPos = p.position
         val problemID = if (p.position.sourceFile.isPresent) nextID() else -1
         Problem(problemID, p.severity, p.message, mappedPos, p.category)
     }
@@ -104,7 +100,6 @@ abstract class Reporter(
   }
 
   override def log(xproblem: xsbti.Problem): Unit = {
-    registerAction(ReporterAction.ReportProblem(xproblem))
     if (deduplicate(xproblem)) ()
     else {
       val problem = liftProblem(xproblem)
@@ -124,14 +119,6 @@ abstract class Reporter(
     }
   }
 
-  /** Report when the compiler enters in a phase. */
-  def reportNextPhase(phase: String, sourceFile: File): Unit = {
-    // Update the phase that we have for every source file
-    val newPhaseStack = phase :: filesToPhaseStack.getOrElse(sourceFile, Nil)
-    filesToPhaseStack.update(sourceFile, newPhaseStack)
-    registerAction(ReporterAction.ReportNextPhase(phase, sourceFile))
-  }
-
   override def comment(pos: Position, msg: String): Unit = ()
 
   private def hasErrors(problems: Seq[ProblemPerPhase]): Boolean =
@@ -140,25 +127,33 @@ abstract class Reporter(
   private def hasWarnings(problems: Seq[ProblemPerPhase]): Boolean =
     problems.exists(_.problem.severity == Severity.Warn)
 
-  private def registerAction(action: ReporterAction): Unit = {
-    logger.observer.onNext(Left(action))
-    ()
+  /** Report when the compiler enters in a phase. */
+  override def reportNextPhase(phase: String, sourceFile: File): Unit = {
+    // Update the phase that we have for every source file
+    val newPhaseStack = phase :: filesToPhaseStack.getOrElse(sourceFile, Nil)
+    filesToPhaseStack.update(sourceFile, newPhaseStack)
   }
+
+  override def reportEndCompilation(
+      previousSuccessfulProblems: List[ProblemPerPhase],
+      code: bsp.StatusCode
+  ): Unit = {
+    phasesAtFile.clear()
+    filesToPhaseStack.clear()
+  }
+}
+
+trait ZincReporter extends xsbti.Reporter with ConfigurableReporter {
+  def allProblemsPerPhase: Seq[ProblemPerPhase]
 
   /** Report the progress from the compiler. */
-  def reportCompilationProgress(progress: Long, total: Long): Unit = {
-    registerAction(ReporterAction.ReportCompilationProgress(progress, total))
-  }
+  def reportCompilationProgress(progress: Long, total: Long): Unit
 
   /** Report the compile cancellation of this project. */
-  def reportCancelledCompilation(): Unit = {
-    registerAction(ReporterAction.ReportCancelledCompilation)
-  }
+  def reportCancelledCompilation(): Unit
 
   /** A function called *always* at the very beginning of compilation. */
-  def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = {
-    registerAction(ReporterAction.ReportStartCompilation(previousProblems))
-  }
+  def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit
 
   /**
    * A function called at the very end of compilation, before returning from
@@ -172,20 +167,17 @@ abstract class Reporter(
   def reportEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],
       code: bsp.StatusCode
-  ): Unit = {
-    registerAction(ReporterAction.ReportEndCompilation(previousSuccessfulProblems, code))
-    phasesAtFile.clear()
-    filesToPhaseStack.clear()
-  }
+  ): Unit
 
   /**
    * A function called before every incremental cycle with the compilation
    * inputs. This method is not called if the compilation is a no-op (e.g. same
    * analysis as before).
    */
-  def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
-    registerAction(ReporterAction.ReportStartIncrementalCycle(sources, outputDirs))
-  }
+  def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit
+
+  /** Report when the compiler enters in a phase. */
+  def reportNextPhase(phase: String, sourceFile: File): Unit
 
   /**
    * A function called after every incremental cycle, even if any compilation
@@ -196,36 +188,7 @@ abstract class Reporter(
    * @param result The result of the incremental cycle. We don't use `bsp.StatusCode` because the
    *               bloop backend, where this method is used, should not depend on bsp4j.
    */
-  def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit = {
-    registerAction(ReporterAction.ReportEndIncrementalCycle(durationMs, result))
-  }
-
-  /**
-   * Replay a reporter action in this very implementation of the reporter.
-   *
-   * This method is one of the main ways we achieve mirror compilation side
-   * effects for deduplicated compile requests. Regardless of the origin reporter,
-   * a reporter will always register actions that can then be replayed in other
-   * reporter implementations. The same is achieved at a higher-level in
-   * `ObservableLogger` that registers high-level logger actions.
-   */
-  def replay(action: ReporterAction): Unit = {
-    action match {
-      case a: ReporterAction.ReportStartCompilation =>
-        reportStartCompilation(a.previousProblems)
-      case a: ReporterAction.ReportStartIncrementalCycle =>
-        reportStartIncrementalCycle(a.sources, a.outputDirs)
-      case a: ReporterAction.ReportProblem => log(a.problem)
-      case a: ReporterAction.ReportNextPhase => reportNextPhase(a.phase, a.sourceFile)
-      case a: ReporterAction.ReportCompilationProgress =>
-        reportCompilationProgress(a.progress, a.total)
-      case a: ReporterAction.ReportEndIncrementalCycle =>
-        reportEndIncrementalCycle(a.durationMs, a.result)
-      case ReporterAction.ReportCancelledCompilation => reportCancelledCompilation()
-      case a: ReporterAction.ReportEndCompilation =>
-        reportEndCompilation(a.previousSuccessfulProblems, a.code)
-    }
-  }
+  def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit
 }
 
 object Reporter {

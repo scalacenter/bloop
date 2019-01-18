@@ -65,7 +65,7 @@ object TestProject {
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
     val depsTargets = dependencies
-      .map(d => AbsolutePath(TestUtil.classesDir(baseDir.underlying, d)))
+      .map(d => AbsolutePath(TestUtil.classesDir(baseDir.underlying.resolve("target"), d)))
       .toList
 
     import bloop.engine.ExecutionContext.ioScheduler

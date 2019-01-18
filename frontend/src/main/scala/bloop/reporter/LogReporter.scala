@@ -12,12 +12,11 @@ import scala.collection.mutable
 
 final class LogReporter(
     val project: Project,
-    override val logger: ObservedLogger[Logger],
-    override val cwd: AbsolutePath,
-    sourcePositionMapper: Position => Position,
-    override val config: ReporterConfig,
+    override val logger: Logger,
+    cwd: AbsolutePath,
+    config: ReporterConfig,
     override val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
-) extends Reporter(logger, cwd, sourcePositionMapper, config, _problems) {
+) extends Reporter(logger, cwd, config, _problems) {
 
   // Contains the files that are compiled in all incremental compiler cycles
   private val compilingFiles = mutable.HashSet[File]()
@@ -36,7 +35,7 @@ final class LogReporter(
    *
    * @param problem The problem to log.
    */
-  override protected def logFull(problem: Problem): Unit = {
+  override private[reporter] def logFull(problem: Problem): Unit = {
     val text = format.formatProblem(problem)
     problem.severity match {
       case Severity.Error => logger.error(text)
@@ -45,13 +44,10 @@ final class LogReporter(
     }
   }
 
-  override def reportCompilationProgress(progress: Long, total: Long): Unit = {
-    super.reportCompilationProgress(progress, total)
-  }
+  override def reportCompilationProgress(progress: Long, total: Long): Unit = {}
 
   override def reportCancelledCompilation(): Unit = {
     logger.warn(s"Cancelling compilation of ${project.name}")
-    super.reportCancelledCompilation()
     ()
   }
 
@@ -60,17 +56,13 @@ final class LogReporter(
     require(sources.size > 0) // This is an invariant enforced in the call-site
     compilingFiles ++= sources
     logger.info(Reporter.compilationMsgFor(project.name, sources))
-    super.reportStartIncrementalCycle(sources, outputDirs)
   }
 
   override def reportEndIncrementalCycle(durationMs: Long, result: scala.util.Try[Unit]): Unit = {
     logger.info(s"Compiled ${project.name} (${durationMs}ms)")
-    super.reportEndIncrementalCycle(durationMs, result)
   }
 
-  override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = {
-    super.reportStartCompilation(previousProblems)
-  }
+  override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = ()
 
   override def reportEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],

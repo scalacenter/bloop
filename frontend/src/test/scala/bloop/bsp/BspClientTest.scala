@@ -2,13 +2,13 @@ package bloop.bsp
 
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
 
-import bloop.cli.{Commands, CommonOptions}
+import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
 import bloop.data.Project
-import bloop.engine.State
+import bloop.engine.{State, Run}
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
@@ -36,6 +36,39 @@ object BspClientTest {
         else Files.delete(cmd.socket.underlying)
       case cmd: Commands.TcpBsp => ()
     }
+  }
+
+  def validateBsp(bspCommand: Commands.Bsp, configDir: AbsolutePath): Commands.ValidatedBsp = {
+    val baseDir = AbsolutePath(configDir.underlying.getParent)
+    Validate.bsp(bspCommand, BspServer.isWindows) match {
+      case Run(bsp: Commands.ValidatedBsp, _) =>
+        BspClientTest.setupBspCommand(bsp, baseDir, configDir)
+      case failed => sys.error(s"Command validation failed: ${failed}")
+    }
+  }
+
+  def createLocalBspCommand(
+      configDir: AbsolutePath,
+      tempDir: Path
+  ): Commands.ValidatedBsp = {
+    val uniqueId = java.util.UUID.randomUUID().toString.take(4)
+    val socketFile = tempDir.resolve(s"test-$uniqueId.socket")
+    validateBsp(
+      Commands.Bsp(
+        protocol = BspProtocol.Local,
+        socket = Some(socketFile),
+        pipeName = Some(s"\\\\.\\pipe\\test-$uniqueId")
+      ),
+      configDir
+    )
+  }
+
+  def createTcpBspCommand(
+      configDir: AbsolutePath,
+      verbose: Boolean = false
+  ): Commands.ValidatedBsp = {
+    val opts = if (verbose) CliOptions.default.copy(verbose = true) else CliOptions.default
+    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts), configDir)
   }
 
   def setupBspCommand(
@@ -338,7 +371,8 @@ object BspClientTest {
 
     def addToStringReport(
         btid: bsp.BuildTargetIdentifier,
-        add: StringBuilder => StringBuilder): Unit = {
+        add: StringBuilder => StringBuilder
+    ): Unit = {
       stringifiedDiagnostics.compute(
         btid,
         (_, builder0) => add(if (builder0 == null) new StringBuilder() else builder0)

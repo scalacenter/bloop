@@ -39,7 +39,7 @@ object JvmTestSpec {
     val cwd = state0.build.origin.getParent
     val format = ReporterConfig.defaultFormat
     val createReporter = (inputs: ReporterInputs[Logger]) =>
-      new LogReporter(inputs.project, inputs.logger, inputs.cwd, identity, format)
+      new LogReporter(inputs.project, inputs.logger, inputs.cwd, format)
     val dag = state0.build.getDagFor(project)
     val compileTask =
       CompileTask.compile(state0, dag, createReporter, order, false, false, Promise[Unit](), logger)

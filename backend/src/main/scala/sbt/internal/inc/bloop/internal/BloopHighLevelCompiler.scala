@@ -5,7 +5,8 @@ import java.io.File
 import java.util.Optional
 import java.util.concurrent.CompletableFuture
 
-import bloop.reporter.Reporter
+import bloop.reporter.ZincReporter
+import bloop.logging.ObservedLogger
 import bloop.{CompileMode, JavaSignal, SimpleIRStore}
 import monix.eval.Task
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
@@ -34,9 +35,9 @@ final class BloopHighLevelCompiler(
     scalac: AnalyzingCompiler,
     javac: AnalyzingJavaCompiler,
     config: CompileConfiguration,
-    reporter: Reporter
+    reporter: ZincReporter,
+    logger: ObservedLogger[_]
 ) {
-  import reporter.logger
   private[this] final val setup = config.currentSetup
   private[this] final val classpath = config.classpath.map(_.getAbsoluteFile)
 
@@ -288,10 +289,10 @@ object BloopHighLevelCompiler {
     new CallbackBuilder(_ => None, _ => Set.empty, (_, _) => None, stamps, output, options, promise).build()
   }
 
-  def apply(config: CompileConfiguration, reporter: Reporter): BloopHighLevelCompiler = {
+  def apply(config: CompileConfiguration, reporter: ZincReporter, logger: ObservedLogger[_]): BloopHighLevelCompiler = {
     val (searchClasspath, entry) = MixedAnalyzingCompiler.searchClasspathAndLookup(config)
     val scalaCompiler = config.compiler.asInstanceOf[AnalyzingCompiler]
     val javaCompiler = new AnalyzingJavaCompiler(config.javac, config.classpath, config.compiler.scalaInstance, config.classpathOptions, entry, searchClasspath)
-    new BloopHighLevelCompiler(scalaCompiler, javaCompiler, config, reporter)
+    new BloopHighLevelCompiler(scalaCompiler, javaCompiler, config, reporter, logger)
   }
 }

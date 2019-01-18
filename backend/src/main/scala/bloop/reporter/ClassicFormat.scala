@@ -2,12 +2,12 @@ package bloop.reporter
 
 import scala.compat.Platform.EOL
 
-object ClassicFormat extends (ConfigurableReporter => ReporterFormat) {
-  override def apply(reporter: ConfigurableReporter): ClassicFormat =
+object ClassicFormat extends (Reporter => ReporterFormat) {
+  override def apply(reporter: Reporter): ClassicFormat =
     new ClassicFormat(reporter)
 }
 
-class ClassicFormat(reporter: ConfigurableReporter) extends DefaultReporterFormat(reporter) {
+class ClassicFormat(reporter: Reporter) extends DefaultReporterFormat(reporter) {
   override def formatProblem(problem: Problem): String = {
     val line = toOption(problem.position.line).map(_ + ":").getOrElse("")
     val col = problem.position.lineOffset match {

@@ -41,7 +41,7 @@ object JsTestSpec {
     val cwd = state0.build.origin.getParent
     val format = ReporterConfig.defaultFormat
     val createReporter = (inputs: ReporterInputs[Logger]) =>
-      new LogReporter(inputs.project, inputs.logger, inputs.cwd, identity, format)
+      new LogReporter(inputs.project, inputs.logger, inputs.cwd, format)
 
     val logger = state0.logger
     val dag = state0.build.getDagFor(project)

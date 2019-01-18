@@ -6,7 +6,14 @@ import bloop.engine._
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.AbsolutePath
 import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
-import bloop.reporter.{Reporter, ReporterAction, ReporterConfig, ReporterInputs, LogReporter}
+import bloop.reporter.{
+  Reporter,
+  ReporterAction,
+  ReporterConfig,
+  ReporterInputs,
+  LogReporter,
+  ObservedReporter
+}
 import bloop.{CompileInputs, CompileMode, Compiler}
 
 import monix.eval.Task
@@ -113,6 +120,7 @@ object CompileTask {
                 previousSuccesful,
                 previousResult,
                 reporter,
+                logger,
                 compileMode,
                 graphInputs.dependentResults,
                 cancelCompilation
@@ -155,12 +163,13 @@ object CompileTask {
       // Create a multicast observable stream to allow multiple mirrors of loggers
       val (observer, observable) = {
         Observable.multicast[Either[ReporterAction, LoggerAction]](
-          MulticastStrategy.publish
+          MulticastStrategy.replay
         )(ExecutionContext.ioScheduler)
       }
 
       val logger = ObservedLogger(rawLogger, observer)
-      val reporter = createReporter(ReporterInputs(project, cwd, logger))
+      val underlying = createReporter(ReporterInputs(project, cwd, rawLogger))
+      val reporter = new ObservedReporter(logger, underlying)
       CompileBundle.computeFrom(project, dag, reporter, logger, observable)
     }
 
@@ -220,7 +229,7 @@ object CompileTask {
         val cwd = state.commonOptions.workingPath
         val randomProjectFromDag = Dag.dfs(dag).head
         val logger = ObservedLogger.dummy(state.logger, ExecutionContext.ioScheduler)
-        val reporter = new LogReporter(randomProjectFromDag, logger, cwd, identity, config)
+        val reporter = new LogReporter(randomProjectFromDag, logger, cwd, config)
         val output = new sbt.internal.inc.ConcreteSingleOutput(tmpDir.toFile)
         val cached = scalac.newCachedCompiler(Array.empty[String], output, logger, reporter)
         // Reset the global ir caches on the cached compiler only for the store IRs

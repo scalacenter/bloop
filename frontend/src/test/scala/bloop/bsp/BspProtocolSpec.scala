@@ -50,36 +50,6 @@ class BspProtocolSpec {
   def isTestProject(targetUri: BuildTargetIdentifier): Boolean =
     targetUri.uri == testProject.bspUri
 
-  def validateBsp(bspCommand: Commands.Bsp, configDir: AbsolutePath): Commands.ValidatedBsp = {
-    val baseDir = AbsolutePath(configDir.underlying.getParent)
-    Validate.bsp(bspCommand, BspServer.isWindows) match {
-      case Run(bsp: Commands.ValidatedBsp, _) =>
-        BspClientTest.setupBspCommand(bsp, baseDir, configDir)
-      case failed => sys.error(s"Command validation failed: ${failed}")
-    }
-  }
-
-  def createLocalBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
-    val uniqueId = java.util.UUID.randomUUID().toString.take(4)
-    val socketFile = tempDir.resolve(s"test-$uniqueId.socket")
-    validateBsp(
-      Commands.Bsp(
-        protocol = BspProtocol.Local,
-        socket = Some(socketFile),
-        pipeName = Some(s"\\\\.\\pipe\\test-$uniqueId")
-      ),
-      configDir
-    )
-  }
-
-  def createTcpBspCommand(
-      configDir: AbsolutePath,
-      verbose: Boolean = false
-  ): Commands.ValidatedBsp = {
-    val opts = if (verbose) CliOptions.default.copy(verbose = true) else CliOptions.default
-    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts), configDir)
-  }
-
   def testInitialization(cmd: Commands.ValidatedBsp): Unit = {
     val logger = new BspClientLogger(new RecordingLogger)
     // We test the initialization several times to make sure the scheduler doesn't get blocked.
@@ -988,9 +958,10 @@ class BspProtocolSpec {
     }
   }
 
+  import BspClientTest.{createLocalBspCommand, createTcpBspCommand}
   @Test def TestInitializationViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testInitialization(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testInitialization(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestInitializationViaTcp(): Unit = {
@@ -1004,7 +975,7 @@ class BspProtocolSpec {
 
   @Test def TestBuildTargetsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestBuildTargetsViaTcp(): Unit = {
@@ -1013,7 +984,7 @@ class BspProtocolSpec {
 
   @Test def TestSourcesViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testSources(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testSources(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestSourcesViaTcp(): Unit = {
@@ -1022,7 +993,7 @@ class BspProtocolSpec {
 
   @Test def TestDependencySourcesViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testDependencySources(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testDependencySources(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestDependencySourcesViaTcp(): Unit = {
@@ -1031,7 +1002,7 @@ class BspProtocolSpec {
 
   @Test def TestScalacOptionsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testScalacOptions(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows) testScalacOptions(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestScalacOptionsViaTcp(): Unit = {
@@ -1040,10 +1011,9 @@ class BspProtocolSpec {
 
   @Test def TestCompileViaLocal(): Unit = {
     if (!BspServer.isWindows) {
-      testCompile(createLocalBspCommand(configDir))
-      testCompilePreviousProblemsAreReported(createLocalBspCommand(configDir))
-
-      testCompileClearingDiagnostics(createLocalBspCommand(_))
+      testCompile(createLocalBspCommand(configDir, tempDir))
+      testCompilePreviousProblemsAreReported(createLocalBspCommand(configDir, tempDir))
+      testCompileClearingDiagnostics(createLocalBspCommand(_, tempDir))
     }
   }
 
@@ -1070,7 +1040,8 @@ class BspProtocolSpec {
   }*/
 
   @Test def TestFailedCompileViaLocal(): Unit = {
-    if (!BspServer.isWindows) testFailedCompileOnInvalidInputs(createLocalBspCommand(configDir))
+    if (!BspServer.isWindows)
+      testFailedCompileOnInvalidInputs(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestFailedCompileViaTcp(): Unit = {

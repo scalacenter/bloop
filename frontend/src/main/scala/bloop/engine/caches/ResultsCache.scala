@@ -127,7 +127,7 @@ object ResultsCache {
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
-              val reporter = new LogReporter(p, dummy, cwd, identity, ReporterConfig.defaultFormat)
+              val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
               Result.Success(reporter, r, 0L)
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")

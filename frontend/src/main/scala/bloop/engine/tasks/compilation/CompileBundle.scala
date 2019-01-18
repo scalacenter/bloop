@@ -7,7 +7,7 @@ import bloop.io.{AbsolutePath, Paths}
 import bloop.util.ByteHasher
 import bloop.{Compiler, CompilerOracle, ScalaInstance}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
-import bloop.reporter.{Reporter, ReporterAction}
+import bloop.reporter.{ObservedReporter, ReporterAction}
 
 import monix.eval.Task
 import monix.reactive.Observable
@@ -42,7 +42,7 @@ final case class CompileBundle(
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
     oracleInputs: CompilerOracle.Inputs,
-    reporter: Reporter,
+    reporter: ObservedReporter,
     logger: ObservedLogger[Logger],
     mirror: Observable[Either[ReporterAction, LoggerAction]]
 ) {
@@ -89,7 +89,7 @@ object CompileBundle {
   def computeFrom(
       project: Project,
       dag: Dag[Project],
-      reporter: Reporter,
+      reporter: ObservedReporter,
       logger: ObservedLogger[Logger],
       mirror: Observable[Either[ReporterAction, LoggerAction]]
   ): Task[CompileBundle] = {

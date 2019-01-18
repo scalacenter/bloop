@@ -7,7 +7,8 @@ import java.io.File
 
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
-import bloop.reporter.{ProblemPerPhase, Reporter}
+import bloop.logging.{ObservedLogger, Logger}
+import bloop.reporter.{ProblemPerPhase, ZincReporter}
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
 import _root_.monix.eval.Task
@@ -31,7 +32,8 @@ case class CompileInputs(
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
     previousCompilerResult: Compiler.Result,
-    reporter: Reporter,
+    reporter: ZincReporter,
+    logger: ObservedLogger[Logger],
     mode: CompileMode,
     dependentResults: Map[File, PreviousResult],
     cancelPromise: Promise[Unit]
@@ -50,7 +52,7 @@ object Compiler {
   }
 
   private final class BloopProgress(
-      reporter: Reporter,
+      reporter: ZincReporter,
       cancelPromise: Promise[Unit]
   ) extends CompileProgress {
     override def startUnit(phase: String, unitPath: String): Unit = {
@@ -74,7 +76,7 @@ object Compiler {
     final case class GlobalError(problem: String) extends Result with CacheHashCode
 
     final case class Success(
-        reporter: Reporter,
+        reporter: ZincReporter,
         previous: PreviousResult,
         elapsed: Long
     ) extends Result
@@ -146,7 +148,7 @@ object Compiler {
         def withTransactional(opts: IncOptions): IncOptions = {
           opts.withClassfileManagerType(
             Optional.of(
-              xsbti.compile.TransactionalManagerType.of(classesDirBak, reporter.logger)
+              xsbti.compile.TransactionalManagerType.of(classesDirBak, compileInputs.logger)
             )
           )
         }
@@ -180,6 +182,7 @@ object Compiler {
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
     val reporter = compileInputs.reporter
+    val logger = compileInputs.logger
 
     def cancel(): Unit = {
       // Avoid illegal state exception if client cancellation promise is completed
@@ -203,7 +206,7 @@ object Compiler {
 
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, compileInputs.mode, reporter)
+      .compile(inputs, compileInputs.mode, reporter, logger)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {

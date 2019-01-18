@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.util.{TestProject, TestUtil}
+import bloop.util.{TestProject, TestUtil, BuildUtil}
 import bloop.util.TestUtil.{
   RootProject,
   checkAfterCleanCompilation,
@@ -712,54 +712,13 @@ class CompileSpec {
     }
   }
 
-  def testSlowBuild(logger: RecordingLogger)(testLogic: State => Unit): Unit = {
-    object Sources {
-      val `SleepMacro.scala` =
-        """
-          |package macros
-          |
-          |import scala.reflect.macros.blackbox.Context
-          |import scala.language.experimental.macros
-          |
-          |object SleepMacro {
-          |  def sleep(): Unit = macro sleepImpl
-          |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
-          |    import c.universe._
-          |    // Sleep for 3 seconds to give time to cancel compilation
-          |    Thread.sleep(3000)
-          |    reify { () }
-          |  }
-          |}
-          |
-        """.stripMargin
-      val `User.scala` =
-        """
-          |package user
-          |
-          |object User extends App {
-          |  macros.SleepMacro.sleep()
-          |}
-        """.stripMargin
-    }
-
-    val deps = Map("user" -> Set("macros"))
-    val structure = Map(
-      "macros" -> Map("SleepMacro.scala" -> Sources.`SleepMacro.scala`),
-      "user" -> Map("User.scala" -> Sources.`User.scala`)
-    )
-
-    val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
-    TestUtil.testState(structure, deps, userLogger = Some(logger), extraJars = scalaJars) { state =>
-      testLogic(state)
-    }
-  }
-
   @Test
   def cancelCompilation(): Unit = {
     import bloop.engine.ExecutionContext
     val logger = new RecordingLogger
     val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
-    testSlowBuild(logger) { state =>
+    BuildUtil.testSlowBuild(logger) { build =>
+      val state = build.state
       val compileMacroProject = Run(Commands.Compile(List("macros")))
       val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
       Assert.assertTrue(
@@ -793,9 +752,12 @@ class CompileSpec {
 
   @Test
   def deduplicateCompilation(): Unit = {
+    import scala.concurrent.Await
+    import bloop.engine.ExecutionContext
     val logger = new RecordingLogger
     val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
-    testSlowBuild(logger) { state =>
+    BuildUtil.testSlowBuild(logger) { build =>
+      val state = build.state
       val compileMacroProject = Run(Commands.Compile(List("macros")))
       val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
       Assert.assertTrue(
@@ -803,23 +765,42 @@ class CompileSpec {
         compiledMacrosState.status.isOk
       )
 
+      val logger1 = new RecordingLogger
+      val logger2 = new RecordingLogger
       val compileUserProject = Run(Commands.Compile(List("user")))
-      val firstCompilation = TestUtil.interpreterTask(compileUserProject, compiledMacrosState)
+      val firstCompilation = TestUtil
+        .interpreterTask(compileUserProject, compiledMacrosState.copy(logger = logger1))
+        .runAsync(ExecutionContext.scheduler)
       val secondCompilation = TestUtil
-        .interpreterTask(compileUserProject, compiledMacrosState)
+        .interpreterTask(compileUserProject, compiledMacrosState.copy(logger = logger2))
         .delayExecution(FiniteDuration(2, TimeUnit.SECONDS))
+        .runAsync(ExecutionContext.scheduler)
 
-      val compileConcurrently = firstCompilation.zip(secondCompilation)
-      val (firstCompilationState, secondCompilationState) =
-        TestUtil.blockOnTask(compileConcurrently, 10)
+      val firstCompilationState =
+        Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
+      // We make sure that the second compilation returns just after the first + ± delay
+      val secondCompilationState =
+        Await.result(secondCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
 
-      // Expect bloop to deduplicate the concurrent compilation of `user`
       TestUtil.assertNoDiff(
         s"""
            |Compiling macros (1 Scala source)
-           |Compiling user (1 Scala source)
          """.stripMargin,
         logger.compilingInfos.mkString(System.lineSeparator())
+      )
+
+      TestUtil.assertNoDiff(
+        s"""
+           |Compiling user (1 Scala source)
+         """.stripMargin,
+        logger1.compilingInfos.mkString(System.lineSeparator())
+      )
+
+      TestUtil.assertNoDiff(
+        s"""
+           |Compiling user (1 Scala source)
+         """.stripMargin,
+        logger2.compilingInfos.mkString(System.lineSeparator())
       )
 
       val cleanAndCompile = Run(Commands.Clean(List("user")), Run(Commands.Compile(List("user"))))
@@ -829,11 +810,10 @@ class CompileSpec {
       // Expect bloop to recompile user (e.g. compilation is removed from ongoing compilations map)
       TestUtil.assertNoDiff(
         s"""
-           |Compiling macros (1 Scala source)
            |Compiling user (1 Scala source)
            |Compiling user (1 Scala source)
          """.stripMargin,
-        logger.compilingInfos.mkString(System.lineSeparator())
+        logger2.compilingInfos.mkString(System.lineSeparator())
       )
 
       val noopCompilation =
@@ -844,11 +824,10 @@ class CompileSpec {
       // Expect noop compilations (no change in the compilation output wrt previous iteration)
       TestUtil.assertNoDiff(
         s"""
-           |Compiling macros (1 Scala source)
            |Compiling user (1 Scala source)
            |Compiling user (1 Scala source)
          """.stripMargin,
-        logger.compilingInfos.mkString(System.lineSeparator())
+        logger2.compilingInfos.mkString(System.lineSeparator())
       )
     }
   }

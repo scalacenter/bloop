@@ -5,7 +5,8 @@ import java.io.File
 import java.util.concurrent.CompletableFuture
 
 import bloop.CompileMode
-import bloop.reporter.Reporter
+import bloop.reporter.ZincReporter
+import bloop.logging.ObservedLogger
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger}
@@ -37,7 +38,8 @@ object BloopZincCompiler {
   def compile(
       in: Inputs,
       compileMode: CompileMode,
-      reporter: Reporter
+      reporter: ZincReporter,
+      logger: ObservedLogger[_]
   ): Task[CompileResult] = {
     val config = in.options()
     val setup = in.setup()
@@ -69,7 +71,7 @@ object BloopZincCompiler {
       extraOptions,
       irPromise,
       compileMode
-    )(reporter.logger)
+    )(logger)
   }
 
   def compileIncrementally(
@@ -87,14 +89,14 @@ object BloopZincCompiler {
       previousAnalysis: Option[CompileAnalysis],
       previousSetup: Option[MiniSetup],
       perClasspathEntryLookup: PerClasspathEntryLookup,
-      reporter: Reporter,
+      reporter: ZincReporter,
       compileOrder: CompileOrder = CompileOrder.Mixed,
       skip: Boolean = false,
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
       irPromise: CompletableFuture[Array[IR]],
       compileMode: CompileMode
-  )(implicit logger: Logger): Task[CompileResult] = {
+  )(implicit logger: ObservedLogger[_]): Task[CompileResult] = {
     val prev = previousAnalysis match {
       case Some(previous) => previous
       case None => Analysis.empty
@@ -107,7 +109,7 @@ object BloopZincCompiler {
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
         val setOfSources = sources.toSet
-        val compiler = BloopHighLevelCompiler(config, reporter)
+        val compiler = BloopHighLevelCompiler(config, reporter, logger)
         val lookup = new LookupImpl(config, previousSetup)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev)
 
@@ -168,7 +170,7 @@ object BloopZincCompiler {
       previousAnalysis: CompileAnalysis,
       previousSetup: Option[MiniSetup],
       perClasspathEntryLookup: PerClasspathEntryLookup,
-      reporter: Reporter,
+      reporter: ZincReporter,
       compileOrder: CompileOrder = CompileOrder.Mixed,
       skip: Boolean = false,
       incrementalCompilerOptions: IncOptions,
