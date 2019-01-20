@@ -84,6 +84,7 @@ object BuildKeys {
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
+  val updateArchPackage = Def.taskKey[Unit]("Update AUR package")
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
   val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
   val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
@@ -131,6 +132,7 @@ object BuildKeys {
     createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
     updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
+    updateArchPackage := ReleaseUtils.updateArchPackage.value,
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}

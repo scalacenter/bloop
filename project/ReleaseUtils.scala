@@ -165,7 +165,7 @@ object ReleaseUtils {
     val installSha = sha256(versionedInstallScript.value)
     val version = Keys.version.value
     val token = GitUtils.authToken()
-    cloneAndPushTag(repository, buildBase, version, token) { inputs =>
+    cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.rb"
       val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), installSha, false)
       FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
@@ -219,7 +219,7 @@ object ReleaseUtils {
     val buildBase = BuildKeys.buildBase.value
     val version = Keys.version.value
     val token = GitUtils.authToken()
-    cloneAndPushTag(repository, buildBase, version, token) { inputs =>
+    cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.json"
       val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
       val contents =
@@ -343,12 +343,27 @@ object ReleaseUtils {
     logger.info(s"Local ArchLinux package build files created in ${versionDir.getAbsolutePath}")
   }
 
+  val updateArchPackage = Def.task {
+    val repository = "ssh://aur@aur.archlinux.org/bloop.git"
+    val buildBase = BuildKeys.buildBase.value
+    val installSha = sha256(versionedInstallScript.value)
+    val version = Keys.version.value
+    val sshKey = GitUtils.authSshKey()
+    cloneAndPush(repository, buildBase, version, sshKey, false) { inputs =>
+      val buildFile = inputs.base / "PKGBUILD"
+      val infoFile = inputs.base / ".SRCINFO"
+      val buildContents = generateArchBuildContents(version, Right(inputs.tag), installSha)
+      val infoContents = generateArchInfoContents(version, Right(inputs.tag), installSha)
+      FormulaArtifact(buildFile, buildContents) :: FormulaArtifact(infoFile, infoContents) :: Nil
+    }
+  }
+
   case class FormulaInputs(tag: String, base: File)
   case class FormulaArtifact(target: File, contents: String)
 
   private final val bloopoidName = "Bloopoid"
   private final val bloopoidEmail = "bloop@trashmail.ws"
-  def cloneAndPushTag(repository: String, buildBase: File, version: String, auth: GitAuth)(
+  def cloneAndPush(repository: String, buildBase: File, version: String, auth: GitAuth, pushTag: Boolean)(
       generateFormula: FormulaInputs => Seq[FormulaArtifact]
   ): Unit = {
     val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {
@@ -367,8 +382,13 @@ object ReleaseUtils {
           bloopoidName,
           bloopoidEmail
         )
-        GitUtils.tag(gitRepo, tagName, commitMessage)
-        GitUtils.push(gitRepo, "origin", Seq("master", tagName), auth)
+        if (pushTag) {
+          GitUtils.tag(gitRepo, tagName, commitMessage)
+          GitUtils.push(gitRepo, "origin", Seq("master", tagName), auth)
+        } else {
+          // The AUR hooks block git tags: don't try to use them (set pushTag=false)
+          GitUtils.push(gitRepo, "origin", Seq("master"), auth)
+        }
       }
     }
   }
