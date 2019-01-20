@@ -7,6 +7,8 @@ import sbt.io.syntax.fileToRichFile
 import sbt.io.IO
 import sbt.util.FileFunction
 
+import GitUtils.GitAuth
+
 /** Utilities that are useful for releasing Bloop */
 object ReleaseUtils {
 
@@ -162,7 +164,8 @@ object ReleaseUtils {
     val buildBase = BuildKeys.buildBase.value
     val installSha = sha256(versionedInstallScript.value)
     val version = Keys.version.value
-    cloneAndPushTag(repository, buildBase, version) { inputs =>
+    val token = GitUtils.authToken()
+    cloneAndPushTag(repository, buildBase, version, token) { inputs =>
       val formulaFileName = "bloop.rb"
       val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), installSha, false)
       FormulaArtifact(inputs.base / formulaFileName, contents)
@@ -215,7 +218,8 @@ object ReleaseUtils {
     val repository = "https://github.com/scalacenter/scoop-bloop.git"
     val buildBase = BuildKeys.buildBase.value
     val version = Keys.version.value
-    cloneAndPushTag(repository, buildBase, version) { inputs =>
+    val token = GitUtils.authToken()
+    cloneAndPushTag(repository, buildBase, version, token) { inputs =>
       val formulaFileName = "bloop.json"
       val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
       val contents =
@@ -337,31 +341,27 @@ object ReleaseUtils {
 
   private final val bloopoidName = "Bloopoid"
   private final val bloopoidEmail = "bloop@trashmail.ws"
-  def cloneAndPushTag(repository: String, buildBase: File, version: String)(
+  def cloneAndPushTag(repository: String, buildBase: File, version: String, auth: GitAuth)(
       generateFormula: FormulaInputs => FormulaArtifact
   ): Unit = {
-    val token = sys.env.get("BLOOPOID_GITHUB_TOKEN").getOrElse {
-      throw new MessageOnlyException("Couldn't find Github oauth token in `BLOOPOID_GITHUB_TOKEN`")
-    }
     val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {
       throw new MessageOnlyException("No tag found in this repository.")
     }
-
-    IO.withTemporaryDirectory { homebrewBase =>
-      GitUtils.clone(repository, homebrewBase, token) { homebrewRepo =>
+    IO.withTemporaryDirectory { tmpDir =>
+      GitUtils.clone(repository, tmpDir, auth) { gitRepo =>
         val commitMessage = s"Updating to Bloop $tagName"
-        val artifact = generateFormula(FormulaInputs(tagName, homebrewBase))
+        val artifact = generateFormula(FormulaInputs(tagName, tmpDir))
         IO.write(artifact.target, artifact.contents)
         val changed = artifact.target.getName :: Nil
         GitUtils.commitChangesIn(
-          homebrewRepo,
+          gitRepo,
           changed,
           commitMessage,
           bloopoidName,
           bloopoidEmail
         )
-        GitUtils.tag(homebrewRepo, tagName, commitMessage)
-        GitUtils.push(homebrewRepo, "origin", Seq("master", tagName), token)
+        GitUtils.tag(gitRepo, tagName, commitMessage)
+        GitUtils.push(gitRepo, "origin", Seq("master", tagName), auth)
       }
     }
   }
