@@ -64,7 +64,9 @@ object GitUtils {
     import org.eclipse.jgit.util.FS
 
     val sessionFactory = new JschConfigSessionFactory {
-      override def configure(h: Host, s: Session) = {}
+      override def configure(h: Host, s: Session) = {
+        s.setConfig("StrictHostKeyChecking", "no")
+      }
       override protected def createDefaultJSch(fs: FS) = {
         val jsch = super.createDefaultJSch(fs)
         jsch.addIdentity(keyFile.getAbsolutePath)
