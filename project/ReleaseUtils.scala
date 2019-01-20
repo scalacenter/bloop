@@ -238,6 +238,100 @@ object ReleaseUtils {
     }
   }
 
+  def archPackageSource(origin: FormulaOrigin): String = origin match {
+    case Left(f) => s"file://${f.getAbsolutePath}"
+    case Right(tag) => s"https://github.com/scalacenter/bloop/releases/download/$tag/install.py"
+  }
+
+  def generateArchBuildContents(
+      version: String,
+      origin: FormulaOrigin,
+      installSha: String
+  ): String = {
+    val source = archPackageSource(origin)
+    // Note: pkgver must only contain letters, numbers and periods to be valid
+    s"""pkgname=bloop
+       |pkgver=${version.replace('-', '.').replace('+', '.')}
+       |pkgrel=1
+       |pkgdesc="Bloop gives you fast edit/compile/test workflows for Scala."
+       |arch=(any)
+       |url="https://scalacenter.github.io/bloop/"
+       |license=('Apache')
+       |depends=('scala' 'python')
+       |source=("$source")
+       |sha256sums=('$installSha')
+       |
+       |build() {
+       |  python ./install.py --dest "$$srcdir/bloop"
+       |  # fix paths
+       |  sed -i "s|$$srcdir/bloop|/usr/bin|g" bloop/systemd/bloop.service
+       |  sed -i "s|$$srcdir/bloop/xdg|/usr/share/pixmaps|g" bloop/xdg/bloop.desktop
+       |  sed -i "s|$$srcdir/bloop|/usr/bin|g" bloop/xdg/bloop.desktop
+       |}
+       |
+       |package() {
+       |  cd "$$srcdir/bloop"
+       |
+       |  # binaries
+       |  install -Dm755 blp-server "$$pkgdir"/usr/bin/blp-server
+       |  install -Dm755 blp-coursier "$$pkgdir"/usr/bin/blp-coursier
+       |  install -Dm755 bloop "$$pkgdir"/usr/bin/bloop
+       |
+       |  # desktop file
+       |  install -Dm644 xdg/bloop.png "$$pkgdir"/usr/share/pixmaps/bloop.png
+       |  install -Dm755 xdg/bloop.desktop "$$pkgdir"/usr/share/applications/bloop.desktop
+       |
+       |  # shell completion
+       |  install -Dm644 bash/bloop "$$pkgdir"/etc/bash_completion.d/bloop
+       |  install -Dm644 zsh/_bloop "$$pkgdir"/usr/share/zsh/site-functions/_bloop
+       |  install -Dm644 fish/bloop.fish "$$pkgdir"/usr/share/fish/vendor_completions.d/bloop.fish
+       |
+       |  # systemd service
+       |  install -Dm644 systemd/bloop.service "$$pkgdir"/usr/lib/systemd/user/bloop.service
+       |}
+    """.stripMargin
+  }
+
+  def generateArchInfoContents(
+      version: String,
+      origin: FormulaOrigin,
+      installSha: String
+  ): String = {
+    val source = archPackageSource(origin)
+    s"""pkgname=bloop
+       |pkgdesc=Bloop gives you fast edit/compile/test workflows for Scala.
+       |pkgver=${version.replace('-', '.').replace('+', '.')}
+       |pkgrel=1
+       |url=https://scalacenter.github.io/bloop/
+       |arch=any
+       |license=Apache
+       |depends=scala
+       |depends=python
+       |source=$source
+       |sha256sums=$installSha
+    """.stripMargin
+  }
+
+  /**
+   * Creates two files: PKGBUILD and .SRCINFO, which can be used to locally build a bloop package
+   * for ArchLinux with the makepkg command.
+   */
+  val createLocalArchPackage = Def.task {
+    val logger = Keys.streams.value.log
+    val version = Keys.version.value
+    val versionDir = Keys.target.value / version
+    val targetBuild = versionDir / "PKGBUILD"
+    val targetInfo = versionDir / ".SRCINFO"
+    val installScript = versionedInstallScript.value
+    val installSha = sha256(installScript)
+    val pkgbuild = generateArchBuildContents(version, Left(installScript), installSha)
+    val srcinfo = generateArchInfoContents(version, Left(installScript), installSha)
+    if (!versionDir.exists()) IO.createDirectory(versionDir)
+    IO.write(targetBuild, pkgbuild)
+    IO.write(targetInfo, srcinfo)
+    logger.info(s"Local ArchLinux package build files created in ${versionDir.getAbsolutePath}")
+  }
+
   case class FormulaInputs(tag: String, base: File)
   case class FormulaArtifact(target: File, contents: String)
 

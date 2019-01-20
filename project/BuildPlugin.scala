@@ -86,6 +86,7 @@ object BuildKeys {
   val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
   val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
+  val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
   val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
@@ -127,6 +128,7 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
+    createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
     updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
   )
