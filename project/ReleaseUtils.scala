@@ -254,7 +254,8 @@ object ReleaseUtils {
   ): String = {
     val source = archPackageSource(origin)
     // Note: pkgver must only contain letters, numbers and periods to be valid
-    s"""pkgname=bloop
+    s"""# Maintainer: Guillaume Raffin <theelectronwill@gmail.com>
+       |pkgname=bloop
        |pkgver=${version.replace('-', '.').replace('+', '.')}
        |pkgrel=1
        |pkgdesc="Bloop gives you fast edit/compile/test workflows for Scala."
@@ -300,7 +301,7 @@ object ReleaseUtils {
        |  # systemd service
        |  install -Dm644 systemd/bloop.service "$$pkgdir"/usr/lib/systemd/user/bloop.service
        |}
-    """.stripMargin
+    |""".stripMargin
   }
 
   def generateArchInfoContents(
@@ -309,18 +310,19 @@ object ReleaseUtils {
       installSha: String
   ): String = {
     val source = archPackageSource(origin)
-    s"""pkgname=bloop
-       |pkgdesc=Bloop gives you fast edit/compile/test workflows for Scala.
-       |pkgver=${version.replace('-', '.').replace('+', '.')}
-       |pkgrel=1
-       |url=https://scalacenter.github.io/bloop/
-       |arch=any
-       |license=Apache
-       |depends=scala
-       |depends=python
-       |source=$source
-       |sha256sums=$installSha
-    """.stripMargin
+    s"""pkgbase = bloop
+       |pkgdesc = Bloop gives you fast edit/compile/test workflows for Scala.
+       |pkgver = ${version.replace('-', '.').replace('+', '.')}
+       |pkgrel = 1
+       |url = https://scalacenter.github.io/bloop/
+       |arch = any
+       |license = Apache
+       |depends = scala
+       |depends = python
+       |source = $source
+       |sha256sums = $installSha
+       |pkgname = bloop
+    |""".stripMargin
   }
 
   /**
