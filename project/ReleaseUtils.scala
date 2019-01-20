@@ -168,7 +168,7 @@ object ReleaseUtils {
     cloneAndPushTag(repository, buildBase, version, token) { inputs =>
       val formulaFileName = "bloop.rb"
       val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), installSha, false)
-      FormulaArtifact(inputs.base / formulaFileName, contents)
+      FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
   }
 
@@ -238,7 +238,7 @@ object ReleaseUtils {
            |  }
            |}
         """.stripMargin
-      FormulaArtifact(inputs.base / formulaFileName, contents)
+      FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
   }
 
@@ -342,7 +342,7 @@ object ReleaseUtils {
   private final val bloopoidName = "Bloopoid"
   private final val bloopoidEmail = "bloop@trashmail.ws"
   def cloneAndPushTag(repository: String, buildBase: File, version: String, auth: GitAuth)(
-      generateFormula: FormulaInputs => FormulaArtifact
+      generateFormula: FormulaInputs => Seq[FormulaArtifact]
   ): Unit = {
     val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {
       throw new MessageOnlyException("No tag found in this repository.")
@@ -350,12 +350,12 @@ object ReleaseUtils {
     IO.withTemporaryDirectory { tmpDir =>
       GitUtils.clone(repository, tmpDir, auth) { gitRepo =>
         val commitMessage = s"Updating to Bloop $tagName"
-        val artifact = generateFormula(FormulaInputs(tagName, tmpDir))
-        IO.write(artifact.target, artifact.contents)
-        val changed = artifact.target.getName :: Nil
+        val artifacts = generateFormula(FormulaInputs(tagName, tmpDir))
+        artifacts.foreach(a => IO.write(a.target, a.contents))
+        val changes = artifacts.map(a => a.target.getName)
         GitUtils.commitChangesIn(
           gitRepo,
-          changed,
+          changes,
           commitMessage,
           bloopoidName,
           bloopoidEmail
