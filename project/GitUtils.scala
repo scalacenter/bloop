@@ -42,20 +42,33 @@ object GitUtils {
   /** The latest tag in this repository. */
   def latestTagIn(git: Git): Option[String] = Option(git.describe().call())
 
+  /** Function that takes a TransportCommand and applies some authentication method on it. */
   type GitAuth = TransportCommand[_,_] => Unit
 
+  /** Github access token given by the environment variable BLOOPOID_GITHUB_TOKEN. */
   private def getEnvToken: String = sys.env.get("BLOOPOID_GITHUB_TOKEN").getOrElse {
     throw new MessageOnlyException("Couldn't find Github oauth token in `BLOOPOID_GITHUB_TOKEN`")
   }
 
+  /** SSH private key file given by the environment variable BLOOPOID_AUR_KEY_PATH. */
   private def getEnvKey: File = sys.env.get("BLOOPOID_AUR_KEY_PATH").map(new File(_)).getOrElse {
     throw new MessageOnlyException("Couldn't find AUR ssh key in `BLOOPOID_AUR_KEY_PATH`")
   }
 
+  /**
+   * Returns a function that uses the given access token to authenticate the user with jgit.
+   *
+   * @param token the access token
+   */
   def authToken(token: String = getEnvToken): GitAuth = {
     _.setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
   }
 
+  /**
+   * Returns a function that uses the given SSH key to authenticate the user with jgit.
+   *
+   * @param keyFile the file that contains the private SSH key
+   */
   def authSshKey(keyFile: File = getEnvKey): GitAuth = {
     import com.jcraft.jsch.Session
     import org.eclipse.jgit.api.TransportConfigCallback

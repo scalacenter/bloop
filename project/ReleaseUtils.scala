@@ -365,6 +365,8 @@ object ReleaseUtils {
 
   private final val bloopoidName = "Bloopoid"
   private final val bloopoidEmail = "bloop@trashmail.ws"
+
+  /** Clones a git repository, generates a formula/package and pushes the result.*/
   def cloneAndPush(repository: String, buildBase: File, version: String, auth: GitAuth, pushTag: Boolean)(
       generateFormula: FormulaInputs => Seq[FormulaArtifact]
   ): Unit = {
