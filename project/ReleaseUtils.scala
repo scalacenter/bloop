@@ -270,16 +270,23 @@ object ReleaseUtils {
        |  # fix paths
        |  sed -i "s|$$srcdir/bloop|/usr/bin|g" bloop/systemd/bloop.service
        |  sed -i "s|$$srcdir/bloop/xdg|/usr/share/pixmaps|g" bloop/xdg/bloop.desktop
-       |  sed -i "s|$$srcdir/bloop|/usr/bin|g" bloop/xdg/bloop.desktop
+       |  sed -i "s|$$srcdir/bloop|/usr/lib/bloop|g" bloop/xdg/bloop.desktop
        |}
        |
        |package() {
        |  cd "$$srcdir/bloop"
        |
-       |  # binaries
-       |  install -Dm755 blp-server "$$pkgdir"/usr/bin/blp-server
-       |  install -Dm755 blp-coursier "$$pkgdir"/usr/bin/blp-coursier
-       |  install -Dm755 bloop "$$pkgdir"/usr/bin/bloop
+       |  ## binaries
+       |  # we use /usr/lib/bloop so that we can add a .jvmopts file in it
+       |  install -Dm755 blp-server "$$pkgdir"/usr/lib/bloop/blp-server
+       |  install -Dm755 blp-coursier "$$pkgdir"/usr/lib/bloop/blp-coursier
+       |  install -Dm755 bloop "$$pkgdir"/usr/lib/bloop/bloop
+       |
+       |  # links in /usr/bin
+       |  mkdir -p "$$pkgdir/usr/bin"
+       |  ln -s /usr/lib/bloop/blp-server "$$pkgdir"/usr/bin/blp-server
+       |  ln -s /usr/lib/bloop/blp-coursier "$$pkgdir"/usr/bin/blp-coursier
+       |  ln -s /usr/lib/bloop/bloop "$$pkgdir"/usr/bin/bloop
        |
        |  # desktop file
        |  install -Dm644 xdg/bloop.png "$$pkgdir"/usr/share/pixmaps/bloop.png
