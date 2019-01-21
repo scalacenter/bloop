@@ -33,7 +33,7 @@ abstract class Reporter(
     val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
 ) extends xsbti.Reporter
     with ConfigurableReporter {
-  case class PositionId(sourcePath: String, pointer: Int)
+  case class PositionId(sourcePath: String, offset: Int)
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]
 
@@ -81,9 +81,9 @@ abstract class Reporter(
       supress
     }
 
-    (InterfaceUtil.toOption(pos.sourcePath()), InterfaceUtil.toOption(pos.pointer())) match {
-      case (Some(sourcePath), Some(pointer)) =>
-        val positionId = PositionId(sourcePath, pointer)
+    (InterfaceUtil.toOption(pos.sourcePath()), InterfaceUtil.toOption(pos.offset())) match {
+      case (Some(sourcePath), Some(offset)) =>
+        val positionId = PositionId(sourcePath, offset)
         _severities.get(positionId) match {
           case Some(xsbti.Severity.Error) => processNewPosition(positionId, true)
           case Some(severity) if severity == problem.severity =>

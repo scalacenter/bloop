@@ -491,6 +491,24 @@ class CompileSpec {
   }
 
   @Test
+  def avoidAggressiveDiagnosticDeduplication(): Unit = {
+    object Sources {
+      val `A.scala` =
+        """object Dep {
+          |  val a1: Int = ""
+          |  val a2: Int = ""
+          |}""".stripMargin
+    }
+
+    val deps = Map.empty[String, Set[String]]
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val structure = Map(RootProject -> Map("A.scala" -> Sources.`A.scala`))
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      assertEquals(logger.errors.size.toLong, 4.toLong)
+    }
+  }
+
+  @Test
   def compileWithErrorAndRollbackToNoOp(): Unit = {
     // This test checks that we're using a transactional class file manager
     object Sources {
