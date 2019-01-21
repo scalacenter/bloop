@@ -255,6 +255,7 @@ object ReleaseUtils {
     val source = archPackageSource(origin)
     // Note: pkgver must only contain letters, numbers and periods to be valid
     s"""# Maintainer: Guillaume Raffin <theelectronwill@gmail.com>
+       |# Generator: Bloop release utilities <https://github.com/scalacenter/bloop>
        |pkgname=bloop
        |pkgver=${version.replace('-', '.').replace('+', '.')}
        |pkgrel=1
