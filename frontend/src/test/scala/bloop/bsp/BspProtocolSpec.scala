@@ -1039,12 +1039,11 @@ class BspProtocolSpec {
   }
 
   @Test def TestCompileViaLocal(): Unit = {
-    testCompileClearingDiagnostics(createLocalBspCommand(_))
     if (!BspServer.isWindows) {
-      //testCompile(createLocalBspCommand(configDir))
-      //testCompilePreviousProblemsAreReported(createLocalBspCommand(configDir))
+      testCompile(createLocalBspCommand(configDir))
+      testCompilePreviousProblemsAreReported(createLocalBspCommand(configDir))
 
-      //testCompileClearingDiagnostics(createLocalBspCommand(_))
+      testCompileClearingDiagnostics(createLocalBspCommand(_))
     }
   }
 
