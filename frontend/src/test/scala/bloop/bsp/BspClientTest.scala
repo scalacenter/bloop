@@ -99,11 +99,12 @@ object BspClientTest {
       customServices: Services => Services = identity[Services],
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
-      addDiagnosticsHandler: Boolean = true
+      addDiagnosticsHandler: Boolean = true,
+      userState: Option[State] = None
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Option[T] = {
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
-    val state = {
+    val state = userState.getOrElse {
       val id = identity[List[Project]] _
       val state0 = TestUtil.loadTestProject(configDirectory.underlying, id).copy(logger = logger)
       // Return if we plan to reuse it, BSP reloads the state based on the state cache
@@ -235,7 +236,8 @@ object BspClientTest {
       bspCmd: Commands.ValidatedBsp,
       testActions: List[BspClientAction],
       configDir: AbsolutePath,
-      expectErrors: Boolean = false
+      expectErrors: Boolean = false,
+      userState: Option[State] = None
   ): Map[bsp.BuildTargetIdentifier, String] = {
     var compileIteration = 1
     val compilationResults = new StringBuilder()
@@ -468,7 +470,8 @@ object BspClientTest {
         configDir,
         logger,
         addServicesTest,
-        addDiagnosticsHandler = false
+        addDiagnosticsHandler = false,
+        userState = userState
       ) { c =>
         implicit val client = c
         endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
