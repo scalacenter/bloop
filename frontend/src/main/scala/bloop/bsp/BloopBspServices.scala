@@ -146,7 +146,9 @@ final class BloopBspServices(
     callSiteState.logger.info("BSP initialization handshake complete.")
   }
 
-  def ifInitialized[T](compute: BspComputation[T]): BspEndpointResponse[T] = {
+  def ifInitialized[T](
+      persistAnalysisFiles: Boolean = false
+  )(compute: BspComputation[T]): BspEndpointResponse[T] = {
     // Give a time window for `isInitialized` to complete, otherwise assume it didn't happen
     isInitializedTask
       .timeoutTo(
@@ -157,7 +159,11 @@ final class BloopBspServices(
         case Left(e) => Task.now(Left(e))
         case Right(_) =>
           reloadState(currentState.build.origin).flatMap { state =>
-            compute(state).flatMap { case (state, e) => saveState(state).map(_ => e) }
+            compute(state).flatMap {
+              case (state, e) =>
+                if (!persistAnalysisFiles) Task.now(e)
+                else saveState(state).map(_ => e)
+            }
           }
       }
   }
@@ -287,7 +293,7 @@ final class BloopBspServices(
   }
 
   def compile(params: bsp.CompileParams): BspEndpointResponse[bsp.CompileResult] = {
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -311,7 +317,7 @@ final class BloopBspServices(
       Tasks.test(state, List(project), Nil, testFilter, handler)
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -380,7 +386,7 @@ final class BloopBspServices(
       }
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
       mapToProject(params.target, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -446,7 +452,7 @@ final class BloopBspServices(
   def buildTargets(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargets] = {
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       def reportBuildError(msg: String): Unit = {
         endpoints.Build.showMessage.notify(
           ShowMessageParams(MessageType.Error, None, None, msg)
@@ -514,7 +520,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -550,7 +556,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -586,7 +592,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code

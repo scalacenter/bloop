@@ -587,9 +587,14 @@ class BspProtocolSpec {
   ): Unit = {
     import BspClientTest.BspClientAction._
     TestUtil.withinWorkspace { baseDir =>
-      val validContents =
-        """object A {
+      val validContentsA =
+        """object A extends Base {
           |  val x = 2
+          |}""".stripMargin
+
+      val validContentsBase =
+        """trait Base {
+          |  val x: Int
           |}""".stripMargin
 
       val projectA = TestProject(
@@ -597,41 +602,44 @@ class BspProtocolSpec {
         "ticket-785",
         List(
           s"""/main/scala/A.scala
-             |${validContents}""".stripMargin
+             |${validContentsA}""".stripMargin,
+          s"""/main/scala/Base.scala
+             |${validContentsBase}""".stripMargin
         ),
         scalacOptions = List("-Ywarn-unused:imports", "-Yrangepos")
       )
 
       val `A.scala` = projectA.srcFor("main/scala/A.scala")
+      val `Base.scala` = projectA.srcFor("main/scala/Base.scala")
       val configDir = TestProject.populateWorkspace(baseDir, List(projectA))
       val cmd = createBspCommand(configDir)
       val actions = List(
         Compile(projectA.bspId),
         OverwriteFile(
           `A.scala`,
-          """object A {
+          """object A extends Base {
             |  val x = 1
             |  val x = 2
             |}""".stripMargin
         ),
         Compile(projectA.bspId),
-        OverwriteFile(`A.scala`, validContents),
+        OverwriteFile(`A.scala`, validContentsA),
         Compile(projectA.bspId),
         OverwriteFile(
           `A.scala`,
           """import java.nio.file.Files
-            |object A {
+            |object A extends Base {
             |  val x = 1
             |  val x = 2
             |}""".stripMargin
         ),
         Compile(projectA.bspId),
-        OverwriteFile(`A.scala`, validContents),
+        OverwriteFile(`A.scala`, validContentsA),
         Compile(projectA.bspId),
         OverwriteFile(
           `A.scala`,
           """import java.nio.file.Files
-            |object A {
+            |object A extends Base {
             |  val x = 2
             |}""".stripMargin
         ),
@@ -639,7 +647,7 @@ class BspProtocolSpec {
         OverwriteFile(
           `A.scala`,
           """import java.nio.file.Files
-            |object A {
+            |object A extends Base {
             |  val x = 1
             |  val x = 2
             |}""".stripMargin
@@ -648,8 +656,25 @@ class BspProtocolSpec {
         OverwriteFile(
           `A.scala`,
           """import java.nio.file.Files
-            |object A {
+            |object A extends Base {
             |  val x = 2
+            |}""".stripMargin
+        ),
+        Compile(projectA.bspId),
+        OverwriteFile(`A.scala`, validContentsA),
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `Base.scala`,
+          """trait Base {
+            |  val y: Int
+            |}""".stripMargin
+        ),
+        Compile(projectA.bspId),
+        OverwriteFile(
+          `Base.scala`,
+          """trait Base {
+            |  // Force recompilation
+            |  val x: Int
             |}""".stripMargin
         ),
         Compile(projectA.bspId)
@@ -659,7 +684,7 @@ class BspProtocolSpec {
       BspClientTest.checkDiagnostics(diagnostics)(
         projectA.bspId,
         s"""#1: task start 1
-           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Msg: Compiling ticket-785 (2 Scala sources)
            |  -> Data kind: compile-task
            |#1: task finish 1
            |  -> errors 0, warnings 0
@@ -738,6 +763,43 @@ class BspProtocolSpec {
            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
            |  -> reset = true
            |#8: task finish 8
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#9: task start 9
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#9: ticket-785/src/main/scala/A.scala
+           |  -> List()
+           |  -> reset = true
+           |#9: task finish 9
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#10: task start 10
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#10: task finish 10
+           |  -> errors 0, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#10: task start 10
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#10: ticket-785/src/main/scala/A.scala
+           |  -> List(Diagnostic(Range(Position(0,0),Position(2,1)),Some(Error),None,None,object creation impossible, since value y in trait Base of type Int is not defined,None))
+           |  -> reset = true
+           |#10: task finish 10
+           |  -> errors 1, warnings 0
+           |  -> Msg: Compiled 'ticket-785'
+           |  -> Data kind: compile-report
+           |#11: task start 11
+           |  -> Msg: Compiling ticket-785 (1 Scala source)
+           |  -> Data kind: compile-task
+           |#11: ticket-785/src/main/scala/A.scala
+           |  -> List()
+           |  -> reset = true
+           |#11: task finish 11
            |  -> errors 0, warnings 0
            |  -> Msg: Compiled 'ticket-785'
            |  -> Data kind: compile-report""".stripMargin

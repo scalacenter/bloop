@@ -102,6 +102,11 @@ final class BspProjectReporter(
     }
   }
 
+  private case class CycleInputs(
+      isLastCycle: Boolean,
+      previousSuccessfulProblems: Map[File, List[ProblemPerPhase]]
+  )
+
   /** Holds a thunk that reports the end of the previous incremental cycle. It's added by
    * `reportEndIncrementalCycle` and we don't run it eagerly because we need to ensure that
    * all diagnostics (those, for example, coming from previous problemsii and only reported in
@@ -115,12 +120,12 @@ final class BspProjectReporter(
    *      when the thunk is run from `reportStartIncrementalCycle` we know a new cycle is coming
    *      and when it's run from `reportEndIncrementalCompilation` we know it's the last cycle.
    */
-  private var reportEndPreviousCycleThunk: Boolean => Option[bsp.StatusCode] => Unit =
-    (_: Boolean) => (_: Option[bsp.StatusCode]) => ()
+  private var reportEndPreviousCycleThunk: CycleInputs => Option[bsp.StatusCode] => Unit =
+    (_: CycleInputs) => (_: Option[bsp.StatusCode]) => ()
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
     cycleCount += 1
-    reportEndPreviousCycleThunk( /* is the last incremental cycle? */ false)(None)
+    reportEndPreviousCycleThunk(CycleInputs(false, Map.empty))(None)
     val msg = compilationMsgFor(project.name, sources)
     logger.publishCompileStart(project, msg, taskId)
     sources.foreach(sourceFile => compilingFiles.+=(sourceFile -> true))
@@ -159,6 +164,7 @@ final class BspProjectReporter(
    */
   private def reportRemainingProblems(
       reportProblemsForTheFirstTime: Boolean,
+      previousSuccessfulProblemsAtEnd: Map[File, List[ProblemPerPhase]]
   ): Unit = {
     recentlyReportProblemsPerFile.foreach {
       case (sourceFile, problemsPerFile) =>
@@ -175,6 +181,23 @@ final class BspProjectReporter(
           if (reportProblemsForTheFirstTime) {
             // Log all problems received from analysis; this is 1st compilation of this target
             reportAllProblems(sourceFile, problemsPerFile)
+          } else {
+            previousSuccessfulProblemsAtEnd.get(sourceFile) match {
+              case Some(problemsInPreviousAnalysis) =>
+                if (problemsInPreviousAnalysis.map(_.problem) == problemsPerFile.map(_.problem)) {
+                  // If problems are the same, diagnostics in the editor are up-to-date, do nothing
+                  ()
+                } else {
+                  // Otherwise, log the diagnostics that were known in the previous iteration
+                  problemsInPreviousAnalysis.foreach {
+                    case ProblemPerPhase(problem, _) =>
+                      val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
+                      logger.diagnostic(project, problem, clear)
+                  }
+                }
+
+              case None => logger.noDiagnostic(project, sourceFile)
+            }
           }
         }
     }
@@ -196,14 +219,14 @@ final class BspProjectReporter(
     }
 
     // Add a thunk that we will run whenever we know if this is the last cycle or not
-    reportEndPreviousCycleThunk = (isLastCycle: Boolean) => {
-      (finalCompilationStatusCode: Option[bsp.StatusCode]) =>
-        {
-          val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
-          if (!isLastCycle) reportRemainingProblems(false)
-          else reportRemainingProblems(reportAllPreviousProblems)
-          logger.publishCompileEnd(project, taskId, allProblems, statusCode)
-        }
+    reportEndPreviousCycleThunk = (inputs: CycleInputs) => {
+      (finalCompilationStatusCode: Option[bsp.StatusCode]) => {
+        val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
+        // Do not pass in previous successful problems until it's the last incremental cycle
+        if (!inputs.isLastCycle) reportRemainingProblems(false, Map.empty)
+        else reportRemainingProblems(reportAllPreviousProblems, inputs.previousSuccessfulProblems)
+        logger.publishCompileEnd(project, taskId, allProblems, statusCode)
+      }
     }
   }
 
@@ -212,13 +235,13 @@ final class BspProjectReporter(
       currentAnalysis: Option[CompileAnalysis],
       code: bsp.StatusCode
   ): Unit = {
+    val problemsInPreviousAnalysisPerFile = groupProblemsByFile(
+      AnalysisUtils.problemsFrom(previousAnalysis)
+    )
+
     if (cycleCount == 0) {
       // When no-op, we keep reporting the start and the end of compilation for consistency
       logger.publishCompileStart(project, s"Start no-op compilation for ${project.name}", taskId)
-
-      // Note the analysis file only contains non-error problems
-      val problemsInPreviousAnalysisPerFile =
-        groupProblemsByFile(AnalysisUtils.problemsFrom(previousAnalysis))
 
       recentlyReportProblemsPerFile.foreach {
         case (sourceFile, problemsPerFile) if reportAllPreviousProblems =>
@@ -245,7 +268,7 @@ final class BspProjectReporter(
       logger.publishCompileEnd(project, taskId, allProblems, code)
     } else {
       // Great, let's report the pending end incremental cycle as the last one
-      reportEndPreviousCycleThunk( /* is the last incremental cycle? */ true)(Some(code))
+      reportEndPreviousCycleThunk(CycleInputs(true, problemsInPreviousAnalysisPerFile))(Some(code))
     }
 
     // Clear the state of files with problems at the end of compilation
