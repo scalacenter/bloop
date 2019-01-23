@@ -23,7 +23,7 @@ final class BspProjectReporter(
     reportAllPreviousProblems: Boolean,
     override val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
 ) extends Reporter(logger, cwd, config, _problems) {
-  private val taskId = logger.nextTaskId
+  private lazy val taskId = logger.nextTaskId
 
   /** A cycle count, initialized to 0 when it's a no-op. */
   private var cycleCount: Int = 0
