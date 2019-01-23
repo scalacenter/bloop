@@ -159,7 +159,6 @@ object CompileTask {
     }
 
     def setup(project: Project, dag: Dag[Project]): Task[CompileBundle] = {
-
       // Create a multicast observable stream to allow multiple mirrors of loggers
       val (observer, observable) = {
         Observable.multicast[Either[ReporterAction, LoggerAction]](

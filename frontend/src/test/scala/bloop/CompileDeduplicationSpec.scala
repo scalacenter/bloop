@@ -1,6 +1,6 @@
 package bloop
 
-import bloop.cli.{Commands, ExitStatus}
+import bloop.cli.{Commands, ExitStatus, BspProtocol, CliOptions}
 import bloop.logging.{RecordingLogger, DebugFilter}
 import bloop.util.{TestUtil, BuildUtil}
 import bloop.engine.{Run, State}
@@ -9,11 +9,13 @@ import bloop.io.AbsolutePath
 import bloop.bsp.BspClientTest
 import bloop.bsp.BspClientTest.BspClientAction
 import bloop.engine.ExecutionContext
+import bloop.engine.caches.ResultsCache
 
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.experimental.categories.Category
 import org.junit.{Assert, Test}
 
+import ch.epfl.scala.bsp.BuildTargetIdentifier
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Await
@@ -25,7 +27,7 @@ class CompileDeduplicationSpec {
   def deduplicateCompilationViaCli(): Unit = {
     val logger = new RecordingLogger
     BuildUtil.testSlowBuild(logger) { build =>
-      import build.state
+      val state = build.state.copy(results = ResultsCache.emptyForTests)
       val compileMacroProject = Run(Commands.Compile(List("macros")))
       val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
       Assert.assertTrue(
@@ -101,7 +103,7 @@ class CompileDeduplicationSpec {
   }
 
   @Test
-  def deduplicateCompilationViaBspAndCli(): Unit = {
+  def deduplicateCompilationInMultipleBspAndCliClients(): Unit = {
     val logger = new RecordingLogger
     BuildUtil.testSlowBuild(logger) { build =>
       val compileMacroProject = Run(Commands.Compile(List("macros")))
@@ -113,63 +115,100 @@ class CompileDeduplicationSpec {
         compiledMacrosState.status.isOk
       )
 
+      /* Set up four clients: two BSP clients and two CLI clients. One of the BSP
+       * clients is the one that gets to trigger the compilation in the first place
+       * and the rest of the clients reuse it and replay all events generated during
+       * the compilation. Afterwards, we test all of them see the same thing. */
+
       val cliLogger1 = new RecordingLogger(debugFilter = DebugFilter.Compilation)
       val cliLogger2 = new RecordingLogger(debugFilter = DebugFilter.Compilation)
-      val bspLogger = new RecordingLogger(debugFilter = DebugFilter.Compilation)
+      val bspLogger1 = new RecordingLogger(debugFilter = DebugFilter.Compilation)
+      val bspLogger2 = new RecordingLogger(debugFilter = DebugFilter.Compilation)
       val compileUserProject = Run(Commands.Compile(List("user")))
 
+      // Spawn first CLI client in two seconds
       val cliCompilation1 = TestUtil
         .interpreterTask(compileUserProject, compiledMacrosState.copy(logger = cliLogger1))
         .delayExecution(FiniteDuration(2, TimeUnit.SECONDS))
         .runAsync(ExecutionContext.scheduler)
 
+      // Spawn second CLI client in two seconds
       val cliCompilation2 = TestUtil
         .interpreterTask(compileUserProject, compiledMacrosState.copy(logger = cliLogger2))
         .delayExecution(FiniteDuration(2, TimeUnit.SECONDS))
         .runAsync(ExecutionContext.scheduler)
 
       val configDir = compiledMacrosState.build.origin
-      val cmd = BspClientTest.createTcpBspCommand(configDir, false)
       val actions = List(BspClientAction.Compile(build.userProject.bspId))
 
-      // This is a blocking request, so after it returns the bsp compilation is done
-      val bspState = compiledMacrosState.copy(logger = bspLogger)
-      val bspDiagnostics = BspClientTest.runCompileTest(
-        cmd,
-        actions,
-        configDir,
-        userState = Some(bspState)
-      )
+      // Spawn second BSP client in two seconds
+      val bspCompilationDiagnostics2 = Task {
+        val cmd = {
+          val bspCmd = Commands.Bsp(protocol = BspProtocol.Tcp, port = 5102)
+          BspClientTest.validateBsp(bspCmd, configDir)
+        }
 
-      // The cli compilation reuses the same BSP compile request and returns almost immediately
+        // Use our own scheduler because `runCompileTest` uses a fixed 4 thread pool
+        val userScheduler = Some(ExecutionContext.scheduler)
+        val userState = Some(compiledMacrosState.copy(logger = bspLogger2))
+        BspClientTest.runCompileTest(
+          cmd,
+          actions,
+          configDir,
+          userState = userState,
+          userScheduler = userScheduler
+        )
+      }.delayExecution(FiniteDuration(2, TimeUnit.SECONDS)).runAsync(ExecutionContext.scheduler)
+
+      // Proceed to spawn the driver BSP client and block on its result
+      val bspDiagnostics1 = {
+        val cmd = BspClientTest.createTcpBspCommand(configDir, false)
+        val userState = Some(compiledMacrosState.copy(logger = bspLogger1))
+        BspClientTest.runCompileTest(cmd, actions, configDir, userState = userState)
+      }
+
+      // The cli compilation reuses the same BSP compile request and returns ~immediately
       val cliCompilationState1 =
-        Await.result(cliCompilation1, FiniteDuration(500, TimeUnit.MILLISECONDS))
+        Await.result(cliCompilation1, FiniteDuration(600, TimeUnit.MILLISECONDS))
       val cliCompilationState2 =
-        Await.result(cliCompilation2, FiniteDuration(100, TimeUnit.MILLISECONDS))
+        Await.result(cliCompilation2, FiniteDuration(50, TimeUnit.MILLISECONDS))
+      val bspDiagnostics2 =
+        Await.result(bspCompilationDiagnostics2, FiniteDuration(50, TimeUnit.MILLISECONDS))
 
-      // As macros is compiled and its analysis file is persisted, `macros` is a no-op
-      BspClientTest.checkDiagnostics(bspDiagnostics)(
+      // Macros is only compiled by the first BSP compile request
+      BspClientTest.checkDiagnostics(bspDiagnostics1)(
         build.macroProject.bspId,
-        """#1: task start 2
+        """#1: task start 1
           |  -> Msg: Start no-op compilation for macros
           |  -> Data kind: compile-task
-          |#1: task finish 2
+          |#1: task finish 1
           |  -> errors 0, warnings 0
           |  -> Msg: Compiled 'macros'
           |  -> Data kind: compile-report""".stripMargin
       )
 
-      // The compilation of the user project is successfully triggered
-      BspClientTest.checkDiagnostics(bspDiagnostics)(
-        build.userProject.bspId,
-        """#1: task start 1
-          |  -> Msg: Compiling user (1 Scala source)
-          |  -> Data kind: compile-task
-          |#1: task finish 1
-          |  -> errors 0, warnings 0
-          |  -> Msg: Compiled 'user'
-          |  -> Data kind: compile-report""".stripMargin
-      )
+      // The second BSP compile request doesn't receive any notification related to the macros project
+      BspClientTest.checkDiagnostics(bspDiagnostics2)(build.macroProject.bspId, "")
+
+      def checkBspDiagnostics(
+          expectedId: Int,
+          diagnostics: Map[BuildTargetIdentifier, String]
+      ): Unit = {
+        // The compilation of the user project is successfully triggered
+        BspClientTest.checkDiagnostics(diagnostics)(
+          build.userProject.bspId,
+          s"""#1: task start ${expectedId}
+             |  -> Msg: Compiling user (1 Scala source)
+             |  -> Data kind: compile-task
+             |#1: task finish ${expectedId}
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'user'
+             |  -> Data kind: compile-report""".stripMargin
+        )
+      }
+
+      checkBspDiagnostics(2, bspDiagnostics1)
+      checkBspDiagnostics(1, bspDiagnostics2)
 
       // Although BSP request triggered compilation, compilation events are replayed for CLI streams
       TestUtil.assertNoDiff(
@@ -177,11 +216,14 @@ class CompileDeduplicationSpec {
         cliLogger1.compilingInfos.mkString(System.lineSeparator)
       )
 
-      val cliCompileDebugMessages = cliLogger1.getMessagesAt(Some("debug"))
+      def stableDebugInfosFrom(logger: RecordingLogger): List[String] =
+        logger.getMessagesAt(Some("debug")).filterNot(_.contains("compiler-bridge"))
+
+      val cliCompileDebugMessages = stableDebugInfosFrom(cliLogger1)
       val firstCliDebugMessage = cliCompileDebugMessages.head
-      // Pick only last bsp messages which correspond to the user project and not the macros project
       val bspCompileDebugMessages = {
-        bspLogger.getMessagesAt(Some("debug")).dropWhile(msg => msg != firstCliDebugMessage)
+        // Pick only last bsp messages which correspond to the user project and not the macros project
+        stableDebugInfosFrom(bspLogger1).dropWhile(msg => msg != firstCliDebugMessage)
       }
 
       // Assert that debug messages are identical for both clients (replaying log events works)
