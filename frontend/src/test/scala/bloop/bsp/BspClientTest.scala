@@ -86,7 +86,7 @@ object BspClientTest {
   }
 
   // We limit the scheduler on purpose so that we don't have any thread leak.
-  val scheduler: Scheduler = Scheduler(
+  val defaultScheduler: Scheduler = Scheduler(
     java.util.concurrent.Executors.newFixedThreadPool(4),
     ExecutionModel.AlwaysAsyncExecution
   )
@@ -100,8 +100,10 @@ object BspClientTest {
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
       addDiagnosticsHandler: Boolean = true,
-      userState: Option[State] = None
+      userState: Option[State] = None,
+      userScheduler: Option[Scheduler] = None
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Option[T] = {
+    val scheduler = userScheduler.getOrElse(defaultScheduler)
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
     val state = userState.getOrElse {
@@ -237,7 +239,8 @@ object BspClientTest {
       testActions: List[BspClientAction],
       configDir: AbsolutePath,
       expectErrors: Boolean = false,
-      userState: Option[State] = None
+      userState: Option[State] = None,
+      userScheduler: Option[Scheduler] = None
   ): Map[bsp.BuildTargetIdentifier, String] = {
     var compileIteration = 1
     val compilationResults = new StringBuilder()
@@ -471,7 +474,8 @@ object BspClientTest {
         logger,
         addServicesTest,
         addDiagnosticsHandler = false,
-        userState = userState
+        userState = userState,
+        userScheduler = userScheduler
       ) { c =>
         implicit val client = c
         endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
