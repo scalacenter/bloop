@@ -29,7 +29,8 @@ object Bloop extends CaseApp[CliOptions] {
     val logger = BloopLogger.default(configDirectory.syntax)
     logger.warn("The Nailgun integration should be preferred over the Bloop shell.")
     logger.warn(
-      "The Bloop shell provides less features, is not supported and can be removed without notice.")
+      "The Bloop shell provides less features, is not supported and can be removed without notice."
+    )
     logger.warn("Please refer to our documentation for more information.")
     val projects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, projects)
@@ -48,7 +49,10 @@ object Bloop extends CaseApp[CliOptions] {
       }
 
       // Recover the state if the previous task has been successful.
-      State.stateCache.getStateFor(origin).getOrElse(state)
+      State.stateCache
+        .getStateFor(origin, state.pool, options.common, state.logger)
+        .getOrElse(state)
+
     }
 
     val input = reader.readLine()
