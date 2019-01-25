@@ -62,12 +62,6 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, State]) {
       case None => computeBuild(from).map(s => { cache.put(from, s); s })
     }
   }
-
-  /** All the states contained in this cache. */
-  def allStates: Iterator[State] = {
-    import scala.collection.JavaConverters._
-    cache.asScala.valuesIterator
-  }
 }
 
 object StateCache {

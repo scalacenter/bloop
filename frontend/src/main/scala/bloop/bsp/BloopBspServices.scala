@@ -8,6 +8,7 @@ import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.data.{Platform, Project}
 import bloop.engine.tasks.{CompileTask, Tasks}
+import bloop.engine.tasks.compilation.CompileOutPaths
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.engine._
 import bloop.internal.build.BuildInfo
@@ -239,6 +240,7 @@ final class BloopBspServices(
       }
 
       val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
+      val compileOut = CompileOutPaths(dag)
       CompileTask.compile(
         state,
         dag,
@@ -247,7 +249,8 @@ final class BloopBspServices(
         pipeline,
         false,
         cancelCompilation,
-        bspLogger
+        bspLogger,
+        compileOut
       )
     }
 

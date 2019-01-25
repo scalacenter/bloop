@@ -12,6 +12,7 @@ import bloop.reporter.{ReporterConfig, ReporterInputs, LogReporter}
 import bloop.testing.{DiscoveredTestFrameworks, NoopEventHandler, TestInternals}
 import bloop.util.TestUtil
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask}
+import bloop.engine.tasks.compilation.CompileOutPaths
 import bloop.engine.{ExecutionContext, State}
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
@@ -41,8 +42,19 @@ object JvmTestSpec {
     val createReporter = (inputs: ReporterInputs[Logger]) =>
       new LogReporter(inputs.project, inputs.logger, inputs.cwd, format)
     val dag = state0.build.getDagFor(project)
+    val out = CompileOutPaths(dag)
     val compileTask =
-      CompileTask.compile(state0, dag, createReporter, order, false, false, Promise[Unit](), logger)
+      CompileTask.compile(
+        state0,
+        dag,
+        createReporter,
+        order,
+        false,
+        false,
+        Promise[Unit](),
+        logger,
+        out
+      )
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
     val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
