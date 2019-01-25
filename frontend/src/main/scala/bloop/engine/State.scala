@@ -23,7 +23,7 @@ import monix.eval.Task
  * @param status The status in which the state is currently.
  * @param logger The logger that is used and is associated with a given build.
  */
-final case class State private (
+final case class State private[engine] (
     build: Build,
     results: ResultsCache,
     compilerCache: CompilerCache,
@@ -61,7 +61,6 @@ object State {
     val compilerCache = getCompilerCache(logger)
     State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
   }
-  import bloop.io.AbsolutePath
 
   /**
    * Loads an state active for the given configuration directory.
@@ -73,18 +72,19 @@ object State {
    * @return An state (cached or not) associated with the configuration directory.
    */
   def loadActiveStateFor(
-      configDir: AbsolutePath,
+      configDir: bloop.io.AbsolutePath,
       pool: ClientPool,
       opts: CommonOptions,
       logger: Logger
   ): Task[State] = {
-    val cached = State.stateCache.addIfMissing(configDir, path => {
+    def loadState(path: bloop.io.AbsolutePath): Task[State] = {
       BuildLoader.load(configDir, logger).map { projects =>
         val build: Build = Build(configDir, projects)
         State(build, pool, opts, logger)
       }
-    })
+    }
 
+    val cached = State.stateCache.addIfMissing(configDir, pool, opts, logger, loadState(_))
     cached.map(_.copy(pool = pool, commonOptions = opts, logger = logger))
   }
 
