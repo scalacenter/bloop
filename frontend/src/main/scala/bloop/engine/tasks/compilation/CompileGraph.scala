@@ -103,7 +103,7 @@ object CompileGraph {
   private val runningCompilations: RunningCompilationsInAllClients =
     new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
 
-  private val emptyOracle = ImmutableCompilerOracle.empty(runningCompilations)
+  private final val emptyOracle = ImmutableCompilerOracle.empty
 
   /**
    * Sets up project compilation, deduplicates compilation based on ongoing compilations in all
@@ -381,8 +381,7 @@ object CompileGraph {
                     val javaSignal: Task[JavaSignal] =
                       aggregateJavaSignals(results.map(_.javaTrigger))
 
-                    val oracle =
-                      new ImmutableCompilerOracle(results, Map.empty, runningCompilations)
+                    val oracle = new ImmutableCompilerOracle(results)
                     Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                       val jcf = new CompletableFuture[Unit]()
                       val t =

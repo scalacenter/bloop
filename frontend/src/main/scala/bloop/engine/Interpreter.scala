@@ -9,6 +9,7 @@ import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
+import bloop.engine.tasks.compilation.CompileOutPaths
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.data.{Platform, Project}
@@ -145,6 +146,7 @@ object Interpreter {
       val dag = getProjectsDag(projects, state)
       val createReporter = (inputs: ReporterInputs[Logger]) =>
         new LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
+      val out = CompileOutPaths(dag)
       CompileTask.compile(
         state,
         dag,
@@ -153,7 +155,8 @@ object Interpreter {
         cmd.pipeline,
         excludeRoot,
         Promise[Unit](),
-        state.logger
+        state.logger,
+        out
       )
     }
 

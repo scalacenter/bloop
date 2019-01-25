@@ -12,9 +12,6 @@ import xsbti.compile.FileHash
  */
 abstract class CompilerOracle[T] {
   def askForJavaSourcesOfIncompleteCompilations: List[File]
-  def askForClassesDirectory(inputs: CompilerOracle.Inputs): File
-  def learnScheduledCompilations(scheduled: List[T]): CompilerOracle[T]
-  def learnClassesDirectoryFor(inputs: CompilerOracle.Inputs, file: File): CompilerOracle[T]
 }
 
 object CompilerOracle {

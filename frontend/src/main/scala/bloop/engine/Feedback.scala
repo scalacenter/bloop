@@ -18,6 +18,9 @@ object Feedback {
     s"Failed to compile project '${project.name}': found Scala sources but project is missing Scala configuration."
   def missingInstanceForJavaCompilation(project: Project): String =
     s"Failed to compile Java sources in ${project.name}: default Zinc Scala instance couldn't be created!"
+  def missingCompileOutput(project: Project): String =
+    s"""Expected unique compile output mapped to ${project.classesDir}!
+       |This is a fatal error, report upstream.""".stripMargin
 
   def reportRecursiveTrace(trace: RecursiveTrace): String = {
     trace.visited.headOption match {
@@ -32,7 +35,8 @@ object Feedback {
       case Nil => None
       case missing :: Nil =>
         Some(
-          s"Missing project '$missing', may cause compilation issues in project '${project.name}'")
+          s"Missing project '$missing', may cause compilation issues in project '${project.name}'"
+        )
       case xs =>
         val deps = missing.map(m => s"'$m'").mkString(", ")
         Some(s"Missing projects $deps, may cause compilation issues in project '${project.name}'")

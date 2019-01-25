@@ -48,25 +48,41 @@ final case class CompileBundle(
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
 
-  def toSourcesAndInstance: Either[Compiler.Result, CompileSourcesAndInstance] = {
-    val uniqueSources = javaSources ++ scalaSources
-    project.scalaInstance match {
-      case Some(instance) =>
-        (scalaSources, javaSources) match {
-          case (Nil, Nil) => Left(Compiler.Result.Empty)
-          case (Nil, _ :: _) => Right(CompileSourcesAndInstance(uniqueSources, instance, true))
-          case _ => Right(CompileSourcesAndInstance(uniqueSources, instance, false))
+  def toBundleInputs(
+      out: CompileOutPaths
+  ): Either[Compiler.Result, CompileBundleInputs] = {
+    out.getOutputFor(project) match {
+      case Some(compileOut) =>
+        val clientClasspath = out.rewriteClasspath(classpath)
+        val uniqueSources = javaSources ++ scalaSources
+        def inputs(instance: ScalaInstance, javaOnly: Boolean): CompileBundleInputs =
+          CompileBundleInputs(uniqueSources, instance, compileOut, clientClasspath, javaOnly)
+
+        project.scalaInstance match {
+          case Some(instance) =>
+            (scalaSources, javaSources) match {
+              case (Nil, Nil) => Left(Compiler.Result.Empty)
+              case (Nil, _ :: _) => Right(inputs(instance, true))
+              case _ => Right(inputs(instance, false))
+            }
+          case None =>
+            (scalaSources, javaSources) match {
+              case (Nil, Nil) => Left(Compiler.Result.Empty)
+              case (_: List[AbsolutePath], Nil) =>
+                // Let's notify users there is no Scala configuration for a project with Scala sources
+                Left(Compiler.Result.GlobalError(Feedback.missingScalaInstance(project)))
+              case (_, _: List[AbsolutePath]) =>
+                // If Java sources exist, we cannot compile them without an instance, fail fast!
+                Left(
+                  Compiler.Result.GlobalError(Feedback.missingInstanceForJavaCompilation(project))
+                )
+            }
         }
+
       case None =>
-        (scalaSources, javaSources) match {
-          case (Nil, Nil) => Left(Compiler.Result.Empty)
-          case (_: List[AbsolutePath], Nil) =>
-            // Let's notify users there is no Scala configuration for a project with Scala sources
-            Left(Compiler.Result.GlobalError(Feedback.missingScalaInstance(project)))
-          case (_, _: List[AbsolutePath]) =>
-            // If Java sources exist, we cannot compile them without an instance, fail fast!
-            Left(Compiler.Result.GlobalError(Feedback.missingInstanceForJavaCompilation(project)))
-        }
+        Left(
+          Compiler.Result.GlobalError(Feedback.missingCompileOutput(project))
+        )
     }
   }
 
@@ -79,9 +95,11 @@ final case class CompileBundle(
   }
 }
 
-case class CompileSourcesAndInstance(
+case class CompileBundleInputs(
     sources: List[AbsolutePath],
     instance: ScalaInstance,
+    classesDir: AbsolutePath,
+    classpath: Array[AbsolutePath],
     javaOnly: Boolean
 )
 
