@@ -6,15 +6,18 @@ import bloop.data.Project
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
 import bloop.logging.{DebugFilter, Logger}
+
 import monix.eval.Task
+import monix.execution.Scheduler
+import scala.concurrent.Future
 
 /**
  * Represents the state for a given build. It contains client-specific
  * information, such as `logger`, `commonOptions` or `pool`. The state is
  * immutable and is changed during the execution.
  *
- * When the state is cached, these fields are appropriately replaced to meet
- * the needs of the new client.
+ * When the state is cached, the client-specific fields are removed. See more
+ * information about this process in [[StateCache]].
  *
  * @param build The build with which the state is associated.
  * @param results The results cache that contains all the analysis file for a build.
@@ -22,6 +25,7 @@ import monix.eval.Task
  * @param commonOptions The environment options necessary for input and output.
  * @param status The status in which the state is currently.
  * @param logger The logger that is used and is associated with a given build.
+ * @param backgroundTasks The tasks that a certain execution has scheduled in the background.
  */
 final case class State private[engine] (
     build: Build,
@@ -30,8 +34,24 @@ final case class State private[engine] (
     pool: ClientPool,
     commonOptions: CommonOptions,
     status: ExitStatus,
-    logger: Logger
+    logger: Logger,
+    private val backgroundTasks: List[Future[_]]
 ) {
+  def registerBackgroundTasks(ts: List[Future[_]]): State = {
+    this.copy(backgroundTasks = ts ++ backgroundTasks)
+  }
+
+  def blockOnBackgroundTasks: Task[State] = {
+    val targets = backgroundTasks.toList
+    if (targets.isEmpty) Task.now(this)
+    else {
+      // Turn the futures into tasks and block until all of them have finished
+      Task.gatherUnordered(backgroundTasks.toList.map(f => Task.fromFuture(f))).map { _ =>
+        new State(build, results, compilerCache, pool, commonOptions, status, logger, Nil)
+      }
+    }
+  }
+
   def mergeStatus(newStatus: ExitStatus): State =
     this.copy(status = ExitStatus.merge(status, newStatus))
 }
@@ -53,13 +73,13 @@ object State {
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
     val opts = CommonOptions.default
     val results = ResultsCache.load(build, opts.workingPath, logger)
-    State(build, results, compilerCache, NoPool, opts, ExitStatus.Ok, logger)
+    State(build, results, compilerCache, NoPool, opts, ExitStatus.Ok, logger, Nil)
   }
 
   def apply(build: Build, pool: ClientPool, opts: CommonOptions, logger: Logger): State = {
     val results = ResultsCache.load(build, opts.workingPath, logger)
     val compilerCache = getCompilerCache(logger)
-    State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
+    State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger, Nil)
   }
 
   /**

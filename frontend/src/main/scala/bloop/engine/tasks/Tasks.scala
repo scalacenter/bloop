@@ -8,7 +8,7 @@ import bloop.logging.DebugFilter
 import bloop.data.Project
 import bloop.engine.{Dag, State}
 import bloop.exec.{Forker, JavaEnv}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Timer}
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.testing.{LoggingEventHandler, TestSuiteEvent, TestSuiteEventHandler}
 import monix.eval.Task
@@ -87,9 +87,10 @@ object Tasks {
     def persist(project: Project, result: PreviousResult): Unit = {
       def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
         val storeFile = project.analysisOut
-        log(s"Writing ${storeFile.syntax}.")
-        FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
-        ResultsCache.persisted.add(result)
+        Timer.timed(log(_), Some(s"writing to ${storeFile.syntax}")) {
+          FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
+          ResultsCache.persisted.add(result)
+        }
         ()
       }
 
@@ -107,6 +108,8 @@ object Tasks {
       }
     }
 
+    // TODO: Only persist those analysis which have changed
+    // TODO: Add a way to specify the analysis changed from compilation directly
     val ts = state.results.allSuccessful.map { case (p, result) => Task(persist(p, result)) }
     Task.gatherUnordered(ts).map(_ => ())
   }

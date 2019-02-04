@@ -33,7 +33,8 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
         pool,
         commonOptions,
         ExitStatus.Ok,
-        logger
+        logger,
+        Nil
       )
     }
   }
