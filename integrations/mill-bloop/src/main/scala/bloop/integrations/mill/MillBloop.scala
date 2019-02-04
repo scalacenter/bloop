@@ -98,7 +98,7 @@ object Bloop extends ExternalModule {
       Config.Project(
         name = name(module),
         directory = module.millSourcePath.toNIO,
-        sources = module.sources().map(_.path.toNIO).toList,
+        sources = module.allSources().map(_.path.toNIO).toList,
         dependencies = module.moduleDeps.map(name).toList,
         classpath = classpath().map(_.toNIO).toList,
         out = out(module).toNIO,
