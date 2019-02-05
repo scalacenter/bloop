@@ -13,12 +13,15 @@ import bloop.cli.CliParsers.{
 import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
 import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
+import bloop.engine.ExecutionContext
 import bloop.logging.BloopLogger
 import caseapp.{CaseApp, RemainingArgs}
 import jline.console.ConsoleReader
 import _root_.monix.eval.Task
 
 import scala.annotation.tailrec
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()
@@ -32,9 +35,12 @@ object Bloop extends CaseApp[CliOptions] {
       "The Bloop shell provides less features, is not supported and can be removed without notice."
     )
     logger.warn("Please refer to our documentation for more information.")
-    val projects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, projects)
-    val state = State(build, NoPool, options.common, logger)
+    val stateTask = BuildLoader.load(configDirectory, logger).flatMap { projects =>
+      val build = Build(configDirectory, projects)
+      State(build, NoPool, options.common, logger)
+    }
+    val handle = stateTask.runAsync(ExecutionContext.ioScheduler)
+    val state = Await.result(handle, Duration.Inf)
     run(state, options)
   }
 
@@ -59,7 +65,7 @@ object Bloop extends CaseApp[CliOptions] {
     input.split(" ") match {
       case Array("exit") =>
         val persistOut = (msg: String) => state.commonOptions.ngout.println(msg)
-        waitForState(Exit(ExitStatus.Ok), Tasks.persist(state, persistOut).map(_ => state))
+        waitForState(Exit(ExitStatus.Ok), Task.now(state))
         ()
 
       case Array("projects") =>

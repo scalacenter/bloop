@@ -104,7 +104,9 @@ object TestUtil {
   }
 
   def interpreterTask(a: Action, state: State): Task[State] = {
-    Interpreter.execute(a, Task.now(state))
+    Interpreter.execute(a, Task.now(state)).flatMap {
+      _.blockOnBackgroundTasks
+    }
   }
 
   def blockOnTask[T](task: Task[T], seconds: Long): T = {
@@ -388,6 +390,7 @@ object TestUtil {
   def ensureCompilationInAllTheBuild(state: State): Unit = {
     state.build.projects.foreach { p =>
       Assert.assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
+      Assert.assertTrue(s"${p.analysisOut} does not exist", p.analysisOut.exists)
     }
   }
 

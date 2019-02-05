@@ -526,6 +526,7 @@ class CompileSpec {
       assertEquals(logger.compilingInfos.size.toLong, 1.toLong)
       assertEquals(logger.errors.size.toLong, 0.toLong)
       ensureCompilationInAllTheBuild(state)
+      //assertTrue(rootProject.analysisOut.exists)
 
       // Force a compilation cycle and get an error
       val rootProject = state.build.getProjectFor(RootProject).get
@@ -556,7 +557,11 @@ class CompileSpec {
       dependencies,
       scalaInstance = scalaInstance,
       quiet = false
-    )(_ => ())
+    ) { state =>
+      // Make sure that the analysis file was persisted
+      val rootProject = state.build.getProjectFor(RootProject).get
+      assertTrue(rootProject.analysisOut.exists)
+    }
   }
 
   @Test
@@ -610,23 +615,6 @@ class CompileSpec {
     checkAfterCleanCompilation(structures, Map.empty, scalaInstance = scalaInstance) { state =>
       ensureCompilationInAllTheBuild(state)
     }
-  }
-
-  @Test
-  def writeAnalysisFileByDefault(): Unit = {
-    val testProject = "with-resources"
-    val logger = new RecordingLogger()
-    val state = TestUtil.loadTestProject(testProject).copy(logger = logger)
-    val action = Run(Commands.Compile(List(testProject)))
-    val compiledState = TestUtil.blockingExecute(action, state)
-    val persistOut = (msg: String) => compiledState.commonOptions.ngout.println(msg)
-    val t = Tasks.persist(compiledState, persistOut)
-
-    try TestUtil.await(FiniteDuration(7, TimeUnit.SECONDS))(t)
-    catch { case t: Throwable => logger.dump(); throw t }
-
-    val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
-    assertTrue(Files.exists(analysisOutFile.underlying))
   }
 
   @Test

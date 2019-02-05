@@ -108,8 +108,6 @@ class CompileDeduplicationSpec {
     BuildUtil.testSlowBuild(logger) { build =>
       val compileMacroProject = Run(Commands.Compile(List("macros")))
       val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, build.state)
-      // Write the analysis files to the bloop classes dir so that the bsp session loads them
-      Tasks.persist(compiledMacrosState, _ => ()).runAsync(ExecutionContext.ioScheduler)
       Assert.assertTrue(
         "Unexpected compilation error when compiling macros",
         compiledMacrosState.status.isOk

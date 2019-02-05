@@ -157,6 +157,7 @@ class RunSpec {
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
     runAndCheck(state, command) { messages =>
+      println(s"messages ${messages.mkString("\n")}")
       assert(messages.contains(("info", "Hello, world!")))
     }
   }

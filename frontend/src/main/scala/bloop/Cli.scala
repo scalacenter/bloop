@@ -274,12 +274,10 @@ object Cli {
 
     val dir = configDirectory.underlying
     waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
-      Interpreter.execute(action, currentState).map { newState =>
-        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-        // Persist successful result on the background for the new state -- it doesn't block!
-        val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
-        Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
-        newState
+      Interpreter.execute(action, currentState).flatMap { newState =>
+        newState.blockOnBackgroundTasks.map { newState =>
+          State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        }
       }
     }
   }
@@ -324,7 +322,8 @@ object Cli {
         .map { cancel =>
           if (cancel) {
             cliOptions.common.out.println(
-              s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
+              s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
+            )
             handle.cancel()
           } else ()
         }
@@ -347,7 +346,8 @@ object Cli {
         case e: CloseEvent =>
           if (!handle.isCompleted) {
             ngout.println(
-              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks...")
+              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
+            )
             handle.cancel()
             if (!cancel.isDone)
               cancel.complete(false)

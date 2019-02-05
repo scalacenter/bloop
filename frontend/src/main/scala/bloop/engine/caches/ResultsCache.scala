@@ -1,6 +1,7 @@
 package bloop.engine.caches
 
 import java.util.Optional
+import java.nio.file.Files
 
 import bloop.Compiler
 import bloop.data.Project
@@ -11,7 +12,7 @@ import bloop.engine.tasks.compilation.{
   FinalNormalCompileResult
 }
 import bloop.engine.{Build, ExecutionContext}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Timer}
 import bloop.logging.{DebugFilter, Logger, ObservedLogger}
 import bloop.reporter.{LogReporter, ReporterConfig}
 import monix.eval.Task
@@ -33,10 +34,13 @@ import scala.concurrent.duration.Duration
  *
  * @param all The map of projects to latest compilation results.
  * @param successful The map of all projects to latest successful compilation results.
+ * @param persisted The map of projects to the start compilation time of the
+ *                  latest analysis file we wrote to the file system.
  */
 final class ResultsCache private (
     all: Map[Project, Compiler.Result],
-    successful: Map[Project, PreviousResult]
+    successful: Map[Project, PreviousResult],
+    persisted: Map[Project, Long]
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
@@ -61,17 +65,26 @@ final class ResultsCache private (
   def cleanSuccessful(projects: List[Project]): ResultsCache = {
     // Remove all the successful results from the cache.
     val newSuccessful = successful.filterKeys(p => !projects.contains(p))
-    new ResultsCache(all, newSuccessful)
+    new ResultsCache(all, newSuccessful, persisted)
+  }
+
+  def getCompilationTimeOfLastPersistedAnalysis(project: Project): Long = {
+    persisted.getOrElse(project, 0)
+  }
+
+  def addPersistedAnalysis(project: Project, startCompilationTime: Long): ResultsCache = {
+    new ResultsCache(all, successful, persisted + (project -> startCompilationTime))
   }
 
   def addResult(project: Project, result: Compiler.Result): ResultsCache = {
     val newAll = all + (project -> result)
     result match {
       case s: Compiler.Result.Success =>
-        new ResultsCache(newAll, successful + (project -> s.previous))
+        new ResultsCache(newAll, successful + (project -> s.previous), persisted)
       case Compiler.Result.Empty =>
-        new ResultsCache(newAll, successful + (project -> ResultsCache.EmptyResult))
-      case r => new ResultsCache(newAll, successful)
+        val newSuccessful = successful + (project -> ResultsCache.EmptyResult)
+        new ResultsCache(newAll, newSuccessful, persisted)
+      case r => new ResultsCache(newAll, successful, persisted)
     }
   }
 
@@ -96,57 +109,60 @@ final class ResultsCache private (
 }
 
 object ResultsCache {
-  import java.util.concurrent.ConcurrentHashMap
-
   private implicit val logContext: DebugFilter = DebugFilter.All
-
-  // TODO: Use a guava cache that stores maximum 200 analysis file
-  private[bloop] val persisted = ConcurrentHashMap.newKeySet[PreviousResult]()
 
   private[ResultsCache] final val EmptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   private[bloop] val emptyForTests: ResultsCache =
-    new ResultsCache(Map.empty, Map.empty)
+    new ResultsCache(Map.empty, Map.empty, Map.empty)
 
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
     val handle = loadAsync(build, cwd, logger).runAsync(ExecutionContext.ioScheduler)
     Await.result(handle, Duration.Inf)
   }
 
+  def getStartCompilationTime(analysis: CompileAnalysis): Long = {
+    analysis.readCompilations.getAllCompilations.last.getStartTime
+  }
+
   def loadAsync(build: Build, cwd: AbsolutePath, logger: Logger): Task[ResultsCache] = {
     import bloop.util.JavaCompat.EnrichOptional
 
-    def fetchPreviousResult(p: Project): Task[Compiler.Result] = {
+    def fetchPreviousResult(p: Project): Task[(Long, Compiler.Result)] = {
       val analysisFile = p.analysisOut
       if (analysisFile.exists) {
         Task {
           val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
           contents match {
             case Some(res) =>
-              logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
+              val id = getStartCompilationTime(res.getAnalysis)
+              logger.debug(s"Loading previous analysis@${id} for '${p.name}' from '$analysisFile'")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
               val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-              Result.Success(reporter, r, 0L)
+              id -> Result.Success(reporter, r, 0L)
             case None =>
-              logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
-              Result.Empty
+              logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty")
+              0.toLong -> Result.Empty
           }
 
         }
       } else {
         Task.now {
           logger.debug(s"Missing analysis file for project '${p.name}'")
-          Result.Empty
+          0.toLong -> Result.Empty
         }
       }
     }
 
     val all = build.projects.map(p => fetchPreviousResult(p).map(r => p -> r))
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
-      val cache = new ResultsCache(Map.empty, Map.empty)
-      cache.addResults(projectResults)
+      val cache = new ResultsCache(Map.empty, Map.empty, Map.empty)
+      projectResults.foldLeft(cache) {
+        case (cache, (project, (startCompilationTime, result))) =>
+          cache.addResult(project, result).addPersistedAnalysis(project, startCompilationTime)
+      }
     }
   }
 }

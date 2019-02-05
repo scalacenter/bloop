@@ -8,7 +8,7 @@ import bloop.logging.DebugFilter
 import bloop.data.Project
 import bloop.engine.{Dag, State}
 import bloop.exec.{Forker, JavaEnv}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Timer}
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.testing.{LoggingEventHandler, TestSuiteEvent, TestSuiteEventHandler}
 import monix.eval.Task
@@ -69,46 +69,6 @@ object Tasks {
     }
 
     state
-  }
-
-  /**
-   * Persists every analysis file (the state of the incremental compiler) on disk in parallel.
-   *
-   * Logging during the execution of `persist` is not straight-forward because this task
-   * is executed asynchronously after a client disconnects and, therefore, the state
-   * output streams cannot be used as there is no guarantee they will not be closed.
-   *
-   * @param state The current state of Bloop
-   * @param log A log function based on the call-site (necessary to redirect to ngout for CLI
-   *            applications and to BSP loggers during a BSP session).
-   * @return The task that will persist all the results in parallel.
-   */
-  def persist(state: State, log: String => Unit): Task[Unit] = {
-    def persist(project: Project, result: PreviousResult): Unit = {
-      def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
-        val storeFile = project.analysisOut
-        log(s"Writing ${storeFile.syntax}.")
-        FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
-        ResultsCache.persisted.add(result)
-        ()
-      }
-
-      val analysis = result.analysis().toOption
-      val setup = result.setup().toOption
-      (analysis, setup) match {
-        case (Some(analysis), Some(setup)) =>
-          if (ResultsCache.persisted.contains(result)) ()
-          else toBinaryFile(analysis, setup)
-        case (Some(analysis), None) =>
-          log(s"$project has analysis but not setup after compilation. Report upstream.")
-        case (None, Some(analysis)) =>
-          log(s"$project has setup but not analysis after compilation. Report upstream.")
-        case (None, None) => log(s"Project $project has no analysis and setup.")
-      }
-    }
-
-    val ts = state.results.allSuccessful.map { case (p, result) => Task(persist(p, result)) }
-    Task.gatherUnordered(ts).map(_ => ())
   }
 
   /**

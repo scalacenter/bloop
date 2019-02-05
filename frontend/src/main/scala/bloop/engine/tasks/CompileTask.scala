@@ -4,8 +4,11 @@ import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine._
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, Timer}
 import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
+import bloop.util.JavaCompat.EnrichOptional
+import bloop.engine.caches.ResultsCache
+import bloop.{CompileInputs, CompileMode, Compiler}
 import bloop.reporter.{
   Reporter,
   ReporterAction,
@@ -14,13 +17,21 @@ import bloop.reporter.{
   LogReporter,
   ObservedReporter
 }
-import bloop.{CompileInputs, CompileMode, Compiler}
 
 import monix.eval.Task
 import monix.reactive.{Observer, Observable, MulticastStrategy}
 import sbt.internal.inc.AnalyzingCompiler
+import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
+import xsbti.compile.{CompileAnalysis, MiniSetup}
+import xsbti.compile.PreviousResult
 
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
+
+import scala.concurrent.Future
 import scala.concurrent.Promise
+import scala.collection.JavaConverters._
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -54,6 +65,7 @@ object CompileTask {
       out: CompileOutPaths
   ): Task[State] = {
     val cwd = state.build.origin.getParent
+    val persistenceTasks = new ConcurrentHashMap[Project, PersistAnalysisTask]()
 
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val bundle = graphInputs.bundle
@@ -153,8 +165,19 @@ object CompileTask {
               }
             }
 
-            result
+            postProcess(project, result)
           }
+      }
+    }
+
+    def postProcess(project: Project, result: Compiler.Result): Compiler.Result = {
+      result match {
+        case s: Compiler.Result.Success =>
+          persistAnalysis(project, s.previous, state.results, state.logger) match {
+            case Some(task) => persistenceTasks.putIfAbsent(project, task); result
+            case None => result
+          }
+        case _ => result
       }
     }
 
@@ -177,7 +200,15 @@ object CompileTask {
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         triggerPostCompileSideEffects(dag, results, state).map { _ =>
-          val newState = state.copy(results = state.results.addFinalResults(results))
+          val bgTasks = new scala.collection.mutable.ListBuffer[BackgroundTask[Unit]]()
+          val persistentResults = persistenceTasks.asScala.foldLeft(state.results) {
+            case (results, (project, task)) =>
+              bgTasks.+=(BackgroundTask(task.writeFuture))
+              results.addPersistedAnalysis(project, task.analysisId)
+          }
+
+          val newResults = persistentResults.addFinalResults(results)
+          val newState = state.copy(results = newResults).copy(backgroundTasks = bgTasks.toList)
           val failures = results.collect {
             case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
           }
@@ -258,6 +289,71 @@ object CompileTask {
       scalac.resetGlobalIRCaches(mergedStore, cached, logger)
     } finally {
       Files.delete(tmpDir)
+    }
+  }
+
+  case class PersistAnalysisTask(analysisId: Long, writeFuture: Future[Unit])
+
+  def persistAnalysis(
+      project: Project,
+      result: PreviousResult,
+      cache: ResultsCache,
+      logger: Logger
+  ): Option[PersistAnalysisTask] = {
+    def writeBinaryFile(id: Long, analysis: CompileAnalysis, setup: MiniSetup): Task[Unit] = Task {
+      val analysisId = s"analysis-${id}.bin.temp"
+      val temporaryStoreFile = project.analysisOut.getParent.resolve(analysisId)
+      val storeFile = project.analysisOut
+
+      Timer.timed(logger.info(_), Some(s"writing to ${storeFile.syntax}")) {
+        // Write to temporary file in the parent of the target out
+        FileAnalysisStore
+          .binary(temporaryStoreFile.toFile)
+          .set(ConcreteAnalysisContents(analysis, setup))
+        // Move the temporary file to the target path atomically
+        Files.move(
+          temporaryStoreFile.underlying,
+          project.analysisOut.underlying,
+          StandardCopyOption.REPLACE_EXISTING,
+          StandardCopyOption.ATOMIC_MOVE
+        )
+      }
+
+      ()
+    }
+
+    val setup = result.setup().toOption
+    val analysis = result.analysis().toOption
+    (analysis, setup) match {
+      case (Some(analysis), Some(setup)) =>
+        val startCompilationTime = ResultsCache.getStartCompilationTime(analysis)
+        val previousCompilationTime = cache.getCompilationTimeOfLastPersistedAnalysis(project)
+        if (previousCompilationTime == startCompilationTime) None
+        else {
+          val task = writeBinaryFile(startCompilationTime, analysis, setup)
+          val future = task.runAsync(ExecutionContext.ioScheduler)
+          Some(PersistAnalysisTask(startCompilationTime, future))
+        }
+
+      case unexpectedAnalysisAndSetup =>
+        unexpectedAnalysisAndSetup match {
+          case (Some(_), Some(_)) => ()
+          case (Some(analysis), None) =>
+            logger.warn(
+              s"$project has analysis but not setup after compilation. Report upstream."
+            )
+          case (None, Some(analysis)) =>
+            logger.warn(
+              s"$project has setup but not analysis after compilation. Report upstream."
+            )
+          case (None, None) =>
+            logger.debug(
+              s"Project $project has no analysis and setup."
+            )(DebugFilter.Compilation)
+        }
+
+        // Return the previous results cache as the analysis was not saved to the file system
+        None
     }
   }
 }

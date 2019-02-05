@@ -96,9 +96,6 @@ final class BloopBspServices(
     Task {
       val configDir = state.build.origin
       bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
-      // Spawn the analysis persistence after every save
-      val persistOut = (msg: String) => bspLogger.debug(msg)
-      Tasks.persist(state, persistOut).runAsync(ExecutionContext.scheduler)
       // Save the state globally so that it can be accessed by other clients
       State.stateCache.updateBuild(state)
       ()
