@@ -41,6 +41,7 @@ final class ResultsCache private (
     all: Map[Project, Compiler.Result],
     successful: Map[Project, PreviousResult],
     persisted: Map[Project, Long]
+    //lastCompile: CompileHistory
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
