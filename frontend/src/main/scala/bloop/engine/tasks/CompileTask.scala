@@ -72,13 +72,14 @@ object CompileTask {
       val project = bundle.project
       val logger = bundle.logger
       val reporter = bundle.reporter
+
       bundle.toBundleInputs(out) match {
         case Left(earlyResult) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
           graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
           Task.now(earlyResult)
-        case Right(CompileBundleInputs(sources, instance, compileOut, classpath, javaOnly)) =>
+        case Right(CompileBundleInputs(sources, instance, classesDir, classpath, javaOnly)) =>
           val previousResult = state.results.latestResult(project)
           val previousSuccesful = state.results.lastSuccessfulResultOrEmpty(project)
 
@@ -87,33 +88,8 @@ object CompileTask {
             Feedback.detectMissingDependencies(project, missing).foreach(msg => logger.warn(msg))
           }
 
-          val (scalacOptions, compileMode) = {
-            if (!pipeline) (project.scalacOptions, userCompileMode)
-            else {
-              val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions)
-              val mode = userCompileMode match {
-                case CompileMode.Sequential =>
-                  CompileMode.Pipelined(
-                    graphInputs.irPromise,
-                    graphInputs.completeJava,
-                    graphInputs.transitiveJavaSignal,
-                    graphInputs.oracle,
-                    graphInputs.separateJavaAndScala
-                  )
-                case CompileMode.Parallel(batches) =>
-                  CompileMode.ParallelAndPipelined(
-                    batches,
-                    graphInputs.irPromise,
-                    graphInputs.completeJava,
-                    graphInputs.transitiveJavaSignal,
-                    graphInputs.oracle,
-                    graphInputs.separateJavaAndScala
-                  )
-              }
-              (scalacOptions, mode)
-            }
-          }
-
+          val (scalacOptions, compileMode) =
+            computeOptionsAndMode(project, pipeline, userCompileMode, graphInputs)
           val inputs = CompilerPluginWhitelist
             .enablePluginCaching(instance.version, scalacOptions, logger)
             .map { scalacOptions =>
@@ -123,7 +99,7 @@ object CompileTask {
                 sources.toArray,
                 classpath,
                 graphInputs.store,
-                compileOut,
+                classesDir,
                 project.out,
                 scalacOptions.toArray,
                 project.javacOptions.toArray,
@@ -140,44 +116,11 @@ object CompileTask {
             }
 
           inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
-            // Do some implementation book-keeping before returning the compilation result
-            if (!graphInputs.irPromise.isDone) {
-              /*
-               * When pipeline compilation is disabled either by the user or the implementation
-               * decides not to use it (in the presence of macros from the same build), we force
-               * the completion of the pickle promise to avoid deadlocks.
-               */
-              result match {
-                case Compiler.Result.NotOk(_) =>
-                  graphInputs.irPromise.completeExceptionally(CompileExceptions.FailPromise)
-                case result =>
-                  if (pipeline && !javaOnly)
-                    logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-                  val complete = CompileExceptions.CompletePromise(graphInputs.store)
-                  graphInputs.irPromise.completeExceptionally(complete)
-              }
-            } else {
-              // Report if the pickle ready was correctly completed by the compiler
-              graphInputs.irPromise.get match {
-                case Array() if pipeline =>
-                  logger.warn(s"Project ${project.name} compiled without pipelined compilation.")
-                case _ => logger.debug(s"The pickle promise of ${project.name} completed in Zinc.")
-              }
-            }
-
-            postProcess(project, result)
+            // Apply these side effects before returning the compilation result
+            handleIRPromise(project, result, graphInputs, pipeline, javaOnly, logger)
+            scheduleAnalysisPersistence(project, result, state, persistenceTasks)
+            result
           }
-      }
-    }
-
-    def postProcess(project: Project, result: Compiler.Result): Compiler.Result = {
-      result match {
-        case s: Compiler.Result.Success =>
-          persistAnalysis(project, s.previous, state.results, state.logger) match {
-            case Some(task) => persistenceTasks.putIfAbsent(project, task); result
-            case None => result
-          }
-        case _ => result
       }
     }
 
@@ -354,6 +297,88 @@ object CompileTask {
 
         // Return the previous results cache as the analysis was not saved to the file system
         None
+    }
+  }
+
+  def computeOptionsAndMode(
+      project: Project,
+      pipeline: Boolean,
+      userCompileMode: CompileMode.ConfigurableMode,
+      graphInputs: CompileGraph.Inputs
+  ): (List[String], CompileMode) = {
+    if (!pipeline) (project.scalacOptions, userCompileMode)
+    else {
+      val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions)
+      val mode = userCompileMode match {
+        case CompileMode.Sequential =>
+          CompileMode.Pipelined(
+            graphInputs.irPromise,
+            graphInputs.completeJava,
+            graphInputs.transitiveJavaSignal,
+            graphInputs.oracle,
+            graphInputs.separateJavaAndScala
+          )
+        case CompileMode.Parallel(batches) =>
+          CompileMode.ParallelAndPipelined(
+            batches,
+            graphInputs.irPromise,
+            graphInputs.completeJava,
+            graphInputs.transitiveJavaSignal,
+            graphInputs.oracle,
+            graphInputs.separateJavaAndScala
+          )
+      }
+      (scalacOptions, mode)
+    }
+  }
+
+  private def handleIRPromise(
+      project: Project,
+      result: Compiler.Result,
+      inputs: CompileGraph.Inputs,
+      pipeline: Boolean,
+      javaOnly: Boolean,
+      logger: Logger
+  ): Unit = {
+    // Do some implementation book-keeping before returning the compilation result
+    if (!inputs.irPromise.isDone) {
+      /*
+       * When pipeline compilation is disabled either by the user or the implementation
+       * decides not to use it (in the presence of macros from the same build), we force
+       * the completion of the pickle promise to avoid deadlocks.
+       */
+      result match {
+        case Compiler.Result.NotOk(_) =>
+          inputs.irPromise.completeExceptionally(CompileExceptions.FailPromise); ()
+        case result =>
+          if (pipeline && !javaOnly)
+            logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
+          val complete = CompileExceptions.CompletePromise(inputs.store)
+          inputs.irPromise.completeExceptionally(complete); ()
+      }
+    } else {
+      // Report if the pickle ready was correctly completed by the compiler
+      inputs.irPromise.get match {
+        case Array() if pipeline =>
+          logger.warn(s"Project ${project.name} compiled without pipelined compilation.")
+        case _ => logger.debug(s"The pickle promise of ${project.name} completed in Zinc.")
+      }
+    }
+  }
+
+  private def scheduleAnalysisPersistence(
+      project: Project,
+      result: Compiler.Result,
+      state: State,
+      persistenceTasks: ConcurrentHashMap[Project, PersistAnalysisTask]
+  ): Unit = {
+    result match {
+      case s: Compiler.Result.Success =>
+        persistAnalysis(project, s.previous, state.results, state.logger) match {
+          case Some(task) => persistenceTasks.putIfAbsent(project, task); ()
+          case None => ()
+        }
+      case _ => ()
     }
   }
 }
