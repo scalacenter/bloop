@@ -39,6 +39,7 @@ object BloopZincCompiler {
       in: Inputs,
       compileMode: CompileMode,
       reporter: ZincReporter,
+      manager: ClassFileManager,
       logger: ObservedLogger[_]
   ): Task[CompileResult] = {
     val config = in.options()
@@ -70,7 +71,8 @@ object BloopZincCompiler {
       incrementalCompilerOptions,
       extraOptions,
       irPromise,
-      compileMode
+      compileMode,
+      manager
     )(logger)
   }
 
@@ -95,7 +97,8 @@ object BloopZincCompiler {
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
       irPromise: CompletableFuture[Array[IR]],
-      compileMode: CompileMode
+      compileMode: CompileMode,
+      manager: ClassFileManager
   )(implicit logger: ObservedLogger[_]): Task[CompileResult] = {
     val prev = previousAnalysis match {
       case Some(previous) => previous
@@ -115,7 +118,7 @@ object BloopZincCompiler {
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise).map {
+        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise, manager).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }

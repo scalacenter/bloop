@@ -136,6 +136,10 @@ object Compiler {
         .withOrder(inputs.compileOrder)
     }
 
+    def getClassFileManager(setup: Setup): ClassFileManager = {
+      ???
+    }
+
     def getSetup(compileInputs: CompileInputs): Setup = {
       val skip = false
       val empty = Array.empty[T2[String, String]]
@@ -175,6 +179,7 @@ object Compiler {
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
+    val manager = getClassFileManager(inputs.setup)
 
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
@@ -206,7 +211,7 @@ object Compiler {
 
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, compileInputs.mode, reporter, logger)
+      .compile(inputs, compileInputs.mode, reporter, ???, logger)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
