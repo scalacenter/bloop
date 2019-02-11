@@ -3,6 +3,7 @@ package bloop
 import xsbti.compile._
 import xsbti.T2
 import java.util.Optional
+import java.util.UUID
 import java.io.File
 
 import bloop.internal.Ecosystem
@@ -110,7 +111,7 @@ object Compiler {
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val classesDir = compileInputs.classesDir.toFile
-    val classesDirBak = compileInputs.classesDir.getParent.resolve("classes.bak").toFile
+    val classesDirBak = compileInputs.classesDir.getParent.resolve(UUID.randomUUID().toString).toFile
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
