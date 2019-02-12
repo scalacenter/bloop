@@ -7,7 +7,6 @@ import bloop.io.{AbsolutePath, RelativePath}
 import java.nio.file.Files
 
 /**
- *
  * A general-purpose entity that maps the original, shared paths used as
  * compilations outputs to unique client-specific compilation outputs.
  * The compilation outputs comprise target classes directories/target single

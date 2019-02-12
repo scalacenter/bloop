@@ -195,6 +195,7 @@ class CompileDeduplicationSpec {
         // The compilation of the user project is successfully triggered
         BspClientTest.checkDiagnostics(diagnostics)(
           build.userProject.bspId,
+<<<<<<< Updated upstream
           s"""#1: task start ${expectedId}
              |  -> Msg: Compiling user (1 Scala source)
              |  -> Data kind: compile-task
@@ -202,6 +203,15 @@ class CompileDeduplicationSpec {
              |  -> errors 0, warnings 0
              |  -> Msg: Compiled 'user'
              |  -> Data kind: compile-report""".stripMargin
+=======
+          """#1: task start 2
+            |  -> Msg: Compiling user (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 2
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'user'
+            |  -> Data kind: compile-report""".stripMargin
+>>>>>>> Stashed changes
         )
       }
 

@@ -24,7 +24,7 @@ case class CompileInputs(
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
     store: IRStore,
-    classesDir: AbsolutePath,
+    output: CompileManagedOutput,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
     javacOptions: Array[String],
@@ -111,8 +111,7 @@ object Compiler {
   }
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
-    val classesDir = compileInputs.classesDir.toFile
-    val classesDirBak = compileInputs.classesDir.getParent.resolve("classes.bak").toFile
+    val classesDir = compileInputs.output.uniqueWriteOnlyClassesOut.toFile
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -121,7 +120,6 @@ object Compiler {
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
       val sources = inputs.sources // Sources are all files
-      val classesDir = inputs.classesDir.toFile
       val classpath = inputs.classpath.map(_.toFile)
 
       CompileOptions
@@ -136,6 +134,101 @@ object Compiler {
         .withOrder(inputs.compileOrder)
     }
 
+    def getClassFileManager(setup: Setup): ClassFileManager = {
+      new ClassFileManager {
+        import sbt.io.IO
+        import scala.collection.JavaConverters._
+        private final val resourceSuffixes =
+          List(".tasty", ".hasTasty", ".nir", ".hnir", ".sjsir")
+        private final val currentOutput = compileInputs.output
+
+        private val deletedClassesAndResourcesObserver =
+          currentOutput.deletedClassesAndResourcesObserver
+
+        private val sharedBackupClassesOut =
+          currentOutput.sharedBackupClassesOut.toFile
+        private val sharedBackupClassesOutPath =
+          sharedBackupClassesOut.getCanonicalPath
+        private val sharedClassesOut =
+          currentOutput.sharedDeleteOnlyClassesOut.toFile
+        private val sharedClassesOutPath =
+          sharedClassesOut.getCanonicalPath
+        private val uniqueWriteOnlyClassesOutPath =
+          currentOutput.uniqueWriteOnlyClassesOut.toRealPath().toString
+
+        import java.util.concurrent.ConcurrentHashMap
+        val generatedClasses = ConcurrentHashMap.newKeySet[File]()
+
+        /**
+         * Deletes a class file and any resource associated with it.
+         *
+         * The class file/resource can come from either the shared classes
+         * directory or the unique write-only classes directory as they are
+         * the only ones in the classpath and, in the case of the write-only
+         * classes directory, the only one where the compilation products
+         * of a given process can be placed to.
+         *
+         * If the class file/resource are present in the shared classes, we
+         * always take a backup and never directly delete it as other processes
+         * could be relying on it. However, if the class file/resource are
+         * present in the unique write-only classes directory, then they are
+         * unique to this compilation process and can be safely removed.
+         */
+        def delete(classes: Array[File]): Unit = {
+          val classPathsToAllResources = classes.flatMap { classFile =>
+            val classFilePath = classFile.getCanonicalPath
+            if (!classFile.exists || !classFilePath.endsWith(".class")) Nil
+            else {
+              val removedPrefix = classFile.getAbsolutePath.stripSuffix(".class")
+              val additionalFiles = resourceSuffixes
+                .map(suffix => new File(removedPrefix + suffix))
+                .filter(_.exists)
+              List(classFilePath -> (classFile :: additionalFiles))
+            }
+          }
+
+          classPathsToAllResources.foreach {
+            case (classFilePath, allClassResources) =>
+              if (classFilePath.startsWith(sharedClassesOutPath)) {
+                // If it's in the shared class out, move everything to backup
+                allClassResources.foreach { classResource =>
+                  val fullResourcePath = classResource.getCanonicalPath
+                  val relativePath = fullResourcePath.stripPrefix(sharedClassesOutPath)
+                  val newBackupResource = new File(sharedBackupClassesOutPath + relativePath)
+                  IO.copyFile(classResource, newBackupResource)
+                  deletedClassesAndResourcesObserver.onNext(newBackupResource)
+                  IO.delete(classResource)
+                }
+              } else if (generatedClasses.contains(classFilePath) ||
+                         classFilePath.startsWith(uniqueWriteOnlyClassesOutPath)) {
+                // The class file is exclusive to this compilation, can be deleted directly
+                allClassResources.foreach(classResource => IO.delete(classResource))
+              } else {
+                // The class file is not in either, this is a fatal error!
+                throw new IllegalArgumentException(
+                  s"Class file $classFilePath is not neither in $sharedClassesOutPath nor $uniqueWriteOnlyClassesOutPath!"
+                )
+              }
+          }
+        }
+
+        def generated(classes: Array[File]): Unit = {
+          // Add the canonical files in the generated map for a matter of correctness
+          classes.foreach(classFile => generatedClasses.add(classFile.getCanonicalFile))
+        }
+
+        def complete(success: Boolean): Unit = {
+          if (success) ()
+          else {
+            // An error ocurred, we can safely remove the write-only contents
+            generatedClasses.iterator.asScala.foreach(generatedClass => IO.delete(generatedClass))
+            // However, shared dirs will be handled by callers (e.g. `CompileTask` et al)
+            ()
+          }
+        }
+      }
+    }
+
     def getSetup(compileInputs: CompileInputs): Setup = {
       val skip = false
       val empty = Array.empty[T2[String, String]]
@@ -145,16 +238,8 @@ object Compiler {
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = {
-        def withTransactional(opts: IncOptions): IncOptions = {
-          opts.withClassfileManagerType(
-            Optional.of(
-              xsbti.compile.TransactionalManagerType.of(classesDirBak, compileInputs.logger)
-            )
-          )
-        }
-
         val disableIncremental = java.lang.Boolean.getBoolean("bloop.zinc.disabled")
-        val opts = withTransactional(IncOptions.create().withEnabled(!disableIncremental))
+        val opts = IncOptions.create().withEnabled(!disableIncremental)
         if (!compileInputs.scalaInstance.isDotty) opts
         else Ecosystem.supportDotty(opts)
       }
@@ -175,6 +260,7 @@ object Compiler {
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
+    val manager = getClassFileManager(inputs.setup)
 
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
@@ -206,7 +292,7 @@ object Compiler {
 
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, compileInputs.mode, reporter, logger)
+      .compile(inputs, compileInputs.mode, reporter, ???, logger)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
