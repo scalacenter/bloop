@@ -111,8 +111,8 @@ object Compiler {
   }
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
+    import scala.collection.mutable
     val classesDir = compileInputs.classesDir.toFile
-    val classesDirBak = compileInputs.classesDir.getParent.resolve("classes.bak").toFile
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs)
       val setup = getSetup(compileInputs)
@@ -121,7 +121,6 @@ object Compiler {
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
       val sources = inputs.sources // Sources are all files
-      val classesDir = inputs.classesDir.toFile
       val classpath = inputs.classpath.map(_.toFile)
 
       CompileOptions
@@ -136,6 +135,70 @@ object Compiler {
         .withOrder(inputs.compileOrder)
     }
 
+    def getClassFileManager(setup: Setup): ClassFileManager = {
+      new ClassFileManager {
+        import sbt.io.IO
+        import scala.collection.JavaConverters._
+        private final val resourceSuffixes =
+          List(".tasty", ".hasTasty", ".nir", ".hnir", ".sjsir")
+
+        val backupOut: File = {
+          import java.util.UUID
+          val parentDir = classesDir.getParent
+          new File(parentDir, s"${classesDir.getName}-${UUID.randomUUID().toString}.bak")
+        }
+
+        private val generatedClasses = mutable.HashSet.empty[File]
+        private val movedClasses = mutable.HashMap.empty[File, File]
+
+        def delete(classes: Array[File]): Unit = {
+          if (classes.length == 0) ()
+          else {
+            // Proceed to collect the resources associated with class files
+            val classPathsToAllResources = classes.flatMap { classFile =>
+              val classFilePath = classFile.getCanonicalPath
+              if (!classFile.exists || !classFilePath.endsWith(".class")) Nil
+              else {
+                val removedPrefix = classFile.getAbsolutePath.stripSuffix(".class")
+                val additionalFiles = resourceSuffixes
+                  .map(suffix => new File(removedPrefix + suffix))
+                  .filter(_.exists)
+                List(classFile -> (classFile :: additionalFiles))
+              }
+            }
+
+            classPathsToAllResources.foreach {
+              case (classFile, allClassResources) =>
+                if (!movedClasses.contains(classFile) && !generatedClasses(classFile)) {
+                  // If needs to be backed up, move them to the backup out directory
+                  allClassResources.foreach { classResource =>
+                    val target = File.createTempFile("bloop", classResource.getName, backupOut)
+                    movedClasses.put(target, classResource)
+                    IO.move(classResource, target)
+                  }
+                }
+            }
+          }
+        }
+
+        def generated(classes: Array[File]): Unit = {
+          if (classes.length == 0) ()
+          else generatedClasses.++=(classes)
+        }
+
+        def complete(success: Boolean): Unit = {
+          if (!success) {
+            IO.deleteFilesEmptyDirs(generatedClasses)
+            // And copy back the moved classes to the original directory
+            movedClasses.foreach { case (tmp, origin) => IO.move(tmp, origin) }
+            ()
+          }
+
+          IO.delete(backupOut)
+        }
+      }
+    }
+
     def getSetup(compileInputs: CompileInputs): Setup = {
       val skip = false
       val empty = Array.empty[T2[String, String]]
@@ -145,16 +208,8 @@ object Compiler {
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
       val incOptions = {
-        def withTransactional(opts: IncOptions): IncOptions = {
-          opts.withClassfileManagerType(
-            Optional.of(
-              xsbti.compile.TransactionalManagerType.of(classesDirBak, compileInputs.logger)
-            )
-          )
-        }
-
         val disableIncremental = java.lang.Boolean.getBoolean("bloop.zinc.disabled")
-        val opts = withTransactional(IncOptions.create().withEnabled(!disableIncremental))
+        val opts = IncOptions.create().withEnabled(!disableIncremental)
         if (!compileInputs.scalaInstance.isDotty) opts
         else Ecosystem.supportDotty(opts)
       }
@@ -175,6 +230,7 @@ object Compiler {
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
     val inputs = getInputs(compilers)
+    val manager = getClassFileManager(inputs.setup)
 
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
@@ -206,7 +262,7 @@ object Compiler {
 
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, compileInputs.mode, reporter, logger)
+      .compile(inputs, compileInputs.mode, reporter, manager, logger)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {

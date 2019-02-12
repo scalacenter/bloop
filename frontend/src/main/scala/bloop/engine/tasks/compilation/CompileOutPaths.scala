@@ -7,9 +7,8 @@ import bloop.io.{AbsolutePath, RelativePath}
 import java.nio.file.Files
 
 /**
- *
- * A general-purpose entity that maps the original, shared paths used as
- * compilations outputs to unique client-specific compilation outputs.
+ * A session-specific entity that maps the original, shared paths used as
+ * generic compilations inputs/outputs to the unique compilation outputs.
  * The compilation outputs comprise target classes directories/target single
  * jars and analysis out paths (where the Zinc analysis file is written to).
  *

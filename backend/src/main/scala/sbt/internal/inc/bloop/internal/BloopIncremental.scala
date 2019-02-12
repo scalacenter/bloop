@@ -25,7 +25,8 @@ object BloopIncremental {
       log: Logger,
       reporter: ZincReporter,
       options: IncOptions,
-      irPromise: CompletableFuture[Array[IR]]
+      irPromise: CompletableFuture[Array[IR]],
+      manager: ClassFileManager
   ): Task[(Boolean, Analysis)] = {
     def getExternalAPI(lookup: Lookup): (File, String) => Option[AnalyzedClass] = { (_: File, binaryClassName: String) =>
       lookup.lookupAnalysis(binaryClassName) flatMap {
@@ -46,7 +47,7 @@ object BloopIncremental {
 
     val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options)
+    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options, manager)
   }
 
   def compileIncremental(
@@ -59,6 +60,7 @@ object BloopIncremental {
       reporter: ZincReporter,
       log: sbt.util.Logger,
       options: IncOptions,
+      classfileManager: ClassFileManager,
       // TODO(jvican): Enable profiling of the invalidation algorithm down the road
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
@@ -83,8 +85,6 @@ object BloopIncremental {
       }
     }
 
-    import sbt.internal.inc.{ClassFileManager => ClassFileManagerImpl}
-    val classfileManager = ClassFileManagerImpl.getClassFileManager(options)
     val analysisTask = {
       val doCompile = (srcs: Set[File], changes: DependencyChanges) => {
         for {
