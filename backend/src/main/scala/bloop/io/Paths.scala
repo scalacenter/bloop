@@ -14,6 +14,7 @@ import java.nio.file.{
   Path,
   SimpleFileVisitor,
   StandardCopyOption,
+  StandardOpenOption,
   Paths => NioPaths
 }
 import java.util
@@ -26,6 +27,7 @@ import monix.reactive.{Consumer, MulticastStrategy, Observable}
 import sbt.io.CopyOptions
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.HashSet
 
 object Paths {
   private val projectDirectories = ProjectDirectories.from("", "", "bloop")
@@ -174,6 +176,7 @@ object Paths {
     val (observer, observable) = Observable.multicast[(Path, Path)](
       MulticastStrategy.publish
     )(scheduler)
+    Files.createDirectories(target.underlying)
 
     val discovery = new FileVisitor[Path] {
       var stop: Boolean = false
@@ -224,7 +227,7 @@ object Paths {
           Files.copy(
             origin,
             target,
-            StandardCopyOption.COPY_ATTRIBUTES,
+            //StandardCopyOption.COPY_ATTRIBUTES,
             LinkOption.NOFOLLOW_LINKS
           )
           ()
@@ -239,6 +242,7 @@ object Paths {
       target: AbsolutePath,
       parallelUnits: Int = 10
   ): Task[Unit] = {
+    Files.createDirectories(target.underlying)
     val filesBuffer = ListBuffer.empty[(Path, Path)]
     val discovery = new FileVisitor[Path] {
       var stop: Boolean = false
@@ -278,23 +282,40 @@ object Paths {
         Files.copy(
           origin,
           target,
-          StandardCopyOption.COPY_ATTRIBUTES,
+          //StandardCopyOption.COPY_ATTRIBUTES,
           LinkOption.NOFOLLOW_LINKS
         )
         ()
     })
   }
 
+  def copyFileViaTransferTo(from: Path, to: Path): Unit = {
+    import java.io._
+    val inputStream = new RandomAccessFile(from.toString, "rw");
+    val outputStream = new RandomAccessFile(to.toString, "rw");
+    val inChannel = inputStream.getChannel();
+    val outChannel = outputStream.getChannel();
+    inChannel.transferTo(0, inChannel.size(), outChannel);
+    inChannel.close();
+    outChannel.close();
+    inputStream.close();
+    outputStream.close();
+  }
+
   def copyDirectoriesSequentially(origin: AbsolutePath, target: AbsolutePath): Unit = {
+    Files.createDirectories(target.underlying)
     val discovery = new FileVisitor[Path] {
       var currentTargetDirectory: Path = target.underlying
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        Files.copy(
+
+        val target = currentTargetDirectory.resolve(file.getFileName)
+        copyFileViaTransferTo(file, target)
+        /*Files.copy(
           file,
           currentTargetDirectory.resolve(file.getFileName),
-          StandardCopyOption.COPY_ATTRIBUTES,
+          //StandardCopyOption.COPY_ATTRIBUTES,
           LinkOption.NOFOLLOW_LINKS
-        )
+        )*/
         FileVisitResult.CONTINUE
       }
 
@@ -322,5 +343,6 @@ object Paths {
     }
 
     Files.walkFileTree(origin.underlying, discovery)
+    ()
   }
 }
