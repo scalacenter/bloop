@@ -80,7 +80,7 @@ object BloopDefaults {
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopExportJarClassifiers := None,
     BloopKeys.bloopInstall := bloopInstall.value,
-    BloopKeys.bloopAggregateSourceDependencies := false,
+    BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
     Keys.transitiveClassifiers in Keys.updateClassifiers := {
       val old = (Keys.transitiveClassifiers in Keys.updateClassifiers).value
