@@ -599,6 +599,7 @@ class CompileSpec {
     }
   }
 
+  /*
   @Test
   def compileWithDotty080RC1(): Unit = {
     val logger = new RecordingLogger()
@@ -611,6 +612,7 @@ class CompileSpec {
       ensureCompilationInAllTheBuild(state)
     }
   }
+   */
 
   @Test
   def writeAnalysisFileByDefault(): Unit = {
@@ -710,6 +712,61 @@ class CompileSpec {
         logger.compilingInfos.sorted.mkString(System.lineSeparator)
       )
     }
+  }
+
+  @Test
+  def testInvalidatedSymbolsTriggerCompilationFailure(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
+      val singleProject = TestProject(
+        workspace,
+        "single-project",
+        List(
+          """/main/scala/Foo.scala
+            |class Foo
+          """.stripMargin,
+          """/main/scala/Bar.scala
+            |class Bar {
+            |  val foo: Foo = new Foo
+            |}
+          """.stripMargin
+        ),
+        jars = scalaJars
+      )
+
+      def runCompilation(state: State): State = {
+        val compileProject = Run(Commands.Compile(List("single-project")))
+        TestUtil.blockingExecute(compileProject, state)
+      }
+
+      val configDir = TestProject.populateWorkspace(workspace, List(singleProject))
+      val state = TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger)
+      val compileState = runCompilation(state)
+      Assert.assertEquals(ExitStatus.Ok, compileState.status)
+
+      // We rename `Foo` to `Foo2`, then we expect `Bar` to fail compilation in the second cycle
+      val `Foo.scala` = singleProject.srcFor("main/scala/Foo.scala")
+      Files.write(`Foo.scala`.underlying, "class Foo2".getBytes(StandardCharsets.UTF_8))
+
+      val finalCompileState = runCompilation(compileState)
+      Assert.assertEquals(ExitStatus.CompilationError, finalCompileState.status)
+      TestUtil.assertNoDiff(
+        """
+          |[E2] single-project/src/main/scala/Bar.scala:2:22
+          |     not found: type Foo
+          |     L2:   val foo: Foo = new Foo
+          |                              ^
+          |[E1] single-project/src/main/scala/Bar.scala:2:12
+          |     not found: type Foo
+          |     L2:   val foo: Foo = new Foo
+          |                    ^
+          |single-project/src/main/scala/Bar.scala: L2 [E1], L2 [E2]
+          """.stripMargin,
+        logger.errors.filterNot(_.contains("failed to compile")).mkString(System.lineSeparator)
+      )
+    }
+    ()
   }
 
   @Test

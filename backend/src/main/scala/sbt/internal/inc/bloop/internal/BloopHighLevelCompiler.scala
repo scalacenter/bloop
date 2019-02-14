@@ -128,8 +128,9 @@ final class BloopHighLevelCompiler(
             store: IRStore
         ): Unit = {
           try {
+            val invalidatedClassFiles = classfileManager.invalidatedClassFiles
             val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
-            scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional, store)
+            scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional, store, invalidatedClassFiles)
           } catch {
             case NonFatal(t) =>
               // If scala compilation happens, complete the java promise so that it doesn't block

@@ -26,12 +26,14 @@ object Ecosystem {
         })
       }
 
+      def invalidatedClassFiles(): Array[File] = inherited.invalidatedClassFiles
       def generated(classes: Array[File]): Unit = {}
       def complete(success: Boolean): Unit = {}
     }
     val inheritedHooks = incOptions.externalHooks
     val externalClassFileManager: Optional[ClassFileManager] = Option(
-      inheritedHooks.getExternalClassFileManager.orElse(null)) match {
+      inheritedHooks.getExternalClassFileManager.orElse(null)
+    ) match {
       case Some(prevManager) =>
         Optional.of(WrappedClassFileManager.of(prevManager, Optional.of(tastyFileManager)))
       case None =>
