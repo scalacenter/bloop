@@ -36,7 +36,7 @@ object syntax {
         project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.getByName(name)
       } catch {
         case NonFatal(e) =>
-          throw new GradleException(s"Could not find java plugin convention for $project with plugins $plugins", e)
+          throw new GradleException(s"Could not find java plugin convention for $name in $project with plugins $plugins", e)
       }
     }
 
