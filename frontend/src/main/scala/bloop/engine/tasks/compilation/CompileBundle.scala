@@ -97,13 +97,17 @@ object CompileBundle {
   ): Task[CompileBundle] = {
     tracer.traceTask(s"computing bundle ${project.name}") { tracer =>
       def hashSources(sources: List[AbsolutePath]): Task[List[CompilerOracle.HashedSource]] = {
-        tracer.traceTask(s"hashing ${sources.size} sources") { _ =>
-          Task.gather {
-            sources.map { source =>
-              Task {
-                val bytes = java.nio.file.Files.readAllBytes(source.underlying)
-                val hash = ByteHasher.hashBytes(bytes)
-                CompilerOracle.HashedSource(source, hash)
+        val sourcesSize = sources.size
+        tracer.traceTask(s"hashing ${sourcesSize} sources") { _ =>
+          if (sourcesSize == 0) Task.now(Nil)
+          else {
+            Task.gather {
+              sources.map { source =>
+                Task {
+                  val bytes = java.nio.file.Files.readAllBytes(source.underlying)
+                  val hash = ByteHasher.hashBytes(bytes)
+                  CompilerOracle.HashedSource(source, hash)
+                }
               }
             }
           }
