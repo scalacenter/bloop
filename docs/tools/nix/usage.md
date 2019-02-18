@@ -2,7 +2,7 @@ The installation script installs the build server and the bloop command-line app
 The build server **must be started** before the command-line application is used. Start it with:
 
 ```bash
-$ blp-server
+blp-server
 ```
 
 Then, verify your installation by running the command-line application:

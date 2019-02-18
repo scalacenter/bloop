@@ -1,5 +1,5 @@
 ```bash
-$ brew install scalacenter/bloop/bloop
+brew install scalacenter/bloop/bloop
 ```
 
 ### Requirements

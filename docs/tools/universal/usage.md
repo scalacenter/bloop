@@ -2,7 +2,7 @@ The installation script installs the build server and the bloop command-line app
 The build server **must be started** before the command-line application is used. Start it with:
 
 ```bash
-$ bloop server
+bloop server
 ```
 
 <blockquote>
@@ -67,7 +67,7 @@ Symlink the fish completions file in the Bloop installation directory to your lo
 directory (usually `~/.config/fish/completions`).
 
 ```sh
-$ ln -s $HOME/.bloop/fish/bloop.fish ~/.config/fish/completions/bloop.fish
+ln -s $HOME/.bloop/fish/bloop.fish ~/.config/fish/completions/bloop.fish
 ```
 
 > Make sure that the target fish completions directory already exists.
@@ -78,11 +78,11 @@ Make sure that, before reloading the fish shell, the build server is started.
 If you still experience problems, reload the completion script:
 
 ```bash
-$ source $HOME/.bloop/fish/bloop.fish bloop.fish
+source $HOME/.bloop/fish/bloop.fish bloop.fish
 ```
 
 Or, if you use [Oh My Fish](https://github.com/oh-my-fish/oh-my-fish):
 
 ```bash
-$ omf reload
+omf reload
 ```
