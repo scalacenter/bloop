@@ -56,7 +56,7 @@ object CompileTask {
     import bloop.internal.build.BuildInfo
     val cwd = state.build.origin.getParent
     val topLevelProjects = Dag.directDependencies(List(dag))
-    val tracer = BraveTracer(
+    val topLevelTracer = BraveTracer(
       s"compile ${topLevelProjects.mkString(", ")} (transitively)",
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion
@@ -68,7 +68,7 @@ object CompileTask {
       val logger = bundle.logger
       val reporter = bundle.reporter
       val classpath = bundle.classpath
-      val compileProjectTracer = tracer.startNewChildTracer(s"compile ${project.name}")
+      val compileProjectTracer = topLevelTracer.startNewChildTracer(s"compile ${project.name}")
       bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
@@ -113,7 +113,7 @@ object CompileTask {
           }
 
           val inputs = CompilerPluginWhitelist
-            .enablePluginCaching(instance.version, scalacOptions, logger, tracer)
+            .enablePluginCaching(instance.version, scalacOptions, logger, compileProjectTracer)
             .map { scalacOptions =>
               CompileInputs(
                 instance,
@@ -183,7 +183,7 @@ object CompileTask {
       val logger = ObservedLogger(rawLogger, observer)
       val underlying = createReporter(ReporterInputs(project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(project, dag, reporter, logger, observable, tracer)
+      CompileBundle.computeFrom(project, dag, reporter, logger, observable, topLevelTracer)
     }
 
     CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline).flatMap { partialDag =>
@@ -196,7 +196,7 @@ object CompileTask {
           case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
         }
 
-        tracer.terminate()
+        topLevelTracer.terminate()
         if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
         else {
           results.foreach {

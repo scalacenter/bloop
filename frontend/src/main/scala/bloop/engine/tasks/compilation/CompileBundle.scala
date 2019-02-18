@@ -114,7 +114,7 @@ object CompileBundle {
         }
       }
 
-      val classpath = tracer.trace("dependency classpath")(_ => project.dependencyClasspath(dag))
+      val classpath = tracer.trace("dependency classpath i")(_ => project.dependencyClasspath(dag))
       val classpathHashesTask = ClasspathHashing
         .hash(classpath.map(_.toFile), tracer)
         .executeOn(ExecutionContext.ioScheduler)
