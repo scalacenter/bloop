@@ -2,7 +2,7 @@ The installation script installs the build server and the bloop command-line app
 The build server **must be started** before the command-line application is used. Start it with:
 
 ```bash
-$ bloop server
+bloop server
 ```
 
 This process can take a while to run the first time is executed. When the nailgun logs show up,
