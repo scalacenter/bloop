@@ -53,9 +53,14 @@ object CompileTask {
       cancelCompilation: Promise[Unit],
       rawLogger: UseSiteLogger
   ): Task[State] = {
+    import bloop.internal.build.BuildInfo
     val cwd = state.build.origin.getParent
     val topLevelProjects = Dag.directDependencies(List(dag))
-    val tracer = BraveTracer(s"compile ${topLevelProjects.mkString(", ")} (transitively)")
+    val tracer = BraveTracer(
+      s"compile ${topLevelProjects.mkString(", ")} (transitively)",
+      "bloop.version" -> BuildInfo.version,
+      "zinc.version" -> BuildInfo.zincVersion
+    )
 
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val bundle = graphInputs.bundle

@@ -48,8 +48,7 @@ final class BraveTracer private (
 }
 
 object BraveTracer {
-
-  def apply(topLevelTaskName: String): BraveTracer = {
+  def apply(name: String, tags: (String, String)*): BraveTracer = {
     import brave._
     import zipkin2.reporter.AsyncReporter
     import zipkin2.reporter.urlconnection.URLConnectionSender
@@ -63,7 +62,10 @@ object BraveTracer {
     val tracing =
       Tracing.newBuilder().localServiceName("bloop").spanReporter(spanReporter).build()
     val tracer = tracing.tracer()
-    val rootSpan = tracer.newTrace().name(topLevelTaskName).start()
+    val rootSpan = tags.foldLeft(tracer.newTrace().name(name)) {
+      case (span, (tagKey, tagValue)) => span.tag(tagKey, tagValue)
+    }
+    rootSpan.start()
     val closeEverything = () => {
       var closedReporter: Boolean = false
       var closedSender: Boolean = false
