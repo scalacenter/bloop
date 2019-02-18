@@ -115,7 +115,9 @@ object CompileBundle {
       }
 
       val classpath = tracer.trace("dependency classpath")(_ => project.dependencyClasspath(dag))
-      val classpathHashesTask = ClasspathHashing.hash(classpath.map(_.toFile), tracer)
+      val classpathHashesTask = ClasspathHashing
+        .hash(classpath.map(_.toFile), tracer)
+        .executeOn(ExecutionContext.ioScheduler)
 
       val (javaSources, scalaSources) = {
         tracer.trace("finding all sources") { _ =>
@@ -129,7 +131,7 @@ object CompileBundle {
       }
 
       val allSources = javaSources ++ scalaSources
-      val sourceHashesTask = hashSources(allSources.filterNot(_.isDirectory))
+      val sourceHashesTask = hashSources(allSources).executeOn(ExecutionContext.ioScheduler)
       Task.mapBoth(classpathHashesTask, sourceHashesTask) { (classpathHashes, sourceHashes) =>
         val originPath = project.origin.path.syntax
         val originHash = project.origin.hash
