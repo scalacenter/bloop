@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture
 import bloop.CompileMode
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
+import bloop.tracing.BraveTracer
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger}
@@ -39,7 +40,8 @@ object BloopZincCompiler {
       in: Inputs,
       compileMode: CompileMode,
       reporter: ZincReporter,
-      logger: ObservedLogger[_]
+      logger: ObservedLogger[_],
+      tracer: BraveTracer
   ): Task[CompileResult] = {
     val config = in.options()
     val setup = in.setup()
@@ -70,7 +72,8 @@ object BloopZincCompiler {
       incrementalCompilerOptions,
       extraOptions,
       irPromise,
-      compileMode
+      compileMode,
+      tracer
     )(logger)
   }
 
@@ -95,7 +98,8 @@ object BloopZincCompiler {
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
       irPromise: CompletableFuture[Array[IR]],
-      compileMode: CompileMode
+      compileMode: CompileMode,
+      tracer: BraveTracer
   )(implicit logger: ObservedLogger[_]): Task[CompileResult] = {
     val prev = previousAnalysis match {
       case Some(previous) => previous
@@ -103,19 +107,19 @@ object BloopZincCompiler {
     }
 
     // format: off
-    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, store, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra)
+    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, store, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra, tracer)
     // format: on
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
         val setOfSources = sources.toSet
-        val compiler = BloopHighLevelCompiler(config, reporter, logger)
+        val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer)
         val lookup = new LookupImpl(config, previousSetup)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev)
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise).map {
+        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise, tracer).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }
@@ -174,9 +178,10 @@ object BloopZincCompiler {
       compileOrder: CompileOrder = CompileOrder.Mixed,
       skip: Boolean = false,
       incrementalCompilerOptions: IncOptions,
-      extra: List[(String, String)]
+      extra: List[(String, String)],
+      tracer: BraveTracer
   ): Task[CompileConfiguration] = {
-    ClasspathHashing.hash(classpath).map { classpathHashes =>
+    ClasspathHashing.hash(classpath, tracer).map { classpathHashes =>
       val compileSetup = MiniSetup.of(
         output,
         MiniOptions.of(

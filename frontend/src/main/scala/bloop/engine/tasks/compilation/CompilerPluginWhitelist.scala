@@ -5,6 +5,7 @@ import java.nio.file.{FileSystems, Files, Path, Paths}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.tracing.BraveTracer
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 
@@ -36,7 +37,7 @@ object CompilerPluginWhitelist {
     "classpath-shrinker",
     "bm4", // better-monadic-for
     "splain",
-    "deriving",
+    "deriving"
   )
 
   /** A sequence of versions that are known not to support compiler plugin classloading. */
@@ -48,7 +49,8 @@ object CompilerPluginWhitelist {
   def enablePluginCaching(
       scalaVersion: String,
       scalacOptions: List[String],
-      logger: Logger
+      logger: Logger,
+      tracer: BraveTracer
   ): Task[List[String]] = {
     def isPluginWhitelisted(pluginPath: Path): Boolean = {
       val uriZipFile = URI.create("jar:file:" + pluginPath.toUri.getRawPath)
@@ -114,9 +116,12 @@ object CompilerPluginWhitelist {
             }
           }
 
-          Task.gatherUnordered(shouldCachePlugins).map(_.forall(_ == true)).map { enableCacheFlag =>
-            if (!enableCacheFlag) scalacOptions
-            else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions
+          tracer.traceTask("enabling plugin caching") { _ =>
+            Task.gatherUnordered(shouldCachePlugins).map(_.forall(_ == true)).map {
+              enableCacheFlag =>
+                if (!enableCacheFlag) scalacOptions
+                else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions
+            }
           }
         }
     }

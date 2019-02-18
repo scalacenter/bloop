@@ -2,10 +2,12 @@ package sbt.internal.inc.bloop.internal
 
 import java.io.File
 
+import _root_.bloop.reporter.ZincReporter
+import _root_.bloop.tracing.BraveTracer
+
 import monix.eval.Task
 import sbt.util.Logger
 import sbt.internal.inc._
-import _root_.bloop.reporter.ZincReporter
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
 
 /**
@@ -27,7 +29,8 @@ private final class BloopNameHashing(
     log: Logger,
     reporter: ZincReporter,
     options: IncOptions,
-    profiler: RunProfiler
+    profiler: RunProfiler,
+    tracer: BraveTracer
 ) extends IncrementalNameHashingCommon(log, options, profiler) {
 
   /**
@@ -127,6 +130,18 @@ private final class BloopNameHashing(
             )
           }
       }
+    }
+  }
+
+  import xsbti.compile.analysis.{ReadStamps, Stamp => XStamp}
+  override def detectInitialChanges(
+      sources: Set[File],
+      previousAnalysis: Analysis,
+      stamps: ReadStamps,
+      lookup: Lookup
+  )(implicit equivS: Equiv[XStamp]): InitialChanges = {
+    tracer.trace("detecting initial changes") { _ =>
+      super.detectInitialChanges(sources, previousAnalysis, stamps, lookup)
     }
   }
 

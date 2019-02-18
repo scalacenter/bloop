@@ -40,6 +40,8 @@ object Dependencies {
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
   val difflibVersion = "1.3.0"
+  val braveVersion = "5.6.1"
+  val zipkinSenderVersion = "2.7.15"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -103,4 +105,7 @@ object Dependencies {
   val mill = "com.lihaoyi" %% "mill-scalalib" % millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
+
+  val brave = "io.zipkin.brave" % "brave" % braveVersion
+  val zipkinSender = "io.zipkin.reporter2" % "zipkin-sender-urlconnection" % zipkinSenderVersion
 }

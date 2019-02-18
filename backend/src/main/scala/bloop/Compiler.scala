@@ -7,6 +7,7 @@ import java.io.File
 
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
+import bloop.tracing.BraveTracer
 import bloop.logging.{ObservedLogger, Logger}
 import bloop.reporter.{ProblemPerPhase, ZincReporter}
 import sbt.internal.inc.bloop.BloopZincCompiler
@@ -36,7 +37,8 @@ case class CompileInputs(
     logger: ObservedLogger[Logger],
     mode: CompileMode,
     dependentResults: Map[File, PreviousResult],
-    cancelPromise: Promise[Unit]
+    cancelPromise: Promise[Unit],
+    tracer: BraveTracer
 )
 
 object Compiler {
@@ -206,7 +208,7 @@ object Compiler {
 
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, compileInputs.mode, reporter, logger)
+      .compile(inputs, compileInputs.mode, reporter, logger, compileInputs.tracer)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {

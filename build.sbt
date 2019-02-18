@@ -50,7 +50,9 @@ val backend = project
       Dependencies.monix,
       Dependencies.directoryWatcher,
       Dependencies.xxHashLibrary,
-      Dependencies.zt
+      Dependencies.zt,
+      Dependencies.brave,
+      Dependencies.zipkinSender
     )
   )
 

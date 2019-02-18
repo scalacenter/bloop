@@ -5,6 +5,8 @@ import java.io.File
 import java.util.concurrent.CompletableFuture
 
 import bloop.reporter.ZincReporter
+import bloop.tracing.BraveTracer
+
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
 import sbt.util.Logger
@@ -25,7 +27,8 @@ object BloopIncremental {
       log: Logger,
       reporter: ZincReporter,
       options: IncOptions,
-      irPromise: CompletableFuture[Array[IR]]
+      irPromise: CompletableFuture[Array[IR]],
+      tracer: BraveTracer
   ): Task[(Boolean, Analysis)] = {
     def getExternalAPI(lookup: Lookup): (File, String) => Option[AnalyzedClass] = { (_: File, binaryClassName: String) =>
       lookup.lookupAnalysis(binaryClassName) flatMap {
@@ -46,7 +49,7 @@ object BloopIncremental {
 
     val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options)
+    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options, tracer)
   }
 
   def compileIncremental(
@@ -59,17 +62,19 @@ object BloopIncremental {
       reporter: ZincReporter,
       log: sbt.util.Logger,
       options: IncOptions,
+      tracer: BraveTracer,
       // TODO(jvican): Enable profiling of the invalidation algorithm down the road
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, reporter, options, profiler.profileRun)
+    val incremental = new BloopNameHashing(log, reporter, options, profiler.profileRun, tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray
       val modifiedClasses = initialChanges.external.allModified.toArray
       def isEmpty = modifiedBinaries.isEmpty && modifiedClasses.isEmpty
     }
+
     val (initialInvClasses, initialInvSources) =
       incremental.invalidateInitial(previous.relations, initialChanges)
 

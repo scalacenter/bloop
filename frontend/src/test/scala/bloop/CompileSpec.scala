@@ -806,4 +806,24 @@ class CompileSpec {
       )
     }
   }
+
+  @Test
+  def zipkin(): Unit = {
+    import bloop.tracing.BraveTracer
+
+    val tracer = BraveTracer("encode")
+    Thread.sleep(2000)
+    tracer.trace("previous children") { tracer =>
+      Thread.sleep(1000)
+      tracer.trace("inside children") { tracer =>
+        Thread.sleep(1000)
+      }
+    }
+
+    tracer.trace("next children") { tracer =>
+      Thread.sleep(500)
+    }
+    Thread.sleep(2000)
+    tracer.terminate()
+  }
 }

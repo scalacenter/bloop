@@ -1,5 +1,7 @@
 package sbt.internal.inc.bloop
 
+import bloop.tracing.BraveTracer
+
 import java.io.{File, InputStream}
 import java.nio.file.{Files, NoSuchFileException}
 import java.util.concurrent.ConcurrentHashMap
@@ -26,7 +28,7 @@ object ClasspathHashing {
   }
 
   /**
-   * Hash the classpath and parallelize with Monix's task.
+   * Hash the classpath in parallel with Monix's task.
    *
    * The whole way caching works in Zinc is ridiculous and in the future we should pull off
    * the strategy described in https://github.com/sbt/zinc/pull/371 and just use xxHash instead
@@ -39,22 +41,26 @@ object ClasspathHashing {
    * @param classpath The list of files to be hashed (if they exist).
    * @return A task returning a list of hashes.
    */
-  def hash(classpath: Seq[File]): Task[Seq[FileHash]] = {
+  def hash(classpath: Seq[File], tracer: BraveTracer): Task[Seq[FileHash]] = {
     // #433: Cache jars with their metadata to avoid recomputing hashes transitively in other projects
-    def fromCacheOrHash(file: File): Task[FileHash] = {
+    def fromCacheOrHash(file: File, tracer: BraveTracer): Task[FileHash] = {
       if (!file.exists()) Task.now(emptyFileHash(file))
       else {
         Task {
           try {
+            val filePath = file.toPath
             // `readAttributes` needs to be guarded by `file.exists()`, otherwise it fails
-            val attrs = Files.readAttributes(file.toPath, classOf[BasicFileAttributes])
+            val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
             if (attrs.isDirectory) emptyFileHash(file)
             else {
               val currentMetadata =
                 (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
               Option(cacheMetadataJar.get(file)) match {
                 case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
-                case _ => genFileHash(file, currentMetadata)
+                case _ =>
+                  tracer.trace(s"computing hash ${filePath.toAbsolutePath.toString}") { _ =>
+                    genFileHash(file, currentMetadata)
+                  }
               }
             }
           } catch {
@@ -66,7 +72,9 @@ object ClasspathHashing {
     }
 
     // Use gather instead of gather unordered to return results in the right input order
-    Task.gather(classpath.map(fromCacheOrHash(_)))
+    tracer.traceTask("computing hashes") { tracer =>
+      Task.gather(classpath.map(fromCacheOrHash(_, tracer)))
+    }
   }
 
   private[this] val definedMacrosJarCache = new ConcurrentHashMap[File, (JarMetadata, Boolean)]()

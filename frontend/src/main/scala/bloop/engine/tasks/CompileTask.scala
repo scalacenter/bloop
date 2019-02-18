@@ -5,6 +5,7 @@ import bloop.data.Project
 import bloop.engine._
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.AbsolutePath
+import bloop.tracing.BraveTracer
 import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{
   Reporter,
@@ -53,6 +54,8 @@ object CompileTask {
       rawLogger: UseSiteLogger
   ): Task[State] = {
     val cwd = state.build.origin.getParent
+    val topLevelProjects = Dag.directDependencies(List(dag))
+    val tracer = BraveTracer(s"compile ${topLevelProjects.mkString(", ")} (transitively)")
 
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val bundle = graphInputs.bundle
@@ -60,11 +63,13 @@ object CompileTask {
       val logger = bundle.logger
       val reporter = bundle.reporter
       val classpath = bundle.classpath
+      val compileProjectTracer = tracer.startNewChildTracer(s"compile ${project.name}")
       bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
           graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
+          compileProjectTracer.terminate()
           Task.now(earlyResult)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
           val previousResult = state.results.latestResult(project)
@@ -103,7 +108,7 @@ object CompileTask {
           }
 
           val inputs = CompilerPluginWhitelist
-            .enablePluginCaching(instance.version, scalacOptions, logger)
+            .enablePluginCaching(instance.version, scalacOptions, logger, tracer)
             .map { scalacOptions =>
               CompileInputs(
                 instance,
@@ -123,7 +128,8 @@ object CompileTask {
                 logger,
                 compileMode,
                 graphInputs.dependentResults,
-                cancelCompilation
+                cancelCompilation,
+                compileProjectTracer
               )
             }
 
@@ -153,6 +159,9 @@ object CompileTask {
               }
             }
 
+            // Finish the tracer as soon as possible
+            compileProjectTracer.terminate()
+
             result
           }
       }
@@ -169,7 +178,7 @@ object CompileTask {
       val logger = ObservedLogger(rawLogger, observer)
       val underlying = createReporter(ReporterInputs(project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(project, dag, reporter, logger, observable)
+      CompileBundle.computeFrom(project, dag, reporter, logger, observable, tracer)
     }
 
     CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline).flatMap { partialDag =>
@@ -182,6 +191,7 @@ object CompileTask {
           case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
         }
 
+        tracer.terminate()
         if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
         else {
           results.foreach {
