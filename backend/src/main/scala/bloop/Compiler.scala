@@ -4,6 +4,7 @@ import xsbti.compile._
 import xsbti.T2
 import java.util.Optional
 import java.io.File
+import java.util.concurrent.Executor
 
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
@@ -18,6 +19,8 @@ import sbt.internal.inc.bloop.internal.StopPipelining
 import sbt.util.InterfaceUtil
 
 import scala.concurrent.Promise
+
+import monix.execution.Scheduler
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -38,7 +41,9 @@ case class CompileInputs(
     mode: CompileMode,
     dependentResults: Map[File, PreviousResult],
     cancelPromise: Promise[Unit],
-    tracer: BraveTracer
+    tracer: BraveTracer,
+    scheduler: Scheduler,
+    executor: Executor
 )
 
 object Compiler {
@@ -186,11 +191,30 @@ object Compiler {
     val reporter = compileInputs.reporter
     val logger = compileInputs.logger
 
+    import java.util.UUID
+    import java.nio.file.Files
+    val newClassesDir = Files.createDirectories(
+      compileInputs.classesDir.getParent.underlying.resolve(s"classes.new-${UUID.randomUUID}")
+    )
+
+    val (copyTask, copyCancelable) = bloop.util.CopyProducts(
+      classesDir.toPath,
+      newClassesDir,
+      compileInputs.scheduler,
+      compileInputs.executor,
+      logger
+    )
+
+    val copyHandle = copyTask.runAsync(compileInputs.scheduler)
+
     def cancel(): Unit = {
       // Avoid illegal state exception if client cancellation promise is completed
       if (!compileInputs.cancelPromise.isCompleted) {
         compileInputs.cancelPromise.success(())
       }
+
+      // Handle the copying task in the background
+      copyCancelable.cancel()
 
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
@@ -213,14 +237,17 @@ object Compiler {
       .doOnCancel(Task(cancel()))
       .map {
         case Success(result) =>
+          copyCancelable.cancel()
           // Report end of compilation only after we have reported all warnings from previous runs
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Ok)
           val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
           Result.Success(compileInputs.reporter, res, elapsed)
         case Failure(_: xsbti.CompileCancelled) =>
+          copyCancelable.cancel()
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
           Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed)
         case Failure(cause) =>
+          copyCancelable.cancel()
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Error)
           cause match {
             case f: StopPipelining => Result.Blocked(f.failedProjectNames)
@@ -242,5 +269,6 @@ object Compiler {
               Result.Failed(Nil, Some(t), elapsed)
           }
       }
+      .flatMap(result => Task.fromFuture(copyHandle).map(_ => result))
   }
 }

@@ -37,7 +37,8 @@ final class SourceWatcher private (
 
     val (observer, observable) =
       Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(
-        ExecutionContext.ioScheduler)
+        ExecutionContext.ioScheduler
+      )
 
     var watchingEnabled: Boolean = true
     val listener = new DirectoryChangeListener {
@@ -83,7 +84,8 @@ final class SourceWatcher private (
       watcherHandle.complete(null)
       observer.onComplete()
       ngout.println(
-        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled")
+        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled"
+      )
     }
 
     val fileEventConsumer = {

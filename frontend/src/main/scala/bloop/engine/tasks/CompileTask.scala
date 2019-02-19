@@ -134,7 +134,9 @@ object CompileTask {
                 compileMode,
                 graphInputs.dependentResults,
                 cancelCompilation,
-                compileProjectTracer
+                compileProjectTracer,
+                ExecutionContext.ioScheduler,
+                ExecutionContext.ioExecutor
               )
             }
 

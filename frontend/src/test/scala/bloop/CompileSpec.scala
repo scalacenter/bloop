@@ -770,6 +770,25 @@ class CompileSpec {
   }
 
   @Test
+  def compileMacros(): Unit = {
+    import bloop.engine.ExecutionContext
+    val logger = new RecordingLogger
+    val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
+    BuildUtil.testSlowBuild(logger) { build =>
+      val state = build.state
+      val compileMacroProject = Run(Commands.Compile(List("macros")))
+      val compiledMacrosState = TestUtil.blockingExecute(compileMacroProject, state)
+      Assert.assertTrue(
+        "Unexpected compilation error when compiling macros",
+        compiledMacrosState.status.isOk
+      )
+
+      val compileUserProject = Run(Commands.Compile(List("user")))
+      val finalState = TestUtil.blockingExecute(compileUserProject, compiledMacrosState)
+    }
+  }
+
+  @Test
   def cancelCompilation(): Unit = {
     import bloop.engine.ExecutionContext
     val logger = new RecordingLogger
