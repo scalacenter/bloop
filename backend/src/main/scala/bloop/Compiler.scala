@@ -8,15 +8,18 @@ import java.util.concurrent.Executor
 
 import bloop.internal.Ecosystem
 import bloop.io.AbsolutePath
+import bloop.io.MirrorCompilationIO
 import bloop.tracing.BraveTracer
 import bloop.logging.{ObservedLogger, Logger}
 import bloop.reporter.{ProblemPerPhase, ZincReporter}
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
-import _root_.monix.eval.Task
 import bloop.util.{AnalysisUtils, CacheHashCode}
 import sbt.internal.inc.bloop.internal.StopPipelining
 import sbt.util.InterfaceUtil
+
+import _root_.monix.eval.Task
+import _root_.monix.execution.CancelableFuture
 
 import scala.concurrent.Promise
 
@@ -85,7 +88,8 @@ object Compiler {
     final case class Success(
         reporter: ZincReporter,
         previous: PreviousResult,
-        elapsed: Long
+        elapsed: Long,
+        synchronizeClassFiles: CancelableFuture[Unit]
     ) extends Result
         with CacheHashCode
 
@@ -104,7 +108,7 @@ object Compiler {
 
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
-        case s @ (Success(_, _, _) | Empty) => Some(s)
+        case s @ (Success(_, _, _, _) | Empty) => Some(s)
         case _ => None
       }
     }
@@ -118,6 +122,8 @@ object Compiler {
   }
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
+    // Copy the classes directory for the project to compile if it doesn't exist yet
+    java.nio.file.Files.createDirectories(compileInputs.classesDir.underlying)
     val classesDir = compileInputs.classesDir.toFile
     val classesDirBak = compileInputs.classesDir.getParent.resolve("classes.bak").toFile
     def getInputs(compilers: Compilers): Inputs = {
@@ -197,15 +203,13 @@ object Compiler {
       compileInputs.classesDir.getParent.underlying.resolve(s"classes.new-${UUID.randomUUID}")
     )
 
-    val (copyTask, copyCancelable) = bloop.util.CopyProducts(
-      classesDir.toPath,
-      newClassesDir,
+    val (copyTask, stopFileWatcher) = MirrorCompilationIO(
+      classesDir.toPath.toRealPath(),
+      newClassesDir.toRealPath(),
       compileInputs.scheduler,
       compileInputs.executor,
       logger
     )
-
-    val copyHandle = copyTask.runAsync(compileInputs.scheduler)
 
     def cancel(): Unit = {
       // Avoid illegal state exception if client cancellation promise is completed
@@ -213,8 +217,10 @@ object Compiler {
         compileInputs.cancelPromise.success(())
       }
 
+      /*
       // Handle the copying task in the background
-      copyCancelable.cancel()
+      stopFileWatcher.cancel()
+       */
 
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
@@ -235,19 +241,28 @@ object Compiler {
       .compile(inputs, compileInputs.mode, reporter, logger, compileInputs.tracer)
       .materialize
       .doOnCancel(Task(cancel()))
+      // Cancel the file watcher when compilation is done, no matter what its result is
+      //.map(result => { stopFileWatcher.cancel(); result })
       .map {
         case Success(result) =>
-          copyCancelable.cancel()
           // Report end of compilation only after we have reported all warnings from previous runs
+          val isNoOp = previousAnalysis.exists(_ == result.analysis())
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Ok)
           val res = PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
-          Result.Success(compileInputs.reporter, res, elapsed)
+          val copyHandle = {
+            if (isNoOp) CancelableFuture.successful(())
+            else {
+              compileInputs.tracer
+                .traceTask("copy class files")(_ => copyTask)
+                .runAsync(compileInputs.scheduler)
+            }
+          }
+
+          Result.Success(compileInputs.reporter, res, elapsed, copyHandle)
         case Failure(_: xsbti.CompileCancelled) =>
-          copyCancelable.cancel()
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
           Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed)
         case Failure(cause) =>
-          copyCancelable.cancel()
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Error)
           cause match {
             case f: StopPipelining => Result.Blocked(f.failedProjectNames)
@@ -269,6 +284,5 @@ object Compiler {
               Result.Failed(Nil, Some(t), elapsed)
           }
       }
-      .flatMap(result => Task.fromFuture(copyHandle).map(_ => result))
   }
 }

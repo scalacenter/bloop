@@ -191,28 +191,45 @@ object CompileTask {
     CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
-      Task.gatherUnordered(finalResults).map(_.flatten).map { results =>
+      Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         cleanStatePerBuildRun(dag, results, state)
-        val newState = state.copy(results = state.results.addFinalResults(results))
+        val stateWithResults = state.copy(results = state.results.addFinalResults(results))
         val failures = results.collect {
           case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
         }
 
-        topLevelTracer.terminate()
-        if (failures.isEmpty) newState.copy(status = ExitStatus.Ok)
-        else {
-          results.foreach {
-            case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
-              val project = bundle.project
-              rawLogger.error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
-              // Make a better job here at reporting any throwable that happens during compilation
-              t.printStackTrace()
-              rawLogger.trace(t)
-            case _ => () // Do nothing when the final compilation result is not an actual error
-          }
+        val newState: State = {
+          if (failures.isEmpty) {
+            stateWithResults.copy(status = ExitStatus.Ok)
+          } else {
+            results.foreach {
+              case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
+                val project = bundle.project
+                rawLogger
+                  .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
+                // Make a better job here at reporting any throwable that happens during compilation
+                t.printStackTrace()
+                rawLogger.trace(t)
+              case _ => () // Do nothing when the final compilation result is not an actual error
+            }
 
-          failures.foreach(b => rawLogger.error(s"'${b.project.name}' failed to compile."))
-          newState.copy(status = ExitStatus.CompilationError)
+            failures.foreach(b => rawLogger.error(s"'${b.project.name}' failed to compile."))
+            stateWithResults.copy(status = ExitStatus.CompilationError)
+          }
+        }
+
+        // Collect the background tasks from successful compilations
+        val backgroundTasks = Task.gatherUnordered {
+          results.collect {
+            case FinalNormalCompileResult(_, success: Compiler.Result.Success, _) =>
+              Task.fromFuture(success.synchronizeClassFiles)
+          }
+        }
+
+        backgroundTasks.map { _ =>
+          // Terminate the tracer after we've blocked on the background tasks
+          topLevelTracer.terminate()
+          newState
         }
       }
     }

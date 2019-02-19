@@ -73,7 +73,14 @@ object ClasspathHashing {
 
     // Use gather instead of gather unordered to return results in the right input order
     tracer.traceTask("computing hashes") { tracer =>
-      Task.gather(classpath.map(fromCacheOrHash(_, tracer)))
+      Task
+        .sequence {
+          classpath
+            .map(fromCacheOrHash(_, tracer))
+            .grouped(10)
+            .map(Task.gather(_))
+        }
+        .map(_.flatten.toList)
     }
   }
 
