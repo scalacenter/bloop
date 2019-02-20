@@ -30,6 +30,7 @@ case class CompileInputs(
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
+    oracleInputs: CompilerOracle.Inputs,
     store: IRStore,
     classesDir: AbsolutePath,
     baseDirectory: AbsolutePath,
@@ -187,7 +188,7 @@ object Compiler {
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance)
-    val inputs = getInputs(compilers)
+    val inputs = compileInputs.tracer.trace("creating zinc inputs")(_ => getInputs(compilers))
 
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
@@ -203,13 +204,14 @@ object Compiler {
       compileInputs.classesDir.getParent.underlying.resolve(s"classes.new-${UUID.randomUUID}")
     )
 
-    val (copyTask, stopFileWatcher) = MirrorCompilationIO(
+    // TODO(jvican): Re-enable the copying to a classes directory in the next commit
+    val copyTask = Task.now(())
+
+    /*val copyTask = MirrorCompilationIO.copyDirectories(
       classesDir.toPath.toRealPath(),
       newClassesDir.toRealPath(),
-      compileInputs.scheduler,
-      compileInputs.executor,
-      logger
-    )
+      5
+    )(compileInputs.scheduler)*/
 
     def cancel(): Unit = {
       // Avoid illegal state exception if client cancellation promise is completed
@@ -236,9 +238,10 @@ object Compiler {
       case _ => Nil
     }
 
+    val oracleInputs = compileInputs.oracleInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, compileInputs.mode, reporter, logger, compileInputs.tracer)
+      .compile(inputs, compileInputs.mode, reporter, logger, oracleInputs, compileInputs.tracer)
       .materialize
       .doOnCancel(Task(cancel()))
       // Cancel the file watcher when compilation is done, no matter what its result is

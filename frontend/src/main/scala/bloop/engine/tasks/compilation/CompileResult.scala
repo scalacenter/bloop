@@ -2,6 +2,7 @@ package bloop.engine.tasks.compilation
 
 import java.util.concurrent.CompletableFuture
 
+import bloop.data.Project
 import bloop.{Compiler, JavaSignal}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
@@ -33,7 +34,7 @@ object PartialCompileResult {
       case scala.util.Failure(CompileExceptions.CompletePromise(store)) =>
         PartialSuccess(bundle, store, completeJava, javaTrigger, result)
       case scala.util.Failure(t) =>
-        PartialFailure(bundle, t, result)
+        PartialFailure(bundle.project, t, result)
     }
   }
 
@@ -44,8 +45,8 @@ object PartialCompileResult {
         result.map(res => FinalNormalCompileResult(project, res, f.store) :: Nil)
       case PartialFailures(failures, result) =>
         Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
-      case PartialSuccess(project, store, _, _, result) =>
-        result.map(res => FinalNormalCompileResult(project, res, store) :: Nil)
+      case PartialSuccess(bundle, store, _, _, result) =>
+        result.map(res => FinalNormalCompileResult(bundle.project, res, store) :: Nil)
     }
   }
 }
@@ -56,7 +57,7 @@ case object PartialEmpty extends PartialCompileResult {
 }
 
 case class PartialFailure(
-    bundle: CompileBundle,
+    project: Project,
     exception: Throwable,
     result: Task[Compiler.Result]
 ) extends PartialCompileResult
@@ -92,7 +93,7 @@ case object FinalEmptyResult extends FinalCompileResult {
 }
 
 case class FinalNormalCompileResult private (
-    bundle: CompileBundle,
+    project: Project,
     result: Compiler.Result,
     store: IRStore
 ) extends FinalCompileResult
@@ -105,8 +106,8 @@ object FinalCompileResult {
     override def shows(r: FinalCompileResult): String = {
       r match {
         case FinalEmptyResult => s"<empty> (product of dag aggregation)"
-        case FinalNormalCompileResult(bundle, result, _) =>
-          val projectName = bundle.project.name
+        case FinalNormalCompileResult(project, result, _) =>
+          val projectName = project.name
           result match {
             case Compiler.Result.Empty => s"${projectName} (empty)"
             case Compiler.Result.Cancelled(problems, ms) =>

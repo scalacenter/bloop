@@ -2,6 +2,7 @@ package sbt.internal.inc.bloop.internal
 
 import java.io.File
 
+import _root_.bloop.CompilerOracle
 import _root_.bloop.reporter.ZincReporter
 import _root_.bloop.tracing.BraveTracer
 
@@ -28,6 +29,7 @@ import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
 private final class BloopNameHashing(
     log: Logger,
     reporter: ZincReporter,
+    oracleInputs: CompilerOracle.Inputs,
     options: IncOptions,
     profiler: RunProfiler,
     tracer: BraveTracer
@@ -140,8 +142,66 @@ private final class BloopNameHashing(
       stamps: ReadStamps,
       lookup: Lookup
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
-    tracer.trace("detecting initial changes") { _ =>
-      super.detectInitialChanges(sources, previousAnalysis, stamps, lookup)
+    tracer.trace("detecting initial changes") { tracer =>
+      // Copy pasting from IncrementalCommon to optimize/remove IO work
+      import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
+      val previous = previousAnalysis.stamps
+      val previousRelations = previousAnalysis.relations
+
+      val hashesMap = oracleInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
+      val sourceChanges = tracer.trace("source changes") { _ =>
+        lookup.changedSources(previousAnalysis).getOrElse {
+          val previousSources = previous.allSources.toSet
+          new UnderlyingChanges[File] {
+            private val inBoth = previousSources & sources
+            val removed = previousSources -- inBoth
+            val added = sources -- inBoth
+            val (changed, unmodified) = inBoth.partition { f =>
+              import sbt.internal.inc.Hash
+              // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
+              val newStamp = hashesMap
+                .get(f)
+                .map(bloopHash => BloopStamps.fromBloopHashToZincHash(bloopHash))
+                .getOrElse(BloopStamps.forHash(f))
+              !equivS.equiv(previous.source(f), newStamp)
+            }
+          }
+        }
+      }
+
+      // TODO(jvican): Remove this as soon as we have the new compilation scheme
+      val removedProducts = tracer.trace("removed products") { _ =>
+        lookup.removedProducts(previousAnalysis).getOrElse {
+          previous.allProducts
+            .filter(p => !equivS.equiv(previous.product(p), stamps.product(p)))
+            .toSet
+        }
+      }
+
+      val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
+        lookup.changedBinaries(previousAnalysis).getOrElse {
+          val detectChange =
+            isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
+          previous.allBinaries.filter(detectChange).toSet
+        }
+      }
+
+      val externalApiChanges: APIChanges = tracer.trace("external api changes") { _ =>
+        val incrementalExternalChanges = {
+          val previousAPIs = previousAnalysis.apis
+          val externalFinder = findExternalAnalyzedClass(lookup) _
+          detectAPIChanges(previousAPIs.allExternals, previousAPIs.externalAPI, externalFinder)
+        }
+
+        val changedExternalClassNames = incrementalExternalChanges.allModified.toSet
+        if (!lookup.shouldDoIncrementalCompilation(changedExternalClassNames, previousAnalysis))
+          new APIChanges(Nil)
+        else incrementalExternalChanges
+      }
+
+      val init = InitialChanges(sourceChanges, removedProducts, changedBinaries, externalApiChanges)
+      profiler.registerInitial(init)
+      init
     }
   }
 

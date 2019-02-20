@@ -4,7 +4,7 @@ package sbt.internal.inc.bloop
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-import bloop.CompileMode
+import bloop.{CompileMode, CompilerOracle}
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
 import bloop.tracing.BraveTracer
@@ -41,6 +41,7 @@ object BloopZincCompiler {
       compileMode: CompileMode,
       reporter: ZincReporter,
       logger: ObservedLogger[_],
+      oracleInputs: CompilerOracle.Inputs,
       tracer: BraveTracer
   ): Task[CompileResult] = {
     val config = in.options()
@@ -51,30 +52,33 @@ object BloopZincCompiler {
     val javacChosen = compilers.javaTools.javac
     val scalac = compilers.scalac
     val extraOptions = extra.toList.map(_.toScalaTuple)
-    compileIncrementally(
-      scalac,
-      javacChosen,
-      sources,
-      classpath,
-      store,
-      CompileOutput(classesDirectory),
-      cache,
-      progress().toOption,
-      scalacOptions,
-      javacOptions,
-      classpathOptions,
-      in.previousResult.analysis.toOption,
-      in.previousResult.setup.toOption,
-      perClasspathEntryLookup,
-      reporter,
-      order,
-      skip,
-      incrementalCompilerOptions,
-      extraOptions,
-      irPromise,
-      compileMode,
-      tracer
-    )(logger)
+    tracer.traceTask("zinc entrypoint") { tracer =>
+      compileIncrementally(
+        scalac,
+        javacChosen,
+        sources,
+        classpath,
+        oracleInputs,
+        store,
+        CompileOutput(classesDirectory),
+        cache,
+        progress().toOption,
+        scalacOptions,
+        javacOptions,
+        classpathOptions,
+        in.previousResult.analysis.toOption,
+        in.previousResult.setup.toOption,
+        perClasspathEntryLookup,
+        reporter,
+        order,
+        skip,
+        incrementalCompilerOptions,
+        extraOptions,
+        irPromise,
+        compileMode,
+        tracer
+      )(logger)
+    }
   }
 
   def compileIncrementally(
@@ -82,6 +86,7 @@ object BloopZincCompiler {
       javaCompiler: xsbti.compile.JavaCompiler,
       sources: Array[File],
       classpath: Seq[File],
+      oracleInputs: CompilerOracle.Inputs,
       store: IRStore,
       output: Output,
       cache: GlobalsCache,
@@ -107,7 +112,7 @@ object BloopZincCompiler {
     }
 
     // format: off
-    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, store, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra, tracer)
+    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, oracleInputs.classpath, store, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra, tracer)
     // format: on
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
@@ -119,7 +124,7 @@ object BloopZincCompiler {
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(setOfSources, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise, tracer).map {
+        BloopIncremental.compile(setOfSources, oracleInputs, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise, tracer).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }
@@ -164,6 +169,7 @@ object BloopZincCompiler {
       javac: xsbti.compile.JavaCompiler,
       sources: Seq[File],
       classpath: Seq[File],
+      classpathHashes: Seq[FileHash],
       store: IRStore,
       output: Output,
       cache: GlobalsCache,
@@ -180,38 +186,36 @@ object BloopZincCompiler {
       incrementalCompilerOptions: IncOptions,
       extra: List[(String, String)],
       tracer: BraveTracer
-  ): Task[CompileConfiguration] = {
-    ClasspathHashing.hash(classpath, tracer).map { classpathHashes =>
-      val compileSetup = MiniSetup.of(
-        output,
-        MiniOptions.of(
-          classpathHashes.toArray,
-          options.toArray,
-          javacOptions.toArray
-        ),
-        scalac.scalaInstance.actualVersion,
-        compileOrder,
-        incrementalCompilerOptions.storeApis(),
-        (extra map InterfaceUtil.t2).toArray
-      )
+  ): Task[CompileConfiguration] = Task.now {
+    val compileSetup = MiniSetup.of(
+      output,
+      MiniOptions.of(
+        classpathHashes.toArray,
+        options.toArray,
+        javacOptions.toArray
+      ),
+      scalac.scalaInstance.actualVersion,
+      compileOrder,
+      incrementalCompilerOptions.storeApis(),
+      (extra map InterfaceUtil.t2).toArray
+    )
 
-      MixedAnalyzingCompiler.config(
-        sources,
-        classpath,
-        classpathOptions,
-        store,
-        compileSetup,
-        progress,
-        previousAnalysis,
-        previousSetup,
-        perClasspathEntryLookup,
-        scalac,
-        javac,
-        reporter,
-        skip,
-        cache,
-        incrementalCompilerOptions
-      )
-    }
+    MixedAnalyzingCompiler.config(
+      sources,
+      classpath,
+      classpathOptions,
+      store,
+      compileSetup,
+      progress,
+      previousAnalysis,
+      previousSetup,
+      perClasspathEntryLookup,
+      scalac,
+      javac,
+      reporter,
+      skip,
+      cache,
+      incrementalCompilerOptions
+    )
   }
 }

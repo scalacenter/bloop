@@ -66,7 +66,7 @@ object CompileGraph {
           result match {
             case PartialEmpty => None
             case _: PartialSuccess => None
-            case f: PartialFailure => Some(f.bundle.project)
+            case f: PartialFailure => Some(f.project)
             case fs: PartialFailures => blockedFromResults(results)
           }
       }
@@ -74,11 +74,11 @@ object CompileGraph {
 
     dag match {
       case Leaf(_: PartialSuccess) => None
-      case Leaf(f: PartialFailure) => Some(f.bundle.project)
+      case Leaf(f: PartialFailure) => Some(f.project)
       case Leaf(fs: PartialFailures) => blockedFromResults(fs.failures)
       case Leaf(PartialEmpty) => None
       case Parent(_: PartialSuccess, _) => None
-      case Parent(f: PartialFailure, _) => Some(f.bundle.project)
+      case Parent(f: PartialFailure, _) => Some(f.project)
       case Parent(fs: PartialFailures, _) => blockedFromResults(fs.failures)
       case Parent(PartialEmpty, _) => None
       case Aggregate(dags) =>
@@ -218,7 +218,7 @@ object CompileGraph {
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
     def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure =
-      PartialFailure(bundle, CompileExceptions.FailPromise, Task.now(res))
+      PartialFailure(bundle.project, CompileExceptions.FailPromise, Task.now(res))
 
     val es = EmptyIRStore.getStore
     def loop(dag: Dag[Project]): CompileTraversal = {
@@ -244,39 +244,39 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              setupAndDeduplicate(project, dag, computeBundle) { bundle =>
-                val downstream = dependencies.map(loop)
-                Task.gatherUnordered(downstream).flatMap { dagResults =>
-                  val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                  if (failed.isEmpty) {
-                    val results: List[PartialSuccess] = {
-                      val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
-                      transitive.collect { case s: PartialSuccess => s }
-                    }
+              val downstream = dependencies.map(loop)
+              Task.gatherUnordered(downstream).flatMap { dagResults =>
+                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
+                if (failed.nonEmpty) {
+                  // Register the name of the projects we're blocked on (intransitively)
+                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                  Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
+                } else {
+                  val results: List[PartialSuccess] = {
+                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                    transitive.collect { case s: PartialSuccess => s }
+                  }
 
-                    val projectResults =
-                      results.map(ps => ps.result.map(r => ps.bundle.project -> r))
-                    // These tasks have already been completing, so collecting its results is super fast
-                    Task.gatherUnordered(projectResults).flatMap { results =>
-                      val dr = results.collect {
-                        case (p, s: Compiler.Result.Success) => p.classesDir.toFile -> s.previous
-                      }.toMap
+                  val projectResults =
+                    results.map(ps => ps.result.map(r => ps.bundle.project -> r))
+                  // These tasks have already been completing, so collecting results is fast
+                  Task.gatherUnordered(projectResults).flatMap { results =>
+                    val dr = results.collect {
+                      case (p, s: Compiler.Result.Success) => p.classesDir.toFile -> s.previous
+                    }.toMap
 
-                      val cf = new CompletableFuture[IRs]()
+                    val cf = new CompletableFuture[IRs]()
+                    setupAndDeduplicate(project, dag, computeBundle) { b =>
                       compile(
-                        Inputs(bundle, es, cf, JavaCompleted, JavaContinue, emptyOracle, false, dr)
+                        Inputs(b, es, cf, JavaCompleted, JavaContinue, emptyOracle, false, dr)
                       ).map {
                         case Compiler.Result.Ok(res) =>
                           val partial =
-                            PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res))
+                            PartialSuccess(b, es, JavaCompleted, JavaContinue, Task.now(res))
                           Parent(partial, dagResults)
-                        case res => Parent(toPartialFailure(bundle, res), dagResults)
+                        case res => Parent(toPartialFailure(b, res), dagResults)
                       }
                     }
-                  } else {
-                    // Register the name of the projects we're blocked on (intransitively)
-                    val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                    Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                   }
                 }
               }
@@ -346,19 +346,23 @@ object CompileGraph {
               }
 
             case Parent(project, dependencies) =>
-              setupAndDeduplicate(project, dag, computeBundle) { bundle =>
-                val downstream = dependencies.map(loop)
-                Task.gatherUnordered(downstream).flatMap { dagResults =>
-                  val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                  if (failed.isEmpty) {
-                    val directResults =
-                      Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
+              val downstream = dependencies.map(loop)
+              Task.gatherUnordered(downstream).flatMap { dagResults =>
+                val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
+                if (failed.nonEmpty) {
+                  // Register the name of the projects we're blocked on (intransitively)
+                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                  Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
+                } else {
+                  val directResults =
+                    Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
 
-                    val results: List[PartialSuccess] = {
-                      val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
-                      transitive.collect { case s: PartialSuccess => s }
-                    }
+                  val results: List[PartialSuccess] = {
+                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                    transitive.collect { case s: PartialSuccess => s }
+                  }
 
+                  setupAndDeduplicate(project, dag, computeBundle) { bundle =>
                     // Let's order the IRs exactly in the same order as provided in the classpath!
                     // Required for symbol clashes in dependencies (`AppLoader` in guardian/frontend)
                     val indexDirs =
@@ -409,12 +413,9 @@ object CompileGraph {
                           val res =
                             PartialCompileResult(bundle, store, jcf, completeJavaTask, ongoing)
                           Parent(res, dagResults)
+
                         }
                     }
-                  } else {
-                    // Register the name of the projects we're blocked on (intransitively)
-                    val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
-                    Task.now(Parent(PartialFailure(bundle, BlockURI, blocked), dagResults))
                   }
                 }
               }

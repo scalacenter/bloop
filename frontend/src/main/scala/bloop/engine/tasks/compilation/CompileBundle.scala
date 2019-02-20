@@ -4,7 +4,7 @@ import bloop.data.Project
 import bloop.engine.Feedback
 import bloop.engine.{Dag, ExecutionContext}
 import bloop.io.{AbsolutePath, Paths}
-import bloop.util.ByteHasher
+import bloop.io.ByteHasher
 import bloop.{Compiler, CompilerOracle, ScalaInstance}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
@@ -12,7 +12,6 @@ import bloop.tracing.BraveTracer
 
 import monix.eval.Task
 import monix.reactive.Observable
-import sbt.internal.inc.bloop.ClasspathHashing
 import xsbti.compile.FileHash
 
 /**
@@ -96,45 +95,35 @@ object CompileBundle {
       tracer: BraveTracer
   ): Task[CompileBundle] = {
     tracer.traceTask(s"computing bundle ${project.name}") { tracer =>
-      def hashSources(sources: List[AbsolutePath]): Task[List[CompilerOracle.HashedSource]] = {
-        val sourcesSize = sources.size
-        tracer.traceTask(s"hashing ${sourcesSize} sources") { _ =>
-          if (sourcesSize == 0) Task.now(Nil)
-          else {
-            Task.gather {
-              sources.map { source =>
-                Task {
-                  val bytes = java.nio.file.Files.readAllBytes(source.underlying)
-                  val hash = ByteHasher.hashBytes(bytes)
-                  CompilerOracle.HashedSource(source, hash)
-                }
-              }
-            }
-          }
-        }
-      }
-
-      val classpath = tracer.trace("dependency classpath i")(_ => project.dependencyClasspath(dag))
-      val classpathHashesTask = ClasspathHashing
-        .hash(classpath.map(_.toFile), tracer)
+      val classpath = tracer.trace("dependency classpath")(_ => project.dependencyClasspath(dag))
+      val classpathHashesTask = bloop.io.ClasspathHasher
+        .hash(classpath, 30, tracer)
         .executeOn(ExecutionContext.ioScheduler)
 
-      val (javaSources, scalaSources) = {
-        tracer.trace("finding all sources") { _ =>
-          val sources = project.sources.distinct
-          val javaSources =
-            sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.java")).distinct
-          val scalaSources =
-            sources.flatMap(src => Paths.pathFilesUnder(src, "glob:**.scala")).distinct
-          (javaSources, scalaSources)
-        }
+      val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
+        bloop.io.SourceHasher
+          .findAndHashSourcesInProject(project, 20)
+          .executeOn(ExecutionContext.ioScheduler)
       }
 
-      val allSources = javaSources ++ scalaSources
-      val sourceHashesTask = hashSources(allSources).executeOn(ExecutionContext.ioScheduler)
       Task.mapBoth(classpathHashesTask, sourceHashesTask) { (classpathHashes, sourceHashes) =>
         val originPath = project.origin.path.syntax
         val originHash = project.origin.hash
+        val (javaSources, scalaSources) = {
+          import scala.collection.mutable.ListBuffer
+          val javaSources = new ListBuffer[AbsolutePath]()
+          val scalaSources = new ListBuffer[AbsolutePath]()
+          sourceHashes.foreach { hashed =>
+            val source = hashed.source
+            val sourceName = source.underlying.getFileName().toString
+            if (sourceName.endsWith(".scala")) {
+              scalaSources += source
+            } else if (sourceName.endsWith(".java")) {
+              javaSources += source
+            } else ()
+          }
+          javaSources.toList -> scalaSources.toList
+        }
         val inputs = CompilerOracle.Inputs(sourceHashes, classpathHashes, originPath, originHash)
         new CompileBundle(
           project,

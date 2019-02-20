@@ -43,7 +43,7 @@ object ExecutionContext {
   }
 
   implicit lazy val ioScheduler: Scheduler =
-    ExecutorScheduler(ioExecutor, ioReporter, ExecutionModel.AlwaysAsyncExecution)
+    ExecutorScheduler(ioExecutor, ioReporter, ExecutionModel.Default)
 
   // Inlined from `monix.execution.schedulers.ThreadFactoryBuilder`
   private def monixThreadFactoryBuilder(

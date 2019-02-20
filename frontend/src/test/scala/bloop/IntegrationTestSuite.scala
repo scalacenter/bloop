@@ -19,9 +19,14 @@ import org.junit.runners.Parameterized.Parameters
 object IntegrationTestSuite {
   @Parameters
   def data() = {
+    import java.nio.file.Paths
     def filterIndex(index: Map[String, Path]): Map[String, Path] =
-      index //.filter(_._1.contains("frontend"))//.filterKeys(!_.contains("scalatra"))
+      index.filter(_._1.contains("frontend")) //.filterKeys(!_.contains("scalatra"))
     val projects = filterIndex(TestUtil.testProjectsIndex).map(_._2).toArray.map(Array.apply(_))
+    val projects2 = Map("bloop" -> Paths.get("/Users/jvican/Code/bloop/.bloop"))
+      .map(_._2)
+      .toArray
+      .map(Array.apply(_))
     Arrays.asList(projects: _*)
   }
 }
@@ -49,7 +54,6 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     keys.exists(k => bool(sys.env.getOrElse(k, default)))
   }
-
   @Test
   def compileProject: Unit = {
     if (!isCommunityBuildEnabled)
@@ -58,6 +62,12 @@ class IntegrationTestSuite(testDirectory: Path) {
       if (isPipeliningEnabled) println(s"*** PIPELINING COMPILATION FOR ${testDirectory} ***")
       else println(s"*** NORMAL COMPILATION FOR ${testDirectory} ***")
       // After reporting the state of the execution, compile the projects accordingly.
+      compileProject0
+
+      println(s"*** COMPILE ${testDirectory} FOR THE SECOND TIME ***")
+      compileProject0
+
+      println(s"*** COMPILE ${testDirectory} FOR THE THIRD TIME ***")
       compileProject0
     }
   }
@@ -97,19 +107,21 @@ class IntegrationTestSuite(testDirectory: Path) {
         val state =
           state0.copy(build = state0.build.copy(projects = rootProject :: previousProjects))
 
+        //val rootProject1 = state0.build.getProjectFor("frontend-test").get
         (state, rootProject)
     }
 
-    val reachable =
-      Dag.dfs(initialState.build.getDagFor(projectToCompile)).filter(_ != projectToCompile)
+    val allReachable = Dag.dfs(initialState.build.getDagFor(projectToCompile))
+    val reachable = allReachable.filter(_ != projectToCompile)
     val cleanAction = Run(Commands.Clean(reachable.map(_.name)), Exit(ExitStatus.Ok))
     val state = TestUtil.blockingExecute(cleanAction, initialState)
 
-    reachable.foreach(removeClassFiles)
+    allReachable.foreach(removeClassFiles)
     reachable.foreach { p =>
       assertTrue(
         s"Project `$integrationTestName/${p.name}` is already compiled.",
-        TestUtil.noPreviousAnalysis(p, state))
+        TestUtil.noPreviousAnalysis(p, state)
+      )
     }
 
     val enablePipelining = isPipeliningEnabled
@@ -126,8 +138,12 @@ class IntegrationTestSuite(testDirectory: Path) {
     reachable.foreach { p =>
       assertTrue(
         s"Project `$integrationTestName/${p.name}` has not been compiled.",
-        TestUtil.hasPreviousResult(p, state1))
+        TestUtil.hasPreviousResult(p, state1)
+      )
     }
+
+    println("Triggering extra no-op compile")
+    val state2 = TestUtil.blockingExecute(action, state1)
   }
 
   private def removeClassFiles(p: Project): Unit = {

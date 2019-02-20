@@ -774,6 +774,7 @@ class CompileSpec {
     import bloop.engine.ExecutionContext
     val logger = new RecordingLogger
     val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
+
     BuildUtil.testSlowBuild(logger) { build =>
       val state = build.state
       val compileMacroProject = Run(Commands.Compile(List("macros")))

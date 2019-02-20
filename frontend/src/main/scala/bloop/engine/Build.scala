@@ -4,7 +4,8 @@ import bloop.data.{Origin, Project}
 import bloop.engine.Dag.DagResult
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import bloop.util.{ByteHasher, CacheHashCode}
+import bloop.util.CacheHashCode
+import bloop.io.ByteHasher
 import monix.eval.Task
 
 final case class Build private (

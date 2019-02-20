@@ -12,7 +12,7 @@ import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.util.ByteHasher
+import bloop.io.ByteHasher
 import ch.epfl.scala.{bsp => Bsp}
 
 final case class Project(

@@ -114,12 +114,14 @@ object CompileTask {
 
           val inputs = CompilerPluginWhitelist
             .enablePluginCaching(instance.version, scalacOptions, logger, compileProjectTracer)
+            .executeOn(ExecutionContext.ioScheduler)
             .map { scalacOptions =>
               CompileInputs(
                 instance,
                 state.compilerCache,
                 sources.toArray,
                 classpath,
+                bundle.oracleInputs,
                 graphInputs.store,
                 project.classesDir,
                 project.out,
@@ -203,8 +205,7 @@ object CompileTask {
             stateWithResults.copy(status = ExitStatus.Ok)
           } else {
             results.foreach {
-              case FinalNormalCompileResult(bundle, Compiler.Result.Failed(_, Some(t), _), _) =>
-                val project = bundle.project
+              case FinalNormalCompileResult(project, Compiler.Result.Failed(_, Some(t), _), _) =>
                 rawLogger
                   .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
                 // Make a better job here at reporting any throwable that happens during compilation
@@ -213,7 +214,7 @@ object CompileTask {
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
-            failures.foreach(b => rawLogger.error(s"'${b.project.name}' failed to compile."))
+            failures.foreach(p => rawLogger.error(s"'${p.name}' failed to compile."))
             stateWithResults.copy(status = ExitStatus.CompilationError)
           }
         }
@@ -251,7 +252,7 @@ object CompileTask {
       }
 
       val instances = results.iterator.flatMap {
-        case FinalNormalCompileResult(bundle, _, _) => bundle.project.scalaInstance
+        case FinalNormalCompileResult(project, _, _) => project.scalaInstance
         case FinalEmptyResult => Nil
       }.toSet
 

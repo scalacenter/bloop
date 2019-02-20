@@ -11,7 +11,7 @@ import org.junit.experimental.categories.Category
 import scala.concurrent.duration.FiniteDuration
 
 @Category(Array(classOf[bloop.FastTests]))
-class ClasspathHashingSpec {
+class ClasspathHasherSpec {
   @Test
   def detectsMacrosInClasspath(): Unit = {
     val logger = new RecordingLogger()
@@ -20,11 +20,11 @@ class ClasspathHashingSpec {
       .resolve("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091", logger)
       .filter(_.syntax.endsWith(".jar"))
 
-    import sbt.internal.inc.bloop.ClasspathHashing
+    import bloop.io.ClasspathHasher
     Timer.timed(logger) {
       val duration = FiniteDuration(7, TimeUnit.SECONDS)
       TestUtil.await(duration) {
-        ClasspathHashing.containsMacroDefinition(jars.map(_.toFile).toSeq).map { jarsCount =>
+        ClasspathHasher.containsMacroDefinition(jars.map(_.toFile).toSeq).map { jarsCount =>
           jarsCount.foreach {
             case (jar, detected) =>
               if (detected)
@@ -37,7 +37,7 @@ class ClasspathHashingSpec {
     Timer.timed(logger) {
       val duration = FiniteDuration(7, TimeUnit.SECONDS)
       TestUtil.await(duration) {
-        ClasspathHashing.containsMacroDefinition(jars.map(_.toFile).toSeq).map { jarsCount =>
+        ClasspathHasher.containsMacroDefinition(jars.map(_.toFile).toSeq).map { jarsCount =>
           jarsCount.foreach {
             case (jar, detected) =>
               if (detected)

@@ -85,7 +85,7 @@ object CompilerPluginWhitelist {
         if (scalacOptions.contains("-Ycache-plugin-class-loader:none")) Task.now(scalacOptions)
         else {
           val pluginCompilerFlags = scalacOptions.filter(_.startsWith("-Xplugin:"))
-          val shouldCachePlugins = pluginCompilerFlags.map { flag =>
+          def shouldCachePlugins(tracer: BraveTracer) = pluginCompilerFlags.map { flag =>
             Task {
               val jarList = flag.stripPrefix("-Xplugin:")
               jarList.split(java.io.File.pathSeparator).headOption match {
@@ -103,10 +103,12 @@ object CompilerPluginWhitelist {
                         logger.debug(s"Cache hit ${cacheClassloader} for plugin ${pluginPath}")
                         cacheClassloader
                       case _ =>
-                        logger.debug(s"Cache miss for plugin ${pluginPath}")
-                        val shouldCache = isPluginWhitelisted(pluginPath)
-                        cachePluginJar.put(pluginPath, (lastModifiedTime, shouldCache))
-                        shouldCache
+                        tracer.trace(s"check whitelisted ${pluginPath}") { _ =>
+                          logger.debug(s"Cache miss for plugin ${pluginPath}")
+                          val shouldCache = isPluginWhitelisted(pluginPath)
+                          cachePluginJar.put(pluginPath, (lastModifiedTime, shouldCache))
+                          shouldCache
+                        }
                     }
                   }
                 case None =>
@@ -116,8 +118,8 @@ object CompilerPluginWhitelist {
             }
           }
 
-          tracer.traceTask("enabling plugin caching") { _ =>
-            Task.gatherUnordered(shouldCachePlugins).map(_.forall(_ == true)).map {
+          tracer.traceTask("enabling plugin caching") { tracer =>
+            Task.gatherUnordered(shouldCachePlugins(tracer)).map(_.forall(_ == true)).map {
               enableCacheFlag =>
                 if (!enableCacheFlag) scalacOptions
                 else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions

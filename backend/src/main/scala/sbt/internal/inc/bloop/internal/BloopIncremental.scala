@@ -4,6 +4,7 @@ package sbt.internal.inc.bloop.internal
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
+import bloop.CompilerOracle
 import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
 
@@ -20,6 +21,7 @@ object BloopIncremental {
     (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
   def compile(
       sources: Iterable[File],
+      oracleInputs: CompilerOracle.Inputs,
       lookup: Lookup,
       compile: CompileFunction,
       previous0: CompileAnalysis,
@@ -39,9 +41,8 @@ object BloopIncremental {
       }
     }
 
+    val current = BloopStamps.initial
     val externalAPI = getExternalAPI(lookup)
-    val current = Stamps.initial(Stamper.forLastModified, Stamper.forHash, Stamper.forLastModified)
-
     val previous = previous0 match { case a: Analysis => a }
     val previousRelations = previous.relations
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
@@ -49,11 +50,12 @@ object BloopIncremental {
 
     val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options, tracer)
+    compileIncremental(sources, oracleInputs, lookup, previous, current, compile, builder, reporter, log, options, tracer)
   }
 
   def compileIncremental(
       sources: Iterable[File],
+      oracleInputs: CompilerOracle.Inputs,
       lookup: Lookup,
       previous: Analysis,
       current: ReadStamps,
@@ -67,7 +69,7 @@ object BloopIncremental {
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, reporter, options, profiler.profileRun, tracer)
+    val incremental = new BloopNameHashing(log, reporter, oracleInputs, options, profiler.profileRun, tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray

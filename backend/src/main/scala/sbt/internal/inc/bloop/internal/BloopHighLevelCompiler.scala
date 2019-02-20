@@ -286,7 +286,7 @@ object BloopHighLevelCompiler {
       options: IncOptions,
       promise: CompletableFuture[Array[IR]]
   ): AnalysisCallback = {
-    val stamps = Stamps.initial(Stamper.forLastModified, Stamper.forHash, Stamper.forLastModified)
+    val stamps = BloopStamps.initial
     import sbt.internal.inc.AnalysisCallback.{Builder => CallbackBuilder}
     new CallbackBuilder(_ => None, _ => Set.empty, (_, _) => None, stamps, output, options, promise).build()
   }
