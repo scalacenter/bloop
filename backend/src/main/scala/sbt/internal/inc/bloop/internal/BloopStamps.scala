@@ -24,11 +24,6 @@ object BloopStamps {
   private final val emptyHash = EmptyStamp.hashCode
   def emptyHash(file: File): FileHash = FileHash.of(file, emptyHash)
 
-  def uniquePlaceholderHash: FileHash = {
-    val id = "i am a dummy placeholder"
-    FileHash.of(new java.io.File(id), id.hashCode)
-  }
-
   def forHash(file: File): Hash = {
     fromBloopHashToZincHash(ByteHasher.hashFileContents(file))
   }
