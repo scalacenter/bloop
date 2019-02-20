@@ -54,12 +54,15 @@ object CompileTask {
       rawLogger: UseSiteLogger
   ): Task[State] = {
     import bloop.internal.build.BuildInfo
-    val cwd = state.build.origin.getParent
-    val topLevelProjects = Dag.directDependencies(List(dag))
+    val originUri = state.build.origin
+    val cwd = originUri.getParent
+    val topLevelTargets = Dag.directDependencies(List(dag)).mkString(", ")
     val topLevelTracer = BraveTracer(
-      s"compile ${topLevelProjects.mkString(", ")} (transitively)",
+      s"compile $topLevelTargets (transitively)",
       "bloop.version" -> BuildInfo.version,
-      "zinc.version" -> BuildInfo.zincVersion
+      "zinc.version" -> BuildInfo.zincVersion,
+      "build.uri" -> originUri.syntax,
+      "compile.target" -> topLevelTargets
     )
 
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
@@ -68,7 +71,10 @@ object CompileTask {
       val logger = bundle.logger
       val reporter = bundle.reporter
       val classpath = bundle.classpath
-      val compileProjectTracer = topLevelTracer.startNewChildTracer(s"compile ${project.name}")
+      val compileProjectTracer = topLevelTracer.startNewChildTracer(
+        s"compile ${project.name}",
+        "compile.target" -> project.name
+      )
       bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
