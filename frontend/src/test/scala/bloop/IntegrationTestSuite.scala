@@ -21,7 +21,7 @@ object IntegrationTestSuite {
   def data() = {
     import java.nio.file.Paths
     def filterIndex(index: Map[String, Path]): Map[String, Path] =
-      index.filter(_._1.contains("frontend")) //.filterKeys(!_.contains("scalatra"))
+      index //.filter(_._1.contains("frontend")) //.filterKeys(!_.contains("scalatra"))
     val projects = filterIndex(TestUtil.testProjectsIndex).map(_._2).toArray.map(Array.apply(_))
     val projects2 = Map("bloop" -> Paths.get("/Users/jvican/Code/bloop/.bloop"))
       .map(_._2)
@@ -40,6 +40,11 @@ class IntegrationTestSuite(testDirectory: Path) {
     isEnvironmentEnabled(List("RUN_COMMUNITY_BUILD", "run.community.build"), "false")
   val isPipeliningEnabled: Boolean =
     isEnvironmentEnabled(List("PIPELINE_COMMUNITY_BUILD", "pipeline.community.build"), "false")
+  val runCommunityBuildExtraIterations: Boolean =
+    isEnvironmentEnabled(
+      List("RUN_ITERATIONS_COMMUNITY_BUILD", "run.community.build.iteration"),
+      "false"
+    )
 
   private def isEnvironmentEnabled(keys: List[String], default: String): Boolean = {
     import scala.util.Try
@@ -54,8 +59,9 @@ class IntegrationTestSuite(testDirectory: Path) {
 
     keys.exists(k => bool(sys.env.getOrElse(k, default)))
   }
+
   @Test
-  def compileProject: Unit = {
+  def compileProject(): Unit = {
     if (!isCommunityBuildEnabled)
       println(s"Skipping ${testDirectory} (community build is disabled)")
     else {
@@ -64,11 +70,13 @@ class IntegrationTestSuite(testDirectory: Path) {
       // After reporting the state of the execution, compile the projects accordingly.
       compileProject0
 
-      println(s"*** COMPILE ${testDirectory} FOR THE SECOND TIME ***")
-      compileProject0
+      if (runCommunityBuildExtraIterations) {
+        println(s"*** COMPILE ${testDirectory} FOR THE SECOND TIME ***")
+        compileProject0
 
-      println(s"*** COMPILE ${testDirectory} FOR THE THIRD TIME ***")
-      compileProject0
+        println(s"*** COMPILE ${testDirectory} FOR THE THIRD TIME ***")
+        compileProject0
+      }
     }
   }
 
