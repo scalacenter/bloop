@@ -266,9 +266,9 @@ final class BloopBspServices(
             case Compiler.Result.Blocked(_) => Nil
             case Compiler.Result.Success(_, _, _, _) => Nil
             case Compiler.Result.GlobalError(problem) => List(problem)
-            case Compiler.Result.Cancelled(problems, elapsed) =>
+            case Compiler.Result.Cancelled(problems, elapsed, _) =>
               List(reportError(p, problems, elapsed))
-            case Compiler.Result.Failed(problems, t, elapsed) =>
+            case Compiler.Result.Failed(problems, t, elapsed, _) =>
               val acc = List(reportError(p, problems, elapsed))
               t match {
                 case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc

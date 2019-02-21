@@ -27,60 +27,13 @@ import monix.reactive.MulticastStrategy
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 
-object MirrorCompilationIO {
-  def apply(
+object ParallelOps {
+  def copyDirectories(
       origin: Path,
       target: Path,
+      parallelUnits: Int,
       scheduler: Scheduler,
-      executor: Executor,
-      logger0: Logger
-  ): (Task[Unit], Cancelable) = {
-    // Make sure that the target is the real path and not a symlink
-    var watchingEnabled: Boolean = true
-    val logger = new bloop.logging.Slf4jAdapter(logger0)
-
-    val (observer, observable) =
-      Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(scheduler)
-
-    val listener = new DirectoryChangeListener {
-      override def isWatching: Boolean = watchingEnabled
-      override def onException(e: Exception): Unit = ()
-      override def onEvent(event: DirectoryChangeEvent): Unit = {
-        observer.onNext(event)
-        ()
-      }
-    }
-
-    val watcher = DirectoryWatcher
-      .builder()
-      .paths(List(origin).asJava)
-      .listener(listener)
-      .fileHashing(false)
-      .build()
-
-    val watcherHandle = watcher.watchAsync(executor)
-    val watchCancellation = Cancelable { () =>
-      watchingEnabled = false
-      watcherHandle.complete(null)
-
-      import java.util.concurrent.TimeUnit
-      // Give some time to process some events before closing
-      scheduler.scheduleOnce(10, TimeUnit.MILLISECONDS, new Runnable {
-        def run(): Unit = watcher.close()
-      })
-
-      observer.onComplete()
-      logger.debug("Cancelling file watcher")
-    }
-
-    //val consumeTask = observable.consumeWith(fileEventConsumer(origin, target, logger0))
-    val copyEverything = copyDirectories(origin, target, 5)(scheduler)
-    //consumeTask.flatMap(_ => copyEverything) -> watchCancellation
-    copyEverything -> watchCancellation
-  }
-
-  def copyDirectories(origin: Path, target: Path, parallelUnits: Int)(
-      scheduler: Scheduler
+      logger: Logger
   ): Task[Unit] = {
     val (observer, observable) = Observable.multicast[(Path, Path)](
       MulticastStrategy.publish
@@ -93,8 +46,12 @@ object MirrorCompilationIO {
         if (attributes.isDirectory) FileVisitResult.CONTINUE
         else {
           val stop = observer.onNext((file, currentTargetDirectory.resolve(file.getFileName))) == monix.execution.Ack.Stop
-          if (stop) FileVisitResult.TERMINATE
-          else FileVisitResult.CONTINUE
+          if (!stop) FileVisitResult.CONTINUE
+          else {
+            // TODO(jvican): Remove this before committing to repository
+            logger.error("Stopping file discovery")
+            FileVisitResult.CONTINUE
+          }
         }
       }
 
@@ -132,7 +89,6 @@ object MirrorCompilationIO {
     val copyFilesInParallel = observable.consumeWith(Consumer.foreachParallelAsync(parallelUnits) {
       case (originFile, targetFile) =>
         Task {
-          //println(s"Copying ${origin.relativize(originFile)}")
           Files.copy(
             originFile,
             targetFile,

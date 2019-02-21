@@ -130,6 +130,7 @@ object CompileTask {
                 bundle.oracleInputs,
                 graphInputs.store,
                 project.classesDir,
+                project.classesDir,
                 project.out,
                 scalacOptions.toArray,
                 project.javacOptions.toArray,
@@ -211,7 +212,7 @@ object CompileTask {
             stateWithResults.copy(status = ExitStatus.Ok)
           } else {
             results.foreach {
-              case FinalNormalCompileResult(project, Compiler.Result.Failed(_, Some(t), _), _) =>
+              case FinalNormalCompileResult(project, Compiler.Result.Failed(_, Some(t), _, _), _) =>
                 rawLogger
                   .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
                 // Make a better job here at reporting any throwable that happens during compilation
@@ -229,7 +230,11 @@ object CompileTask {
         val backgroundTasks = Task.gatherUnordered {
           results.collect {
             case FinalNormalCompileResult(_, success: Compiler.Result.Success, _) =>
-              Task.fromFuture(success.synchronizeClassFiles)
+              Task.fromFuture(success.backgroundTasks)
+            case FinalNormalCompileResult(_, failure: Compiler.Result.Failed, _) =>
+              Task.fromFuture(failure.backgroundTasks)
+            case FinalNormalCompileResult(_, cancelled: Compiler.Result.Cancelled, _) =>
+              Task.fromFuture(cancelled.backgroundTasks)
           }
         }
 

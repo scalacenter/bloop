@@ -66,8 +66,10 @@ object ZincInternals {
   object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
       // Use the range position if available first. Otherwise fallback in pointer information.
-      val rangePosition = position.startLine.toOption.flatMap(startLine =>
-        position.startColumn().toOption.map(startColumn => (startLine.toInt, startColumn.toInt)))
+      val rangePosition = position.startLine.toOption.flatMap(
+        startLine =>
+          position.startColumn().toOption.map(startColumn => (startLine.toInt, startColumn.toInt))
+      )
 
       rangePosition.orElse {
         position.line.toOption
@@ -78,8 +80,8 @@ object ZincInternals {
 
   object ZincRangePos {
     def unapply(position: Position): Option[(Int, Int)] = {
-      position.endLine.toOption.flatMap(endLine =>
-        position.endColumn().toOption.map(endColumn => (endLine, endColumn)))
+      position.endLine.toOption
+        .flatMap(endLine => position.endColumn().toOption.map(endColumn => (endLine, endColumn)))
     }
   }
 
@@ -92,5 +94,32 @@ object ZincInternals {
       searchClasspath: Seq[File]
   ): JavaCompiler = {
     new AnalyzingJavaCompiler(javac, classpath, instance, cpOptions, lookup, searchClasspath)
+  }
+
+  import sbt.internal.inc.UsedName
+  import sbt.internal.inc.Relations
+  import sbt.internal.inc.InternalDependencies
+  import sbt.internal.inc.ExternalDependencies
+  import sbt.internal.util.Relation
+  def copyRelations(
+      relations: Relations,
+      rebase: File => File
+  ): Relations = {
+    val newSrcProd = Relation.empty ++ {
+      relations.srcProd.all.map {
+        case (src, classFile) => src -> rebase(classFile)
+      }
+    }
+
+    Relations.make(
+      newSrcProd,
+      relations.libraryDep,
+      relations.libraryClassName,
+      relations.internalDependencies,
+      relations.externalDependencies,
+      relations.classes,
+      relations.names,
+      relations.productClassName
+    )
   }
 }
