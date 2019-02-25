@@ -5,13 +5,15 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 import bloop.bsp.BspServer
+import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
+import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
+
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
-import bloop.engine.tasks.Tasks
 
 import scala.util.control.NonFatal
 
@@ -270,15 +272,14 @@ object Cli {
 
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
-    val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
+    val client = ClientInfo.CliClientInfo("bloop-cli")
+    val currentState =
+      State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
 
     val dir = configDirectory.underlying
     waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
       Interpreter.execute(action, currentState).map { newState =>
         State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-        // Persist successful result on the background for the new state -- it doesn't block!
-        val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
-        Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
         newState
       }
     }
@@ -324,7 +325,8 @@ object Cli {
         .map { cancel =>
           if (cancel) {
             cliOptions.common.out.println(
-              s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
+              s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
+            )
             handle.cancel()
           } else ()
         }
@@ -347,7 +349,8 @@ object Cli {
         case e: CloseEvent =>
           if (!handle.isCompleted) {
             ngout.println(
-              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks...")
+              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
+            )
             handle.cancel()
             if (!cancel.isDone)
               cancel.complete(false)

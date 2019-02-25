@@ -67,6 +67,10 @@ final case class Project(
     }
   }
 
+  def pickValidResources: Array[AbsolutePath] = {
+    resources.iterator.filter(_.exists).toArray
+  }
+
   def dependencyClasspath(dag: Dag[Project]): Array[AbsolutePath] = {
     val cp = (classesDir :: rawClasspath).toBuffer
     // Add the resources right before the classes directory if found in the classpath

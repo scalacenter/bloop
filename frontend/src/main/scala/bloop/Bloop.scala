@@ -1,5 +1,6 @@
 package bloop
 
+import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.cli.CliParsers.{
   OptionsParser,
@@ -32,9 +33,10 @@ object Bloop extends CaseApp[CliOptions] {
       "The Bloop shell provides less features, is not supported and can be removed without notice."
     )
     logger.warn("Please refer to our documentation for more information.")
+    val client = ClientInfo.CliClientInfo("bloop-single-app")
     val projects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, projects)
-    val state = State(build, NoPool, options.common, logger)
+    val state = State(build, client, NoPool, options.common, logger)
     run(state, options)
   }
 
@@ -50,7 +52,7 @@ object Bloop extends CaseApp[CliOptions] {
 
       // Recover the state if the previous task has been successful.
       State.stateCache
-        .getStateFor(origin, state.pool, options.common, state.logger)
+        .getStateFor(origin, state.client, state.pool, options.common, state.logger)
         .getOrElse(state)
 
     }
@@ -59,7 +61,7 @@ object Bloop extends CaseApp[CliOptions] {
     input.split(" ") match {
       case Array("exit") =>
         val persistOut = (msg: String) => state.commonOptions.ngout.println(msg)
-        waitForState(Exit(ExitStatus.Ok), Tasks.persist(state, persistOut).map(_ => state))
+        waitForState(Exit(ExitStatus.Ok), Task.now(state))
         ()
 
       case Array("projects") =>

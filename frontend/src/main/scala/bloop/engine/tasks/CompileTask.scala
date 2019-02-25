@@ -1,7 +1,9 @@
 package bloop.engine.tasks
 
+import bloop.{CompileInputs, CompileMode, Compiler, CompileOutPaths}
 import bloop.cli.ExitStatus
 import bloop.data.Project
+import bloop.engine.caches.{ResultsCache, LastSuccessfulResult}
 import bloop.engine._
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.AbsolutePath
@@ -15,11 +17,15 @@ import bloop.reporter.{
   LogReporter,
   ObservedReporter
 }
-import bloop.{CompileInputs, CompileMode, Compiler}
+
+import java.nio.file.Files
+import java.util.UUID
 
 import monix.eval.Task
 import monix.reactive.{Observer, Observable, MulticastStrategy}
+
 import sbt.internal.inc.AnalyzingCompiler
+import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
 
 import scala.concurrent.Promise
 
@@ -70,11 +76,11 @@ object CompileTask {
       val project = bundle.project
       val logger = bundle.logger
       val reporter = bundle.reporter
-      val classpath = bundle.classpath
       val compileProjectTracer = topLevelTracer.startNewChildTracer(
         s"compile ${project.name}",
         "compile.target" -> project.name
       )
+
       bundle.toSourcesAndInstance match {
         case Left(earlyResult) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
@@ -83,12 +89,36 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResult)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
-          val previousResult = state.results.latestResult(project)
-          val previousSuccesful = state.results.lastSuccessfulResultOrEmpty(project)
+          val (previousResult, previousSuccessful) = {
+            if (pipeline) {
+              // Disable incremental compilation if pipelining is enabled
+              Compiler.Result.Empty -> LastSuccessfulResult.Empty
+            } else {
+              state.results.latestResult(project) ->
+                state.results.lastSuccessfulResultOrEmpty(project)
+            }
+          }
+
+          val readOnlyClassesDir = previousSuccessful.classesDir
+          val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
+          val compileOut = CompileOutPaths(
+            project.analysisOut,
+            externalUserClassesDir,
+            readOnlyClassesDir
+          )
+
+          val newClassesDir = compileOut.internalNewClassesDir
+          val classpath = bundle.dependenciesData.buildFullCompileClasspathFor(
+            project,
+            readOnlyClassesDir,
+            newClassesDir
+          )
 
           // Warn user if detected missing dep, see https://github.com/scalacenter/bloop/issues/708
           state.build.hasMissingDependencies(project).foreach { missing =>
-            Feedback.detectMissingDependencies(project, missing).foreach(msg => logger.warn(msg))
+            Feedback
+              .detectMissingDependencies(project, missing)
+              .foreach(msg => logger.warn(msg))
           }
 
           val (scalacOptions, compileMode) = {
@@ -129,14 +159,13 @@ object CompileTask {
                 classpath,
                 bundle.oracleInputs,
                 graphInputs.store,
-                project.classesDir,
-                project.classesDir,
+                compileOut,
                 project.out,
                 scalacOptions.toArray,
                 project.javacOptions.toArray,
                 project.compileOrder,
                 project.classpathOptions,
-                previousSuccesful,
+                previousSuccessful.previous,
                 previousResult,
                 reporter,
                 logger,
@@ -183,7 +212,7 @@ object CompileTask {
       }
     }
 
-    def setup(project: Project, dag: Dag[Project]): Task[CompileBundle] = {
+    def setup(inputs: CompileGraph.BundleInputs): Task[CompileBundle] = {
       // Create a multicast observable stream to allow multiple mirrors of loggers
       val (observer, observable) = {
         Observable.multicast[Either[ReporterAction, LoggerAction]](
@@ -192,12 +221,12 @@ object CompileTask {
       }
 
       val logger = ObservedLogger(rawLogger, observer)
-      val underlying = createReporter(ReporterInputs(project, cwd, rawLogger))
+      val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(project, dag, reporter, logger, observable, topLevelTracer)
+      CompileBundle.computeFrom(inputs, reporter, logger, observable, topLevelTracer)
     }
 
-    CompileGraph.traverse(dag, setup(_, _), compile(_), pipeline).flatMap { partialDag =>
+    CompileGraph.traverse(dag, setup(_), compile(_), pipeline).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
@@ -254,7 +283,6 @@ object CompileTask {
       state: State
   ): Unit = {
     import xsbti.compile.{IRStore, EmptyIRStore}
-    import java.nio.file.Files
     val tmpDir = Files.createTempDirectory("outputDir")
     try {
       // Merge IRs of all stores (no matter if they were generated by different Scala instances)

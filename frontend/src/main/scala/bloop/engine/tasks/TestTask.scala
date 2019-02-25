@@ -58,7 +58,7 @@ object TestTask {
         logger.debug(s"Running test suites with arguments: $args")
 
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
-        val analysis = lastCompileResult.analysis().toOption.getOrElse {
+        val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
           logger
             .warn(s"Test execution was triggered, but no compilation detected for ${project.name}")
           Analysis.empty
@@ -284,7 +284,7 @@ object TestTask {
       case Some(found) =>
         val frameworks = found.frameworks
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
-        val analysis = lastCompileResult.analysis().toOption.getOrElse {
+        val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
           logger.warn(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")
           Analysis.empty
         }

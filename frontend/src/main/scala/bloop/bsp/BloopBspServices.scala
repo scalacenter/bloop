@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.data.{Platform, Project}
+import bloop.data.{Platform, Project, ClientInfo}
 import bloop.engine.tasks.{CompileTask, Tasks}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.engine._
@@ -79,12 +79,12 @@ final class BloopBspServices(
     currentState.copy(logger = callSiteState.logger)
   }
 
-  private def reloadState(config: AbsolutePath): Task[State] = {
+  private def reloadState(config: AbsolutePath, clientInfo: ClientInfo): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
     // TODO(jvican): Modify the in, out and err streams to go through the BSP wire
-    State.loadActiveStateFor(config, pool, defaultOpts, bspLogger).map { state0 =>
+    State.loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger).map { state0 =>
       val newState = state0.copy(logger = bspLogger)
       currentState = newState
       newState
@@ -95,14 +95,15 @@ final class BloopBspServices(
     Task {
       val configDir = state.build.origin
       bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
-      // Spawn the analysis persistence after every save
-      val persistOut = (msg: String) => bspLogger.debug(msg)
-      Tasks.persist(state, persistOut).runAsync(ExecutionContext.scheduler)
       // Save the state globally so that it can be accessed by other clients
       State.stateCache.updateBuild(state)
       ()
     }
   }
+
+  // Completed whenever the initialization happens, used in `initialized`
+  val clientInfo = scala.concurrent.Promise[ClientInfo]()
+  val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
 
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
@@ -115,8 +116,10 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    reloadState(configDir).map { state =>
+    val client = ClientInfo.BspClientInfo(params.displayName, params.version, params.bspVersion)
+    reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
+      clientInfo.success(client)
       Right(
         bsp.InitializeBuildResult(
           BuildInfo.bloopName,
@@ -151,14 +154,15 @@ final class BloopBspServices(
   )(compute: BspComputation[T]): BspEndpointResponse[T] = {
     // Give a time window for `isInitialized` to complete, otherwise assume it didn't happen
     isInitializedTask
+      .flatMap(response => clientInfoTask.map(clientInfo => response.map(_ => clientInfo)))
       .timeoutTo(
         FiniteDuration(1, TimeUnit.SECONDS),
         Task.now(Left(JsonRpcResponse.invalidRequest("The session has not been initialized.")))
       )
       .flatMap {
         case Left(e) => Task.now(Left(e))
-        case Right(_) =>
-          reloadState(currentState.build.origin).flatMap { state =>
+        case Right(clientInfo) =>
+          reloadState(currentState.build.origin, clientInfo).flatMap { state =>
             compute(state).flatMap {
               case (state, e) =>
                 if (!persistAnalysisFiles) Task.now(e)

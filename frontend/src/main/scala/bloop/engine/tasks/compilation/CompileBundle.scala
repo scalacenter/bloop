@@ -5,14 +5,21 @@ import bloop.engine.Feedback
 import bloop.engine.{Dag, ExecutionContext}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.ByteHasher
-import bloop.{Compiler, CompilerOracle, ScalaInstance}
+import bloop.{Compiler, CompilerOracle, ScalaInstance, CompileProducts}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
 import bloop.tracing.BraveTracer
 
+import java.io.File
+import java.nio.file.Path
+
+import scala.collection.mutable
+
 import monix.eval.Task
 import monix.reactive.Observable
+
 import xsbti.compile.FileHash
+import xsbti.compile.PreviousResult
 
 /**
  * Define a bundle of high-level information about a project that is going to be compiled.
@@ -38,7 +45,7 @@ import xsbti.compile.FileHash
  */
 final case class CompileBundle(
     project: Project,
-    classpath: Array[AbsolutePath],
+    dependenciesData: CompileDependenciesData,
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
     oracleInputs: CompilerOracle.Inputs,
@@ -87,17 +94,26 @@ case class CompileSourcesAndInstance(
 
 object CompileBundle {
   def computeFrom(
-      project: Project,
-      dag: Dag[Project],
+      inputs: CompileGraph.BundleInputs,
       reporter: ObservedReporter,
       logger: ObservedLogger[Logger],
       mirror: Observable[Either[ReporterAction, LoggerAction]],
       tracer: BraveTracer
   ): Task[CompileBundle] = {
+    import inputs.{project, dag, dependentProducts}
     tracer.traceTask(s"computing bundle ${project.name}") { tracer =>
-      val classpath = tracer.trace("dependency classpath")(_ => project.dependencyClasspath(dag))
+      val compileDependenciesData = {
+        tracer.trace("dependency classpath") { _ =>
+          CompileDependenciesData.compute(
+            project.rawClasspath.toArray,
+            dependentProducts
+          )
+        }
+      }
+
+      // Dependency classpath is not yet complete, but the hashes only cares about jars
       val classpathHashesTask = bloop.io.ClasspathHasher
-        .hash(classpath, 30, tracer)
+        .hash(compileDependenciesData.dependencyClasspath, 30, tracer)
         .executeOn(ExecutionContext.ioScheduler)
 
       val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
@@ -127,7 +143,7 @@ object CompileBundle {
         val inputs = CompilerOracle.Inputs(sourceHashes, classpathHashes, originPath, originHash)
         new CompileBundle(
           project,
-          classpath,
+          compileDependenciesData,
           javaSources,
           scalaSources,
           inputs,

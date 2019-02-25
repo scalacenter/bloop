@@ -2,6 +2,7 @@ package bloop.engine.caches
 
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.data.ClientInfo
 import bloop.logging.Logger
 import bloop.cli.CommonOptions
 import bloop.engine.{Build, BuildLoader, State, ClientPool}
@@ -21,6 +22,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
    */
   def getStateFor(
       path: AbsolutePath,
+      client: ClientInfo,
       pool: ClientPool,
       commonOptions: CommonOptions,
       logger: Logger
@@ -30,6 +32,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
         cachedState.build,
         cachedState.results,
         cachedState.compilerCache,
+        client,
         pool,
         commonOptions,
         ExitStatus.Ok,
@@ -59,12 +62,13 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
    */
   def addIfMissing(
       from: AbsolutePath,
+      client: ClientInfo,
       pool: ClientPool,
       commonOptions: CommonOptions,
       logger: Logger,
       computeBuild: AbsolutePath => Task[State]
   ): Task[State] = {
-    getStateFor(from, pool, commonOptions, logger) match {
+    getStateFor(from, client, pool, commonOptions, logger) match {
       case Some(state) =>
         state.build.checkForChange(logger).flatMap {
           case Build.ReturnPreviousState => Task.now(state)

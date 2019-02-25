@@ -48,7 +48,7 @@ object JsTestSpec {
     val compileTask =
       CompileTask.compile(state0, dag, createReporter, order, false, false, Promise[Unit](), logger)
     val state = Await.result(compileTask.runAsync(ExecutionContext.scheduler), Duration.Inf)
-    val result = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption
+    val result = state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().toOption
     val analysis = result.getOrElse(sys.error(s"$target lacks analysis after compilation!?"))
     (state, project, analysis)
   }

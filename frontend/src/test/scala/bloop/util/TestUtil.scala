@@ -301,7 +301,7 @@ object TestUtil {
   }
 
   def noPreviousAnalysis(project: Project, state: State): Boolean =
-    !state.results.lastSuccessfulResultOrEmpty(project).analysis().isPresent
+    !state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().isPresent
 
   def hasPreviousResult(project: Project, state: State): Boolean =
     state.results.lastSuccessfulResult(project).isDefined

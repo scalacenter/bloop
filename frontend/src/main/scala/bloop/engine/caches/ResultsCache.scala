@@ -36,15 +36,15 @@ import scala.concurrent.duration.Duration
  */
 final class ResultsCache private (
     all: Map[Project, Compiler.Result],
-    successful: Map[Project, PreviousResult]
+    successful: Map[Project, LastSuccessfulResult]
 ) {
 
   /** Returns the last succesful result if present, empty otherwise. */
-  def lastSuccessfulResultOrEmpty(project: Project): PreviousResult =
-    lastSuccessfulResult(project).getOrElse(ResultsCache.EmptyResult)
+  def lastSuccessfulResultOrEmpty(project: Project): LastSuccessfulResult =
+    lastSuccessfulResult(project).getOrElse(LastSuccessfulResult.Empty)
 
   /** Returns an optional last succesful result. */
-  private[bloop] def lastSuccessfulResult(project: Project): Option[PreviousResult] =
+  private[bloop] def lastSuccessfulResult(project: Project): Option[LastSuccessfulResult] =
     successful.get(project)
 
   /** Returns the latest compilation result if present, empty otherwise. */
@@ -57,7 +57,7 @@ final class ResultsCache private (
   }
 
   def allResults: Iterator[(Project, Compiler.Result)] = all.iterator
-  def allSuccessful: Iterator[(Project, PreviousResult)] = successful.iterator
+  def allSuccessful: Iterator[(Project, LastSuccessfulResult)] = successful.iterator
   def cleanSuccessful(projects: List[Project]): ResultsCache = {
     // Remove all the successful results from the cache.
     val newSuccessful = successful.filterKeys(p => !projects.contains(p))
@@ -68,9 +68,11 @@ final class ResultsCache private (
     val newAll = all + (project -> result)
     result match {
       case s: Compiler.Result.Success =>
-        new ResultsCache(newAll, successful + (project -> s.previous))
+        // TODO(jvican): Add here the right IO task
+        val newSuccessful = LastSuccessfulResult(s.products)
+        new ResultsCache(newAll, successful + (project -> newSuccessful))
       case Compiler.Result.Empty =>
-        new ResultsCache(newAll, successful + (project -> ResultsCache.EmptyResult))
+        new ResultsCache(newAll, successful + (project -> LastSuccessfulResult.Empty))
       case r => new ResultsCache(newAll, successful)
     }
   }
@@ -103,7 +105,7 @@ object ResultsCache {
   // TODO: Use a guava cache that stores maximum 200 analysis file
   private[bloop] val persisted = ConcurrentHashMap.newKeySet[PreviousResult]()
 
-  private[ResultsCache] final val EmptyResult: PreviousResult =
+  private[bloop] final val EmptyResult: PreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   private[bloop] val emptyForTests: ResultsCache =
@@ -126,10 +128,12 @@ object ResultsCache {
             case Some(res) =>
               import monix.execution.CancelableFuture
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
+              val classesDir = p.classesDir.underlying
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
               val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-              Result.Success(reporter, r, 0L, CancelableFuture.successful(()))
+              val products = bloop.CompileProducts(classesDir, classesDir, r, r)
+              Result.Success(reporter, products, 0L, CancelableFuture.successful(()))
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
               Result.Empty

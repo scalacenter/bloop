@@ -621,13 +621,7 @@ class CompileSpec {
     val state = TestUtil.loadTestProject(testProject).copy(logger = logger)
     val action = Run(Commands.Compile(List(testProject)))
     val compiledState = TestUtil.blockingExecute(action, state)
-    val persistOut = (msg: String) => compiledState.commonOptions.ngout.println(msg)
-    val t = Tasks.persist(compiledState, persistOut)
-
-    try TestUtil.await(FiniteDuration(7, TimeUnit.SECONDS))(t)
-    catch { case t: Throwable => logger.dump(); throw t }
-
-    val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
+    val analysisOutFile = compiledState.build.getProjectFor(testProject).get.analysisOut
     assertTrue(Files.exists(analysisOutFile.underlying))
   }
 

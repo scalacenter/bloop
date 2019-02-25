@@ -21,6 +21,7 @@ import sbt.internal.inc.Analysis
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
 import sbt.internal.inc.bloop.internal.StopPipelining
+import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
 import scala.concurrent.Promise
 import scala.collection.mutable
@@ -36,8 +37,7 @@ case class CompileInputs(
     classpath: Array[AbsolutePath],
     oracleInputs: CompilerOracle.Inputs,
     store: IRStore,
-    readOnlyClassesDir: AbsolutePath,
-    visibleClassesDir: AbsolutePath,
+    out: CompileOutPaths,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
     javacOptions: Array[String],
@@ -54,6 +54,22 @@ case class CompileInputs(
     scheduler: Scheduler,
     executor: Executor
 )
+
+case class CompileOutPaths(
+    analysisOut: AbsolutePath,
+    externalClassesDir: AbsolutePath,
+    internalReadOnlyClassesDir: AbsolutePath
+) {
+  lazy val internalNewClassesDir: AbsolutePath = {
+    val classesDir = internalReadOnlyClassesDir.underlying
+    val parentDir = classesDir.getParent()
+    val classesName = classesDir.getFileName()
+    val newClassesName = s"${classesName}-new-${UUID.randomUUID}"
+    AbsolutePath(
+      Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
+    )
+  }
+}
 
 object Compiler {
   private final class ZincClasspathEntryLookup(results: Map[File, PreviousResult])
@@ -93,7 +109,7 @@ object Compiler {
 
     final case class Success(
         reporter: ZincReporter,
-        previous: PreviousResult,
+        products: CompileProducts,
         elapsed: Long,
         backgroundTasks: CancelableFuture[Unit]
     ) extends Result
@@ -131,28 +147,12 @@ object Compiler {
 
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val tracer = compileInputs.tracer
-    val readOnlyClassesDir = {
-      val classesDir = compileInputs.readOnlyClassesDir.underlying
-      java.nio.file.Files.createDirectories(classesDir).toRealPath()
-    }
+    val compileOut = compileInputs.out
+    val externalClassesDir = compileOut.externalClassesDir.underlying
+    val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
+    val newClassesDir = compileOut.internalNewClassesDir.underlying
 
-    val userClassesDir = {
-      // Ensure that the visible user classes directory exists and that we use its real path
-      val classesDir = compileInputs.visibleClassesDir.underlying
-      require(Files.isDirectory(classesDir))
-      classesDir.toRealPath()
-    }
-
-    val newClassesDir: Path = {
-      // Create a classes directory only for this compilation run
-      val parentDir = readOnlyClassesDir.getParent
-      val classesName = readOnlyClassesDir.getFileName()
-      Files
-        .createDirectories(parentDir.resolve(s"${classesName}.rw-${UUID.randomUUID}"))
-        .toRealPath()
-    }
-
-    val backgroundTasksWhenNewAnalysis = new mutable.ListBuffer[Task[Unit]]()
+    val backgroundTasksWhenNewSuccessfulAnalysis = new mutable.ListBuffer[Task[Unit]]()
     val backgroundTasksForFailedCompilation = new mutable.ListBuffer[Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
@@ -173,14 +173,16 @@ object Compiler {
         def complete(success: Boolean): Unit = {
           if (success) {
             // Schedule copying compilation products to visible classes directory
-            backgroundTasksWhenNewAnalysis.+=(
-              ParallelOps.copyDirectories(
-                newClassesDir,
-                userClassesDir,
-                5,
-                compileInputs.scheduler,
-                compileInputs.logger
-              )
+            backgroundTasksWhenNewSuccessfulAnalysis.+=(
+              tracer.traceTask("copying products to user visible classes dir") { _ =>
+                ParallelOps.copyDirectories(
+                  newClassesDir,
+                  externalClassesDir,
+                  5,
+                  compileInputs.scheduler,
+                  compileInputs.logger
+                )
+              }
             )
           } else {
             // Delete all compilation products generated in the new classes directory
@@ -245,10 +247,10 @@ object Compiler {
       }
     }
 
-    def runAggregateTasks(label: String, tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
-      val aggregateTask = Task.gatherUnordered(tasks).map(_ => ())
-      tracer
-        .traceTask(label)(_ => aggregateTask)
+    def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
+      Task
+        .gatherUnordered(tasks)
+        .map(_ => ())
         .runAsync(compileInputs.scheduler)
     }
 
@@ -298,41 +300,47 @@ object Compiler {
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Ok)
-          val analysis = rebaseAnalysisClassFiles(
-            result.analysis().asInstanceOf[Analysis],
-            readOnlyClassesDir,
-            newClassesDir
+
+          // Compute the results we should use for dependent compilations and new compilation runs
+          val resultForDependentCompilationsInSameRun =
+            PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+          val resultForFutureCompilationRuns = resultForDependentCompilationsInSameRun.withAnalysis(
+            Optional.of(
+              rebaseAnalysisClassFiles(result.analysis(), readOnlyClassesDir, newClassesDir)
+            )
           )
 
-          val res = PreviousResult.of(Optional.of(analysis), Optional.of(result.setup()))
+          // Schedule the tasks to run concurrently after the compilation end
           val backgroundTasksExecution = {
             val isNoOp = previousAnalysis.exists(_ == result.analysis())
             if (isNoOp) CancelableFuture.successful(())
             else {
-              val aggregateTask =
-                Task.gatherUnordered(backgroundTasksWhenNewAnalysis.toList).map(_ => ())
-              tracer
-                .traceTask("background tasks successful compilation")(_ => aggregateTask)
-                .runAsync(compileInputs.scheduler)
+              backgroundTasksWhenNewSuccessfulAnalysis.+=(
+                Task {
+                  persist(compileOut.analysisOut, result.analysis, result.setup, tracer, logger)
+                }
+              )
+
+              runAggregateTasks(backgroundTasksWhenNewSuccessfulAnalysis.toList)
             }
           }
 
-          Result.Success(compileInputs.reporter, res, elapsed, backgroundTasksExecution)
-        case Failure(_: xsbti.CompileCancelled) =>
-          val backgroundTask = runAggregateTasks(
-            "background tasks for cancelled compilation",
-            backgroundTasksForFailedCompilation.toList
+          val products = CompileProducts(
+            readOnlyClassesDir,
+            newClassesDir,
+            resultForDependentCompilationsInSameRun,
+            resultForFutureCompilationRuns
           )
 
+          Result.Success(compileInputs.reporter, products, elapsed, backgroundTasksExecution)
+        case Failure(_: xsbti.CompileCancelled) =>
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
+          val backgroundTask = runAggregateTasks(backgroundTasksForFailedCompilation.toList)
           Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTask)
         case Failure(cause) =>
-          def triggerBackgroundTask = runAggregateTasks(
-            "background tasks for cancelled compilation",
-            backgroundTasksForFailedCompilation.toList
-          )
-
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Error)
+
+          def triggerBackgroundTask = runAggregateTasks(backgroundTasksForFailedCompilation.toList)
           cause match {
             case f: StopPipelining => Result.Blocked(f.failedProjectNames)
             case f: xsbti.CompileFailed =>
@@ -367,10 +375,12 @@ object Compiler {
    * system.
    */
   def rebaseAnalysisClassFiles(
-      analysis: Analysis,
+      analysis0: xsbti.compile.CompileAnalysis,
       readOnlyClassesDir: Path,
       newClassesDir: Path
   ): Analysis = {
+    // Cast to the only internal analysis that we support
+    val analysis = analysis0.asInstanceOf[Analysis]
     def rebase(file: File): File = {
       val filePath = file.toPath.toAbsolutePath
       if (!filePath.startsWith(readOnlyClassesDir)) file
@@ -400,5 +410,21 @@ object Compiler {
     }
 
     analysis.copy(stamps = newStamps, relations = newRelations)
+  }
+
+  def persist(
+      storeFile: AbsolutePath,
+      analysis: CompileAnalysis,
+      setup: MiniSetup,
+      tracer: BraveTracer,
+      logger: Logger
+  ): Unit = {
+    val label = s"Writing analysis to ${storeFile.syntax}..."
+    tracer.trace(label) { _ =>
+      val filter = bloop.logging.DebugFilter.Compilation
+      logger.debug(label)(filter)
+      FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
+      logger.debug(s"Wrote analysis to ${storeFile.syntax}...")(filter)
+    }
   }
 }
