@@ -1,12 +1,12 @@
 package bloop.engine.tasks
 
-import bloop.{CompileInputs, CompileMode, Compiler, CompileOutPaths}
+import bloop.{CompileInputs, CompileMode, Compiler, CompileOutPaths, CompileProducts}
 import bloop.cli.ExitStatus
 import bloop.data.Project
+import bloop.engine.{State, Dag, ExecutionContext, Feedback}
 import bloop.engine.caches.{ResultsCache, LastSuccessfulResult}
-import bloop.engine._
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, ParallelOps}
 import bloop.tracing.BraveTracer
 import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{
@@ -22,6 +22,7 @@ import java.nio.file.Files
 import java.util.UUID
 
 import monix.eval.Task
+import monix.execution.CancelableFuture
 import monix.reactive.{Observer, Observable, MulticastStrategy}
 
 import sbt.internal.inc.AnalyzingCompiler
@@ -34,21 +35,6 @@ object CompileTask {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
-  private final val GeneratePicklesFlag = "-Ygenerate-pickles"
-
-  /**
-   * Performs incremental compilation of the dependencies of `project`, including `project` if
-   * `excludeRoot` is `false`, excluding it otherwise.
-   *
-   * @param state             The current state of Bloop.
-   * @param dag               The project dag to compile.
-   * @param createReporter    A function that creates a per-project compilation reporter.
-   * @param pipeline          Enable build pipelining for this compilation run.
-   * @param excludeRoot       Compile only the dependencies of `project` (required by `console`).
-   * @param cancelCompilation A promise that is completed when the user cancels compilation.
-   *
-   * @return The new state of Bloop after compilation.
-   */
   def compile[UseSiteLogger <: Logger](
       state: State,
       dag: Dag[Project],
@@ -89,7 +75,7 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResult)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
-          val (previousResult, previousSuccessful) = {
+          val (previousResult, lastSuccessful) = {
             if (pipeline) {
               // Disable incremental compilation if pipelining is enabled
               Compiler.Result.Empty -> LastSuccessfulResult.Empty
@@ -99,7 +85,7 @@ object CompileTask {
             }
           }
 
-          val readOnlyClassesDir = previousSuccessful.classesDir
+          val readOnlyClassesDir = lastSuccessful.classesDir
           val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
           val compileOut = CompileOutPaths(
             project.analysisOut,
@@ -121,93 +107,56 @@ object CompileTask {
               .foreach(msg => logger.warn(msg))
           }
 
-          val (scalacOptions, compileMode) = {
-            if (!pipeline) (project.scalacOptions, userCompileMode)
-            else {
-              val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions)
-              val mode = userCompileMode match {
-                case CompileMode.Sequential =>
-                  CompileMode.Pipelined(
-                    graphInputs.irPromise,
-                    graphInputs.completeJava,
-                    graphInputs.transitiveJavaSignal,
-                    graphInputs.oracle,
-                    graphInputs.separateJavaAndScala
-                  )
-                case CompileMode.Parallel(batches) =>
-                  CompileMode.ParallelAndPipelined(
-                    batches,
-                    graphInputs.irPromise,
-                    graphInputs.completeJava,
-                    graphInputs.transitiveJavaSignal,
-                    graphInputs.oracle,
-                    graphInputs.separateJavaAndScala
-                  )
-              }
-              (scalacOptions, mode)
-            }
+          val configuration = configureCompilation(project, pipeline, graphInputs, userCompileMode)
+          val newScalacOptions = {
+            CompilerPluginWhitelist
+              .enableCaching(
+                instance.version,
+                configuration.scalacOptions,
+                logger,
+                compileProjectTracer
+              )
           }
 
-          val inputs = CompilerPluginWhitelist
-            .enablePluginCaching(instance.version, scalacOptions, logger, compileProjectTracer)
-            .executeOn(ExecutionContext.ioScheduler)
-            .map { scalacOptions =>
-              CompileInputs(
-                instance,
-                state.compilerCache,
-                sources.toArray,
-                classpath,
-                bundle.oracleInputs,
-                graphInputs.store,
-                compileOut,
-                project.out,
-                scalacOptions.toArray,
-                project.javacOptions.toArray,
-                project.compileOrder,
-                project.classpathOptions,
-                previousSuccessful.previous,
-                previousResult,
-                reporter,
-                logger,
-                compileMode,
-                graphInputs.dependentResults,
-                cancelCompilation,
-                compileProjectTracer,
-                ExecutionContext.ioScheduler,
-                ExecutionContext.ioExecutor
-              )
+          val inputs = newScalacOptions.map { newScalacOptions =>
+            CompileInputs(
+              instance,
+              state.compilerCache,
+              sources.toArray,
+              classpath,
+              bundle.oracleInputs,
+              graphInputs.store,
+              compileOut,
+              project.out,
+              newScalacOptions.toArray,
+              project.javacOptions.toArray,
+              project.compileOrder,
+              project.classpathOptions,
+              lastSuccessful.previous,
+              previousResult,
+              reporter,
+              logger,
+              configuration.mode,
+              graphInputs.dependentResults,
+              cancelCompilation,
+              compileProjectTracer,
+              ExecutionContext.ioScheduler,
+              ExecutionContext.ioExecutor,
+              bundle.dependenciesData.allInvalidatedClassFiles
+            )
+          }
+
+          // Block on the task associated with this result that sets up the read-only classes dir
+          Task.fromFuture(lastSuccessful.populatingProducts).flatMap { _ =>
+            // Only when the task is finished, we kickstart the compilation
+            inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
+              // Finish incomplete promises (out of safety) and run similar book-keeping
+              runPipeliningBookkeeping(graphInputs, result, pipeline, javaOnly, logger)
+              // Finish the tracer as soon as possible
+              compileProjectTracer.terminate()
+              // Return the previous result unchaged
+              result
             }
-
-          inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
-            // Do some implementation book-keeping before returning the compilation result
-            if (!graphInputs.irPromise.isDone) {
-              /*
-               * When pipeline compilation is disabled either by the user or the implementation
-               * decides not to use it (in the presence of macros from the same build), we force
-               * the completion of the pickle promise to avoid deadlocks.
-               */
-              result match {
-                case Compiler.Result.NotOk(_) =>
-                  graphInputs.irPromise.completeExceptionally(CompileExceptions.FailPromise)
-                case result =>
-                  if (pipeline && !javaOnly)
-                    logger.warn(s"The project ${project.name} didn't use pipelined compilation.")
-                  val complete = CompileExceptions.CompletePromise(graphInputs.store)
-                  graphInputs.irPromise.completeExceptionally(complete)
-              }
-            } else {
-              // Report if the pickle ready was correctly completed by the compiler
-              graphInputs.irPromise.get match {
-                case Array() if pipeline =>
-                  logger.warn(s"Project ${project.name} compiled without pipelined compilation.")
-                case _ => logger.debug(s"The pickle promise of ${project.name} completed in Zinc.")
-              }
-            }
-
-            // Finish the tracer as soon as possible
-            compileProjectTracer.terminate()
-
-            result
           }
       }
     }
@@ -228,12 +177,16 @@ object CompileTask {
 
     CompileGraph.traverse(dag, setup(_), compile(_), pipeline).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
-      val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
+      val finalResults = partialResults.map { r =>
+        PartialCompileResult
+          .toFinalResult(r, createNewReadOnlyClassesDir(_, topLevelTracer, rawLogger))
+      }
+
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         cleanStatePerBuildRun(dag, results, state)
         val stateWithResults = state.copy(results = state.results.addFinalResults(results))
         val failures = results.collect {
-          case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _) => p
+          case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _, _) => p
         }
 
         val newState: State = {
@@ -241,7 +194,7 @@ object CompileTask {
             stateWithResults.copy(status = ExitStatus.Ok)
           } else {
             results.foreach {
-              case FinalNormalCompileResult(project, Compiler.Result.Failed(_, Some(t), _, _), _) =>
+              case FinalNormalCompileResult.HasException(project, t) =>
                 rawLogger
                   .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
                 // Make a better job here at reporting any throwable that happens during compilation
@@ -258,11 +211,11 @@ object CompileTask {
         // Collect the background tasks from successful compilations
         val backgroundTasks = Task.gatherUnordered {
           results.collect {
-            case FinalNormalCompileResult(_, success: Compiler.Result.Success, _) =>
+            case FinalNormalCompileResult(_, success: Compiler.Result.Success, _, _) =>
               Task.fromFuture(success.backgroundTasks)
-            case FinalNormalCompileResult(_, failure: Compiler.Result.Failed, _) =>
+            case FinalNormalCompileResult(_, failure: Compiler.Result.Failed, _, _) =>
               Task.fromFuture(failure.backgroundTasks)
-            case FinalNormalCompileResult(_, cancelled: Compiler.Result.Cancelled, _) =>
+            case FinalNormalCompileResult(_, cancelled: Compiler.Result.Cancelled, _, _) =>
               Task.fromFuture(cancelled.backgroundTasks)
           }
         }
@@ -291,7 +244,7 @@ object CompileTask {
       }
 
       val instances = results.iterator.flatMap {
-        case FinalNormalCompileResult(project, _, _) => project.scalaInstance
+        case FinalNormalCompileResult(project, _, _, _) => project.scalaInstance
         case FinalEmptyResult => Nil
       }.toSet
 
@@ -311,5 +264,99 @@ object CompileTask {
     } finally {
       Files.delete(tmpDir)
     }
+  }
+
+  private final val GeneratePicklesFlag = "-Ygenerate-pickles"
+  case class ConfiguredCompilation(mode: CompileMode, scalacOptions: List[String])
+  private def configureCompilation(
+      project: Project,
+      pipeline: Boolean,
+      graphInputs: CompileGraph.Inputs,
+      configurableMode: CompileMode.ConfigurableMode
+  ): ConfiguredCompilation = {
+    if (!pipeline) ConfiguredCompilation(configurableMode, project.scalacOptions)
+    else {
+      val scalacOptions = (GeneratePicklesFlag :: project.scalacOptions)
+      val newMode = configurableMode match {
+        case CompileMode.Sequential =>
+          CompileMode.Pipelined(
+            graphInputs.irPromise,
+            graphInputs.completeJava,
+            graphInputs.transitiveJavaSignal,
+            graphInputs.oracle,
+            graphInputs.separateJavaAndScala
+          )
+        case CompileMode.Parallel(batches) =>
+          CompileMode.ParallelAndPipelined(
+            batches,
+            graphInputs.irPromise,
+            graphInputs.completeJava,
+            graphInputs.transitiveJavaSignal,
+            graphInputs.oracle,
+            graphInputs.separateJavaAndScala
+          )
+      }
+      ConfiguredCompilation(newMode, scalacOptions)
+    }
+  }
+
+  private def runPipeliningBookkeeping(
+      inputs: CompileGraph.Inputs,
+      result: Compiler.Result,
+      pipeline: Boolean,
+      javaOnly: Boolean,
+      logger: Logger
+  ): Unit = {
+    val projectName = inputs.bundle.project.name
+
+    if (!inputs.irPromise.isDone) {
+      // Avoid deadlocks in case pipelining is disabled in the Zinc bridge
+      result match {
+        case Compiler.Result.NotOk(_) =>
+          inputs.irPromise.completeExceptionally(CompileExceptions.FailPromise)
+        case result =>
+          if (pipeline && !javaOnly) {
+            logger.warn(s"The project $projectName didn't use pipelined compilation.")
+          }
+
+          val complete = CompileExceptions.CompletePromise(inputs.store)
+          inputs.irPromise.completeExceptionally(complete)
+      }
+    } else {
+      // Report if the pickle ready was correctly completed by the compiler
+      inputs.irPromise.get match {
+        case Array() if pipeline =>
+          logger.warn(s"Project $projectName compiled without pipelined compilation.")
+        case _ => logger.debug(s"The pickle promise of $projectName completed in Zinc.")
+      }
+    }
+
+    ()
+  }
+
+  private def createNewReadOnlyClassesDir(
+      products: CompileProducts,
+      tracer: BraveTracer,
+      logger: Logger
+  ): CancelableFuture[Unit] = {
+    // Blacklist ensure final dir doesn't contain class files that don't map to source files
+    val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
+    val config = ParallelOps.CopyConfiguration(
+      5,
+      replaceExisting = false,
+      replaceOlderFile = false,
+      blacklist
+    )
+
+    val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
+      ParallelOps.copyDirectories(config)(
+        products.readOnlyClassesDir,
+        products.newClassesDir,
+        ExecutionContext.ioScheduler,
+        logger
+      )
+    }
+
+    task.runAsync(ExecutionContext.ioScheduler)
   }
 }

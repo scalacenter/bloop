@@ -2,6 +2,8 @@ package bloop.data
 
 import bloop.io.AbsolutePath
 
+import java.nio.file.Files
+
 sealed trait ClientInfo {
 
   /**
@@ -21,7 +23,7 @@ object ClientInfo {
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {
       // CLI clients use the classes directory from the project, that's why
       // we don't support concurrent CLI client executions for the same build
-      project.classesDir
+      AbsolutePath(Files.createDirectories(project.classesDir.underlying).toRealPath())
     }
   }
 
@@ -31,7 +33,6 @@ object ClientInfo {
       bspVersion: String
   ) extends ClientInfo {
     import java.util.UUID
-    import java.nio.file.Files
     import java.util.concurrent.ConcurrentHashMap
     private val uniqueDirs = new ConcurrentHashMap[Project, AbsolutePath]()
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {

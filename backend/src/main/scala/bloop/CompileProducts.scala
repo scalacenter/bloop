@@ -1,5 +1,6 @@
 package bloop
 
+import java.io.File
 import java.nio.file.Path
 
 import xsbti.compile.PreviousResult
@@ -32,5 +33,6 @@ case class CompileProducts(
     readOnlyClassesDir: Path,
     newClassesDir: Path,
     resultForDependentCompilationsInSameRun: PreviousResult,
-    resultForFutureCompilationRuns: PreviousResult
+    resultForFutureCompilationRuns: PreviousResult,
+    invalidatedClassFiles: Set[File]
 )

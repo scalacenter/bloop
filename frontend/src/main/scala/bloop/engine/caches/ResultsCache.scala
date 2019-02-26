@@ -14,7 +14,10 @@ import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger, ObservedLogger}
 import bloop.reporter.{LogReporter, ReporterConfig}
+
 import monix.eval.Task
+import monix.execution.CancelableFuture
+
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
@@ -64,12 +67,15 @@ final class ResultsCache private (
     new ResultsCache(all, newSuccessful)
   }
 
-  def addResult(project: Project, result: Compiler.Result): ResultsCache = {
+  def addResult(
+      project: Project,
+      result: Compiler.Result,
+      populateNewClassesDir: CancelableFuture[Unit]
+  ): ResultsCache = {
     val newAll = all + (project -> result)
     result match {
       case s: Compiler.Result.Success =>
-        // TODO(jvican): Add here the right IO task
-        val newSuccessful = LastSuccessfulResult(s.products)
+        val newSuccessful = LastSuccessfulResult(s.products, populateNewClassesDir)
         new ResultsCache(newAll, successful + (project -> newSuccessful))
       case Compiler.Result.Empty =>
         new ResultsCache(newAll, successful + (project -> LastSuccessfulResult.Empty))
@@ -77,12 +83,9 @@ final class ResultsCache private (
     }
   }
 
-  def addResults(ps: List[(Project, Compiler.Result)]): ResultsCache =
-    ps.foldLeft(this) { case (rs, (p, r)) => rs.addResult(p, r) }
-
   def addFinalResults(ps: List[FinalCompileResult]): ResultsCache = {
     ps.foldLeft(this) {
-      case (rs, FinalNormalCompileResult(p, r, _)) => rs.addResult(p, r)
+      case (rs, FinalNormalCompileResult(p, r, _, io)) => rs.addResult(p, r, io)
       case (rs, FinalEmptyResult) => rs
     }
   }
@@ -101,12 +104,6 @@ object ResultsCache {
   import java.util.concurrent.ConcurrentHashMap
 
   private implicit val logContext: DebugFilter = DebugFilter.All
-
-  // TODO: Use a guava cache that stores maximum 200 analysis file
-  private[bloop] val persisted = ConcurrentHashMap.newKeySet[PreviousResult]()
-
-  private[bloop] final val EmptyResult: PreviousResult =
-    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   private[bloop] val emptyForTests: ResultsCache =
     new ResultsCache(Map.empty, Map.empty)
@@ -132,7 +129,7 @@ object ResultsCache {
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
               val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-              val products = bloop.CompileProducts(classesDir, classesDir, r, r)
+              val products = bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
               Result.Success(reporter, products, 0L, CancelableFuture.successful(()))
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
@@ -151,7 +148,9 @@ object ResultsCache {
     val all = build.projects.map(p => fetchPreviousResult(p).map(r => p -> r))
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
       val cache = new ResultsCache(Map.empty, Map.empty)
-      cache.addResults(projectResults)
+      projectResults.foldLeft(cache) {
+        case (rs, (p, r)) => rs.addResult(p, r, CancelableFuture.successful(()))
+      }
     }
   }
 }

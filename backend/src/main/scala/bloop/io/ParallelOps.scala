@@ -2,7 +2,7 @@ package bloop.io
 
 import bloop.logging.Logger
 
-import java.io.IOException
+import java.io.{IOException, File}
 import java.util.concurrent.Executor
 import java.util.concurrent.ConcurrentHashMap
 import java.nio.file.attribute.BasicFileAttributes
@@ -28,10 +28,16 @@ import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 
 object ParallelOps {
-  def copyDirectories(
+  case class CopyConfiguration private (
+      parallelUnits: Int,
+      replaceExisting: Boolean,
+      replaceOlderFile: Boolean,
+      blacklist: Set[Path]
+  )
+
+  def copyDirectories(configuration: CopyConfiguration)(
       origin: Path,
       target: Path,
-      parallelUnits: Int,
       scheduler: Scheduler,
       logger: Logger
   ): Task[Unit] = {
@@ -43,7 +49,8 @@ object ParallelOps {
       var stop: Boolean = false
       var currentTargetDirectory: Path = target
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (attributes.isDirectory) FileVisitResult.CONTINUE
+        if (attributes.isDirectory || configuration.blacklist.contains(file))
+          FileVisitResult.CONTINUE
         else {
           val stop = observer.onNext((file, currentTargetDirectory.resolve(file.getFileName))) == monix.execution.Ack.Stop
           if (!stop) FileVisitResult.CONTINUE
@@ -65,7 +72,7 @@ object ParallelOps {
           attributes: BasicFileAttributes
       ): FileVisitResult = {
         currentTargetDirectory = currentTargetDirectory.resolve(directory.getFileName)
-        Files.createDirectory(currentTargetDirectory)
+        Files.createDirectories(currentTargetDirectory)
         FileVisitResult.CONTINUE
       }
 
@@ -86,18 +93,51 @@ object ParallelOps {
       case None => Task(observer.onComplete())
     }
 
-    val copyFilesInParallel = observable.consumeWith(Consumer.foreachParallelAsync(parallelUnits) {
-      case (originFile, targetFile) =>
-        Task {
-          Files.copy(
-            originFile,
-            targetFile,
-            StandardCopyOption.COPY_ATTRIBUTES,
-            StandardCopyOption.REPLACE_EXISTING
-          )
-          ()
-        }
-    })
+    val copyFilesInParallel = {
+      observable.consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
+        case (originFile, targetFile) =>
+          Task {
+            if (configuration.replaceExisting) {
+              Files.copy(
+                originFile,
+                targetFile,
+                StandardCopyOption.COPY_ATTRIBUTES,
+                StandardCopyOption.REPLACE_EXISTING
+              )
+            } else {
+              def attrs(path: Path): Option[BasicFileAttributes] = {
+                try Some(Files.readAttributes(path, classOf[BasicFileAttributes]))
+                catch { case t: IOException => None }
+              }
+
+              attrs(targetFile) match {
+                case Some(targetAttrs) if configuration.replaceOlderFile =>
+                  attrs(originFile) match {
+                    case Some(originAttrs)
+                        if targetAttrs.lastModifiedTime
+                          .compareTo(originAttrs.lastModifiedTime) > 0 =>
+                      ()
+                    case _ =>
+                      Files.copy(
+                        originFile,
+                        targetFile,
+                        StandardCopyOption.COPY_ATTRIBUTES,
+                        StandardCopyOption.REPLACE_EXISTING
+                      )
+                  }
+                case _ =>
+                  // Reading attributes failed, we take it that the file doesn't exist
+                  Files.copy(
+                    originFile,
+                    targetFile,
+                    StandardCopyOption.COPY_ATTRIBUTES
+                  )
+              }
+            }
+            ()
+          }
+      })
+    }
 
     Task.gatherUnordered(List(discoverFileTree, copyFilesInParallel)).map(_ => ())
   }

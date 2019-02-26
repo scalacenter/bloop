@@ -7,6 +7,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 import bloop.tracing.BraveTracer
 import bloop.logging.{DebugFilter, Logger}
+import bloop.engine.ExecutionContext
+
 import monix.eval.Task
 
 import scala.util.control.NonFatal
@@ -46,7 +48,7 @@ object CompilerPluginWhitelist {
   private implicit val debug = DebugFilter.Compilation
   private val emptyMap = java.util.Collections.emptyMap[String, String]()
   private[this] val cachePluginJar = new ConcurrentHashMap[Path, (FileTime, Boolean)]()
-  def enablePluginCaching(
+  def enableCaching(
       scalaVersion: String,
       scalacOptions: List[String],
       logger: Logger,
@@ -75,7 +77,7 @@ object CompilerPluginWhitelist {
       }
     }
 
-    scalaVersionBlacklist.find(v => scalaVersion.startsWith(v)) match {
+    val enableTask = scalaVersionBlacklist.find(v => scalaVersion.startsWith(v)) match {
       case Some(blacklistedVersion) =>
         logger.debug(
           s"Disabling compiler plugin classloading, unsupported in Scala ${blacklistedVersion}"
@@ -127,5 +129,7 @@ object CompilerPluginWhitelist {
           }
         }
     }
+
+    enableTask.executeOn(ExecutionContext.ioScheduler)
   }
 }

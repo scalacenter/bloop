@@ -9,6 +9,9 @@ import bloop.logging.Logger
 import bloop.util.TestUtil
 import bloop.engine.caches.ResultsCache
 import bloop.engine.{Build, Run, State}
+
+import monix.execution.CancelableFuture
+
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.experimental.categories.Category
@@ -56,7 +59,7 @@ class CleanSpec {
       }
       val build = Build(buildPath, projects.toList)
       val results = projects.foldLeft(ResultsCache.emptyForTests) { (cache, project) =>
-        cache.addResult(project, Compiler.Result.Empty)
+        cache.addResult(project, Compiler.Result.Empty, CancelableFuture.successful(()))
       }
       val state = State
         .forTests(build, TestUtil.getCompilerCache(logger), logger)
@@ -125,7 +128,7 @@ class CleanSpec {
     cleanAndCheck(
       Set(
         "foo" -> Set("bar"),
-        "bar" -> Set.empty,
+        "bar" -> Set.empty
       ),
       Commands.Clean(List("baz")),
       Set(),

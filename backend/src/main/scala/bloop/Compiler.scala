@@ -52,7 +52,8 @@ case class CompileInputs(
     cancelPromise: Promise[Unit],
     tracer: BraveTracer,
     scheduler: Scheduler,
-    executor: Executor
+    executor: Executor,
+    invalidatedClassFilesInDependentProjects: Set[File]
 )
 
 case class CompileOutPaths(
@@ -150,8 +151,11 @@ object Compiler {
     val compileOut = compileInputs.out
     val externalClassesDir = compileOut.externalClassesDir.underlying
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
+    val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
+    val newClassesDirPath = newClassesDir.toString
 
+    val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val backgroundTasksWhenNewSuccessfulAnalysis = new mutable.ListBuffer[Task[Unit]]()
     val backgroundTasksForFailedCompilation = new mutable.ListBuffer[Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
@@ -159,26 +163,31 @@ object Compiler {
         import sbt.io.IO
         private[this] val invalidatedClassFilesInLastRun = new mutable.HashSet[File]
         def delete(classes: Array[File]): Unit = {
+          // Add to the blacklist so that we never copy them
+          allInvalidatedClassFilesForProject.++=(classes)
           invalidatedClassFilesInLastRun.clear()
           invalidatedClassFilesInLastRun.++=(classes)
         }
 
+        import compileInputs.invalidatedClassFilesInDependentProjects
         def invalidatedClassFiles(): Array[File] = {
-          invalidatedClassFiles.toArray
+          // Invalidate class files from dependent projects + those invalidated in last incremental run
+          (invalidatedClassFilesInDependentProjects ++ invalidatedClassFilesInLastRun.iterator).toArray
         }
 
         // No need to do any thing, generated classes go to new classes directory
-        def generated(classes: Array[File]): Unit = ()
+        def generated(newClasses: Array[File]): Unit = ()
 
         def complete(success: Boolean): Unit = {
           if (success) {
             // Schedule copying compilation products to visible classes directory
             backgroundTasksWhenNewSuccessfulAnalysis.+=(
-              tracer.traceTask("copying products to user visible classes dir") { _ =>
-                ParallelOps.copyDirectories(
+              tracer.traceTask("copy new products to external classes dir") { _ =>
+                val config = ParallelOps
+                  .CopyConfiguration(5, replaceExisting = true, replaceOlderFile = false, Set.empty)
+                ParallelOps.copyDirectories(config)(
                   newClassesDir,
                   externalClassesDir,
-                  5,
                   compileInputs.scheduler,
                   compileInputs.logger
                 )
@@ -315,13 +324,25 @@ object Compiler {
             val isNoOp = previousAnalysis.exists(_ == result.analysis())
             if (isNoOp) CancelableFuture.successful(())
             else {
-              backgroundTasksWhenNewSuccessfulAnalysis.+=(
-                Task {
-                  persist(compileOut.analysisOut, result.analysis, result.setup, tracer, logger)
+              val copyingTasks = {
+                // Block on the background tasks when new successful analysis
+                Task.gatherUnordered(backgroundTasksWhenNewSuccessfulAnalysis.toList).flatMap { _ =>
+                  tracer.traceTask("update external classes dir with read-only") { _ =>
+                    val blacklist = allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
+                    val config = ParallelOps.CopyConfiguration(5, false, true, blacklist)
+                    ParallelOps.copyDirectories(config)(
+                      readOnlyClassesDir,
+                      externalClassesDir,
+                      compileInputs.scheduler,
+                      compileInputs.logger
+                    )
+                  }
                 }
-              )
+              }
 
-              runAggregateTasks(backgroundTasksWhenNewSuccessfulAnalysis.toList)
+              val persistTask =
+                Task(persist(compileOut.analysisOut, result.analysis, result.setup, tracer, logger))
+              runAggregateTasks(List(copyingTasks, persistTask))
             }
           }
 
@@ -329,7 +350,8 @@ object Compiler {
             readOnlyClassesDir,
             newClassesDir,
             resultForDependentCompilationsInSameRun,
-            resultForFutureCompilationRuns
+            resultForFutureCompilationRuns,
+            allInvalidatedClassFilesForProject.toSet
           )
 
           Result.Success(compileInputs.reporter, products, elapsed, backgroundTasksExecution)
