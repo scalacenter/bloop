@@ -12,9 +12,6 @@ import xsbti.compile.FileHash
  */
 abstract class CompilerOracle[T] {
   def askForJavaSourcesOfIncompleteCompilations: List[File]
-  def askForClassesDirectory(inputs: CompilerOracle.Inputs): File
-  def learnScheduledCompilations(scheduled: List[T]): CompilerOracle[T]
-  def learnClassesDirectoryFor(inputs: CompilerOracle.Inputs, file: File): CompilerOracle[T]
 }
 
 object CompilerOracle {
@@ -24,5 +21,14 @@ object CompilerOracle {
       classpath: Seq[FileHash],
       originProjectPath: String,
       originProjectHash: Int
-  ) extends CacheHashCode
+  ) extends CacheHashCode {
+    // Cache hash code here to control ordering and for efficiency reasons (!)
+    override lazy val hashCode: Int = {
+      import scala.util.hashing.MurmurHash3
+      val initialHashCode = originProjectHash.hashCode
+      val sourcesHashCode = MurmurHash3.unorderedHash(sources, initialHashCode)
+      val classpathHashCode = MurmurHash3.unorderedHash(classpath, sourcesHashCode)
+      MurmurHash3.stringHash(originProjectPath, classpathHashCode)
+    }
+  }
 }

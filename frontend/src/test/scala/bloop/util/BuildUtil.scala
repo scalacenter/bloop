@@ -8,7 +8,6 @@ object BuildUtil {
   case class SlowBuild(macroProject: TestProject, userProject: TestProject, state: State)
   def testSlowBuild(logger: RecordingLogger)(testLogic: SlowBuild => Unit): Unit = {
     TestUtil.withinWorkspace { workspace =>
-      val scalaJars = TestUtil.scalaInstance.allJars.map(AbsolutePath.apply)
       val slowMacroProject = TestProject(
         workspace,
         "macros",
@@ -23,15 +22,14 @@ object BuildUtil {
             |  def sleep(): Unit = macro sleepImpl
             |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
             |    import c.universe._
-            |    // Sleep for 3 seconds to give time to cancel compilation
-            |    Thread.sleep(3000)
+            |    // Sleep for 1.5 seconds
+            |    Thread.sleep(1500)
             |    reify { () }
             |  }
             |}
             |
-        """.stripMargin
-        ),
-        jars = scalaJars
+            """.stripMargin
+        )
       )
 
       val userProject = TestProject(
@@ -44,10 +42,16 @@ object BuildUtil {
             |object User extends App {
             |  macros.SleepMacro.sleep()
             |}
-        """.stripMargin
+          """.stripMargin,
+          """/main/scala/User2.scala
+            |package user
+            |
+            |object User2 extends App {
+            |  macros.SleepMacro.sleep()
+            |}
+          """.stripMargin
         ),
-        List(slowMacroProject.config.name),
-        jars = scalaJars
+        List(slowMacroProject)
       )
 
       val configDir = TestProject.populateWorkspace(

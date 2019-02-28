@@ -12,6 +12,7 @@ import bloop.config.Config.CompileOrder
 import bloop.data.{Origin, Project}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
+import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.Paths.delete
 import bloop.io.{AbsolutePath, RelativePath}
@@ -211,7 +212,10 @@ object TestUtil {
     val loadedProjects = transformProjects(BuildLoader.loadSynchronously(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
-    state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
+    state.copy(
+      results = ResultsCache.emptyForTests,
+      commonOptions = state.commonOptions.copy(env = runAndTestProperties)
+    )
   }
 
   private[bloop] final val runAndTestProperties = {

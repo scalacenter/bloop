@@ -61,6 +61,9 @@ object Dependencies {
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
 
+  val scalatest = "org.scalatest" % "scalatest_2.12" % "3.0.5"
+  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion

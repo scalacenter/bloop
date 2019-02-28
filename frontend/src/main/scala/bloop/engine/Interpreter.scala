@@ -251,7 +251,7 @@ object Interpreter {
           (projects, projectsToTest)
         } else {
           val result = Dag.inverseDependencies(state.build.dags, lookup.found)
-          (result.reduced, result.all)
+          (result.reduced, result.strictlyInverseNodes)
         }
       }
 

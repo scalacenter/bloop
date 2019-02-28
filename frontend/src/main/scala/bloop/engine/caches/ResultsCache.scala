@@ -37,7 +37,7 @@ import scala.concurrent.duration.Duration
  * @param all The map of projects to latest compilation results.
  * @param successful The map of all projects to latest successful compilation results.
  */
-final class ResultsCache private (
+final case class ResultsCache private (
     all: Map[Project, Compiler.Result],
     successful: Map[Project, LastSuccessfulResult]
 ) {
@@ -77,8 +77,7 @@ final class ResultsCache private (
       case s: Compiler.Result.Success =>
         val newSuccessful = LastSuccessfulResult(s.products, populateNewClassesDir)
         new ResultsCache(newAll, successful + (project -> newSuccessful))
-      case Compiler.Result.Empty =>
-        new ResultsCache(newAll, successful + (project -> LastSuccessfulResult.Empty))
+      case Compiler.Result.Empty => new ResultsCache(newAll, successful)
       case r => new ResultsCache(newAll, successful)
     }
   }
@@ -90,14 +89,7 @@ final class ResultsCache private (
     }
   }
 
-  override def toString: String = {
-    s"""ResultsCache(
-       |  all = ${all.mkString(", ")}
-       |
-       |  successful = ${successful.mkString(", ")}
-       |)
-     """.stripMargin
-  }
+  override def toString: String = pprint.apply(this, height = Int.MaxValue).render
 }
 
 object ResultsCache {

@@ -186,7 +186,7 @@ object Dag {
    * @param reduced The minimal set of nodes that subsume `targets`.
    * @param all The set of all nodes that are strictly inverse dependencies of `targets`.
    */
-  case class InverseDependencies[T](reduced: List[T], all: List[T])
+  case class InverseDependencies[T](reduced: List[T], strictlyInverseNodes: List[T])
 
   def inverseDependencies[T](dags: List[Dag[T]], targets: List[T]): InverseDependencies[T] = {
     val nonTargetsVisited = scala.collection.mutable.HashSet[Dag[T]]()

@@ -103,7 +103,7 @@ object CompileTask {
           // Warn user if detected missing dep, see https://github.com/scalacenter/bloop/issues/708
           state.build.hasMissingDependencies(project).foreach { missing =>
             Feedback
-              .detectMissingDependencies(project, missing)
+              .detectMissingDependencies(project.name, missing)
               .foreach(msg => logger.warn(msg))
           }
 
@@ -339,24 +339,23 @@ object CompileTask {
       tracer: BraveTracer,
       logger: Logger
   ): CancelableFuture[Unit] = {
-    // Blacklist ensure final dir doesn't contain class files that don't map to source files
-    val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
-    val config = ParallelOps.CopyConfiguration(
-      5,
-      replaceExisting = false,
-      replaceOlderFile = false,
-      blacklist
-    )
+    // This condition is true when we compiled a no-op, in this case do nothing
+    if (products.readOnlyClassesDir == products.newClassesDir) CancelableFuture.successful(())
+    else {
+      // Blacklist ensure final dir doesn't contain class files that don't map to source files
+      val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
+      val config = ParallelOps.CopyConfiguration(5, replaceExisting = false, blacklist)
 
-    val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
-      ParallelOps.copyDirectories(config)(
-        products.readOnlyClassesDir,
-        products.newClassesDir,
-        ExecutionContext.ioScheduler,
-        logger
-      )
+      val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
+        ParallelOps.copyDirectories(config)(
+          products.readOnlyClassesDir,
+          products.newClassesDir,
+          ExecutionContext.ioScheduler,
+          logger
+        )
+      }
+
+      task.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
     }
-
-    task.runAsync(ExecutionContext.ioScheduler)
   }
 }

@@ -64,8 +64,7 @@ case class CompileOutPaths(
   lazy val internalNewClassesDir: AbsolutePath = {
     val classesDir = internalReadOnlyClassesDir.underlying
     val parentDir = classesDir.getParent()
-    val classesName = classesDir.getFileName()
-    val newClassesName = s"${classesName}-new-${UUID.randomUUID}"
+    val newClassesName = s"classes-${UUID.randomUUID}"
     AbsolutePath(
       Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
     )
@@ -150,11 +149,13 @@ object Compiler {
     val tracer = compileInputs.tracer
     val compileOut = compileInputs.out
     val externalClassesDir = compileOut.externalClassesDir.underlying
+    val externalClassesDirPath = externalClassesDir.toString
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
     val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
     val newClassesDirPath = newClassesDir.toString
 
+    val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val backgroundTasksWhenNewSuccessfulAnalysis = new mutable.ListBuffer[Task[Unit]]()
     val backgroundTasksForFailedCompilation = new mutable.ListBuffer[Task[Unit]]()
@@ -165,18 +166,34 @@ object Compiler {
         def delete(classes: Array[File]): Unit = {
           // Add to the blacklist so that we never copy them
           allInvalidatedClassFilesForProject.++=(classes)
-          invalidatedClassFilesInLastRun.clear()
-          invalidatedClassFilesInLastRun.++=(classes)
         }
 
         import compileInputs.invalidatedClassFilesInDependentProjects
         def invalidatedClassFiles(): Array[File] = {
           // Invalidate class files from dependent projects + those invalidated in last incremental run
-          (invalidatedClassFilesInDependentProjects ++ invalidatedClassFilesInLastRun.iterator).toArray
+          val invalidatedClassFilesForRun = allInvalidatedClassFilesForProject.iterator.filter {
+            f =>
+              // A safety measure in case Zinc does not get a complete list of generated classes
+              val filePath = f.getAbsolutePath
+              if (!filePath.startsWith(readOnlyClassesDirPath)) true
+              else {
+                // Filter out invalidated files in read-only directories that exist in new classes directory
+                val newFile = new File(filePath.replace(readOnlyClassesDirPath, newClassesDirPath))
+                !newFile.exists
+              }
+          }
+
+          (invalidatedClassFilesInDependentProjects ++ invalidatedClassFilesForRun).toArray
         }
 
-        // No need to do any thing, generated classes go to new classes directory
-        def generated(newClasses: Array[File]): Unit = ()
+        def generated(generatedClassFiles: Array[File]): Unit = {
+          generatedClassFiles.foreach { generatedClassFile =>
+            val newClassFile = generatedClassFile.getAbsolutePath
+            val rebasedClassFile =
+              new File(newClassFile.replace(newClassesDirPath, readOnlyClassesDirPath))
+            allInvalidatedClassFilesForProject.-=(rebasedClassFile)
+          }
+        }
 
         def complete(success: Boolean): Unit = {
           if (success) {
@@ -184,13 +201,18 @@ object Compiler {
             backgroundTasksWhenNewSuccessfulAnalysis.+=(
               tracer.traceTask("copy new products to external classes dir") { _ =>
                 val config = ParallelOps
-                  .CopyConfiguration(5, replaceExisting = true, replaceOlderFile = false, Set.empty)
-                ParallelOps.copyDirectories(config)(
-                  newClassesDir,
-                  externalClassesDir,
-                  compileInputs.scheduler,
-                  compileInputs.logger
-                )
+                  .CopyConfiguration(5, replaceExisting = true, Set.empty)
+                ParallelOps
+                  .copyDirectories(config)(
+                    newClassesDir,
+                    externalClassesDir,
+                    compileInputs.scheduler,
+                    compileInputs.logger
+                  )
+                  .map { walked =>
+                    copiedPathsFromNewClassesDir.++=(walked.target)
+                    ()
+                  }
               }
             )
           } else {
@@ -231,7 +253,8 @@ object Compiler {
       val skip = false
       val empty = Array.empty[T2[String, String]]
       val results = compileInputs.dependentResults.+(
-        readOnlyClassesDir.toFile -> compileInputs.previousResult
+        readOnlyClassesDir.toFile -> compileInputs.previousResult,
+        newClassesDir.toFile -> compileInputs.previousResult
       )
 
       val lookup = new ZincClasspathEntryLookup(results)
@@ -319,42 +342,87 @@ object Compiler {
             )
           )
 
-          // Schedule the tasks to run concurrently after the compilation end
-          val backgroundTasksExecution = {
-            val isNoOp = previousAnalysis.exists(_ == result.analysis())
-            if (isNoOp) CancelableFuture.successful(())
-            else {
-              val copyingTasks = {
-                // Block on the background tasks when new successful analysis
-                Task.gatherUnordered(backgroundTasksWhenNewSuccessfulAnalysis.toList).flatMap { _ =>
-                  tracer.traceTask("update external classes dir with read-only") { _ =>
-                    val blacklist = allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
-                    val config = ParallelOps.CopyConfiguration(5, false, true, blacklist)
-                    ParallelOps.copyDirectories(config)(
-                      readOnlyClassesDir,
-                      externalClassesDir,
-                      compileInputs.scheduler,
-                      compileInputs.logger
-                    )
-                  }
+          val updateExternalClassesDirWithReadOnly = {
+            tracer.traceTask("update external classes dir with read-only") { _ =>
+              Task {
+                val invalidated =
+                  allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
+                val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
+                // We can set replaceExisting to true because we pass the blacklist of new classes dir
+                val config = ParallelOps.CopyConfiguration(5, true, blacklist)
+                val lastCopy = ParallelOps.copyDirectories(config)(
+                  readOnlyClassesDir,
+                  externalClassesDir,
+                  compileInputs.scheduler,
+                  compileInputs.logger
+                )
+                lastCopy.map { w =>
+                  ()
                 }
-              }
-
-              val persistTask =
-                Task(persist(compileOut.analysisOut, result.analysis, result.setup, tracer, logger))
-              runAggregateTasks(List(copyingTasks, persistTask))
+              }.flatten
             }
           }
 
-          val products = CompileProducts(
-            readOnlyClassesDir,
-            newClassesDir,
-            resultForDependentCompilationsInSameRun,
-            resultForFutureCompilationRuns,
-            allInvalidatedClassFilesForProject.toSet
-          )
+          val isNoOp = previousAnalysis.exists(_ == result.analysis())
+          if (isNoOp) {
+            // If no-op, return previous result
+            val products = CompileProducts(
+              readOnlyClassesDir,
+              readOnlyClassesDir,
+              compileInputs.previousResult,
+              compileInputs.previousResult,
+              Set()
+            )
 
-          Result.Success(compileInputs.reporter, products, elapsed, backgroundTasksExecution)
+            Result.Success(
+              compileInputs.reporter,
+              products,
+              elapsed,
+              runAggregateTasks(List(updateExternalClassesDirWithReadOnly))
+            )
+          } else {
+            // Schedule the tasks to run concurrently after the compilation end
+            val backgroundTasksExecution = {
+              val copyingTasks = {
+                // Block on the background tasks when new successful analysis
+                Task.gatherUnordered(backgroundTasksWhenNewSuccessfulAnalysis.toList).flatMap { _ =>
+                  // Only start these tasks after the previous IO tasks in the external dir are done
+                  val firstTask = updateExternalClassesDirWithReadOnly
+                  val secondTask = Task {
+                    // Delete all those class files that were invalidated in the external classes dir
+                    allInvalidatedClassFilesForProject.foreach { f =>
+                      val path = AbsolutePath(f.toPath)
+                      val syntax = path.syntax
+                      if (syntax.startsWith(readOnlyClassesDirPath)) {
+                        val rebasedFile = AbsolutePath(
+                          syntax.replace(readOnlyClassesDirPath, externalClassesDirPath)
+                        )
+                        if (rebasedFile.exists) {
+                          Files.delete(rebasedFile.underlying)
+                        }
+                      }
+                    }
+                  }
+                  Task.gatherUnordered(List(firstTask, secondTask)).map(_ => ())
+                }
+              }
+
+              val persistOut = compileOut.analysisOut
+              val persistTask =
+                Task(persist(persistOut, result.analysis, result.setup, tracer, logger))
+              runAggregateTasks(List(copyingTasks, persistTask))
+            }
+
+            val products = CompileProducts(
+              readOnlyClassesDir,
+              newClassesDir,
+              resultForDependentCompilationsInSameRun,
+              resultForFutureCompilationRuns,
+              allInvalidatedClassFilesForProject.toSet
+            )
+
+            Result.Success(compileInputs.reporter, products, elapsed, backgroundTasksExecution)
+          }
         case Failure(_: xsbti.CompileCancelled) =>
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
           val backgroundTask = runAggregateTasks(backgroundTasksForFailedCompilation.toList)

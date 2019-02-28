@@ -35,15 +35,9 @@ object SourceHasher {
 
     val discovery = new FileVisitor[Path] {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        val stop = {
-          if (!sourceMatcher.matches(file)) false
-          else {
-            observer.onNext(file) == monix.execution.Ack.Stop
-          }
-        }
-
-        if (stop) FileVisitResult.TERMINATE
-        else FileVisitResult.CONTINUE
+        if (!sourceMatcher.matches(file)) ()
+        else observer.onNext(file)
+        FileVisitResult.CONTINUE
       }
 
       def visitFileFailed(

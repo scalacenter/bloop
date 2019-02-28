@@ -79,7 +79,7 @@ object Paths {
     out.toList
   }
 
-  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime)
+  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime, size: Long = 0L)
 
   /**
    * Get all files under `base` that match the pattern `pattern` up to depth `maxDepth`.
@@ -105,8 +105,13 @@ object Paths {
 
     val visitor = new FileVisitor[Path] {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (matcher.matches(file))
-          out += AttributedPath(AbsolutePath(file), attributes.lastModifiedTime())
+        if (matcher.matches(file)) {
+          out += AttributedPath(
+            AbsolutePath(file),
+            attributes.lastModifiedTime(),
+            attributes.size()
+          )
+        }
         FileVisitResult.CONTINUE
       }
 

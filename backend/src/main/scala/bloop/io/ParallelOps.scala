@@ -28,38 +28,57 @@ import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 
 object ParallelOps {
+
+  /**
+   * A configuration for a copy process.
+   *
+   * @param parallelUnits Threads to use for parallel IO copy.
+   * @param replaceExisting Whether the copy should replace existing paths in the target.
+   * @param blacklist A list of both origin and target paths that if matched cancel compilation.
+   */
   case class CopyConfiguration private (
       parallelUnits: Int,
       replaceExisting: Boolean,
-      replaceOlderFile: Boolean,
       blacklist: Set[Path]
   )
 
+  case class FileWalk(visited: List[Path], target: List[Path])
+
+  /**
+   * Copies files from [[origin]] to [[target]] with the provided copy
+   * configuration in parallel.
+   *
+   * @return The list of paths that have been copied.
+   */
   def copyDirectories(configuration: CopyConfiguration)(
       origin: Path,
       target: Path,
       scheduler: Scheduler,
       logger: Logger
-  ): Task[Unit] = {
-    val (observer, observable) = Observable.multicast[(Path, Path)](
+  ): Task[FileWalk] = {
+    import scala.collection.mutable
+    val visitedPaths = new mutable.ListBuffer[Path]()
+    val targetPaths = new mutable.ListBuffer[Path]()
+    val (observer, observable) = Observable.multicast[((Path, BasicFileAttributes), Path)](
       MulticastStrategy.publish
     )(scheduler)
 
     val discovery = new FileVisitor[Path] {
       var stop: Boolean = false
+      var firstVisit: Boolean = true
       var currentTargetDirectory: Path = target
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (attributes.isDirectory || configuration.blacklist.contains(file))
-          FileVisitResult.CONTINUE
+        if (attributes.isDirectory || configuration.blacklist.contains(file)) ()
         else {
-          val stop = observer.onNext((file, currentTargetDirectory.resolve(file.getFileName))) == monix.execution.Ack.Stop
-          if (!stop) FileVisitResult.CONTINUE
+          val rebasedFile = currentTargetDirectory.resolve(file.getFileName)
+          if (configuration.blacklist.contains(rebasedFile)) ()
           else {
-            // TODO(jvican): Remove this before committing to repository
-            logger.error("Stopping file discovery")
-            FileVisitResult.CONTINUE
+            visitedPaths.+=(file)
+            targetPaths.+=(rebasedFile)
+            observer.onNext((file -> attributes, rebasedFile))
           }
         }
+        FileVisitResult.CONTINUE
       }
 
       def visitFileFailed(
@@ -71,7 +90,11 @@ object ParallelOps {
           directory: Path,
           attributes: BasicFileAttributes
       ): FileVisitResult = {
-        currentTargetDirectory = currentTargetDirectory.resolve(directory.getFileName)
+        if (firstVisit) {
+          firstVisit = false
+        } else {
+          currentTargetDirectory = currentTargetDirectory.resolve(directory.getFileName)
+        }
         Files.createDirectories(currentTargetDirectory)
         FileVisitResult.CONTINUE
       }
@@ -87,7 +110,7 @@ object ParallelOps {
 
     val discoverFileTree = Task {
       Files.walkFileTree(origin, discovery)
-      ()
+      FileWalk(visitedPaths.toList, targetPaths.toList)
     }.doOnFinish {
       case Some(t) => Task(observer.onError(t))
       case None => Task(observer.onComplete())
@@ -95,7 +118,7 @@ object ParallelOps {
 
     val copyFilesInParallel = {
       observable.consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
-        case (originFile, targetFile) =>
+        case ((originFile, originAttrs), targetFile) =>
           Task {
             if (configuration.replaceExisting) {
               Files.copy(
@@ -105,33 +128,13 @@ object ParallelOps {
                 StandardCopyOption.REPLACE_EXISTING
               )
             } else {
-              def attrs(path: Path): Option[BasicFileAttributes] = {
-                try Some(Files.readAttributes(path, classOf[BasicFileAttributes]))
-                catch { case t: IOException => None }
-              }
-
-              attrs(targetFile) match {
-                case Some(targetAttrs) if configuration.replaceOlderFile =>
-                  attrs(originFile) match {
-                    case Some(originAttrs)
-                        if targetAttrs.lastModifiedTime
-                          .compareTo(originAttrs.lastModifiedTime) > 0 =>
-                      ()
-                    case _ =>
-                      Files.copy(
-                        originFile,
-                        targetFile,
-                        StandardCopyOption.COPY_ATTRIBUTES,
-                        StandardCopyOption.REPLACE_EXISTING
-                      )
-                  }
-                case _ =>
-                  // Reading attributes failed, we take it that the file doesn't exist
-                  Files.copy(
-                    originFile,
-                    targetFile,
-                    StandardCopyOption.COPY_ATTRIBUTES
-                  )
+              if (Files.exists(targetFile)) ()
+              else {
+                Files.copy(
+                  originFile,
+                  targetFile,
+                  StandardCopyOption.COPY_ATTRIBUTES
+                )
               }
             }
             ()
@@ -139,92 +142,8 @@ object ParallelOps {
       })
     }
 
-    Task.gatherUnordered(List(discoverFileTree, copyFilesInParallel)).map(_ => ())
-  }
-
-  import scala.util.Try
-  private def fileEventConsumer(
-      origin: Path,
-      target: Path,
-      logger: Logger
-  ): Consumer[DirectoryChangeEvent, Unit] = {
-    val dirAttrs = new ConcurrentHashMap[Path, Boolean]()
-    val pathsWithIOErrors = ConcurrentHashMap.newKeySet[Path]()
-    val pathsFailedToProcess = ConcurrentHashMap.newKeySet[Path]()
-    Consumer.foreachParallelAsync(3) { (event: DirectoryChangeEvent) =>
-      // The path may not exist yet, if it doesn't then
-      val path = event.path()
-      val attrsRead = Try {
-        // By default, symbolic links are followed
-        Files.readAttributes(path, classOf[BasicFileAttributes])
-      }
-
-      def registerIOError[T](path: Path, label: String)(effect: => T): Boolean = {
-        try {
-          //println(s"${origin.relativize(path)}: $label")
-          effect
-          true
-        } catch {
-          case NonFatal(t) =>
-            logger.error(s"Failed ${t}")
-            pathsFailedToProcess.add(path); false
-        }
-      }
-
-      def createPath(path: Path, attrs: BasicFileAttributes, newPath: Path): Task[Unit] = Task {
-        val dirPath = if (attrs.isDirectory) newPath else newPath.getParent
-        // Create the directory if it's a dir or the parent if it's a file first
-        val created = dirAttrs.computeIfAbsent(dirPath, (dirPath: Path) => {
-          registerIOError(dirPath, "creating dir")(Files.createDirectories(dirPath))
-        })
-
-        // We ignore it if it's anything else than a file (symlink)
-        if (created && attrs.isRegularFile) {
-          registerIOError(path, "creating file") {
-            Files.copy(
-              path,
-              newPath,
-              StandardCopyOption.REPLACE_EXISTING,
-              StandardCopyOption.COPY_ATTRIBUTES
-            )
-          }
-          ()
-        }
-      }
-
-      def modifyPath(path: Path, attrs: BasicFileAttributes, newPath: Path): Task[Unit] = Task {
-        if (attrs.isRegularFile) {
-          // When a path has been modified we assume the parent already exists and copy right away
-          registerIOError(path, "modifying file") {
-            Files.copy(
-              path,
-              newPath,
-              StandardCopyOption.REPLACE_EXISTING,
-              StandardCopyOption.COPY_ATTRIBUTES
-            )
-          }
-          ()
-        }
-      }
-
-      def deletePath(path: Path, attrs: BasicFileAttributes, newPath: Path): Task[Unit] = Task {
-        registerIOError(path, "deleting file/dir")(Files.deleteIfExists(newPath))
-        ()
-      }
-
-      attrsRead match {
-        case scala.util.Success(attrs) =>
-          val newPath = target.resolve(origin.relativize(path))
-          event.eventType match {
-            case EventType.CREATE => createPath(path, attrs, newPath)
-            case EventType.MODIFY => modifyPath(path, attrs, newPath)
-            case EventType.OVERFLOW => Task.now(())
-            case EventType.DELETE => deletePath(path, attrs, newPath)
-          }
-        case scala.util.Failure(e) =>
-          pathsWithIOErrors.add(path)
-          Task.now(())
-      }
+    Task.mapBoth(discoverFileTree, copyFilesInParallel) {
+      case (fileWalk, _) => fileWalk
     }
   }
 }

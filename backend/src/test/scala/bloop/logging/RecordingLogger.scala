@@ -15,9 +15,17 @@ final class RecordingLogger(
 
   def clear(): Unit = messages.clear()
 
+  def debugs: List[String] = getMessagesAt(Some("debug"))
   def infos: List[String] = getMessagesAt(Some("info"))
   def warnings: List[String] = getMessagesAt(Some("warn"))
   def errors: List[String] = getMessagesAt(Some("error"))
+
+  def renderErrors(exceptContaining: String = ""): String = {
+    val exclude = exceptContaining.nonEmpty
+    val newErrors = if (!exclude) errors else errors.filterNot(_.contains(exceptContaining))
+    newErrors.mkString(System.lineSeparator)
+  }
+
   def getMessagesAt(level: Option[String]): List[String] = getMessages(level).map(_._2)
   def getMessages(): List[(String, String)] = getMessages(None)
   private def getMessages(level: Option[String]): List[(String, String)] = {

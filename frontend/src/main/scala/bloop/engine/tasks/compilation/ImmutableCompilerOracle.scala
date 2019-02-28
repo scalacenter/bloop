@@ -16,9 +16,7 @@ import bloop.{Compiler, CompilerOracle}
  * in the build server, it receives local data from the compiler scheduler.
  */
 final class ImmutableCompilerOracle(
-    scheduledCompilations: List[PartialSuccess],
-    transientClassesDirectories: Map[CompilerOracle.Inputs, File],
-    ongoingCompilations: CompileGraph.RunningCompilationsInAllClients
+    scheduledCompilations: List[PartialSuccess]
 ) extends CompilerOracle[PartialSuccess] {
 
   /**
@@ -33,37 +31,10 @@ final class ImmutableCompilerOracle(
       else r.bundle.javaSources.map(_.toFile)
     }
   }
-
-  override def askForClassesDirectory(inputs: CompilerOracle.Inputs): File = {
-    ???
-  }
-
-  override def learnScheduledCompilations(
-      scheduled: List[PartialSuccess]
-  ): CompilerOracle[PartialSuccess] = {
-    new ImmutableCompilerOracle(
-      scheduled ::: scheduledCompilations,
-      transientClassesDirectories,
-      ongoingCompilations
-    )
-  }
-
-  override def learnClassesDirectoryFor(
-      inputs: CompilerOracle.Inputs,
-      file: File
-  ): CompilerOracle[PartialSuccess] = {
-    new ImmutableCompilerOracle(
-      scheduledCompilations,
-      transientClassesDirectories + (inputs -> file),
-      ongoingCompilations
-    )
-  }
 }
 
 object ImmutableCompilerOracle {
-  def empty(
-      ongoingCompilations: CompileGraph.RunningCompilationsInAllClients
-  ): ImmutableCompilerOracle = {
-    new ImmutableCompilerOracle(Nil, Map.empty, ongoingCompilations)
+  def empty(): ImmutableCompilerOracle = {
+    new ImmutableCompilerOracle(Nil)
   }
 }

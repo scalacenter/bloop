@@ -123,7 +123,7 @@ object BloopZincCompiler {
         val setOfSources = sources.toSet
         val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer)
         val lookup = new LookupImpl(config, previousSetup)
-        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev)
+        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager)
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
@@ -153,17 +153,49 @@ object BloopZincCompiler {
       previousSetup: Option[MiniSetup],
       ignoredScalacOptions: Array[String],
       sources: Set[File],
-      previousAnalysis: CompileAnalysis
+      previousAnalysis: CompileAnalysis,
+      manager: ClassFileManager
   ): CompileAnalysis = {
+    // Copied from `Incremental` to pass in the class file manager we want
+    def prune(invalidatedSrcs: Set[File], previous0: CompileAnalysis, classfileManager: ClassFileManager): Analysis = {
+      val previous = previous0 match { case a: Analysis => a }
+      classfileManager.delete(invalidatedSrcs.flatMap(previous.relations.products).toArray)
+      previous -- invalidatedSrcs
+    }
+
     // Need wildcard import b/c otherwise `scala.math.Equiv.universal` is used and returns false
     import MiniSetupUtil._
-    val equiv = equivCompileSetup(equivOpts0(equivScalacOptions(ignoredScalacOptions)))
+
+    /* Define first because `Equiv[CompileOrder.value]` dominates `Equiv[MiniSetup]`. */
+    import xsbti.compile.Output
+    val equiv: Equiv[MiniSetup] = {
+      new Equiv[MiniSetup] {
+        def equiv(a: MiniSetup, b: MiniSetup) = {
+          /* Hard-code these to use the `Equiv` defined in this class. For
+           * some reason, `Equiv[Nothing]` or an equivalent is getting injected
+           * into here now, and it's borking all our results. This fixes it. */
+          //def sameOutput = MiniSetupUtil.equivOutput.equiv(a.output, b.output)
+          def sameOptions = MiniSetupUtil.equivOpts.equiv(a.options, b.options)
+          def sameCompiler = MiniSetupUtil.equivCompilerVersion.equiv(a.compilerVersion, b.compilerVersion)
+          def sameOrder = a.order == b.order
+          def sameExtra = MiniSetupUtil.equivPairs.equiv(a.extra, b.extra)
+
+          // Don't compare outputs because bloop changes them across compiler runs
+          //sameOutput &&
+          sameOptions &&
+          sameCompiler &&
+          sameOrder &&
+          sameExtra
+        }
+      }
+    }
+
     previousSetup match {
       case Some(previous) => // Return an empty analysis if values of extra have changed
         if (equiv.equiv(previous, setup)) previousAnalysis
         else if (!equivPairs.equiv(previous.extra, setup.extra)) Analysis.empty
-        else Incremental.prune(sources, previousAnalysis)
-      case None => Incremental.prune(sources, previousAnalysis)
+        else prune(sources, previousAnalysis, manager)
+      case None => prune(sources, previousAnalysis, manager)
     }
   }
 

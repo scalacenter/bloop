@@ -169,15 +169,8 @@ private final class BloopNameHashing(
         }
       }
 
-      // TODO(jvican): Remove this as soon as we have the new compilation scheme
-      val removedProducts = tracer.trace("removed products") { _ =>
-        lookup.removedProducts(previousAnalysis).getOrElse {
-          previous.allProducts
-            .filter(p => !equivS.equiv(previous.product(p), stamps.product(p)))
-            .toSet
-        }
-      }
-
+      // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
+      val removedProducts = Set.empty[File]
       val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
         lookup.changedBinaries(previousAnalysis).getOrElse {
           val detectChange =

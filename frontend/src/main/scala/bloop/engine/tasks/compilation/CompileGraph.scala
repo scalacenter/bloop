@@ -123,11 +123,11 @@ object CompileGraph {
   private val runningCompilations: RunningCompilationsInAllClients =
     new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
 
-  private val emptyOracle = ImmutableCompilerOracle.empty(runningCompilations)
+  private val emptyOracle = ImmutableCompilerOracle.empty()
 
   /**
    * Sets up project compilation, deduplicates compilation based on ongoing compilations in all
-   * clients and otherwise runs the compilation of a project.
+   * concurrent clients and otherwise runs the compilation of a project.
    *
    * The correctness of the compile deduplication depends on the effects that different clients
    * perceive. For example, it would be incorrect to deduplicate the logic by memoizing the
@@ -159,9 +159,9 @@ object CompileGraph {
           val compileAndUnsubscribe = compile(bundle).map { result =>
             // Remove as ongoing compilation before returning
             runningCompilations.remove(bundle.oracleInputs)
-            // Complete the observable
+            // Let's not forget to complete the observer logger
             logger.observer.onComplete()
-            // Return compilation result after the book-keeping
+            // Return compilation result after previous book-keeping
             result
           }.memoize // Without memoization, there is no deduplication
 
@@ -288,8 +288,8 @@ object CompileGraph {
                     results.foreach {
                       case (p, s: Compiler.Result.Success) =>
                         val newProducts = s.products
+                        dependentProducts.+=(p -> newProducts)
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
-                        dependentProducts.+=(p -> s.products)
                         dependentResults
                           .+=(newProducts.newClassesDir.toFile -> newResult)
                           .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
@@ -413,8 +413,7 @@ object CompileGraph {
 
                     // Signals whether java compilation can proceed or not
                     val sig = aggregateJavaSignals(results.map(_.javaTrigger))
-                    val oracle =
-                      new ImmutableCompilerOracle(results, Map.empty, runningCompilations)
+                    val oracle = new ImmutableCompilerOracle(results)
                     Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                       val jf = new CompletableFuture[Unit]()
                       val t = compile(Inputs(bundle, dependencyStore, cf, jf, sig, oracle, true))

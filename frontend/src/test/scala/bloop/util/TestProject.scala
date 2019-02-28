@@ -14,24 +14,13 @@ import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
 
-final case class TestProject(config: Config.Project) {
-  def srcFor(relPath: String): AbsolutePath = {
-    val sources = config.sources.map(AbsolutePath(_))
-    val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))
-    val rawFileName = targetPath.underlying.getFileName.toString
-    if (rawFileName.endsWith(".scala") || rawFileName.endsWith(".java")) {
-      val matchedPath = sources.foldLeft(None: Option[AbsolutePath]) {
-        case (matched, base) =>
-          if (matched.isDefined) matched
-          else {
-            val candidate = base.resolve(targetPath)
-            if (candidate.exists) Some(candidate) else matched
-          }
-      }
-      matchedPath.getOrElse(sys.error(s"Path ${targetPath} could not be found"))
-    } else {
-      sys.error(s"Source name in ${targetPath} does not end with '.scala' or '.java'")
-    }
+final case class TestProject(config: Config.Project, deps: List[TestProject]) {
+  def srcFor(relPath: String): AbsolutePath =
+    TestProject.srcFor(config.sources.map(AbsolutePath(_)), relPath)
+  def externalClassFileFor(relPath: String): AbsolutePath = {
+    val classFile = AbsolutePath(config.classesDir).resolve(RelativePath(relPath))
+    if (classFile.exists) classFile
+    else sys.error(s"Missing class file path ${relPath}")
   }
 
   lazy val bspId: bsp.BuildTargetIdentifier = {
@@ -51,7 +40,7 @@ object TestProject {
       baseDir: AbsolutePath,
       name: String,
       sources: List[String],
-      dependencies: List[String] = Nil,
+      directDependencies: List[TestProject] = Nil,
       enableTests: Boolean = false,
       scalacOptions: List[String] = Nil,
       scalaVersion: Option[String] = None,
@@ -64,16 +53,18 @@ object TestProject {
     val ProjectArchetype(sourceDir, outDir, resourceDir, classes) =
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
-    val depsTargets = dependencies
-      .map(d => AbsolutePath(TestUtil.classesDir(baseDir.underlying.resolve("target"), d)))
-      .toList
+    def classpathDeps(p: TestProject): List[AbsolutePath] = {
+      AbsolutePath(p.config.classesDir) :: p.deps.flatMap(classpathDeps(_))
+    }
 
     import bloop.engine.ExecutionContext.ioScheduler
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
     val instance = scalaVersion
       .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, Nil, NoopLogger))
       .getOrElse(TestUtil.scalaInstance)
+
     val allJars = instance.allJars.map(AbsolutePath.apply)
+    val depsTargets = directDependencies.flatMap(d => classpathDeps(d))
     val classpath = (depsTargets ++ allJars ++ jars).map(_.underlying)
     val javaConfig = jvmConfig.getOrElse(JavaEnv.toConfig(JavaEnv.default))
     val javaEnv = JavaEnv.fromConfig(javaConfig)
@@ -102,7 +93,7 @@ object TestProject {
       name,
       baseDir.underlying,
       List(sourceDir.underlying),
-      dependencies,
+      directDependencies.map(_.config.name),
       classpath,
       outDir.underlying,
       classes.underlying,
@@ -115,7 +106,7 @@ object TestProject {
       resolution = None
     )
 
-    TestProject(config)
+    TestProject(config, directDependencies)
   }
 
   def populateWorkspace(baseDir: AbsolutePath, projects: List[TestProject]): AbsolutePath = {
@@ -126,5 +117,23 @@ object TestProject {
       Files.write(configFile.underlying, project.toJson.getBytes(StandardCharsets.UTF_8))
     }
     configDir
+  }
+
+  def srcFor(sources: List[AbsolutePath], relPath: String): AbsolutePath = {
+    val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))
+    val rawFileName = targetPath.underlying.getFileName.toString
+    if (rawFileName.endsWith(".scala") || rawFileName.endsWith(".java")) {
+      val matchedPath = sources.foldLeft(None: Option[AbsolutePath]) {
+        case (matched, base) =>
+          if (matched.isDefined) matched
+          else {
+            val candidate = base.resolve(targetPath)
+            if (candidate.exists) Some(candidate) else matched
+          }
+      }
+      matchedPath.getOrElse(sys.error(s"Path ${targetPath} could not be found"))
+    } else {
+      sys.error(s"Source name in ${targetPath} does not end with '.scala' or '.java'")
+    }
   }
 }

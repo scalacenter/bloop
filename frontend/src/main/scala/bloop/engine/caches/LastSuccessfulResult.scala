@@ -20,7 +20,7 @@ case class LastSuccessfulResult(
 object LastSuccessfulResult {
   final val Empty: LastSuccessfulResult = LastSuccessfulResult(
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup]),
-    AbsolutePath(Files.createTempDirectory("empty-result").toRealPath()),
+    AbsolutePath(Files.createTempDirectory("empty-last-successful").toRealPath()),
     CancelableFuture.successful(())
   )
 
