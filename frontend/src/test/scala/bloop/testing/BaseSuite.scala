@@ -350,12 +350,9 @@ class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   def writeFile(path: AbsolutePath, contents: String): AbsolutePath = {
-    AbsolutePath(
-      Files.write(
-        path.underlying,
-        TestUtil.parseFile(contents).contents.getBytes(StandardCharsets.UTF_8)
-      )
-    )
+    import scala.util.Try
+    val body = Try(TestUtil.parseFile(contents)).map(_.contents).getOrElse(contents)
+    AbsolutePath(Files.write(path.underlying, body.getBytes(StandardCharsets.UTF_8)))
   }
 
   override def utestAfterAll(): Unit = afterAll()

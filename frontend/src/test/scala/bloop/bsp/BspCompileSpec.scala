@@ -1,15 +1,16 @@
 package bloop.bsp
 
 import bloop.engine.State
+import bloop.config.Config
 import bloop.cli.{ExitStatus, BspProtocol}
 import bloop.util.{TestUtil, TestProject}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 
-object BspTcpSpec extends BspSpec(BspProtocol.Tcp)
-object BspLocalSpec extends BspSpec(BspProtocol.Local)
+object TcpCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
+object LocalCompileSpec extends BspCompileSpec(BspProtocol.Local)
 
-class BspSpec(override val protocol: BspProtocol) extends BspBaseSuite {
+class BspCompileSpec(override val protocol: BspProtocol) extends BspBaseSuite {
   test("initialize and exit a build via BSP") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
@@ -251,6 +252,243 @@ class BspSpec(override val protocol: BspProtocol) extends BspBaseSuite {
         assertSameExternalClassesDirs(thirdCompiledState, fourthCompiledState, List(`A`, `B`))
         assertDifferentExternalClassesDirs(compiledState, fourthCompiledState, `A`)
         assertSameExternalClassesDirs(compiledState, fourthCompiledState, `B`)
+      }
+    }
+  }
+
+  test("compile incrementally and clear previous errors") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A extends Base {
+            |  val x = 2
+            |}""".stripMargin
+
+        val `Base.scala` =
+          """/Base.scala
+            |trait Base {
+            |  val x: Int
+            |}""".stripMargin
+
+        val `A2.scala` =
+          """/A.scala
+            |object A extends Base {
+            |  val x = 1
+            |  val x = 2
+            |}""".stripMargin
+
+        val `A3.scala` =
+          """/A.scala
+            |import java.nio.file.Files
+            |object A extends Base {
+            |  val x = 1
+            |  val x = 2
+            |}""".stripMargin
+
+        val `A4.scala` =
+          """/A.scala
+            |import java.nio.file.Files
+            |object A extends Base {
+            |  val x = 2
+            |}""".stripMargin
+
+        val `Base2.scala` =
+          """/Base.scala
+            |trait Base {
+            |  val y: Int
+            |}""".stripMargin
+
+        val `Base3.scala` =
+          """/Base.scala
+            |trait Base {
+            |  // Force recompilation
+            |  val x: Int
+            |}""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`A.scala`, Sources.`Base.scala`),
+        scalacOptions = List("-Ywarn-unused:imports", "-Yrangepos")
+      )
+
+      val projects = List(`A`)
+
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`)
+        assert(compiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """#1: task start 1
+            |  -> Msg: Compiling a (2 Scala sources)
+            |  -> Data kind: compile-task
+            |#1: task finish 1
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/A.scala"), Sources.`A2.scala`))
+        val secondCompiledState = compiledState.compile(`A`)
+        assert(secondCompiledState.status == ExitStatus.CompilationError)
+        assertInvalidCompilationState(
+          secondCompiledState,
+          projects,
+          existsAnalysisFile = true,
+          hasPreviousSuccessful = true,
+          hasSameContentsInClassesDir = true
+        )
+
+        assertSameExternalClassesDirs(secondCompiledState, compiledState, projects)
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
+          """#2: task start 2
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),None,None,x is already defined as value x,None))
+            |  -> reset = true
+            |#2: task finish 2
+            |  -> errors 1, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/A.scala"), Sources.`A.scala`))
+        val thirdCompiledState = secondCompiledState.compile(`A`)
+        assert(thirdCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(thirdCompiledState, projects)
+        assertSameExternalClassesDirs(thirdCompiledState, compiledState, projects)
+        assertNoDiff(
+          thirdCompiledState.lastDiagnostics(`A`),
+          """#3: task start 3
+            |  -> Msg: Start no-op compilation for a
+            |  -> Data kind: compile-task
+            |#3: a/src/A.scala
+            |  -> List()
+            |  -> reset = true
+            |#3: task finish 3
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/A.scala"), Sources.`A3.scala`))
+        val fourthCompiledState = thirdCompiledState.compile(`A`)
+        assert(fourthCompiledState.status == ExitStatus.CompilationError)
+        assertInvalidCompilationState(
+          fourthCompiledState,
+          projects,
+          existsAnalysisFile = true,
+          hasPreviousSuccessful = true,
+          hasSameContentsInClassesDir = true
+        )
+
+        assertSameExternalClassesDirs(fourthCompiledState, compiledState, projects)
+        assertNoDiff(
+          fourthCompiledState.lastDiagnostics(`A`),
+          """#4: task start 4
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#4: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),None,None,x is already defined as value x,None))
+            |  -> reset = true
+            |#4: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
+            |  -> reset = false
+            |#4: task finish 4
+            |  -> errors 1, warnings 1
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/A.scala"), Sources.`A4.scala`))
+        val fifthCompiledState = fourthCompiledState.compile(`A`)
+        assert(fifthCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(fifthCompiledState, projects)
+        assertDifferentExternalClassesDirs(fifthCompiledState, compiledState, projects)
+        assertNoDiff(
+          fifthCompiledState.lastDiagnostics(`A`),
+          """#5: task start 5
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#5: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
+            |  -> reset = true
+            |#5: task finish 5
+            |  -> errors 0, warnings 1
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/Base.scala"), Sources.`Base2.scala`))
+        val sixthCompiledState = fifthCompiledState.compile(`A`)
+        assert(sixthCompiledState.status == ExitStatus.CompilationError)
+        assertInvalidCompilationState(
+          sixthCompiledState,
+          projects,
+          existsAnalysisFile = true,
+          hasPreviousSuccessful = true,
+          hasSameContentsInClassesDir = true
+        )
+        assertSameExternalClassesDirs(sixthCompiledState, fifthCompiledState, projects)
+        assertNoDiff(
+          sixthCompiledState.lastDiagnostics(`A`),
+          """#6: task start 6
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#6: a/src/A.scala
+            |  -> List()
+            |  -> reset = true
+            |#6: task finish 6
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            |#6: task start 6
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#6: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
+            |  -> reset = true
+            |#6: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(1,0),Position(3,1)),Some(Error),None,None,object creation impossible, since value y in trait Base of type Int is not defined,None))
+            |  -> reset = false
+            |#6: task finish 6
+            |  -> errors 1, warnings 1
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/Base.scala"), Sources.`Base3.scala`))
+        val seventhCompiledState = sixthCompiledState.compile(`A`)
+        assert(seventhCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(seventhCompiledState, projects)
+        assertDifferentExternalClassesDirs(seventhCompiledState, fifthCompiledState, projects)
+
+        assertNoDiff(
+          seventhCompiledState.lastDiagnostics(`A`),
+          """#7: task start 7
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#7: a/src/A.scala
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),None,None,Unused import,None))
+            |  -> reset = true
+            |#7: task finish 7
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report
+            """.stripMargin
+        )
       }
     }
   }
