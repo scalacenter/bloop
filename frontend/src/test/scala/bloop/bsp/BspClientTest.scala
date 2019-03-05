@@ -6,14 +6,15 @@ import java.nio.file.{Files, Path}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
 
-import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
-import bloop.data.Project
 import bloop.engine.{State, Run}
+import bloop.data.{Project, ClientInfo}
+import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.util.TestUtil
+
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
 import monix.eval.Task
@@ -25,7 +26,8 @@ import sbt.internal.util.MessageOnlyException
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 
-object BspClientTest {
+object BspClientTest extends BspClientTest
+trait BspClientTest {
   private implicit val ctx: DebugFilter = DebugFilter.Bsp
   def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
@@ -118,7 +120,7 @@ object BspClientTest {
     }
 
     val configPath = RelativePath(configDirectory.underlying.getFileName)
-    val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
+    val bspServer = BspServer.run(cmd, state, configPath, None, None, scheduler).runAsync(scheduler)
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
       val out = socket.getOutputStream
@@ -175,7 +177,7 @@ object BspClientTest {
     }
   }
 
-  private def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
+  def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
     import org.scalasbt.ipcsocket.UnixDomainSocket
     val connectToServer = me.Task {
       cmd match {
@@ -222,6 +224,92 @@ object BspClientTest {
         }
         throw t
     }
+  }
+
+  def addServicesTest(
+      configDir: AbsolutePath,
+      compileIteration: () => Int,
+      record: (bsp.BuildTargetIdentifier, StringBuilder => StringBuilder) => Unit
+  ): Services => Services = { (s: Services) =>
+    s.notification(endpoints.Build.taskStart) { taskStart =>
+        taskStart.dataKind match {
+          case Some(bsp.TaskDataKind.CompileTask) =>
+            val json = taskStart.data.get
+            bsp.CompileTask.decodeCompileTask(json.hcursor) match {
+              case Left(failure) => ()
+              case Right(compileTask) =>
+                record(
+                  compileTask.target,
+                  (builder: StringBuilder) => {
+                    builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
+                    taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
+                  }
+                )
+            }
+          case _ => ()
+        }
+        ()
+      }
+      .notification(endpoints.Build.taskFinish) { taskFinish =>
+        taskFinish.dataKind match {
+          case Some(bsp.TaskDataKind.CompileReport) =>
+            val json = taskFinish.data.get
+            bsp.CompileReport.decodeCompileReport(json.hcursor) match {
+              case Left(failure) => ()
+              case Right(report) =>
+                record(
+                  report.target,
+                  (builder: StringBuilder) => {
+                    builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
+                    builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                    taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
+                  }
+                )
+            }
+          case _ => ()
+        }
+
+        ()
+      }
+      .notification(endpoints.Build.publishDiagnostics) {
+        case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
+          record(
+            btid,
+            (builder: StringBuilder) => {
+              val pathString = {
+                val baseDir = {
+                  // Find out the current working directory of the workspace instead of project
+                  var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
+                  val workspaceFileName = configDir.underlying.getParent.getFileName
+                  while (!bdir.underlying.endsWith(workspaceFileName)) {
+                    bdir = bdir.getParent
+                  }
+                  bdir
+                }
+
+                val abs = AbsolutePath(tid.uri.toPath)
+                if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
+                else abs.toRelative(baseDir).toString
+              }
+
+              val canonical = pathString.replace(File.separatorChar, '/')
+              val report = diagnostics.map(
+                _.toString
+                  .replace("\n", " ")
+                  .replace(System.lineSeparator, " ")
+              )
+              builder
+                .++=(s"#${compileIteration()}: $canonical\n")
+                .++=(s"  -> $report\n")
+                .++=(s"  -> reset = $reset\n")
+            }
+          )
+          ()
+      }
   }
 
   sealed trait BspClientAction
@@ -385,94 +473,12 @@ object BspClientTest {
       ()
     }
 
-    val addServicesTest: Services => Services = { (s: Services) =>
-      s.notification(endpoints.Build.taskStart) { taskStart =>
-          taskStart.dataKind match {
-            case Some(bsp.TaskDataKind.CompileTask) =>
-              val json = taskStart.data.get
-              bsp.CompileTask.decodeCompileTask(json.hcursor) match {
-                case Left(failure) => ()
-                case Right(compileTask) =>
-                  addToStringReport(
-                    compileTask.target,
-                    (builder: StringBuilder) => {
-                      builder.++=(s"#${compileIteration}: task start ${taskStart.taskId.id}\n")
-                      taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
-                  )
-              }
-            case _ => ()
-          }
-          ()
-        }
-        .notification(endpoints.Build.taskFinish) { taskFinish =>
-          taskFinish.dataKind match {
-            case Some(bsp.TaskDataKind.CompileReport) =>
-              val json = taskFinish.data.get
-              bsp.CompileReport.decodeCompileReport(json.hcursor) match {
-                case Left(failure) => ()
-                case Right(report) =>
-                  addToStringReport(
-                    report.target,
-                    (builder: StringBuilder) => {
-                      builder.++=(s"#${compileIteration}: task finish ${taskFinish.taskId.id}\n")
-                      builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
-                      taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
-                  )
-              }
-            case _ => ()
-          }
-
-          ()
-        }
-        .notification(endpoints.Build.publishDiagnostics) {
-          case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
-            addToStringReport(
-              btid,
-              (builder: StringBuilder) => {
-                val pathString = {
-                  val baseDir = {
-                    // Find out the current working directory of the workspace instead of project
-                    var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
-                    val workspaceFileName = configDir.underlying.getParent.getFileName
-                    while (!bdir.underlying.endsWith(workspaceFileName)) {
-                      bdir = bdir.getParent
-                    }
-                    bdir
-                  }
-
-                  val abs = AbsolutePath(tid.uri.toPath)
-                  if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
-                  else abs.toRelative(baseDir).toString
-                }
-
-                val canonical = pathString.replace(File.separatorChar, '/')
-                val report = diagnostics.map(
-                  _.toString
-                    .replace("\n", " ")
-                    .replace(System.lineSeparator, " ")
-                )
-                builder
-                  .++=(s"#$compileIteration: $canonical\n")
-                  .++=(s"  -> $report\n")
-                  .++=(s"  -> reset = $reset\n")
-              }
-            )
-            ()
-        }
-    }
-
     reportIfError(logger, expectErrors) {
       val runTest = BspClientTest.runTest(
         bspCmd,
         configDir,
         logger,
-        addServicesTest,
+        addServicesTest(configDir, () => compileIteration, addToStringReport),
         addDiagnosticsHandler = false,
         userState = userState,
         userScheduler = userScheduler

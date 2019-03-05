@@ -25,9 +25,10 @@ trait BloopHelpers {
     new TestState(TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger))
   }
 
-  final class TestState(state: State) {
+  final class TestState(val state: State) {
     def status = state.status
     def build = state.build
+    def client = state.client
     def results = state.results
     override def toString: String = pprint.apply(state, height = 500).render
     def compile(projects: TestProject*): TestState = {
@@ -61,6 +62,11 @@ trait BloopHelpers {
     def clean(projects: TestProject*): TestState = {
       val compileTask = Run(Commands.Clean(projects.map(_.config.name).toList))
       new TestState(TestUtil.blockingExecute(compileTask, state))
+    }
+
+    def broadcastGlobally(): Unit = {
+      State.stateCache.updateBuild(state)
+      ()
     }
 
     def getProjectFor(project: TestProject): Project =

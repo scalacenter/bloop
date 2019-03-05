@@ -28,21 +28,24 @@ object DiffAssertions extends FunSuiteLike {
       obtained: String,
       expected: String,
       obtainedTitle: String,
-      expectedTitle: String
+      expectedTitle: String,
+      print: Boolean = true
   )(
       implicit source: Position
   ): Boolean = {
     try assertNoDiff(obtained, expected, obtainedTitle, expectedTitle)
     catch {
       case ex: Exception =>
-        obtained.linesIterator.toList match {
-          case head +: tail =>
-            println("    \"\"\"|" + head)
-            tail.foreach(line => println("       |" + line))
-          case head +: Nil =>
-            println(head)
-          case Nil =>
-            println("obtained is empty")
+        if (print) {
+          obtained.linesIterator.toList match {
+            case head +: tail =>
+              println("    \"\"\"|" + head)
+              tail.foreach(line => println("       |" + line))
+            case head +: Nil =>
+              println(head)
+            case Nil =>
+              println("obtained is empty")
+          }
         }
         throw ex
     }

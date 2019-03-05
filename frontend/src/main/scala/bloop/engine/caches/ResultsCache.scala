@@ -89,6 +89,14 @@ final case class ResultsCache private (
     }
   }
 
+  def replacePreviousResults(ps: Map[Project, Compiler.Result]): ResultsCache = {
+    ps.foldLeft(this) {
+      case (rs, (project, result)) =>
+        val newAll = rs.all + (project -> result)
+        new ResultsCache(newAll, rs.successful)
+    }
+  }
+
   override def toString: String = pprint.apply(this, height = Int.MaxValue).render
 }
 

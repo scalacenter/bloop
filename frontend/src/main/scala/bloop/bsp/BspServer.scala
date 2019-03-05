@@ -4,14 +4,18 @@ import java.net.ServerSocket
 import java.util.Locale
 
 import bloop.cli.Commands
-import bloop.engine.State
+import bloop.data.ClientInfo
+import bloop.engine.{ExecutionContext, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter}
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
+
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
+import monix.reactive.{Observer}
 
+import scala.concurrent.Promise
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
@@ -65,6 +69,8 @@ object BspServer {
       cmd: ValidatedBsp,
       state: State,
       configPath: RelativePath,
+      promiseWhenStarted: Option[Promise[Unit]],
+      observer: Option[Observer.Sync[State]],
       scheduler: Scheduler
   ): Task[State] = {
     def uri(handle: ConnectionHandle): String = {
@@ -80,6 +86,7 @@ object BspServer {
       val connectionURI = uri(handle)
       // WARNING: Do NOT change this log, it's used by clients and bsp launcher to know when to start a connection
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
+      promiseWhenStarted.foreach(_.success(()))
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
@@ -88,19 +95,25 @@ object BspServer {
       val out = socket.getOutputStream
       val bspLogger = new BspClientLogger(logger)
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider = new BloopBspServices(state, client, configPath, in, exitStatus)
+      val servicesProvider =
+        new BloopBspServices(state, client, configPath, in, exitStatus, observer)
       val bloopServices = servicesProvider.services
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
       server.startTask
         .map(_ => servicesProvider.stateAfterExecution)
-        .onErrorHandleWith { t =>
-          Task.now(
-            servicesProvider.stateAfterExecution.withError(s"BSP server stopped by ${t.getMessage}")
-          )
+        .doOnFinish { result =>
+          Task {
+            result.foreach { t =>
+              servicesProvider.stateAfterExecution.withError(
+                s"BSP server stopped by ${t.getMessage}"
+              )
+            }
+
+            handle.serverSocket.close()
+          }
         }
-        .doOnFinish(_ => Task { handle.serverSocket.close() })
     }
 
     initServer(cmd, state).materialize.flatMap {
@@ -110,6 +123,7 @@ object BspServer {
             Task.now(state.withError(s"BSP server failed to start with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
+        promiseWhenStarted.foreach(_.failure(t))
         Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
     }
   }

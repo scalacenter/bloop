@@ -15,7 +15,6 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
 import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
-import monix.eval.Task
 import ch.epfl.scala.bsp.{
   BuildTargetIdentifier,
   MessageType,
@@ -27,6 +26,9 @@ import ch.epfl.scala.bsp.{
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+
+import monix.eval.Task
+import monix.reactive.Observer
 import monix.execution.atomic.AtomicInt
 
 import scala.collection.concurrent.TrieMap
@@ -38,7 +40,8 @@ final class BloopBspServices(
     client: JsonRpcClient,
     relativeConfigPath: RelativePath,
     socketInput: InputStream,
-    exitStatus: AtomicInt
+    exitStatus: AtomicInt,
+    observer: Option[Observer.Sync[State]]
 ) {
   private implicit val debugFilter: DebugFilter = DebugFilter.Bsp
   private type ProtocolError = JsonRpcResponse.Error
@@ -79,13 +82,23 @@ final class BloopBspServices(
     currentState.copy(logger = callSiteState.logger)
   }
 
+  private val previouslyFailedCompilations = new TrieMap[Project, Compiler.Result.Failed]()
   private def reloadState(config: AbsolutePath, clientInfo: ClientInfo): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
-    // TODO(jvican): Modify the in, out and err streams to go through the BSP wire
     State.loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger).map { state0 =>
-      val newState = state0.copy(logger = bspLogger)
+      /* Create a new state that has the previously compiled results in this BSP
+       * client as the last compiled result available for a project. This is required
+       * because in diagnostics reporting in BSP is stateful. When compilations
+       * happen in other clients, the previous result does not contain the list of
+       * previous problems (that tracks where we reported diagnostics) that this client
+       * had and therefore we can fail to reset diagnostics. */
+      val newState = {
+        val previous = previouslyFailedCompilations.toMap
+        state0.copy(results = state0.results.replacePreviousResults(previous))
+      }
+
       currentState = newState
       newState
     }
@@ -97,12 +110,13 @@ final class BloopBspServices(
       bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
       // Save the state globally so that it can be accessed by other clients
       State.stateCache.updateBuild(state)
+      observer.foreach(_.onNext(state))
       ()
     }
   }
 
   // Completed whenever the initialization happens, used in `initialized`
-  val clientInfo = scala.concurrent.Promise[ClientInfo]()
+  val clientInfo = Promise[ClientInfo]()
   val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
 
   /**
@@ -272,7 +286,8 @@ final class BloopBspServices(
             case Compiler.Result.GlobalError(problem) => List(problem)
             case Compiler.Result.Cancelled(problems, elapsed, _) =>
               List(reportError(p, problems, elapsed))
-            case Compiler.Result.Failed(problems, t, elapsed, _) =>
+            case f @ Compiler.Result.Failed(problems, t, elapsed, _) =>
+              previouslyFailedCompilations.put(p, f)
               val acc = List(reportError(p, problems, elapsed))
               t match {
                 case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc

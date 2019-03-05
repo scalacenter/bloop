@@ -22,7 +22,13 @@ object CompilerOracle {
       originProjectPath: String,
       originProjectHash: Int
   ) extends CacheHashCode {
-    // Cache hash code here to control ordering and for efficiency reasons (!)
+
+    /**
+     * Custom hash code that does not take into account ordering of `sources`
+     * and `classpath` hashes that can change from run to run since they are
+     * computed in parallel. This hash code is cached in a val so that we don't
+     * need to recompute it every time we use it in a map/set.
+     */
     override lazy val hashCode: Int = {
       import scala.util.hashing.MurmurHash3
       val initialHashCode = originProjectHash.hashCode

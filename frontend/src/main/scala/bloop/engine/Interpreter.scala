@@ -11,7 +11,7 @@ import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
-import bloop.data.{Platform, Project}
+import bloop.data.{Platform, Project, ClientInfo}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{ReporterInputs, LogReporter}
@@ -106,7 +106,7 @@ object Interpreter {
 
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
     val scheduler = ExecutionContext.bspScheduler
-    BspServer.run(cmd, state, RelativePath(".bloop"), scheduler)
+    BspServer.run(cmd, state, RelativePath(".bloop"), None, None, scheduler)
   }
 
   private[bloop] def watch(projects: List[Project], state: State)(

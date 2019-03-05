@@ -19,7 +19,7 @@ import monix.eval.Task
 import monix.execution.CancelableFuture
 
 object ModernCompileSpec extends bloop.testing.BaseSuite {
-  ignore("compile a project twice with no input changes produces a no-op") {
+  test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -38,10 +38,11 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       val secondCompiledState = compiledState.compile(`A`)
       assert(secondCompiledState.status == ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
+      assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
     }
   }
 
-  ignore("simulate an incremental compiler session") {
+  test("simulate an incremental compiler session") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -93,38 +94,40 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, List(`A`, `B`))
       assertNoDiff(
+        logger.compilingInfos.sorted.mkString(System.lineSeparator),
         """Compiling a (2 Scala sources)
-          |Compiling b (1 Scala source)""".stripMargin,
-        logger.compilingInfos.sorted.mkString(System.lineSeparator)
+          |Compiling b (1 Scala source)""".stripMargin
       )
 
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
       val secondCompiledState = compiledState.compile(`B`)
       assert(secondCompiledState.status == ExitStatus.CompilationError)
-      assertValidCompilationState(secondCompiledState, List(`A`))
+      assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
 
       assertInvalidCompilationState(
         secondCompiledState,
-        List(`B`),
+        projects,
         existsAnalysisFile = true,
-        hasPreviousSuccessful = true
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
       )
 
       assertNoDiff(
+        logger.renderErrors(exceptContaining = "failed to compile"),
         """[E1] b/src/B.scala:2:17
           |     type mismatch;
           |      found   : String("")
           |      required: Int
           |     L2:   println(A.foo(""))
           |                         ^
-          |b/src/B.scala: L2 [E1]""".stripMargin,
-        logger.renderErrors(exceptContaining = "failed to compile")
+          |b/src/B.scala: L2 [E1]""".stripMargin
       )
 
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A.scala`))
       val thirdCompiledState = secondCompiledState.compile(`B`)
       assert(thirdCompiledState.status == ExitStatus.Ok)
       assertValidCompilationState(thirdCompiledState, List(`A`, `B`))
+      assertSameExternalClassesDirs(compiledState, thirdCompiledState, projects)
 
       /*
        * Scenario: class files get removed from external classes dir.
@@ -135,9 +138,10 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       val fourthCompiledState = thirdCompiledState.compile(`B`)
       assert(fourthCompiledState.status == ExitStatus.Ok)
       assertValidCompilationState(fourthCompiledState, List(`A`, `B`))
+      assertSameExternalClassesDirs(compiledState, fourthCompiledState, projects)
 
       /*
-       * Scenario: one class file is modified in the external classes dir and one source files changes.
+       * Scenario: one class file is modified in the external classes dir and a source file changes.
        * Expected: incremental compilation succeeds and external classes dir is repopulated.
        */
 
@@ -150,7 +154,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile a build with diamond shape and check basic compilation invariants") {
+  test("compile a build with diamond shape and check basic compilation invariants") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` = "/A.scala\npackage p0\nclass A"
@@ -190,21 +194,21 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(compiledState, List(`A`, `B`, `C`, `D`, `E`))
       assertEmptyCompilationState(compiledState, List(`F`))
       assertNoDiff(
+        logger.compilingInfos.sorted.mkString(System.lineSeparator),
         """Compiling a (1 Scala source)
           |Compiling b (1 Scala source)
           |Compiling c (1 Scala source)
           |Compiling d (1 Scala source)
-          |Compiling e (1 Scala source)""".stripMargin,
-        logger.compilingInfos.sorted.mkString(System.lineSeparator)
+          |Compiling e (1 Scala source)""".stripMargin
       )
       assertNoDiff(
-        Feedback.detectMissingDependencies(`A`.config.name, List(`Empty`.config.name)).get,
-        logger.warnings.sorted.mkString(System.lineSeparator)
+        logger.warnings.sorted.mkString(System.lineSeparator),
+        Feedback.detectMissingDependencies(`A`.config.name, List(`Empty`.config.name)).get
       )
     }
   }
 
-  ignore("compile java code depending on scala code") {
+  test("compile java code depending on scala code") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -243,7 +247,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("don't compile after renaming a class and not its references in the same project") {
+  test("don't compile after renaming a class and not its references in the same project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
@@ -286,7 +290,8 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         secondCompiledState,
         List(`A`),
         existsAnalysisFile = true,
-        hasPreviousSuccessful = true
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
       )
 
       assertNoDiff(
@@ -312,7 +317,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("don't compile after renaming a class and not its references in a dependent project") {
+  test("don't compile after renaming a class and not its references in a dependent project") {
     // Checks bloop is invalidating classes + propagating them to *transitive* dependencies
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -368,7 +373,8 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         secondCompiledState,
         List(`A`, `B`, `C`),
         existsAnalysisFile = true,
-        hasPreviousSuccessful = true
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
       )
 
       assertNoDiff(
@@ -394,7 +400,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("report java errors when `JavaThenScala` is enabled") {
+  test("report java errors when `JavaThenScala` is enabled") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` = "/A.scala\nclass A"
@@ -417,21 +423,22 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         compiledState,
         projects,
         existsAnalysisFile = false,
-        hasPreviousSuccessful = false
+        hasPreviousSuccessful = false,
+        hasSameContentsInClassesDir = true
       )
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       assertNoDiff(
+        logger.renderErrors(exceptContaining = "failed to compile"),
         """[E1] a/src/B.java:1
           |     cannot find symbol
           |       symbol: class A
-          |a/src/B.java: L1 [E1]""".stripMargin,
-        logger.renderErrors(exceptContaining = "failed to compile")
+          |a/src/B.java: L1 [E1]""".stripMargin
       )
     }
   }
 
-  ignore("detect Scala syntactic errors") {
+  test("detect Scala syntactic errors") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/Foo.scala
@@ -451,22 +458,23 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         compiledState,
         projects,
         existsAnalysisFile = false,
-        hasPreviousSuccessful = false
+        hasPreviousSuccessful = false,
+        hasSameContentsInClassesDir = true
       )
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       assertNoDiff(
+        logger.renderErrors(exceptContaining = "failed to compile"),
         """[E1] a/src/Foo.scala:2:18
           |     ';' expected but '=' found.
           |     L2:   al foo: String = 1
           |                          ^
-          |a/src/Foo.scala: L2 [E1]""".stripMargin,
-        logger.renderErrors(exceptContaining = "failed to compile")
+          |a/src/Foo.scala: L2 [E1]""".stripMargin
       )
     }
   }
 
-  ignore("detect invalid Scala compiler flags") {
+  test("detect invalid Scala compiler flags") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/Foo.scala
@@ -485,18 +493,19 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         compiledState,
         projects,
         existsAnalysisFile = false,
-        hasPreviousSuccessful = false
+        hasPreviousSuccessful = false,
+        hasSameContentsInClassesDir = true
       )
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       assertNoDiff(
-        """bad option: '-Ytyper-degug'""".stripMargin,
-        logger.renderErrors(exceptContaining = "failed to compile")
+        logger.renderErrors(exceptContaining = "failed to compile"),
+        """bad option: '-Ytyper-degug'""".stripMargin
       )
     }
   }
 
-  ignore("cascade compilation compiles only a strict subset of targets") {
+  test("cascade compilation compiles only a strict subset of targets") {
     TestUtil.withinWorkspace { workspace =>
       /*
        *  Read build graph dependencies from top to bottom.
@@ -529,17 +538,17 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
+        logger.compilingInfos.sorted.mkString(System.lineSeparator),
         """Compiling F (1 Scala source)
           |Compiling G (1 Scala source)
           |Compiling H (1 Scala source)
           |Compiling I (1 Scala source)
-          """.stripMargin,
-        logger.compilingInfos.sorted.mkString(System.lineSeparator)
+          """.stripMargin
       )
     }
   }
 
-  ignore("cancel compilation with expensive compilation time") {
+  test("cancel compilation with expensive compilation time") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
@@ -576,13 +585,13 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(compiledUserState.status == ExitStatus.CompilationError)
       assertCancelledCompilation(compiledUserState, List(build.userProject))
       assertNoDiff(
-        "Cancelling compilation of user",
-        logger.warnings.mkString(System.lineSeparator())
+        logger.warnings.mkString(System.lineSeparator()),
+        "Cancelling compilation of user"
       )
     }
   }
 
-  ignore("compiler plugins are cached automatically") {
+  test("compiler plugins are cached automatically") {
     object Sources {
       // A slight modification of the original `App.scala` to trigger incremental compilation
       val `App2.scala` =
@@ -668,10 +677,10 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(compiledMacrosState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
       assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator()),
         s"""
            |Compiling macros (1 Scala source)
-         """.stripMargin,
-        logger.compilingInfos.mkString(System.lineSeparator())
+         """.stripMargin
       )
 
       val logger1 = new RecordingLogger
@@ -698,17 +707,17 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(secondCompilationState, projects)
 
       assertNoDiff(
+        logger1.compilingInfos.mkString(System.lineSeparator()),
         s"""
            |Compiling user (2 Scala sources)
-         """.stripMargin,
-        logger1.compilingInfos.mkString(System.lineSeparator())
+         """.stripMargin
       )
 
       assertNoDiff(
+        logger2.compilingInfos.mkString(System.lineSeparator()),
         s"""
            |Compiling user (2 Scala sources)
-         """.stripMargin,
-        logger2.compilingInfos.mkString(System.lineSeparator())
+         """.stripMargin
       )
 
       val thirdCompilationState =
@@ -720,11 +729,11 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(thirdCompilationState, projects)
 
       TestUtil.assertNoDiff(
+        logger2.compilingInfos.mkString(System.lineSeparator()),
         s"""
            |Compiling user (2 Scala sources)
            |Compiling user (2 Scala sources)
-         """.stripMargin,
-        logger2.compilingInfos.mkString(System.lineSeparator())
+         """.stripMargin
       )
 
       val noopCompiles = Task.mapBoth(
@@ -741,11 +750,11 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(secondNoopState, projects)
 
       TestUtil.assertNoDiff(
+        logger2.compilingInfos.mkString(System.lineSeparator()),
         s"""
            |Compiling user (2 Scala sources)
            |Compiling user (2 Scala sources)
-         """.stripMargin,
-        logger2.compilingInfos.mkString(System.lineSeparator())
+         """.stripMargin
       )
     }
   }

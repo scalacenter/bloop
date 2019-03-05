@@ -5,7 +5,7 @@ import bloop.cli.ExitStatus
 import bloop.io.AbsolutePath
 import bloop.io.Paths.AttributedPath
 import bloop.util.JavaCompat._
-import bloop.util.TestProject
+import bloop.util.{TestProject, TestUtil}
 import bloop.reporter.Problem
 import bloop.engine.ExecutionContext
 import bloop.engine.caches.LastSuccessfulResult
@@ -131,6 +131,57 @@ class BaseSuite extends TestSuite with BloopHelpers {
       }
   }
 
+  def assertDifferentExternalClassesDirs(
+      s1: TestState,
+      s2: TestState,
+      projects: List[TestProject]
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    projects.foreach { project =>
+      assertDifferentExternalClassesDirs(s1, s2, project)
+    }
+  }
+
+  def assertDifferentExternalClassesDirs(
+      s1: TestState,
+      s2: TestState,
+      project: TestProject
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    try {
+      assertSameExternalClassesDirs(s1, s2, project, printDiff = false)
+      fail("External classes dirs of ${project.config.name} in both states is the same!")
+    } catch {
+      case e: DiffAssertions.TestFailedException => ()
+    }
+  }
+
+  def assertSameExternalClassesDirs(
+      s1: TestState,
+      s2: TestState,
+      project: TestProject,
+      printDiff: Boolean = true
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    val projectName = project.config.name
+    val a = s1.client.getUniqueClassesDirFor(s1.build.getProjectFor(projectName).get)
+    val b = s2.client.getUniqueClassesDirFor(s2.build.getProjectFor(projectName).get)
+    val filesA = takeDirectorySnapshot(a)
+    val filesB = takeDirectorySnapshot(b)
+    assertNoDiff(
+      pprint.apply(filesA, height = Int.MaxValue).render,
+      pprint.apply(filesB, height = Int.MaxValue).render,
+      print = printDiff
+    )
+  }
+
+  def assertSameExternalClassesDirs(
+      s1: TestState,
+      s2: TestState,
+      projects: List[TestProject]
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    projects.foreach { project =>
+      assertSameExternalClassesDirs(s1, s2, project)
+    }
+  }
+
   def assertSameFilesIn(
       a: AbsolutePath,
       b: AbsolutePath
@@ -189,8 +240,9 @@ class BaseSuite extends TestSuite with BloopHelpers {
   def assertInvalidCompilationState(
       state: TestState,
       projects: List[TestProject],
-      existsAnalysisFile: Boolean = true,
-      hasPreviousSuccessful: Boolean = false
+      existsAnalysisFile: Boolean,
+      hasPreviousSuccessful: Boolean,
+      hasSameContentsInClassesDir: Boolean
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     val buildProjects = projects.flatMap(p => state.build.getProjectFor(p.config.name).toList)
     assert(projects.size == buildProjects.size)
@@ -206,8 +258,11 @@ class BaseSuite extends TestSuite with BloopHelpers {
           assert(stamps.getAllProductStamps.asScala.nonEmpty)
           assert(stamps.getAllSourceStamps.asScala.nonEmpty)
 
-          assert(takeDirectorySnapshot(result.classesDir).nonEmpty)
-          assertSameFilesIn(result.classesDir, buildProject.classesDir)
+          if (hasSameContentsInClassesDir) {
+            val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+            assert(takeDirectorySnapshot(result.classesDir).nonEmpty)
+            assertSameFilesIn(projectClassesDir, result.classesDir)
+          }
         } else {
           assert(latestResult.isEmpty)
           val lastResult = state.getLastResultFor(testProject)
@@ -251,18 +306,20 @@ class BaseSuite extends TestSuite with BloopHelpers {
         assert(stamps.getAllSourceStamps.asScala.nonEmpty)
         //assert(stamps.getAllBinaryStamps.asScala.nonEmpty)
 
+        val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
         assert(takeDirectorySnapshot(latestResult.classesDir).nonEmpty)
-        assertSameFilesIn(latestResult.classesDir, buildProject.classesDir)
+        assertSameFilesIn(projectClassesDir, latestResult.classesDir)
     }
   }
 
   def assertNoDiff(
       obtained: String,
       expected: String,
-      title: String = ""
+      title: String = "",
+      print: Boolean = true
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     colored {
-      DiffAssertions.assertNoDiffOrPrintExpected(obtained, expected, title, title)
+      DiffAssertions.assertNoDiffOrPrintExpected(obtained, expected, title, title, print)
       ()
     }
   }
@@ -293,16 +350,11 @@ class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   def writeFile(path: AbsolutePath, contents: String): AbsolutePath = {
-    val lines = contents.split(System.lineSeparator)
-    val newContents = {
-      lines.headOption match {
-        case Some(head) if head.startsWith("/") =>
-          lines.tail.mkString(System.lineSeparator)
-        case _ => contents
-      }
-    }
     AbsolutePath(
-      Files.write(path.underlying, newContents.getBytes(StandardCharsets.UTF_8)).toRealPath()
+      Files.write(
+        path.underlying,
+        TestUtil.parseFile(contents).contents.getBytes(StandardCharsets.UTF_8)
+      )
     )
   }
 
