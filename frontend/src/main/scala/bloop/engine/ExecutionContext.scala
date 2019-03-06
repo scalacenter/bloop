@@ -13,7 +13,15 @@ import monix.execution.{ExecutionModel, UncaughtExceptionReporter}
 import monix.execution.schedulers.ExecutorScheduler
 
 object ExecutionContext {
-  private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors()
+  private[bloop] val nCPUs = {
+    val default = Runtime.getRuntime.availableProcessors()
+    Option(System.getProperty("bloop.computation.cores")) match {
+      case Some(value) =>
+        try Integer.parseInt(value)
+        catch { case scala.util.control.NonFatal(_) => default }
+      case None => default
+    }
+  }
 
   import monix.execution.Scheduler
   implicit lazy val bspScheduler: Scheduler = Scheduler {
