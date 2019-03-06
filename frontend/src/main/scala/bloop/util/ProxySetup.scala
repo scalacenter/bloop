@@ -116,7 +116,7 @@ object ProxySetup {
           settingsMap.get(proxy) match {
             // Do nothing if the settings are the same, otherwise update globally
             case Some(setSettings) if proxySettings == setSettings => settingsMap
-            case None =>
+            case _ =>
               System.setProperty(proxy.propertyNameHost, proxySettings.host)
               System.setProperty(proxy.propertyNamePort, proxySettings.port.toString())
               proxy.propertyNameNoProxyHosts match {
