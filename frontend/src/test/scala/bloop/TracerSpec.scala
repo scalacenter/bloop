@@ -22,6 +22,11 @@ class TracerSpec {
       Thread.sleep(500)
     }
     Thread.sleep(2000)
+    val tracer2 = tracer.toIndependentTracer("encode")
     tracer.terminate()
+    tracer2.trace("i am independent") { _ =>
+      Thread.sleep(1000)
+    }
+    tracer2.terminate()
   }
 }

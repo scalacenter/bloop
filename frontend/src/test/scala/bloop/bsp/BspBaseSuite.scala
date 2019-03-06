@@ -76,37 +76,57 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     val status = state.status
     val results = state.results
 
-    def compile(project: TestProject): ManagedBspTestState = {
+    def compileTask(project: TestProject): Task[ManagedBspTestState] = {
       import endpoints.{Workspace, BuildTarget}
       // Use a default timeout of 30 seconds for every operation
-      TestUtil.await(FiniteDuration(30, "s")) {
-        Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
-          case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
-          case Right(ts) =>
-            ts.targets.map(_.id).find(_ == project.bspId) match {
-              case Some(target) =>
-                // Handle internal state before sending compile request
-                diagnostics.clear()
-                currentCompileIteration.increment(1)
+      Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
+        case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
+        case Right(ts) =>
+          ts.targets.map(_.id).find(_ == project.bspId) match {
+            case Some(target) =>
+              // Handle internal state before sending compile request
+              diagnostics.clear()
+              currentCompileIteration.increment(1)
 
-                BuildTarget.compile.request(bsp.CompileParams(List(target), None, None)).flatMap {
-                  case Right(r) =>
-                    // `headL` returns latest saved state from bsp because source is behavior subject
-                    serverStates.headL.map { state =>
-                      new ManagedBspTestState(
-                        state,
-                        r.statusCode,
-                        currentCompileIteration,
-                        diagnostics,
-                        client0,
-                        serverStates
-                      )
-                    }
-                  case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
-                }
-              case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
-            }
+              BuildTarget.compile.request(bsp.CompileParams(List(target), None, None)).flatMap {
+                case Right(r) =>
+                  // `headL` returns latest saved state from bsp because source is behavior subject
+                  serverStates.headL.map { state =>
+                    new ManagedBspTestState(
+                      state,
+                      r.statusCode,
+                      currentCompileIteration,
+                      diagnostics,
+                      client0,
+                      serverStates
+                    )
+                  }
+                case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
+              }
+            case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
+          }
+      }
+    }
+
+    def compileHandle(
+        project: TestProject,
+        delay: Option[FiniteDuration] = None
+    ): CancelableFuture[ManagedBspTestState] = {
+      val interpretedTask = {
+        val task = compileTask(project)
+        delay match {
+          case Some(duration) => task.delayExecution(duration)
+          case None => task
         }
+      }
+
+      interpretedTask.runAsync(ExecutionContext.scheduler)
+    }
+
+    def compile(project: TestProject): ManagedBspTestState = {
+      // Use a default timeout of 30 seconds for every operation
+      TestUtil.await(FiniteDuration(30, "s")) {
+        compileTask(project)
       }
     }
 

@@ -669,92 +669,82 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("two concurrent CLI clients deduplicate compilation") {
-    val logger = new RecordingLogger
-    BuildUtil.testSlowBuild(logger) { build =>
-      val state = new TestState(build.state)
-      val compiledMacrosState = state.compile(build.macroProject)
-      assert(compiledMacrosState.status == ExitStatus.Ok)
-      assertValidCompilationState(compiledMacrosState, List(build.macroProject))
-      assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator()),
-        s"""
-           |Compiling macros (1 Scala source)
-         """.stripMargin
-      )
-
-      val logger1 = new RecordingLogger
-      val logger2 = new RecordingLogger
-
-      val projects = List(build.macroProject, build.userProject)
-      val firstCompilation =
-        compiledMacrosState
-          .withLogger(logger1)
-          .compileHandle(build.userProject)
-      val secondCompilation =
-        compiledMacrosState
-          .withLogger(logger2)
-          .compileHandle(build.userProject, Some(FiniteDuration(1, TimeUnit.SECONDS)))
-
-      val firstCompilationState =
-        Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
-      val secondCompilationState = // wait only +- 200ms to check no extra compilation happens
-        Await.result(secondCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
-
-      assert(firstCompilationState.status == ExitStatus.Ok)
-      assert(secondCompilationState.status == ExitStatus.Ok)
-      assertValidCompilationState(firstCompilationState, projects)
-      assertValidCompilationState(secondCompilationState, projects)
-
-      assertNoDiff(
-        logger1.compilingInfos.mkString(System.lineSeparator()),
-        s"""
-           |Compiling user (2 Scala sources)
-         """.stripMargin
-      )
-
-      assertNoDiff(
-        logger2.compilingInfos.mkString(System.lineSeparator()),
-        s"""
-           |Compiling user (2 Scala sources)
-         """.stripMargin
-      )
-
-      val thirdCompilationState =
-        secondCompilationState
-          .clean(build.userProject)
-          .compile(build.userProject)
-
-      assert(thirdCompilationState.status == ExitStatus.Ok)
-      assertValidCompilationState(thirdCompilationState, projects)
-
-      TestUtil.assertNoDiff(
-        logger2.compilingInfos.mkString(System.lineSeparator()),
-        s"""
-           |Compiling user (2 Scala sources)
-           |Compiling user (2 Scala sources)
-         """.stripMargin
-      )
-
-      val noopCompiles = Task.mapBoth(
-        Task(thirdCompilationState.compile(build.userProject)),
-        Task(thirdCompilationState.compile(build.userProject))
-      ) {
-        case states => states
+  test("check that we report rich diagnostics in the CLI when -Yrangepos") {
+    // From https://github.com/scalacenter/bloop/issues/787
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/main/scala/A.scala
+            |object A {
+            |  "".lengthCompare("1".substring(0))
+            |
+            |  // Make range pos multi-line to ensure range pos doesn't work here
+            |  "".lengthCompare("1".
+            |    substring(0))
+            |}""".stripMargin
       }
 
-      val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 1)
-      assert(firstNoopState.status == ExitStatus.Ok)
-      assertValidCompilationState(firstNoopState, projects)
-      assert(secondNoopState.status == ExitStatus.Ok)
-      assertValidCompilationState(secondNoopState, projects)
-
-      TestUtil.assertNoDiff(
-        logger2.compilingInfos.mkString(System.lineSeparator()),
+      val options = List("-Yrangepos")
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`), scalacOptions = options)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val state = loadState(workspace, List(`A`), logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertNoDiff(
+        logger.errors.mkString(System.lineSeparator()),
         s"""
-           |Compiling user (2 Scala sources)
-           |Compiling user (2 Scala sources)
-         """.stripMargin
+           |[E2] ${TestUtil.universalPath("a/src/main/scala/A.scala")}:6:14
+           |     type mismatch;
+           |      found   : String
+           |      required: Int
+           |     L6:     substring(0))
+           |                      ^
+           |[E1] ${TestUtil.universalPath("a/src/main/scala/A.scala")}:2:33
+           |     type mismatch;
+           |      found   : String
+           |      required: Int
+           |     L2:   "".lengthCompare("1".substring(0))
+           |                            ^^^^^^^^^^^^^^^^
+           |${TestUtil.universalPath("a/src/main/scala/A.scala")}: L2 [E1], L6 [E2]
+           |'a' failed to compile.""".stripMargin
+      )
+    }
+  }
+
+  test("check positions reporting in adjacent diagnostics") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object Dep {
+            |  val a1: Int = ""
+            |  val a2: Int = ""
+            |}""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.CompilationError)
+      assert(logger.errors.size == 4)
+      assertNoDiff(
+        logger.errors.mkString(System.lineSeparator),
+        """[E2] a/src/A.scala:3:17
+          |     type mismatch;
+          |      found   : String("")
+          |      required: Int
+          |     L3:   val a2: Int = ""
+          |                         ^
+          |[E1] a/src/A.scala:2:17
+          |     type mismatch;
+          |      found   : String("")
+          |      required: Int
+          |     L2:   val a1: Int = ""
+          |                         ^
+          |a/src/A.scala: L2 [E1], L3 [E2]
+          |'a' failed to compile.""".stripMargin
       )
     }
   }

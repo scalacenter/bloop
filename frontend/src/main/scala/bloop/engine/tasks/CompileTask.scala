@@ -57,6 +57,14 @@ object CompileTask {
       "compile.target" -> topLevelTargets
     )
 
+    val backgroundTaskTracer = topLevelTracer.toIndependentTracer(
+      s"background IO work after compiling $topLevelTargets (transitively)",
+      "bloop.version" -> BuildInfo.version,
+      "zinc.version" -> BuildInfo.zincVersion,
+      "build.uri" -> originUri.syntax,
+      "compile.target" -> topLevelTargets
+    )
+
     def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
       val bundle = graphInputs.bundle
       val project = bundle.project
@@ -146,8 +154,12 @@ object CompileTask {
             )
           }
 
+          val setUpEnvironment = topLevelTracer.traceTask("wait to populate classes dir") { _ =>
+            Task.fromFuture(lastSuccessful.populatingProducts)
+          }
+
           // Block on the task associated with this result that sets up the read-only classes dir
-          Task.fromFuture(lastSuccessful.populatingProducts).flatMap { _ =>
+          setUpEnvironment.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
             inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
               // Finish incomplete promises (out of safety) and run similar book-keeping
@@ -175,11 +187,12 @@ object CompileTask {
       CompileBundle.computeFrom(inputs, reporter, logger, observable, topLevelTracer)
     }
 
-    CompileGraph.traverse(dag, setup(_), compile(_), pipeline).flatMap { partialDag =>
+    val client = state.client
+    CompileGraph.traverse(dag, client, setup(_), compile(_), pipeline).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
       val finalResults = partialResults.map { r =>
         PartialCompileResult
-          .toFinalResult(r, createNewReadOnlyClassesDir(_, topLevelTracer, rawLogger))
+          .toFinalResult(r, createNewReadOnlyClassesDir(_, backgroundTaskTracer, rawLogger))
       }
 
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>

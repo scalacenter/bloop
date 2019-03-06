@@ -5,7 +5,12 @@ import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 
 object BuildUtil {
-  case class SlowBuild(macroProject: TestProject, userProject: TestProject, state: State)
+  case class SlowBuild(
+      workspace: AbsolutePath,
+      macroProject: TestProject,
+      userProject: TestProject,
+      state: State
+  )
   def testSlowBuild(logger: RecordingLogger)(testLogic: SlowBuild => Unit): Unit = {
     TestUtil.withinWorkspace { workspace =>
       val slowMacroProject = TestProject(
@@ -60,8 +65,7 @@ object BuildUtil {
       )
 
       val state = TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger)
-      val build = SlowBuild(slowMacroProject, userProject, state)
-      testLogic(build)
+      testLogic(SlowBuild(workspace, slowMacroProject, userProject, state))
     }
   }
 }

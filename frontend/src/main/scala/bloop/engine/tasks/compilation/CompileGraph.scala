@@ -5,13 +5,15 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
-import bloop.data.Project
+import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.engine._
 import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore, CompileProducts}
+import bloop.io.ParallelOps
+
 import monix.eval.Task
 import monix.reactive.{Observable, MulticastStrategy}
 import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
@@ -62,6 +64,7 @@ object CompileGraph {
    */
   def traverse(
       dag: Dag[Project],
+      client: ClientInfo,
       setup: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result],
       pipeline: Boolean
@@ -69,8 +72,8 @@ object CompileGraph {
     /* We use different traversals for normal and pipeline compilation because the
      * pipeline traversal has an small overhead (2-3%) for some projects. Check
      * https://benchs.scala-lang.org/dashboard/snapshot/sLrZTBfntTxMWiXJPtIa4DIrmT0QebYF */
-    if (pipeline) pipelineTraversal(dag, setup, compile)
-    else normalTraversal(dag, setup, compile)
+    if (pipeline) pipelineTraversal(dag, client, setup, compile)
+    else normalTraversal(dag, client, setup, compile)
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
@@ -144,6 +147,7 @@ object CompileGraph {
    * @return A task that may be created by `compile` or may be a reference to a previous task.
    */
   def setupAndDeduplicate(
+      client: ClientInfo,
       inputs: BundleInputs,
       setup: BundleInputs => Task[CompileBundle]
   )(
@@ -206,8 +210,50 @@ object CompileGraph {
             }
         }
 
+        /**
+         * Deduplicate and change the implementation of the task returning the
+         * deduplicate compiler result to trigger a syncing process to keep the
+         * client external classes directory up-to-date with the new classes
+         * directory. This copying process blocks until the background IO work
+         * of the deduplicated compilation result has been finished. Note that
+         * this mechanism allows pipelined compilations to perform this IO only
+         * when the full compilation of a module is finished.
+         */
         Task.mapBoth(ongoingCompilation.traversal, replayEventsTask) {
-          case (result, _) => result
+          case (resultDag, _) =>
+            def finishDeduplication(result: PartialCompileResult): PartialCompileResult = {
+              result match {
+                case s @ PartialSuccess(bundle, _, _, _, compilerResult) =>
+                  val newCompilerResult = compilerResult.flatMap {
+                    case s: Compiler.Result.Success =>
+                      // Wait on new classes to be populated for correctness
+                      Task.fromFuture(s.backgroundTasks).flatMap { _ =>
+                        val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
+                        val populatedClassesDir = s.products.newClassesDir
+                        val config = ParallelOps.CopyConfiguration(5, true, Set.empty)
+                        val copyTask = ParallelOps
+                          .copyDirectories(config)(
+                            populatedClassesDir,
+                            externalClassesDir.underlying,
+                            ExecutionContext.ioScheduler,
+                            rawLogger
+                          )
+                        copyTask.map(_ => s)
+                      }
+                    case r => Task.now(r)
+                  }
+                  s.copy(result = newCompilerResult)
+                case _ => result
+              }
+            }
+
+            resultDag match {
+              case Leaf(result) => Leaf(finishDeduplication(result))
+              case Parent(result, children) => Parent(finishDeduplication(result), children)
+              case Aggregate(_) =>
+                logger.error("Unexpected aggregate node in compile result, report upstream!")
+                resultDag
+            }
         }
       }
     }
@@ -225,6 +271,7 @@ object CompileGraph {
    */
   private def normalTraversal(
       dag: Dag[Project],
+      client: ClientInfo,
       computeBundle: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result]
   ): CompileTraversal = {
@@ -249,7 +296,7 @@ object CompileGraph {
           val task: Task[Dag[PartialCompileResult]] = dag match {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
-              setupAndDeduplicate(bundleInputs, computeBundle) { bundle =>
+              setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                 val cf = new CompletableFuture[IRs]()
                 compile(Inputs.normal(bundle, es, cf, emptyOracle, false))
                   .map {
@@ -299,7 +346,7 @@ object CompileGraph {
                     val cf = new CompletableFuture[IRs]()
                     val resultsMap = dependentResults.toMap
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
-                    setupAndDeduplicate(bundleInputs, computeBundle) { b =>
+                    setupAndDeduplicate(client, bundleInputs, computeBundle) { b =>
                       compile(
                         Inputs.normal(b, es, cf, emptyOracle, false, resultsMap)
                       ).map {
@@ -334,6 +381,7 @@ object CompileGraph {
    */
   private def pipelineTraversal(
       dag: Dag[Project],
+      client: ClientInfo,
       computeBundle: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[Compiler.Result]
   ): CompileTraversal = {
@@ -349,7 +397,7 @@ object CompileGraph {
             case Leaf(project) =>
               Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                 val bundleInputs = BundleInputs(project, dag, Map.empty)
-                setupAndDeduplicate(bundleInputs, computeBundle) { bundle =>
+                setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                   val jcf = new CompletableFuture[Unit]()
                   val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
                   val running =
@@ -398,7 +446,7 @@ object CompileGraph {
 
                   // Passing empty map for dependent classes dirs because we load sigs from memory
                   val bundleInputs = BundleInputs(project, dag, Map.empty)
-                  setupAndDeduplicate(bundleInputs, computeBundle) { bundle =>
+                  setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                     // Place IRs stores in same order as classes dirs show up in the raw classpath!
                     val classpath = bundle.project.rawClasspath
                     val indexDirs = classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap

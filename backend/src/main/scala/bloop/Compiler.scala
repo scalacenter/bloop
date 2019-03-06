@@ -111,7 +111,8 @@ object Compiler {
         reporter: ZincReporter,
         products: CompileProducts,
         elapsed: Long,
-        backgroundTasks: CancelableFuture[Unit]
+        backgroundTasks: CancelableFuture[Unit],
+        isNoOp: Boolean
     ) extends Result
         with CacheHashCode
 
@@ -132,7 +133,7 @@ object Compiler {
 
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
-        case s @ (Success(_, _, _, _) | Empty) => Some(s)
+        case s @ (Success(_, _, _, _, _) | Empty) => Some(s)
         case _ => None
       }
     }
@@ -378,7 +379,8 @@ object Compiler {
               compileInputs.reporter,
               products,
               elapsed,
-              runAggregateTasks(List(updateExternalClassesDirWithReadOnly))
+              runAggregateTasks(List(updateExternalClassesDirWithReadOnly)),
+              isNoOp
             )
           } else {
             // Schedule the tasks to run concurrently after the compilation end
@@ -421,7 +423,13 @@ object Compiler {
               allInvalidatedClassFilesForProject.toSet
             )
 
-            Result.Success(compileInputs.reporter, products, elapsed, backgroundTasksExecution)
+            Result.Success(
+              compileInputs.reporter,
+              products,
+              elapsed,
+              backgroundTasksExecution,
+              isNoOp
+            )
           }
         case Failure(_: xsbti.CompileCancelled) =>
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)

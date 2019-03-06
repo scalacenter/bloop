@@ -39,8 +39,13 @@ object CompileDependenciesData {
     dependentProducts.foreach {
       case (project, products) =>
         val genericClassesDir = project.classesDir
+        val newClassesDir = products.newClassesDir
+        val readOnlyClassesDir = products.readOnlyClassesDir
         // Important: always place new classes dir before read-only classes dir
-        val classesDirs = Array(products.newClassesDir, products.readOnlyClassesDir)
+        val classesDirs =
+          if (newClassesDir == readOnlyClassesDir) Array(newClassesDir)
+          else Array(newClassesDir, readOnlyClassesDir)
+
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedClassFiles)
         dependentResources.put(genericClassesDir, project.pickValidResources)

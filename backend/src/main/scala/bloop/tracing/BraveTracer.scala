@@ -1,6 +1,7 @@
 package bloop.tracing
 
 import brave.{Span, Tracer}
+import brave.propagation.TraceContext
 import monix.eval.Task
 
 final class BraveTracer private (
@@ -8,7 +9,6 @@ final class BraveTracer private (
     currentSpan: Span,
     closeCurrentSpan: () => Unit
 ) {
-
   def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = {
     import brave.propagation.TraceContext
     val span = tags.foldLeft(tracer.newChild(currentSpan.context).name(name)) {
@@ -45,10 +45,20 @@ final class BraveTracer private (
       terminated = true
     }
   }
+
+  /** Create an independent tracer that propagates this current context
+   * and that whose completion in zipkin will happen independently. This
+   * is ideal for tracing background tasks that outlive their parent trace. */
+  def toIndependentTracer(name: String, tags: (String, String)*): BraveTracer =
+    BraveTracer(name, Some(currentSpan.context), tags: _*)
 }
 
 object BraveTracer {
   def apply(name: String, tags: (String, String)*): BraveTracer = {
+    BraveTracer(name, None, tags: _*)
+  }
+
+  def apply(name: String, ctx: Option[TraceContext], tags: (String, String)*): BraveTracer = {
     import brave._
     import zipkin2.reporter.AsyncReporter
     import zipkin2.reporter.urlconnection.URLConnectionSender
@@ -62,7 +72,8 @@ object BraveTracer {
     val tracing =
       Tracing.newBuilder().localServiceName("bloop").spanReporter(spanReporter).build()
     val tracer = tracing.tracer()
-    val rootSpan = tags.foldLeft(tracer.newTrace().name(name)) {
+    val newParentTrace = ctx.map(c => tracer.newChild(c)).getOrElse(tracer.newTrace())
+    val rootSpan = tags.foldLeft(newParentTrace.name(name)) {
       case (span, (tagKey, tagValue)) => span.tag(tagKey, tagValue)
     }
     rootSpan.start()

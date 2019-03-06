@@ -31,6 +31,12 @@ trait BloopHelpers {
     def client = state.client
     def results = state.results
     override def toString: String = pprint.apply(state, height = 500).render
+
+    def compileTask(project: TestProject): Task[TestState] = {
+      val compileTask = Run(Commands.Compile(List(project.config.name)))
+      TestUtil.interpreterTask(compileTask, state).map(new TestState(_))
+    }
+
     def compile(projects: TestProject*): TestState = {
       val compileTask = Run(Commands.Compile(projects.map(_.config.name).toList))
       new TestState(TestUtil.blockingExecute(compileTask, state))
@@ -41,17 +47,14 @@ trait BloopHelpers {
         delay: Option[FiniteDuration] = None
     ): CancelableFuture[TestState] = {
       val interpretedTask = {
-        val compileTask = Run(Commands.Compile(List(project.config.name)))
-        val task = TestUtil.interpreterTask(compileTask, state)
+        val task = compileTask(project)
         delay match {
           case Some(duration) => task.delayExecution(duration)
           case None => task
         }
       }
 
-      interpretedTask
-        .runAsync(ExecutionContext.scheduler)
-        .map(state => new TestState(state))(ExecutionContext.scheduler)
+      interpretedTask.runAsync(ExecutionContext.scheduler)
     }
 
     def cascadeCompile(projects: TestProject*): TestState = {

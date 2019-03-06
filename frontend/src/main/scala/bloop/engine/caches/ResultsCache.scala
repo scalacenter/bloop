@@ -125,12 +125,29 @@ object ResultsCache {
             case Some(res) =>
               import monix.execution.CancelableFuture
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
-              val classesDir = p.classesDir.underlying
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
-              val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
-              val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-              val products = bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
-              Result.Success(reporter, products, 0L, CancelableFuture.successful(()))
+              val externalClassesDir = p.classesDir.underlying
+              res.getAnalysis.readCompilations.getAllCompilations.lastOption match {
+                case Some(lastCompilation) =>
+                  lastCompilation.getOutput.getSingleOutput.toOption match {
+                    case Some(classesDirFile) =>
+                      val classesDir = classesDirFile.toPath
+                      val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
+                      val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
+                      val products = bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
+                      Result.Success(reporter, products, 0L, CancelableFuture.successful(()), false)
+                    case None =>
+                      logger.debug(
+                        s"Analysis '$analysisFile' last compilation for '${p.name}' didn't contain classes dir."
+                      )
+                      Result.Empty
+                  }
+                case None =>
+                  logger.debug(
+                    s"Analysis '$analysisFile' for '${p.name}' didn't contain last compilation."
+                  )
+                  Result.Empty
+              }
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
               Result.Empty
