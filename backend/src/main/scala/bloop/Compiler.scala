@@ -203,7 +203,7 @@ object Compiler {
             backgroundTasksWhenNewSuccessfulAnalysis.+=(
               tracer.traceTask("copy new products to external classes dir") { _ =>
                 val config = ParallelOps
-                  .CopyConfiguration(10, CopyMode.ReplaceExisting, Set.empty)
+                  .CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
                 ParallelOps
                   .copyDirectories(config)(
                     newClassesDir,
@@ -350,9 +350,8 @@ object Compiler {
                 val invalidated =
                   allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
                 val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
-                // We can set replaceExisting to true because we pass the blacklist of new classes dir
                 val config =
-                  ParallelOps.CopyConfiguration(20, CopyMode.ReplaceIfMetadataMismatch, blacklist)
+                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
                   readOnlyClassesDir,
                   externalClassesDir,
