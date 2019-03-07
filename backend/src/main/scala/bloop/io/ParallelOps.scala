@@ -29,6 +29,12 @@ import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, Direct
 
 object ParallelOps {
 
+  sealed trait CopyMode
+  object CopyMode {
+    final case object ReplaceExisting extends CopyMode
+    final case object ReplaceIfMetadataMismatch extends CopyMode
+  }
+
   /**
    * A configuration for a copy process.
    *

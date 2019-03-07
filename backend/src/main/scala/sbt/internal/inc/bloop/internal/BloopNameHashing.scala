@@ -173,6 +173,7 @@ private final class BloopNameHashing(
       val removedProducts = Set.empty[File]
       val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
         lookup.changedBinaries(previousAnalysis).getOrElse {
+          println("Changed binaries! " + pprint.apply(previous.allBinaries).render)
           val detectChange =
             isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
           previous.allBinaries.filter(detectChange).toSet
