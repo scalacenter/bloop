@@ -142,7 +142,7 @@ class RunSpec {
           else Files.createDirectories(resource.underlying)
         }
 
-        val fullClasspath = rootWithAggregation.dependencyClasspath(dag).toList
+        val fullClasspath = rootWithAggregation.fullClasspath(dag, state.client).toList
         Assert.assertFalse(dependentResources.isEmpty)
         dependentResources.foreach { r =>
           Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))

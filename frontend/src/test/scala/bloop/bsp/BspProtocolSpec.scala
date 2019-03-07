@@ -296,7 +296,7 @@ class BspProtocolSpec {
                     stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
                   val state = TestUtil.loadTestProject(configDir.underlying, identity(_))
                   val classpath = p
-                    .dependencyClasspath(state.build.getDagFor(p))
+                    .fullClasspath(state.build.getDagFor(p), state.client)
                     .map(i => bsp.Uri(i.toBspUri))
                     .toList
                   val classesDir = bsp.Uri(p.classesDir.toBspUri)

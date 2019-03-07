@@ -44,7 +44,7 @@ class ForkerSpec {
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
       val project = TestUtil.getProject(TestUtil.RootProject, state)
       val env = JavaEnv.default
-      val classpath = project.dependencyClasspath(state.build.getDagFor(project))
+      val classpath = project.fullClasspath(state.build.getDagFor(project), state.client)
       val config = Forker(env, classpath)
       val logger = new RecordingLogger
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)

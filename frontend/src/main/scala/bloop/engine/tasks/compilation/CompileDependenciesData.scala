@@ -52,12 +52,16 @@ object CompileDependenciesData {
         resultsMap.put(genericClassesDir.toFile, products.resultForDependentCompilationsInSameRun)
     }
 
+    val addedResources = new mutable.HashSet[AbsolutePath]()
     val rewrittenClasspath = genericClasspath.flatMap { entry =>
       dependentClassesDir.get(entry) match {
         case Some(classesDirs) =>
           dependentResources.get(entry) match {
             case Some(existingResources) =>
-              existingResources ++ classesDirs
+              val newExistingResources =
+                existingResources.filterNot(r => addedResources.contains(r))
+              newExistingResources.foreach(r => addedResources.add(r))
+              newExistingResources ++ classesDirs
             case None => classesDirs
           }
         case None => List(entry)

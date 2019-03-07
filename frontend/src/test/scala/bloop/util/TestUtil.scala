@@ -9,7 +9,7 @@ import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
-import bloop.data.{Origin, Project}
+import bloop.data.{Origin, Project, ClientInfo}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.engine.caches.ResultsCache
@@ -35,6 +35,7 @@ import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 
 object TestUtil {
+  val defaultClient = ClientInfo.CliClientInfo("test-id")
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")

@@ -689,7 +689,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val state = loadState(workspace, List(`A`), logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assert(compiledState.status == ExitStatus.CompilationError)
       assertNoDiff(
         logger.errors.mkString(System.lineSeparator()),
         s"""

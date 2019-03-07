@@ -56,22 +56,33 @@ final class BloopBspServices(
   /** The return type of a bsp computation wrapped by `ifInitialized` */
   private type BspComputation[T] = State => BspResult[T]
 
+  /**
+   * Schedule the async response handlers to run on the default computation
+   * thread pool and leave the serialization/deserialization work (bsp4s
+   * library work) to the IO thread pool. This is critical for performance.
+   */
+  def schedule[T](t: BspEndpointResponse[T]): BspEndpointResponse[T] = {
+    Task.fork(t, ExecutionContext.scheduler).asyncBoundary(ExecutionContext.ioScheduler)
+  }
+
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
   private val bspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
   final val services = JsonRpcServices
     .empty(bspLogger)
-    .requestAsync(endpoints.Build.initialize)(initialize(_))
+    .requestAsync(endpoints.Build.initialize)(p => schedule(initialize(p)))
     .notification(endpoints.Build.initialized)(initialized(_))
-    .request(endpoints.Build.shutdown)(shutdown(_))
-    .notificationAsync(endpoints.Build.exit)(exit(_))
-    .requestAsync(endpoints.Workspace.buildTargets)(buildTargets(_))
-    .requestAsync(endpoints.BuildTarget.dependencySources)(dependencySources(_))
-    .requestAsync(endpoints.BuildTarget.sources)(sources(_))
-    .requestAsync(endpoints.BuildTarget.scalacOptions)(scalacOptions(_))
-    .requestAsync(endpoints.BuildTarget.compile)(compile(_))
-    .requestAsync(endpoints.BuildTarget.test)(test(_))
-    .requestAsync(endpoints.BuildTarget.run)(run(_))
+    .request(endpoints.Build.shutdown)(p => shutdown(p))
+    .notificationAsync(endpoints.Build.exit)(p => exit(p))
+    .requestAsync(endpoints.Workspace.buildTargets)(p => schedule(buildTargets(p)))
+    .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
+    .requestAsync(endpoints.BuildTarget.scalacOptions)(p => schedule(scalacOptions(p)))
+    .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
+    .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
+    .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
+    .requestAsync(endpoints.BuildTarget.dependencySources)(
+      p => schedule(dependencySources(p))
+    )
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -597,7 +608,7 @@ final class BloopBspServices(
         projects.iterator.map {
           case (target, project) =>
             val dag = state.build.getDagFor(project)
-            val fullClasspath = project.dependencyClasspath(dag)
+            val fullClasspath = project.fullClasspath(dag, state.client)
             val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
             bsp.ScalacOptionsItem(
               target = target,

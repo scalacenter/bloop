@@ -1,19 +1,23 @@
 package bloop.data
 
-import java.nio.charset.StandardCharsets
-
-import scala.util.Try
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
-import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.io.ByteHasher
+
+import java.nio.charset.StandardCharsets
+
+import scala.util.Try
+import scala.collection.mutable
+
 import ch.epfl.scala.{bsp => Bsp}
+
+import xsbti.compile.{ClasspathOptions, CompileOrder}
 
 final case class Project(
     name: String,
@@ -68,21 +72,29 @@ final case class Project(
   }
 
   def pickValidResources: Array[AbsolutePath] = {
+    // Only add those resources that exist at the moment of creating the classpath
     resources.iterator.filter(_.exists).toArray
   }
 
-  def dependencyClasspath(dag: Dag[Project]): Array[AbsolutePath] = {
-    val cp = (classesDir :: rawClasspath).toBuffer
+  def fullClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
+    val addedResources = new mutable.HashSet[AbsolutePath]()
+    val selfUniqueClassesDir = client.getUniqueClassesDirFor(this)
+    val cp = (selfUniqueClassesDir :: rawClasspath).toBuffer
     // Add the resources right before the classes directory if found in the classpath
     Dag.dfs(dag).foreach { p =>
-      val index = cp.indexOf(p.classesDir)
-      // Only add those resources that exist at the moment of creating the classpath
-      val resources = p.resources.filter(_.exists)
+      val genericClassesDir = p.classesDir
+      val uniqueClassesDir = client.getUniqueClassesDirFor(p)
+      val index = cp.indexOf(genericClassesDir)
+      val newResources = pickValidResources.filterNot(r => addedResources.contains(r))
+      newResources.foreach(r => addedResources.add(r))
       if (index == -1) {
-        // If anomaly and classes dir of a dependency is missing, add resources at end
-        cp.appendAll(resources)
+        // Not found? Weird. Let's add resources to end just in case
+        cp.appendAll(newResources)
       } else {
-        cp.insertAll(index, resources)
+        // Replace in-place for the classes directory unique to the client
+        cp(index) = uniqueClassesDir
+        // Prepend resources to classes directories
+        cp.insertAll(index, newResources)
       }
     }
     cp.toArray

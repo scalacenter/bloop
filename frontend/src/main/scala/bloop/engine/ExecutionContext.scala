@@ -16,10 +16,6 @@ object ExecutionContext {
   private[bloop] val nCPUs = Runtime.getRuntime.availableProcessors()
 
   import monix.execution.Scheduler
-  implicit lazy val bspScheduler: Scheduler = Scheduler {
-    java.util.concurrent.Executors.newFixedThreadPool(4)
-  }
-
   implicit lazy val scheduler: Scheduler = {
     Scheduler.forkJoin(
       nCPUs,
