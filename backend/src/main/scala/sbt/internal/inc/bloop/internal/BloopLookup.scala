@@ -13,7 +13,7 @@ final class BloopLookup(
     if (classpathHash == previousClasspathHash) None
     else {
       // Previous classpath hash may contain directories, discard them and check again
-      val newPreviousClasspathHash = previousClasspathHash.filterNot(fh => fh.file.exists())
+      val newPreviousClasspathHash = previousClasspathHash.filterNot(fh => fh.file.isDirectory())
       if (classpathHash == newPreviousClasspathHash) None
       else Some(classpathHash)
     }
