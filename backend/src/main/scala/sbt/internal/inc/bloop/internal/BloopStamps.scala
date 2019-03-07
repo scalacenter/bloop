@@ -21,8 +21,13 @@ object BloopStamps {
     )
   }
 
-  private final val emptyHash = EmptyStamp.hashCode
+  private final val emptyHash = scala.util.Random.nextInt()
+  private final val directoryHash = scala.util.Random.nextInt()
+
   def emptyHash(file: File): FileHash = FileHash.of(file, emptyHash)
+
+  def directoryHash(file: File): FileHash = FileHash.of(file, directoryHash)
+  def isDirectoryHash(fh: FileHash): Boolean = fh.hash == directoryHash
 
   def forHash(file: File): Hash = {
     fromBloopHashToZincHash(ByteHasher.hashFileContents(file))

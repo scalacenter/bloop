@@ -62,7 +62,7 @@ object ClasspathHasher {
             val hash = try {
               val filePath = file.toPath
               val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
-              if (attrs.isDirectory) BloopStamps.emptyHash(file)
+              if (attrs.isDirectory) BloopStamps.directoryHash(file)
               else {
                 val currentMetadata =
                   (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())

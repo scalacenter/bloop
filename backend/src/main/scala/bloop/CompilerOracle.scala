@@ -17,8 +17,8 @@ abstract class CompilerOracle[T] {
 object CompilerOracle {
   case class HashedSource(source: AbsolutePath, hash: Int)
   case class Inputs(
-      sources: Seq[HashedSource],
-      classpath: Seq[FileHash],
+      sources: Vector[HashedSource],
+      classpath: Vector[FileHash],
       originProjectPath: String,
       originProjectHash: Int
   ) extends CacheHashCode {

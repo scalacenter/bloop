@@ -142,7 +142,12 @@ object CompileBundle {
           }
           javaSources.toList -> scalaSources.toList
         }
-        val inputs = CompilerOracle.Inputs(sourceHashes, classpathHashes, originPath, originHash)
+        val inputs = CompilerOracle.Inputs(
+          sourceHashes.toVector,
+          classpathHashes.toVector,
+          originPath,
+          originHash
+        )
         new CompileBundle(
           project,
           compileDependenciesData,

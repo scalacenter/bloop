@@ -8,6 +8,8 @@ import bloop.{CompileMode, CompilerOracle}
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
 import bloop.tracing.BraveTracer
+import sbt.internal.inc.bloop.internal.BloopStamps
+
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger}
@@ -222,10 +224,12 @@ object BloopZincCompiler {
       extra: List[(String, String)],
       tracer: BraveTracer
   ): Task[CompileConfiguration] = Task.now {
+    // Remove directories from classpath hashes, we're only interested in jars
+    val jarClasspathHashes = classpathHashes.filterNot(fh => BloopStamps.isDirectoryHash(fh))
     val compileSetup = MiniSetup.of(
       output,
       MiniOptions.of(
-        classpathHashes.toArray,
+        jarClasspathHashes.toArray,
         options.toArray,
         javacOptions.toArray
       ),
