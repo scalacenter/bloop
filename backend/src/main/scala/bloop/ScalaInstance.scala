@@ -162,7 +162,7 @@ object ScalaInstance {
    */
   def scalaInstanceFromBloop(
       logger: Logger
-  )(implicit ec: ExecutionContext): Option[ScalaInstance] = {
+  )(implicit ec: ExecutionContext): Option[ScalaInstance] = cachedBloopScalaInstance.synchronized {
     lazy val tempDirectory = Files.createTempDirectory("bloop-scala-instance")
     implicit val filter = DebugFilter.Compilation
     def findLocationForClazz(clazz: Class[_], jarName: String): Option[Path] = {
