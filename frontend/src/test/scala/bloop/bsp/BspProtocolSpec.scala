@@ -299,7 +299,7 @@ class BspProtocolSpec {
                     .fullClasspath(state.build.getDagFor(p), state.client)
                     .map(i => bsp.Uri(i.toBspUri))
                     .toList
-                  val classesDir = bsp.Uri(p.classesDir.toBspUri)
+                  val classesDir = bsp.Uri(p.genericClassesDir.toBspUri)
                   val expectedOptions =
                     stringifyOptions(p.scalacOptions.toList, classpath, classesDir)
                   Assert.assertEquals(obtainedOptions, expectedOptions)

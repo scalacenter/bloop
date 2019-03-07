@@ -23,7 +23,7 @@ object ClientInfo {
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {
       // CLI clients use the classes directory from the project, that's why
       // we don't support concurrent CLI client executions for the same build
-      AbsolutePath(Files.createDirectories(project.classesDir.underlying).toRealPath())
+      AbsolutePath(Files.createDirectories(project.genericClassesDir.underlying).toRealPath())
     }
   }
 
@@ -39,7 +39,7 @@ object ClientInfo {
       uniqueDirs.computeIfAbsent(
         project,
         (project: Project) => {
-          val classesDir = project.classesDir.underlying
+          val classesDir = project.genericClassesDir.underlying
           val parentDir = classesDir.getParent()
           val classesName = classesDir.getFileName()
           val newClassesName = s"${classesName}-${this.name}-${UUID.randomUUID}"

@@ -99,7 +99,7 @@ class IntegrationTestSuite(testDirectory: Path) {
           rawClasspath = Nil,
           resources = Nil,
           compileSetup = Config.CompileSetup.empty,
-          classesDir = classesDir,
+          genericClassesDir = classesDir,
           scalacOptions = Nil,
           javacOptions = Nil,
           sources = Nil,
@@ -155,7 +155,7 @@ class IntegrationTestSuite(testDirectory: Path) {
   }
 
   private def removeClassFiles(p: Project): Unit = {
-    val classesDirPath = p.classesDir.underlying
+    val classesDirPath = p.genericClassesDir.underlying
     if (Files.exists(classesDirPath)) {
       Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
     }

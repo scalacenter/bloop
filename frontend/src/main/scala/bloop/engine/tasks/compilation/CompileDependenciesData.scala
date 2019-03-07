@@ -38,7 +38,7 @@ object CompileDependenciesData {
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
     dependentProducts.foreach {
       case (project, products) =>
-        val genericClassesDir = project.classesDir
+        val genericClassesDir = project.genericClassesDir
         val newClassesDir = products.newClassesDir
         val readOnlyClassesDir = products.readOnlyClassesDir
         // Important: always place new classes dir before read-only classes dir

@@ -454,7 +454,8 @@ object CompileGraph {
                     val indexDirs = classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
                     val dependencyStore = {
                       val transitive = results.flatMap { r =>
-                        indexDirs.get(r.bundle.project.classesDir).iterator.map(i => i -> r.store)
+                        val classesDir = client.getUniqueClassesDirFor(r.bundle.project)
+                        indexDirs.get(classesDir).iterator.map(i => i -> r.store)
                       }
                       SimpleIRStore(
                         transitive.sortBy(_._1).iterator.flatMap(_._2.getDependentsIRs).toArray

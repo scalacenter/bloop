@@ -350,7 +350,7 @@ object TestUtil {
       rawClasspath = classpath,
       resources = Nil,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
-      classesDir = AbsolutePath(target),
+      genericClassesDir = AbsolutePath(target),
       scalacOptions = Nil,
       javacOptions = Nil,
       sources = sourceDirectories,

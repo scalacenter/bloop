@@ -27,7 +27,7 @@ final case class Project(
     rawClasspath: List[AbsolutePath],
     resources: List[AbsolutePath],
     compileSetup: Config.CompileSetup,
-    classesDir: AbsolutePath,
+    genericClassesDir: AbsolutePath,
     scalacOptions: List[String],
     javacOptions: List[String],
     sources: List[AbsolutePath],
@@ -82,7 +82,7 @@ final case class Project(
     val cp = (selfUniqueClassesDir :: rawClasspath).toBuffer
     // Add the resources right before the classes directory if found in the classpath
     Dag.dfs(dag).foreach { p =>
-      val genericClassesDir = p.classesDir
+      val genericClassesDir = p.genericClassesDir
       val uniqueClassesDir = client.getUniqueClassesDirFor(p)
       val index = cp.indexOf(genericClassesDir)
       val newResources = pickValidResources.filterNot(r => addedResources.contains(r))

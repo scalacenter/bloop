@@ -126,7 +126,6 @@ object ResultsCache {
               import monix.execution.CancelableFuture
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
-              val externalClassesDir = p.classesDir.underlying
               res.getAnalysis.readCompilations.getAllCompilations.lastOption match {
                 case Some(lastCompilation) =>
                   lastCompilation.getOutput.getSingleOutput.toOption match {

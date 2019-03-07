@@ -286,7 +286,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
         assertNotFile(buildProject.analysisOut)
         assert(state.getLastSuccessfulResultFor(testProject).isEmpty)
         assert(state.getLastResultFor(testProject) == Compiler.Result.Empty)
-        assert(takeDirectorySnapshot(buildProject.classesDir).isEmpty)
+        val classesDir = state.client.getUniqueClassesDirFor(buildProject)
+        assert(takeDirectorySnapshot(classesDir).isEmpty)
     }
   }
 
