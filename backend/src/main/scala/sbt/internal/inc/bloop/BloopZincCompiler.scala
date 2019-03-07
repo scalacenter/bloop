@@ -8,10 +8,10 @@ import bloop.{CompileMode, CompilerOracle}
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
 import bloop.tracing.BraveTracer
-import sbt.internal.inc.bloop.internal.BloopStamps
+import sbt.internal.inc.bloop.internal.{BloopStamps, BloopLookup}
 
 import monix.eval.Task
-import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, LookupImpl, MiniSetupUtil, MixedAnalyzingCompiler}
+import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger}
 import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
 import sbt.internal.inc.bloop.internal.{BloopHighLevelCompiler, BloopIncremental}
@@ -124,7 +124,7 @@ object BloopZincCompiler {
       else {
         val setOfSources = sources.toSet
         val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer)
-        val lookup = new LookupImpl(config, previousSetup)
+        val lookup = new BloopLookup(config, previousSetup)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager)
 
         // Scala needs the explicit type signature to infer the function type arguments

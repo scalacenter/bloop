@@ -153,13 +153,7 @@ object ParallelOps {
                   case Success(targetAttrs) =>
                     val changedMetadata = {
                       originAttrs.lastModifiedTime.compareTo(targetAttrs.lastModifiedTime) != 0 ||
-                      originAttrs.size() != targetAttrs.size() || {
-                        val originKey = originAttrs.fileKey()
-                        val targetKey = targetAttrs.fileKey()
-                        if (originKey == null && targetKey != null) true
-                        else if (originKey != null && targetKey == null) true
-                        else originKey != targetKey
-                      }
+                      originAttrs.size() != targetAttrs.size()
                     }
 
                     if (!changedMetadata) ()
