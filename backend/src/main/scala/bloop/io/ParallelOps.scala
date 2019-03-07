@@ -31,6 +31,7 @@ object ParallelOps {
 
   sealed trait CopyMode
   object CopyMode {
+    final case object NoReplace extends CopyMode
     final case object ReplaceExisting extends CopyMode
     final case object ReplaceIfMetadataMismatch extends CopyMode
   }
@@ -44,7 +45,7 @@ object ParallelOps {
    */
   case class CopyConfiguration private (
       parallelUnits: Int,
-      replaceExisting: Boolean,
+      mode: CopyMode,
       blacklist: Set[Path]
   )
 
@@ -125,25 +126,52 @@ object ParallelOps {
     val copyFilesInParallel = {
       observable.consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
         case ((originFile, originAttrs), targetFile) =>
-          Task {
-            if (configuration.replaceExisting) {
-              Files.copy(
-                originFile,
-                targetFile,
-                StandardCopyOption.COPY_ATTRIBUTES,
-                StandardCopyOption.REPLACE_EXISTING
-              )
-            } else {
-              if (Files.exists(targetFile)) ()
-              else {
+          Task.eval {
+            def copy(replaceExisting: Boolean): Unit = {
+              if (replaceExisting) {
+                Files.copy(
+                  originFile,
+                  targetFile,
+                  StandardCopyOption.COPY_ATTRIBUTES,
+                  StandardCopyOption.REPLACE_EXISTING
+                )
+              } else {
                 Files.copy(
                   originFile,
                   targetFile,
                   StandardCopyOption.COPY_ATTRIBUTES
                 )
               }
+              ()
             }
-            ()
+
+            configuration.mode match {
+              case CopyMode.ReplaceExisting => copy(replaceExisting = true)
+              case CopyMode.ReplaceIfMetadataMismatch =>
+                import scala.util.{Try, Success, Failure}
+                Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
+                  case Success(targetAttrs) =>
+                    val changedMetadata = {
+                      originAttrs.lastModifiedTime.compareTo(targetAttrs.lastModifiedTime) != 0 ||
+                      originAttrs.size() != targetAttrs.size() || {
+                        val originKey = originAttrs.fileKey()
+                        val targetKey = targetAttrs.fileKey()
+                        if (originKey == null && targetKey != null) true
+                        else if (originKey != null && targetKey == null) true
+                        else originKey != targetKey
+                      }
+                    }
+
+                    if (!changedMetadata) ()
+                    else copy(replaceExisting = true)
+                  // Can happen when the file does not exist, replace in that case
+                  case Failure(t: IOException) => copy(replaceExisting = true)
+                  case Failure(t) => throw t
+                }
+              case CopyMode.NoReplace =>
+                if (Files.exists(targetFile)) ()
+                else copy(replaceExisting = false)
+            }
           }
       })
     }

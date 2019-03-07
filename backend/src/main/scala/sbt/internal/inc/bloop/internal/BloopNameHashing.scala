@@ -144,7 +144,7 @@ private final class BloopNameHashing(
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
     tracer.trace("detecting initial changes") { tracer =>
       // Copy pasting from IncrementalCommon to optimize/remove IO work
-      import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
+      import IncrementalCommon.{findExternalAnalyzedClass}
       val previous = previousAnalysis.stamps
       val previousRelations = previousAnalysis.relations
 
@@ -173,7 +173,6 @@ private final class BloopNameHashing(
       val removedProducts = Set.empty[File]
       val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
         lookup.changedBinaries(previousAnalysis).getOrElse {
-          println("Changed binaries! " + pprint.apply(previous.allBinaries).render)
           val detectChange =
             isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
           previous.allBinaries.filter(detectChange).toSet
@@ -196,6 +195,74 @@ private final class BloopNameHashing(
       val init = InitialChanges(sourceChanges, removedProducts, changedBinaries, externalApiChanges)
       profiler.registerInitial(init)
       init
+    }
+  }
+
+  /**
+   * Figure out whether a binary class file (identified by a class name) coming from a library
+   * has changed or not. This function is performed at the beginning of the incremental compiler
+   * algorithm to figure out which binary class names from the classpath (also called external
+   * binaries) have changed since the last compilation of this module.
+   *
+   * @param lookup A lookup instance to ask questions about the classpath.
+   * @param previousStamps The stamps associated with the previous compilation.
+   * @param currentStamps The stamps associated with the current compilation.
+   * @param previousRelations The relation from the previous compiler iteration.
+   * @param log A logger.
+   * @param equivS An equivalence function to compare stamps.
+   * @return
+   */
+  def isBinaryModified(
+      skipClasspathLookup: Boolean,
+      lookup: Lookup,
+      previousStamps: Stamps,
+      currentStamps: ReadStamps,
+      previousRelations: Relations,
+      log: Logger
+  )(implicit equivS: Equiv[XStamp]): File => Boolean = { (binaryFile: File) =>
+    {
+      def invalidateBinary(reason: String): Boolean = {
+        log.debug(s"Invalidating '$binaryFile' because $reason"); true
+      }
+
+      def compareStamps(previousFile: File, currentFile: File): Boolean = {
+        val previousStamp = previousStamps.binary(previousFile)
+        val currentStamp = currentStamps.binary(currentFile)
+        if (equivS.equiv(previousStamp, currentStamp)) false
+        else invalidateBinary(s"$previousFile ($previousStamp) != $currentFile ($currentStamp)")
+      }
+
+      def isBinaryChanged(file: File): Boolean = {
+        def compareOriginClassFile(className: String, classpathEntry: File): Boolean = {
+          val resolved = Locate.resolve(classpathEntry, className)
+          val resolvedCanonical = resolved.getCanonicalPath
+          if (resolvedCanonical != binaryFile.getCanonicalPath)
+            invalidateBinary(s"${className} is now provided by ${resolvedCanonical}")
+          else compareStamps(binaryFile, resolved)
+        }
+
+        val classNames = previousRelations.libraryClassNames(file)
+        classNames.exists { binaryClassName =>
+          if (lookup.changedClasspathHash.isEmpty) {
+            // If classpath is not changed, the only possible change needs to come from same project
+            lookup.lookupAnalysis(binaryClassName) match {
+              case None => false
+              // Most of the cases this is a build tool misconfiguration when using Zinc
+              case Some(a) => invalidateBinary(s"${binaryClassName} came from analysis $a")
+            }
+          } else {
+            // Find
+            lookup.lookupOnClasspath(binaryClassName) match {
+              case None =>
+                invalidateBinary(s"could not find class $binaryClassName on the classpath.")
+              case Some(classpathEntry) => compareOriginClassFile(binaryClassName, classpathEntry)
+            }
+          }
+        }
+      }
+
+      if (skipClasspathLookup) compareStamps(binaryFile, binaryFile)
+      else isBinaryChanged(binaryFile)
     }
   }
 

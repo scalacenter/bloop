@@ -7,6 +7,7 @@ import bloop.engine.{State, Dag, ExecutionContext, Feedback}
 import bloop.engine.caches.{ResultsCache, LastSuccessfulResult}
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.{AbsolutePath, ParallelOps}
+import bloop.io.ParallelOps.CopyMode
 import bloop.tracing.BraveTracer
 import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{
@@ -357,7 +358,7 @@ object CompileTask {
     else {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
-      val config = ParallelOps.CopyConfiguration(5, replaceExisting = false, blacklist)
+      val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
 
       val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(

@@ -13,6 +13,7 @@ import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore, CompileProducts}
 import bloop.io.ParallelOps
+import bloop.io.ParallelOps.CopyMode
 
 import monix.eval.Task
 import monix.reactive.{Observable, MulticastStrategy}
@@ -230,7 +231,8 @@ object CompileGraph {
                       Task.fromFuture(s.backgroundTasks).flatMap { _ =>
                         val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
                         val populatedClassesDir = s.products.newClassesDir
-                        val config = ParallelOps.CopyConfiguration(5, true, Set.empty)
+                        val config =
+                          ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
                         val copyTask = ParallelOps
                           .copyDirectories(config)(
                             populatedClassesDir,

@@ -8,6 +8,7 @@ import java.nio.file.{Files, Path}
 
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
+import bloop.io.ParallelOps.CopyMode
 import bloop.tracing.BraveTracer
 import bloop.logging.{ObservedLogger, Logger}
 import bloop.reporter.{ProblemPerPhase, ZincReporter}
@@ -202,7 +203,7 @@ object Compiler {
             backgroundTasksWhenNewSuccessfulAnalysis.+=(
               tracer.traceTask("copy new products to external classes dir") { _ =>
                 val config = ParallelOps
-                  .CopyConfiguration(5, replaceExisting = true, Set.empty)
+                  .CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
                 ParallelOps
                   .copyDirectories(config)(
                     newClassesDir,
@@ -350,7 +351,8 @@ object Compiler {
                   allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
                 val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
                 // We can set replaceExisting to true because we pass the blacklist of new classes dir
-                val config = ParallelOps.CopyConfiguration(5, true, blacklist)
+                val config =
+                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
                   readOnlyClassesDir,
                   externalClassesDir,
