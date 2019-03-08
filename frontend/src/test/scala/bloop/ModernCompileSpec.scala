@@ -213,7 +213,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         Files.delete(configDir.resolve("empty.json").underlying)
 
         new TestState(
-          TestUtil.loadTestProject(configDir.underlying, logger)
+          TestUtil.loadTestProject(configDir.underlying, logger, false)
         )
       }
 
@@ -622,80 +622,75 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
   }
 
   test("compiler plugins are cached automatically") {
-    object Sources {
-      // A slight modification of the original `App.scala` to trigger incremental compilation
-      val `App2.scala` =
-        """package hello
-          |
-          |object App {
-          |  def main(args: Array[String]): Unit = {
-          |    println("Whitelist application was compiled successfully v2.0")
-          |  }
-          |}
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        // A slight modification of the original `App.scala` to trigger incremental compilation
+        val `App2.scala` =
+          """package hello
+            |
+            |object App {
+            |  def main(args: Array[String]): Unit = {
+            |    println("Whitelist application was compiled successfully v2.0")
+            |  }
+            |}
         """.stripMargin
 
-      val `App3.scala` =
-        """package hello
-          |
-          |object App {
-          |  def main(args: Array[String]): Unit = {
-          |    println("Whitelist application was compiled successfully v3.0")
-          |  }
-          |}
+        val `App3.scala` =
+          """package hello
+            |
+            |object App {
+            |  def main(args: Array[String]): Unit = {
+            |    println("Whitelist application was compiled successfully v3.0")
+            |  }
+            |}
         """.stripMargin
-    }
+      }
 
-    // This test is more manual than usual because we use a build defined in resources
-    val target = "whitelistJS"
-    val logger = new RecordingLogger(ansiCodesSupported = false)
+      // This test is more manual than usual because we use a build defined in resources
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val build = loadBuildFromResources("compiler-plugin-whitelist", workspace, logger)
 
-    // This project contains all valid whitelisted plugins, we want to check the cache is enabled
-    val state = TestUtil.loadTestProject("compiler-plugin-whitelist").copy(logger = logger)
-    val compileProject = Run(Commands.Compile(List(target)))
-    val compiledState = TestUtil.blockingExecute(compileProject, state)
+      val whitelistProject = build.projectFor("whitelistJS")
+      val compiledState = build.state.compile(whitelistProject)
 
-    val previousCacheHits = logger.debugs.count(_.startsWith("Cache hit true")).toLong
-    val targetMsg = "Bloop test plugin classloader: scala.reflect.internal.util.ScalaClassLoader"
-    logger.infos.find(_.contains(targetMsg)) match {
-      case Some(found) =>
-        val whitelistProject = state.build.getProjectFor(target).get
-        val `App.scala` = TestProject.srcFor(whitelistProject.sources, "hello/App.scala")
-        assertIsFile(`App.scala`)
-        val oldContents = readFile(`App.scala`)
+      val previousCacheHits = logger.debugs.count(_.startsWith("Cache hit true")).toLong
+      val targetMsg = "Bloop test plugin classloader: scala.reflect.internal.util.ScalaClassLoader"
 
-        try {
+      logger.infos.find(_.contains(targetMsg)) match {
+        case Some(found) =>
+          val `App.scala` = whitelistProject.srcFor("hello/App.scala")
           assertIsFile(writeFile(`App.scala`, Sources.`App2.scala`))
-          val secondCompiledState = TestUtil.blockingExecute(compileProject, compiledState)
+          val secondCompiledState = compiledState.compile(whitelistProject)
 
           // The recompilation forces the compiler to show the hashcode of plugin classloader
-          assert(logger.infos.count(_ == found) == 2)
+          val foundMessages = logger.infos.count(_ == found)
+          assert(foundMessages == 2)
 
           // Ensure that the next time we compile we hit the cache that tells us to whitelist or not
           val totalCacheHits = logger.debugs.count(_.startsWith("Cache hit true")).toLong
-          // Update the counter whenever we add more plugins that we want to whitelist for this project
           assert((totalCacheHits - previousCacheHits) == 16)
 
-          // Clean and compile but this time by disabling the cache manually
-          val newProjects = {
-            val scalacOptions = "-Ycache-plugin-class-loader:none" :: whitelistProject.scalacOptions
-            val newTargetProject = whitelistProject.copy(scalacOptions = scalacOptions)
-            newTargetProject :: secondCompiledState.build.projects.filter(_ != whitelistProject)
+          // Disable the cache manually by changing scalac options in configuration file
+          val (newWhitelistProject, stateWithDisabledPluginClassloader) = {
+            val remainingProjects = build.projects.filter(_ != whitelistProject)
+            val currentOptions = whitelistProject.config.scala.map(_.options).getOrElse(Nil)
+            val scalacOptions = "-Ycache-plugin-class-loader:none" :: currentOptions
+            val newScala = whitelistProject.config.scala.map(_.copy(options = scalacOptions))
+            val newWhitelistProject =
+              new TestProject(whitelistProject.config.copy(scala = newScala), None)
+            val newProjects = newWhitelistProject :: remainingProjects
+            val configDir = populateWorkspace(build, List(newWhitelistProject))
+            newWhitelistProject -> loadState(workspace, newProjects, logger)
           }
-
-          val changedState = secondCompiledState.copy(
-            build = secondCompiledState.build.copy(projects = newProjects)
-          )
 
           // Force 3rd and last incremental compiler iteration to check the hash changes
           assertIsFile(writeFile(`App.scala`, Sources.`App3.scala`))
-          val _ = TestUtil.blockingExecute(compileProject, changedState)
+          stateWithDisabledPluginClassloader.compile(newWhitelistProject)
           assert(logger.infos.count(_.contains(targetMsg)) == 3)
           assert(logger.infos.count(_ == found) == 2)
-        } catch {
-          case t: Throwable => assertIsFile(writeFile(`App.scala`, oldContents)); throw t
-        }
 
-      case None => fail("Expected log by `bloop-test-plugin` about classloader id")
+        case None => fail("Expected log by `bloop-test-plugin` about classloader id")
+      }
     }
   }
 

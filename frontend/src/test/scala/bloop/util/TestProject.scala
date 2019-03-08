@@ -14,7 +14,10 @@ import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
 
-final case class TestProject(config: Config.Project, deps: List[TestProject]) {
+final case class TestProject(
+    config: Config.Project,
+    deps: Option[List[TestProject]]
+) {
   def srcFor(relPath: String): AbsolutePath =
     TestProject.srcFor(config.sources.map(AbsolutePath(_)), relPath)
   def externalClassFileFor(relPath: String): AbsolutePath = {
@@ -54,7 +57,7 @@ object TestProject {
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
     def classpathDeps(p: TestProject): List[AbsolutePath] = {
-      AbsolutePath(p.config.classesDir) :: p.deps.flatMap(classpathDeps(_))
+      AbsolutePath(p.config.classesDir) :: p.deps.toList.flatten.flatMap(classpathDeps(_))
     }
 
     import bloop.engine.ExecutionContext.ioScheduler
@@ -106,17 +109,24 @@ object TestProject {
       resolution = None
     )
 
-    TestProject(config, directDependencies)
+    TestProject(config, Some(directDependencies))
   }
 
-  def populateWorkspace(baseDir: AbsolutePath, projects: List[TestProject]): AbsolutePath = {
-    val configDir = baseDir.resolve(".bloop")
+  def populateWorkspaceInConfigDir(
+      configDir: AbsolutePath,
+      projects: List[TestProject]
+  ): AbsolutePath = {
     Files.createDirectories(configDir.underlying)
     projects.foreach { project =>
       val configFile = configDir.resolve(s"${project.config.name}.json")
       Files.write(configFile.underlying, project.toJson.getBytes(StandardCharsets.UTF_8))
     }
     configDir
+  }
+
+  def populateWorkspace(baseDir: AbsolutePath, projects: List[TestProject]): AbsolutePath = {
+    val configDir = baseDir.resolve(".bloop")
+    populateWorkspaceInConfigDir(configDir, projects)
   }
 
   def srcFor(sources: List[AbsolutePath], relPath: String): AbsolutePath = {

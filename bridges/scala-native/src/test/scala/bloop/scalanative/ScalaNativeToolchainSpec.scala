@@ -30,7 +30,7 @@ class ScalaNativeToolchainSpec {
 
     val configDir = TestUtil.getBloopConfigDir("cross-platform")
     val logger = bloop.logging.BloopLogger.default(configDir.toString())
-    TestUtil.loadTestProject(configDir, logger, _.map(setUpNative))
+    TestUtil.loadTestProject(configDir, logger, true, _.map(setUpNative))
   }
   @Test def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger

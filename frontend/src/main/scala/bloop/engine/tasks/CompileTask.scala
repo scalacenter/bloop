@@ -119,11 +119,12 @@ object CompileTask {
           val configuration = configureCompilation(project, pipeline, graphInputs, userCompileMode)
           val newScalacOptions = {
             CompilerPluginWhitelist
-              .enableCaching(
+              .enableCachingInScalacOptions(
                 instance.version,
                 configuration.scalacOptions,
                 logger,
-                compileProjectTracer
+                compileProjectTracer,
+                5
               )
           }
 

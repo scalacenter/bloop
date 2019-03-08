@@ -31,7 +31,7 @@ class ScalaJsToolchainSpec {
 
     val configDir = TestUtil.getBloopConfigDir("cross-test-build-0.6")
     val logger = bloop.logging.BloopLogger.default(configDir.toString())
-    TestUtil.loadTestProject(configDir, logger, _.map(setUpScalajs))
+    TestUtil.loadTestProject(configDir, logger, true, _.map(setUpScalajs))
   }
 
   @Test def canLinkScalaJsProject(): Unit = {

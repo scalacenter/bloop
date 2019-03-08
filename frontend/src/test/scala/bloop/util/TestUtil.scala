@@ -199,23 +199,29 @@ object TestUtil {
   private final val ThisClassLoader = this.getClass.getClassLoader
 
   def loadTestProject(buildName: String): State = {
-    loadTestProject(getBloopConfigDir(buildName))
+    val configDir = getBloopConfigDir(buildName)
+    val logger = BloopLogger.default(configDir.toString())
+    loadTestProject(configDir, logger, true)
   }
 
   def loadTestProject(buildName: String, logger: Logger): State =
-    loadTestProject(getBloopConfigDir(buildName), logger)
+    loadTestProject(getBloopConfigDir(buildName), logger, true)
 
   def loadTestProject(configDir: Path): State = {
     val logger = BloopLogger.default(configDir.toString())
-    loadTestProject(configDir, logger)
+    loadTestProject(configDir, logger, false)
   }
 
   def loadTestProject(configDir: Path, logger: Logger): State =
-    loadTestProject(configDir, logger, identity[List[Project]] _)
+    loadTestProject(configDir, logger, false, identity[List[Project]] _)
+
+  def loadTestProject(configDir: Path, logger: Logger, emptyResults: Boolean): State =
+    loadTestProject(configDir, logger, emptyResults, identity[List[Project]] _)
 
   def loadTestProject(
       configDir: Path,
       logger: Logger,
+      emptyResults: Boolean,
       transformProjects: List[Project] => List[Project]
   ): State = {
     assert(Files.exists(configDir), "Does not exist: " + configDir)
@@ -224,10 +230,8 @@ object TestUtil {
     val loadedProjects = transformProjects(BuildLoader.loadSynchronously(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
-    state.copy(
-      //results = ResultsCache.emptyForTests,
-      commonOptions = state.commonOptions.copy(env = runAndTestProperties)
-    )
+    val state1 = state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
+    if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
   }
 
   private[bloop] final val runAndTestProperties = {
@@ -555,6 +559,6 @@ object TestUtil {
   def loadStateFromProjects(baseDir: AbsolutePath, projects: List[TestProject]): State = {
     val configDir = TestProject.populateWorkspace(baseDir, projects)
     val logger = BloopLogger.default(configDir.toString())
-    TestUtil.loadTestProject(configDir.underlying, logger, identity(_))
+    TestUtil.loadTestProject(configDir.underlying, logger, false, identity(_))
   }
 }
