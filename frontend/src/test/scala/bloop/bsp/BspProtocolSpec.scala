@@ -294,7 +294,7 @@ class BspProtocolSpec {
                   Assert.assertEquals(obtainedUri, expectedUri)
                   val obtainedOptions =
                     stringifyOptions(opts.options, opts.classpath, opts.classDirectory)
-                  val state = TestUtil.loadTestProject(configDir.underlying, identity(_))
+                  val state = TestUtil.loadTestProject(configDir.underlying, logger)
                   val classpath = p
                     .fullClasspath(state.build.getDagFor(p), state.client)
                     .map(i => bsp.Uri(i.toBspUri))

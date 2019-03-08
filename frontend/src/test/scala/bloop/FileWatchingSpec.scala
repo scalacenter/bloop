@@ -48,7 +48,7 @@ class FileWatchingSpec {
         val messagesToCheck = List(
           s"Compiling ${RootProject}" -> 3,
           "Compiling parent0" -> 1,
-          "Compiling parent1" -> 1,
+          "Compiling parent1" -> 1
         )
 
         checkFileWatchingIteration(load, RootProject, cmd, messagesToCheck)
@@ -58,7 +58,7 @@ class FileWatchingSpec {
   @Test
   def testFileWatchingForTests(): Unit = {
     val targetProject = "with-tests-test"
-    val load = (logger: Logger) => TestUtil.loadTestProject("with-tests").copy(logger = logger)
+    val load = (logger: Logger) => TestUtil.loadTestProject("with-tests", logger)
     val runTest = Run(Commands.Test(List(targetProject), watch = true))
     val messagesToCheck = List(
       "Compiling with-tests" -> 5,
@@ -114,7 +114,8 @@ class FileWatchingSpec {
     val (state, singleFile) = {
       val state0 = load(logger)
       val (project, singleFile) = addNonExistingAndSingleFileSourceTo(
-        state0.build.getProjectFor(targetProject).get)
+        state0.build.getProjectFor(targetProject).get
+      )
       val newProjects =
         state0.build.projects.mapConserve(p => if (p.name == targetProject) project else p)
       state0.copy(build = state0.build.copy(projects = newProjects)) -> singleFile

@@ -64,7 +64,7 @@ object BuildUtil {
         List(slowMacroProject, userProject)
       )
 
-      val state = TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger)
+      val state = TestUtil.loadTestProject(configDir.underlying, logger)
       testLogic(SlowBuild(workspace, slowMacroProject, userProject, state))
     }
   }

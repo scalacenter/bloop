@@ -42,6 +42,36 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("compile a project incrementally sourcing from an analysis file") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      // This state loads the previous analysis from the persisted file
+      val independentLogger = new RecordingLogger(ansiCodesSupported = false)
+      val independentState = loadState(workspace, projects, independentLogger)
+      assertSuccessfulCompilation(independentState, List(`A`), isNoOp = false)
+
+      // Assert that it's a no-op even if we sourced from the analysis
+      val secondCompiledState = independentState.compile(`A`)
+      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertSuccessfulCompilation(secondCompiledState, List(`A`), isNoOp = true)
+      assertValidCompilationState(secondCompiledState, projects)
+      assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
+    }
+  }
+
   test("simulate an incremental compiler session") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -183,7 +213,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         Files.delete(configDir.resolve("empty.json").underlying)
 
         new TestState(
-          TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger)
+          TestUtil.loadTestProject(configDir.underlying, logger)
         )
       }
 

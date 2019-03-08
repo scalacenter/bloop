@@ -109,8 +109,7 @@ trait BspClientTest {
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
     val state = userState.getOrElse {
-      val id = identity[List[Project]] _
-      val state0 = TestUtil.loadTestProject(configDirectory.underlying, id).copy(logger = logger)
+      val state0 = TestUtil.loadTestProject(configDirectory.underlying, logger)
       // Return if we plan to reuse it, BSP reloads the state based on the state cache
       if (reusePreviousState) state0
       else {

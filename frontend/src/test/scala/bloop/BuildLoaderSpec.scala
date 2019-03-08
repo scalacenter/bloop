@@ -155,7 +155,8 @@ class BuildLoaderSpec {
             else sys.error(s"Expected state with deletion of ${configurationFile}, got ${action}")
           case Build.ReturnPreviousState =>
             sys.error(
-              s"Expected state with deletion of ${configurationFile}, got ReturnPreviousState")
+              s"Expected state with deletion of ${configurationFile}, got ReturnPreviousState"
+            )
         }
       }
       .doOnFinish {
@@ -171,7 +172,7 @@ class BuildLoaderSpec {
 
   case class BuildLoaderState(state: State, configurationFiles: List[AbsolutePath])
   def loadBuildState(logger: Logger): BuildLoaderState = {
-    val state = TestUtil.loadTestProject("lichess").copy(logger = logger)
+    val state = TestUtil.loadTestProject("lichess", logger)
     val configDir = state.build.origin
     val configurationFiles = Paths.pathFilesUnder(configDir, BuildLoader.JsonFilePattern, 1)
     BuildLoaderState(state, configurationFiles)

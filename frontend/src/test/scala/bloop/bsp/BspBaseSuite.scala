@@ -175,7 +175,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestProject.populateWorkspace(workspace, projects)
     val bspCommand = createBspCommand(configDir)
-    val state = TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger)
+    val state = TestUtil.loadTestProject(configDir.underlying, logger)
     openBspConnection(state, bspCommand, configDir, bspLogger).withinSession(runTest(_))
   }
 

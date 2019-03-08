@@ -338,10 +338,10 @@ object Compiler {
           // Compute the results we should use for dependent compilations and new compilation runs
           val resultForDependentCompilationsInSameRun =
             PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
+          val analysisForFutureCompilationRuns =
+            rebaseAnalysisClassFiles(result.analysis(), readOnlyClassesDir, newClassesDir)
           val resultForFutureCompilationRuns = resultForDependentCompilationsInSameRun.withAnalysis(
-            Optional.of(
-              rebaseAnalysisClassFiles(result.analysis(), readOnlyClassesDir, newClassesDir)
-            )
+            Optional.of(analysisForFutureCompilationRuns)
           )
 
           val updateExternalClassesDirWithReadOnly = {
@@ -411,8 +411,12 @@ object Compiler {
               }
 
               val persistOut = compileOut.analysisOut
-              val persistTask =
-                Task(persist(persistOut, result.analysis, result.setup, tracer, logger))
+              val persistTask = {
+                val setup = result.setup
+                val analysis = analysisForFutureCompilationRuns
+                Task(persist(persistOut, analysis, setup, tracer, logger))
+              }
+
               runAggregateTasks(List(copyingTasks, persistTask))
             }
 

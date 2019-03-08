@@ -29,7 +29,9 @@ class ScalaJsToolchainSpec {
       p.copy(platform = platform)
     }
 
-    TestUtil.loadTestProject("cross-test-build-0.6", _.map(setUpScalajs))
+    val configDir = TestUtil.getBloopConfigDir("cross-test-build-0.6")
+    val logger = bloop.logging.BloopLogger.default(configDir.toString())
+    TestUtil.loadTestProject(configDir, logger, _.map(setUpScalajs))
   }
 
   @Test def canLinkScalaJsProject(): Unit = {
@@ -46,7 +48,9 @@ class ScalaJsToolchainSpec {
     val logger = new RecordingLogger
     val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
-    val action = Run(Commands.Link(List(MainProject), optimize = Some(mode), main = Some("hello.App")))
+    val action = Run(
+      Commands.Link(List(MainProject), optimize = Some(mode), main = Some("hello.App"))
+    )
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)

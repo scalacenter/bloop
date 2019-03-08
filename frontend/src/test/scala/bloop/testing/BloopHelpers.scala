@@ -22,7 +22,7 @@ trait BloopHelpers {
       logger: RecordingLogger
   ): TestState = {
     val configDir = TestProject.populateWorkspace(workspace, projects)
-    new TestState(TestUtil.loadTestProject(configDir.underlying, identity(_)).copy(logger = logger))
+    new TestState(TestUtil.loadTestProject(configDir.underlying, logger))
   }
 
   final class TestState(val state: State) {

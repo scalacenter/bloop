@@ -197,16 +197,27 @@ object TestUtil {
   }
 
   private final val ThisClassLoader = this.getClass.getClassLoader
-  def loadTestProject(
-      buildName: String,
-      transformProjects: List[Project] => List[Project] = identity
-  ): State = loadTestProject(getBloopConfigDir(buildName), transformProjects)
+
+  def loadTestProject(buildName: String): State = {
+    loadTestProject(getBloopConfigDir(buildName))
+  }
+
+  def loadTestProject(buildName: String, logger: Logger): State =
+    loadTestProject(getBloopConfigDir(buildName), logger)
+
+  def loadTestProject(configDir: Path): State = {
+    val logger = BloopLogger.default(configDir.toString())
+    loadTestProject(configDir, logger)
+  }
+
+  def loadTestProject(configDir: Path, logger: Logger): State =
+    loadTestProject(configDir, logger, identity[List[Project]] _)
 
   def loadTestProject(
       configDir: Path,
+      logger: Logger,
       transformProjects: List[Project] => List[Project]
   ): State = {
-    val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
@@ -214,7 +225,7 @@ object TestUtil {
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
     state.copy(
-      results = ResultsCache.emptyForTests,
+      //results = ResultsCache.emptyForTests,
       commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     )
   }
@@ -543,6 +554,7 @@ object TestUtil {
 
   def loadStateFromProjects(baseDir: AbsolutePath, projects: List[TestProject]): State = {
     val configDir = TestProject.populateWorkspace(baseDir, projects)
-    TestUtil.loadTestProject(configDir.underlying, identity(_))
+    val logger = BloopLogger.default(configDir.toString())
+    TestUtil.loadTestProject(configDir.underlying, logger, identity(_))
   }
 }

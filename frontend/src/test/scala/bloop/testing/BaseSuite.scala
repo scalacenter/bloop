@@ -203,6 +203,19 @@ class BaseSuite extends TestSuite with BloopHelpers {
     }
   }
 
+  def assertSuccessfulCompilation(
+      state: TestState,
+      projects: List[TestProject],
+      isNoOp: Boolean
+  ): Unit = {
+    projects.foreach { project =>
+      state.getLastResultFor(project) match {
+        case s: Compiler.Result.Success => if (isNoOp) assert(s.isNoOp)
+        case result => fail(s"Result ${result} is not cancelled!")
+      }
+    }
+  }
+
   def assertDiagnosticsResult(
       result: Compiler.Result,
       errors: Int,
