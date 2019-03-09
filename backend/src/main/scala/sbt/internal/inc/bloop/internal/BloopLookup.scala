@@ -20,10 +20,10 @@ final class BloopLookup(
       val newPreviousClasspathHash = previousClasspathHash.filterNot(fh => fh.file.isDirectory())
       if (classpathHash == newPreviousClasspathHash) None
       else {
-        logger.debug("Classpath hash changed!")
-        logger.debug(s"Before: ${previousClasspathHash}")
-        logger.debug(s"Trimmed down: ${newPreviousClasspathHash}")
-        logger.debug(s"After: ${classpathHash}")
+        logger.info("Classpath hash changed!")
+        logger.info(s"Before: ${previousClasspathHash}")
+        logger.info(s"Trimmed down: ${newPreviousClasspathHash}")
+        logger.info(s"After: ${classpathHash}")
         Some(classpathHash)
       }
     }

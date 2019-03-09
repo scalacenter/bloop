@@ -221,10 +221,7 @@ object Compiler {
             // Delete all compilation products generated in the new classes directory
             backgroundTasksForFailedCompilation.+=(
               tracer.traceTask("delete class files after ") { _ =>
-                Task {
-                  println(s"Deleting ${newClassesDir}")
-                  bloop.io.Paths.delete(AbsolutePath(newClassesDir)); ()
-                }
+                Task { bloop.io.Paths.delete(AbsolutePath(newClassesDir)); () }
               }
             )
           }

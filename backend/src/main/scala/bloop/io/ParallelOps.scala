@@ -149,9 +149,6 @@ object ParallelOps {
 
           def triggerCopy(p: Promise[Unit]) = Task.eval {
             try {
-              println(
-                s"Copying ${originFile.getFileName} to ${targetFile.getFileName} ${configuration}"
-              )
               configuration.mode match {
                 case CopyMode.ReplaceExisting => copy(replaceExisting = true)
                 case CopyMode.ReplaceIfMetadataMismatch =>
