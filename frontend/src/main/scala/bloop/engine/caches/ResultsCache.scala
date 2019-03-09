@@ -1,6 +1,7 @@
 package bloop.engine.caches
 
 import java.util.Optional
+import java.nio.file.Files
 
 import bloop.Compiler
 import bloop.data.Project
@@ -131,10 +132,19 @@ object ResultsCache {
                   lastCompilation.getOutput.getSingleOutput.toOption match {
                     case Some(classesDirFile) =>
                       val classesDir = classesDirFile.toPath
-                      val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
-                      val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-                      val products = bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
-                      Result.Success(reporter, products, 0L, CancelableFuture.successful(()), false)
+                      if (!Files.exists(classesDir)) {
+                        logger.debug(
+                          s"Classes directory $classesDir does not exist, therefore analysis '$analysisFile' is discarded and replaced by an empty one."
+                        )
+                        Result.Empty
+                      } else {
+                        val dummyCancelable = CancelableFuture.successful(())
+                        val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
+                        val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
+                        val products =
+                          bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
+                        Result.Success(reporter, products, 0L, dummyCancelable, false)
+                      }
                     case None =>
                       logger.debug(
                         s"Analysis '$analysisFile' last compilation for '${p.name}' didn't contain classes dir."
