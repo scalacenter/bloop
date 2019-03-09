@@ -17,6 +17,7 @@ import java.nio.file.{
 }
 
 import scala.util.control.NonFatal
+import scala.concurrent.Promise
 import scala.collection.JavaConverters._
 
 import monix.eval.Task
@@ -50,6 +51,8 @@ object ParallelOps {
   )
 
   case class FileWalk(visited: List[Path], target: List[Path])
+
+  private[this] val takenByOtherCopyProcess = new ConcurrentHashMap[Path, Promise[Unit]]()
 
   /**
    * Copies files from [[origin]] to [[target]] with the provided copy
@@ -126,47 +129,67 @@ object ParallelOps {
     val copyFilesInParallel = {
       observable.consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
         case ((originFile, originAttrs), targetFile) =>
-          Task.eval {
-            def copy(replaceExisting: Boolean): Unit = {
-              if (replaceExisting) {
-                Files.copy(
-                  originFile,
-                  targetFile,
-                  StandardCopyOption.COPY_ATTRIBUTES,
-                  StandardCopyOption.REPLACE_EXISTING
-                )
-              } else {
-                Files.copy(
-                  originFile,
-                  targetFile,
-                  StandardCopyOption.COPY_ATTRIBUTES
-                )
-              }
-              ()
+          def copy(replaceExisting: Boolean): Unit = {
+            if (replaceExisting) {
+              Files.copy(
+                originFile,
+                targetFile,
+                StandardCopyOption.COPY_ATTRIBUTES,
+                StandardCopyOption.REPLACE_EXISTING
+              )
+            } else {
+              Files.copy(
+                originFile,
+                targetFile,
+                StandardCopyOption.COPY_ATTRIBUTES
+              )
             }
+            ()
+          }
 
-            configuration.mode match {
-              case CopyMode.ReplaceExisting => copy(replaceExisting = true)
-              case CopyMode.ReplaceIfMetadataMismatch =>
-                import scala.util.{Try, Success, Failure}
-                Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
-                  case Success(targetAttrs) =>
-                    val changedMetadata = {
-                      originAttrs.lastModifiedTime.compareTo(targetAttrs.lastModifiedTime) != 0 ||
-                      originAttrs.size() != targetAttrs.size()
-                    }
+          def triggerCopy(p: Promise[Unit]) = Task.eval {
+            try {
+              configuration.mode match {
+                case CopyMode.ReplaceExisting => copy(replaceExisting = true)
+                case CopyMode.ReplaceIfMetadataMismatch =>
+                  import scala.util.{Try, Success, Failure}
+                  Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
+                    case Success(targetAttrs) =>
+                      val changedMetadata = {
+                        originAttrs.lastModifiedTime
+                          .compareTo(targetAttrs.lastModifiedTime) != 0 ||
+                        originAttrs.size() != targetAttrs.size()
+                      }
 
-                    if (!changedMetadata) ()
-                    else copy(replaceExisting = true)
-                  // Can happen when the file does not exist, replace in that case
-                  case Failure(t: IOException) => copy(replaceExisting = true)
-                  case Failure(t) => throw t
-                }
-              case CopyMode.NoReplace =>
-                if (Files.exists(targetFile)) ()
-                else copy(replaceExisting = false)
+                      if (!changedMetadata) ()
+                      else copy(replaceExisting = true)
+                    // Can happen when the file does not exist, replace in that case
+                    case Failure(t: IOException) => copy(replaceExisting = true)
+                    case Failure(t) => throw t
+                  }
+                case CopyMode.NoReplace =>
+                  if (Files.exists(targetFile)) ()
+                  else copy(replaceExisting = false)
+              }
+            } finally {
+              takenByOtherCopyProcess.remove(originFile, p)
+              // Complete successfully to unblock other tasks
+              p.success(())
+            }
+            ()
+          }
+
+          def acquireFile: Task[Unit] = {
+            val currentPromise = Promise[Unit]()
+            val promiseInMap = takenByOtherCopyProcess.putIfAbsent(originFile, currentPromise)
+            if (promiseInMap == null) {
+              triggerCopy(currentPromise)
+            } else {
+              Task.fromFuture(promiseInMap.future).flatMap(_ => acquireFile)
             }
           }
+
+          acquireFile
       })
     }
 
