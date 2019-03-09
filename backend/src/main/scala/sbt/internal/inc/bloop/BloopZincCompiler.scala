@@ -124,7 +124,7 @@ object BloopZincCompiler {
       else {
         val setOfSources = sources.toSet
         val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer)
-        val lookup = new BloopLookup(config, previousSetup)
+        val lookup = new BloopLookup(config, previousSetup, logger)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager)
 
         // Scala needs the explicit type signature to infer the function type arguments

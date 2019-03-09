@@ -221,7 +221,10 @@ object Compiler {
             // Delete all compilation products generated in the new classes directory
             backgroundTasksForFailedCompilation.+=(
               tracer.traceTask("delete class files after ") { _ =>
-                Task { bloop.io.Paths.delete(AbsolutePath(newClassesDir)); () }
+                Task {
+                  println(s"Deleting ${newClassesDir}")
+                  bloop.io.Paths.delete(AbsolutePath(newClassesDir)); ()
+                }
               }
             )
           }
@@ -345,16 +348,24 @@ object Compiler {
           )
 
           val updateExternalClassesDirWithReadOnly = {
-            val invalidated =
-              allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
-            val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
-            updateExternalClassesDir(
-              readOnlyClassesDir,
-              externalClassesDir,
-              compileInputs,
-              blacklist,
-              tracer
-            )
+            tracer.traceTask("update external classes dir with read-only") { _ =>
+              Task {
+                // Attention: blacklist must be computed inside the task!
+                val invalidated =
+                  allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
+                val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
+
+                val config =
+                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
+                val lastCopy = ParallelOps.copyDirectories(config)(
+                  readOnlyClassesDir,
+                  externalClassesDir,
+                  compileInputs.scheduler,
+                  compileInputs.logger
+                )
+                lastCopy.map(_ => ())
+              }.flatten
+            }
           }
 
           val isNoOp = previousAnalysis.exists(_ == result.analysis())
@@ -453,30 +464,6 @@ object Compiler {
               Result.Failed(Nil, Some(t), elapsed, triggerBackgroundTask)
           }
       }
-  }
-
-  def updateExternalClassesDir(
-      readOnlyClassesDir: Path,
-      externalClassesDir: Path,
-      compileInputs: CompileInputs,
-      blacklist: Set[Path],
-      tracer: BraveTracer
-  ): Task[Unit] = {
-    tracer.traceTask("update external classes dir with read-only") { _ =>
-      Task {
-        val config =
-          ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
-        val lastCopy = ParallelOps.copyDirectories(config)(
-          readOnlyClassesDir,
-          externalClassesDir,
-          compileInputs.scheduler,
-          compileInputs.logger
-        )
-        lastCopy.map { w =>
-          ()
-        }
-      }.flatten
-    }
   }
 
   /**

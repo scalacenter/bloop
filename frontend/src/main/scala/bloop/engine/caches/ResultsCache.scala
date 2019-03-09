@@ -44,7 +44,7 @@ final case class ResultsCache private (
 
   /** Returns the last succesful result if present, empty otherwise. */
   def lastSuccessfulResultOrEmpty(project: Project): LastSuccessfulResult =
-    lastSuccessfulResult(project).getOrElse(LastSuccessfulResult.Empty)
+    lastSuccessfulResult(project).getOrElse(LastSuccessfulResult.empty(project))
 
   /** Returns an optional last succesful result. */
   private[bloop] def lastSuccessfulResult(project: Project): Option[LastSuccessfulResult] =

@@ -149,6 +149,9 @@ object ParallelOps {
 
           def triggerCopy(p: Promise[Unit]) = Task.eval {
             try {
+              println(
+                s"Copying ${originFile.getFileName} to ${targetFile.getFileName} ${configuration}"
+              )
               configuration.mode match {
                 case CopyMode.ReplaceExisting => copy(replaceExisting = true)
                 case CopyMode.ReplaceIfMetadataMismatch =>
@@ -172,7 +175,7 @@ object ParallelOps {
                   else copy(replaceExisting = false)
               }
             } finally {
-              takenByOtherCopyProcess.remove(originFile, p)
+              takenByOtherCopyProcess.remove(originFile)
               // Complete successfully to unblock other tasks
               p.success(())
             }
@@ -193,8 +196,16 @@ object ParallelOps {
       })
     }
 
-    Task.mapBoth(discoverFileTree, copyFilesInParallel) {
-      case (fileWalk, _) => fileWalk
-    }
+    Task {
+      /*
+      val id = scala.util.Random.nextInt(1000)
+      println(s"#${id} copying ${origin.getFileName} to ${target.getFileName} ${configuration}")
+       */
+      Task.mapBoth(discoverFileTree, copyFilesInParallel) {
+        case (fileWalk, _) =>
+          //println(s"finished $id")
+          fileWalk
+      }
+    }.flatten
   }
 }

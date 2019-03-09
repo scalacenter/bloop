@@ -87,7 +87,7 @@ object CompileTask {
           val (previousResult, lastSuccessful) = {
             if (pipeline) {
               // Disable incremental compilation if pipelining is enabled
-              Compiler.Result.Empty -> LastSuccessfulResult.Empty
+              Compiler.Result.Empty -> LastSuccessfulResult.empty(project)
             } else {
               state.results.latestResult(project) ->
                 state.results.lastSuccessfulResultOrEmpty(project)

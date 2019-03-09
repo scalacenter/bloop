@@ -2,6 +2,7 @@ package bloop.engine.caches
 
 import bloop.Compiler
 import bloop.CompileProducts
+import bloop.data.Project
 import bloop.io.AbsolutePath
 
 import java.nio.file.Files
@@ -18,11 +19,19 @@ case class LastSuccessfulResult(
 )
 
 object LastSuccessfulResult {
-  final val Empty: LastSuccessfulResult = LastSuccessfulResult(
-    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup]),
-    AbsolutePath(Files.createTempDirectory("empty-last-successful").toRealPath()),
-    CancelableFuture.successful(())
-  )
+  private final val EmptyPreviousResult =
+    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
+
+  final def empty(project: Project): LastSuccessfulResult = {
+    val classesDir = Files.createDirectories(
+      project.genericClassesDir.getParent.resolve(s"empty-${project.name}").underlying
+    )
+    LastSuccessfulResult(
+      EmptyPreviousResult,
+      AbsolutePath(classesDir.toRealPath()),
+      CancelableFuture.successful(())
+    )
+  }
 
   def apply(
       products: CompileProducts,
