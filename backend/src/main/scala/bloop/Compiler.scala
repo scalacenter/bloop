@@ -65,7 +65,8 @@ case class CompileOutPaths(
   lazy val internalNewClassesDir: AbsolutePath = {
     val classesDir = internalReadOnlyClassesDir.underlying
     val parentDir = classesDir.getParent()
-    val newClassesName = s"classes-${UUID.randomUUID}"
+    val classesName = classesDir.getFileName()
+    val newClassesName = s"${classesName}-${UUID.randomUUID}"
     AbsolutePath(
       Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
     )
@@ -147,7 +148,9 @@ object Compiler {
     }
   }
 
+  implicit val compilation = bloop.logging.DebugFilter.Compilation
   def compile(compileInputs: CompileInputs): Task[Result] = {
+    val logger = compileInputs.logger
     val tracer = compileInputs.tracer
     val compileOut = compileInputs.out
     val externalClassesDir = compileOut.externalClassesDir.underlying
@@ -156,6 +159,9 @@ object Compiler {
     val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
     val newClassesDirPath = newClassesDir.toString
+    logger.debug(s"External classes directory ${externalClassesDirPath}")
+    logger.debug(s"Read-only classes directory ${readOnlyClassesDirPath}")
+    logger.debug(s"New rw classes directory ${newClassesDirPath}")
 
     val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
@@ -300,7 +306,6 @@ object Compiler {
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
     val reporter = compileInputs.reporter
-    val logger = compileInputs.logger
 
     def cancel(): Unit = {
       // Avoid illegal state exception if client cancellation promise is completed
