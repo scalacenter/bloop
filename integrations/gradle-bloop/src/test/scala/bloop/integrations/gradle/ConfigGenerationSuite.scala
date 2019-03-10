@@ -258,25 +258,247 @@ class ConfigGenerationSuite {
     assertTrue(hasClasspathEntryName(configATest, "scala-library"))
     assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
     assertTrue(hasClasspathEntryName(configCTest, "scala-library"))
-    assertTrue(hasClasspathEntryName(configATest, "/a/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configCTest, "/c/build/classes/bloop/main".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configATest, "/a/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configCTest, "/c/build/classes".replace('/', File.separatorChar)))
     assertTrue(hasClasspathEntryName(configB, "cats-core"))
-    assertTrue(hasClasspathEntryName(configB, "/a/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configB, "/c/build/classes/bloop/main".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configB, "/c/build/classes".replace('/', File.separatorChar)))
     assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
-    assertTrue(hasClasspathEntryName(configBTest, "/a/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configBTest, "/b/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configBTest, "/c/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configD, "/a/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configD, "/b/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configD, "/c/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configDTest, "/a/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configDTest, "/b/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configDTest, "/c/build/classes/bloop/main".replace('/', File.separatorChar)))
-    assertTrue(hasClasspathEntryName(configDTest, "/d/build/classes/bloop/main".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/c/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configD, "/a/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configD, "/b/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configD, "/c/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configDTest, "/a/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configDTest, "/b/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configDTest, "/c/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configDTest, "/d/build/classes".replace('/', File.separatorChar)))
 
     assertTrue(compileBloopProject("b", bloopDir).status.isOk)
     assertTrue(compileBloopProject("d", bloopDir).status.isOk)
+  }
+
+  // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
+  // testCompile project(':a').sourceSets.test.output
+  // means that it points directly at the source set directory instead of the project + sourceset
+  @Test def worksWithSourceSetDependencies(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a")
+    testProjectDir.newFolder("a", "src", "main", "scala")
+    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildDirB = testProjectDir.newFolder("b")
+    testProjectDir.newFolder("b", "src", "main", "scala")
+    testProjectDir.newFolder("b", "src", "test", "scala")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  testImplementation project(':a').sourceSets.test.output
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a'
+        |include 'b'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaTestSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaTestSource(buildDirB, "package y { trait B extends x.A { } }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"${projectName}.json")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopB = new File(bloopDir, "b.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopBTest = new File(bloopDir, "b-test.json")
+
+    assertFalse(bloopNone.exists())
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+    val configATest = readValidBloopConfig(bloopATest)
+    val configBTest = readValidBloopConfig(bloopBTest)
+
+    assertTrue(configA.project.dependencies.isEmpty)
+    assertTrue(configB.project.dependencies.isEmpty)
+    assertEquals(List("a"), configATest.project.dependencies.sorted)
+    assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
+
+    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
+      config.project.classpath.exists(_.toString.contains(entryName))
+
+    assertFalse(hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
+    assertFalse(hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar)))
+    assertFalse(hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar)))
+
+    assertTrue(compileBloopProject("b", bloopDir).status.isOk)
+  }
+
+  // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
+  // additional configuration + artifacts
+  @Test def worksWithConfigurationDependencies(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a")
+    testProjectDir.newFolder("a", "src", "main", "scala")
+    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildDirB = testProjectDir.newFolder("b")
+    testProjectDir.newFolder("b", "src", "main", "scala")
+    testProjectDir.newFolder("b", "src", "test", "scala")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |configurations {
+         |  testArtifacts.extendsFrom testRuntime
+         |}
+         |
+         |task testJar(type: Jar) {
+         |  classifier = 'tests'
+         |  from sourceSets.test.output
+         |}
+         |
+         |artifacts {
+         |  testArtifacts testJar
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  testImplementation project( path: ':a', configuration: 'testArtifacts')
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a'
+        |include 'b'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaTestSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaTestSource(buildDirB, "package y { trait B extends x.A { } }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"${projectName}.json")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopB = new File(bloopDir, "b.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopBTest = new File(bloopDir, "b-test.json")
+
+    assertFalse(bloopNone.exists())
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+    val configATest = readValidBloopConfig(bloopATest)
+    val configBTest = readValidBloopConfig(bloopBTest)
+
+    assertTrue(configA.project.dependencies.isEmpty)
+    assertTrue(configB.project.dependencies.isEmpty)
+    assertEquals(List("a"), configATest.project.dependencies.sorted)
+    assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
+
+    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
+      config.project.classpath.exists(_.toString.contains(entryName))
+    assertFalse(hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
+    assertFalse(hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar)))
+    assertTrue(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
+
+    assertTrue(compileBloopProject("b-test", bloopDir).status.isOk)
   }
 
   @Test def encodingOptionGeneratedCorrectly(): Unit = {
@@ -322,12 +544,11 @@ class ConfigGenerationSuite {
 
     val resultConfig = readValidBloopConfig(bloopFile)
 
-    assertArrayEquals(
-      Array.apply[Object](
+    assertEquals(List(
         "-deprecation",
         "-encoding", "utf8",
         "-unchecked"),
-      resultConfig.project.`scala`.get.options.toArray[Object]
+      resultConfig.project.`scala`.get.options
     )
   }
 
@@ -380,14 +601,14 @@ class ConfigGenerationSuite {
     val resultConfig = readValidBloopConfig(bloopFile)
 
 
-    assertArrayEquals(
-      Array.apply[Object](
+    assertEquals(
+      List(
         "-Ybackend-parallelism", "8",
         "-Yjar-compression-level", "0",
         "-deprecation",
         "-encoding", "utf8",
         "-unchecked"),
-      resultConfig.project.`scala`.get.options.toArray[Object]
+      resultConfig.project.`scala`.get.options
     )
   }
 
@@ -751,13 +972,72 @@ class ConfigGenerationSuite {
     def idxOfClasspathEntryName(config: Config.File, entryName: String): Int =
       config.project.classpath.takeWhile(!_.toString.contains(entryName)).size
 
-    val idxA = idxOfClasspathEntryName(configD, "/a/build/classes/bloop/main".replace('/', File.separatorChar))
-    val idxB = idxOfClasspathEntryName(configD, "/b/build/classes/bloop/main".replace('/', File.separatorChar))
-    val idxC = idxOfClasspathEntryName(configD, "/c/build/classes/bloop/main".replace('/', File.separatorChar))
+    val idxA = idxOfClasspathEntryName(configD, "/a/build/classes".replace('/', File.separatorChar))
+    val idxB = idxOfClasspathEntryName(configD, "/b/build/classes".replace('/', File.separatorChar))
+    val idxC = idxOfClasspathEntryName(configD, "/c/build/classes".replace('/', File.separatorChar))
 
     assertTrue(idxC < idxA)
     assertTrue(idxA < idxB)
     assertTrue(idxB < configD.project.classpath.size)
+  }
+
+  @Test def compilerPluginsGeneratedCorrectly(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |configurations {
+        |    scalaCompilerPlugin
+        |}
+        |
+        |dependencies {
+        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.6'
+        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.6:4.1.4"
+        |}
+        |
+        |tasks.withType(ScalaCompile) {
+        |	 scalaCompileOptions.additionalParameters = [
+        |      "-Xplugin:" + configurations.scalaCompilerPlugin.asPath,
+        |      "-Yrangepos",
+        |      "-P:semanticdb:sourceroot:${rootProject.projectDir}"
+        |    ]
+        |}
+        |
+        """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    assertTrue(resultConfig.project.resolution.nonEmpty)
+    assertTrue(resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.6"))
+
+    assertTrue(resultConfig.project.`scala`.get.options.contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot}"))
+    assertTrue(resultConfig.project.`scala`.get.options.exists(p => p.startsWith("-Xplugin:")))
   }
 
   def loadBloopState(configDir: File): State = {
@@ -854,6 +1134,15 @@ class ConfigGenerationSuite {
         |}
       """.stripMargin
     Files.write(srcFile.toPath, src.getBytes(StandardCharsets.UTF_8))
+    ()
+  }
+
+  private def createHelloWorldScalaTestSource(projectDir: File, source: String = ""): Unit = {
+    val contents = if (source.isEmpty) HelloWorldSource else source
+    val srcDir = projectDir.toPath.resolve("src").resolve("test").resolve("scala")
+    Files.createDirectories(srcDir)
+    val srcFile = srcDir.resolve("Source1.scala")
+    Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
     ()
   }
 
