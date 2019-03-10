@@ -20,43 +20,17 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
   // Use TCP because it's the only one working in Windows
   override val protocol = BspProtocol.Tcp
 
-  /*
-  test("deduplicate compilation in BSP and CLI clients") {
-    val cliLogger = new RecordingLogger(ansiCodesSupported = false)
-    val bspLogger = new RecordingLogger(ansiCodesSupported = false)
-    BuildUtil.testSlowBuild(cliLogger) { build =>
-      import build.workspace
-      val state = new TestState(build.state)
-      val projects = List(build.userProject, build.macroProject)
-
-      val compiledMacrosState = state.compile(build.macroProject)
-      assert(compiledMacrosState.status == ExitStatus.Ok)
-      assertValidCompilationState(compiledMacrosState, List(build.macroProject))
-
-      def waitTimeWithin250msOf(baselineMs: Int) = {
-        baselineMs + scala.util.Random.nextInt(250).toLong
-      }
-
-      loadBspState(workspace, projects, bspLogger) { bspState =>
-        val cliState = compiledMacrosState
-        val firstCompilation = cliState.compileHandle(build.userProject)
-
-        // Start second compilation in a delay range of 500 + random(250) ms
-        val bspWaitTimeMs = waitTimeWithin250msOf(500)
-        val secondCompilation =
-          bspState.compileHandle(build.userProject, Some(FiniteDuration(bspWaitTimeMs, "ms")))
-
-      }
-    }
-  }
-   */
-
   private def random(baselineMs: Int, until: Int): FiniteDuration = {
     val ms = baselineMs + scala.util.Random.nextInt(until).toLong
     FiniteDuration(ms, TimeUnit.MILLISECONDS)
   }
 
-  ignore("three concurrent clients deduplicate compilation") {
+  private def checkDeduplication(logger: RecordingLogger, isDeduplicated: Boolean): Unit = {
+    val deduplicated = logger.debugs.exists(_.startsWith("Deduplicating compilation"))
+    if (isDeduplicated) assert(deduplicated) else assert(!deduplicated)
+  }
+
+  test("three concurrent clients deduplicate compilation") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
@@ -109,6 +83,9 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         assertValidCompilationState(thirdCompiledState, projects)
         assertSameExternalClassesDirs(secondCompiledState, firstCompiledState, projects)
         assertSameExternalClassesDirs(thirdCompiledState.toTestState, firstCompiledState, projects)
+
+        checkDeduplication(logger2, isDeduplicated = true)
+        checkDeduplication(logger3, isDeduplicated = true)
 
         // We reproduce the same streaming side effects during compilation
         assertNoDiff(
@@ -183,10 +160,19 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
       object Sources {
         val `A.scala` =
           """/A.scala
-            |class A {
-            |  println("Dummy class")
-            |}
-          """.stripMargin
+            |package macros
+            |
+            |import scala.reflect.macros.blackbox.Context
+            |import scala.language.experimental.macros
+            |
+            |object SleepMacro {
+            |  def sleep(): Unit = macro sleepImpl
+            |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+            |    import c.universe._
+            |    Thread.sleep(500)
+            |    reify { () }
+            |  }
+            |}""".stripMargin
 
         val `B.scala` =
           """/B.scala
@@ -199,6 +185,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val `B2.scala` =
           """/B.scala
             |object B {
+            |  macros.SleepMacro.sleep()
             |  def foo(i: Int): String = i
             |}
           """.stripMargin
@@ -218,16 +205,14 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
       writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
 
       loadBspState(workspace, projects, bspLogger) { bspState =>
-        val firstDelay = Some(random(0, 100))
-        val secondDelay = Some(random(0, 200))
+        val firstDelay = Some(random(100, 100))
+        val secondDelay = Some(random(100, 300))
         val firstCompilation = bspState.compileHandle(`B`)
-        val thirdCompilation = compiledState.withLogger(cliLogger1).compileHandle(`B`, secondDelay)
-        val secondCompilation = compiledState.withLogger(cliLogger2).compileHandle(`B`, firstDelay)
+        val secondCompilation = compiledState.withLogger(cliLogger1).compileHandle(`B`, firstDelay)
+        val thirdCompilation = compiledState.withLogger(cliLogger2).compileHandle(`B`, secondDelay)
 
         val firstCompiledState =
-          Await.result(firstCompilation, FiniteDuration(3, TimeUnit.SECONDS))
-
-        // Wait only +- 200ms in both to check no extra compilation happens but there's time to finish
+          Await.result(firstCompilation, FiniteDuration(2, TimeUnit.SECONDS))
         val secondCompiledState =
           Await.result(secondCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
         val thirdCompiledState =
@@ -265,6 +250,10 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertSameExternalClassesDirs(secondCompiledState, thirdCompiledState, projects)
 
+        checkDeduplication(bspLogger, isDeduplicated = false)
+        checkDeduplication(cliLogger1, isDeduplicated = true)
+        checkDeduplication(cliLogger2, isDeduplicated = true)
+
         // We reproduce the same streaming side effects during compilation
         assertNoDiff(
           firstCompiledState.lastDiagnostics(`B`),
@@ -272,7 +261,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#1: b/src/B.scala
-            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),None,None,type mismatch;  found   : Int  required: String,None))
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),None,None,type mismatch;  found   : Int  required: String,None))
             |  -> reset = true
             |#1: task finish 2
             |  -> errors 1, warnings 0
@@ -293,13 +282,13 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         assertNoDiff(
           cliLogger1.errors.mkString(System.lineSeparator()),
           """
-            |[E1] b/src/B.scala:2:29
+            |[E1] b/src/B.scala:3:29
             |     type mismatch;
             |      found   : Int
             |      required: String
-            |     L2:   def foo(i: Int): String = i
+            |     L3:   def foo(i: Int): String = i
             |                                     ^
-            |b/src/B.scala: L2 [E1]
+            |b/src/B.scala: L3 [E1]
             |'b' failed to compile.""".stripMargin
         )
 
@@ -312,15 +301,91 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           cliLogger2.errors.mkString(System.lineSeparator()),
-          """[E1] b/src/B.scala:2:29
+          """[E1] b/src/B.scala:3:29
             |     type mismatch;
             |      found   : Int
             |      required: String
-            |     L2:   def foo(i: Int): String = i
+            |     L3:   def foo(i: Int): String = i
             |                                     ^
-            |b/src/B.scala: L2 [E1]
+            |b/src/B.scala: L3 [E1]
             |'b' failed to compile.""".stripMargin
         )
+
+        // Repeat the same but this time running first the CLI compile
+
+        val cliLogger4 = new RecordingLogger(ansiCodesSupported = false)
+        val cliLogger5 = new RecordingLogger(ansiCodesSupported = false)
+
+        val fourthCompilation = thirdCompiledState.withLogger(cliLogger4).compileHandle(`B`)
+        val fifthCompilation =
+          thirdCompiledState.withLogger(cliLogger5).compileHandle(`B`, firstDelay)
+        val sixthCompilation = bspState.compileHandle(`B`, secondDelay)
+
+        val fourthCompiledState =
+          Await.result(fourthCompilation, FiniteDuration(2, TimeUnit.SECONDS))
+        val fifthCompiledState =
+          Await.result(fifthCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
+        val sixthCompiledState =
+          Await.result(sixthCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
+
+        checkDeduplication(cliLogger4, isDeduplicated = false)
+        checkDeduplication(bspLogger, isDeduplicated = true)
+        checkDeduplication(cliLogger5, isDeduplicated = true)
+
+        assertNoDiff(
+          cliLogger4.compilingInfos.mkString(System.lineSeparator()),
+          s"""
+             |Compiling b (1 Scala source)
+         """.stripMargin
+        )
+
+        assertNoDiff(
+          cliLogger4.errors.mkString(System.lineSeparator()),
+          """
+            |[E1] b/src/B.scala:3:29
+            |     type mismatch;
+            |      found   : Int
+            |      required: String
+            |     L3:   def foo(i: Int): String = i
+            |                                     ^
+            |b/src/B.scala: L3 [E1]
+            |'b' failed to compile.""".stripMargin
+        )
+
+        assertNoDiff(
+          cliLogger5.compilingInfos.mkString(System.lineSeparator()),
+          s"""
+             |Compiling b (1 Scala source)
+         """.stripMargin
+        )
+
+        assertNoDiff(
+          cliLogger5.errors.mkString(System.lineSeparator()),
+          """[E1] b/src/B.scala:3:29
+            |     type mismatch;
+            |      found   : Int
+            |      required: String
+            |     L3:   def foo(i: Int): String = i
+            |                                     ^
+            |b/src/B.scala: L3 [E1]
+            |'b' failed to compile.""".stripMargin
+        )
+
+        assertNoDiff(
+          sixthCompiledState.lastDiagnostics(`B`),
+          """#2: task start 4
+            |  -> Msg: Compiling b (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: b/src/B.scala
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),None,None,type mismatch;  found   : Int  required: String,None))
+            |  -> reset = true
+            |#2: task finish 4
+            |  -> errors 1, warnings 0
+            |  -> Msg: Compiled 'b'
+            |  -> Data kind: compile-report
+        """.stripMargin
+        )
+
       }
     }
   }

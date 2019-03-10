@@ -154,6 +154,7 @@ object CompileGraph {
   )(
       compile: CompileBundle => CompileTraversal
   ): CompileTraversal = {
+    implicit val filter = DebugFilter.Compilation
     setup(inputs).flatMap { bundle =>
       val logger = bundle.logger
       var deduplicate: Boolean = true
@@ -178,6 +179,7 @@ object CompileGraph {
         ongoingCompilation.traversal
       } else {
         val rawLogger = logger.underlying
+        rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name}")
         val reporter = bundle.reporter.underlying
         // Replay events asynchronously to waiting for the compilation result
         val replayEventsTask = ongoingCompilation.mirror.foreachL {
