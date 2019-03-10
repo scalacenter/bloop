@@ -19,6 +19,8 @@ object ReporterAction {
       problem: xsbti.Problem
   ) extends ReporterAction
 
+  final case object PublishDiagnosticsSummary extends ReporterAction
+
   final case class ReportNextPhase(
       phase: String,
       sourceFile: File

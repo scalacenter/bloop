@@ -188,6 +188,8 @@ object CompileGraph {
               case a: ReporterAction.ReportStartIncrementalCycle =>
                 reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
               case a: ReporterAction.ReportProblem => reporter.log(a.problem)
+              case ReporterAction.PublishDiagnosticsSummary =>
+                reporter.printSummary()
               case a: ReporterAction.ReportNextPhase =>
                 reporter.reportNextPhase(a.phase, a.sourceFile)
               case a: ReporterAction.ReportCompilationProgress =>

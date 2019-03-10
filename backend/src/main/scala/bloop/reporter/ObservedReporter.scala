@@ -24,7 +24,11 @@ final class ObservedReporter(
   override def hasWarnings: Boolean = underlying.hasWarnings
   override def comment(pos: xsbti.Position, msg: String): Unit = underlying.comment(pos, msg)
   override def reset(): Unit = underlying.reset()
-  override def printSummary(): Unit = underlying.printSummary()
+
+  override def printSummary(): Unit = {
+    underlying.printSummary()
+    registerAction(ReporterAction.PublishDiagnosticsSummary)
+  }
 
   override def reportCompilationProgress(progress: Long, total: Long): Unit = {
     underlying.reportCompilationProgress(progress, total)
