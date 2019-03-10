@@ -45,7 +45,8 @@ object TestInternals {
 
   lazy val filteredLoader = {
     val filter = new IncludePackagesFilter(
-      Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing.", "org.xml.sax."))
+      Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing.", "org.xml.sax.")
+    )
     new FilteredLoader(getClass.getClassLoader, filter)
   }
 
@@ -80,6 +81,7 @@ object TestInternals {
     testAgentFiles match {
       case Some(paths) => paths
       case None =>
+        import bloop.engine.ExecutionContext.ioScheduler
         val paths = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
         testAgentFiles = Some(paths)
         paths
@@ -213,8 +215,9 @@ object TestInternals {
     }
   }
 
-  def getFingerprints(frameworks: Seq[Framework])
-    : (Set[PrintInfo[SubclassFingerprint]], Set[PrintInfo[AnnotatedFingerprint]]) = {
+  def getFingerprints(
+      frameworks: Seq[Framework]
+  ): (Set[PrintInfo[SubclassFingerprint]], Set[PrintInfo[AnnotatedFingerprint]]) = {
     val subclasses = mutable.Set.empty[PrintInfo[SubclassFingerprint]]
     val annotated = mutable.Set.empty[PrintInfo[AnnotatedFingerprint]]
     for {
@@ -282,7 +285,8 @@ object TestInternals {
   private def defined[T <: Fingerprint](
       in: Set[PrintInfo[T]],
       names: Set[String],
-      IsModule: Boolean): Set[PrintInfo[T]] = {
+      IsModule: Boolean
+  ): Set[PrintInfo[T]] = {
     in collect { case info @ (name, IsModule, _, _) if names(name) => info }
   }
 

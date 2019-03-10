@@ -87,7 +87,7 @@ class JvmTestSpec(
 
   private val processRunnerConfig: Forker = {
     val javaEnv = JavaEnv.default
-    val classpath = testProject.fullClasspathFor(testState.build.getDagFor(testProject))
+    val classpath = testProject.dependencyClasspath(testState.build.getDagFor(testProject))
     val classpathEntries = classpath.map(_.underlying.toUri.toURL)
     Forker(javaEnv, classpath)
   }
@@ -103,9 +103,8 @@ class JvmTestSpec(
 
   @Test
   def canRunTestFramework(): Unit = {
-    TestUtil.withTemporaryDirectory { tmp =>
+    TestUtil.withinWorkspace { cwd =>
       TestUtil.quietIfSuccess(testState.logger) { logger =>
-        val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
         val classLoader = loaderForTestCode(config)
         val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader)).toList
@@ -135,9 +134,8 @@ class JvmTestSpec(
 
   @Test
   def canCancelTestFramework(): Unit = {
-    TestUtil.withTemporaryDirectory { tmp =>
+    TestUtil.withinWorkspace { cwd =>
       TestUtil.quietIfSuccess(testState.logger) { logger =>
-        val cwd = AbsolutePath(tmp)
         val config = processRunnerConfig
         val classLoader = loaderForTestCode(config)
         val discovered = TestTask.discoverTests(testAnalysis, frameworks(classLoader)).toList

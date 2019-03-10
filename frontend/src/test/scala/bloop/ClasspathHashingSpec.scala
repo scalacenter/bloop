@@ -15,6 +15,7 @@ class ClasspathHashingSpec {
   @Test
   def detectsMacrosInClasspath(): Unit = {
     val logger = new RecordingLogger()
+    import bloop.engine.ExecutionContext.ioScheduler
     val jars = DependencyResolution
       .resolve("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091", logger)
       .filter(_.syntax.endsWith(".jar"))

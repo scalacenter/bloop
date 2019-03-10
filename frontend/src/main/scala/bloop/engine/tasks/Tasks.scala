@@ -54,7 +54,7 @@ object Tasks {
     import state.logger
     project.scalaInstance match {
       case Some(instance) =>
-        val classpath = project.fullClasspathFor(state.build.getDagFor(project))
+        val classpath = project.dependencyClasspath(state.build.getDagFor(project))
         val entries = classpath.map(_.underlying.toFile).toSeq
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
           DebugFilter.All)
@@ -180,7 +180,7 @@ object Tasks {
       args: Array[String],
       skipJargs: Boolean
   ): Task[State] = {
-    val classpath = project.fullClasspathFor(state.build.getDagFor(project))
+    val classpath = project.dependencyClasspath(state.build.getDagFor(project))
     val processConfig = Forker(javaEnv, classpath)
     val runTask =
       processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)

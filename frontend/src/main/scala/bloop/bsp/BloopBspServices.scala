@@ -13,7 +13,7 @@ import bloop.engine._
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
-import bloop.reporter.{BspProjectReporter, ReporterConfig}
+import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import monix.eval.Task
 import ch.epfl.scala.bsp.{
@@ -25,7 +25,6 @@ import ch.epfl.scala.bsp.{
 }
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-import xsbti.Problem
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import monix.execution.atomic.AtomicInt
@@ -112,7 +111,8 @@ final class BloopBspServices(
    * @return An async computation that returns the response to the client.
    */
   def initialize(
-      params: bsp.InitializeBuildParams): BspEndpointResponse[bsp.InitializeBuildResult] = {
+      params: bsp.InitializeBuildParams
+  ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
     reloadState(configDir).map { state =>
@@ -146,7 +146,9 @@ final class BloopBspServices(
     callSiteState.logger.info("BSP initialization handshake complete.")
   }
 
-  def ifInitialized[T](compute: BspComputation[T]): BspEndpointResponse[T] = {
+  def ifInitialized[T](
+      persistAnalysisFiles: Boolean = false
+  )(compute: BspComputation[T]): BspEndpointResponse[T] = {
     // Give a time window for `isInitialized` to complete, otherwise assume it didn't happen
     isInitializedTask
       .timeoutTo(
@@ -157,7 +159,11 @@ final class BloopBspServices(
         case Left(e) => Task.now(Left(e))
         case Right(_) =>
           reloadState(currentState.build.origin).flatMap { state =>
-            compute(state).flatMap { case (state, e) => saveState(state).map(_ => e) }
+            compute(state).flatMap {
+              case (state, e) =>
+                if (!persistAnalysisFiles) Task.now(e)
+                else saveState(state).map(_ => e)
+            }
           }
       }
   }
@@ -204,7 +210,7 @@ final class BloopBspServices(
       compileArgs: List[String]
   ): BspResult[bsp.CompileResult] = {
     val cancelCompilation = Promise[Unit]()
-    def reportError(p: Project, problems: List[Problem], elapsedMs: Long): String = {
+    def reportError(p: Project, problems: List[ProblemPerPhase], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
       s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"
@@ -287,7 +293,7 @@ final class BloopBspServices(
   }
 
   def compile(params: bsp.CompileParams): BspEndpointResponse[bsp.CompileResult] = {
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -311,7 +317,7 @@ final class BloopBspServices(
       Tasks.test(state, List(project), Nil, testFilter, handler)
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -380,7 +386,7 @@ final class BloopBspServices(
       }
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
       mapToProject(params.target, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -446,7 +452,7 @@ final class BloopBspServices(
   def buildTargets(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargets] = {
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       def reportBuildError(msg: String): Unit = {
         endpoints.Build.showMessage.notify(
           ShowMessageParams(MessageType.Error, None, None, msg)
@@ -514,7 +520,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -550,7 +556,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -562,7 +568,8 @@ final class BloopBspServices(
   }
 
   def scalacOptions(
-      request: bsp.ScalacOptionsParams): BspEndpointResponse[bsp.ScalacOptionsResult] = {
+      request: bsp.ScalacOptionsParams
+  ): BspEndpointResponse[bsp.ScalacOptionsResult] = {
     def scalacOptions(
         projects: Seq[ProjectMapping],
         state: State
@@ -570,10 +577,13 @@ final class BloopBspServices(
       val response = bsp.ScalacOptionsResult(
         projects.iterator.map {
           case (target, project) =>
+            val dag = state.build.getDagFor(project)
+            val fullClasspath = project.dependencyClasspath(dag)
+            val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
-              classpath = project.compilationClasspath.map(e => bsp.Uri(e.toBspUri)).toList,
+              classpath = classpath,
               classDirectory = bsp.Uri(project.classesDir.toBspUri)
             )
         }.toList
@@ -582,7 +592,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized { (state: State) =>
+    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code

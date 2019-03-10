@@ -50,6 +50,7 @@ object ZincInternals {
    *
    * Example: "org.scala-sbt-compiler-bridge-1.0.0-bin_2.11.7__50.0".
    *
+   *
    * @param sources The moduleID representing the compiler bridge sources.
    * @param scalaInstance The scala instance that sets the scala version for the id.
    * @return The complete jar identifier for the bridge sources.
@@ -64,12 +65,14 @@ object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
   object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
-      position.line.toOption
-        .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
-        .orElse {
-          position.startLine.toOption.flatMap(startLine =>
-            position.startColumn().toOption.map(startColumn => (startLine, startColumn)))
-        }
+      // Use the range position if available first. Otherwise fallback in pointer information.
+      val rangePosition = position.startLine.toOption.flatMap(startLine =>
+        position.startColumn().toOption.map(startColumn => (startLine.toInt, startColumn.toInt)))
+
+      rangePosition.orElse {
+        position.line.toOption
+          .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
+      }
     }
   }
 

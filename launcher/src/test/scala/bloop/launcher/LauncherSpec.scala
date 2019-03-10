@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 class LauncherSpec extends AbstractLauncherSpec {
   // Update the bsp version whenever we change the bloop version
   private final val bspVersion = "2.0.0-M1"
-  private final val bloopVersion = "1.1.2"
+  private final val bloopVersion = "1.2.1"
   private final val bloopServerPort = 9012
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   private final val shellWithPython = new Shell(true, true)
@@ -153,7 +153,7 @@ class LauncherSpec extends AbstractLauncherSpec {
             Feedback.installingBloop(bloopVersion),
             Feedback.SkippingFullInstallation,
             Feedback.UseFallbackInstallation,
-            Feedback.resolvingDependency(bloopDependency),
+            Feedback.resolvingDependency(bloopDependency)
           )
 
           result1.throwIfFailed
@@ -169,7 +169,7 @@ class LauncherSpec extends AbstractLauncherSpec {
             Feedback.SkippingFullInstallation,
             Feedback.UseFallbackInstallation,
             Feedback.resolvingDependency(bloopDependency),
-            Feedback.startingBloopServer(Nil),
+            Feedback.startingBloopServer(Nil)
           )
 
           // Now, the server should be running, check we can open a connection again
@@ -365,7 +365,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       Feedback.installingBloop(bloopVersion),
       Feedback.installationLogs(Environment.defaultBloopDirectory),
       Feedback.downloadingInstallerAt(installpyURL(bloopVersion)),
-      Feedback.startingBloopServer(Nil),
+      Feedback.startingBloopServer(Nil)
     )
 
     val prohibitedLogs = List(
@@ -389,11 +389,11 @@ class LauncherSpec extends AbstractLauncherSpec {
       Feedback.SkippingFullInstallation,
       Feedback.UseFallbackInstallation,
       Feedback.resolvingDependency(bloopDependency),
-      Feedback.startingBloopServer(Nil),
+      Feedback.startingBloopServer(Nil)
     )
 
     val prohibitedLogs = List(
-      Feedback.installationLogs(Environment.defaultBloopDirectory),
+      Feedback.installationLogs(Environment.defaultBloopDirectory)
     )
 
     result.throwIfFailed
@@ -423,14 +423,14 @@ class LauncherSpec extends AbstractLauncherSpec {
         Feedback.installingBloop(bloopVersion),
         Feedback.installationLogs(Environment.defaultBloopDirectory),
         Feedback.startingBloopServer(Nil),
-        Feedback.downloadingInstallerAt(installpyURL(bloopVersion)),
+        Feedback.downloadingInstallerAt(installpyURL(bloopVersion))
       )
 
       val prohibitedLogs = List(
         Feedback.SkippingFullInstallation,
         Feedback.UseFallbackInstallation,
         Feedback.resolvingDependency(bloopDependency),
-        Feedback.openingBspConnection(Nil),
+        Feedback.openingBspConnection(Nil)
       )
 
       Assert.assertEquals(LauncherStatus.SuccessfulRun, status)

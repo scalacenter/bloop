@@ -72,8 +72,10 @@ abstract class ToolchainCompanion[Toolchain] {
   private final val BloopVersion = BuildInfo.version
   private final val BloopOrg = BuildInfo.organization
   private def resolveJars(artifactName: String, logger: Logger): List[Path] = {
+    import bloop.engine.ExecutionContext.ioScheduler
     logger.debug(s"Resolving platform bridge: $BloopOrg:$artifactName:$BloopVersion")(
-      DebugFilter.Compilation)
+      DebugFilter.Compilation
+    )
     val files = DependencyResolution.resolve(BloopOrg, artifactName, BloopVersion, logger)
     files.iterator.map(_.underlying).filter(_.toString.endsWith(".jar")).toList
   }

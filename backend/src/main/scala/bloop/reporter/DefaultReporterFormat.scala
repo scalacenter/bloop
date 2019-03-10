@@ -24,14 +24,31 @@ class DefaultReporterFormat(reporter: ConfigurableReporter) extends ReporterForm
       colored(reporter.config.sourcePathColor, filePath) + s"$line$column"
     }
 
-  protected def formatSource(problem: Problem): Option[String] =
-    for {
-      line <- Option(problem.position.lineContent).filter(_.nonEmpty)
-      sp <- toOption(problem.position.pointerSpace)
-    } yield {
-      s"""$line
-         |$sp^""".stripMargin
+  protected def formatSource(problem: Problem): Option[String] = {
+    val richFormatSource = {
+      for {
+        lineContent <- Option(problem.position.lineContent).filter(_.nonEmpty)
+        startLine <- toOption(problem.position.startLine())
+        endLine <- toOption(problem.position.endLine())
+        startColumn <- toOption(problem.position.startColumn())
+        endColumn <- toOption(problem.position.endColumn())
+        if startLine == endLine
+      } yield {
+        val spaces = " " * startColumn
+        val carets = "^" * Math.max(1, endColumn - startColumn)
+        lineContent + System.lineSeparator() + spaces + carets
+      }
     }
+
+    richFormatSource.orElse {
+      for {
+        lineContent <- Option(problem.position.lineContent).filter(_.nonEmpty)
+        pointer <- toOption(problem.position.pointerSpace)
+      } yield {
+        lineContent + System.lineSeparator() + pointer + "^"
+      }
+    }
+  }
 
   protected def formatMessage(problem: Problem): Option[String] =
     Some(problem.message)

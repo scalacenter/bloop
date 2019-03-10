@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
 import bloop.logging.{Logger, RecordingLogger}
-import bloop.util.TestUtil
+import bloop.util.{TestProject, TestUtil}
 import bloop.util.TestUtil.{
   RootProject,
   checkAfterCleanCompilation,
@@ -66,12 +66,14 @@ class CompileSpec {
     }
   }
 
-  def scalaInstance2124(logger: Logger): ScalaInstance = ScalaInstance.resolve(
-    "org.scala-lang",
-    "scala-compiler",
-    "2.12.4",
-    logger
-  )
+  def scalaInstance2124(logger: Logger): ScalaInstance = {
+    ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      "2.12.4",
+      logger
+    )(bloop.engine.ExecutionContext.ioScheduler)
+  }
 
   @Test
   def compileScalaAndJavaWithMissingDependency(): Unit = {
@@ -80,7 +82,8 @@ class CompileSpec {
     val missingDependency = "i-dont-exist"
     val dependencies = Map[String, Set[String]](RootProject -> Set(missingDependency))
     val structures = Map(
-      RootProject -> Map("A.scala" -> "object A", "B.java" -> "public class B {}"))
+      RootProject -> Map("A.scala" -> "object A", "B.java" -> "public class B {}")
+    )
 
     checkAfterCleanCompilation(
       structures,
@@ -178,7 +181,9 @@ class CompileSpec {
   def compileWithScala2124(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.4", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     simpleProject(scalaInstance)
   }
 
@@ -186,7 +191,9 @@ class CompileSpec {
   def compileWithScala2123(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.12.3", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     simpleProject(scalaInstance)
   }
 
@@ -194,7 +201,9 @@ class CompileSpec {
   def compileWithScala21111(): Unit = {
     val logger = new RecordingLogger
     val scalaInstance =
-      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)
+      ScalaInstance.resolve("org.scala-lang", "scala-compiler", "2.11.11", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     simpleProject(scalaInstance)
   }
 
@@ -259,17 +268,21 @@ class CompileSpec {
       projectsStructures,
       dependencies,
       quiet = false,
-      useSiteLogger = Some(logger)) { (state: State) =>
+      useSiteLogger = Some(logger)
+    ) { (state: State) =>
       // The unrelated project should not have been compiled
       assertTrue(
         s"Project `unrelated` was compiled",
-        noPreviousAnalysis(getProject("unrelated", state), state))
+        noPreviousAnalysis(getProject("unrelated", state), state)
+      )
       assertTrue(
         s"Project `parent` was not compiled",
-        hasPreviousResult(getProject("parent", state), state))
+        hasPreviousResult(getProject("parent", state), state)
+      )
       assertTrue(
         s"Project `RootProject` was not compiled",
-        hasPreviousResult(getProject(RootProject, state), state))
+        hasPreviousResult(getProject(RootProject, state), state)
+      )
     }
   }
 
@@ -280,6 +293,53 @@ class CompileSpec {
       state.build.projects.foreach { p =>
         assertTrue(s"${p.name} has a compilation result", noPreviousAnalysis(p, state))
       }
+    }
+  }
+
+  @Test
+  def printRangePositionsInDiagnostics(): Unit = {
+    TestUtil.withinWorkspace { baseDir =>
+      val project = TestProject(
+        baseDir,
+        "ticket-787",
+        List(
+          """/main/scala/A.scala
+            |object A {
+            |  "".lengthCompare("1".substring(0))
+            |
+            |  // Make range pos multi-line to ensure range pos doesn't work here
+            |  "".lengthCompare("1".
+            |    substring(0))
+            |}""".stripMargin
+        ),
+        scalacOptions = List("-Yrangepos")
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A.scala` = project.srcFor("main/scala/A.scala")
+      val state = TestUtil.loadStateFromProjects(baseDir, List(project)).copy(logger = logger)
+      val action = Run(Commands.Compile(List("ticket-787")))
+      val compiledState = TestUtil.blockingExecute(action, state)
+      TestUtil.assertNoDiff(
+        s"""
+           |[E2] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:6:14
+           |     type mismatch;
+           |      found   : String
+           |      required: Int
+           |     L6:     substring(0))
+           |                      ^
+           |[E1] ${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}:2:33
+           |     type mismatch;
+           |      found   : String
+           |      required: Int
+           |     L2:   "".lengthCompare("1".substring(0))
+           |                            ^^^^^^^^^^^^^^^^
+           |${TestUtil.universalPath("ticket-787/src/main/scala/A.scala")}: L2 [E1], L6 [E2]
+           |'ticket-787' failed to compile.""".stripMargin,
+        logger.errors.mkString(System.lineSeparator())
+      )
+
+      ()
     }
   }
 
@@ -320,13 +380,16 @@ class CompileSpec {
       // The unrelated project should not have been compiled
       assertTrue(
         s"Project `unrelated` was compiled",
-        noPreviousAnalysis(getProject("unrelated", state), state))
+        noPreviousAnalysis(getProject("unrelated", state), state)
+      )
       assertTrue(
         s"Project `parent` was not compiled",
-        hasPreviousResult(getProject("parent", state), state))
+        hasPreviousResult(getProject("parent", state), state)
+      )
       assertTrue(
         s"Project `RootProject` was not compiled",
-        hasPreviousResult(getProject(RootProject, state), state))
+        hasPreviousResult(getProject(RootProject, state), state)
+      )
     }
   }
 
@@ -353,7 +416,8 @@ class CompileSpec {
       RootProject -> Set("A", "B", "C", "D"),
       "B" -> Set("A"),
       "C" -> Set("A"),
-      "D" -> Set("B", "C"))
+      "D" -> Set("B", "C")
+    )
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
       assertEquals(5.toLong, logger.compilingInfos.size.toLong)
       state.build.projects.foreach { p =>
@@ -385,7 +449,8 @@ class CompileSpec {
       RootProject -> Set("A", "B", "C", "D"),
       "B" -> Set("A"),
       "C" -> Set("B", "A"),
-      "D" -> Set("B", "A"))
+      "D" -> Set("B", "A")
+    )
     checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
       assertEquals(5.toLong, logger.compilingInfos.size.toLong)
       ensureCompilationInAllTheBuild(state)
@@ -422,6 +487,24 @@ class CompileSpec {
 
       assertEquals(4.toLong, logger.compilingInfos.size.toLong)
       ensureCompilationInAllTheBuild(state)
+    }
+  }
+
+  @Test
+  def avoidAggressiveDiagnosticDeduplication(): Unit = {
+    object Sources {
+      val `A.scala` =
+        """object Dep {
+          |  val a1: Int = ""
+          |  val a2: Int = ""
+          |}""".stripMargin
+    }
+
+    val deps = Map.empty[String, Set[String]]
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val structure = Map(RootProject -> Map("A.scala" -> Sources.`A.scala`))
+    checkAfterCleanCompilation(structure, deps, useSiteLogger = Some(logger)) { (state: State) =>
+      assertEquals(logger.errors.size.toLong, 4.toLong)
     }
   }
 
@@ -472,7 +555,8 @@ class CompileSpec {
       structures,
       dependencies,
       scalaInstance = scalaInstance,
-      quiet = false)(_ => ())
+      quiet = false
+    )(_ => ())
   }
 
   @Test
@@ -519,7 +603,9 @@ class CompileSpec {
   def compileWithDotty080RC1(): Unit = {
     val logger = new RecordingLogger()
     val scalaInstance =
-      ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.8", "0.8.0-RC1", logger)
+      ScalaInstance.resolve("ch.epfl.lamp", "dotty-compiler_0.8", "0.8.0-RC1", logger)(
+        bloop.engine.ExecutionContext.ioScheduler
+      )
     val structures = Map(RootProject -> Map("Dotty.scala" -> ArtificialSources.`Dotty.scala`))
     checkAfterCleanCompilation(structures, Map.empty, scalaInstance = scalaInstance) { state =>
       ensureCompilationInAllTheBuild(state)
@@ -541,6 +627,47 @@ class CompileSpec {
 
     val analysisOutFile = state.build.getProjectFor(testProject).get.analysisOut
     assertTrue(Files.exists(analysisOutFile.underlying))
+  }
+
+  @Test
+  def cacheCompilerPluginClassloaders(): Unit = {
+    val target = "whitelistJS"
+    val logger = new RecordingLogger()
+    val state = TestUtil.loadTestProject("compiler-plugin-whitelist").copy(logger = logger)
+    val action = Run(Commands.Compile(List(target)))
+    val compiledState = TestUtil.blockingExecute(action, state)
+    def loggerInfos = logger.getMessagesAt(Some("info"))
+    def loggerDebugs = logger.getMessagesAt(Some("debug"))
+
+    val cleanCompile = Run(Commands.Clean(List(target)), Run(Commands.Compile(List(target))))
+    val previousCacheHits = loggerDebugs.count(_.startsWith("Cache hit true")).toLong
+    val targetMsg = "Bloop test plugin classloader: scala.reflect.internal.util.ScalaClassLoader"
+    loggerInfos.find(_.contains(targetMsg)) match {
+      case Some(found) =>
+        // The found message contains the hashcode of the classloader, so if we repeat it we cache
+        val cleanCompiledState = TestUtil.blockingExecute(cleanCompile, compiledState)
+        Assert.assertEquals(2.toLong, loggerInfos.count(_ == found).toLong)
+
+        // Ensure that the next time we compile we hit the cache that tells us to whitelist or not
+        val totalCacheHits = loggerDebugs.count(_.startsWith("Cache hit true")).toLong
+        // Update the counter whenever we add more plugins that we want to whitelist for this project
+        Assert.assertEquals(16, totalCacheHits - previousCacheHits)
+
+        // Clean and compile but this time by disabling the cache manually
+        val targetProject = cleanCompiledState.build.getProjectFor(target).get
+        val newProjects = {
+          val newTargetProject = targetProject.copy(
+            scalacOptions = "-Ycache-plugin-class-loader:none" :: targetProject.scalacOptions
+          )
+          newTargetProject :: cleanCompiledState.build.projects.filter(_ != targetProject)
+        }
+        val changedState =
+          cleanCompiledState.copy(build = cleanCompiledState.build.copy(projects = newProjects))
+        val cleanCompiledState2 = TestUtil.blockingExecute(cleanCompile, changedState)
+        Assert.assertEquals(3.toLong, loggerInfos.count(_.contains(targetMsg)).toLong)
+        Assert.assertEquals(2.toLong, loggerInfos.count(_ == found).toLong)
+      case None => Assert.fail("Expected log by `bloop-test-plugin` about classloader id")
+    }
   }
 
   @Test

@@ -53,12 +53,12 @@ object JsBridge {
   def link(
       config: JsConfig,
       project: Project,
+      classpath: Array[Path],
       runMain: java.lang.Boolean,
       mainClass: Option[String],
       target: Path,
       logger: BloopLogger
   ): Unit = {
-    val classpath = project.compilationClasspath.map(_.underlying)
     val classpathIrFiles = classpath
       .filter(Files.isDirectory(_))
       .flatMap(findIrFiles)
@@ -137,7 +137,8 @@ object JsBridge {
       } else {
         new CustomDomNodeEnv(
           JSDOMNodeJSEnv.Config().withEnv(fullEnv).withExecutable(nodePath),
-          customScripts)
+          customScripts
+        )
       }
     }
 

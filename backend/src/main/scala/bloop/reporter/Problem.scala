@@ -25,12 +25,12 @@ object Problem {
     override def toString: String = s"$errors errors, $warnings warnings"
   }
 
-  def count(problems: List[xsbti.Problem]): DiagnosticsCount = {
+  def count(problems: List[ProblemPerPhase]): DiagnosticsCount = {
     // Compute the count manually because `count` returns an `Int`, not a `Long`
     var errors = 0L
     var warnings = 0L
     problems.foreach { p =>
-      val severity = p.severity()
+      val severity = p.problem.severity()
       if (severity == Severity.Error) errors += 1
       if (severity == Severity.Warn) warnings += 1
     }

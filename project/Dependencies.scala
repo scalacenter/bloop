@@ -3,14 +3,14 @@ package build
 object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.7"
+  val Scala212Version = "2.12.8"
 
   val nailgunVersion = "6992a3bf"
   // Used to download the python client instead of resolving
-  val nailgunCommit = "933f482b"
+  val nailgunCommit = "0c325237"
 
   val zincVersion = "1.2.1+106-0dad4a69"
-  val bspVersion = "2.0.0-M1" 
+  val bspVersion = "2.0.0-M1"
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M8"
   val lmVersion = "1.0.0"
@@ -100,7 +100,7 @@ object Dependencies {
   val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version
 
-  val mill = "com.lihaoyi" %% "mill-scalalib"	% millVersion % Provided
+  val mill = "com.lihaoyi" %% "mill-scalalib" % millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
 }

@@ -18,7 +18,7 @@ if IS_PY2:
     from urlparse import urlparse
     from urllib2 import urlopen as urlopen
 else:
-    from urllib import parse as urlparse
+    from urllib.parse import urlparse as urlparse
     from urllib.request import urlopen as urlopen
 
 # INSERT_INSTALL_VARIABLES
@@ -43,7 +43,7 @@ parser.add_argument(
     '-d',
     '--dest',
     default=BLOOP_DEFAULT_INSTALLATION_TARGET,
-    help="Where to install Bloop, defaults to %s" % os.getcwd())
+    help="Where to install Bloop, defaults to %s" % BLOOP_DEFAULT_INSTALLATION_TARGET)
 parser.add_argument(
     '-v',
     '--version',
@@ -130,12 +130,13 @@ def macos_launch_script_contents(is_local):
     server_args=()
     for arg in "$@"; do
       if [[ $arg == -J* ]]; then
-        java_opts+=($arg)
+        java_opts+=(${arg#"-J"})
       else
         server_args+=($arg)
       fi
     done
 
+    echo "Detected java options are '${java_opts[@]}'"
     BASE_BIN_DIR=$(dirname "$0")
     COURSIER_BIN="$BASE_BIN_DIR/%s"
     /usr/libexec/java_home -v 1.8 -F -R --exec java \\

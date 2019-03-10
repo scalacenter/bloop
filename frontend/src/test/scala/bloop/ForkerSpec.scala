@@ -38,12 +38,13 @@ class ForkerSpec {
   val dependencies = Map.empty[String, Set[String]]
   val runnableProject = Map(TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
 
-  private def run(cwd: Path, args: Array[String])(op: (Int, List[(String, String)]) => Unit): Unit =
+  private def run(cwd: AbsolutePath, args: Array[String])(
+      op: (Int, List[(String, String)]) => Unit
+  ): Unit =
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
-      val cwdPath = AbsolutePath(cwd)
       val project = TestUtil.getProject(TestUtil.RootProject, state)
       val env = JavaEnv.default
-      val classpath = project.fullClasspathFor(state.build.getDagFor(project))
+      val classpath = project.dependencyClasspath(state.build.getDagFor(project))
       val config = Forker(env, classpath)
       val logger = new RecordingLogger
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
@@ -51,8 +52,7 @@ class ForkerSpec {
       try {
         val wait = Duration.apply(25, TimeUnit.SECONDS)
         val exitCode =
-          TestUtil.await(wait)(
-            config.runMain(cwdPath, mainClass, args, false, logger.asVerbose, opts))
+          TestUtil.await(wait)(config.runMain(cwd, mainClass, args, false, logger.asVerbose, opts))
         val messages = logger.getMessages()
         op(exitCode, messages)
       } finally {
@@ -91,7 +91,7 @@ class ForkerSpec {
   }
 
   @Test
-  def canRun(): Unit = TestUtil.withTemporaryDirectory { tmp =>
+  def canRun(): Unit = TestUtil.withinWorkspace { tmp =>
     run(tmp, Array("foo", "bar", "baz")) {
       case (exitCode, messages) =>
         assertEquals(0, exitCode.toLong)
@@ -101,7 +101,7 @@ class ForkerSpec {
   }
 
   @Test
-  def reportsExceptions(): Unit = TestUtil.withTemporaryDirectory { tmp =>
+  def reportsExceptions(): Unit = TestUtil.withinWorkspace { tmp =>
     run(tmp, Array("crash")) {
       case (exitCode, messages) =>
         assertNotEquals(0, exitCode.toLong)
@@ -110,7 +110,7 @@ class ForkerSpec {
   }
 
   @Test
-  def runReportsMissingCWD(): Unit = TestUtil.withTemporaryDirectory { tmp =>
+  def runReportsMissingCWD(): Unit = TestUtil.withinWorkspace { tmp =>
     val nonExisting = "does-not-exist"
     val cwd = tmp.resolve(nonExisting)
     run(cwd, Array.empty) {
@@ -126,15 +126,14 @@ class ForkerSpec {
   }
 
   @Test
-  def runHasCorrectWorkingDirectory(): Unit = TestUtil.withTemporaryDirectory { tmp =>
+  def runHasCorrectWorkingDirectory(): Unit = TestUtil.withinWorkspace { tmp =>
     val cwd = tmp.resolve("expected-dir")
-    Files.createDirectory(cwd)
+    Files.createDirectory(cwd.underlying)
     run(cwd, Array.empty) {
       case (exitCode, messages) =>
-        val expected = "info" -> s"CWD: ${cwd.toRealPath()}"
+        val expected = "info" -> s"CWD: ${cwd.underlying.toRealPath()}"
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(expected), s"$messages did not contain $expected")
     }
   }
-
 }

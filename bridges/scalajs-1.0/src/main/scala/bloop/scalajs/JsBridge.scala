@@ -43,6 +43,7 @@ object JsBridge {
   def link(
       config: JsConfig,
       project: Project,
+      classpath: Array[Path],
       runMain: java.lang.Boolean,
       mainClass: Option[String],
       target: Path,
@@ -61,8 +62,7 @@ object JsBridge {
     }
 
     val cache = new IRFileCache().newCache
-    val irClasspath =
-      FileScalaJSIRContainer.fromClasspath(project.compilationClasspath.map(_.toFile))
+    val irClasspath = FileScalaJSIRContainer.fromClasspath(classpath.map(_.toFile))
     val irFiles = cache.cached(irClasspath)
 
     val moduleInitializers = mainClass match {

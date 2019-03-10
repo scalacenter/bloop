@@ -16,7 +16,7 @@ val benchmarkBridge = project
     releaseEarly := { () },
     skip in publish := true,
     bloopGenerate in Compile := None,
-    bloopGenerate in Test := None,
+    bloopGenerate in Test := None
   )
 
 /***************************************************************************************************/
@@ -42,7 +42,6 @@ val backend = project
       Dependencies.scalazConcurrent,
       Dependencies.coursier,
       Dependencies.coursierCache,
-      Dependencies.coursierScalaz,
       Dependencies.libraryManagement,
       Dependencies.configDirectories,
       Dependencies.sourcecode,
@@ -71,7 +70,7 @@ val jsonConfig210 = project
         Dependencies.circeCore,
         Dependencies.circeGeneric,
         compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
-        Dependencies.scalacheck % Test,
+        Dependencies.scalacheck % Test
       )
     }
   )
@@ -92,7 +91,7 @@ val jsonConfig211 = project
       List(
         Dependencies.circeParser,
         Dependencies.circeDerivation,
-        Dependencies.scalacheck % Test,
+        Dependencies.scalacheck % Test
       )
     }
   )
@@ -113,7 +112,7 @@ val jsonConfig212 = project
       List(
         Dependencies.circeParser,
         Dependencies.circeDerivation,
-        Dependencies.scalacheck % Test,
+        Dependencies.scalacheck % Test
       )
     }
   )
@@ -126,7 +125,6 @@ lazy val launcher: Project = project
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
-      Dependencies.coursierScalaz,
       Dependencies.nuprocess,
       Dependencies.ipcsocket,
       Dependencies.junit % Test,
@@ -171,7 +169,7 @@ val benchmarks = project
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
   .settings(
-    skip in publish := true,
+    skip in publish := true
   )
 
 val integrations = file("integrations")
@@ -207,14 +205,16 @@ val gradleBloop211 = project
   .settings(BuildDefaults.gradlePluginBuildSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
-  .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile)
+  .settings(
+    target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
+  )
   .settings(
     sourceDirectories in Test := Nil,
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211)).value,
     bloopGenerate in Test := None,
     test in Test := Def.task {
       Keys.streams.value.log.error("Run 'gradleBloopTests/test' instead to test the gradle plugin.")
-    },
+    }
   )
 
 lazy val gradleBloop212 = project
@@ -225,7 +225,9 @@ lazy val gradleBloop212 = project
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212).value)
-  .settings(target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile)
+  .settings(
+    target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
+  )
   .settings(
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value
   )
@@ -290,7 +292,7 @@ lazy val nativeBridge = project
     name := "bloop-native-bridge",
     libraryDependencies += Dependencies.scalaNativeTools,
     javaOptions in Test ++= jvmOptions,
-    fork in Test := true,
+    fork in Test := true
   )
 
 /* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
@@ -362,7 +364,7 @@ addCommandAlias(
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
     "createLocalHomebrewFormula",
-    "createLocalScoopFormula",
+    "createLocalScoopFormula"
   ).mkString(";", ";", "")
 )
 
