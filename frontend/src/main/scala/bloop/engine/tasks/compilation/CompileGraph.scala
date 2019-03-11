@@ -233,7 +233,7 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        Task.mapBoth(ongoingCompilationTask, replayEventsTask) {
+        val processDeduplication = Task.mapBoth(ongoingCompilationTask, replayEventsTask) {
           case (resultDag, _) =>
             def finishDeduplication(result: PartialCompileResult): PartialCompileResult = {
               result match {
@@ -272,6 +272,8 @@ object CompileGraph {
                 resultDag
             }
         }
+
+        processDeduplication.executeOn(ExecutionContext.ioScheduler)
       }
     }
   }
