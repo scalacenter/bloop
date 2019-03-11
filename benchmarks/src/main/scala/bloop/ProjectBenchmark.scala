@@ -41,9 +41,9 @@ class ProjectBenchmark {
       path
     }
 
-    sbt = existing(AbsolutePath(TestUtil.getBloopConfigDir("sbt")))
-    lichess = existing(AbsolutePath(TestUtil.getBloopConfigDir("lichess")))
-    akka = existing(AbsolutePath(TestUtil.getBloopConfigDir("akka")))
+    sbt = existing(AbsolutePath(TestUtil.getConfigDirForBenchmark("sbt")))
+    lichess = existing(AbsolutePath(TestUtil.getConfigDirForBenchmark("lichess")))
+    akka = existing(AbsolutePath(TestUtil.getConfigDirForBenchmark("akka")))
   }
 
   @Benchmark

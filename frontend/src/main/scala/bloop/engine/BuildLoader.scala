@@ -40,8 +40,10 @@ object BuildLoader {
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
       DebugFilter.Compilation
     )
+
     val all = configFiles.map(f => Task(Project.fromBytesAndOrigin(f.bytes, f.origin, logger)))
-    Task.gatherUnordered(all).executeOn(ExecutionContext.scheduler)
+    val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
+    Task.sequence(groupTasks).map(_.flatten).executeOn(ExecutionContext.ioScheduler)
   }
 
   /**
