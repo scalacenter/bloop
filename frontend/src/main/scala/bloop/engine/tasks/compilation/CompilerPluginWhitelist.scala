@@ -95,8 +95,8 @@ object CompilerPluginWhitelist {
                 case WorkItem(pluginCompilerFlag, idx, p) =>
                   shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
                     case scala.util.Success(cache) =>
-                      pluginPromises.remove(pluginCompilerFlag)
                       p.success(cache)
+                      pluginPromises.remove(pluginCompilerFlag)
                       cachePluginResults(idx) = cache
                     case scala.util.Failure(t) => p.failure(t)
                   }
@@ -155,7 +155,8 @@ object CompilerPluginWhitelist {
       tracer: BraveTracer,
       logger: Logger
   ): Task[Boolean] = {
-    Task {
+    // Note we use eval here because the consumer makes sure it gets its own thread
+    Task.eval {
       val jarList = pluginCompilerFlag.stripPrefix("-Xplugin:")
       jarList.split(java.io.File.pathSeparator).headOption match {
         case Some(mainPluginJar) =>

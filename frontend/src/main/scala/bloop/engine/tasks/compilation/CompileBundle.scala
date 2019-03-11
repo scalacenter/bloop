@@ -93,6 +93,7 @@ case class CompileSourcesAndInstance(
 )
 
 object CompileBundle {
+  implicit val filter = bloop.logging.DebugFilter.Compilation
   def computeFrom(
       inputs: CompileGraph.BundleInputs,
       reporter: ObservedReporter,
@@ -113,17 +114,17 @@ object CompileBundle {
 
       // Dependency classpath is not yet complete, but the hashes only cares about jars
       val classpathHashesTask = bloop.io.ClasspathHasher
-        .hash(compileDependenciesData.dependencyClasspath, 30, tracer)
+        .hash(compileDependenciesData.dependencyClasspath, 10, tracer)
         .executeOn(ExecutionContext.ioScheduler)
 
       val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
-          .findAndHashSourcesInProject(project, 20)
-          // Sort is important because
+          .findAndHashSourcesInProject(project, 10)
           .map(_.sortBy(_.source.syntax))
           .executeOn(ExecutionContext.ioScheduler)
       }
 
+      logger.debug(s"Computing sources and classpath hashes for ${project.name}")
       Task.mapBoth(classpathHashesTask, sourceHashesTask) { (classpathHashes, sourceHashes) =>
         val originPath = project.origin.path.syntax
         val originHash = project.origin.hash

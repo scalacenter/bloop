@@ -66,22 +66,9 @@ object SourceHasher {
       case None => Task(observer.onComplete())
     }
 
-    /*
-    val hashedSources = new ConcurrentLinkedDeque[CompilerOracle.HashedSource]()
-    val copyFilesInParallel = observable.consumeWith(Consumer.foreachParallelAsync(parallelUnits) {
-      source =>
-        Task {
-          val hash = ByteHasher.hashFileContents(source.toFile)
-          val hashed = CompilerOracle.HashedSource(AbsolutePath(source), hash)
-          hashedSources.add(hashed)
-          ()
-        }
-    })
-     */
-
     val copyFilesInParallel = observable
       .mapAsync(parallelUnits) { source =>
-        Task {
+        Task.eval {
           val hash = ByteHasher.hashFileContents(source.toFile)
           CompilerOracle.HashedSource(AbsolutePath(source), hash)
         }
@@ -89,14 +76,7 @@ object SourceHasher {
       .toListL
 
     Task.mapBoth(discoverFileTree, copyFilesInParallel) {
-      case (_, sources) =>
-        sources
-      /*
-      import scala.collection.JavaConverters._
-      hashedSources.iterator.asScala.foldLeft(Nil: List[CompilerOracle.HashedSource]) {
-        case (acc, hashed) => hashed :: acc
-      }
-     */
+      case (_, sources) => sources
     }
   }
 }
