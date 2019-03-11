@@ -24,7 +24,10 @@ import bloop.logging.{
   Logger,
   RecordingLogger
 }
+
 import _root_.monix.eval.Task
+import _root_.monix.execution.Scheduler
+
 import org.junit.Assert
 import sbt.internal.inc.bloop.ZincInternals
 
@@ -96,13 +99,17 @@ object TestUtil {
     }
   }
 
-  def await[T](duration: Duration)(t: Task[T]): T = {
-    val handle = t.runAsync(ExecutionContext.scheduler)
+  def await[T](duration: Duration, scheduler: Scheduler)(t: Task[T]): T = {
+    val handle = t.runAsync(scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t
       case i: InterruptedException => handle.cancel(); throw i
     }
+  }
+
+  def await[T](duration: Duration)(t: Task[T]): T = {
+    await(duration, ExecutionContext.scheduler)(t)
   }
 
   def interpreterTask(a: Action, state: State): Task[State] = {

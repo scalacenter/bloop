@@ -101,19 +101,23 @@ object BspServer {
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
       val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
 
+      def error(msg: String): Unit = servicesProvider.stateAfterExecution.logger.error(msg)
       server.startTask
-        .map(_ => servicesProvider.stateAfterExecution)
-        .doOnFinish { result =>
+        .doOnCancel {
           Task {
-            result.foreach { t =>
-              servicesProvider.stateAfterExecution.withError(
-                s"BSP server stopped by ${t.getMessage}"
-              )
-            }
-
-            handle.serverSocket.close()
+            error(s"BSP server cancelled, closing socket...")
+            try closeSocket(cmd, socket)
+            finally handle.serverSocket.close()
           }
         }
+        .doOnFinish { result =>
+          Task {
+            result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
+            try closeSocket(cmd, socket)
+            finally handle.serverSocket.close()
+          }
+        }
+        .map(_ => servicesProvider.stateAfterExecution)
     }
 
     initServer(cmd, state).materialize.flatMap {
@@ -123,7 +127,10 @@ object BspServer {
             Task.now(state.withError(s"BSP server failed to start with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
-        promiseWhenStarted.foreach(_.failure(t))
+        promiseWhenStarted.foreach { p =>
+          if (!p.isCompleted) p.failure(t)
+        }
+
         Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
     }
   }

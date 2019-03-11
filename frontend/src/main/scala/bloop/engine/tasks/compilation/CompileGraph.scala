@@ -215,6 +215,15 @@ object CompileGraph {
             }
         }
 
+        /* The task set up by another process whose memoized result we're going to
+         * reuse. To prevent blocking compilations, we execute this task (which will
+         * block until its completion is done) in the IO thread pool, which is
+         * unbounded. This makes sure that the blocking threads *never* block
+         * the computation pool, which could produce a hang in the build server.
+         */
+        val ongoingCompilationTask =
+          ongoingCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
+
         /**
          * Deduplicate and change the implementation of the task returning the
          * deduplicate compiler result to trigger a syncing process to keep the
@@ -224,7 +233,7 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        Task.mapBoth(ongoingCompilation.traversal, replayEventsTask) {
+        Task.mapBoth(ongoingCompilationTask, replayEventsTask) {
           case (resultDag, _) =>
             def finishDeduplication(result: PartialCompileResult): PartialCompileResult = {
               result match {
@@ -232,7 +241,9 @@ object CompileGraph {
                   val newCompilerResult = compilerResult.flatMap {
                     case s: Compiler.Result.Success =>
                       // Wait on new classes to be populated for correctness
-                      Task.fromFuture(s.backgroundTasks).flatMap { _ =>
+                      val blockOnBackgroundInIOThread =
+                        Task.fromFuture(s.backgroundTasks).executeOn(ExecutionContext.ioScheduler)
+                      blockOnBackgroundInIOThread.flatMap { _ =>
                         val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
                         val populatedClassesDir = s.products.newClassesDir
                         val config =

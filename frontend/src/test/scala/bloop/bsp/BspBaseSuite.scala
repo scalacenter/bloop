@@ -45,7 +45,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       implicit val client: LanguageClient,
       private val serverStates: Observable[State]
   ) {
-
+    val status = state.status
     def withinSession(f: ManagedBspTestState => Unit): Unit = {
       try f(
         new ManagedBspTestState(
