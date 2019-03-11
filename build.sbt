@@ -53,7 +53,8 @@ val backend = project
       Dependencies.zt,
       Dependencies.brave,
       Dependencies.zipkinSender,
-      Dependencies.pprint
+      Dependencies.pprint,
+      Dependencies.difflib
     )
   )
 

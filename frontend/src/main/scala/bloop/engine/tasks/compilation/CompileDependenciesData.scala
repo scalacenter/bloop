@@ -22,8 +22,8 @@ case class CompileDependenciesData(
   ): Array[AbsolutePath] = {
     // Important: always place new classes dir before read-only classes dir
     val classesDirs = Array(newClassesDir, readOnlyClassesDir)
-    val projectEntries = project.pickValidResources ++ classesDirs
-    projectEntries ++ dependencyClasspath
+    val resources = project.pickValidResources
+    resources ++ classesDirs ++ dependencyClasspath
   }
 }
 

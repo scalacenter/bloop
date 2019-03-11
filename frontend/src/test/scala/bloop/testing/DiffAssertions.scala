@@ -1,5 +1,7 @@
 package bloop.testing
 
+import bloop.util.Diff
+
 import org.scalactic.source.Position
 
 import scala.collection.JavaConverters._
@@ -58,7 +60,7 @@ object DiffAssertions extends FunSuiteLike {
       expectedTitle: String
   )(implicit source: Position): Boolean = colored {
     if (obtained.isEmpty && !expected.isEmpty) fail("Obtained empty output!")
-    val result = unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
+    val result = Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
     if (result.isEmpty) true
     else {
       throw new TestFailedException(
@@ -96,7 +98,7 @@ object DiffAssertions extends FunSuiteLike {
     sb.append(
       s"""#${header("Diff")}
          #${stripTrailingWhitespace(
-           unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
+           Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
          )}"""
         .stripMargin('#')
     )
@@ -137,36 +139,5 @@ object DiffAssertions extends FunSuiteLike {
         }
         throw ex
     }
-  }
-
-  def unifiedDiff(
-      original: String,
-      revised: String,
-      obtained: String,
-      expected: String
-  ): String =
-    compareContents(
-      splitIntoLines(original),
-      splitIntoLines(revised),
-      obtained,
-      expected
-    )
-
-  private def splitIntoLines(string: String): Seq[String] =
-    string.trim.replace("\r\n", "\n").split("\n")
-
-  private def compareContents(
-      original: Seq[String],
-      revised: Seq[String],
-      obtained: String,
-      expected: String
-  ): String = {
-    val diff = difflib.DiffUtils.diff(original.asJava, revised.asJava)
-    if (diff.getDeltas.isEmpty) ""
-    else
-      difflib.DiffUtils
-        .generateUnifiedDiff(obtained, expected, original.asJava, diff, 1)
-        .asScala
-        .mkString("\n")
   }
 }

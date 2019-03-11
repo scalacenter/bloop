@@ -1,5 +1,6 @@
 package sbt.internal.inc.bloop.internal
 
+import bloop.util.Diff
 import bloop.logging.{DebugFilter, Logger}
 
 import xsbti.compile.{Changes, CompileAnalysis, FileHash, MiniSetup}
@@ -21,9 +22,9 @@ final class BloopLookup(
       if (classpathHash == newPreviousClasspathHash) None
       else {
         logger.debug("Classpath hash changed!")
-        logger.debug(s"Before: ${previousClasspathHash}")
-        logger.debug(s"Trimmed down: ${newPreviousClasspathHash}")
-        logger.debug(s"After: ${classpathHash}")
+        val previousClasspath = pprint.apply(newPreviousClasspathHash, height = Int.MaxValue).render
+        val newClasspath = pprint.apply(classpathHash, height = Int.MaxValue).render
+        logger.debug(Diff.unifiedDiff(previousClasspath, newClasspath, "", ""))
         Some(classpathHash)
       }
     }
