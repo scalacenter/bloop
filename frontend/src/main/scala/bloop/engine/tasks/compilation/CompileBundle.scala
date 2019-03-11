@@ -119,7 +119,7 @@ object CompileBundle {
 
       val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
-          .findAndHashSourcesInProject(project, 10)
+          .findAndHashSourcesInProject(project, 20)
           .map(_.sortBy(_.source.syntax))
           .executeOn(ExecutionContext.ioScheduler)
       }
