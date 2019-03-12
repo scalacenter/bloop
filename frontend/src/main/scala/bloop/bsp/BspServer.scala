@@ -53,10 +53,7 @@ object BspServer {
     cmd match {
       case _: Commands.TcpBsp if !socket.isClosed() => socket.close()
       case _: Commands.WindowsLocalBsp if !socket.isClosed() => socket.close()
-      case _: Commands.UnixLocalBsp if !socket.isClosed() =>
-        if (!socket.isInputShutdown) socket.shutdownInput()
-        if (!socket.isOutputShutdown) socket.shutdownOutput()
-        socket.close()
+      case _: Commands.UnixLocalBsp if !socket.isClosed() => socket.close()
       case _ => ()
     }
   }

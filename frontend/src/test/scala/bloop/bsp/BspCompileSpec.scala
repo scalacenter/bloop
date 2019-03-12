@@ -7,10 +7,13 @@ import bloop.util.{TestUtil, TestProject}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 
-object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
-object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
+object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp, true)
+object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local, false)
 
-class BspCompileSpec(override val protocol: BspProtocol) extends BspBaseSuite {
+class BspCompileSpec(
+    override val protocol: BspProtocol,
+    override val runOnWindows: Boolean
+) extends BspBaseSuite {
   test("initialize and exit a build via BSP") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
