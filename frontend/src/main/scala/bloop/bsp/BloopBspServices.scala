@@ -90,6 +90,7 @@ final class BloopBspServices(
   /** Returns the final state after BSP commands that can be cached by bloop. */
   def stateAfterExecution: State = {
     // Use logger of the initial state instead of the bsp forwarder logger
+    pprint.log("Giving you the state after execution")
     currentState.copy(logger = callSiteState.logger)
   }
 
