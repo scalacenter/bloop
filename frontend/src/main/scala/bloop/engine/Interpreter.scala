@@ -105,9 +105,10 @@ object Interpreter {
     Aggregate(projects.map(p => state.build.getDagFor(p)))
 
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
+    import ExecutionContext.{scheduler, ioScheduler}
     BspServer
-      .run(cmd, state, RelativePath(".bloop"), None, None, ExecutionContext.ioScheduler)
-      .executeOn(ExecutionContext.ioScheduler)
+      .run(cmd, state, RelativePath(".bloop"), None, None, scheduler, ioScheduler)
+      .executeOn(ioScheduler)
   }
 
   private[bloop] def watch(projects: List[Project], state: State)(

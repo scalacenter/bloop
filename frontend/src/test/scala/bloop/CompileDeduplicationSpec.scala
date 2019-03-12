@@ -81,7 +81,7 @@ class CompileDeduplicationSpec {
 
       // Proceed to spawn the driver BSP client and block on its result
       val bspDiagnostics1 = {
-        val cmd = BspClientTest.createTcpBspCommand(configDir, false)
+        val cmd = BspClientTest.createTcpBspCommand(configDir, verbose = false)
         val userState = Some(compiledMacrosState.copy(logger = bspLogger1))
         BspClientTest.runCompileTest(cmd, actions, configDir, userState = userState)
       }

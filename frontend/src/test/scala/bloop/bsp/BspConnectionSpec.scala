@@ -27,14 +27,15 @@ class BspConnectionSpec(
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "a", Nil)
       val projects = List(`A`)
+      val configDir = TestProject.populateWorkspace(workspace, projects)
 
-      def createClient(logger: RecordingLogger): Task[Unit] = {
+      def createClient: Task[Unit] = {
         Task {
           val logger = new RecordingLogger(ansiCodesSupported = false)
           val bspLogger = new BspClientLogger(logger)
-          val configDir = TestProject.populateWorkspace(workspace, projects)
           val bspCommand = createBspCommand(configDir)
           val state = TestUtil.loadTestProject(configDir.underlying, logger)
+
           // Run the clients on our own unbounded IO scheduler to allow client concurrency
           val scheduler = Some(poolFor6Clients)
           val bspState = openBspConnection(
@@ -42,44 +43,41 @@ class BspConnectionSpec(
             bspCommand,
             configDir,
             bspLogger,
-            userScheduler = scheduler
+            userIOScheduler = scheduler
           )
-          // Note we open an unmanaged state and we exit without sending `shutdown`/`exit`
+
           assert(bspState.status == ExitStatus.Ok)
+          // Note we opened an unmanaged state and we exit without sending `shutdown`/`exit`
           checkConnectionIsInitialized(logger)
+
+          // Wait 500ms to let the rest of clients to connect to server and then simulate dropout
+          Thread.sleep(500)
+          bspState.simulateClientDroppingOut()
         }
       }
 
-      val logger1 = new RecordingLogger(ansiCodesSupported = false)
-      val logger2 = new RecordingLogger(ansiCodesSupported = false)
-      val logger3 = new RecordingLogger(ansiCodesSupported = false)
-      val logger4 = new RecordingLogger(ansiCodesSupported = false)
-      val logger5 = new RecordingLogger(ansiCodesSupported = false)
-      val logger6 = new RecordingLogger(ansiCodesSupported = false)
+      val client1 = createClient
+      val client2 = createClient
+      val client3 = createClient
+      val client4 = createClient
+      val client5 = createClient
+      val client6 = createClient
 
-      val client1 = createClient(logger1)
-      val client2 = createClient(logger2)
-      val client3 = createClient(logger3)
-      val client4 = createClient(logger4)
-      val client5 = createClient(logger5)
-      val client6 = createClient(logger6)
-
+      // A pool of 20 threads can only support 6 clients concurrently (more will make it fail)
       val firstBatchOfClients = List(client1, client2, client3, client4, client5, client6)
       TestUtil.await(FiniteDuration(5, "s"), poolFor6Clients) {
         Task.gatherUnordered(firstBatchOfClients).map(_ => ())
       }
 
-      val logger7 = new RecordingLogger(ansiCodesSupported = false)
-      val logger8 = new RecordingLogger(ansiCodesSupported = false)
-      val logger9 = new RecordingLogger(ansiCodesSupported = false)
-      val logger10 = new RecordingLogger(ansiCodesSupported = false)
+      val client7 = createClient
+      val client8 = createClient
+      val client9 = createClient
+      val client10 = createClient
+      val client11 = createClient
+      val client12 = createClient
 
-      val client7 = createClient(logger7)
-      val client8 = createClient(logger8)
-      val client9 = createClient(logger9)
-      val client10 = createClient(logger10)
-
-      val secondBatchOfClients = List(client7)//, client8, client9, client10)
+      // If we can connect six more clients, it means resources were correctly cleaned up
+      val secondBatchOfClients = List(client7, client8, client9, client10, client11, client12)
       TestUtil.await(FiniteDuration(5, "s"), poolFor6Clients) {
         Task.gatherUnordered(secondBatchOfClients).map(_ => ())
       }

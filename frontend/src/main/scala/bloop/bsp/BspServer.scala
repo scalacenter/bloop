@@ -61,10 +61,11 @@ object BspServer {
   def run(
       cmd: ValidatedBsp,
       state: State,
-      configPath: RelativePath,
+      config: RelativePath,
       promiseWhenStarted: Option[Promise[Unit]],
-      observer: Option[Observer.Sync[State]],
-      scheduler: Scheduler
+      obs: Option[Observer.Sync[State]],
+      scheduler: Scheduler,
+      ioScheduler: Scheduler
   ): Task[State] = {
     def uri(handle: ConnectionHandle): String = {
       handle match {
@@ -83,18 +84,18 @@ object BspServer {
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
-      val exitStatus = Atomic(0)
+      val status = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
       val bspLogger = new BspClientLogger(logger)
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider =
-        new BloopBspServices(state, client, configPath, in, exitStatus, observer)
-      val bloopServices = servicesProvider.services
+      val provider =
+        new BloopBspServices(state, client, config, in, status, obs, scheduler, ioScheduler)
+      val bloopServices = provider.services
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
-      val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
+      val server = new LanguageServer(messages, client, bloopServices, ioScheduler, bspLogger)
 
-      def error(msg: String): Unit = servicesProvider.stateAfterExecution.logger.error(msg)
+      def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
       server.startTask
         .doOnCancel {
           Task {
@@ -110,7 +111,7 @@ object BspServer {
             finally handle.serverSocket.close()
           }
         }
-        .map(_ => servicesProvider.stateAfterExecution)
+        .map(_ => provider.stateAfterExecution)
     }
 
     initServer(cmd, state).materialize.flatMap {

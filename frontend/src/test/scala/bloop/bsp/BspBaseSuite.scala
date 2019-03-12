@@ -40,12 +40,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
       state: State,
       closeServer: Task[Unit],
+      closeStreamsForcibly: () => Unit,
       currentCompileIteration: AtomicInt,
       diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client: LanguageClient,
       private val serverStates: Observable[State]
   ) {
     val status = state.status
+
     def withinSession(f: ManagedBspTestState => Unit): Unit = {
       try f(
         new ManagedBspTestState(
@@ -61,6 +63,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         TestUtil.await(FiniteDuration(1, "s"))(closeServer)
       }
     }
+
+    def simulateClientDroppingOut(): Unit = closeStreamsForcibly()
   }
 
   final class ManagedBspTestState(
@@ -175,7 +179,9 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
   def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
     protocol match {
-      case BspProtocol.Tcp => createTcpBspCommand(configDir)
+      case BspProtocol.Tcp =>
+        val portNumber = 5202 + scala.util.Random.nextInt(2000)
+        createTcpBspCommand(configDir, portNumber)
       case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
     }
   }
@@ -198,15 +204,26 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       configDirectory: AbsolutePath,
       logger: BspClientLogger[_],
       allowError: Boolean = false,
-      userScheduler: Option[Scheduler] = None
+      userIOScheduler: Option[Scheduler] = None,
+      userComputationScheduler: Option[Scheduler] = None
   ): UnmanagedBspTestState = {
     val compileIteration = AtomicInt(0)
-    val readyToConnect = Some(Promise[Unit]())
+    val readyToConnect = Promise[Unit]()
     val subject = ConcurrentSubject.behavior[State](state)(ExecutionContext.ioScheduler)
-    val scheduler = userScheduler.getOrElse(bspDefaultScheduler)
+    val computationScheduler = userComputationScheduler.getOrElse(ExecutionContext.scheduler)
+    val ioScheduler = userIOScheduler.getOrElse(bspDefaultScheduler)
     val path = RelativePath(configDirectory.underlying.getFileName)
-    val bspServer = BspServer.run(cmd, state, path, readyToConnect, Some(subject), scheduler)
-    val bspServerStarted = bspServer.runAsync(scheduler)
+    val bspServer = BspServer.run(
+      cmd,
+      state,
+      path,
+      Some(readyToConnect),
+      Some(subject),
+      computationScheduler,
+      ioScheduler
+    )
+
+    val bspServerStarted = bspServer.runAsync(ioScheduler)
     val stringifiedDiagnostics = new ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder]()
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
@@ -226,8 +243,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val addDiagnosticsHandler =
         addServicesTest(configDirectory, () => compileIteration.get, addToStringReport)
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
-      val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(scheduler)
+      val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
+      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -242,8 +259,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       )
 
       val initializedTask = {
-        // Add just a slight delay of 10ms before starting the connection
-        initializeServer.delayExecution(FiniteDuration(10, "ms")).flatMap { _ =>
+        val startedServer = Task.fromFuture(readyToConnect.future)
+        initializeServer.delayExecutionWith(startedServer).flatMap { _ =>
           Task.fromFuture(endpoints.Build.initialized.notify(bsp.InitializedBuildParams()))
         }
       }
@@ -257,21 +274,36 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         }
       }
 
+      // This task closes the streams to simulate a client dropping out,
+      // but doesn't properly close the server. This happens on purpose.
+      val closeStreamsForcibly = () => {
+        if (!socket.isClosed) {
+          socket.shutdownInput()
+          // Close output only if socket is recognized as non closed
+          if (!socket.isClosed) {
+            socket.shutdownOutput()
+          }
+          // Don't close socket on purpose
+        }
+      }
+
       initializedTask.map { _ =>
-        (closeTask.memoize, lsClient, subject)
+        (closeTask.memoize, closeStreamsForcibly, lsClient, subject)
       }
     }
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.runAsync(scheduler)
+    val bspClient = bspClientExecution.runAsync(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 30s
-      val (closeServer, client, stateObservable) = Await.result(bspClient, FiniteDuration(30, "s"))
+      val (closeServer, closeStreamsForcibly, client, stateObservable) =
+        Await.result(bspClient, FiniteDuration(30, "s"))
       new UnmanagedBspTestState(
         state,
         closeServer,
+        closeStreamsForcibly,
         compileIteration,
         stringifiedDiagnostics,
         client,

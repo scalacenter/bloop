@@ -15,6 +15,9 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
 import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
+
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{
   BuildTargetIdentifier,
   MessageType,
@@ -24,11 +27,10 @@ import ch.epfl.scala.bsp.{
 }
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 
 import monix.eval.Task
 import monix.reactive.Observer
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
 
 import scala.collection.concurrent.TrieMap
@@ -41,7 +43,9 @@ final class BloopBspServices(
     relativeConfigPath: RelativePath,
     socketInput: InputStream,
     exitStatus: AtomicInt,
-    observer: Option[Observer.Sync[State]]
+    observer: Option[Observer.Sync[State]],
+    computationScheduler: Scheduler,
+    ioScheduler: Scheduler
 ) {
   private implicit val debugFilter: DebugFilter = DebugFilter.Bsp
   private type ProtocolError = JsonRpcResponse.Error
@@ -62,7 +66,7 @@ final class BloopBspServices(
    * library work) to the IO thread pool. This is critical for performance.
    */
   def schedule[T](t: BspEndpointResponse[T]): BspEndpointResponse[T] = {
-    Task.fork(t, ExecutionContext.scheduler).asyncBoundary(ExecutionContext.ioScheduler)
+    Task.fork(t, computationScheduler).asyncBoundary(ioScheduler)
   }
 
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes

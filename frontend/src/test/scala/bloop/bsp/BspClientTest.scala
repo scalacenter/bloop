@@ -9,6 +9,7 @@ import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
 import bloop.engine.{State, Run}
 import bloop.data.{Project, ClientInfo}
 import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
+import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
@@ -67,10 +68,14 @@ trait BspClientTest {
 
   def createTcpBspCommand(
       configDir: AbsolutePath,
+      portNumber: Int = 5101,
       verbose: Boolean = false
   ): Commands.ValidatedBsp = {
     val opts = if (verbose) CliOptions.default.copy(verbose = true) else CliOptions.default
-    validateBsp(Commands.Bsp(protocol = BspProtocol.Tcp, cliOptions = opts), configDir)
+    validateBsp(
+      Commands.Bsp(protocol = BspProtocol.Tcp, port = portNumber, cliOptions = opts),
+      configDir
+    )
   }
 
   def setupBspCommand(
@@ -105,7 +110,7 @@ trait BspClientTest {
       userState: Option[State] = None,
       userScheduler: Option[Scheduler] = None
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Option[T] = {
-    val scheduler = userScheduler.getOrElse(defaultScheduler)
+    val ioScheduler = userScheduler.getOrElse(defaultScheduler)
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
     val state = userState.getOrElse {
@@ -119,7 +124,9 @@ trait BspClientTest {
     }
 
     val configPath = RelativePath(configDirectory.underlying.getFileName)
-    val bspServer = BspServer.run(cmd, state, configPath, None, None, scheduler).runAsync(scheduler)
+    val bspServer = BspServer
+      .run(cmd, state, configPath, None, None, ExecutionContext.scheduler, ioScheduler)
+      .runAsync(ioScheduler)
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
       val out = socket.getOutputStream
@@ -127,8 +134,8 @@ trait BspClientTest {
       implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
       val services = customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
-      val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(scheduler)
+      val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
+      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -161,7 +168,7 @@ trait BspClientTest {
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.runAsync(scheduler)
+    val bspClient = bspClientExecution.runAsync(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 60s

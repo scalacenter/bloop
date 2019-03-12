@@ -119,7 +119,10 @@ object TestProject {
     Files.createDirectories(configDir.underlying)
     projects.foreach { project =>
       val configFile = configDir.resolve(s"${project.config.name}.json")
-      Files.write(configFile.underlying, project.toJson.getBytes(StandardCharsets.UTF_8))
+      Files.write(
+        configFile.underlying,
+        project.toJson.getBytes(StandardCharsets.UTF_8)
+      )
     }
     configDir
   }
