@@ -182,12 +182,21 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |}
           """.stripMargin
 
-        // Second (non-compiling) version of `A`
+        // Second (non-compiling) version of `B`
         val `B2.scala` =
           """/B.scala
             |object B {
             |  macros.SleepMacro.sleep()
             |  def foo(i: Int): String = i
+            |}
+          """.stripMargin
+
+        // Third (compiling) slow version of `B`
+        val `B3.scala` =
+          """/B.scala
+            |object B {
+            |  macros.SleepMacro.sleep()
+            |  def foo(s: String): String = s.toString
             |}
           """.stripMargin
       }
@@ -326,7 +335,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
           Await.result(fourthCompilation, FiniteDuration(2, TimeUnit.SECONDS))
         val fifthCompiledState =
           Await.result(fifthCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
-        val sixthCompiledState =
+        val secondBspState =
           Await.result(sixthCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
 
         checkDeduplication(cliLogger4, isDeduplicated = false)
@@ -373,7 +382,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          sixthCompiledState.lastDiagnostics(`B`),
+          secondBspState.lastDiagnostics(`B`),
           """#2: task start 4
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
@@ -387,6 +396,43 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         """.stripMargin
         )
 
+        writeFile(`B`.srcFor("B.scala"), Sources.`B3.scala`)
+
+        val cliLogger7 = new RecordingLogger(ansiCodesSupported = false)
+
+        val seventhCompilation = fifthCompiledState.withLogger(cliLogger7).compileHandle(`B`)
+        val eigthCompilation = secondBspState.compileHandle(`B`, secondDelay)
+
+        val seventhCompiledState =
+          Await.result(seventhCompilation, FiniteDuration(2, TimeUnit.SECONDS))
+        val thirdBspState =
+          Await.result(eigthCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
+
+        checkDeduplication(cliLogger7, isDeduplicated = false)
+        checkDeduplication(bspLogger, isDeduplicated = true)
+
+        assertNoDiff(
+          cliLogger7.compilingInfos.mkString(System.lineSeparator()),
+          s"""
+             |Compiling b (1 Scala source)
+         """.stripMargin
+        )
+
+        assert(cliLogger7.errors.size == 0)
+        assertNoDiff(
+          secondBspState.lastDiagnostics(`B`),
+          """#3: task start 6
+            |  -> Msg: Compiling b (1 Scala source)
+            |  -> Data kind: compile-task
+            |#3: b/src/B.scala
+            |  -> List()
+            |  -> reset = true
+            |#3: task finish 6
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'b'
+            |  -> Data kind: compile-report
+        """.stripMargin
+        )
       }
     }
   }

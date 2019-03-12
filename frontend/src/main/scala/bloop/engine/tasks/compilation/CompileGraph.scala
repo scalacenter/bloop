@@ -180,6 +180,7 @@ object CompileGraph {
       } else {
         val rawLogger = logger.underlying
         rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name}")
+        pprint.log(s"Deduplicating compilation for ${bundle.project.name} for client ${client}")
         val reporter = bundle.reporter.underlying
         // Replay events asynchronously to waiting for the compilation result
         val replayEventsTask = ongoingCompilation.mirror.foreachL {
