@@ -10,13 +10,10 @@ import monix.execution.{Scheduler, ExecutionModel}
 
 import scala.concurrent.duration.FiniteDuration
 
-object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp, true)
-object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local, false)
+object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
+object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
 
-class BspConnectionSpec(
-    override val protocol: BspProtocol,
-    override val runOnWindows: Boolean
-) extends BspBaseSuite {
+class BspConnectionSpec(override val protocol: BspProtocol) extends BspBaseSuite {
   // A custom pool we use to make sure we don't block on threads
   val poolFor6Clients: Scheduler = Scheduler(
     java.util.concurrent.Executors.newFixedThreadPool(20),
@@ -80,7 +77,7 @@ class BspConnectionSpec(
       val client10 = createClient(logger10)
 
       val secondBatchOfClients = List(client7)//, client8, client9, client10)
-      TestUtil.await(FiniteDuration(5, "s"), poolFor6Clients) {
+      TestUtil.await(FiniteDuration(10, "s"), poolFor6Clients) {
         Task.gatherUnordered(secondBatchOfClients).map(_ => ())
       }
     }

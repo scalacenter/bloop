@@ -57,7 +57,10 @@ object BspServer {
     cmd match {
       case _: Commands.TcpBsp if !socket.isClosed() => socket.close()
       case _: Commands.WindowsLocalBsp if !socket.isClosed() => socket.close()
-      case _: Commands.UnixLocalBsp if !socket.isClosed() => socket.close()
+      case _: Commands.UnixLocalBsp if !socket.isClosed() =>
+        if (!socket.isInputShutdown) socket.shutdownInput()
+        if (!socket.isOutputShutdown) socket.shutdownOutput()
+        socket.close()
       case _ => ()
     }
   }
@@ -100,7 +103,6 @@ object BspServer {
 
       def error(msg: String): Unit = servicesProvider.stateAfterExecution.logger.error(msg)
       server.startTask
-      /*
         .doOnCancel {
           Task {
             error(s"BSP server cancelled, closing socket...")
@@ -108,10 +110,8 @@ object BspServer {
             finally handle.serverSocket.close()
           }
         }
-         */
         .doOnFinish { result =>
           Task {
-            pprint.log("BSP server stopped")
             result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
             try closeSocket(cmd, socket)
             finally handle.serverSocket.close()
