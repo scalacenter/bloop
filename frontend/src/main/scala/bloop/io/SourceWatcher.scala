@@ -29,7 +29,7 @@ final class SourceWatcher private (
     val ngout = state0.commonOptions.ngout
     def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
       // Someone that wants this to be supported by Windows will need to make it work for all terminals
-      if (!BspServer.isWindows)
+      if (!bloop.util.CrossPlatform.isWindows)
         logger.info("\u001b[H\u001b[2J") // Clean the terminal before acting on the file event action
       logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event")
       action(state)

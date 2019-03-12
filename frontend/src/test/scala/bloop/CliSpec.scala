@@ -71,7 +71,7 @@ class CliSpec {
   @Test def FailAtLengthySocket(): Unit = {
     // See http://www.cs.utah.edu/plt/popl16/doc/unix-socket/index.html
     val tempBytes = Validate.bytesOf(tempDir.toString)
-    val limit = if (BspServer.isMac) 104 else 108
+    val limit = if (bloop.util.CrossPlatform.isMac) 104 else 108
     val missing = limit - tempBytes
     val lengthyName = "a" * missing
 
@@ -83,7 +83,7 @@ class CliSpec {
     )
 
     val msg =
-      if (BspServer.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
+      if (bloop.util.CrossPlatform.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
       else Feedback.excessiveSocketLength(socketPath)
     checkIsCliError(Validate.bsp(bspCommand, isWindows = false), msg)
   }

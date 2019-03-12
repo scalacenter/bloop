@@ -10,7 +10,7 @@ import bloop.data.Project
 import bloop.engine.{BuildLoader, Run}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, RecordingLogger}
-import bloop.util.{TestProject, TestUtil}
+import bloop.util.{TestProject, TestUtil, CrossPlatform}
 import org.junit.Test
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, ScalaBuildTarget, endpoints}
@@ -469,7 +469,7 @@ class BspProtocolSpec {
   import BspClientTest.{createLocalBspCommand, createTcpBspCommand}
   @Test def TestInitializationViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testInitialization(createLocalBspCommand(configDir, tempDir))
+    if (!CrossPlatform.isWindows) testInitialization(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestInitializationViaTcp(): Unit = {
@@ -483,7 +483,7 @@ class BspProtocolSpec {
 
   @Test def TestBuildTargetsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testBuildTargets(createLocalBspCommand(configDir, tempDir))
+    if (!CrossPlatform.isWindows) testBuildTargets(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestBuildTargetsViaTcp(): Unit = {
@@ -492,7 +492,7 @@ class BspProtocolSpec {
 
   @Test def TestSourcesViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testSources(createLocalBspCommand(configDir, tempDir))
+    if (!CrossPlatform.isWindows) testSources(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestSourcesViaTcp(): Unit = {
@@ -501,7 +501,7 @@ class BspProtocolSpec {
 
   @Test def TestDependencySourcesViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testDependencySources(createLocalBspCommand(configDir, tempDir))
+    if (!CrossPlatform.isWindows) testDependencySources(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestDependencySourcesViaTcp(): Unit = {
@@ -510,7 +510,7 @@ class BspProtocolSpec {
 
   @Test def TestScalacOptionsViaLocal(): Unit = {
     // Doesn't work with Windows at the moment, see #281
-    if (!BspServer.isWindows) testScalacOptions(createLocalBspCommand(configDir, tempDir))
+    if (!CrossPlatform.isWindows) testScalacOptions(createLocalBspCommand(configDir, tempDir))
   }
 
   @Test def TestScalacOptionsViaTcp(): Unit = {
@@ -519,7 +519,7 @@ class BspProtocolSpec {
 
   // TODO(jvican): Enable these tests back after partial migration to v2 is done
   /*  @Test def TestTestViaLocal(): Unit = {
-    if (!BspServer.isWindows) testTest(createLocalBspCommand(configDir))
+    if (!CrossPlatform.isWindows) testTest(createLocalBspCommand(configDir))
   }
 
   @Test def TestTestViaTcp(): Unit = {
@@ -527,7 +527,7 @@ class BspProtocolSpec {
   }
 
   @Test def TestRunViaLocal(): Unit = {
-    if (!BspServer.isWindows) testRun(createLocalBspCommand(configDir))
+    if (!CrossPlatform.isWindows) testRun(createLocalBspCommand(configDir))
   }
 
   @Test def TestRunViaTcp(): Unit = {
@@ -535,7 +535,7 @@ class BspProtocolSpec {
   }*/
 
   @Test def TestFailedCompileViaLocal(): Unit = {
-    if (!BspServer.isWindows)
+    if (!CrossPlatform.isWindows)
       testFailedCompileOnInvalidInputs(createLocalBspCommand(configDir, tempDir))
   }
 

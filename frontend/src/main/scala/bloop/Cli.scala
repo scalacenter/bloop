@@ -5,6 +5,7 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 import bloop.bsp.BspServer
+import bloop.util.CrossPlatform
 import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
@@ -164,7 +165,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand, BspServer.isWindows)
+                Validate.bsp(newCommand, CrossPlatform.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>

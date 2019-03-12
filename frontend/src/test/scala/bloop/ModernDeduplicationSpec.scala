@@ -205,8 +205,8 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
       writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
 
       loadBspState(workspace, projects, bspLogger) { bspState =>
-        val firstDelay = Some(random(100, 100))
-        val secondDelay = Some(random(100, 300))
+        val firstDelay = Some(random(200, 100))
+        val secondDelay = Some(random(200, 200))
         val firstCompilation = bspState.compileHandle(`B`)
         val secondCompilation = compiledState.withLogger(cliLogger1).compileHandle(`B`, firstDelay)
         val thirdCompilation = compiledState.withLogger(cliLogger2).compileHandle(`B`, secondDelay)

@@ -187,7 +187,7 @@ class RunSpec {
     val state = loadTestProject("cross-test-build-0.6")
     val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
     val targetMsg = {
-      if (BspServer.isWindows) "cross-test-build-0.6\\test-project\\jvm"
+      if (bloop.util.CrossPlatform.isWindows) "cross-test-build-0.6\\test-project\\jvm"
       else "cross-test-build-0.6/test-project/jvm"
     }
 

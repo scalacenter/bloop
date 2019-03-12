@@ -4,8 +4,10 @@ import java.nio.charset.Charset
 import java.nio.file.Files
 
 import bloop.bsp.BspServer
-import bloop.engine.{Action, Exit, Feedback, Print, Run, State}
 import bloop.io.AbsolutePath
+import bloop.util.CrossPlatform
+import bloop.engine.{Action, Exit, Feedback, Print, Run, State}
+
 import monix.eval.Task
 
 object Validate {
@@ -25,7 +27,7 @@ object Validate {
         cliError(Feedback.existingSocketFile(socket), commonOptions)
       case Some(socket) if !Files.exists(socket.getParent) =>
         cliError(Feedback.missingParentOfSocket(socket), commonOptions)
-      case Some(socket) if BspServer.isMac && bytesOf(socket.toString) > 104 =>
+      case Some(socket) if CrossPlatform.isMac && bytesOf(socket.toString) > 104 =>
         cliError(Feedback.excessiveSocketLengthInMac(socket), commonOptions)
       case Some(socket) if bytesOf(socket.toString) > 108 =>
         cliError(Feedback.excessiveSocketLength(socket), commonOptions)

@@ -122,7 +122,7 @@ object Interpreter {
         State.stateCache.updateBuild(state)
       }
 
-    if (!BspServer.isWindows)
+    if (!bloop.util.CrossPlatform.isWindows)
       state.logger.info("\u001b[H\u001b[2J")
     // Force the first execution before relying on the file watching task
     fg(state).flatMap(newState => watcher.watch(newState, fg))

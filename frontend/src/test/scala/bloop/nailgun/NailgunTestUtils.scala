@@ -9,7 +9,7 @@ import java.util.concurrent.{ExecutionException, TimeUnit}
 import bloop.Server
 import bloop.bsp.BspServer
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
-import bloop.util.TestUtil
+import bloop.util.{TestUtil, CrossPlatform}
 import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
 import monix.eval.Task
 import monix.execution.Scheduler
@@ -37,7 +37,8 @@ abstract class NailgunTestUtils {
    * @return The result of executing `op` on the client.
    */
   def withServerTask[T](log: RecordingLogger, config: Path, noExit: Boolean)(
-      op: (RecordingLogger, Client) => T): Task[T] = {
+      op: (RecordingLogger, Client) => T
+  ): Task[T] = {
     implicit val ctx: DebugFilter = DebugFilter.All
 
     val oldIn = NailgunTestUtils.initialIn
@@ -47,9 +48,11 @@ abstract class NailgunTestUtils {
     // Wrap in Nailgun's thread local so that tests work in both bloop and sbt
     val inStream = new BloopThreadLocalInputStream(IOUtils.toInputStream(""))
     val outStream = new ThreadLocalPrintStream(
-      new PrintStream(ProcessLogger.toOutputStream(log.serverInfo)))
+      new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
+    )
     val errStream = new ThreadLocalPrintStream(
-      new PrintStream(ProcessLogger.toOutputStream(log.serverError)))
+      new PrintStream(ProcessLogger.toOutputStream(log.serverError))
+    )
 
     val serverIsStarted = scala.concurrent.Promise[Unit]()
     val serverIsFinished = scala.concurrent.Promise[Unit]()
@@ -80,7 +83,7 @@ abstract class NailgunTestUtils {
         /* Exit on Windows seems to return a failing exit code (but no logs are logged).
          * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
          * for the sake of development I'm merging this since this method will be rarely called. */
-        if (BspServer.isWindows) {
+        if (CrossPlatform.isWindows) {
           val exitStatusCode = client.issue("exit")
           log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
         } else client.success("exit")
@@ -113,7 +116,8 @@ abstract class NailgunTestUtils {
    * @return The result of executing `op` on the client.
    */
   def withServer[T](config: Path, noExit: Boolean, log: => RecordingLogger)(
-      op: (RecordingLogger, Client) => T): T = {
+      op: (RecordingLogger, Client) => T
+  ): T = {
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
     val f0 = withServerTask(log, config, noExit)(op)
     // Note we cannot use restart because our task uses promises that cannot be completed twice
@@ -135,7 +139,8 @@ abstract class NailgunTestUtils {
    * @return The result of executing `op` on the logger and client.
    */
   def withServerInProject[T](name: String, noExit: Boolean = false)(
-      op: (RecordingLogger, Client) => T): T = {
+      op: (RecordingLogger, Client) => T
+  ): T = {
     withServer(TestUtil.getBloopConfigDir(name), noExit, new RecordingLogger())(op)
   }
 
@@ -156,7 +161,7 @@ abstract class NailgunTestUtils {
 
     private def processBuilder(cmd: Seq[String]): ProcessBuilder = {
       val cmdBase =
-        if (BspServer.isWindows) "python" :: clientPath.toString :: Nil
+        if (CrossPlatform.isWindows) "python" :: clientPath.toString :: Nil
         else clientPath.toString :: Nil
       val builder = new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
       builder.redirectInput(ProcessBuilder.Redirect.INHERIT)

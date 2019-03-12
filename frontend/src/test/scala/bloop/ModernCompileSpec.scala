@@ -458,7 +458,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       )
 
       val cannotFindSymbolError: String = {
-        if (bloop.bsp.BspServer.isMac) {
+        if (bloop.util.CrossPlatform.isMac) {
           """[E1] a/src/B.java:1
             |     cannot find symbol
             |       symbol: class A
