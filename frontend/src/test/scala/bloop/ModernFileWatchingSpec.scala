@@ -72,30 +72,20 @@ object ModernFileWatchingSpec extends BaseSuite {
           .toListL
           .map(ps => assert(totalIterations == ps.count(_._2.contains(HasIterationStoppedMsg))))
 
-      //val missingFile = Files.createFile(`C`.baseDir.resolve("E.scala"))
       TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
         for {
           _ <- waitUntilWatchIteration(1)
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
+          _ <- Task {
+            val firstWatchedState = compiledState.getLatestSavedStateGlobally()
+            assert(firstWatchedState.status == ExitStatus.Ok)
+            assertValidCompilationState(firstWatchedState, projects)
+          }
           _ <- waitUntilWatchIteration(2)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
           _ <- waitUntilWatchIteration(2)
         } yield ()
       }
-
-      logger.dump()
-
-    /*
-      assert(compiledState.status == ExitStatus.Ok)
-      assertValidCompilationState(compiledState, List(`A`, `B`))
-      assertNoDiff(
-        logger.compilingInfos.sorted.mkString(System.lineSeparator),
-        """Compiling a (2 Scala sources)
-          |Compiling b (1 Scala source)""".stripMargin
-      )
-     */
-
-    //assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
     }
   }
 

@@ -160,6 +160,18 @@ trait BloopHelpers {
       getLastSuccessfulResultFor(project).map(_.classesDir)
     }
 
+    def getLatestSavedStateGlobally(): TestState = {
+      val globalMutableState = State.stateCache.getStateFor(
+        build.origin,
+        client,
+        state.pool,
+        state.commonOptions,
+        state.logger
+      )
+
+      globalMutableState.map(s => new TestState(s)).getOrElse(this)
+    }
+
     def withLogger(logger: Logger): TestState =
       new TestState(state.copy(logger = logger))
   }
