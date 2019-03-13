@@ -22,6 +22,7 @@ import sbt.{
   ProjectRef,
   ResolvedProject,
   Test,
+  IntegrationTest,
   ThisBuild,
   ThisProject
 }
@@ -132,11 +133,24 @@ object BloopDefaults {
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
   )
 
-  lazy val configSettings: Seq[Def.Setting[_]] =
+  /**
+   * These config settings can be applied in configuration that have not yet
+   * been enabled in a project. Therefore, their implementations must protect
+   * themselves fro depending on tasks that do not exist in the scope (which
+   * happens when the configuration is disabled but a task refers to it
+   * nonetheless). See an example in the definition of `bloopInternalClasspath`
+   * or the implementation of `bloopGenerate`.
+   */
+  def configSettings(config: Configuration): Seq[Def.Setting[_]] =
     List(
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
-      BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
+      BloopKeys.bloopInternalClasspath in config := Def.taskDyn {
+        Keys.productDirectories.in(config).?.value match {
+          case Some(config) => bloopInternalDependencyClasspath
+          case None => Def.task(Nil: Seq[(File, File)])
+        }
+      }.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None,
       BloopKeys.bloopMainClass := None,
@@ -144,8 +158,9 @@ object BloopDefaults {
     ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
-    sbt.inConfig(Compile)(configSettings) ++
-      sbt.inConfig(Test)(configSettings) ++
+    sbt.inConfig(Compile)(configSettings(Compile)) ++
+      sbt.inConfig(Test)(configSettings(Test)) ++
+      sbt.inConfig(IntegrationTest)(configSettings(IntegrationTest)) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
@@ -399,8 +414,8 @@ object BloopDefaults {
       case Some(_) =>
         val mapping = sbt.Classpaths.mapped(
           dep.configuration,
-          List("compile", "test"),
-          List("compile", "test"),
+          List("compile", "test", "it"),
+          List("compile", "test", "it"),
           "compile",
           "*->compile"
         )
@@ -655,8 +670,10 @@ object BloopDefaults {
     val project = Keys.thisProject.value
     val configuration = Keys.configuration.value
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+    val existsIntegrationTest = Keys.productDirectories.in(IntegrationTest).?.value.isDefined
 
     if (isMetaBuild && configuration == Test) Def.task(None)
+    else if (configuration == IntegrationTest && !existsIntegrationTest) Def.task(None)
     else {
       Def.task {
         val projectName = projectNameFromString(project.id, configuration, logger)

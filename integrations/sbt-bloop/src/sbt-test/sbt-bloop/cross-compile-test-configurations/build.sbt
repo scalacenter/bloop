@@ -15,6 +15,7 @@ val bar = project.dependsOn(foo % "test->compile;test->test")
 val baz = project.dependsOn(bar % "compile->test")
 val woo = project.dependsOn(foo % "test->compile")
 val yay = project.dependsOn(foo)
+val zee = project.configs(IntegrationTest).dependsOn(foo % "it->test")
 
 val allBloopConfigFiles = settingKey[List[File]]("All config files to test")
 allBloopConfigFiles in ThisBuild := {
@@ -29,6 +30,9 @@ allBloopConfigFiles in ThisBuild := {
   val wooTestConfig = bloopDir./("woo-test.json")
   val yayConfig = bloopDir./("yay.json")
   val yayTestConfig = bloopDir./("yay-test.json")
+  val zeeConfig = bloopDir./("zee.json")
+  val zeeTestConfig = bloopDir./("zee-test.json")
+  val zeeItConfig = bloopDir./("zee-it.json")
   List(
     fooConfig,
     fooTestConfig,
@@ -39,7 +43,10 @@ allBloopConfigFiles in ThisBuild := {
     wooConfig,
     wooTestConfig,
     yayConfig,
-    yayTestConfig
+    yayTestConfig,
+    zeeConfig,
+    zeeTestConfig,
+    zeeItConfig
   )
 }
 
@@ -80,6 +87,11 @@ checkBloopFile in ThisBuild := {
   // Default if no configuration is dependency to `Compile` (double checked by '-> yay/test:compile')
   val yayTestConfigContents = readConfigFor("yay-test", allConfigs)
   assert(yayTestConfigContents.project.dependencies.sorted == List("foo", "yay"))
+
+  // Test that zee-it contains a dependency to foo-test
+  val zeeItConfigContents = readConfigFor("zee-it", allConfigs)
+  println(zeeItConfigContents.project.dependencies.sorted)
+  assert(zeeItConfigContents.project.dependencies.sorted == List("foo-test", "zee"))
 }
 
 val checkSourceAndDocs = taskKey[Unit]("Check source and doc jars are resolved and persisted")
@@ -93,8 +105,10 @@ checkSourceAndDocs in ThisBuild := {
   val modules = fooBloopFile.project.resolution.get.modules
   assert(modules.nonEmpty, "Modules are empty!")
   val modulesEmpty = modules.map(m => m -> m.artifacts.nonEmpty)
-  assert(modulesEmpty.forall(_._2),
-         s"Modules ${modulesEmpty.filter(!_._2).map(_._1).mkString(", ")} have empty artifacts!")
+  assert(
+    modulesEmpty.forall(_._2),
+    s"Modules ${modulesEmpty.filter(!_._2).map(_._1).mkString(", ")} have empty artifacts!"
+  )
   val modulesWithSourceAndDocs = modules.map { m =>
     m -> {
       (m.artifacts.exists(_.classifier.contains("javadoc")) &&
