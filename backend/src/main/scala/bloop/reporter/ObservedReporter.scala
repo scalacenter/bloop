@@ -42,7 +42,7 @@ final class ObservedReporter(
 
   override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = {
     underlying.reportStartCompilation(previousProblems)
-    registerAction(ReporterAction.ReportStartCompilation(previousProblems))
+    registerAction(ReporterAction.ReportStartCompilation)
   }
 
   override def reportEndCompilation(
@@ -50,7 +50,7 @@ final class ObservedReporter(
       code: bsp.StatusCode
   ): Unit = {
     underlying.reportEndCompilation(previousSuccessfulProblems, code)
-    registerAction(ReporterAction.ReportEndCompilation(previousSuccessfulProblems, code))
+    registerAction(ReporterAction.ReportEndCompilation(code))
   }
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {

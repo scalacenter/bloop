@@ -71,6 +71,8 @@ object CompileTask {
       val project = bundle.project
       val logger = bundle.logger
       val reporter = bundle.reporter
+      val previousResult = bundle.latestResult
+      val lastSuccessful = bundle.lastSuccessfulResult
       val compileProjectTracer = topLevelTracer.startNewChildTracer(
         s"compile ${project.name}",
         "compile.target" -> project.name
@@ -84,16 +86,6 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResult)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
-          val (previousResult, lastSuccessful) = {
-            if (pipeline) {
-              // Disable incremental compilation if pipelining is enabled
-              Compiler.Result.Empty -> LastSuccessfulResult.empty(project)
-            } else {
-              state.results.latestResult(project) ->
-                state.results.lastSuccessfulResultOrEmpty(project)
-            }
-          }
-
           val readOnlyClassesDir = lastSuccessful.classesDir
           val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
           val compileOut = CompileOutPaths(
@@ -177,16 +169,29 @@ object CompileTask {
 
     def setup(inputs: CompileGraph.BundleInputs): Task[CompileBundle] = {
       // Create a multicast observable stream to allow multiple mirrors of loggers
-      val (observer, observable) = {
+      val (observer, obs) = {
         Observable.multicast[Either[ReporterAction, LoggerAction]](
           MulticastStrategy.replay
         )(ExecutionContext.ioScheduler)
       }
 
+      // Compute the previous and last successful results from the results cache
+      val (previous, last) = {
+        import inputs.project
+        if (pipeline) {
+          // Disable incremental compilation if pipelining is enabled
+          Compiler.Result.Empty -> LastSuccessfulResult.empty(project)
+        } else {
+          val latestResult = state.results.latestResult(project)
+          val lastSuccessfulResult = state.results.lastSuccessfulResultOrEmpty(project)
+          latestResult -> lastSuccessfulResult
+        }
+      }
+
       val logger = ObservedLogger(rawLogger, observer)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(inputs, reporter, logger, observable, topLevelTracer)
+      CompileBundle.computeFrom(inputs, reporter, last, previous, logger, obs, topLevelTracer)
     }
 
     val client = state.client

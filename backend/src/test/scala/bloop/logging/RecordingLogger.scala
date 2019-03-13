@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.collection.JavaConverters.asScalaIteratorConverter
 
-final class RecordingLogger(
+class RecordingLogger(
     debug: Boolean = false,
     debugOut: Option[PrintStream] = None,
     val ansiCodesSupported: Boolean = true,

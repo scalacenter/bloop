@@ -8,6 +8,7 @@ import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
+import bloop.util.JavaCompat.EnrichOptional
 import bloop.engine._
 import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
@@ -180,14 +181,19 @@ object CompileGraph {
       } else {
         val rawLogger = logger.underlying
         rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name}")
-        pprint.log(s"Deduplicating compilation for ${bundle.project.name} for client ${client}")
         val reporter = bundle.reporter.underlying
+        val analysis = bundle.lastSuccessfulResult.previous.analysis().toOption
+        val previousSuccessfulProblems =
+          Compiler.previousProblemsFromSuccessfulCompilation(analysis)
+        val previousProblems =
+          Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
+
         // Replay events asynchronously to waiting for the compilation result
         val replayEventsTask = ongoingCompilation.mirror.foreachL {
           case Left(action) =>
             action match {
-              case a: ReporterAction.ReportStartCompilation =>
-                reporter.reportStartCompilation(a.previousProblems)
+              case ReporterAction.ReportStartCompilation =>
+                reporter.reportStartCompilation(previousProblems)
               case a: ReporterAction.ReportStartIncrementalCycle =>
                 reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
               case a: ReporterAction.ReportProblem => reporter.log(a.problem)
@@ -202,7 +208,7 @@ object CompileGraph {
               case ReporterAction.ReportCancelledCompilation =>
                 reporter.reportCancelledCompilation()
               case a: ReporterAction.ReportEndCompilation =>
-                reporter.reportEndCompilation(a.previousSuccessfulProblems, a.code)
+                reporter.reportEndCompilation(previousSuccessfulProblems, a.code)
             }
           case Right(action) =>
             action match {

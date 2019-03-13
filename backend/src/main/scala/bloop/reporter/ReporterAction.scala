@@ -6,9 +6,7 @@ import ch.epfl.scala.bsp
 
 sealed trait ReporterAction
 object ReporterAction {
-  final case class ReportStartCompilation(
-      previousProblems: List[ProblemPerPhase]
-  ) extends ReporterAction
+  final case object ReportStartCompilation extends ReporterAction
 
   final case class ReportStartIncrementalCycle(
       sources: Seq[File],
@@ -38,8 +36,5 @@ object ReporterAction {
 
   final case object ReportCancelledCompilation extends ReporterAction
 
-  final case class ReportEndCompilation(
-      previousSuccessfulProblems: List[ProblemPerPhase],
-      code: bsp.StatusCode
-  ) extends ReporterAction
+  final case class ReportEndCompilation(code: bsp.StatusCode) extends ReporterAction
 }

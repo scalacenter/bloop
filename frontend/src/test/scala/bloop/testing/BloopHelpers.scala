@@ -8,7 +8,7 @@ import bloop.cli.Commands
 import bloop.logging.{RecordingLogger, Logger}
 import bloop.util.{TestProject, TestUtil}
 import bloop.engine.caches.LastSuccessfulResult
-import bloop.engine.{State, Run, ExecutionContext, BuildLoader}
+import bloop.engine.{State, Run, ExecutionContext, BuildLoader, Dag}
 import bloop.config.{Config, ConfigEncoderDecoders}
 
 import scala.concurrent.duration.Duration
@@ -98,8 +98,8 @@ trait BloopHelpers {
     def results = state.results
     override def toString: String = pprint.apply(state, height = 500).render
 
-    def compileTask(project: TestProject): Task[TestState] = {
-      val compileTask = Run(Commands.Compile(List(project.config.name)))
+    def compileTask(project: TestProject, watch: Boolean = false): Task[TestState] = {
+      val compileTask = Run(Commands.Compile(List(project.config.name), watch = watch))
       TestUtil.interpreterTask(compileTask, state).map(new TestState(_))
     }
 
@@ -110,10 +110,11 @@ trait BloopHelpers {
 
     def compileHandle(
         project: TestProject,
-        delay: Option[FiniteDuration] = None
+        delay: Option[FiniteDuration] = None,
+        watch: Boolean = false
     ): CancelableFuture[TestState] = {
       val interpretedTask = {
-        val task = compileTask(project)
+        val task = compileTask(project, watch)
         delay match {
           case Some(duration) => task.delayExecution(duration)
           case None => task
@@ -140,6 +141,9 @@ trait BloopHelpers {
 
     def getProjectFor(project: TestProject): Project =
       build.getProjectFor(project.config.name).get
+
+    def getDagFor(project: TestProject): Dag[Project] =
+      build.getDagFor(getProjectFor(project))
 
     def getLastSuccessfulResultFor(project: TestProject): Option[LastSuccessfulResult] = {
       // To access the last successful result safely, we need to wait for background tasks to finish

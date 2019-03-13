@@ -159,7 +159,7 @@ class FileWatchingSpec {
 
         isIterationOver(observable, 3).map { _ =>
           testFuture.cancel()
-          val infos = logger.filterMessageByLabel("info")
+          val infos = logger.infos
           println(infos.mkString("\n"))
           targetMessages.foreach {
             case (msg, count) =>

@@ -102,7 +102,6 @@ final class BloopBspServices(
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
-    pprint.log(s"Reloading bsp state for ${config.syntax}")
     State.loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger).map { state0 =>
       /* Create a new state that has the previously compiled results in this BSP
        * client as the last compiled result available for a project. This is required
@@ -112,7 +111,6 @@ final class BloopBspServices(
        * had and therefore we can fail to reset diagnostics. */
       val newState = {
         val previous = previouslyFailedCompilations.toMap
-        pprint.log(previous)
         state0.copy(results = state0.results.replacePreviousResults(previous))
       }
 

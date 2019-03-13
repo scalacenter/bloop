@@ -18,6 +18,7 @@ final case class TestProject(
     config: Config.Project,
     deps: Option[List[TestProject]]
 ) {
+  def baseDir: AbsolutePath = AbsolutePath(config.directory)
   def srcFor(relPath: String): AbsolutePath =
     TestProject.srcFor(config.sources.map(AbsolutePath(_)), relPath)
   def externalClassFileFor(relPath: String): AbsolutePath = {

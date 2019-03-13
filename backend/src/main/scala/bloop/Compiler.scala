@@ -153,6 +153,7 @@ object Compiler {
     val logger = compileInputs.logger
     val tracer = compileInputs.tracer
     val compileOut = compileInputs.out
+    val cancelPromise = compileInputs.cancelPromise
     val externalClassesDir = compileOut.externalClassesDir.underlying
     val externalClassesDirPath = externalClassesDir.toString
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
@@ -275,7 +276,6 @@ object Compiler {
         IncOptions.create().withEnabled(!disableIncremental)
       }
 
-      val cancelPromise = compileInputs.cancelPromise
       val progress = Optional.of[CompileProgress](new BloopProgress(reporter, cancelPromise))
       val setup =
         Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
@@ -308,9 +308,12 @@ object Compiler {
     val reporter = compileInputs.reporter
 
     def cancel(): Unit = {
-      // Avoid illegal state exception if client cancellation promise is completed
-      if (!compileInputs.cancelPromise.isCompleted) {
-        compileInputs.cancelPromise.success(())
+      // Synchronize because for some weird reason Monix seems to be running this twice
+      cancelPromise.synchronized {
+        // Avoid illegal state exception if client cancellation promise is completed
+        if (!cancelPromise.isCompleted) {
+          compileInputs.cancelPromise.success(())
+        }
       }
 
       // Always report the compilation of a project no matter if it's completed
@@ -318,14 +321,9 @@ object Compiler {
     }
 
     val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
-    val previousSuccessfulProblems =
-      previousAnalysis.map(prev => AnalysisUtils.problemsFrom(prev)).getOrElse(Nil)
-    val previousProblems: List[ProblemPerPhase] = compileInputs.previousCompilerResult match {
-      case f: Compiler.Result.Failed => f.problems
-      case c: Compiler.Result.Cancelled => c.problems
-      case _: Compiler.Result.Success => previousSuccessfulProblems
-      case _ => Nil
-    }
+    val previousSuccessfulProblems = previousProblemsFromSuccessfulCompilation(previousAnalysis)
+    val previousProblems =
+      previousProblemsFromResult(compileInputs.previousCompilerResult, previousSuccessfulProblems)
 
     val mode = compileInputs.mode
     val manager = getClassFileManager()
@@ -466,6 +464,42 @@ object Compiler {
               Result.Failed(Nil, Some(t), elapsed, triggerBackgroundTask)
           }
       }
+  }
+
+  def analysisFrom(prev: PreviousResult): Option[CompileAnalysis] = {
+    InterfaceUtil.toOption(prev.analysis())
+  }
+
+  /**
+   * Returns the problems (infos/warnings) that were generated in the last
+   * successful incremental compilation. These problems are material for
+   * the correct handling of compiler reporters since they might be stateful
+   * with the clients (e.g. BSP reporter).
+   */
+  def previousProblemsFromSuccessfulCompilation(
+      analysis: Option[CompileAnalysis]
+  ): List[ProblemPerPhase] = {
+    analysis.map(prev => AnalysisUtils.problemsFrom(prev)).getOrElse(Nil)
+  }
+
+  /**
+   * the problems (errors/warnings/infos) that were generated in the
+   * last incremental compilation, be it successful or not. See
+   * [[previousProblemsFromSuccessfulCompilation]] for an explanation of why
+   * these problems are important for the bloop compilation.
+   *
+   * @see [[previousProblemsFromSuccessfulCompilation]]
+   */
+  def previousProblemsFromResult(
+      result: Compiler.Result,
+      previousSuccessfulProblems: List[ProblemPerPhase]
+  ): List[ProblemPerPhase] = {
+    result match {
+      case f: Compiler.Result.Failed => f.problems
+      case c: Compiler.Result.Cancelled => c.problems
+      case _: Compiler.Result.Success => previousSuccessfulProblems
+      case _ => Nil
+    }
   }
 
   /**

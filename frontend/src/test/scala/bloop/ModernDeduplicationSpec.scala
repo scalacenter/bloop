@@ -321,7 +321,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |'b' failed to compile.""".stripMargin
         )
 
-        // Repeat the same but this time running first the CLI compile
+        /* Repeat the same but this time the CLI client runs the compilation first */
 
         val cliLogger4 = new RecordingLogger(ansiCodesSupported = false)
         val cliLogger5 = new RecordingLogger(ansiCodesSupported = false)
@@ -400,7 +400,25 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val cliLogger7 = new RecordingLogger(ansiCodesSupported = false)
 
-        val seventhCompilation = fifthCompiledState.withLogger(cliLogger7).compileHandle(`B`)
+        /*
+         * Repeat the same (the CLI client drives the compilation first) but
+         * this time the latest result in cli client differs with that of the
+         * BSP client. This test proves that our deduplication logic uses
+         * client-specific data to populate reporters that then consume the
+         * stream of compilation events.
+         */
+
+        val newCliCompiledState = {
+          val underlyingState = fifthCompiledState.withLogger(cliLogger7).state
+          val newPreviousResults = Map(
+            // Use empty, remember we don't change last successful so incrementality works
+            fifthCompiledState.getProjectFor(`B`) -> Compiler.Result.Empty
+          )
+          val newResults = underlyingState.results.replacePreviousResults(newPreviousResults)
+          new TestState(underlyingState.copy(results = newResults))
+        }
+
+        val seventhCompilation = newCliCompiledState.compileHandle(`B`)
         val eigthCompilation = secondBspState.compileHandle(`B`, secondDelay)
 
         val seventhCompiledState =
@@ -419,6 +437,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assert(cliLogger7.errors.size == 0)
+
         assertNoDiff(
           secondBspState.lastDiagnostics(`B`),
           """#3: task start 6

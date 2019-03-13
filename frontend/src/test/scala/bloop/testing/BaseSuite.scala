@@ -15,7 +15,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
 import scala.collection.JavaConverters._
-
 import scala.reflect.ClassTag
 
 import utest.TestSuite
@@ -365,8 +364,16 @@ class BaseSuite extends TestSuite with BloopHelpers {
 
   def writeFile(path: AbsolutePath, contents: String): AbsolutePath = {
     import scala.util.Try
+    import java.nio.file.StandardOpenOption
     val body = Try(TestUtil.parseFile(contents)).map(_.contents).getOrElse(contents)
-    AbsolutePath(Files.write(path.underlying, body.getBytes(StandardCharsets.UTF_8)))
+    AbsolutePath(
+      Files.write(
+        path.underlying,
+        body.getBytes(StandardCharsets.UTF_8),
+        StandardOpenOption.SYNC,
+        StandardOpenOption.CREATE
+      )
+    )
   }
 
   override def utestAfterAll(): Unit = afterAll()

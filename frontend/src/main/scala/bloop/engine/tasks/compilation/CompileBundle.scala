@@ -9,6 +9,7 @@ import bloop.{Compiler, CompilerOracle, ScalaInstance, CompileProducts}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
 import bloop.tracing.BraveTracer
+import bloop.engine.caches.LastSuccessfulResult
 
 import java.io.File
 import java.nio.file.Path
@@ -18,7 +19,6 @@ import scala.collection.mutable
 import monix.eval.Task
 import monix.reactive.Observable
 
-import xsbti.compile.FileHash
 import xsbti.compile.PreviousResult
 
 /**
@@ -51,7 +51,9 @@ final case class CompileBundle(
     oracleInputs: CompilerOracle.Inputs,
     reporter: ObservedReporter,
     logger: ObservedLogger[Logger],
-    mirror: Observable[Either[ReporterAction, LoggerAction]]
+    mirror: Observable[Either[ReporterAction, LoggerAction]],
+    lastSuccessfulResult: LastSuccessfulResult,
+    latestResult: Compiler.Result
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
 
@@ -97,6 +99,8 @@ object CompileBundle {
   def computeFrom(
       inputs: CompileGraph.BundleInputs,
       reporter: ObservedReporter,
+      lastSuccessfulResult: LastSuccessfulResult,
+      lastResult: Compiler.Result,
       logger: ObservedLogger[Logger],
       mirror: Observable[Either[ReporterAction, LoggerAction]],
       tracer: BraveTracer
@@ -149,6 +153,7 @@ object CompileBundle {
           originPath,
           originHash
         )
+
         new CompileBundle(
           project,
           compileDependenciesData,
@@ -157,7 +162,9 @@ object CompileBundle {
           inputs,
           reporter,
           logger,
-          mirror
+          mirror,
+          lastSuccessfulResult,
+          lastResult
         )
       }
     }
