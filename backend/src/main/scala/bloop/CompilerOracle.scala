@@ -36,5 +36,18 @@ object CompilerOracle {
       val classpathHashCode = MurmurHash3.unorderedHash(classpath, sourcesHashCode)
       MurmurHash3.stringHash(originProjectPath, classpathHashCode)
     }
+
+    override def equals(other: Any): Boolean = {
+      other match {
+        case other: Inputs => this.hashCode == other.hashCode
+        case _ => false
+      }
+    }
+  }
+
+  object Inputs {
+    def emptyFor(originPath: String, projectHash: Int): Inputs = {
+      Inputs(Vector.empty, Vector.empty, originPath, projectHash)
+    }
   }
 }

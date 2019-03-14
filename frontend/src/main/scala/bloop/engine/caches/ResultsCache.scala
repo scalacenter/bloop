@@ -76,7 +76,7 @@ final case class ResultsCache private (
     val newAll = all + (project -> result)
     result match {
       case s: Compiler.Result.Success =>
-        val newSuccessful = LastSuccessfulResult(s.products, populateNewClassesDir)
+        val newSuccessful = LastSuccessfulResult(s.inputs, s.products, populateNewClassesDir)
         new ResultsCache(newAll, successful + (project -> newSuccessful))
       case Compiler.Result.Empty => new ResultsCache(newAll, successful)
       case r => new ResultsCache(newAll, successful)
@@ -138,12 +138,15 @@ object ResultsCache {
                         )
                         Result.Empty
                       } else {
+                        val originPath = p.origin.path.syntax
+                        val originHash = p.origin.hash
+                        val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath, originHash)
                         val dummyCancelable = CancelableFuture.successful(())
                         val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                         val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
                         val products =
                           bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
-                        Result.Success(reporter, products, 0L, dummyCancelable, false)
+                        Result.Success(inputs, reporter, products, 0L, dummyCancelable, false)
                       }
                     case None =>
                       logger.debug(

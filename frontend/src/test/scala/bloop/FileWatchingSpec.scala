@@ -42,15 +42,26 @@ object FileWatchingSpec extends BaseSuite {
             |object C extends A with B
           """.stripMargin
 
+        val `D.scala` =
+          """/D.scala
+            |object D
+          """.stripMargin
+
         val `C2.scala` =
           """/C.scala
             |object C2 extends A with B
+          """.stripMargin
+
+        val `D2.scala` =
+          """/D.scala
+            |object D extends A
           """.stripMargin
       }
 
       val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
       val `B` = TestProject(workspace, "b", List(Sources.`B.scala`))
-      val `C` = TestProject(workspace, "c", List(Sources.`C.scala`), List(`A`, `B`))
+      val `C` =
+        TestProject(workspace, "c", List(Sources.`C.scala`, Sources.`D.scala`), List(`A`, `B`))
       val projects = List(`A`, `B`, `C`)
 
       val initialState = loadState(workspace, projects, new RecordingLogger())
@@ -82,6 +93,9 @@ object FileWatchingSpec extends BaseSuite {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
+          _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
+          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
+          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
           _ <- waitUntilIteration(2)
           firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
@@ -158,6 +172,9 @@ object FileWatchingSpec extends BaseSuite {
           assert(initialWatchedState.status == ExitStatus.Ok)
         }
       }
+
+      scala.concurrent.Await
+        .result(futureWatchedCompiledState, FiniteDuration(1, TimeUnit.SECONDS))
     }
   }
 
