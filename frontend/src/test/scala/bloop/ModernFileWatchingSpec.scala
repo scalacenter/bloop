@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object ModernFileWatchingSpec extends BaseSuite {
-  test("simulate an incremental compiler session") {
+  test("simulate an incremental compiler session with file watching enabled") {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
       object Sources {
@@ -57,6 +57,7 @@ object ModernFileWatchingSpec extends BaseSuite {
       val compiledState = initialState.compile(`C`)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
+      compiledState.broadcastGlobally()
 
       val (logObserver, logsObservable) =
         Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
@@ -66,25 +67,96 @@ object ModernFileWatchingSpec extends BaseSuite {
         compiledState.withLogger(logger).compileHandle(`C`, watch = true)
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`C`))}"
-      def waitUntilWatchIteration(totalIterations: Int) =
-        logsObservable
-          .takeByTimespan(FiniteDuration(1, "s"))
-          .toListL
-          .map(ps => assert(totalIterations == ps.count(_._2.contains(HasIterationStoppedMsg))))
+      def waitUntilIteration(totalIterations: Int): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg)
+
+      def testValidLatestState: TestState = {
+        val state = compiledState.getLatestSavedStateGlobally()
+        assert(state.status == ExitStatus.Ok)
+        assertValidCompilationState(state, projects)
+        state
+      }
 
       TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
         for {
-          _ <- waitUntilWatchIteration(1)
+          _ <- waitUntilIteration(1)
+          initialWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
-          _ <- Task {
-            val firstWatchedState = compiledState.getLatestSavedStateGlobally()
-            assert(firstWatchedState.status == ExitStatus.Ok)
-            assertValidCompilationState(firstWatchedState, projects)
-          }
-          _ <- waitUntilWatchIteration(2)
+          _ <- waitUntilIteration(2)
+          firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
-          _ <- waitUntilWatchIteration(2)
-        } yield ()
+          _ <- waitUntilIteration(2)
+          secondWatchedState <- Task(testValidLatestState)
+        } yield {
+
+          assert(secondWatchedState.status == ExitStatus.Ok)
+          assertValidCompilationState(secondWatchedState, projects)
+
+          assert(
+            initialWatchedState.getLastSuccessfulResultFor(`C`) !=
+              firstWatchedState.getLastSuccessfulResultFor(`C`)
+          )
+
+          assert(
+            firstWatchedState.getLastSuccessfulResultFor(`C`) ==
+              secondWatchedState.getLastSuccessfulResultFor(`C`)
+          )
+        }
+      }
+    }
+  }
+
+  def waitUntilWatchIteration(
+      logsObservable: Observable[(String, String)],
+      totalIterations: Int,
+      targetMsg: String
+  ): Task[Unit] = {
+    logsObservable
+      .takeByTimespan(FiniteDuration(1, "s"))
+      .toListL
+      .map(ps => assert(totalIterations == ps.count(_._2.contains(targetMsg))))
+  }
+
+  test("cancel file watcher") {
+    TestUtil.withinWorkspace { workspace =>
+      import ExecutionContext.ioScheduler
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |class A {
+            |  def foo(s: String) = s.toString
+            |}
+          """.stripMargin
+      }
+
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val projects = List(`A`)
+
+      val initialState = loadState(workspace, projects, new RecordingLogger())
+      val compiledState = initialState.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val (logObserver, logsObservable) =
+        Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
+      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+
+      val futureWatchedCompiledState =
+        compiledState.withLogger(logger).compileHandle(`A`, watch = true)
+
+      val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`A`))}"
+      def waitUntilIteration(totalIterations: Int): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg)
+
+      TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS)) {
+        for {
+          _ <- waitUntilIteration(1)
+          initialWatchedState <- Task(compiledState.getLatestSavedStateGlobally())
+          _ <- Task(futureWatchedCompiledState.cancel())
+          _ <- waitUntilIteration(1)
+        } yield {
+          assert(initialWatchedState.status == ExitStatus.Ok)
+        }
       }
     }
   }

@@ -15,10 +15,14 @@ import monix.eval.Task
 final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedState]) {
 
   /**
-   * Gets the state associated to the build loaded from `path`.
+   * Gets a cached state for the following parameters.
    *
-   * @param path The path from which the build comes.
-   * @return The cached `State` wrapped in an `Option`.
+   * @param path The config path where the build is defined.
+   * @param client The client-specific information of the call-site.
+   * @param pool The session-specific pool.
+   * @param commonOptions The session-specific common options.
+   * @param logger The logger instance.
+   * @return The cached `State`, if any.
    */
   def getStateFor(
       path: AbsolutePath,
@@ -39,6 +43,19 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
         logger
       )
     }
+  }
+
+  /**
+   * Gets an updated state (if any) associated to the build of the given state,
+   * while keeping all the session-specific information in it.
+   *
+   * @param state The state that we want to find a newer replacement for.
+   * @return The newest state associated with the build of `state`.
+   */
+  def getUpdatedStateFrom(
+      state: State
+  ): Option[State] = {
+    getStateFor(state.build.origin, state.client, state.pool, state.commonOptions, state.logger)
   }
 
   /**

@@ -117,11 +117,13 @@ object Interpreter {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
-    val fg = (state: State) =>
-      f(state).map { state =>
+    val fg = (state: State) => {
+      val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
+      f(newState).map { state =>
         watcher.notifyWatch()
         State.stateCache.updateBuild(state)
       }
+    }
 
     if (!bloop.util.CrossPlatform.isWindows)
       state.logger.info("\u001b[H\u001b[2J")
