@@ -231,6 +231,9 @@ object CompileGraph {
         val ongoingCompilationTask =
           ongoingCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
+        val deduplicateStreamSideEffectsHandle =
+          replayEventsTask.runAsync(ExecutionContext.ioScheduler)
+
         /**
          * Deduplicate and change the implementation of the task returning the
          * deduplicate compiler result to trigger a syncing process to keep the
@@ -240,8 +243,8 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        val processDeduplication = Task.mapBoth(ongoingCompilationTask, replayEventsTask) {
-          case (resultDag, _) =>
+        val processDeduplication = ongoingCompilationTask.map {
+          case resultDag =>
             def finishDeduplication(result: PartialCompileResult): PartialCompileResult = {
               result match {
                 case s @ PartialSuccess(bundle, _, _, _, compilerResult) =>
@@ -264,6 +267,10 @@ object CompileGraph {
                           )
                         copyTask.map(_ => s)
                       }
+                    case r: Compiler.Result.Cancelled =>
+                      // Make sure to cancel the deduplicating task if compilation is cancelled
+                      deduplicateStreamSideEffectsHandle.cancel()
+                      Task.now(r)
                     case r => Task.now(r)
                   }
                   s.copy(result = newCompilerResult)
@@ -280,7 +287,12 @@ object CompileGraph {
             }
         }
 
-        processDeduplication.executeOn(ExecutionContext.ioScheduler)
+        val waitUntilDeduplicationFinishes = for {
+          result <- processDeduplication
+          _ <- Task.fromFuture(deduplicateStreamSideEffectsHandle)
+        } yield result
+
+        waitUntilDeduplicationFinishes.executeOn(ExecutionContext.ioScheduler)
       }
     }
   }

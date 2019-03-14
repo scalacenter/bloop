@@ -455,4 +455,108 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
       }
     }
   }
+
+  test("cancel deduplicated compilation finishes all clients") {
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |package macros
+            |
+            |import scala.reflect.macros.blackbox.Context
+            |import scala.language.experimental.macros
+            |
+            |object SleepMacro {
+            |  def sleep(): Unit = macro sleepImpl
+            |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+            |    import c.universe._
+            |    Thread.sleep(1000)
+            |    reify { () }
+            |  }
+            |}""".stripMargin
+
+        val `B.scala` =
+          """/B.scala
+            |object B {
+            |  def foo(s: String): String = s.toString
+            |}
+          """.stripMargin
+
+        val `B2.scala` =
+          """/B.scala
+            |object B {
+            |  macros.SleepMacro.sleep()
+            |  def foo(s: String): String = s.toString
+            |}
+          """.stripMargin
+      }
+
+      val cliLogger = new RecordingLogger(ansiCodesSupported = false)
+      val bspLogger = new RecordingLogger(ansiCodesSupported = false)
+
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val `B` = TestProject(workspace, "b", List(Sources.`B.scala`), List(`A`))
+
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, cliLogger)
+      val compiledState = state.compile(`B`)
+
+      writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
+
+      loadBspState(workspace, projects, bspLogger) { bspState =>
+        val firstDelay = Some(random(200, 100))
+        val firstCompilation = bspState.compileHandle(`B`)
+        val secondCompilation = compiledState.withLogger(cliLogger).compileHandle(`B`, firstDelay)
+
+        ExecutionContext.ioScheduler.scheduleOnce(
+          400,
+          TimeUnit.MILLISECONDS,
+          new Runnable {
+            override def run(): Unit = firstCompilation.cancel()
+          }
+        )
+
+        val firstCompiledState =
+          Await.result(firstCompilation, FiniteDuration(3, TimeUnit.SECONDS))
+        val secondCompiledState =
+          Await.result(secondCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
+
+        assert(firstCompiledState.status == ExitStatus.CompilationError)
+        assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
+        assertNoDiff(
+          bspLogger.infos.filterNot(_.contains("tcp")).mkString(System.lineSeparator()),
+          """
+            |request received: build/initialize
+            |BSP initialization handshake complete.
+            |Cancelling request "5"
+          """.stripMargin
+        )
+
+        assert(secondCompiledState.status == ExitStatus.CompilationError)
+        assertCancelledCompilation(secondCompiledState, List(`B`))
+
+        checkDeduplication(bspLogger, isDeduplicated = false)
+        checkDeduplication(cliLogger, isDeduplicated = true)
+
+        assertNoDiff(
+          firstCompiledState.lastDiagnostics(`B`),
+          s"""
+             |#1: task start 2
+             |  -> Msg: Compiling b (1 Scala source)
+             |  -> Data kind: compile-task
+             |#1: task finish 2
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'b'
+             |  -> Data kind: compile-report
+           """.stripMargin
+        )
+
+        assertNoDiff(
+          cliLogger.warnings.mkString(System.lineSeparator()),
+          "Cancelling compilation of b"
+        )
+      }
+    }
+  }
 }
