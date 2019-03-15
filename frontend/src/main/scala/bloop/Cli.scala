@@ -280,7 +280,15 @@ object Cli {
     val dir = configDirectory.underlying
     waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
       Interpreter.execute(action, currentState).map { newState =>
-        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        // Only update the build if the command is not a BSP long-running
+        // session. The BSP implementation reads and stores the state in every
+        // action, so updating the build at the end of the BSP session can
+        // override a newer state updated by newer clients which is unknown to BSP
+        action match {
+          case Run(_: Commands.ValidatedBsp, _) => ()
+          case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        }
+
         newState
       }
     }

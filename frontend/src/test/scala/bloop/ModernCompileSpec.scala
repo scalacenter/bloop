@@ -589,7 +589,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("cancel compilation with expensive compilation time") {
+  test("cancel slow compilation") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
