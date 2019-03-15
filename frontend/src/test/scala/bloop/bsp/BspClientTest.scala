@@ -21,7 +21,6 @@ import ch.epfl.scala.bsp.endpoints
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
-import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.duration.FiniteDuration
@@ -157,7 +156,7 @@ trait BspClientTest {
         _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
         _ = endpoints.Build.exit.notify(bsp.Exit())
       } yield {
-        BspServer.closeSocket(cmd, socket)
+        socket.close()
         otherCalls match {
           case Right(res) => Some(res)
           case Left(error) if allowError => None
@@ -184,7 +183,9 @@ trait BspClientTest {
   }
 
   def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
+    // Very important we use the socket implementations from ipcsocket for correctness
     import org.scalasbt.ipcsocket.UnixDomainSocket
+    import org.scalasbt.ipcsocket.Win32NamedPipeSocket
     val connectToServer = me.Task {
       cmd match {
         case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)

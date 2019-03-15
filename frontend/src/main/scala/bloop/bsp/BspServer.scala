@@ -49,15 +49,6 @@ object BspServer {
     }
   }
 
-  private[bloop] def closeSocket(cmd: Commands.ValidatedBsp, socket: java.net.Socket): Unit = {
-    cmd match {
-      case _: Commands.TcpBsp if !socket.isClosed() => socket.close()
-      case _: Commands.WindowsLocalBsp if !socket.isClosed() => socket.close()
-      case _: Commands.UnixLocalBsp if !socket.isClosed() => socket.close()
-      case _ => ()
-    }
-  }
-
   def run(
       cmd: ValidatedBsp,
       state: State,
@@ -96,18 +87,31 @@ object BspServer {
       val server = new LanguageServer(messages, client, bloopServices, ioScheduler, bspLogger)
 
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
-      server.startTask
+
+      // Only consume requests in batches of 4 per client
+      val consumer = messages.consumeWith(monix.reactive.Consumer.foreachParallelAsync(4) { msg =>
+        server
+          .handleMessage(msg)
+          .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
+          .onErrorRecover {
+            case monix.execution.misc.NonFatal(e) =>
+              bspLogger.error("Unhandled error", e)
+              ()
+          }
+      })
+
+      consumer
         .doOnCancel {
           Task {
             error(s"BSP server cancelled, closing socket...")
-            try closeSocket(cmd, socket)
+            try socket.close()
             finally handle.serverSocket.close()
           }
         }
         .doOnFinish { result =>
           Task {
             result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
-            try closeSocket(cmd, socket)
+            try socket.close()
             finally handle.serverSocket.close()
           }
         }

@@ -146,6 +146,7 @@ final class BloopBspServices(
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
     val client = ClientInfo.BspClientInfo(params.displayName, params.version, params.bspVersion)
+
     reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       clientInfo.success(client)

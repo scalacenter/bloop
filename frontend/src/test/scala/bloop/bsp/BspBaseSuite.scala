@@ -268,7 +268,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val closeTask = {
         endpoints.Build.shutdown.request(bsp.Shutdown()).flatMap { _ =>
           Task.fromFuture(endpoints.Build.exit.notify(bsp.Exit())).map { _ =>
-            BspServer.closeSocket(cmd, socket)
+            socket.close()
             cleanUpLastResources(cmd)
           }
         }
@@ -277,14 +277,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       // This task closes the streams to simulate a client dropping out,
       // but doesn't properly close the server. This happens on purpose.
       val closeStreamsForcibly = () => {
-        if (!socket.isClosed) {
-          socket.shutdownInput()
-          // Close output only if socket is recognized as non closed
-          if (!socket.isClosed) {
-            socket.shutdownOutput()
-          }
-          // Don't close socket on purpose
-        }
+        socket.close()
       }
 
       initializedTask.map { _ =>

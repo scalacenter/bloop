@@ -28,7 +28,7 @@ object Dependencies {
   val mavenScalaPluginVersion = "3.2.2"
   val gradleVersion = "3.0"
   val groovyVersion = "2.5.0"
-  val ipcsocketVersion = "1.0.0"
+  val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.4"
@@ -83,7 +83,7 @@ object Dependencies {
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
 
-  val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
+  val ipcsocket = "ch.epfl.scala" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
 
   val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
