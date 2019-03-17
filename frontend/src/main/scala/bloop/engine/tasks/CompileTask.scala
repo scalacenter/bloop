@@ -19,8 +19,9 @@ import bloop.reporter.{
   ObservedReporter
 }
 
-import java.nio.file.Files
 import java.util.UUID
+import java.nio.file.Files
+import java.util.concurrent.ConcurrentHashMap
 
 import monix.eval.Task
 import monix.execution.CancelableFuture
@@ -36,6 +37,9 @@ object CompileTask {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
+  private val lastSuccessfulResults =
+    new ConcurrentHashMap[AbsolutePath, LastSuccessfulResult]()
+
   def compile[UseSiteLogger <: Logger](
       state: State,
       dag: Dag[Project],
@@ -50,7 +54,7 @@ object CompileTask {
     val originUri = state.build.origin
     val cwd = originUri.getParent
     val topLevelTargets = Dag.directDependencies(List(dag)).mkString(", ")
-    val topLevelTracer = BraveTracer(
+    val rootTracer = BraveTracer(
       s"compile $topLevelTargets (transitively)",
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
@@ -58,7 +62,7 @@ object CompileTask {
       "compile.target" -> topLevelTargets
     )
 
-    val backgroundTaskTracer = topLevelTracer.toIndependentTracer(
+    val bgTracer = rootTracer.toIndependentTracer(
       s"background IO work after compiling $topLevelTargets (transitively)",
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
@@ -66,14 +70,14 @@ object CompileTask {
       "compile.target" -> topLevelTargets
     )
 
-    def compile(graphInputs: CompileGraph.Inputs): Task[Compiler.Result] = {
+    def compile(graphInputs: CompileGraph.Inputs): Task[ResultBundle] = {
       val bundle = graphInputs.bundle
       val project = bundle.project
       val logger = bundle.logger
       val reporter = bundle.reporter
       val previousResult = bundle.latestResult
       val lastSuccessful = bundle.lastSuccessfulResult
-      val compileProjectTracer = topLevelTracer.startNewChildTracer(
+      val compileProjectTracer = rootTracer.startNewChildTracer(
         s"compile ${project.name}",
         "compile.target" -> project.name
       )
@@ -84,7 +88,7 @@ object CompileTask {
           graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
           compileProjectTracer.terminate()
-          Task.now(earlyResult)
+          Task.now(ResultBundle(earlyResult, None))
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
           val readOnlyClassesDir = lastSuccessful.classesDir
           val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
@@ -148,8 +152,10 @@ object CompileTask {
             )
           }
 
-          val setUpEnvironment = topLevelTracer.traceTask("wait to populate classes dir") { _ =>
-            Task.fromFuture(lastSuccessful.populatingProducts)
+          val setUpEnvironment = rootTracer.traceTask("wait to populate classes dir") { _ =>
+            // This task is memoized and started by the compilation that created
+            // it, so this execution blocks until it's run or completes right away
+            lastSuccessful.populatingProducts
           }
 
           // Block on the task associated with this result that sets up the read-only classes dir
@@ -160,8 +166,21 @@ object CompileTask {
               runPipeliningBookkeeping(graphInputs, result, pipeline, javaOnly, logger)
               // Finish the tracer as soon as possible
               compileProjectTracer.terminate()
-              // Return the previous result unchaged
-              result
+
+              // Populate the last successful result if result was success
+              result match {
+                case s: Compiler.Result.Success =>
+                  // Don't start populating tasks until background tasks are done
+                  val populatingTask = for {
+                    _ <- Task.fromFuture(s.backgroundTasks)
+                    _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
+                  } yield ()
+                  // Memoize so that no matter how many times it's run, only once it's executed
+                  val task = populatingTask.memoize
+                  val last = LastSuccessfulResult(bundle.oracleInputs, s.products, task)
+                  ResultBundle(s, Some(last))
+                case result => ResultBundle(result, None)
+              }
             }
           }
       }
@@ -176,37 +195,81 @@ object CompileTask {
       }
 
       // Compute the previous and last successful results from the results cache
-      val (previous, last) = {
+      val (prev, last) = {
         import inputs.project
         if (pipeline) {
           // Disable incremental compilation if pipelining is enabled
           Compiler.Result.Empty -> LastSuccessfulResult.empty(project)
         } else {
           val latestResult = state.results.latestResult(project)
-          val lastSuccessfulResult = state.results.lastSuccessfulResultOrEmpty(project)
-          latestResult -> lastSuccessfulResult
+          val lastSuccessful = {
+            val result = lastSuccessfulResults.get(project.baseDirectory)
+            if (latestResult != Compiler.Result.Empty) {
+              if (result != null) result
+              else state.results.lastSuccessfulResultOrEmpty(project)
+            } else {
+              if (result != null) LastSuccessfulResult.empty(project)
+              else state.results.lastSuccessfulResultOrEmpty(project)
+            }
+          }
+
+          latestResult -> lastSuccessful
         }
+      }
+
+      /*
+       * Publishes atomically the compilation result to all the clients and
+       * unregisters the deduplication for this given compile run. This
+       * function is called upon successful compilation and only once by the
+       * client acquiring the compilation. It's not repeated for those clients
+       * deduplicating compilations.
+       */
+      val save = (publishInputs: CompileGraph.PublishResultsInputs) => {
+        lastSuccessfulResults.compute(
+          inputs.project.baseDirectory,
+          (_: AbsolutePath, res: LastSuccessfulResult) => {
+            publishInputs.unregisterCompileDeduplication()
+            publishInputs.success
+          }
+        )
       }
 
       val logger = ObservedLogger(rawLogger, observer)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(inputs, reporter, last, previous, logger, obs, topLevelTracer)
+      CompileBundle.computeFrom(inputs, reporter, last, prev, save, logger, obs, rootTracer)
     }
 
     val client = state.client
     CompileGraph.traverse(dag, client, setup(_), compile(_), pipeline).flatMap { partialDag =>
       val partialResults = Dag.dfs(partialDag)
-      val finalResults = partialResults.map { r =>
-        PartialCompileResult
-          .toFinalResult(r, createNewReadOnlyClassesDir(_, backgroundTaskTracer, rawLogger))
-      }
-
+      val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
+        results.foreach { finalResult =>
+          /*
+           * Iterate through every final compile result at the end of the
+           * compilation run and trigger a background task to populate the new
+           * read-only classes directory. This task can also be triggered by
+           * other concurrent processes needing to use this result, but we
+           * trigger it now to use the gaps between compiler requests more
+           * effectively. It's likely we will not have another compile request
+           * requiring this last successful result immediately, so we start the
+           * task now to spare some time the next time a compilation request
+           * comes in. Note the task is memoized internally..
+           */
+          finalResult.result.successful
+            .foreach(l => l.populatingProducts.runAsync(ExecutionContext.ioScheduler))
+        }
+
         cleanStatePerBuildRun(dag, results, state)
         val stateWithResults = state.copy(results = state.results.addFinalResults(results))
-        val failures = results.collect {
-          case FinalNormalCompileResult(p, Compiler.Result.NotOk(_), _, _) => p
+        val failures = results.flatMap {
+          case FinalNormalCompileResult(p, results, _) =>
+            results.fromCompiler match {
+              case Compiler.Result.NotOk(_) => List(p)
+              case _ => Nil
+            }
+          case _ => Nil
         }
 
         val newState: State = {
@@ -228,21 +291,23 @@ object CompileTask {
           }
         }
 
-        // Collect the background tasks from successful compilations
         val backgroundTasks = Task.gatherUnordered {
-          results.collect {
-            case FinalNormalCompileResult(_, success: Compiler.Result.Success, _, _) =>
-              Task.fromFuture(success.backgroundTasks)
-            case FinalNormalCompileResult(_, failure: Compiler.Result.Failed, _, _) =>
-              Task.fromFuture(failure.backgroundTasks)
-            case FinalNormalCompileResult(_, cancelled: Compiler.Result.Cancelled, _, _) =>
-              Task.fromFuture(cancelled.backgroundTasks)
+          results.flatMap {
+            case FinalNormalCompileResult(_, results: ResultBundle, _) =>
+              results.fromCompiler match {
+                case s: Compiler.Result.Success => List(Task.fromFuture(s.backgroundTasks))
+                case f: Compiler.Result.Failed => List(Task.fromFuture(f.backgroundTasks))
+                case c: Compiler.Result.Cancelled => List(Task.fromFuture(c.backgroundTasks))
+                case _ => Nil
+              }
+            case _ => Nil
           }
         }
 
+        // Block on all background task operations to fully populate classes directories
         backgroundTasks.map { _ =>
           // Terminate the tracer after we've blocked on the background tasks
-          topLevelTracer.terminate()
+          rootTracer.terminate()
           newState
         }
       }
@@ -264,7 +329,7 @@ object CompileTask {
       }
 
       val instances = results.iterator.flatMap {
-        case FinalNormalCompileResult(project, _, _, _) => project.scalaInstance
+        case FinalNormalCompileResult(project, _, _) => project.scalaInstance
         case FinalEmptyResult => Nil
       }.toSet
 
@@ -358,14 +423,13 @@ object CompileTask {
       products: CompileProducts,
       tracer: BraveTracer,
       logger: Logger
-  ): CancelableFuture[Unit] = {
+  ): Task[Unit] = {
     // This condition is true when we compiled a no-op, in this case do nothing
-    if (products.readOnlyClassesDir == products.newClassesDir) CancelableFuture.successful(())
+    if (products.readOnlyClassesDir == products.newClassesDir) Task.now(())
     else {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
       val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
-
       val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(
           products.readOnlyClassesDir,
@@ -375,7 +439,7 @@ object CompileTask {
         )
       }
 
-      task.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
+      task.map(_ => ()).memoize
     }
   }
 }

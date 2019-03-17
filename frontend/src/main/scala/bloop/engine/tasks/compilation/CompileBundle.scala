@@ -53,7 +53,8 @@ final case class CompileBundle(
     logger: ObservedLogger[Logger],
     mirror: Observable[Either[ReporterAction, LoggerAction]],
     lastSuccessfulResult: LastSuccessfulResult,
-    latestResult: Compiler.Result
+    latestResult: Compiler.Result,
+    publishResults: CompileGraph.PublishResultsInputs => LastSuccessfulResult
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
 
@@ -101,6 +102,7 @@ object CompileBundle {
       reporter: ObservedReporter,
       lastSuccessfulResult: LastSuccessfulResult,
       lastResult: Compiler.Result,
+      save: CompileGraph.PublishResultsInputs => LastSuccessfulResult,
       logger: ObservedLogger[Logger],
       mirror: Observable[Either[ReporterAction, LoggerAction]],
       tracer: BraveTracer
@@ -164,7 +166,8 @@ object CompileBundle {
           logger,
           mirror,
           lastSuccessfulResult,
-          lastResult
+          lastResult,
+          save
         )
       }
     }

@@ -18,8 +18,8 @@ sealed trait CompileResult[+R] {
   def result: R
 }
 
-sealed trait PartialCompileResult extends CompileResult[Task[Compiler.Result]] {
-  def result: Task[Compiler.Result]
+sealed trait PartialCompileResult extends CompileResult[Task[ResultBundle]] {
+  def result: Task[ResultBundle]
   def store: IRStore
 }
 
@@ -29,7 +29,7 @@ object PartialCompileResult {
       store: Try[IRStore],
       completeJava: CompletableFuture[Unit],
       javaTrigger: Task[JavaSignal],
-      result: Task[Compiler.Result]
+      result: Task[ResultBundle]
   ): PartialCompileResult = {
     store match {
       case scala.util.Success(store) =>
@@ -41,41 +41,35 @@ object PartialCompileResult {
     }
   }
 
-  private final val NoOp = CancelableFuture.successful(())
-  def toFinalResult(
-      result: PartialCompileResult,
-      populateNewReadOnlyClassesDir: CompileProducts => CancelableFuture[Unit]
-  ): Task[List[FinalCompileResult]] = {
+  /**
+   * Turns a partial compile result to a full one. In the case of normal
+   * compilation, this is an instant operation since the task returning the
+   * results is already completed. In the case of pipelined compilation, this
+   * is not the case, so that's why the operation returns a task.
+   */
+  def toFinalResult(result: PartialCompileResult): Task[List[FinalCompileResult]] = {
     result match {
       case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
-      case f @ PartialFailure(project, _, result) =>
-        result.map(res => FinalNormalCompileResult(project, res, f.store, NoOp) :: Nil)
+      case f @ PartialFailure(project, _, bundle) =>
+        bundle.map(b => FinalNormalCompileResult(project, b, f.store) :: Nil)
       case PartialFailures(failures, result) =>
-        Task.gatherUnordered(failures.map(toFinalResult(_, _ => NoOp))).map(_.flatten)
+        Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
       case PartialSuccess(bundle, store, _, _, result) =>
-        result.map { res =>
-          val completeNewClassesDir = {
-            res match {
-              case s: Compiler.Result.Success => populateNewReadOnlyClassesDir(s.products)
-              case _ => CancelableFuture.successful(())
-            }
-          }
-
-          FinalNormalCompileResult(bundle.project, res, store, completeNewClassesDir) :: Nil
-        }
+        result.map(res => FinalNormalCompileResult(bundle.project, res, store) :: Nil)
     }
   }
 }
 
 case object PartialEmpty extends PartialCompileResult {
-  override final val result: Task[Compiler.Result] = Task.now(Compiler.Result.Empty)
+  override final val result: Task[ResultBundle] =
+    Task.now(ResultBundle(Compiler.Result.Empty, None))
   override def store: IRStore = EmptyIRStore.getStore()
 }
 
 case class PartialFailure(
     project: Project,
     exception: Throwable,
-    result: Task[Compiler.Result]
+    result: Task[ResultBundle]
 ) extends PartialCompileResult
     with CacheHashCode {
   def store: IRStore = EmptyIRStore.getStore()
@@ -83,7 +77,7 @@ case class PartialFailure(
 
 case class PartialFailures(
     failures: List[PartialCompileResult],
-    result: Task[Compiler.Result]
+    result: Task[ResultBundle]
 ) extends PartialCompileResult
     with CacheHashCode {
   override def store: IRStore = EmptyIRStore.getStore()
@@ -94,34 +88,33 @@ case class PartialSuccess(
     store: IRStore,
     completeJava: CompletableFuture[Unit],
     javaTrigger: Task[JavaSignal],
-    result: Task[Compiler.Result]
+    result: Task[ResultBundle]
 ) extends PartialCompileResult
     with CacheHashCode
 
-sealed trait FinalCompileResult extends CompileResult[Compiler.Result] {
+sealed trait FinalCompileResult extends CompileResult[ResultBundle] {
   def store: IRStore
-  def result: Compiler.Result
+  def result: ResultBundle
 }
 
 case object FinalEmptyResult extends FinalCompileResult {
   override final val store: IRStore = EmptyIRStore.getStore()
-  override final val result: Compiler.Result = Compiler.Result.Empty
+  override final val result: ResultBundle = ResultBundle.empty
 }
 
 case class FinalNormalCompileResult private (
     project: Project,
-    result: Compiler.Result,
-    store: IRStore,
-    runningTaskRequiredForFutureCompilations: CancelableFuture[Unit]
+    result: ResultBundle,
+    store: IRStore
 ) extends FinalCompileResult
     with CacheHashCode
 
 object FinalNormalCompileResult {
   object HasException {
     def unapply(res: FinalNormalCompileResult): Option[(Project, Throwable)] = {
-      res match {
-        case FinalNormalCompileResult(p, Compiler.Result.Failed(_, Some(t), _, _), _, _) =>
-          Some((p, t))
+      res.result.fromCompiler match {
+        case Compiler.Result.Failed(_, Some(t), _, _) =>
+          Some((res.project, t))
         case _ => None
       }
     }
@@ -135,9 +128,9 @@ object FinalCompileResult {
     override def shows(r: FinalCompileResult): String = {
       r match {
         case FinalEmptyResult => s"<empty> (product of dag aggregation)"
-        case FinalNormalCompileResult(project, result, _, _) =>
+        case FinalNormalCompileResult(project, result, _) =>
           val projectName = project.name
-          result match {
+          result.fromCompiler match {
             case Compiler.Result.Empty => s"${projectName} (empty)"
             case Compiler.Result.Cancelled(problems, ms, _) =>
               s"${projectName} (cancelled, failed with ${Problem.count(problems)}, ${ms}ms)"

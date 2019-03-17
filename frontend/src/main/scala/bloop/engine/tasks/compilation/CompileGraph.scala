@@ -5,16 +5,17 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
+import bloop.io.ParallelOps
+import bloop.io.ParallelOps.CopyMode
 import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.util.JavaCompat.EnrichOptional
-import bloop.engine._
+import bloop.engine.{Dag, Leaf, Parent, Aggregate, ExecutionContext}
 import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
 import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore, CompileProducts}
-import bloop.io.ParallelOps
-import bloop.io.ParallelOps.CopyMode
+import bloop.engine.caches.LastSuccessfulResult
 
 import monix.eval.Task
 import monix.reactive.{Observable, MulticastStrategy}
@@ -56,6 +57,11 @@ object CompileGraph {
     }
   }
 
+  case class PublishResultsInputs(
+      success: LastSuccessfulResult,
+      unregisterCompileDeduplication: () => Unit
+  )
+
   /**
    * Turns a dag of projects into a task that returns a dag of compilation results
    * that can then be used to debug the evaluation of the compilation within Monix
@@ -68,7 +74,7 @@ object CompileGraph {
       dag: Dag[Project],
       client: ClientInfo,
       setup: BundleInputs => Task[CompileBundle],
-      compile: Inputs => Task[Compiler.Result],
+      compile: Inputs => Task[ResultBundle],
       pipeline: Boolean
   ): CompileTraversal = {
     /* We use different traversals for normal and pipeline compilation because the
@@ -163,13 +169,37 @@ object CompileGraph {
         bundle.oracleInputs,
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
-          val compileAndUnsubscribe = compile(bundle).map { result =>
-            // Remove as ongoing compilation before returning
-            runningCompilations.remove(bundle.oracleInputs)
-            // Let's not forget to complete the observer logger
-            logger.observer.onComplete()
-            // Return compilation result after previous book-keeping
-            result
+          val compileAndUnsubscribe = compile(bundle).map {
+            result =>
+              // Let's not forget to complete the observer logger
+              logger.observer.onComplete()
+
+              /*
+               * Enrich the task returning the results to publish globally the
+               * result to other concurrent processes as well as removing the
+               * deduplication from the global map. This is done all at once as
+               * an atomic operation so that no rogue concurrent clients finds
+               * a last successful result that does not correspond with the one
+               * produced by this compilation.
+               */
+              enrichResultDag(result) {
+                case s: PartialSuccess =>
+                  val newPublishedResult = s.result.map { results =>
+                    results.successful match {
+                      case Some(successful) =>
+                        bundle.publishResults(
+                          PublishResultsInputs(
+                            successful,
+                            () => { runningCompilations.remove(bundle.oracleInputs); () }
+                          )
+                        )
+                      case None => runningCompilations.remove(bundle.oracleInputs)
+                    }
+                    results
+                  }
+                  s.copy(result = newPublishedResult.memoize)
+                case result => result
+              }
           }.memoize // Without memoization, there is no deduplication
 
           RunningCompilation(compileAndUnsubscribe, bundle.mirror)
@@ -243,48 +273,40 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        val processDeduplication = ongoingCompilationTask.map {
-          case resultDag =>
-            def finishDeduplication(result: PartialCompileResult): PartialCompileResult = {
-              result match {
-                case s @ PartialSuccess(bundle, _, _, _, compilerResult) =>
-                  val newCompilerResult = compilerResult.flatMap {
-                    case s: Compiler.Result.Success =>
-                      // Wait on new classes to be populated for correctness
-                      val blockOnBackgroundInIOThread =
-                        Task.fromFuture(s.backgroundTasks).executeOn(ExecutionContext.ioScheduler)
-                      blockOnBackgroundInIOThread.flatMap { _ =>
-                        val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
-                        val populatedClassesDir = s.products.newClassesDir
-                        val config =
-                          ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-                        val copyTask = ParallelOps
-                          .copyDirectories(config)(
-                            populatedClassesDir,
-                            externalClassesDir.underlying,
-                            ExecutionContext.ioScheduler,
-                            rawLogger
-                          )
-                        copyTask.map(_ => s)
-                      }
-                    case r: Compiler.Result.Cancelled =>
-                      // Make sure to cancel the deduplicating task if compilation is cancelled
-                      deduplicateStreamSideEffectsHandle.cancel()
-                      Task.now(r)
-                    case r => Task.now(r)
-                  }
-                  s.copy(result = newCompilerResult)
-                case _ => result
+        val processDeduplication = ongoingCompilationTask.map { resultDag =>
+          enrichResultDag(resultDag) {
+            case s @ PartialSuccess(bundle, _, _, _, compilerResult) =>
+              val newCompilerResult = compilerResult.flatMap { results =>
+                results.fromCompiler match {
+                  case s: Compiler.Result.Success =>
+                    // Wait on new classes to be populated for correctness
+                    val blockOnBackgroundInIOThread =
+                      Task.fromFuture(s.backgroundTasks).executeOn(ExecutionContext.ioScheduler)
+                    // Populate to client-specific external classes directory
+                    blockOnBackgroundInIOThread.flatMap { _ =>
+                      val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
+                      val populatedClassesDir = s.products.newClassesDir
+                      val config =
+                        ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
+                      val copyTask = ParallelOps
+                        .copyDirectories(config)(
+                          populatedClassesDir,
+                          externalClassesDir.underlying,
+                          ExecutionContext.ioScheduler,
+                          rawLogger
+                        )
+                      copyTask.map(_ => results)
+                    }.memoize
+                  case _: Compiler.Result.Cancelled =>
+                    // Make sure to cancel the deduplicating task if compilation is cancelled
+                    deduplicateStreamSideEffectsHandle.cancel()
+                    Task.now(results)
+                  case _ => Task.now(results)
+                }
               }
-            }
-
-            resultDag match {
-              case Leaf(result) => Leaf(finishDeduplication(result))
-              case Parent(result, children) => Parent(finishDeduplication(result), children)
-              case Aggregate(_) =>
-                logger.error("Unexpected aggregate node in compile result, report upstream!")
-                resultDag
-            }
+              s.copy(result = newCompilerResult)
+            case result => result
+          }
         }
 
         val waitUntilDeduplicationFinishes = for {
@@ -294,6 +316,16 @@ object CompileGraph {
 
         waitUntilDeduplicationFinishes.executeOn(ExecutionContext.ioScheduler)
       }
+    }
+  }
+
+  private def enrichResultDag(
+      dag: Dag[PartialCompileResult]
+  )(f: PartialCompileResult => PartialCompileResult): Dag[PartialCompileResult] = {
+    dag match {
+      case Leaf(result) => Leaf(f(result))
+      case Parent(result, children) => Parent(f(result), children)
+      case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
     }
   }
 
@@ -311,7 +343,7 @@ object CompileGraph {
       dag: Dag[Project],
       client: ClientInfo,
       computeBundle: BundleInputs => Task[CompileBundle],
-      compile: Inputs => Task[Compiler.Result]
+      compile: Inputs => Task[ResultBundle]
   ): CompileTraversal = {
     val tasks = new mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
@@ -323,8 +355,10 @@ object CompileGraph {
      * turn an actual compiler failure into a partial failure with a dummy
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
-    def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure =
-      PartialFailure(bundle.project, CompileExceptions.FailPromise, Task.now(res))
+    def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure = {
+      val results = Task.now(ResultBundle(res, None))
+      PartialFailure(bundle.project, CompileExceptions.FailPromise, results)
+    }
 
     val es = EmptyIRStore.getStore
     def loop(dag: Dag[Project]): CompileTraversal = {
@@ -336,12 +370,14 @@ object CompileGraph {
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                 val cf = new CompletableFuture[IRs]()
-                compile(Inputs.normal(bundle, es, cf, emptyOracle, false))
-                  .map {
-                    case Compiler.Result.Ok(res) =>
-                      Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, Task.now(res)))
+                compile(Inputs.normal(bundle, es, cf, emptyOracle, false)).map { results =>
+                  results.fromCompiler match {
+                    case Compiler.Result.Ok(_) =>
+                      val resultsNow = Task.now(results)
+                      Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, resultsNow))
                     case res => Leaf(toPartialFailure(bundle, res))
                   }
+                }
               }
 
             case Aggregate(dags) =>
@@ -356,7 +392,8 @@ object CompileGraph {
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                  val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
+                  val blocked = Task.now(ResultBundle(blockedResult, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {
@@ -371,7 +408,7 @@ object CompileGraph {
                     var dependentProducts = new mutable.ListBuffer[(Project, CompileProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
-                      case (p, s: Compiler.Result.Success) =>
+                      case (p, ResultBundle(s: Compiler.Result.Success, _)) =>
                         val newProducts = s.products
                         dependentProducts.+=(p -> newProducts)
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
@@ -385,14 +422,17 @@ object CompileGraph {
                     val resultsMap = dependentResults.toMap
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { b =>
-                      compile(
-                        Inputs.normal(b, es, cf, emptyOracle, false, resultsMap)
-                      ).map {
-                        case Compiler.Result.Ok(res) =>
-                          val partial =
-                            PartialSuccess(b, es, JavaCompleted, JavaContinue, Task.now(res))
-                          Parent(partial, dagResults)
-                        case res => Parent(toPartialFailure(b, res), dagResults)
+                      val inputs = Inputs.normal(b, es, cf, emptyOracle, false, resultsMap)
+                      compile(inputs).map { results =>
+                        results.fromCompiler match {
+                          case Compiler.Result.Ok(_) =>
+                            val resultsNow = Task.now(results)
+                            Parent(
+                              PartialSuccess(b, es, JavaCompleted, JavaContinue, resultsNow),
+                              dagResults
+                            )
+                          case res => Parent(toPartialFailure(b, res), dagResults)
+                        }
                       }
                     }
                   }
@@ -421,7 +461,7 @@ object CompileGraph {
       dag: Dag[Project],
       client: ClientInfo,
       computeBundle: BundleInputs => Task[CompileBundle],
-      compile: Inputs => Task[Compiler.Result]
+      compile: Inputs => Task[ResultBundle]
   ): CompileTraversal = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
@@ -471,7 +511,8 @@ object CompileGraph {
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
-                  val blocked = Task.now(Compiler.Result.Blocked(failed.map(_.name)))
+                  val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
+                  val blocked = Task.now(ResultBundle(blockedResult, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val directResults =

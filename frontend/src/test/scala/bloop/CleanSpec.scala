@@ -59,7 +59,7 @@ class CleanSpec {
       }
       val build = Build(buildPath, projects.toList)
       val results = projects.foldLeft(ResultsCache.emptyForTests) { (cache, project) =>
-        cache.addResult(project, Compiler.Result.Empty, CancelableFuture.successful(()))
+        cache.addResult(project, bloop.engine.tasks.compilation.ResultBundle.empty)
       }
       val state = State
         .forTests(build, TestUtil.getCompilerCache(logger), logger)

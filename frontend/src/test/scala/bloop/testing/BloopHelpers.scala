@@ -148,7 +148,7 @@ trait BloopHelpers {
     def getLastSuccessfulResultFor(project: TestProject): Option[LastSuccessfulResult] = {
       // To access the last successful result safely, we need to wait for background tasks to finish
       state.results.lastSuccessfulResult(getProjectFor(project)).map { lastSuccessful =>
-        val _ = TestUtil.await(Duration.Inf)(Task.fromFuture(lastSuccessful.populatingProducts))
+        val _ = TestUtil.await(Duration.Inf)(lastSuccessful.populatingProducts)
         lastSuccessful
       }
     }

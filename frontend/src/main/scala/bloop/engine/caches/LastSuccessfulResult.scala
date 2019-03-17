@@ -11,14 +11,14 @@ import java.util.Optional
 
 import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup, FileHash}
 
-import monix.execution.CancelableFuture
+import monix.eval.Task
 
 case class LastSuccessfulResult(
     sources: Vector[CompilerOracle.HashedSource],
     classpath: Vector[FileHash],
     previous: PreviousResult,
     classesDir: AbsolutePath,
-    populatingProducts: CancelableFuture[Unit]
+    populatingProducts: Task[Unit]
 )
 
 object LastSuccessfulResult {
@@ -34,14 +34,14 @@ object LastSuccessfulResult {
       Vector.empty,
       EmptyPreviousResult,
       AbsolutePath(classesDir.toRealPath()),
-      CancelableFuture.successful(())
+      Task.now(())
     )
   }
 
   def apply(
       inputs: CompilerOracle.Inputs,
       products: CompileProducts,
-      backgroundIO: CancelableFuture[Unit]
+      backgroundIO: Task[Unit]
   ): LastSuccessfulResult = {
     LastSuccessfulResult(
       inputs.sources,

@@ -53,6 +53,7 @@ object TestProject {
       order: Config.CompileOrder = Config.Mixed,
       jars: Array[AbsolutePath] = Array()
   ): TestProject = {
+    val projectBaseDir = Files.createDirectories(baseDir.underlying.resolve(name))
     val origin = TestUtil.syntheticOriginFor(baseDir)
     val ProjectArchetype(sourceDir, outDir, resourceDir, classes) =
       TestUtil.createProjectArchetype(baseDir.underlying, name)
@@ -95,7 +96,7 @@ object TestProject {
 
     val config = Config.Project(
       name,
-      baseDir.underlying,
+      projectBaseDir,
       List(sourceDir.underlying),
       directDependencies.map(_.config.name),
       classpath,

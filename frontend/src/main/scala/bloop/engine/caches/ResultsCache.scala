@@ -3,13 +3,14 @@ package bloop.engine.caches
 import java.util.Optional
 import java.nio.file.Files
 
-import bloop.Compiler
+import bloop.{Compiler, CompileProducts}
 import bloop.data.Project
 import bloop.Compiler.Result
 import bloop.engine.tasks.compilation.{
   FinalCompileResult,
   FinalEmptyResult,
-  FinalNormalCompileResult
+  FinalNormalCompileResult,
+  ResultBundle
 }
 import bloop.engine.{Build, ExecutionContext}
 import bloop.io.AbsolutePath
@@ -70,22 +71,19 @@ final case class ResultsCache private (
 
   def addResult(
       project: Project,
-      result: Compiler.Result,
-      populateNewClassesDir: CancelableFuture[Unit]
+      results: ResultBundle
   ): ResultsCache = {
-    val newAll = all + (project -> result)
-    result match {
-      case s: Compiler.Result.Success =>
-        val newSuccessful = LastSuccessfulResult(s.inputs, s.products, populateNewClassesDir)
+    val newAll = all + (project -> results.fromCompiler)
+    results.successful match {
+      case Some(newSuccessful) =>
         new ResultsCache(newAll, successful + (project -> newSuccessful))
-      case Compiler.Result.Empty => new ResultsCache(newAll, successful)
-      case r => new ResultsCache(newAll, successful)
+      case None => new ResultsCache(newAll, successful)
     }
   }
 
   def addFinalResults(ps: List[FinalCompileResult]): ResultsCache = {
     ps.foldLeft(this) {
-      case (rs, FinalNormalCompileResult(p, r, _, io)) => rs.addResult(p, r, io)
+      case (rs, FinalNormalCompileResult(p, r, _)) => rs.addResult(p, r)
       case (rs, FinalEmptyResult) => rs
     }
   }
@@ -102,10 +100,7 @@ final case class ResultsCache private (
 }
 
 object ResultsCache {
-  import java.util.concurrent.ConcurrentHashMap
-
   private implicit val logContext: DebugFilter = DebugFilter.All
-
   private[bloop] val emptyForTests: ResultsCache =
     new ResultsCache(Map.empty, Map.empty)
 
@@ -117,7 +112,7 @@ object ResultsCache {
   def loadAsync(build: Build, cwd: AbsolutePath, logger: Logger): Task[ResultsCache] = {
     import bloop.util.JavaCompat.EnrichOptional
 
-    def fetchPreviousResult(p: Project): Task[Compiler.Result] = {
+    def fetchPreviousResult(p: Project): Task[ResultBundle] = {
       val analysisFile = p.analysisOut
       if (analysisFile.exists) {
         Task {
@@ -136,7 +131,7 @@ object ResultsCache {
                         logger.debug(
                           s"Classes directory $classesDir does not exist, therefore analysis '$analysisFile' is discarded and replaced by an empty one."
                         )
-                        Result.Empty
+                        ResultBundle.empty
                       } else {
                         val originPath = p.origin.path.syntax
                         val originHash = p.origin.hash
@@ -144,32 +139,34 @@ object ResultsCache {
                         val dummyCancelable = CancelableFuture.successful(())
                         val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                         val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-                        val products =
-                          bloop.CompileProducts(classesDir, classesDir, r, r, Set.empty)
-                        Result.Success(inputs, reporter, products, 0L, dummyCancelable, false)
+                        val products = CompileProducts(classesDir, classesDir, r, r, Set.empty)
+                        ResultBundle(
+                          Result.Success(inputs, reporter, products, 0L, dummyCancelable, false),
+                          Some(LastSuccessfulResult(inputs, products, Task.now(())))
+                        )
                       }
                     case None =>
                       logger.debug(
                         s"Analysis '$analysisFile' last compilation for '${p.name}' didn't contain classes dir."
                       )
-                      Result.Empty
+                      ResultBundle.empty
                   }
                 case None =>
                   logger.debug(
                     s"Analysis '$analysisFile' for '${p.name}' didn't contain last compilation."
                   )
-                  Result.Empty
+                  ResultBundle.empty
               }
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
-              Result.Empty
+              ResultBundle.empty
           }
 
         }
       } else {
         Task.now {
           logger.debug(s"Missing analysis file for project '${p.name}'")
-          Result.Empty
+          ResultBundle.empty
         }
       }
     }
@@ -178,7 +175,7 @@ object ResultsCache {
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
       val cache = new ResultsCache(Map.empty, Map.empty)
       projectResults.foldLeft(cache) {
-        case (rs, (p, r)) => rs.addResult(p, r, CancelableFuture.successful(()))
+        case (rs, (p, r)) => rs.addResult(p, r)
       }
     }
   }
