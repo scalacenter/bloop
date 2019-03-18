@@ -60,12 +60,11 @@ object TestUtil {
   }
 
   final lazy val scalaInstance: ScalaInstance = {
-    val logger = new RecordingLogger
     ScalaInstance.resolve(
       "org.scala-lang",
       "scala-compiler",
       Properties.versionNumberString,
-      logger
+      bloop.logging.NoopLogger
     )(bloop.engine.ExecutionContext.ioScheduler)
   }
 

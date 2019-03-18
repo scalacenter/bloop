@@ -65,7 +65,7 @@ object TestProject {
     import bloop.engine.ExecutionContext.ioScheduler
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
     val instance = scalaVersion
-      .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, Nil, NoopLogger))
+      .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, jars.toList, NoopLogger))
       .getOrElse(TestUtil.scalaInstance)
 
     val allJars = instance.allJars.map(AbsolutePath.apply)
