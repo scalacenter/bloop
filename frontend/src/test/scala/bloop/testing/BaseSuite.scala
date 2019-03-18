@@ -3,6 +3,7 @@ package bloop.testing
 import bloop.Compiler
 import bloop.cli.ExitStatus
 import bloop.io.AbsolutePath
+import bloop.io.ParallelOps
 import bloop.io.Paths.AttributedPath
 import bloop.util.JavaCompat._
 import bloop.util.{TestProject, TestUtil}
@@ -312,7 +313,12 @@ class BaseSuite extends TestSuite with BloopHelpers {
     projects.zip(buildProjects).foreach {
       case (testProject, buildProject) =>
         assertIsFile(buildProject.analysisOut)
-        val latestResult = state.getLastSuccessfulResultFor(testProject).get
+        val latestResult = state
+          .getLastSuccessfulResultFor(testProject)
+          .getOrElse(
+            sys.error(s"No latest result for $${testProject.name}, results: ${state.results}")
+          )
+
         val analysis = latestResult.previous.analysis().get()
         val stamps = analysis.readStamps
         assert(stamps.getAllProductStamps.asScala.nonEmpty)

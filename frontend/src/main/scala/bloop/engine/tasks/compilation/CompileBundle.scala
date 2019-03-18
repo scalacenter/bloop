@@ -22,26 +22,42 @@ import monix.reactive.Observable
 import xsbti.compile.PreviousResult
 
 /**
- * Define a bundle of high-level information about a project that is going to be compiled.
- * It packs several derived data from the project and makes it available both to the
- * implementation of compile in [[bloop.engine.tasks.CompileTask]] and the logic
- * that runs the compile graph. The latter needs information about Java and Scala sources
- * to appropriately (and efficiently) do build pipelining in mixed Java and Scala setups.
+ * Define a bundle of high-level information about a project that is going to be
+ * compiled. It packs several derived data from the project and makes it
+ * available both to the implementation of compile in
+ * [[bloop.engine.tasks.CompileTask]] and the logic that runs the compile graph.
+ * The latter needs information about Java and Scala sources to appropriately
+ * (and efficiently) do build pipelining in mixed Java and Scala setups when
+ * enabled.
  *
- * A [[CompileBundle]] has the same [[hashCode()]] and [[equals()]] than [[Project]]
- * for performance reasons. [[CompileBundle]] is a class that is heavily used in
- * the guts of the compilation logic (namely [[CompileGraph]] and [[bloop.engine.tasks.CompileTask]]).
- * Because these classes depend on a fast [[hashCode()]] to cache dags and other
- * instances that contain bundles, our implementation of [[hashCode()]] is as fast
- * as the hash code of a project, which is cached. Using `project`'s hash code does
- * not pose any problem given that the rest of the members of a bundle are derived
- * from a project.
+ * A [[CompileBundle]] has the same [[hashCode()]] and [[equals()]] than
+ * [[Project]] for performance reasons. [[CompileBundle]] is a class that is
+ * heavily used in the guts of the compilation logic (namely [[CompileGraph]]
+ * and [[bloop.engine.tasks.CompileTask]]). Because these classes depend on a
+ * fast [[hashCode()]] to cache dags and other instances that contain bundles,
+ * our implementation of [[hashCode()]] is as fast as the hash code of a
+ * project, which is cached. Using `project`'s hash code does not pose any
+ * problem given that the rest of the members of a bundle are derived from a
+ * project.
  *
- * @param project The project we want to compile.
- * @param classpath The full dependency classpath, including resource dirs from dependencies.
- * @param javaSources The found java sources in the file system.
- * @param scalaSources The found scala sources in the file system.
- * @param oracleInputs The compiler oracle inputs that represent a compilation unequivocally.
+ * @param project The project to compile.
+ * @param dependenciesData An entity that abstract over all the data of
+ * dependent projects, which is required to create a full classpath.
+ * @param javaSources A list of Java sources in the project.
+ * @param scalaSources A list of Scala sources in the project.
+ * @param oracleInputs The compiler oracle inputs are the main input to the
+ * compilation task called by [[CompileGraph]].
+ * @param reporter A reporter instance that will register every reporter action
+ * produced by the compilation started by this compile bundle.
+ * @param logger A logger instance that will register every logger action
+ * produced by the compilation started by this compile bundle.
+ * @param mirror An observable that contains all reporter and logger actions.
+ * @param lastSuccessful An instance of the last successful result.
+ * [[CompileGraph]] will replace the default empty result with the most recent
+ * successful result that needs to be used for the compilation.
+ * @param latestResult The latest result registered by the client. Required
+ * because the reporting of diagnostics might be stateful (BSP diagnostics
+ * reporting is, for example) and some of the state is contain in this result.
  */
 final case class CompileBundle(
     project: Project,

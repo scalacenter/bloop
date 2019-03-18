@@ -34,9 +34,6 @@ import scala.concurrent.Promise
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
-  private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
-  private def currentTime: String = dateFormat.format(new java.util.Date())
-
   def compile[UseSiteLogger <: Logger](
       state: State,
       dag: Dag[Project],
@@ -194,13 +191,15 @@ object CompileTask {
       // Compute the previous and last successful results from the results cache
       val (prev, last) = {
         import inputs.project
+        // The last successful result is picked in [[CompileGraph]], doesn't
+        // come from the results cache, which is only used to populate result
+        val clientLastSuccessful = LastSuccessfulResult.empty(project)
         if (pipeline) {
           // Disable incremental compilation if pipelining is enabled
-          Compiler.Result.Empty -> LastSuccessfulResult.empty(project)
+          Compiler.Result.Empty -> clientLastSuccessful
         } else {
           val latestResult = state.results.latestResult(project)
-          val lastSuccessful = state.results.lastSuccessfulResultOrEmpty(project)
-          latestResult -> lastSuccessful
+          latestResult -> clientLastSuccessful
         }
       }
 

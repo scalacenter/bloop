@@ -5,7 +5,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
-import bloop.io.{ParallelOps, AbsolutePath}
+import bloop.io.{ParallelOps, AbsolutePath, Paths => BloopPaths}
 import bloop.io.ParallelOps.CopyMode
 import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
@@ -133,6 +133,10 @@ object CompileGraph {
   private val lastSuccessfulResults =
     new ConcurrentHashMap[AbsolutePath, LastSuccessfulResult]()
 
+  import monix.execution.atomic.AtomicInt
+  private val currentlyUsingDirectories =
+    new ConcurrentHashMap[AbsolutePath, AtomicInt]()
+
   private val emptyOracle = ImmutableCompilerOracle.empty()
 
   /**
@@ -171,14 +175,22 @@ object CompileGraph {
           val baseDir = inputs.project.baseDirectory
           // Replace client-specific last successful with the most recent result
           val mostRecentSuccessful = {
-            val result = lastSuccessfulResults.get(baseDir)
-            if (bundle.latestResult == Compiler.Result.Empty) {
-              // If latest result is empty, use last empty succesful
-              LastSuccessfulResult.empty(inputs.project)
-            } else {
-              if (result != null) result
-              else bundle.lastSuccessful
-            }
+            val result = lastSuccessfulResults.compute(
+              baseDir,
+              (_: AbsolutePath, current: LastSuccessfulResult) => {
+                if (current != null) {
+                  // Register that we're using this classes directory in a thread-safe way
+                  val counter0 = AtomicInt(1)
+                  val counter = currentlyUsingDirectories.putIfAbsent(current.classesDir, counter0)
+                  if (counter == null) counter0.increment(1) else counter.increment(1)
+                }
+                // We continue with whatever value we receive
+                current
+              }
+            )
+
+            if (bundle.latestResult != Compiler.Result.Empty && result != null) result
+            else LastSuccessfulResult.empty(inputs.project)
           }
 
           val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
@@ -188,20 +200,30 @@ object CompileGraph {
               logger.observer.onComplete()
 
               // Unregister deduplication atomically and register last successful if any
+              val oinputs = bundle.oracleInputs
               enrichResultDag(result) {
                 case s: PartialSuccess =>
-                  s.copy(result = s.result.map { (results: ResultBundle) =>
-                    results.successful match {
-                      case None => runningCompilations.remove(bundle.oracleInputs)
-                      case Some(successful) =>
-                        removeDeduplicationAtomically(baseDir, bundle.oracleInputs, successful)
-                    }
-                    results
+                  s.copy(result = s.result.flatMap {
+                    (results: ResultBundle) =>
+                      results.successful match {
+                        case Some(successful) =>
+                          unregisterDeduplication(baseDir, oinputs, successful) match {
+                            case None => Task.now(results)
+                            case Some(previous) =>
+                              // Delete classes dir of overridden and unused last successful result
+                              val waitAndReturnResults =
+                                previous.populatingProducts.materialize.map(_ => results)
+                              waitAndReturnResults.doOnFinish { _ =>
+                                Task(BloopPaths.delete(previous.classesDir))
+                              }
+                          }
+
+                        case None =>
+                          Task.eval { runningCompilations.remove(oinputs); results }
+                      }
                   })
 
-                case result =>
-                  runningCompilations.remove(bundle.oracleInputs)
-                  result
+                case result => runningCompilations.remove(oinputs); result
               }
           }.memoize // Without memoization, there is no deduplication
 
@@ -340,21 +362,47 @@ object CompileGraph {
 
   /**
    * Removes the deduplication and registers the last successful compilation
-   * atomically.
+   * atomically. When registering the last successful compilation, we make sure
+   * that the old last successful result is deleted if its count is 0, which
+   * means it's not being used by anyone.
    */
-  private def removeDeduplicationAtomically(
+  private def unregisterDeduplication(
       key: AbsolutePath,
       oracleInputs: CompilerOracle.Inputs,
       successful: LastSuccessfulResult
-  ): Unit = {
+  ): Option[LastSuccessfulResult] = {
+    var resultToDelete: Option[LastSuccessfulResult] = None
     runningCompilations.compute(
       oracleInputs,
       (_: CompilerOracle.Inputs, _: RunningCompilation) => {
-        lastSuccessfulResults.put(key, successful)
+        lastSuccessfulResults.compute(
+          key,
+          (_: AbsolutePath, previous: LastSuccessfulResult) => {
+            if (previous != null) {
+              val previousClassesDir = previous.classesDir
+              val counter = currentlyUsingDirectories.get(previousClassesDir)
+
+              val toDelete = counter == null || {
+                // Decrement has to happen within the compute function
+                val currentCount = counter.decrementAndGet(1)
+                currentCount == 0
+              }
+
+              // Register directory to delete if count is 0
+              if (toDelete) {
+                resultToDelete = Some(previous)
+              }
+            }
+
+            // Return successful result we want to replace
+            successful
+          }
+        )
         null
       }
     )
-    ()
+
+    resultToDelete
   }
 
   import scala.collection.mutable

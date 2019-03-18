@@ -138,6 +138,19 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       Option(diagnostics.get(project.bspId)).map(_.mkString).getOrElse("")
     }
 
+    def backup: ManagedBspTestState = {
+      val newState = this.toTestState.backup.state
+
+      new ManagedBspTestState(
+        newState,
+        this.lastBspStatus,
+        this.currentCompileIteration,
+        this.diagnostics,
+        this.client0,
+        this.serverStates
+      )
+    }
+
     def toTestState: TestState = new TestState(state)
     def toTestStateFrom(origin: TestState): TestState = {
       val originState = origin.state

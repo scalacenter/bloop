@@ -174,5 +174,38 @@ trait BloopHelpers {
 
     def withLogger(logger: Logger): TestState =
       new TestState(state.copy(logger = logger))
+
+    def backup: TestState = {
+      import java.nio.file.Files
+      val logger = this.state.logger
+      val newSuccessfulTasks = state.results.successful.map {
+        case (project, result) =>
+          result.populatingProducts.flatMap { _ =>
+            val classesDir = result.classesDir.underlying
+            val newClassesDir = {
+              val newClassesDirName = s"${classesDir.getFileName}-backup"
+              Files.createDirectories(classesDir.getParent.resolve(newClassesDirName))
+            }
+
+            val backupDir = ParallelOps.copyDirectories(
+              ParallelOps.CopyConfiguration(2, ParallelOps.CopyMode.ReplaceExisting, Set.empty)
+            )(classesDir, newClassesDir, ExecutionContext.ioScheduler, logger)
+
+            backupDir.map { _ =>
+              val newResult = result.copy(classesDir = AbsolutePath(newClassesDir))
+              project -> newResult
+            }
+          }
+      }
+
+      TestUtil.await(scala.concurrent.duration.FiniteDuration(5, "s")) {
+        Task.gatherUnordered(newSuccessfulTasks).map {
+          case newSuccessful =>
+            val newResults = state.results.copy(successful = newSuccessful.toMap)
+            new TestState(state.copy(results = newResults))
+        }
+      }
+    }
+
   }
 }
