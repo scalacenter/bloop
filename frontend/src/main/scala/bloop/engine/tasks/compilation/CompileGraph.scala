@@ -5,7 +5,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
-import bloop.io.ParallelOps
+import bloop.io.{ParallelOps, AbsolutePath}
 import bloop.io.ParallelOps.CopyMode
 import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
@@ -56,11 +56,6 @@ object CompileGraph {
       Inputs(b, s, p, JavaCompleted, JavaContinue, oracle, separateJavaAndScala, dependentResults)
     }
   }
-
-  case class PublishResultsInputs(
-      success: LastSuccessfulResult,
-      unregisterCompileDeduplication: () => Unit
-  )
 
   /**
    * Turns a dag of projects into a task that returns a dag of compilation results
@@ -126,6 +121,7 @@ object CompileGraph {
 
   case class RunningCompilation(
       traversal: CompileTraversal,
+      previousLastSuccessful: LastSuccessfulResult,
       mirror: Observable[Either[ReporterAction, LoggerAction]]
   )
 
@@ -133,6 +129,9 @@ object CompileGraph {
     ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]
   private val runningCompilations: RunningCompilationsInAllClients =
     new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
+
+  private val lastSuccessfulResults =
+    new ConcurrentHashMap[AbsolutePath, LastSuccessfulResult]()
 
   private val emptyOracle = ImmutableCompilerOracle.empty()
 
@@ -169,40 +168,44 @@ object CompileGraph {
         bundle.oracleInputs,
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
-          val compileAndUnsubscribe = compile(bundle).map {
+          val baseDir = inputs.project.baseDirectory
+          // Replace client-specific last successful with the most recent result
+          val mostRecentSuccessful = {
+            val result = lastSuccessfulResults.get(baseDir)
+            if (bundle.latestResult == Compiler.Result.Empty) {
+              // If latest result is empty, use last empty succesful
+              LastSuccessfulResult.empty(inputs.project)
+            } else {
+              if (result != null) result
+              else bundle.lastSuccessful
+            }
+          }
+
+          val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
+          val compileAndUnsubscribe = compile(newBundle).map {
             result =>
               // Let's not forget to complete the observer logger
               logger.observer.onComplete()
 
-              /*
-               * Enrich the task returning the results to publish globally the
-               * result to other concurrent processes as well as removing the
-               * deduplication from the global map. This is done all at once as
-               * an atomic operation so that no rogue concurrent clients finds
-               * a last successful result that does not correspond with the one
-               * produced by this compilation.
-               */
+              // Unregister deduplication atomically and register last successful if any
               enrichResultDag(result) {
                 case s: PartialSuccess =>
-                  val newPublishedResult = s.result.map { results =>
+                  s.copy(result = s.result.map { (results: ResultBundle) =>
                     results.successful match {
-                      case Some(successful) =>
-                        bundle.publishResults(
-                          PublishResultsInputs(
-                            successful,
-                            () => { runningCompilations.remove(bundle.oracleInputs); () }
-                          )
-                        )
                       case None => runningCompilations.remove(bundle.oracleInputs)
+                      case Some(successful) =>
+                        removeDeduplicationAtomically(baseDir, bundle.oracleInputs, successful)
                     }
                     results
-                  }
-                  s.copy(result = newPublishedResult.memoize)
-                case result => result
+                  })
+
+                case result =>
+                  runningCompilations.remove(bundle.oracleInputs)
+                  result
               }
           }.memoize // Without memoization, there is no deduplication
 
-          RunningCompilation(compileAndUnsubscribe, bundle.mirror)
+          RunningCompilation(compileAndUnsubscribe, mostRecentSuccessful, bundle.mirror)
         }
       )
 
@@ -212,7 +215,8 @@ object CompileGraph {
         val rawLogger = logger.underlying
         rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name}")
         val reporter = bundle.reporter.underlying
-        val analysis = bundle.lastSuccessfulResult.previous.analysis().toOption
+        // Don't use `bundle.lastSuccessful`, it's not the final input to `compile`
+        val analysis = ongoingCompilation.previousLastSuccessful.previous.analysis().toOption
         val previousSuccessfulProblems =
           Compiler.previousProblemsFromSuccessfulCompilation(analysis)
         val previousProblems =
@@ -319,6 +323,11 @@ object CompileGraph {
     }
   }
 
+  /**
+   * Runs function [[f]] within the task returning a [[ResultBundle]] for the
+   * given compilation. This function is typically used to perform book-keeping
+   * related to the compiler deduplication and success of compilations.
+   */
   private def enrichResultDag(
       dag: Dag[PartialCompileResult]
   )(f: PartialCompileResult => PartialCompileResult): Dag[PartialCompileResult] = {
@@ -327,6 +336,25 @@ object CompileGraph {
       case Parent(result, children) => Parent(f(result), children)
       case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
     }
+  }
+
+  /**
+   * Removes the deduplication and registers the last successful compilation
+   * atomically.
+   */
+  private def removeDeduplicationAtomically(
+      key: AbsolutePath,
+      oracleInputs: CompilerOracle.Inputs,
+      successful: LastSuccessfulResult
+  ): Unit = {
+    runningCompilations.compute(
+      oracleInputs,
+      (_: CompilerOracle.Inputs, _: RunningCompilation) => {
+        lastSuccessfulResults.put(key, successful)
+        null
+      }
+    )
+    ()
   }
 
   import scala.collection.mutable

@@ -37,9 +37,6 @@ object CompileTask {
   private val dateFormat = new java.text.SimpleDateFormat("HH:mm:ss.SSS")
   private def currentTime: String = dateFormat.format(new java.util.Date())
 
-  private val lastSuccessfulResults =
-    new ConcurrentHashMap[AbsolutePath, LastSuccessfulResult]()
-
   def compile[UseSiteLogger <: Logger](
       state: State,
       dag: Dag[Project],
@@ -76,7 +73,7 @@ object CompileTask {
       val logger = bundle.logger
       val reporter = bundle.reporter
       val previousResult = bundle.latestResult
-      val lastSuccessful = bundle.lastSuccessfulResult
+      val lastSuccessful = bundle.lastSuccessful
       val compileProjectTracer = rootTracer.startNewChildTracer(
         s"compile ${project.name}",
         "compile.target" -> project.name
@@ -202,42 +199,15 @@ object CompileTask {
           Compiler.Result.Empty -> LastSuccessfulResult.empty(project)
         } else {
           val latestResult = state.results.latestResult(project)
-          val lastSuccessful = {
-            val result = lastSuccessfulResults.get(project.baseDirectory)
-            if (latestResult != Compiler.Result.Empty) {
-              if (result != null) result
-              else state.results.lastSuccessfulResultOrEmpty(project)
-            } else {
-              if (result != null) LastSuccessfulResult.empty(project)
-              else state.results.lastSuccessfulResultOrEmpty(project)
-            }
-          }
-
+          val lastSuccessful = state.results.lastSuccessfulResultOrEmpty(project)
           latestResult -> lastSuccessful
         }
-      }
-
-      /*
-       * Publishes atomically the compilation result to all the clients and
-       * unregisters the deduplication for this given compile run. This
-       * function is called upon successful compilation and only once by the
-       * client acquiring the compilation. It's not repeated for those clients
-       * deduplicating compilations.
-       */
-      val save = (publishInputs: CompileGraph.PublishResultsInputs) => {
-        lastSuccessfulResults.compute(
-          inputs.project.baseDirectory,
-          (_: AbsolutePath, res: LastSuccessfulResult) => {
-            publishInputs.unregisterCompileDeduplication()
-            publishInputs.success
-          }
-        )
       }
 
       val logger = ObservedLogger(rawLogger, observer)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(inputs, reporter, last, prev, save, logger, obs, rootTracer)
+      CompileBundle.computeFrom(inputs, reporter, last, prev, logger, obs, rootTracer)
     }
 
     val client = state.client

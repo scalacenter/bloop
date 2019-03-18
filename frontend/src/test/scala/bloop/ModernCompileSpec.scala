@@ -72,6 +72,43 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("compile a project, clean and compile it again") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator),
+        s"""
+           |Compiling a (1 Scala source)
+        """.stripMargin
+      )
+
+      val cleanState = state.clean(`A`)
+      val secondCompiledState = cleanState.compile(`A`)
+      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(secondCompiledState, projects)
+      assertDifferentExternalClassesDirs(compiledState, secondCompiledState, projects)
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator),
+        s"""
+           |Compiling a (1 Scala source)
+           |Compiling a (1 Scala source)
+        """.stripMargin
+      )
+    }
+  }
+
   test("simulate an incremental compiler session") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
