@@ -355,7 +355,6 @@ object Compiler {
                 val invalidated =
                   allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
                 val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
-
                 val config =
                   ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
@@ -364,7 +363,7 @@ object Compiler {
                   compileInputs.scheduler,
                   compileInputs.logger
                 )
-                lastCopy.map(_ => ())
+                lastCopy.map(fs => ())
               }.flatten
             }
           }

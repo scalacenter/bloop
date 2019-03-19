@@ -288,6 +288,19 @@ class BaseSuite extends TestSuite with BloopHelpers {
     }
   }
 
+  def assertNonExistingInternalClassesDir(
+      state: TestState,
+      projects: List[TestProject]
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    val buildProjects = projects.flatMap(p => state.build.getProjectFor(p.config.name).toList)
+    assert(projects.size == buildProjects.size)
+    projects.zip(buildProjects).foreach {
+      case (testProject, buildProject) =>
+        val last = state.getLastSuccessfulResultFor(testProject).get
+        assert(!last.classesDir.exists)
+    }
+  }
+
   def assertEmptyCompilationState(
       state: TestState,
       projects: List[TestProject]

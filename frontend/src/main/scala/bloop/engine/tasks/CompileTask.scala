@@ -165,10 +165,14 @@ object CompileTask {
               result match {
                 case s: Compiler.Result.Success =>
                   // Don't start populating tasks until background tasks are done
-                  val populatingTask = for {
-                    _ <- Task.fromFuture(s.backgroundTasks)
-                    _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
-                  } yield ()
+                  val populatingTask =
+                    if (s.isNoOp) Task.fromFuture(s.backgroundTasks)
+                    else {
+                      Task.fromFuture(s.backgroundTasks).flatMap { _ =>
+                        createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger).map(_ => ())
+                      }
+                    }
+
                   // Memoize so that no matter how many times it's run, only once it's executed
                   val task = populatingTask.memoize
                   val last = LastSuccessfulResult(bundle.oracleInputs, s.products, task)
@@ -393,9 +397,11 @@ object CompileTask {
       tracer: BraveTracer,
       logger: Logger
   ): Task[Unit] = {
-    // This condition is true when we compiled a no-op, in this case do nothing
-    if (products.readOnlyClassesDir == products.newClassesDir) Task.now(())
-    else {
+    // Do nothing if origin and target classes dir are the same, as protective measure
+    if (products.readOnlyClassesDir == products.newClassesDir) {
+      logger.warn(s"Running `createNewReadOnlyClassesDir` on same dir ${products.newClassesDir}")
+      Task.now(())
+    } else {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
       val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
@@ -408,7 +414,7 @@ object CompileTask {
         )
       }
 
-      task.map(_ => ()).memoize
+      task.map(rs => ()).memoize
     }
   }
 }

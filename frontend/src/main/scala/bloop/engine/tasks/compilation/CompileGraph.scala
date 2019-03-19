@@ -194,37 +194,12 @@ object CompileGraph {
           }
 
           val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
-          val compileAndUnsubscribe = compile(newBundle).map {
-            result =>
-              // Let's not forget to complete the observer logger
-              logger.observer.onComplete()
+          val compileAndUnsubscribe = compile(newBundle).map { result =>
+            // Let's not forget to complete the observer logger
+            logger.observer.onComplete()
 
-              // Unregister deduplication atomically and register last successful if any
-              val oinputs = bundle.oracleInputs
-              enrichResultDag(result) {
-                case s: PartialSuccess =>
-                  s.copy(result = s.result.flatMap {
-                    (results: ResultBundle) =>
-                      results.successful match {
-                        case Some(successful) =>
-                          unregisterDeduplication(baseDir, oinputs, successful) match {
-                            case None => Task.now(results)
-                            case Some(previous) =>
-                              // Delete classes dir of overridden and unused last successful result
-                              val waitAndReturnResults =
-                                previous.populatingProducts.materialize.map(_ => results)
-                              waitAndReturnResults.doOnFinish { _ =>
-                                Task(BloopPaths.delete(previous.classesDir))
-                              }
-                          }
-
-                        case None =>
-                          Task.eval { runningCompilations.remove(oinputs); results }
-                      }
-                  })
-
-                case result => runningCompilations.remove(oinputs); result
-              }
+            // Unregister deduplication atomically and register last successful if any
+            saveResultAtomically(result, baseDir, bundle.oracleInputs)
           }.memoize // Without memoization, there is no deduplication
 
           RunningCompilation(compileAndUnsubscribe, mostRecentSuccessful, bundle.mirror)
@@ -360,13 +335,46 @@ object CompileGraph {
     }
   }
 
+  private def saveResultAtomically(
+      result: Dag[PartialCompileResult],
+      baseDir: AbsolutePath,
+      oinputs: CompilerOracle.Inputs
+  ): Dag[PartialCompileResult] = {
+    // Unregister deduplication atomically and register last successful if any
+    enrichResultDag(result) {
+      case s: PartialSuccess =>
+        s.copy(result = s.result.flatMap { (results: ResultBundle) =>
+          results.successful match {
+            case Some(successful) =>
+              unregisterDeduplicationAndRegisterSuccessful(baseDir, oinputs, successful) match {
+                case None => Task.now(results)
+                case Some(previous) =>
+                  // Delete classes dir of overridden and unused last successful result
+                  val waitAndReturnResults =
+                    successful.populatingProducts
+                      .map(_ => results)
+                      .executeOn(ExecutionContext.ioScheduler)
+                  waitAndReturnResults.doOnFinish { _ =>
+                    Task(BloopPaths.delete(previous.classesDir))
+                  }.memoize
+              }
+
+            case None =>
+              Task.eval { runningCompilations.remove(oinputs); results }
+          }
+        })
+
+      case result => runningCompilations.remove(oinputs); result
+    }
+  }
+
   /**
    * Removes the deduplication and registers the last successful compilation
    * atomically. When registering the last successful compilation, we make sure
    * that the old last successful result is deleted if its count is 0, which
    * means it's not being used by anyone.
    */
-  private def unregisterDeduplication(
+  private def unregisterDeduplicationAndRegisterSuccessful(
       key: AbsolutePath,
       oracleInputs: CompilerOracle.Inputs,
       successful: LastSuccessfulResult
@@ -381,19 +389,15 @@ object CompileGraph {
             if (previous != null) {
               val previousClassesDir = previous.classesDir
               val counter = currentlyUsingDirectories.get(previousClassesDir)
+              val toDelete = counter == null || {
+                // Decrement has to happen within the compute function
+                val currentCount = counter.decrementAndGet(1)
+                currentCount == 0
+              }
 
-              if (previousClassesDir == successful.classesDir) ()
-              else {
-                val toDelete = counter == null || {
-                  // Decrement has to happen within the compute function
-                  val currentCount = counter.decrementAndGet(1)
-                  currentCount == 0
-                }
-
-                // Register directory to delete if count is 0
-                if (toDelete) {
-                  resultToDelete = Some(previous)
-                }
+              // Register directory to delete if count is 0
+              if (toDelete && successful.classesDir != previousClassesDir) {
+                resultToDelete = Some(previous)
               }
             }
 
