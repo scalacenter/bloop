@@ -182,7 +182,7 @@ object CompileGraph {
                   // Register that we're using this classes directory in a thread-safe way
                   val counter0 = AtomicInt(1)
                   val counter = currentlyUsingDirectories.putIfAbsent(current.classesDir, counter0)
-                  if (counter == null) counter0.increment(1) else counter.increment(1)
+                  if (counter == null) () else counter.increment(1)
                 }
                 // We continue with whatever value we receive
                 current
@@ -382,15 +382,18 @@ object CompileGraph {
               val previousClassesDir = previous.classesDir
               val counter = currentlyUsingDirectories.get(previousClassesDir)
 
-              val toDelete = counter == null || {
-                // Decrement has to happen within the compute function
-                val currentCount = counter.decrementAndGet(1)
-                currentCount == 0
-              }
+              if (previousClassesDir == successful.classesDir) ()
+              else {
+                val toDelete = counter == null || {
+                  // Decrement has to happen within the compute function
+                  val currentCount = counter.decrementAndGet(1)
+                  currentCount == 0
+                }
 
-              // Register directory to delete if count is 0
-              if (toDelete) {
-                resultToDelete = Some(previous)
+                // Register directory to delete if count is 0
+                if (toDelete) {
+                  resultToDelete = Some(previous)
+                }
               }
             }
 
