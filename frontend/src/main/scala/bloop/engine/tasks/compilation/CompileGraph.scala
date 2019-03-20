@@ -349,14 +349,19 @@ object CompileGraph {
               unregisterDeduplicationAndRegisterSuccessful(baseDir, oinputs, successful) match {
                 case None => Task.now(results)
                 case Some(previous) =>
-                  // Delete classes dir of overridden and unused last successful result
-                  val waitAndReturnResults =
-                    successful.populatingProducts
-                      .map(_ => results)
-                      .executeOn(ExecutionContext.ioScheduler)
-                  waitAndReturnResults.doOnFinish { _ =>
-                    Task(BloopPaths.delete(previous.classesDir))
-                  }.memoize
+                  //pprint.log(previous)
+                  val populateAndDelete = {
+                    for {
+                      _ <- successful.populatingProducts.materialize
+                      _ <- Task.now(BloopPaths.delete2(previous.classesDir))
+                    } yield ()
+                  }
+
+                  val newSuccessful =
+                    successful.copy(populatingProducts = populateAndDelete.memoize)
+                  println("hash code fom resultAtomically")
+                  println(newSuccessful.hashCode)
+                  Task.now(results.copy(successful = Some(newSuccessful)))
               }
 
             case None =>

@@ -163,4 +163,30 @@ object Paths {
     )
     ()
   }
+
+  /**
+   * Recursively delete `path` and all its content.
+   *
+   * @param path The path to delete
+   */
+  def delete2(path: AbsolutePath): Unit = {
+    Files.walkFileTree(
+      path.underlying,
+      new SimpleFileVisitor[Path] {
+        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+          pprint.log(s"Deleting ${file}")
+          Files.delete(file)
+          FileVisitResult.CONTINUE
+        }
+
+        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+          pprint.log(s"Deleting dir ${dir}")
+          try Files.delete(dir)
+          catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
+          FileVisitResult.CONTINUE
+        }
+      }
+    )
+    ()
+  }
 }

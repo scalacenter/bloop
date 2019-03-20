@@ -288,16 +288,24 @@ class BaseSuite extends TestSuite with BloopHelpers {
     }
   }
 
-  def assertNonExistingInternalClassesDir(
-      state: TestState,
+  def assertNonExistingInternalClassesDir(lastState: TestState)(
+      stateToCheck: TestState,
       projects: List[TestProject]
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
-    val buildProjects = projects.flatMap(p => state.build.getProjectFor(p.config.name).toList)
+    val buildProjects =
+      projects.flatMap(p => stateToCheck.build.getProjectFor(p.config.name).toList)
     assert(projects.size == buildProjects.size)
     projects.zip(buildProjects).foreach {
       case (testProject, buildProject) =>
-        val last = state.getLastSuccessfulResultFor(testProject).get
-        assert(!last.classesDir.exists)
+        // Force the execution of the next last successful to delete the directory
+        lastState.results.lastSuccessfulResult(buildProject).foreach { s =>
+          import scala.concurrent.duration.FiniteDuration
+          val _ = TestUtil.await(FiniteDuration(5, "s"))(s.populatingProducts)
+        }
+
+        val last = stateToCheck.getLastSuccessfulResultFor(testProject).get
+        val classesDir = last.classesDir
+        assert(!classesDir.exists)
     }
   }
 
