@@ -204,7 +204,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, List(`A`, `B`))
       assertNoDiff(
-        logger.compilingInfos.sorted.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(System.lineSeparator),
         """Compiling a (2 Scala sources)
           |Compiling b (1 Scala source)""".stripMargin
       )
@@ -264,6 +264,30 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(fifthCompiledState.status == ExitStatus.Ok)
       assertValidCompilationState(fifthCompiledState, List(`A`, `B`))
       assertIsFile(`A`.externalClassFileFor("Bar.class"))
+
+      /*
+       * Scenario: a classes directory of the last successful result is removed.
+       * Expected: we use an empty result instead.
+       */
+
+      BloopPaths.delete(fifthCompiledState.getLastClassesDir(`A`).get)
+      BloopPaths.delete(fifthCompiledState.getLastClassesDir(`B`).get)
+      val sixthCompiledState = fifthCompiledState.compile(`B`)
+      assert(sixthCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(sixthCompiledState, List(`A`, `B`))
+
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator),
+        """Compiling a (2 Scala sources)
+          |Compiling b (1 Scala source)
+          |Compiling a (1 Scala source)
+          |Compiling b (1 Scala source)
+          |Compiling a (1 Scala source)
+          |Compiling a (1 Scala source)
+          |Compiling a (2 Scala sources)
+          |Compiling b (1 Scala source)""".stripMargin
+      )
+
     }
   }
 

@@ -127,24 +127,17 @@ object ResultsCache {
                   lastCompilation.getOutput.getSingleOutput.toOption match {
                     case Some(classesDirFile) =>
                       val classesDir = classesDirFile.toPath
-                      if (!Files.exists(classesDir)) {
-                        logger.debug(
-                          s"Classes directory $classesDir does not exist, therefore analysis '$analysisFile' is discarded and replaced by an empty one."
-                        )
-                        ResultBundle.empty
-                      } else {
-                        val originPath = p.origin.path.syntax
-                        val originHash = p.origin.hash
-                        val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath, originHash)
-                        val dummyCancelable = CancelableFuture.successful(())
-                        val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
-                        val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-                        val products = CompileProducts(classesDir, classesDir, r, r, Set.empty)
-                        ResultBundle(
-                          Result.Success(inputs, reporter, products, 0L, dummyCancelable, false),
-                          Some(LastSuccessfulResult(inputs, products, Task.now(())))
-                        )
-                      }
+                      val originPath = p.origin.path.syntax
+                      val originHash = p.origin.hash
+                      val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath, originHash)
+                      val dummyCancelable = CancelableFuture.successful(())
+                      val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
+                      val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
+                      val products = CompileProducts(classesDir, classesDir, r, r, Set.empty)
+                      ResultBundle(
+                        Result.Success(inputs, reporter, products, 0L, dummyCancelable, false),
+                        Some(LastSuccessfulResult(inputs, products, Task.now(())))
+                      )
                     case None =>
                       logger.debug(
                         s"Analysis '$analysisFile' last compilation for '${p.name}' didn't contain classes dir."

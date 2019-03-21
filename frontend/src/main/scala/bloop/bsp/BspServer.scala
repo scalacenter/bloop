@@ -101,7 +101,26 @@ object BspServer {
       })
 
       def closeCommunication(): Unit = {
-        println("H")
+        import bloop.io.Paths
+        val latestState = provider.stateAfterExecution
+        val deleteExternalDirsTask = latestState.build.projects.map { project =>
+          val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+          import java.io.IOException
+          if (externalClientClassesDir == project.genericClassesDir) Task.now(())
+          else {
+            Task {
+              Paths.delete(externalClientClassesDir)
+            }
+          }
+        }
+
+        //
+        Task
+          .gatherUnordered(deleteExternalDirsTask)
+          .materialize
+          .map(_ => ())
+          .runAsync(ExecutionContext.ioScheduler)
+
         try socket.close()
         finally handle.serverSocket.close()
       }

@@ -25,6 +25,7 @@ import scala.util.{Failure, Success}
 
 object CompileGraph {
   type CompileTraversal = Task[Dag[PartialCompileResult]]
+  private implicit val filter: DebugFilter = DebugFilter.Compilation
 
   case class BundleInputs(
       project: Project,
@@ -173,7 +174,7 @@ object CompileGraph {
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
           // Replace client-specific last successful with the most recent result
-          val mostRecentSuccessful = {
+          val (latestCompilerResult, mostRecentSuccessful) = {
             val result = lastSuccessfulResults.compute(
               inputs.project,
               (_: Project, current: LastSuccessfulResult) => {
@@ -188,11 +189,15 @@ object CompileGraph {
               }
             )
 
-            if (bundle.latestResult != Compiler.Result.Empty && result != null) result
-            else LastSuccessfulResult.empty(inputs.project)
+            if (result != null && !result.classesDir.exists)
+              Compiler.Result.Empty -> LastSuccessfulResult.empty(inputs.project)
+            else if (bundle.latestResult != Compiler.Result.Empty && result != null)
+              bundle.latestResult -> result
+            else Compiler.Result.Empty -> LastSuccessfulResult.empty(inputs.project)
           }
 
-          val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
+          val newBundle =
+            bundle.copy(lastSuccessful = mostRecentSuccessful, latestResult = latestCompilerResult)
           val compileAndUnsubscribe = compile(newBundle).map { result =>
             // Let's not forget to complete the observer logger
             logger.observer.onComplete()
@@ -252,9 +257,9 @@ object CompileGraph {
               case LoggerAction.LogWarnMessage(msg) => rawLogger.warn(msg)
               case LoggerAction.LogInfoMessage(msg) => rawLogger.info(msg)
               case LoggerAction.LogDebugMessage(msg) =>
-                rawLogger.debug(msg)(DebugFilter.Compilation)
+                rawLogger.debug(msg)
               case LoggerAction.LogTraceMessage(msg) =>
-                rawLogger.debug(msg)(DebugFilter.Compilation)
+                rawLogger.debug(msg)
             }
         }
 
@@ -370,7 +375,7 @@ object CompileGraph {
                 unregisterDeduplicationAndRegisterSuccessful(project, oinputs, successful) match {
                   case None => Task.now(results)
                   case Some(toDeleteResult) =>
-                    logger.warn(
+                    logger.debug(
                       s"Next request will delete ${toDeleteResult.classesDir}, superseeded by ${successful.classesDir}"
                     )
                     Task {
@@ -380,10 +385,10 @@ object CompileGraph {
                         toDeleteResult.populatingProducts.materialize
                         // Then populate products from read-only dir of this run
                           .flatMap(_ => successful.populatingProducts.materialize.map(_ => ()))
+                          .memoize
                           // Delete in background after running tasks which could be using this dir
                           .doOnFinish { _ =>
                             Task {
-                              println(s"Deleting ${toDeleteResult.classesDir}...")
                               BloopPaths.delete(toDeleteResult.classesDir)
                             }.executeOn(ExecutionContext.ioScheduler)
                           }
