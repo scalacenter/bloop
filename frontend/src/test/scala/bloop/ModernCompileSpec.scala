@@ -420,6 +420,45 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       val compiledStateBackup = compiledState.backup
       assertValidCompilationState(compiledState, projects)
 
+      // Write nir and sjsir files to ensure the class file manager invalidates them properly
+      def createFakeCompileProducts(
+          lastClassesDir: AbsolutePath,
+          clientDir: AbsolutePath,
+          classFileName: String
+      ): Unit = {
+        def copy(origin: AbsolutePath, target: AbsolutePath): Unit = {
+          import java.nio.file.StandardCopyOption
+          Files.copy(
+            origin.underlying,
+            target.underlying,
+            StandardCopyOption.COPY_ATTRIBUTES,
+            StandardCopyOption.REPLACE_EXISTING
+          )
+          ()
+        }
+
+        assertIsFile(lastClassesDir.resolve(classFileName))
+        val fileName = classFileName.stripSuffix(".class")
+        val sjsirFile = lastClassesDir.resolve(RelativePath(s"${fileName}.sjsir"))
+        val externalSjsirFile = clientDir.resolve(RelativePath(s"${fileName}.sjsir"))
+        writeFile(sjsirFile, "emulating sjsir file")
+        copy(sjsirFile, externalSjsirFile)
+        val nirFile = lastClassesDir.resolve(RelativePath(s"${fileName}.nir"))
+        val externalNirFile = clientDir.resolve(RelativePath(s"${fileName}.nir"))
+        writeFile(nirFile, "emulating nir file")
+        copy(nirFile, externalNirFile)
+        val tastyFile = lastClassesDir.resolve(RelativePath(s"${fileName}.tasty"))
+        val externalTastyFile = clientDir.resolve(RelativePath(s"${fileName}.tasty"))
+        writeFile(tastyFile, "emulating tasty file")
+        copy(tastyFile, externalTastyFile)
+        ()
+      }
+
+      val clientDirA = compiledState.getClientExternalDir(`A`)
+      val lastClassesDirA = compiledState.getLastClassesDir(`A`).get
+      createFakeCompileProducts(lastClassesDirA, clientDirA, "Foo.class")
+      createFakeCompileProducts(lastClassesDirA, clientDirA, "Bar.class")
+
       // #2: Compiler after renaming `Foo` to `Foo2`, which should make `Bar` fail in second cycle
       assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
       val secondCompiledState = compiledState.compile(`A`)
@@ -454,7 +493,10 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(thirdCompiledState, projects)
       assertDifferentExternalClassesDirs(thirdCompiledState, compiledStateBackup, projects)
       // Checks that we remove `Foo.class` from the external classes dir which is critical
-      assertNonExistingClassFile(thirdCompiledState, `A`, RelativePath("Foo.class"))
+      assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.class"))
+      assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.sjsir"))
+      assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.nir"))
+      assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.tasty"))
       assertNonExistingInternalClassesDir(thirdCompiledState)(compiledState, projects)
     }
   }
@@ -539,7 +581,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assert(thirdCompiledState.status == ExitStatus.Ok)
       // Checks that we remove `Foo.class` from the external classes dir which is critical
       assertValidCompilationState(thirdCompiledState, projects)
-      assertNonExistingClassFile(thirdCompiledState, `A`, RelativePath("Foo.class"))
+      assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.class"))
     }
   }
 

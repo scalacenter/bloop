@@ -160,6 +160,11 @@ trait BloopHelpers {
       getLastSuccessfulResultFor(project).map(_.classesDir)
     }
 
+    def getClientExternalDir(project: TestProject): AbsolutePath = {
+      val buildProject = getProjectFor(project)
+      client.getUniqueClassesDirFor(buildProject)
+    }
+
     def getLatestSavedStateGlobally(): TestState = {
       val globalMutableState = State.stateCache.getStateFor(
         build.origin,

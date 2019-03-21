@@ -289,7 +289,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   import bloop.io.RelativePath
-  def assertNonExistingClassFile(
+  def assertNonExistingCompileProduct(
       state: TestState,
       project: TestProject,
       classFile: RelativePath

@@ -150,6 +150,7 @@ object Compiler {
   }
 
   implicit val compilation = bloop.logging.DebugFilter.Compilation
+  private final val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val logger = compileInputs.logger
     val tracer = compileInputs.tracer
@@ -167,6 +168,7 @@ object Compiler {
 
     val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
+    val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
     val backgroundTasksWhenNewSuccessfulAnalysis = new mutable.ListBuffer[Task[Unit]]()
     val backgroundTasksForFailedCompilation = new mutable.ListBuffer[Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
@@ -176,6 +178,15 @@ object Compiler {
         def delete(classes: Array[File]): Unit = {
           // Add to the blacklist so that we never copy them
           allInvalidatedClassFilesForProject.++=(classes)
+          val invalidatedExtraCompileProducts = classes.flatMap { classFile =>
+            supportedCompileProducts.flatMap { supportedProductSuffix =>
+              val productName = classFile.getName().stripSuffix(".class") + supportedProductSuffix
+              val productAssociatedToClassFile = new File(classFile.getParentFile, productName)
+              if (!productAssociatedToClassFile.exists()) Nil
+              else List(productAssociatedToClassFile)
+            }
+          }
+          allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
         }
 
         import compileInputs.invalidatedClassFilesInDependentProjects
@@ -202,6 +213,15 @@ object Compiler {
             val rebasedClassFile =
               new File(newClassFile.replace(newClassesDirPath, readOnlyClassesDirPath))
             allInvalidatedClassFilesForProject.-=(rebasedClassFile)
+            supportedCompileProducts.foreach { supportedProductSuffix =>
+              val productName = rebasedClassFile
+                .getName()
+                .stripSuffix(".class") + supportedProductSuffix
+              val productAssociatedToClassFile =
+                new File(rebasedClassFile.getParentFile, productName)
+              if (productAssociatedToClassFile.exists())
+                allInvalidatedExtraCompileProducts.-=(productAssociatedToClassFile)
+            }
           }
         }
 
@@ -352,9 +372,12 @@ object Compiler {
             tracer.traceTask("update external classes dir with read-only") { _ =>
               Task {
                 // Attention: blacklist must be computed inside the task!
-                val invalidated =
+                val invalidatedClassFiles =
                   allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
-                val blacklist = invalidated ++ copiedPathsFromNewClassesDir.iterator
+                val invalidatedExtraProducts =
+                  allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
+                val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
+                val blacklist = invalidatedInThisProject ++ copiedPathsFromNewClassesDir.iterator
                 val config =
                   ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
@@ -397,7 +420,8 @@ object Compiler {
                   val firstTask = updateExternalClassesDirWithReadOnly
                   val secondTask = Task {
                     // Delete all those class files that were invalidated in the external classes dir
-                    allInvalidatedClassFilesForProject.foreach { f =>
+                    val allInvalidated = allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
+                    allInvalidated.foreach { f =>
                       val path = AbsolutePath(f.toPath)
                       val syntax = path.syntax
                       if (syntax.startsWith(readOnlyClassesDirPath)) {
