@@ -131,7 +131,7 @@ object CompileGraph {
     new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
 
   private val lastSuccessfulResults =
-    new ConcurrentHashMap[AbsolutePath, LastSuccessfulResult]()
+    new ConcurrentHashMap[Project, LastSuccessfulResult]()
 
   import monix.execution.atomic.AtomicInt
   private val currentlyUsingDirectories =
@@ -172,12 +172,11 @@ object CompileGraph {
         bundle.oracleInputs,
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
-          val baseDir = inputs.project.baseDirectory
           // Replace client-specific last successful with the most recent result
           val mostRecentSuccessful = {
             val result = lastSuccessfulResults.compute(
-              baseDir,
-              (_: AbsolutePath, current: LastSuccessfulResult) => {
+              inputs.project,
+              (_: Project, current: LastSuccessfulResult) => {
                 if (current != null) {
                   // Register that we're using this classes directory in a thread-safe way
                   val counter0 = AtomicInt(1)
@@ -199,7 +198,13 @@ object CompileGraph {
             logger.observer.onComplete()
 
             // Unregister deduplication atomically and register last successful if any
-            processResultAtomically(result, baseDir, bundle.oracleInputs, mostRecentSuccessful)
+            processResultAtomically(
+              result,
+              inputs.project,
+              bundle.oracleInputs,
+              mostRecentSuccessful,
+              logger
+            )
           }.memoize // Without memoization, there is no deduplication
 
           RunningCompilation(compileAndUnsubscribe, mostRecentSuccessful, bundle.mirror)
@@ -338,9 +343,10 @@ object CompileGraph {
 
   private def processResultAtomically(
       resultDag: Dag[PartialCompileResult],
-      projectBaseDir: AbsolutePath,
+      project: Project,
       oinputs: CompilerOracle.Inputs,
-      previous: LastSuccessfulResult
+      previous: LastSuccessfulResult,
+      logger: Logger
   ): Dag[PartialCompileResult] = {
 
     def unregisterWhenError(): Unit = {
@@ -361,10 +367,14 @@ object CompileGraph {
                 unregisterWhenError()
                 Task.now(results)
               case Some(successful) =>
-                unregisterDeduplicationAndRegisterSuccessful(projectBaseDir, oinputs, successful) match {
+                unregisterDeduplicationAndRegisterSuccessful(project, oinputs, successful) match {
                   case None => Task.now(results)
                   case Some(toDeleteResult) =>
+                    logger.warn(
+                      s"Next request will delete ${toDeleteResult.classesDir}, superseeded by ${successful.classesDir}"
+                    )
                     Task {
+                      import scala.concurrent.duration.FiniteDuration
                       val populateAndDelete = {
                         // Populate products of previous, it might not have been run
                         toDeleteResult.populatingProducts.materialize
@@ -372,8 +382,10 @@ object CompileGraph {
                           .flatMap(_ => successful.populatingProducts.materialize.map(_ => ()))
                           // Delete in background after running tasks which could be using this dir
                           .doOnFinish { _ =>
-                            Task(BloopPaths.delete(toDeleteResult.classesDir))
-                              .executeOn(ExecutionContext.ioScheduler)
+                            Task {
+                              println(s"Deleting ${toDeleteResult.classesDir}...")
+                              BloopPaths.delete(toDeleteResult.classesDir)
+                            }.executeOn(ExecutionContext.ioScheduler)
                           }
                       }.memoize
                       results.copy(
@@ -405,7 +417,7 @@ object CompileGraph {
    * means it's not being used by anyone.
    */
   private def unregisterDeduplicationAndRegisterSuccessful(
-      key: AbsolutePath,
+      project: Project,
       oracleInputs: CompilerOracle.Inputs,
       successful: LastSuccessfulResult
   ): Option[LastSuccessfulResult] = {
@@ -414,8 +426,8 @@ object CompileGraph {
       oracleInputs,
       (_: CompilerOracle.Inputs, _: RunningCompilation) => {
         lastSuccessfulResults.compute(
-          key,
-          (_: AbsolutePath, previous: LastSuccessfulResult) => {
+          project,
+          (_: Project, previous: LastSuccessfulResult) => {
             if (previous != null) {
               val previousClassesDir = previous.classesDir
               val counter = currentlyUsingDirectories.get(previousClassesDir)

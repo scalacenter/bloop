@@ -101,6 +101,7 @@ object BspServer {
       })
 
       def closeCommunication(): Unit = {
+        println("H")
         try socket.close()
         finally handle.serverSocket.close()
       }
