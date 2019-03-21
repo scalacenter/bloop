@@ -52,7 +52,7 @@ object PartialCompileResult {
       case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
       case f @ PartialFailure(project, _, bundle) =>
         bundle.map(b => FinalNormalCompileResult(project, b, f.store) :: Nil)
-      case PartialFailures(failures, result) =>
+      case PartialFailures(failures, _) =>
         Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
       case PartialSuccess(bundle, store, _, _, result) =>
         result.map(res => FinalNormalCompileResult(bundle.project, res, store) :: Nil)

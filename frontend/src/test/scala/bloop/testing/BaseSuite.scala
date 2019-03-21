@@ -288,9 +288,36 @@ class BaseSuite extends TestSuite with BloopHelpers {
     }
   }
 
+  import bloop.io.RelativePath
+  def assertNonExistingClassFile(
+      state: TestState,
+      project: TestProject,
+      classFile: RelativePath
+  ): Unit = {
+    val buildProject = state.build.getProjectFor(project.config.name).get
+    val externalClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+    assert(!externalClassesDir.resolve(classFile).exists)
+  }
+
+  def assertExistingInternalClassesDir(lastState: TestState)(
+      stateToCheck: TestState,
+      projects: List[TestProject]
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    assertNonExistingInternalClassesDir(lastState, stateToCheck, projects, exists = true)
+  }
+
   def assertNonExistingInternalClassesDir(lastState: TestState)(
       stateToCheck: TestState,
       projects: List[TestProject]
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    assertNonExistingInternalClassesDir(lastState, stateToCheck, projects, exists = false)
+  }
+
+  private def assertNonExistingInternalClassesDir(
+      lastState: TestState,
+      stateToCheck: TestState,
+      projects: List[TestProject],
+      exists: Boolean
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     val buildProjects =
       projects.flatMap(p => stateToCheck.build.getProjectFor(p.config.name).toList)
@@ -305,7 +332,10 @@ class BaseSuite extends TestSuite with BloopHelpers {
 
         val last = stateToCheck.getLastSuccessfulResultFor(testProject).get
         val classesDir = last.classesDir
-        assert(!classesDir.exists)
+        // Sleep for 20 ms to give time to classes dir to be deleted (runs inside `doOnFinish`)
+        Thread.sleep(20)
+        if (exists) assert(classesDir.exists)
+        else assert(!classesDir.exists)
     }
   }
 

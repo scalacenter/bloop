@@ -100,19 +100,22 @@ object BspServer {
           }
       })
 
+      def closeCommunication(): Unit = {
+        try socket.close()
+        finally handle.serverSocket.close()
+      }
+
       consumer
         .doOnCancel {
           Task {
             error(s"BSP server cancelled, closing socket...")
-            try socket.close()
-            finally handle.serverSocket.close()
+            closeCommunication()
           }
         }
         .doOnFinish { result =>
           Task {
             result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
-            try socket.close()
-            finally handle.serverSocket.close()
+            closeCommunication()
           }
         }
         .map(_ => provider.stateAfterExecution)

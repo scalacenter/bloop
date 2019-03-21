@@ -199,7 +199,7 @@ object CompileGraph {
             logger.observer.onComplete()
 
             // Unregister deduplication atomically and register last successful if any
-            saveResultAtomically(result, baseDir, bundle.oracleInputs)
+            processResultAtomically(result, baseDir, bundle.oracleInputs, mostRecentSuccessful)
           }.memoize // Without memoization, there is no deduplication
 
           RunningCompilation(compileAndUnsubscribe, mostRecentSuccessful, bundle.mirror)
@@ -330,46 +330,71 @@ object CompileGraph {
   )(f: PartialCompileResult => PartialCompileResult): Dag[PartialCompileResult] = {
     dag match {
       case Leaf(result) => Leaf(f(result))
-      case Parent(result, children) => Parent(f(result), children)
+      case Parent(result, children) => //Parent(f(result), children.map(c => enrichResultDag(c)(f)))
+        Parent(f(result), children)
       case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
     }
   }
 
-  private def saveResultAtomically(
-      result: Dag[PartialCompileResult],
-      baseDir: AbsolutePath,
-      oinputs: CompilerOracle.Inputs
+  private def processResultAtomically(
+      resultDag: Dag[PartialCompileResult],
+      projectBaseDir: AbsolutePath,
+      oinputs: CompilerOracle.Inputs,
+      previous: LastSuccessfulResult
   ): Dag[PartialCompileResult] = {
+
+    def unregisterWhenError(): Unit = {
+      // If error in result, remove from running compilation and decrement use
+      runningCompilations.remove(oinputs)
+      val classesDirOfFailedResult = previous.classesDir
+      Option(currentlyUsingDirectories.get(classesDirOfFailedResult))
+        .foreach(counter => counter.decrement(1))
+    }
+
     // Unregister deduplication atomically and register last successful if any
-    enrichResultDag(result) {
-      case s: PartialSuccess =>
-        s.copy(result = s.result.flatMap { (results: ResultBundle) =>
-          results.successful match {
-            case Some(successful) =>
-              unregisterDeduplicationAndRegisterSuccessful(baseDir, oinputs, successful) match {
-                case None => Task.now(results)
-                case Some(previous) =>
-                  //pprint.log(previous)
-                  val populateAndDelete = {
-                    for {
-                      _ <- successful.populatingProducts.materialize
-                      _ <- Task.now(BloopPaths.delete2(previous.classesDir))
-                    } yield ()
-                  }
-
-                  val newSuccessful =
-                    successful.copy(populatingProducts = populateAndDelete.memoize)
-                  println("hash code fom resultAtomically")
-                  println(newSuccessful.hashCode)
-                  Task.now(results.copy(successful = Some(newSuccessful)))
-              }
-
-            case None =>
-              Task.eval { runningCompilations.remove(oinputs); results }
+    enrichResultDag(resultDag) { (p: PartialCompileResult) =>
+      p match {
+        case s: PartialSuccess =>
+          val newResultTask = s.result.flatMap { (results: ResultBundle) =>
+            results.successful match {
+              case None =>
+                unregisterWhenError()
+                Task.now(results)
+              case Some(successful) =>
+                unregisterDeduplicationAndRegisterSuccessful(projectBaseDir, oinputs, successful) match {
+                  case None => Task.now(results)
+                  case Some(toDeleteResult) =>
+                    Task {
+                      val populateAndDelete = {
+                        // Populate products of previous, it might not have been run
+                        toDeleteResult.populatingProducts.materialize
+                        // Then populate products from read-only dir of this run
+                          .flatMap(_ => successful.populatingProducts.materialize.map(_ => ()))
+                          // Delete in background after running tasks which could be using this dir
+                          .doOnFinish { _ =>
+                            Task(BloopPaths.delete(toDeleteResult.classesDir))
+                              .executeOn(ExecutionContext.ioScheduler)
+                          }
+                      }.memoize
+                      results.copy(
+                        successful = Some(successful.copy(populatingProducts = populateAndDelete))
+                      )
+                    }
+                }
+            }
           }
-        })
 
-      case result => runningCompilations.remove(oinputs); result
+          /**
+           * This result task must only be run once and thus needs to be
+           * memoized for semantics reasons. The result task can be called
+           * several times by the compilation engine driving the execution.
+           */
+          s.copy(result = newResultTask.memoize)
+
+        case result =>
+          unregisterWhenError()
+          result
+      }
     }
   }
 
@@ -491,7 +516,6 @@ object CompileGraph {
 
                   val projectResults =
                     results.map(ps => ps.result.map(r => ps.bundle.project -> r))
-                  // These tasks have already been completing, so collecting results is fast
                   Task.gatherUnordered(projectResults).flatMap { results =>
                     var dependentProducts = new mutable.ListBuffer[(Project, CompileProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()

@@ -165,19 +165,17 @@ object CompileTask {
               result match {
                 case s: Compiler.Result.Success =>
                   // Don't start populating tasks until background tasks are done
-                  val populatingTask =
+                  val populatingTask = {
                     if (s.isNoOp) Task.fromFuture(s.backgroundTasks)
                     else {
                       Task.fromFuture(s.backgroundTasks).flatMap { _ =>
                         createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger).map(_ => ())
                       }
                     }
+                  }.memoize
 
                   // Memoize so that no matter how many times it's run, only once it's executed
-                  val task = populatingTask.memoize
-                  val last = LastSuccessfulResult(bundle.oracleInputs, s.products, task)
-                  println("Hash code from compiler")
-                  println(last.hashCode)
+                  val last = LastSuccessfulResult(bundle.oracleInputs, s.products, populatingTask)
                   ResultBundle(s, Some(last))
                 case result => ResultBundle(result, None)
               }
@@ -232,8 +230,6 @@ object CompileTask {
            * task now to spare some time the next time a compilation request
            * comes in. Note the task is memoized internally..
            */
-          println("Before running")
-          finalResult.result.successful.foreach(l => println(l.hashCode))
           finalResult.result.successful
             .foreach(l => l.populatingProducts.runAsync(ExecutionContext.ioScheduler))
         }
