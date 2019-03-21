@@ -66,7 +66,8 @@ final case class ResultsCache private (
   def cleanSuccessful(projects: List[Project]): ResultsCache = {
     // Remove all the successful results from the cache.
     val newSuccessful = successful.filterKeys(p => !projects.contains(p))
-    new ResultsCache(all, newSuccessful)
+    val newAll = all.filterKeys(p => !projects.contains(p))
+    new ResultsCache(newAll, newSuccessful)
   }
 
   def addResult(

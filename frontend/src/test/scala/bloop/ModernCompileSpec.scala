@@ -136,7 +136,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
         """.stripMargin
       )
 
-      val cleanState = state.clean(`A`)
+      val cleanState = compiledState.clean(`A`)
       val secondCompiledState = cleanState.compile(`A`)
       assert(secondCompiledState.status == ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)

@@ -114,13 +114,14 @@ object BspServer {
           }
         }
 
-        //
+        // Run deletion of client external classes directories in IO pool
         Task
           .gatherUnordered(deleteExternalDirsTask)
           .materialize
           .map(_ => ())
           .runAsync(ExecutionContext.ioScheduler)
 
+        // Close any socket communication asap
         try socket.close()
         finally handle.serverSocket.close()
       }
