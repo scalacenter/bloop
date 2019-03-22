@@ -10,7 +10,7 @@ import xsbti.compile.FileHash
  * A compiler oracle is an entity that provides routines to answer
  * questions that come up during the scheduling of compilation tasks.
  */
-abstract class CompilerOracle[T] {
+abstract class CompilerOracle {
   def askForJavaSourcesOfIncompleteCompilations: List[File]
 }
 

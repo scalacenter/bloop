@@ -17,7 +17,7 @@ import bloop.{Compiler, CompilerOracle}
  */
 final class ImmutableCompilerOracle(
     scheduledCompilations: List[PartialSuccess]
-) extends CompilerOracle[PartialSuccess] {
+) extends CompilerOracle {
 
   /**
    * A question to the oracle about what are the java sources of those

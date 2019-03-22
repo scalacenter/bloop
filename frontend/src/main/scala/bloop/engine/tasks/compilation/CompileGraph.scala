@@ -40,7 +40,7 @@ object CompileGraph {
       irPromise: CompletableFuture[IRs],
       completeJava: CompletableFuture[Unit],
       transitiveJavaSignal: Task[JavaSignal],
-      oracle: CompilerOracle[PartialSuccess],
+      oracle: CompilerOracle,
       separateJavaAndScala: Boolean,
       dependentResults: Map[File, PreviousResult] = Map.empty
   )
@@ -50,7 +50,7 @@ object CompileGraph {
         b: CompileBundle,
         s: IRStore,
         p: CompletableFuture[IRs],
-        oracle: CompilerOracle[PartialSuccess],
+        oracle: CompilerOracle,
         separateJavaAndScala: Boolean,
         dependentResults: Map[File, PreviousResult] = Map.empty
     ): Inputs = {
@@ -174,7 +174,7 @@ object CompileGraph {
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
           // Replace client-specific last successful with the most recent result
-          val (latestCompilerResult, mostRecentSuccessful) = {
+          val mostRecentSuccessful = {
             val result = lastSuccessfulResults.compute(
               inputs.project,
               (_: Project, current: LastSuccessfulResult) => {
@@ -189,15 +189,14 @@ object CompileGraph {
               }
             )
 
-            if (result != null && !result.classesDir.exists)
-              Compiler.Result.Empty -> LastSuccessfulResult.empty(inputs.project)
-            else if (bundle.latestResult != Compiler.Result.Empty && result != null)
-              bundle.latestResult -> result
-            else Compiler.Result.Empty -> LastSuccessfulResult.empty(inputs.project)
+            if (result != null && !result.classesDir.exists) {
+              LastSuccessfulResult.empty(inputs.project)
+            } else if (bundle.latestResult != Compiler.Result.Empty && result != null) {
+              result
+            } else LastSuccessfulResult.empty(inputs.project)
           }
 
-          val newBundle =
-            bundle.copy(lastSuccessful = mostRecentSuccessful, latestResult = latestCompilerResult)
+          val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
           val compileAndUnsubscribe = compile(newBundle).map { result =>
             // Let's not forget to complete the observer logger
             logger.observer.onComplete()
