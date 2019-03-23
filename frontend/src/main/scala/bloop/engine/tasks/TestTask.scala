@@ -53,9 +53,13 @@ object TestTask {
         else logger.debug(s"Found test frameworks: ${frameworks.map(_.name).mkString(", ")}")
 
         val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
-        val frameworkArgs = considerFrameworkArgs(frameworks, userTestOptions, logger)
-        val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
-        logger.debug(s"Running test suites with arguments: $args")
+
+        def processFrameworkArgs(frameworks: List[Framework]) = {
+          val frameworkArgs = considerFrameworkArgs(frameworks, userTestOptions, logger)
+          val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
+          logger.debug(s"Running test suites with arguments: $args")
+          args
+        }
 
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
@@ -66,20 +70,20 @@ object TestTask {
 
         val discovered = discoverTestSuites(state, project, frameworks, analysis, testFilter)
         found match {
-          case DiscoveredTestFrameworks.Jvm(_, forker, loader) =>
+          case DiscoveredTestFrameworks.Jvm(frameworks, forker, loader) =>
             val opts = state.commonOptions
             TestInternals.execute(
               cwd,
               forker,
               loader,
               discovered,
-              args,
+              processFrameworkArgs(frameworks),
               userJvmOptions,
               failureHandler,
               logger,
               opts
             )
-          case DiscoveredTestFrameworks.Js(_, closeResources) =>
+          case DiscoveredTestFrameworks.Js(frameworks, closeResources) =>
             val cancelled: AtomicBoolean = AtomicBoolean(false)
             def cancel(): Unit = {
               if (!cancelled.getAndSet(true)) {
@@ -94,6 +98,7 @@ object TestTask {
             }
 
             val checkCancelled = () => cancelled.get
+            val args = processFrameworkArgs(frameworks)
             TestInternals
               .runJsTestsInProcess(discovered, args, failureHandler, checkCancelled, logger)
               .materialize

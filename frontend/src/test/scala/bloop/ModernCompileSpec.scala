@@ -79,6 +79,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(secondCompiledState, projects)
       assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
+      logger.dump()
     }
   }
 
