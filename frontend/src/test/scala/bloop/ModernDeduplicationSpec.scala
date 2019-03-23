@@ -264,9 +264,21 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNonExistingCompileProduct(
+          secondCompiledState.toTestState,
+          build.userProject,
+          RelativePath("User2$.class")
+        )
+
+        assertNonExistingCompileProduct(
           secondCliCompiledState,
           build.userProject,
           RelativePath("User2.class")
+        )
+
+        assertNonExistingCompileProduct(
+          secondCliCompiledState,
+          build.userProject,
+          RelativePath("User2$.class")
         )
 
         assertSameExternalClassesDirs(
