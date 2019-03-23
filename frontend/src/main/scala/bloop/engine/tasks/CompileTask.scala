@@ -1,6 +1,13 @@
 package bloop.engine.tasks
 
-import bloop.{CompileInputs, CompileMode, Compiler, CompileOutPaths, CompileProducts}
+import bloop.{
+  CompileInputs,
+  CompileMode,
+  Compiler,
+  CompileOutPaths,
+  CompileProducts,
+  CompileBackgroundTasks
+}
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine.{State, Dag, ExecutionContext, Feedback}
@@ -82,7 +89,7 @@ object CompileTask {
           graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
           compileProjectTracer.terminate()
-          Task.now(ResultBundle(earlyResult, None))
+          Task.now(ResultBundle(earlyResult, None, CancelableFuture.successful(())))
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
           val readOnlyClassesDir = lastSuccessful.classesDir
           val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
@@ -161,23 +168,39 @@ object CompileTask {
               // Finish the tracer as soon as possible
               compileProjectTracer.terminate()
 
+              def runPostCompilationTasks(
+                  backgroundTasks: CompileBackgroundTasks
+              ): CancelableFuture[Unit] = {
+                val postCompilationTasks =
+                  backgroundTasks.trigger(externalUserClassesDir, compileProjectTracer)
+                postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+              }
+
               // Populate the last successful result if result was success
               result match {
                 case s: Compiler.Result.Success =>
-                  // Don't start populating tasks until background tasks are done
+                  val runningTasks = runPostCompilationTasks(s.backgroundTasks)
+                  val blockingOnRunningTasks = Task
+                    .fromFuture(runningTasks)
+                    .executeOn(ExecutionContext.ioScheduler)
                   val populatingTask = {
-                    if (s.isNoOp) Task.fromFuture(s.backgroundTasks)
+                    if (s.isNoOp) blockingOnRunningTasks
                     else {
-                      Task.fromFuture(s.backgroundTasks).flatMap { _ =>
-                        createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger).map(_ => ())
-                      }
+                      for {
+                        _ <- blockingOnRunningTasks
+                        _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
+                      } yield ()
                     }
                   }.memoize
 
                   // Memoize so that no matter how many times it's run, only once it's executed
                   val last = LastSuccessfulResult(bundle.oracleInputs, s.products, populatingTask)
-                  ResultBundle(s, Some(last))
-                case result => ResultBundle(result, None)
+                  ResultBundle(s, Some(last), runningTasks)
+                case f: Compiler.Result.Failed =>
+                  ResultBundle(result, None, runPostCompilationTasks(f.backgroundTasks))
+                case c: Compiler.Result.Cancelled =>
+                  ResultBundle(result, None, runPostCompilationTasks(c.backgroundTasks))
+                case result => ResultBundle(result, None, CancelableFuture.successful(()))
               }
             }
           }
@@ -267,12 +290,11 @@ object CompileTask {
         val backgroundTasks = Task.gatherUnordered {
           results.flatMap {
             case FinalNormalCompileResult(_, results: ResultBundle, _) =>
-              results.fromCompiler match {
-                case s: Compiler.Result.Success => List(Task.fromFuture(s.backgroundTasks))
-                case f: Compiler.Result.Failed => List(Task.fromFuture(f.backgroundTasks))
-                case c: Compiler.Result.Cancelled => List(Task.fromFuture(c.backgroundTasks))
-                case _ => Nil
-              }
+              List(
+                Task
+                  .fromFuture(results.runningBackgroundTasks)
+                  .executeOn(ExecutionContext.ioScheduler)
+              )
             case _ => Nil
           }
         }
@@ -403,7 +425,7 @@ object CompileTask {
       Task.now(())
     } else {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
-      val blacklist = products.invalidatedClassFiles.iterator.map(_.toPath).toSet
+      val blacklist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
       val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
       val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(

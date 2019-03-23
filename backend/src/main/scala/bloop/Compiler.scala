@@ -52,8 +52,8 @@ case class CompileInputs(
     dependentResults: Map[File, PreviousResult],
     cancelPromise: Promise[Unit],
     tracer: BraveTracer,
-    scheduler: Scheduler,
-    executor: Executor,
+    ioScheduler: Scheduler,
+    ioExecutor: Executor,
     invalidatedClassFilesInDependentProjects: Set[File]
 )
 
@@ -114,7 +114,7 @@ object Compiler {
         reporter: ZincReporter,
         products: CompileProducts,
         elapsed: Long,
-        backgroundTasks: CancelableFuture[Unit],
+        backgroundTasks: CompileBackgroundTasks,
         isNoOp: Boolean
     ) extends Result
         with CacheHashCode
@@ -123,14 +123,14 @@ object Compiler {
         problems: List[ProblemPerPhase],
         t: Option[Throwable],
         elapsed: Long,
-        backgroundTasks: CancelableFuture[Unit]
+        backgroundTasks: CompileBackgroundTasks
     ) extends Result
         with CacheHashCode
 
     final case class Cancelled(
         problems: List[ProblemPerPhase],
         elapsed: Long,
-        backgroundTasks: CancelableFuture[Unit]
+        backgroundTasks: CompileBackgroundTasks
     ) extends Result
         with CacheHashCode
 
@@ -169,7 +169,8 @@ object Compiler {
     val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
-    val backgroundTasksWhenNewSuccessfulAnalysis = new mutable.ListBuffer[Task[Unit]]()
+    val backgroundTasksWhenNewSuccessfulAnalysis =
+      new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
     val backgroundTasksForFailedCompilation = new mutable.ListBuffer[Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
@@ -229,20 +230,22 @@ object Compiler {
           if (success) {
             // Schedule copying compilation products to visible classes directory
             backgroundTasksWhenNewSuccessfulAnalysis.+=(
-              tracer.traceTask("copy new products to external classes dir") { _ =>
-                val config = ParallelOps
-                  .CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-                ParallelOps
-                  .copyDirectories(config)(
-                    newClassesDir,
-                    externalClassesDir,
-                    compileInputs.scheduler,
-                    compileInputs.logger
-                  )
-                  .map { walked =>
-                    copiedPathsFromNewClassesDir.++=(walked.target)
-                    ()
-                  }
+              (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
+                clientTracer.traceTask("copy new products to external classes dir") { _ =>
+                  val config = ParallelOps
+                    .CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
+                  ParallelOps
+                    .copyDirectories(config)(
+                      newClassesDir,
+                      clientExternalClassesDir.underlying,
+                      compileInputs.ioScheduler,
+                      compileInputs.logger
+                    )
+                    .map { walked =>
+                      copiedPathsFromNewClassesDir.++=(walked.target)
+                      ()
+                    }
+                }
               }
             )
           } else {
@@ -312,7 +315,7 @@ object Compiler {
       Task
         .gatherUnordered(tasks)
         .map(_ => ())
-        .runAsync(compileInputs.scheduler)
+        .runAsync(compileInputs.ioScheduler)
     }
 
     val start = System.nanoTime()
@@ -368,7 +371,10 @@ object Compiler {
             Optional.of(analysisForFutureCompilationRuns)
           )
 
-          val updateExternalClassesDirWithReadOnly = {
+          def updateExternalClassesDirWithReadOnly(
+              clientClassesDir: AbsolutePath,
+              tracer: BraveTracer
+          ): Task[Unit] = {
             tracer.traceTask("update external classes dir with read-only") { _ =>
               Task {
                 // Attention: blacklist must be computed inside the task!
@@ -383,7 +389,7 @@ object Compiler {
                 val lastCopy = ParallelOps.copyDirectories(config)(
                   readOnlyClassesDir,
                   externalClassesDir,
-                  compileInputs.scheduler,
+                  compileInputs.ioScheduler,
                   compileInputs.logger
                 )
                 lastCopy.map(fs => ())
@@ -402,31 +408,49 @@ object Compiler {
               Set()
             )
 
+            val backgroundTasks = new CompileBackgroundTasks {
+              def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
+                updateExternalClassesDirWithReadOnly(clientClassesDir, tracer)
+              }
+            }
+
             Result.Success(
               compileInputs.oracleInputs,
               compileInputs.reporter,
               products,
               elapsed,
-              runAggregateTasks(List(updateExternalClassesDirWithReadOnly)),
+              backgroundTasks,
               isNoOp
             )
           } else {
+            val persistTask = {
+              val persistOut = compileOut.analysisOut
+              val setup = result.setup
+              val analysis = analysisForFutureCompilationRuns
+              // Important to memoize it, it's triggered by different clients
+              Task(persist(persistOut, analysis, setup, tracer, logger)).memoize
+            }
+
+            // Delete all those class files that were invalidated in the external classes dir
+            val allInvalidated = allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
+
             // Schedule the tasks to run concurrently after the compilation end
-            val backgroundTasksExecution = {
-              val copyingTasks = {
-                // Block on the background tasks when new successful analysis
-                Task.gatherUnordered(backgroundTasksWhenNewSuccessfulAnalysis.toList).flatMap { _ =>
+            val backgroundTasksExecution = new CompileBackgroundTasks {
+              def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
+                val clientClassesDirPath = clientClassesDir.toString
+                val successBackgroundTasks =
+                  backgroundTasksWhenNewSuccessfulAnalysis.map(f => f(clientClassesDir, tracer))
+                val initialTasks = persistTask :: successBackgroundTasks.toList
+                Task.gatherUnordered(initialTasks).flatMap { _ =>
                   // Only start these tasks after the previous IO tasks in the external dir are done
-                  val firstTask = updateExternalClassesDirWithReadOnly
+                  val firstTask = updateExternalClassesDirWithReadOnly(clientClassesDir, tracer)
                   val secondTask = Task {
-                    // Delete all those class files that were invalidated in the external classes dir
-                    val allInvalidated = allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
                     allInvalidated.foreach { f =>
                       val path = AbsolutePath(f.toPath)
                       val syntax = path.syntax
                       if (syntax.startsWith(readOnlyClassesDirPath)) {
                         val rebasedFile = AbsolutePath(
-                          syntax.replace(readOnlyClassesDirPath, externalClassesDirPath)
+                          syntax.replace(readOnlyClassesDirPath, clientClassesDirPath)
                         )
                         if (rebasedFile.exists) {
                           Files.delete(rebasedFile.underlying)
@@ -437,15 +461,6 @@ object Compiler {
                   Task.gatherUnordered(List(firstTask, secondTask)).map(_ => ())
                 }
               }
-
-              val persistOut = compileOut.analysisOut
-              val persistTask = {
-                val setup = result.setup
-                val analysis = analysisForFutureCompilationRuns
-                Task(persist(persistOut, analysis, setup, tracer, logger))
-              }
-
-              runAggregateTasks(List(copyingTasks, persistTask))
             }
 
             val products = CompileProducts(
@@ -453,7 +468,7 @@ object Compiler {
               newClassesDir,
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
-              allInvalidatedClassFilesForProject.toSet
+              allInvalidated.toSet
             )
 
             Result.Success(
@@ -467,12 +482,12 @@ object Compiler {
           }
         case Failure(_: xsbti.CompileCancelled) =>
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
-          val backgroundTask = runAggregateTasks(backgroundTasksForFailedCompilation.toList)
-          Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTask)
+          val backgroundTasks =
+            triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+          Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
         case Failure(cause) =>
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Error)
 
-          def triggerBackgroundTask = runAggregateTasks(backgroundTasksForFailedCompilation.toList)
           cause match {
             case f: StopPipelining => Result.Blocked(f.failedProjectNames)
             case f: xsbti.CompileFailed =>
@@ -484,12 +499,24 @@ object Compiler {
                 else List(ProblemPerPhase(p, None))
               }
               val failedProblems = reportedProblems ++ newProblems.toList
-              Result.Failed(failedProblems, None, elapsed, triggerBackgroundTask)
+              val backgroundTasks =
+                triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+              Result.Failed(failedProblems, None, elapsed, backgroundTasks)
             case t: Throwable =>
               t.printStackTrace()
-              Result.Failed(Nil, Some(t), elapsed, triggerBackgroundTask)
+              val backgroundTasks =
+                triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+              Result.Failed(Nil, Some(t), elapsed, backgroundTasks)
           }
       }
+  }
+
+  def triggerTaskForBackground(backgroundTasksForFailedCompilation: List[Task[Unit]]) = {
+    new CompileBackgroundTasks {
+      def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
+        Task.gatherUnordered(backgroundTasksForFailedCompilation).memoize.map(_ => ())
+      }
+    }
   }
 
   def analysisFrom(prev: PreviousResult): Option[CompileAnalysis] = {

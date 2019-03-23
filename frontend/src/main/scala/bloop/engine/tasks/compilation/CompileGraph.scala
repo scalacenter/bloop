@@ -18,6 +18,7 @@ import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore, CompileProduc
 import bloop.engine.caches.LastSuccessfulResult
 
 import monix.eval.Task
+import monix.execution.CancelableFuture
 import monix.reactive.{Observable, MulticastStrategy}
 import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
 
@@ -290,23 +291,11 @@ object CompileGraph {
                 results.fromCompiler match {
                   case s: Compiler.Result.Success =>
                     // Wait on new classes to be populated for correctness
-                    val blockOnBackgroundInIOThread =
-                      Task.fromFuture(s.backgroundTasks).executeOn(ExecutionContext.ioScheduler)
-                    // Populate to client-specific external classes directory
-                    blockOnBackgroundInIOThread.flatMap { _ =>
-                      val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
-                      val populatedClassesDir = s.products.newClassesDir
-                      val config =
-                        ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-                      val copyTask = ParallelOps
-                        .copyDirectories(config)(
-                          populatedClassesDir,
-                          externalClassesDir.underlying,
-                          ExecutionContext.ioScheduler,
-                          rawLogger
-                        )
-                      copyTask.map(_ => results)
-                    }.memoize
+                    val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
+                    val runningBackgroundTasks = s.backgroundTasks
+                      .trigger(externalClassesDir, bundle.tracer)
+                      .runAsync(ExecutionContext.ioScheduler)
+                    Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
                   case _: Compiler.Result.Cancelled =>
                     // Make sure to cancel the deduplicating task if compilation is cancelled
                     deduplicateStreamSideEffectsHandle.cancel()
@@ -485,7 +474,7 @@ object CompileGraph {
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
     def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure = {
-      val results = Task.now(ResultBundle(res, None))
+      val results = Task.now(ResultBundle(res, None, CancelableFuture.unit))
       PartialFailure(bundle.project, CompileExceptions.FailPromise, results)
     }
 
@@ -522,7 +511,7 @@ object CompileGraph {
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None))
+                  val blocked = Task.now(ResultBundle(blockedResult, None, CancelableFuture.unit))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {
@@ -536,7 +525,7 @@ object CompileGraph {
                     var dependentProducts = new mutable.ListBuffer[(Project, CompileProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
-                      case (p, ResultBundle(s: Compiler.Result.Success, _)) =>
+                      case (p, ResultBundle(s: Compiler.Result.Success, _, _)) =>
                         val newProducts = s.products
                         dependentProducts.+=(p -> newProducts)
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
@@ -640,7 +629,7 @@ object CompileGraph {
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None))
+                  val blocked = Task.now(ResultBundle(blockedResult, None, CancelableFuture.unit))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val directResults =

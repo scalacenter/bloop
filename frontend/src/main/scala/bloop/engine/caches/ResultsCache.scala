@@ -131,13 +131,15 @@ object ResultsCache {
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
                       val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath, originHash)
-                      val dummyCancelable = CancelableFuture.successful(())
+                      import bloop.CompileBackgroundTasks
+                      val dummyTasks = CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
                       val products = CompileProducts(classesDir, classesDir, r, r, Set.empty)
                       ResultBundle(
-                        Result.Success(inputs, reporter, products, 0L, dummyCancelable, false),
-                        Some(LastSuccessfulResult(inputs, products, Task.now(())))
+                        Result.Success(inputs, reporter, products, 0L, dummyTasks, false),
+                        Some(LastSuccessfulResult(inputs, products, Task.now(()))),
+                        CancelableFuture.successful(())
                       )
                     case None =>
                       logger.debug(

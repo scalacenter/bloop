@@ -1,6 +1,7 @@
 package bloop
 
 import bloop.config.Config
+import bloop.io.RelativePath
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus, BspProtocol}
 import bloop.engine.ExecutionContext
@@ -144,6 +145,148 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
           thirdCompiledState.lastDiagnostics(build.userProject),
           """#2: task start 4
             |  -> Msg: Start no-op compilation for user
+            |  -> Data kind: compile-task
+            |#2: task finish 4
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'user'
+            |  -> Data kind: compile-report
+        """.stripMargin
+        )
+      }
+    }
+  }
+
+  test("deduplication removes invalidated class files from all external classes dirs") {
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    BuildUtil.testSlowBuild(logger) { build =>
+      val state = new TestState(build.state)
+      val compiledMacrosState = state.compile(build.macroProject)
+      assert(compiledMacrosState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledMacrosState, List(build.macroProject))
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator()),
+        s"""
+           |Compiling macros (1 Scala source)
+         """.stripMargin
+      )
+
+      val bspLogger = new RecordingLogger(ansiCodesSupported = false)
+      val cliLogger = new RecordingLogger(ansiCodesSupported = false)
+
+      val projects = List(build.macroProject, build.userProject)
+      loadBspState(build.workspace, projects, bspLogger) { bspState =>
+        val firstCompilation = bspState.compileHandle(build.userProject)
+        val firstCliCompilation =
+          compiledMacrosState
+            .withLogger(cliLogger)
+            .compileHandle(
+              build.userProject,
+              Some(FiniteDuration(2, TimeUnit.SECONDS))
+            )
+
+        val firstCompiledState =
+          Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
+
+        // Wait only +- 200ms in both to check no extra compilation happens but there's time to finish
+        val firstCliCompiledState =
+          Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
+
+        assert(firstCompiledState.status == ExitStatus.Ok)
+        assert(firstCliCompiledState.status == ExitStatus.Ok)
+
+        // We get the same class files in all their external directories
+        assertValidCompilationState(firstCompiledState, projects)
+        assertValidCompilationState(firstCliCompiledState, projects)
+        assertSameExternalClassesDirs(
+          firstCliCompiledState,
+          firstCompiledState.toTestState,
+          projects
+        )
+
+        checkDeduplication(cliLogger, isDeduplicated = true)
+
+        assertNoDiff(
+          firstCompiledState.lastDiagnostics(build.userProject),
+          """#1: task start 2
+            |  -> Msg: Compiling user (2 Scala sources)
+            |  -> Data kind: compile-task
+            |#1: task finish 2
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'user'
+            |  -> Data kind: compile-report
+        """.stripMargin
+        )
+
+        assertNoDiff(
+          cliLogger.compilingInfos.mkString(System.lineSeparator()),
+          s"""
+             |Compiling user (2 Scala sources)
+         """.stripMargin
+        )
+
+        object Sources {
+          // A modified version of `User2` that instead renames to `User3`
+          val `User2.scala` =
+            """/main/scala/User2.scala
+              |package user
+              |
+              |object User3 extends App {
+              |  macros.SleepMacro.sleep()
+              |}
+            """.stripMargin
+        }
+
+        val `User2.scala` = build.userProject.srcFor("/main/scala/User2.scala")
+        assertIsFile(writeFile(`User2.scala`, Sources.`User2.scala`))
+        val secondCompilation = firstCompiledState.compileHandle(build.userProject)
+        val secondCliCompilation =
+          firstCliCompiledState
+            .withLogger(cliLogger)
+            .compileHandle(
+              build.userProject,
+              Some(FiniteDuration(700, TimeUnit.MILLISECONDS))
+            )
+
+        val secondCompiledState =
+          Await.result(secondCompilation, FiniteDuration(5, TimeUnit.SECONDS))
+        val secondCliCompiledState =
+          Await.result(secondCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
+
+        assert(secondCompiledState.status == ExitStatus.Ok)
+        assert(secondCliCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+        assertValidCompilationState(secondCliCompiledState, projects)
+
+        assertNonExistingCompileProduct(
+          secondCompiledState.toTestState,
+          build.userProject,
+          RelativePath("User2.class")
+        )
+
+        assertNonExistingCompileProduct(
+          secondCliCompiledState,
+          build.userProject,
+          RelativePath("User2.class")
+        )
+
+        assertSameExternalClassesDirs(
+          secondCompiledState.toTestState,
+          secondCliCompiledState,
+          projects
+        )
+
+        assertNoDiff(
+          cliLogger.compilingInfos.mkString(System.lineSeparator()),
+          s"""
+             |Compiling user (2 Scala sources)
+             |Compiling user (1 Scala source)
+         """.stripMargin
+        )
+
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(build.userProject),
+          """#2: task start 4
+            |  -> Msg: Compiling user (1 Scala source)
             |  -> Data kind: compile-task
             |#2: task finish 4
             |  -> errors 0, warnings 0

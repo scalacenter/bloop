@@ -190,7 +190,9 @@ class BaseSuite extends TestSuite with BloopHelpers {
     val filesB = takeDirectorySnapshot(b)
     assertNoDiff(
       pprint.apply(filesA, height = Int.MaxValue).render,
-      pprint.apply(filesB, height = Int.MaxValue).render
+      pprint.apply(filesB, height = Int.MaxValue).render,
+      a.syntax,
+      b.syntax
     )
   }
 
@@ -379,6 +381,24 @@ class BaseSuite extends TestSuite with BloopHelpers {
         val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
         assert(takeDirectorySnapshot(latestResult.classesDir).nonEmpty)
         assertSameFilesIn(projectClassesDir, latestResult.classesDir)
+    }
+  }
+
+  def assertNoDiff(
+      obtained: String,
+      expected: String,
+      obtainedTitle: String,
+      expectedTitle: String
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    colored {
+      DiffAssertions.assertNoDiffOrPrintExpected(
+        obtained,
+        expected,
+        obtainedTitle,
+        expectedTitle,
+        true
+      )
+      ()
     }
   }
 

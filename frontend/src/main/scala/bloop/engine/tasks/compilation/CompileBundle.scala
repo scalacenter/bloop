@@ -69,7 +69,8 @@ final case class CompileBundle(
     logger: ObservedLogger[Logger],
     mirror: Observable[Either[ReporterAction, LoggerAction]],
     lastSuccessful: LastSuccessfulResult,
-    latestResult: Compiler.Result
+    latestResult: Compiler.Result,
+    tracer: BraveTracer
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
 
@@ -180,7 +181,8 @@ object CompileBundle {
           logger,
           mirror,
           lastSuccessful,
-          lastResult
+          lastResult,
+          tracer
         )
       }
     }

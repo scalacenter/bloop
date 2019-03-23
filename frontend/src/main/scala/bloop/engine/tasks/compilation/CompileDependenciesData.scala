@@ -47,7 +47,7 @@ object CompileDependenciesData {
           else Array(newClassesDir, readOnlyClassesDir)
 
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
-        dependentInvalidatedClassFiles.++=(products.invalidatedClassFiles)
+        dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
         dependentResources.put(genericClassesDir, project.pickValidResources)
         resultsMap.put(genericClassesDir.toFile, products.resultForDependentCompilationsInSameRun)
     }
