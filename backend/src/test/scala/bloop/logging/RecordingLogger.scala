@@ -20,6 +20,38 @@ class RecordingLogger(
   def warnings: List[String] = getMessagesAt(Some("warn"))
   def errors: List[String] = getMessagesAt(Some("error"))
 
+  private def replaceTimingInfo(msg: String): String = {
+    def representsTime(word: String, idx: Int): Boolean =
+      idx > 0 && Character.isDigit(word.charAt(idx - 1))
+
+    msg
+      .split("\\s+")
+      .foldLeft(Nil: List[String]) {
+        case (seen, word) =>
+          val indexOfMs = word.lastIndexOf("ms")
+          val indexOfS = word.lastIndexOf("s")
+          if (representsTime(word, indexOfMs)) "???ms" :: seen
+          else if (representsTime(word, indexOfS)) "???s" :: seen
+          else {
+            seen match {
+              case p :: ps =>
+                if (word == "ms" && Character.isDigit(p.last)) "ms" :: "???" :: ps
+                else if (word == "s" && Character.isDigit(p.last)) "s" :: "???" :: ps
+                else word :: seen
+              case _ => word :: seen
+            }
+          }
+      }
+      .reverse
+      .mkString(" ")
+  }
+
+  def renderTimeInsensitiveInfos: String = {
+    infos
+      .map(info => replaceTimingInfo(info))
+      .mkString(System.lineSeparator())
+  }
+
   def renderErrors(exceptContaining: String = ""): String = {
     val exclude = exceptContaining.nonEmpty
     val newErrors = if (!exclude) errors else errors.filterNot(_.contains(exceptContaining))

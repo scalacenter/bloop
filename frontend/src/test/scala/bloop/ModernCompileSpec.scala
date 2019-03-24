@@ -79,7 +79,9 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
       assertExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(secondCompiledState, projects)
       assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
-      logger.dump()
+      logger.debugs.foreach { debug =>
+        assert(!debug.contains("Classpath hash changed"))
+      }
     }
   }
 

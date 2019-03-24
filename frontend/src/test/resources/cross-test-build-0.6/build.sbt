@@ -31,8 +31,8 @@ lazy val `test-project` =
         Tests.Exclude("hello.WritingTest" :: Nil),
         Tests.Exclude("hello.EternalUTest" :: Nil),
         Tests.Argument("-o"),
-        Tests.Argument(TestFrameworks.JUnit, "-v", "+q", "-n"),
-        Tests.Argument(TestFrameworks.ScalaTest, "-h", "target/test-reports")
+        Tests.Argument(TestFrameworks.JUnit, "-v", "+q", "-n")
+        //Tests.Argument(TestFrameworks.ScalaTest, "-h", "target/test-reports")
       ),
     )
     .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))

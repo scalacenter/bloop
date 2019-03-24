@@ -31,10 +31,14 @@ trait BloopHelpers {
   }
 
   case class TestBuild(state: TestState, projects: List[TestProject]) {
-    def projectFor(name: String): TestProject =
+    def projectFor(name: String): TestProject = {
       projects.find(_.config.name == name).get
+    }
     def configFileFor(project: TestProject): AbsolutePath = {
       state.build.getProjectFor(project.config.name).get.origin.path
+    }
+    def withLogger(logger: Logger): TestBuild = {
+      TestBuild(state = state.withLogger(logger), projects)
     }
   }
 
@@ -62,12 +66,19 @@ trait BloopHelpers {
 
     val loadFromNewWorkspace = copyToNewWorkspace.flatMap { _ =>
       val configDir = relativeConfigDir.toAbsolute(workspace).underlying
-      val state = new TestState(TestUtil.loadTestProject(configDir, logger, false))
       // Read project configuration files from the configuration directory
       val files = BuildLoader.readConfigurationFilesInBase(AbsolutePath(configDir), logger)
-      val all = files.map(f => Task(loadTestProjectFromDisk(f.path.underlying, logger)))
+      val all = files.map { f =>
+        Task {
+          val configFile = f.path.underlying
+          val oldWorkspace = AbsolutePath(baseDir)
+          loadTestProjectFromDisk(configFile, oldWorkspace.syntax, workspace.syntax, logger)
+        }
+      }
+
       val loaders = all.grouped(5).map(group => Task.gatherUnordered(group)).toList
       Task.sequence(loaders).executeOn(ExecutionContext.ioScheduler).map { projects =>
+        val state = new TestState(TestUtil.loadTestProject(configDir, logger, false))
         TestBuild(state, projects.flatten)
       }
     }
@@ -77,11 +88,26 @@ trait BloopHelpers {
     }
   }
 
-  private def loadTestProjectFromDisk(configFile: Path, logger: Logger): TestProject = {
+  private def loadTestProjectFromDisk(
+      configFile: Path,
+      previousBaseDir: String,
+      newBaseDir: String,
+      logger: Logger
+  ): TestProject = {
     import _root_.io.circe.parser
     val bytes = Files.readAllBytes(configFile)
     val contents = new String(bytes, StandardCharsets.UTF_8)
-    parser.parse(contents) match {
+    val newContents = contents.replace(previousBaseDir, newBaseDir)
+    import java.nio.file.StandardOpenOption
+    Files.write(
+      configFile,
+      newContents.getBytes(StandardCharsets.UTF_8),
+      StandardOpenOption.TRUNCATE_EXISTING,
+      StandardOpenOption.SYNC,
+      StandardOpenOption.WRITE
+    )
+
+    parser.parse(newContents) match {
       case Left(failure) => throw failure
       case Right(json) =>
         ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
@@ -132,6 +158,15 @@ trait BloopHelpers {
     def clean(projects: TestProject*): TestState = {
       val compileTask = Run(Commands.Clean(projects.map(_.config.name).toList))
       new TestState(TestUtil.blockingExecute(compileTask, state))
+    }
+
+    def test(project: TestProject): TestState = {
+      test(project, Nil, Nil)
+    }
+
+    def test(project: TestProject, only: List[String], args: List[String]): TestState = {
+      val testTask = Run(Commands.Test(List(project.config.name), only = only, args = args))
+      new TestState(TestUtil.blockingExecute(testTask, state))
     }
 
     def broadcastGlobally(): Unit = {

@@ -85,7 +85,7 @@ final case class Project(
       val genericClassesDir = p.genericClassesDir
       val uniqueClassesDir = client.getUniqueClassesDirFor(p)
       val index = cp.indexOf(genericClassesDir)
-      val newResources = pickValidResources.filterNot(r => addedResources.contains(r))
+      val newResources = p.pickValidResources.filterNot(r => addedResources.contains(r))
       newResources.foreach(r => addedResources.add(r))
       if (index == -1) {
         // Not found? Weird. Let's add resources to end just in case

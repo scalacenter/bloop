@@ -41,8 +41,15 @@ object DiffAssertions extends FunSuiteLike {
         if (print) {
           obtained.linesIterator.toList match {
             case head +: tail =>
-              println("    \"\"\"|" + head)
-              tail.foreach(line => println("       |" + line))
+              val b = new StringBuilder()
+              b.++=("    \"\"\"|" + head).++=(System.lineSeparator())
+              tail.foreach { line =>
+                b.++=("       |")
+                  .++=(line)
+                  .++=(System.lineSeparator())
+              }
+              b.++=("       |\"\"\".stripMargin").++=(System.lineSeparator())
+              println(b.mkString)
             case head +: Nil =>
               println(head)
             case Nil =>

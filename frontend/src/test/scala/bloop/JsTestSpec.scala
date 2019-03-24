@@ -1,3 +1,4 @@
+/*
 package bloop
 
 import java.net.URLClassLoader
@@ -242,3 +243,4 @@ class JsTestSpec(
     }
   }
 }
+ */

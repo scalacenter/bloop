@@ -48,27 +48,26 @@ object TestTask {
     TestTask.discoverTestFrameworks(project, state).flatMap {
       case None => Task.now(ExitStatus.TestExecutionError.code)
       case Some(found) =>
-        val frameworks = found.frameworks
-        if (frameworks.isEmpty) logger.error("No test frameworks found")
-        else logger.debug(s"Found test frameworks: ${frameworks.map(_.name).mkString(", ")}")
-
-        val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
-
-        def processFrameworkArgs(frameworks: List[Framework]) = {
-          val frameworkArgs = considerFrameworkArgs(frameworks, userTestOptions, logger)
-          val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
-          logger.debug(s"Running test suites with arguments: $args")
-          args
+        val configuredFrameworks = found.frameworks
+        if (configuredFrameworks.isEmpty) logger.error("No test frameworks found")
+        else {
+          logger.debug(s"Found test frameworks: ${configuredFrameworks.map(_.name).mkString(", ")}")
         }
 
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
-          logger
-            .warn(s"Test execution was triggered, but no compilation detected for ${project.name}")
+          logger.warn(s"Triggered test execution but no compilation detected for ${project.name}")
           Analysis.empty
         }
 
-        val discovered = discoverTestSuites(state, project, frameworks, analysis, testFilter)
+        val discovered =
+          discoverTestSuites(state, project, configuredFrameworks, analysis, testFilter)
+        val discoveredFrameworks = discovered.iterator.filterNot(_._2.isEmpty).map(_._1).toList
+        val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
+        val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
+        val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
+        logger.debug(s"Running test suites with arguments: $args")
+
         found match {
           case DiscoveredTestFrameworks.Jvm(frameworks, forker, loader) =>
             val opts = state.commonOptions
@@ -77,7 +76,7 @@ object TestTask {
               forker,
               loader,
               discovered,
-              processFrameworkArgs(frameworks),
+              args,
               userJvmOptions,
               failureHandler,
               logger,
@@ -98,7 +97,6 @@ object TestTask {
             }
 
             val checkCancelled = () => cancelled.get
-            val args = processFrameworkArgs(frameworks)
             TestInternals
               .runJsTestsInProcess(discovered, args, failureHandler, checkCancelled, logger)
               .materialize
@@ -202,7 +200,7 @@ object TestTask {
     if (options.isEmpty) Nil
     else {
       val cls = frameworks.map(f => f.getClass.getName)
-      frameworks match {
+      frameworks.sortBy(_.name) match {
         case Nil => Nil
         case oneFramework :: Nil =>
           val cls = oneFramework.getClass.getName
@@ -321,36 +319,29 @@ object TestTask {
   ): List[Config.TestArgument] = {
     import java.nio.file.{Files, Paths}
     args.map {
-      case Config.TestArgument(testArg :: testArgs, f @ Some(Config.TestFramework.ScalaTest)) =>
+      case Config.TestArgument(testArg :: testArgs, f) =>
         val fixedArgs = testArgs.foldLeft(List(testArg)) {
           case (Nil, current) => current :: Nil
-          case (rest @ previous :: _, current) =>
+          case (rest @ previous :: xs, current) =>
             if (previous != "-h") current :: rest
             else {
-              val currentPath = Paths.get(current)
-              val path = {
+              val reportsPath = {
+                val currentPath = Paths.get(current)
                 if (currentPath.isAbsolute) currentPath
-                else {
-                  val potentialPath = project.baseDirectory.resolve(current)
-                  if (potentialPath.exists) potentialPath.underlying
-                  else {
-                    if (potentialPath.getParent.exists)
-                      Files.createFile(potentialPath.underlying)
-                    else {
-                      Files.createDirectories(potentialPath.getParent.underlying)
-                      Files.createFile(potentialPath.underlying)
-                    }
-                  }
-                }
+                else project.baseDirectory.resolve(current).underlying
               }
 
-              path.toAbsolutePath.toString :: rest
+              if (Files.isRegularFile(reportsPath) && !Files.isSymbolicLink(reportsPath)) {
+                Files.delete(reportsPath)
+              }
+
+              Files.createDirectories(reportsPath)
+              reportsPath.toAbsolutePath.toString :: rest
             }
         }
 
-        Config.TestArgument(fixedArgs, f)
+        Config.TestArgument(fixedArgs.reverse, f)
       case a => a
     }
   }
-
 }

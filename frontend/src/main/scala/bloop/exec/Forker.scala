@@ -75,10 +75,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
           s"""
              |Fork options:
              |   command      = '${cmd.mkString(" ")}'
-             |   cwd          = '$cwd'
-             |   classpath    = '$fullClasspath'
-             |   java_home    = '${javaEnv.javaHome}'
-             |   java_options = '${jvmOptions.mkString(" ")}""".stripMargin
+             |   cwd          = '$cwd'""".stripMargin
         Task(logger.debug(debugOptions)(DebugFilter.All))
       } else Task.unit
     logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
