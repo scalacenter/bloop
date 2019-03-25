@@ -51,16 +51,23 @@ object CompileTask {
       cancelCompilation: Promise[Unit],
       rawLogger: UseSiteLogger
   ): Task[State] = {
+    import bloop.data.ClientInfo
     import bloop.internal.build.BuildInfo
     val originUri = state.build.origin
     val cwd = originUri.getParent
     val topLevelTargets = Dag.directDependencies(List(dag)).mkString(", ")
+    val clientName = state.client match {
+      case cliClient: ClientInfo.CliClientInfo => cliClient.id
+      case bspClient: ClientInfo.BspClientInfo => bspClient.name
+    }
+
     val rootTracer = BraveTracer(
       s"compile $topLevelTargets (transitively)",
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
       "build.uri" -> originUri.syntax,
-      "compile.target" -> topLevelTargets
+      "compile.target" -> topLevelTargets,
+      "client" -> clientName
     )
 
     val bgTracer = rootTracer.toIndependentTracer(
@@ -68,7 +75,8 @@ object CompileTask {
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
       "build.uri" -> originUri.syntax,
-      "compile.target" -> topLevelTargets
+      "compile.target" -> topLevelTargets,
+      "client" -> clientName
     )
 
     def compile(graphInputs: CompileGraph.Inputs): Task[ResultBundle] = {
