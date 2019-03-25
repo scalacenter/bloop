@@ -21,10 +21,10 @@ final class BloopLookup(
       val newPreviousClasspathHash = previousClasspathHash.filterNot(fh => fh.file.isDirectory())
       if (classpathHash == newPreviousClasspathHash) None
       else {
-        logger.debug("Classpath hash changed!")
+        logger.info("Classpath hash changed!")
         val previousClasspath = pprint.apply(newPreviousClasspathHash, height = Int.MaxValue).render
         val newClasspath = pprint.apply(classpathHash, height = Int.MaxValue).render
-        logger.debug(Diff.unifiedDiff(previousClasspath, newClasspath, "", ""))
+        logger.info(Diff.unifiedDiff(previousClasspath, newClasspath, "", ""))
         Some(classpathHash)
       }
     }
