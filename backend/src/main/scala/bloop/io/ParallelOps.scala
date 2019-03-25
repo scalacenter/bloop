@@ -119,8 +119,12 @@ object ParallelOps {
     }
 
     val discoverFileTree = Task {
-      Files.walkFileTree(origin, discovery)
-      FileWalk(visitedPaths.toList, targetPaths.toList)
+      if (!Files.exists(origin)) {
+        FileWalk(Nil, Nil)
+      } else {
+        Files.walkFileTree(origin, discovery)
+        FileWalk(visitedPaths.toList, targetPaths.toList)
+      }
     }.doOnFinish {
       case Some(t) => Task(observer.onError(t))
       case None => Task(observer.onComplete())
