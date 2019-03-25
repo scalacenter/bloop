@@ -117,7 +117,7 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compile a project, clean and compile it again") {
+  test("compile project / clean / compile it again") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -291,6 +291,10 @@ object ModernCompileSpec extends bloop.testing.BaseSuite {
           |Compiling b (1 Scala source)""".stripMargin
       )
 
+      // Check that initial classes directory doesn't exist either
+      assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
+      // There should only be three classes dirs: empty-a, current classes dir and external
+      assert(list(workspace.resolve("target").resolve("a")).size == 3)
     }
   }
 

@@ -27,7 +27,7 @@ object LastSuccessfulResult {
 
   final def empty(project: Project): LastSuccessfulResult = {
     val classesDir = Files.createDirectories(
-      project.genericClassesDir.getParent.resolve(s"empty-${project.name}").underlying
+      project.genericClassesDir.getParent.resolve(s"classes-empty-${project.name}").underlying
     )
     LastSuccessfulResult(
       Vector.empty,

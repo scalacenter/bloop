@@ -6,6 +6,7 @@ import java.util.concurrent.{Executor, ConcurrentHashMap}
 import java.util.UUID
 import java.nio.file.{Files, Path}
 
+import bloop.io.{Paths => BloopPaths}
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
@@ -253,7 +254,7 @@ object Compiler {
             backgroundTasksForFailedCompilation.+=(
               (clientTracer: BraveTracer) => {
                 clientTracer.traceTask("delete class files after ") { _ =>
-                  Task { bloop.io.Paths.delete(AbsolutePath(newClassesDir)); () }
+                  Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }
                 }
               }
             )
@@ -412,7 +413,10 @@ object Compiler {
 
             val backgroundTasks = new CompileBackgroundTasks {
               def trigger(clientClassesDir: AbsolutePath, clientTracer: BraveTracer): Task[Unit] = {
-                updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
+                Task.mapBoth(
+                  Task(BloopPaths.delete(AbsolutePath(newClassesDir))),
+                  updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
+                )((_: Unit, _: Unit) => ())
               }
             }
 
