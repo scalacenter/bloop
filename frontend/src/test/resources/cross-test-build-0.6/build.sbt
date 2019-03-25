@@ -33,7 +33,7 @@ lazy val `test-project` =
         Tests.Argument("-o"),
         Tests.Argument(TestFrameworks.JUnit, "-v", "+q", "-n")
         //Tests.Argument(TestFrameworks.ScalaTest, "-h", "target/test-reports")
-      ),
+      )
     )
     .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
 

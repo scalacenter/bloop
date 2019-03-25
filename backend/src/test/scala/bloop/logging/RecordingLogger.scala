@@ -46,9 +46,17 @@ class RecordingLogger(
       .mkString(" ")
   }
 
+  def captureTimeInsensitiveInfos: List[String] = {
+    infos.map(info => replaceTimingInfo(info))
+  }
+
   def renderTimeInsensitiveInfos: String = {
-    infos
-      .map(info => replaceTimingInfo(info))
+    captureTimeInsensitiveInfos.mkString(System.lineSeparator())
+  }
+
+  def renderTimeInsensitiveTestInfos: String = {
+    captureTimeInsensitiveInfos
+      .filterNot(msg => msg.startsWith("Compiling ") || msg.startsWith("Compiled "))
       .mkString(System.lineSeparator())
   }
 

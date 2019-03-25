@@ -160,13 +160,36 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(compileTask, state))
     }
 
+    def testTask(project: TestProject, only: List[String], args: List[String]): Task[TestState] = {
+      val testTask = Run(Commands.Test(List(project.config.name), only = only, args = args))
+      TestUtil.interpreterTask(testTask, state).map(new TestState(_))
+    }
+
+    def test(project: TestProject, only: List[String], args: List[String]): TestState = {
+      TestUtil.await(FiniteDuration(20, "s")) {
+        testTask(project, only, args)
+      }
+    }
+
     def test(project: TestProject): TestState = {
       test(project, Nil, Nil)
     }
 
-    def test(project: TestProject, only: List[String], args: List[String]): TestState = {
-      val testTask = Run(Commands.Test(List(project.config.name), only = only, args = args))
-      new TestState(TestUtil.blockingExecute(testTask, state))
+    def testHandle(
+        project: TestProject,
+        only: List[String],
+        args: List[String],
+        delay: Option[FiniteDuration]
+    ): CancelableFuture[TestState] = {
+      val interpretedTask = {
+        val task = testTask(project, only, args)
+        delay match {
+          case Some(duration) => task.delayExecution(duration)
+          case None => task
+        }
+      }
+
+      interpretedTask.runAsync(ExecutionContext.scheduler)
     }
 
     def broadcastGlobally(): Unit = {

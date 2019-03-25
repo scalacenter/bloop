@@ -147,8 +147,13 @@ final class TestServer(
 
       server.close()
       // Do both just in case the logger streams have been closed by nailgun
-      opts.ngout.println("The test execution was successfully cancelled.")
-      logger.debug("Test server has been successfully closed.")
+      if (fromCancel) {
+        opts.ngout.println("The test execution was successfully cancelled.")
+        logger.debug("Test server has been successfully cancelled.")
+      } else {
+        opts.ngout.println("The test execution was successfully closed.")
+        logger.debug("Test server has been successfully closed.")
+      }
     }
 
     val listener = testListeningTask

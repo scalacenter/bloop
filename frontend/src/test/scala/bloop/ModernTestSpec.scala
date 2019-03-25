@@ -30,7 +30,7 @@ object ModernTestSpec extends ProjectBaseSuite("cross-test-build-0.6") {
     val project = build.projectFor("test-project-test")
     val testState = build.state.test(project)
     assertNoDiff(
-      logger.renderTimeInsensitiveInfos,
+      logger.renderTimeInsensitiveTestInfos,
       """|Test run started
          |Test hello.JUnitTest.myTest started
          |Test run finished: 0 failed, 0 ignored, 1 total, ???s
@@ -91,7 +91,7 @@ object ModernTestSpec extends ProjectBaseSuite("cross-test-build-0.6") {
     val project = build.projectFor("test-project-test")
     val testState = build.state.test(project, List("hello.JUnitTest"), List("*myTest*"))
     assertNoDiff(
-      logger.renderTimeInsensitiveInfos,
+      logger.renderTimeInsensitiveTestInfos,
       """Test run started
         |Test hello.JUnitTest.myTest started
         |Test run finished: 0 failed, 0 ignored, 1 total, ???s
@@ -116,7 +116,7 @@ object ModernTestSpec extends ProjectBaseSuite("cross-test-build-0.6") {
     )
 
     assertNoDiff(
-      logger.renderTimeInsensitiveInfos,
+      logger.renderTimeInsensitiveTestInfos,
       """|Test run started
          |Test hello.JUnitTest.myTest started
          |Test run finished: 0 failed, 0 ignored, 1 total, ???s
@@ -171,5 +171,54 @@ object ModernTestSpec extends ProjectBaseSuite("cross-test-build-0.6") {
          |6 passed
          |===============================================""".stripMargin
     )
+  }
+
+  testProject("cancel test execution works") { (build, logger) =>
+    object Sources {
+      val `JUnitTest.scala` =
+        """package hello
+          |
+          |import org.junit.Test
+          |import org.junit.Assert.assertEquals
+          |
+          |class JUnitTest {
+          |  @Test
+          |  def myTest: Unit = {
+          |    Thread.sleep(1500)
+          |    assertEquals(4, 2 + 2)
+          |  }
+          |}""".stripMargin
+    }
+
+    val testProject = build.projectFor("test-project-test")
+    val junitTestSrc = testProject.srcFor("hello/JUnitTest.scala")
+    writeFile(junitTestSrc, Sources.`JUnitTest.scala`)
+
+    val compiledState = build.state.compile(testProject)
+    assert(compiledState.status == ExitStatus.Ok)
+    val futureTestState = compiledState.testHandle(testProject, List("hello.JUnitTest"), Nil, None)
+
+    val waitTimeToCancel = {
+      val randomMs = scala.util.Random.nextInt(750)
+      (250 + randomMs).toLong
+    }
+
+    ExecutionContext.ioScheduler.scheduleOnce(
+      waitTimeToCancel,
+      TimeUnit.MILLISECONDS,
+      new Runnable { override def run(): Unit = futureTestState.cancel() }
+    )
+
+    val testState = {
+      try Await.result(futureTestState, Duration(1100, "ms"))
+      catch {
+        case scala.util.control.NonFatal(t) => futureTestState.cancel(); throw t
+        case i: InterruptedException =>
+          futureTestState.cancel()
+          sys.error("Test execution didn't finish!")
+      }
+    }
+
+    assert(testState.status == ExitStatus.TestExecutionError)
   }
 }
