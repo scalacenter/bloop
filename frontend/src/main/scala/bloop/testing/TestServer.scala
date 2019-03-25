@@ -7,9 +7,9 @@ import bloop.cli.CommonOptions
 import bloop.config.Config
 
 import scala.util.Try
-import scala.util.control.NonFatal
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
+import monix.execution.misc.NonFatal
 import sbt.{ForkConfiguration, ForkTags}
 import sbt.testing.{Event, TaskDef}
 
@@ -75,33 +75,39 @@ final class TestServer(
     }
 
     def talk(is: ObjectInputStream, os: ObjectOutputStream, config: ForkConfiguration): Unit = {
-      os.writeObject(config)
-      val taskDefs = tasks.map(forkFingerprint)
-      os.writeObject(taskDefs.toArray)
-      os.writeInt(frameworks.size)
-      taskDefs.foreach { taskDef =>
-        taskDef.fingerprint()
-      }
-
-      logger.debug(s"Sent task defs to test server: ${taskDefs.map(_.fullyQualifiedName())}")
-      frameworks.foreach { framework =>
-        val frameworkClass = framework.getClass.getName
-        val fargs = args.filter { arg =>
-          arg.framework match {
-            case Some(f) => f.names.contains(frameworkClass)
-            case None => true
-          }
+      try {
+        os.writeObject(config)
+        val taskDefs = tasks.map(forkFingerprint)
+        os.writeObject(taskDefs.toArray)
+        os.writeInt(frameworks.size)
+        taskDefs.foreach { taskDef =>
+          taskDef.fingerprint()
         }
 
-        val runner = TestInternals.getRunner(framework, fargs, classLoader)
-        logger.debug(s"Sending runner to test server: ${frameworkClass} ${runner.args.toList}")
-        os.writeObject(Array(frameworkClass))
-        os.writeObject(runner.args)
-        os.writeObject(runner.remoteArgs)
-      }
+        logger.debug(s"Sent task defs to test server: ${taskDefs.map(_.fullyQualifiedName())}")
+        frameworks.foreach { framework =>
+          val frameworkClass = framework.getClass.getName
+          val fargs = args.filter { arg =>
+            arg.framework match {
+              case Some(f) => f.names.contains(frameworkClass)
+              case None => true
+            }
+          }
 
-      os.flush()
-      receiveLogs(is, os)
+          val runner = TestInternals.getRunner(framework, fargs, classLoader)
+          logger.debug(s"Sending runner to test server: ${frameworkClass} ${runner.args.toList}")
+          os.writeObject(Array(frameworkClass))
+          os.writeObject(runner.args)
+          os.writeObject(runner.remoteArgs)
+        }
+
+        os.flush()
+        receiveLogs(is, os)
+      } catch {
+        case NonFatal(t) =>
+          logger.error(s"Failed to initialize communication: ${t.getMessage}")
+          logger.trace(t)
+      }
     }
 
     val serverStarted = Promise[Unit]()

@@ -65,7 +65,7 @@ object TestTask {
         val discoveredFrameworks = discovered.iterator.filterNot(_._2.isEmpty).map(_._1).toList
         val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
         val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
-        val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
+        val args = project.testOptions.arguments ++ frameworkArgs
         logger.debug(s"Running test suites with arguments: $args")
 
         found match {
@@ -298,50 +298,6 @@ object TestTask {
             case (framework, tasks) => tasks.map(t => (framework, t))
           }
           .map(_._2.fullyQualifiedName)
-    }
-  }
-
-  /**
-   * Fixes the test arguments for a given framework.
-   *
-   * This is a generic function that accumulates fixes we do to the test arguments
-   * that a build has exported. https://github.com/scalacenter/bloop/issues/658 is
-   * a good example of a test option (`-h` in Scalatest) which requires us to check
-   * that its path exists.
-   *
-   * @param project The project we fix test options for.
-   * @param args The test arguments.
-   * @return The list of fixed test arguments.
-   */
-  def fixTestOptions(
-      project: Project,
-      args: List[Config.TestArgument]
-  ): List[Config.TestArgument] = {
-    import java.nio.file.{Files, Paths}
-    args.map {
-      case Config.TestArgument(testArg :: testArgs, f) =>
-        val fixedArgs = testArgs.foldLeft(List(testArg)) {
-          case (Nil, current) => current :: Nil
-          case (rest @ previous :: xs, current) =>
-            if (previous != "-h") current :: rest
-            else {
-              val reportsPath = {
-                val currentPath = Paths.get(current)
-                if (currentPath.isAbsolute) currentPath
-                else project.baseDirectory.resolve(current).underlying
-              }
-
-              if (Files.isRegularFile(reportsPath) && !Files.isSymbolicLink(reportsPath)) {
-                Files.delete(reportsPath)
-              }
-
-              Files.createDirectories(reportsPath)
-              reportsPath.toAbsolutePath.toString :: rest
-            }
-        }
-
-        Config.TestArgument(fixedArgs.reverse, f)
-      case a => a
     }
   }
 }

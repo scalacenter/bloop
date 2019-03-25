@@ -106,6 +106,26 @@ object ModernTestSpec extends ProjectBaseSuite("cross-test-build-0.6") {
     )
   }
 
+  testProject("specifying -h in Scalatest runner works") { (build, logger) =>
+    val project = build.projectFor("test-project-test")
+    val scalatestArgs = List("-h", "target/test-reports")
+    val testState = build.state.test(project, List("hello.ScalaTestTest"), scalatestArgs)
+    assertNoDiff(
+      logger.renderTimeInsensitiveTestInfos,
+      """ScalaTestTest:
+        |A greeting
+        |- should be very personal
+        |Execution took ???ms
+        |1 tests, 1 passed
+        |All tests in hello.ScalaTestTest passed
+        |
+        |===============================================
+        |Total duration: ???ms
+        |All 1 test suites passed.
+        |===============================================""".stripMargin
+    )
+  }
+
   testProject("test options don't work when none framework is singled out") { (build, logger) =>
     val project = build.projectFor("test-project-test")
     val testState = build.state.test(project, Nil, List("*myTest*"))
@@ -192,33 +212,41 @@ object ModernTestSpec extends ProjectBaseSuite("cross-test-build-0.6") {
 
     val testProject = build.projectFor("test-project-test")
     val junitTestSrc = testProject.srcFor("hello/JUnitTest.scala")
+    val oldContents = readFile(junitTestSrc)
     writeFile(junitTestSrc, Sources.`JUnitTest.scala`)
+    try {
+      val compiledState = build.state.compile(testProject)
+      assert(compiledState.status == ExitStatus.Ok)
+      val futureTestState =
+        compiledState.testHandle(testProject, List("hello.JUnitTest"), Nil, None)
 
-    val compiledState = build.state.compile(testProject)
-    assert(compiledState.status == ExitStatus.Ok)
-    val futureTestState = compiledState.testHandle(testProject, List("hello.JUnitTest"), Nil, None)
-
-    val waitTimeToCancel = {
-      val randomMs = scala.util.Random.nextInt(750)
-      (250 + randomMs).toLong
-    }
-
-    ExecutionContext.ioScheduler.scheduleOnce(
-      waitTimeToCancel,
-      TimeUnit.MILLISECONDS,
-      new Runnable { override def run(): Unit = futureTestState.cancel() }
-    )
-
-    val testState = {
-      try Await.result(futureTestState, Duration(1100, "ms"))
-      catch {
-        case scala.util.control.NonFatal(t) => futureTestState.cancel(); throw t
-        case i: InterruptedException =>
-          futureTestState.cancel()
-          sys.error("Test execution didn't finish!")
+      val waitTimeToCancel = {
+        val randomMs = scala.util.Random.nextInt(750)
+        (250 + randomMs).toLong
       }
-    }
 
-    assert(testState.status == ExitStatus.TestExecutionError)
+      ExecutionContext.ioScheduler.scheduleOnce(
+        waitTimeToCancel,
+        TimeUnit.MILLISECONDS,
+        new Runnable { override def run(): Unit = futureTestState.cancel() }
+      )
+
+      val testState = {
+        try Await.result(futureTestState, Duration(1100, "ms"))
+        catch {
+          case scala.util.control.NonFatal(t) => futureTestState.cancel(); throw t
+          case i: InterruptedException =>
+            futureTestState.cancel()
+            sys.error("Test execution didn't finish!")
+        }
+      }
+
+      assert(testState.status == ExitStatus.TestExecutionError)
+    } finally {
+      // Undo changes so that next test doesn't run the slow test
+      writeFile(junitTestSrc, oldContents)
+      build.state.compile(testProject)
+      ()
+    }
   }
 }

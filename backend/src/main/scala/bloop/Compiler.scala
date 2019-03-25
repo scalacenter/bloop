@@ -171,7 +171,7 @@ object Compiler {
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
     val backgroundTasksWhenNewSuccessfulAnalysis =
       new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
-    val backgroundTasksForFailedCompilation = new mutable.ListBuffer[Task[Unit]]()
+    val backgroundTasksForFailedCompilation = new mutable.ListBuffer[BraveTracer => Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
         import sbt.io.IO
@@ -251,8 +251,10 @@ object Compiler {
           } else {
             // Delete all compilation products generated in the new classes directory
             backgroundTasksForFailedCompilation.+=(
-              tracer.traceTask("delete class files after ") { _ =>
-                Task { bloop.io.Paths.delete(AbsolutePath(newClassesDir)); () }
+              (clientTracer: BraveTracer) => {
+                clientTracer.traceTask("delete class files after ") { _ =>
+                  Task { bloop.io.Paths.delete(AbsolutePath(newClassesDir)); () }
+                }
               }
             )
           }
@@ -373,9 +375,9 @@ object Compiler {
 
           def updateExternalClassesDirWithReadOnly(
               clientClassesDir: AbsolutePath,
-              tracer: BraveTracer
+              clientTracer: BraveTracer
           ): Task[Unit] = {
-            tracer.traceTask("update external classes dir with read-only") { _ =>
+            clientTracer.traceTask("update external classes dir with read-only") { _ =>
               Task {
                 // Attention: blacklist must be computed inside the task!
                 val invalidatedClassFiles =
@@ -409,8 +411,8 @@ object Compiler {
             )
 
             val backgroundTasks = new CompileBackgroundTasks {
-              def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
-                updateExternalClassesDirWithReadOnly(clientClassesDir, tracer)
+              def trigger(clientClassesDir: AbsolutePath, clientTracer: BraveTracer): Task[Unit] = {
+                updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
               }
             }
 
@@ -436,14 +438,17 @@ object Compiler {
 
             // Schedule the tasks to run concurrently after the compilation end
             val backgroundTasksExecution = new CompileBackgroundTasks {
-              def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
+              def trigger(clientClassesDir: AbsolutePath, clientTracer: BraveTracer): Task[Unit] = {
                 val clientClassesDirPath = clientClassesDir.toString
                 val successBackgroundTasks =
-                  backgroundTasksWhenNewSuccessfulAnalysis.map(f => f(clientClassesDir, tracer))
+                  backgroundTasksWhenNewSuccessfulAnalysis.map(
+                    f => f(clientClassesDir, clientTracer)
+                  )
                 val initialTasks = persistTask :: successBackgroundTasks.toList
                 Task.gatherUnordered(initialTasks).flatMap { _ =>
                   // Only start these tasks after the previous IO tasks in the external dir are done
-                  val firstTask = updateExternalClassesDirWithReadOnly(clientClassesDir, tracer)
+                  val firstTask =
+                    updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
                   val secondTask = Task {
                     allInvalidated.foreach { f =>
                       val path = AbsolutePath(f.toPath)
@@ -511,10 +516,13 @@ object Compiler {
       }
   }
 
-  def triggerTaskForBackground(backgroundTasksForFailedCompilation: List[Task[Unit]]) = {
+  def triggerTaskForBackground(
+      backgroundTasksForFailedCompilation: List[BraveTracer => Task[Unit]]
+  ): CompileBackgroundTasks = {
     new CompileBackgroundTasks {
       def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
-        Task.gatherUnordered(backgroundTasksForFailedCompilation).memoize.map(_ => ())
+        val backgroundTasks = backgroundTasksForFailedCompilation.map(f => f(tracer))
+        Task.gatherUnordered(backgroundTasks).memoize.map(_ => ())
       }
     }
   }
