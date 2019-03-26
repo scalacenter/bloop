@@ -33,6 +33,7 @@ object ClientInfo {
       bspVersion: String
   ) extends ClientInfo {
     import java.util.UUID
+    val uniqueId: String = s"${this.name}-${UUID.randomUUID()}"
     import java.util.concurrent.ConcurrentHashMap
     private val uniqueDirs = new ConcurrentHashMap[Project, AbsolutePath]()
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {
@@ -42,7 +43,7 @@ object ClientInfo {
           val classesDir = project.genericClassesDir.underlying
           val parentDir = classesDir.getParent()
           val classesName = classesDir.getFileName()
-          val newClassesName = s"${classesName}-${this.name}-${UUID.randomUUID}"
+          val newClassesName = s"${classesName}-${uniqueId}"
           AbsolutePath(
             Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
           )

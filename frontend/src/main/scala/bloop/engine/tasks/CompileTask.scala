@@ -58,7 +58,7 @@ object CompileTask {
     val topLevelTargets = Dag.directDependencies(List(dag)).mkString(", ")
     val clientName = state.client match {
       case cliClient: ClientInfo.CliClientInfo => cliClient.id
-      case bspClient: ClientInfo.BspClientInfo => bspClient.name
+      case bspClient: ClientInfo.BspClientInfo => bspClient.uniqueId
     }
 
     val rootTracer = BraveTracer(
