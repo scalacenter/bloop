@@ -11,6 +11,7 @@ object BuildUtil {
       userProject: TestProject,
       state: State
   )
+
   def testSlowBuild(logger: RecordingLogger)(testLogic: SlowBuild => Unit): Unit = {
     TestUtil.withinWorkspace { workspace =>
       val slowMacroProject = TestProject(

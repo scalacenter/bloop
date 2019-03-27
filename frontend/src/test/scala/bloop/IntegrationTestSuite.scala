@@ -21,15 +21,19 @@ object IntegrationTestSuite {
   def data() = {
     import java.nio.file.Paths
     def filterIndex(index: Map[String, Path]): Map[String, Path] =
-      index //.filter(_._1.contains("frontend")) //.filterKeys(!_.contains("scalatra"))
+      index.filterKeys(_.contains("lichess"))
     val projects = filterIndex(TestUtil.testProjectsIndex).map(_._2).toArray.map(Array.apply(_))
-    val projects2 = Map("bloop" -> Paths.get("/Users/jvican/Code/bloop/.bloop"))
-      .map(_._2)
-      .toArray
-      .map(Array.apply(_))
     Arrays.asList(projects: _*)
   }
 }
+
+/*
+import bloop.testing.BaseSuite
+object ModernIntegrationTestSuite extends BaseSuite {
+  def filterProjects(index: Map[String, Path]) = index //.filterKeys(!_.contains("frontend"))
+  val projectsToCompile = filterProjects(TestUtil.testProjectsIndex).values
+}
+ */
 
 @Category(Array(classOf[bloop.SlowTests]))
 @RunWith(classOf[Parameterized])

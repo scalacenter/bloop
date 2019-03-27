@@ -82,9 +82,7 @@ object CompileGraph {
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
-  private final val JavaCompleted = {
-    val cf = new CompletableFuture[Unit](); cf.complete(()); cf
-  }
+  private final val JavaCompleted = CompletableFuture.completedFuture(())
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
@@ -198,19 +196,21 @@ object CompileGraph {
           }
 
           val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
-          val compileAndUnsubscribe = compile(newBundle).map { result =>
-            // Let's not forget to complete the observer logger
-            logger.observer.onComplete()
-
-            // Unregister deduplication atomically and register last successful if any
-            processResultAtomically(
-              result,
-              inputs.project,
-              bundle.oracleInputs,
-              mostRecentSuccessful,
-              logger
-            )
-          }.memoize // Without memoization, there is no deduplication
+          val compileAndUnsubscribe = {
+            compile(newBundle)
+              .doOnFinish(_ => Task(logger.observer.onComplete()))
+              .map { result =>
+                // Unregister deduplication atomically and register last successful if any
+                processResultAtomically(
+                  result,
+                  inputs.project,
+                  bundle.oracleInputs,
+                  mostRecentSuccessful,
+                  logger
+                )
+              }
+              .memoize // Without memoization, there is no deduplication
+          }
 
           RunningCompilation(compileAndUnsubscribe, mostRecentSuccessful, bundle.mirror)
         }
@@ -220,7 +220,7 @@ object CompileGraph {
         ongoingCompilation.traversal
       } else {
         val rawLogger = logger.underlying
-        rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name}")
+        rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name} (${client}")
         val reporter = bundle.reporter.underlying
         // Don't use `bundle.lastSuccessful`, it's not the final input to `compile`
         val analysis = ongoingCompilation.previousLastSuccessful.previous.analysis().toOption
@@ -284,7 +284,7 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        val processDeduplication = ongoingCompilationTask.map { resultDag =>
+        val obtainResultFromDeduplication = ongoingCompilationTask.map { resultDag =>
           enrichResultDag(resultDag) {
             case s @ PartialSuccess(bundle, _, _, _, compilerResult) =>
               val newCompilerResult = compilerResult.flatMap { results =>
@@ -309,11 +309,13 @@ object CompileGraph {
         }
 
         val waitUntilDeduplicationFinishes = for {
-          result <- processDeduplication
+          result <- obtainResultFromDeduplication
           _ <- Task.fromFuture(deduplicateStreamSideEffectsHandle)
         } yield result
 
-        waitUntilDeduplicationFinishes.executeOn(ExecutionContext.ioScheduler)
+        bundle.tracer.traceTask(s"deduplicating ${bundle.project.name}") { _ =>
+          waitUntilDeduplicationFinishes.executeOn(ExecutionContext.ioScheduler)
+        }
       }
     }
   }

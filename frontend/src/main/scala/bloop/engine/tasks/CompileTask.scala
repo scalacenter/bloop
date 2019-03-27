@@ -70,6 +70,7 @@ object CompileTask {
       "client" -> clientName
     )
 
+    /*
     val bgTracer = rootTracer.toIndependentTracer(
       s"background IO work after compiling $topLevelTargets (transitively)",
       "bloop.version" -> BuildInfo.version,
@@ -78,6 +79,7 @@ object CompileTask {
       "compile.target" -> topLevelTargets,
       "client" -> clientName
     )
+     */
 
     def compile(graphInputs: CompileGraph.Inputs): Task[ResultBundle] = {
       val bundle = graphInputs.bundle
@@ -91,13 +93,13 @@ object CompileTask {
         "compile.target" -> project.name
       )
 
-      bundle.toSourcesAndInstance match {
-        case Left(earlyResult) =>
+      bundle.prepareSourcesAndInstance match {
+        case Left(earlyResultBundle) =>
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
           graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
           compileProjectTracer.terminate()
-          Task.now(ResultBundle(earlyResult, None, CancelableFuture.successful(())))
+          Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
           val readOnlyClassesDir = lastSuccessful.classesDir
           val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
@@ -161,10 +163,11 @@ object CompileTask {
             )
           }
 
-          val setUpEnvironment = rootTracer.traceTask("wait to populate classes dir") { _ =>
-            // This task is memoized and started by the compilation that created
-            // it, so this execution blocks until it's run or completes right away
-            lastSuccessful.populatingProducts
+          val setUpEnvironment = compileProjectTracer.traceTask("wait on populating products") {
+            _ =>
+              // This task is memoized and started by the compilation that created
+              // it, so this execution blocks until it's run or completes right away
+              lastSuccessful.populatingProducts
           }
 
           // Block on the task associated with this result that sets up the read-only classes dir
@@ -173,14 +176,15 @@ object CompileTask {
             inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
               // Finish incomplete promises (out of safety) and run similar book-keeping
               runPipeliningBookkeeping(graphInputs, result, pipeline, javaOnly, logger)
-              // Finish the tracer as soon as possible
-              compileProjectTracer.terminate()
 
               def runPostCompilationTasks(
                   backgroundTasks: CompileBackgroundTasks
               ): CancelableFuture[Unit] = {
+                // Post compilation tasks use tracer, so terminate right after they have
                 val postCompilationTasks =
-                  backgroundTasks.trigger(externalUserClassesDir, compileProjectTracer)
+                  backgroundTasks
+                    .trigger(externalUserClassesDir, compileProjectTracer)
+                    .doOnFinish(_ => Task(compileProjectTracer.terminate()))
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }
 
@@ -197,13 +201,9 @@ object CompileTask {
                     else {
                       for {
                         _ <- blockingOnRunningTasks
-                        _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
-                      } yield {
-                        // Protect ourselves from unwanted exceptions
-                        try bgTracer.terminate()
-                        catch { case NonFatal(t) => () }
-                        ()
-                      }
+                        _ <- createNewReadOnlyClassesDir(s.products, rawLogger)
+                        //.doOnFinish(_ => Task(bgTracer.terminate()))
+                      } yield ()
                     }
                   }.memoize
 
@@ -271,7 +271,7 @@ object CompileTask {
             .foreach(l => l.populatingProducts.runAsync(ExecutionContext.ioScheduler))
         }
 
-        cleanStatePerBuildRun(dag, results, state)
+        //cleanStatePerBuildRun(dag, results, state)
         val stateWithResults = state.copy(results = state.results.addFinalResults(results))
         val failures = results.flatMap {
           case FinalNormalCompileResult(p, results, _) =>
@@ -314,11 +314,7 @@ object CompileTask {
         }
 
         // Block on all background task operations to fully populate classes directories
-        backgroundTasks.map { _ =>
-          // Terminate the tracer after we've blocked on the background tasks
-          rootTracer.terminate()
-          newState
-        }
+        backgroundTasks.map(_ => newState).doOnFinish(_ => Task(rootTracer.terminate()))
       }
     }
   }
@@ -430,7 +426,7 @@ object CompileTask {
 
   private def createNewReadOnlyClassesDir(
       products: CompileProducts,
-      tracer: BraveTracer,
+      //tracer: BraveTracer,
       logger: Logger
   ): Task[Unit] = {
     // Do nothing if origin and target classes dir are the same, as protective measure
@@ -441,14 +437,14 @@ object CompileTask {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
       val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
-      val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
+      val task = //tracer.traceTask("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(
           products.readOnlyClassesDir,
           products.newClassesDir,
           ExecutionContext.ioScheduler,
           logger
         )
-      }
+      //}
 
       task.map(rs => ()).memoize
     }

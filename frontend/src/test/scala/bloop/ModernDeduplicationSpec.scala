@@ -34,6 +34,9 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
   test("three concurrent clients deduplicate compilation") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
+    val logger1 = new RecordingLogger(ansiCodesSupported = false)
+    val logger2 = new RecordingLogger(ansiCodesSupported = false)
+    val logger3 = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
       val compiledMacrosState = state.compile(build.macroProject)
@@ -46,10 +49,6 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
          """.stripMargin
       )
 
-      val logger1 = new RecordingLogger(ansiCodesSupported = false)
-      val logger2 = new RecordingLogger(ansiCodesSupported = false)
-      val logger3 = new RecordingLogger(ansiCodesSupported = false)
-
       val projects = List(build.macroProject, build.userProject)
       loadBspState(build.workspace, projects, logger3) { bspState =>
         val firstCompilation =
@@ -59,21 +58,17 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompilation =
           compiledMacrosState
             .withLogger(logger2)
-            .compileHandle(build.userProject, Some(FiniteDuration(3, TimeUnit.SECONDS)))
+            .compileHandle(build.userProject, Some(FiniteDuration(2, TimeUnit.SECONDS)))
         val thirdCompilation =
           bspState.compileHandle(
             build.userProject,
             Some(FiniteDuration(2, TimeUnit.SECONDS))
           )
 
-        val firstCompiledState =
-          Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
-
-        // Wait only +- 400ms in both to check no extra compilation happens but there's time to finish
-        val secondCompiledState =
-          Await.result(secondCompilation, FiniteDuration(400, TimeUnit.MILLISECONDS))
-        val thirdCompiledState =
-          Await.result(thirdCompilation, FiniteDuration(400, TimeUnit.MILLISECONDS))
+        val firstCompiledState = waitInSeconds(firstCompilation, 10)(logger1.writeToFile("1"))
+        // Wait only +- 200ms to check no extra compilation happens but there's time to finish
+        val secondCompiledState = waitInMillis(secondCompilation, 200)(logger2.writeToFile("2"))
+        val thirdCompiledState = waitInMillis(thirdCompilation, 200)(logger3.writeToFile("3"))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(secondCompiledState.status == ExitStatus.Ok)
@@ -125,7 +120,9 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
           case states => states
         }
 
+        import java.util.concurrent.TimeoutException
         val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 1)
+
         assert(firstNoopState.status == ExitStatus.Ok)
         assert(secondNoopState.status == ExitStatus.Ok)
         assertValidCompilationState(firstNoopState, projects)
@@ -187,9 +184,9 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
 
-        // Wait only +- 400ms in both to check no extra compilation happens but there's time to finish
+        // Wait only +- 200ms in both to check no extra compilation happens but there's time to finish
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(400, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
@@ -250,7 +247,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompiledState =
           Await.result(secondCompilation, FiniteDuration(5, TimeUnit.SECONDS))
         val secondCliCompiledState =
-          Await.result(secondCliCompilation, FiniteDuration(400, TimeUnit.MILLISECONDS))
+          Await.result(secondCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
 
         assert(secondCompiledState.status == ExitStatus.Ok)
         assert(secondCliCompiledState.status == ExitStatus.Ok)
@@ -351,9 +348,9 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
 
-        // Wait only +- 400ms in both to check no extra compilation happens but there's time to finish
+        // Wait only +- 200ms in both to check no extra compilation happens but there's time to finish
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(400, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
@@ -414,7 +411,7 @@ object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompiledState =
           Await.result(secondCompilation, FiniteDuration(5, TimeUnit.SECONDS))
         val secondCliCompiledState =
-          Await.result(secondCliCompilation, FiniteDuration(400, TimeUnit.MILLISECONDS))
+          Await.result(secondCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
 
         assert(secondCompiledState.status == ExitStatus.Ok)
         assert(secondCliCompiledState.status == ExitStatus.Ok)

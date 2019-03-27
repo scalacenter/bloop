@@ -68,7 +68,6 @@ object FileWatchingSpec extends BaseSuite {
       val compiledState = initialState.compile(`C`)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
-      compiledState.broadcastGlobally()
 
       val (logObserver, logsObservable) =
         Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
@@ -125,10 +124,17 @@ object FileWatchingSpec extends BaseSuite {
       totalIterations: Int,
       targetMsg: String
   ): Task[Unit] = {
-    logsObservable
-      .takeByTimespan(FiniteDuration(1, "s"))
-      .toListL
-      .map(ps => assert(totalIterations == ps.count(_._2.contains(targetMsg))))
+    def count(ps: List[(String, String)]) = ps.count(_._2.contains(targetMsg))
+
+    def waitForIterationFor(duration: FiniteDuration): Task[Unit] = {
+      logsObservable
+        .takeByTimespan(duration)
+        .toListL
+        .map(ps => assert(totalIterations == count(ps)))
+    }
+
+    waitForIterationFor(FiniteDuration(1500, "ms"))
+      .onErrorFallbackTo(waitForIterationFor(FiniteDuration(3000, "ms")))
   }
 
   test("cancel file watcher") {

@@ -207,6 +207,6 @@ object ParallelOps {
           //println(s"finished $id")
           fileWalk
       }
-    }.flatten
+    }.flatten.executeOn(scheduler)
   }
 }

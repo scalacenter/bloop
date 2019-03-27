@@ -2,17 +2,21 @@ package bloop.nailgun
 
 import java.io.PrintStream
 
-import org.junit.Assert.{assertEquals, assertNotEquals}
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{ExecutionException, TimeUnit}
 
 import bloop.Server
 import bloop.bsp.BspServer
+import bloop.testing.BaseSuite
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.util.{TestUtil, CrossPlatform}
+
 import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
+
 import monix.eval.Task
+import monix.execution.misc.NonFatal
 import monix.execution.Scheduler
+
 import org.apache.commons.io.IOUtils
 
 import scala.concurrent.Await
@@ -22,7 +26,8 @@ import scala.concurrent.duration.FiniteDuration
  * Base class for writing test for the nailgun integration.
  */
 trait NailgunTestUtils {
-  NailgunTestUtils.init()
+  this: BaseSuite =>
+
   protected final val TEST_PORT = 8996
   private final val nailgunPool = Scheduler.computation(parallelism = 2)
 
@@ -32,7 +37,7 @@ trait NailgunTestUtils {
    *
    * @param log  The logger that will receive all produced output.
    * @param config The config directory in which the client will be.
-   * @param noExit Don't exit, the client is responsible for exiting the server.
+   * @param noExit Don't exit, the client is responsibleor exiting the server.
    * @param op   A function that will receive the instantiated Client.
    * @return The result of executing `op` on the client.
    */
@@ -41,44 +46,52 @@ trait NailgunTestUtils {
   ): Task[T] = {
     implicit val ctx: DebugFilter = DebugFilter.All
 
-    val oldIn = NailgunTestUtils.initialIn
-    val oldOut = NailgunTestUtils.initialOut
-    val oldErr = NailgunTestUtils.initialErr
+    val currentIn = System.in
+    val currentOut = System.out
+    val currentErr = System.err
 
-    // Wrap in Nailgun's thread local so that tests work in both bloop and sbt
-    val inStream = new BloopThreadLocalInputStream(IOUtils.toInputStream(""))
-    val outStream = new ThreadLocalPrintStream(
-      new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
-    )
-    val errStream = new ThreadLocalPrintStream(
-      new PrintStream(ProcessLogger.toOutputStream(log.serverError))
-    )
+    val in = IOUtils.toInputStream("")
+    val out = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
+    val err = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
+    val localIn = new BloopThreadLocalInputStream(in)
+    val localOut = new ThreadLocalPrintStream(out)
+    val localErr = new ThreadLocalPrintStream(err)
+    localIn.init(in)
+    localOut.init(out)
+    localErr.init(err)
+    System.in.synchronized {
+      System.setIn(localIn)
+      System.setOut(localOut)
+      System.setErr(localErr)
+    }
 
     val serverIsStarted = scala.concurrent.Promise[Unit]()
     val serverIsFinished = scala.concurrent.Promise[Unit]()
     val serverLogic = Task {
-      var optServer: Option[NGServer] = None
-
       // Trick nailgun into thinking these are the real streams
-      System.setIn(inStream)
-      System.setOut(outStream)
-      System.setErr(errStream)
+      import java.net.InetAddress
+      val addr = InetAddress.getLoopbackAddress
+      import monix.execution.misc.NonFatal
       try {
-        optServer = Some(Server.instantiateServer(Array(TEST_PORT.toString)))
+        val server = Server.launchServer(localIn, localOut, localErr, addr, TEST_PORT, log)
+        serverIsStarted.success(())
+        server.run()
+        serverIsFinished.success(())
+      } catch {
+        case NonFatal(t) =>
+          currentErr.println("Error when starting server")
+          t.printStackTrace(currentErr)
+          serverIsStarted.failure(t)
+          serverIsFinished.failure(t)
       } finally {
-        System.setIn(oldIn)
-        System.setOut(oldOut)
-        System.setErr(oldErr)
+        out.flush()
+        err.flush()
       }
-
-      val server = optServer.getOrElse(sys.error("The nailgun server failed to initialize!"))
-      serverIsStarted.success(())
-      server.run()
-      serverIsFinished.success(())
     }
 
     val client = new Client(TEST_PORT, log, config)
-    val clientCancel = Task {
+    def clientCancel(t: Option[Throwable]) = Task {
+      t.foreach(t => log.trace(t))
       if (!noExit) {
         /* Exit on Windows seems to return a failing exit code (but no logs are logged).
          * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
@@ -86,17 +99,30 @@ trait NailgunTestUtils {
         if (CrossPlatform.isWindows) {
           val exitStatusCode = client.issue("exit")
           log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
-        } else client.success("exit")
+        } else client.expectSuccess("exit")
       }
 
-      outStream.flush()
-      errStream.flush()
+      out.flush()
+      err.flush()
+
+      System.in.synchronized {
+        System.setIn(currentIn)
+        System.setOut(currentOut)
+        System.setErr(currentErr)
+      }
     }
 
-    val clientLogic = Task(op(log, client)).doOnFinish(_ => clientCancel).doOnCancel(clientCancel)
+    val clientLogic =
+      Task(op(log, client)).doOnFinish(clientCancel(_)).doOnCancel(clientCancel(None))
     val startTrigger = Task.fromFuture(serverIsStarted.future)
     val endTrigger = Task.fromFuture(serverIsFinished.future)
-    val runClient = startTrigger.flatMap(_ => clientLogic.flatMap(t => endTrigger.map(_ => t)))
+    val runClient = {
+      for {
+        _ <- startTrigger
+        value <- clientLogic
+        _ <- endTrigger
+      } yield value
+    }
 
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
     Task
@@ -156,8 +182,12 @@ trait NailgunTestUtils {
     private val configPath = config.toAbsolutePath.toString
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
 
-    assert(Files.exists(base), s"Base directory doesn't exist: '$base'.")
-    assert(Files.exists(Paths.get(clientPath)), s"Couldn't find Nailgun client at '$clientPath'.")
+    if (!Files.exists(base)) {
+      fail(s"Base directory doesn't exist: '$base'.")
+    }
+    if (!Files.exists(Paths.get(clientPath))) {
+      fail(s"Couldn't find Nailgun client at '$clientPath'.")
+    }
 
     private def processBuilder(cmd: Seq[String]): ProcessBuilder = {
       val cmdBase =
@@ -206,12 +236,15 @@ trait NailgunTestUtils {
      *
      * @param cmd The command to run.
      */
-    def success(cmd: String*): Unit = {
-      val failMessage: String =
-        s"""Success expected, but command failed. Logs were:
-           |${log.getMessages.mkString("\n")}
-           |""".stripMargin
-      assertEquals(failMessage, 0, issue(cmd: _*).toLong)
+    def expectSuccess(cmd: String*): Unit = {
+      val exitCode = issue(cmd: _*)
+      if (exitCode != 0) {
+        fail(
+          s"""Command failed with ${exitCode}. Logs were:
+             |${log.getMessages.mkString("\n")}
+             |""".stripMargin
+        )
+      }
     }
 
     /**
@@ -219,27 +252,15 @@ trait NailgunTestUtils {
      *
      * @param cmd The command to run.
      */
-    def fail(cmd: String*): Unit = {
-      val failMessage: String =
-        s"""Failure expected, but command succeeded. Logs were:
-           |${log.getMessages.mkString("\n")}
-           |""".stripMargin
-      assertNotEquals(failMessage, 0, issue(cmd: _*).toLong)
+    def expectFailure(cmd: String*): Unit = {
+      val exitCode = issue(cmd: _*)
+      if (exitCode == 0) {
+        fail(
+          s"""Command success but failure was expected. Logs were:
+             |${log.getMessages.mkString("\n")}
+             |""".stripMargin
+        )
+      }
     }
   }
-}
-
-/**
- * This object keeps the initial in, out and error because JUnit creates a new
- * `NailgunSpec` class for every test that is executed by the test engine.
- *
- * Therefore, we keep the state in this singleton whose initializer we force in `NailgunTest`
- */
-object NailgunTestUtils {
-  final val initialIn = System.in
-  final val initialOut = System.out
-  final val initialErr = System.err
-
-  // Initializer to force the initialization
-  def init(): Unit = ()
 }

@@ -3,10 +3,14 @@ package bloop.tracing
 import brave.{Span, Tracer}
 import brave.propagation.TraceContext
 import monix.eval.Task
+import monix.execution.misc.NonFatal
+
+import scala.util.Failure
+import scala.util.Success
 
 final class BraveTracer private (
     tracer: Tracer,
-    currentSpan: Span,
+    val currentSpan: Span,
     closeCurrentSpan: () => Unit
 ) {
   def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = {
@@ -24,26 +28,36 @@ final class BraveTracer private (
   ): T = {
     val newTracer = startNewChildTracer(name, tags: _*)
     try thunk(newTracer) // Don't catch and report errors in spans
-    finally newTracer.terminate()
+    catch {
+      case NonFatal(t) =>
+        newTracer.currentSpan.error(t)
+        throw t
+    } finally {
+      try newTracer.terminate()
+      catch { case NonFatal(t) => () }
+    }
   }
 
   def traceTask[T](name: String, tags: (String, String)*)(
       thunk: BraveTracer => Task[T]
   ): Task[T] = {
-    val tracer = startNewChildTracer(name, tags: _*)
-    thunk(tracer).materialize.map { value =>
-      tracer.terminate()
-      value
-    }.dematerialize
+    val newTracer = startNewChildTracer(name, tags: _*)
+    thunk(newTracer)
+      .doOnCancel(Task(newTracer.terminate()))
+      .doOnFinish {
+        case None => Task.eval(newTracer.terminate())
+        case Some(value) =>
+          Task.eval {
+            newTracer.currentSpan.error(value)
+            newTracer.terminate()
+          }
+      }
   }
 
-  private var terminated: Boolean = false
-  def terminate(): Unit = synchronized {
-    if (terminated) ()
-    else {
-      closeCurrentSpan()
-      terminated = true
-    }
+  def terminate(): Unit = this.synchronized {
+    // Guarantee we never throw, even though brave APIs should already
+    try closeCurrentSpan()
+    catch { case t: Throwable => () }
   }
 
   /** Create an independent tracer that propagates this current context
@@ -54,23 +68,28 @@ final class BraveTracer private (
 }
 
 object BraveTracer {
+  import brave._
+  import brave.sampler.Sampler
+  import zipkin2.reporter.AsyncReporter
+  import zipkin2.reporter.urlconnection.URLConnectionSender
+  val zipkinServerUrl = Option(System.getProperty("zipkin.server.url")).getOrElse(
+    "http://127.0.0.1:9411/api/v2/spans"
+  )
+
+  val sender = URLConnectionSender.create(zipkinServerUrl)
+  val spanReporter = AsyncReporter.builder(sender).build()
   def apply(name: String, tags: (String, String)*): BraveTracer = {
     BraveTracer(name, None, tags: _*)
   }
 
   def apply(name: String, ctx: Option[TraceContext], tags: (String, String)*): BraveTracer = {
-    import brave._
-    import zipkin2.reporter.AsyncReporter
-    import zipkin2.reporter.urlconnection.URLConnectionSender
-    val zipkinServerUrl = Option(System.getProperty("zipkin.server.url")).getOrElse(
-      "http://127.0.0.1:9411/api/v2/spans"
-    )
-
     import java.util.concurrent.TimeUnit
-    val sender = URLConnectionSender.create(zipkinServerUrl)
-    val spanReporter = AsyncReporter.builder(sender).messageTimeout(0, TimeUnit.SECONDS).build()
-    val tracing =
-      Tracing.newBuilder().localServiceName("bloop").spanReporter(spanReporter).build()
+    val tracing = Tracing
+      .newBuilder()
+      .localServiceName("bloop")
+      .spanReporter(spanReporter)
+      .sampler(Sampler.NEVER_SAMPLE)
+      .build()
     val tracer = tracing.tracer()
     val newParentTrace = ctx.map(c => tracer.newChild(c)).getOrElse(tracer.newTrace())
     val rootSpan = tags.foldLeft(newParentTrace.name(name)) {
@@ -78,21 +97,9 @@ object BraveTracer {
     }
     rootSpan.start()
     val closeEverything = () => {
-      var closedReporter: Boolean = false
-      var closedSender: Boolean = false
-      try {
-        rootSpan.finish()
-        tracing.close()
-        spanReporter.flush()
-        spanReporter.close()
-        closedReporter = true
-        sender.close()
-        closedSender = true
-      } catch {
-        case t: Throwable =>
-          if (!closedReporter) spanReporter.close()
-          if (!closedSender) sender.close()
-      }
+      rootSpan.finish()
+      tracing.close()
+      spanReporter.flush()
     }
     new BraveTracer(tracer, rootSpan, closeEverything)
   }

@@ -368,7 +368,7 @@ object Cli {
       }
 
       val result: State = Await.result(handle, Duration.Inf)
-      ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
+      //ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
       result.status
     } catch {
       case i: InterruptedException => handleException(i)

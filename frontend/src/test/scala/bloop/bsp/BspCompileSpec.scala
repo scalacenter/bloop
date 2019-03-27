@@ -530,9 +530,6 @@ class BspCompileSpec(
       assertValidCompilationState(secondCliCompiledState, projects)
       assertSameExternalClassesDirs(cliCompiledState, secondCliCompiledState, projects)
 
-      // Broadcast it to make sure bloop bsp services pick it up
-      secondCliCompiledState.broadcastGlobally()
-
       loadBspState(workspace, projects, bspLogger) { state =>
         val compiledState = state.compile(`A`)
         assert(compiledState.status == ExitStatus.Ok)
@@ -591,8 +588,6 @@ class BspCompileSpec(
         cliLogger.compilingInfos.mkString(System.lineSeparator),
         "Compiling a (2 Scala sources)"
       )
-
-      cliCompiledState.broadcastGlobally()
 
       loadBspState(workspace, projects, bspLogger) { state =>
         assertIsFile(writeFile(`A`.srcFor("main/scala/Extra.scala"), Sources.`Extra2.scala`))
@@ -663,9 +658,6 @@ class BspCompileSpec(
         "Compiling a (2 Scala sources)"
       )
 
-      // Broadcast the state so that the BSP client picks it up
-      cliCompiledState.broadcastGlobally()
-
       loadBspState(workspace, projects, bspLogger) { state =>
         assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
 
@@ -704,8 +696,6 @@ class BspCompileSpec(
         assertValidCompilationState(secondCliCompiledState, projects)
         assertSameExternalClassesDirs(cliCompiledState, secondCliCompiledState, projects)
 
-        secondCliCompiledState.broadcastGlobally()
-
         assertIsFile(writeFile(`A`.srcFor("main/scala/Bar.scala"), Sources.`Bar2.scala`))
         val secondCompiledState = compiledState.compile(`A`)
         assert(secondCompiledState.status == ExitStatus.CompilationError)
@@ -741,8 +731,6 @@ class BspCompileSpec(
         assert(thirdCliCompiledState.status == ExitStatus.Ok)
         assertValidCompilationState(thirdCliCompiledState, projects)
         assertSameExternalClassesDirs(cliCompiledState, thirdCliCompiledState, projects)
-
-        thirdCliCompiledState.broadcastGlobally()
 
         val thirdCompiledState = secondCompiledState.compile(`A`)
         assert(thirdCompiledState.status == ExitStatus.Ok)

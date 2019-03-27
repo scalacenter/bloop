@@ -145,4 +145,21 @@ class RecordingLogger(
   def startedTestInfos: List[String] = {
     getMessagesAt(Some("info")).filter(m => m.contains("Test ") && m.contains("started"))
   }
+
+  def render: String = {
+    getMessages()
+      .map {
+        case (level, msg) => s"[${level}] ${msg}"
+      }
+      .mkString(System.lineSeparator())
+  }
+
+  import java.nio.file.Path
+  import java.nio.file.Files
+  import java.nio.charset.StandardCharsets
+  def writeToFile(id: String): Unit = {
+    val path = Files.createTempFile("recording", id)
+    Files.write(path, render.getBytes(StandardCharsets.UTF_8))
+    System.err.println(s"Wrote logger ${id} output to ${path}")
+  }
 }

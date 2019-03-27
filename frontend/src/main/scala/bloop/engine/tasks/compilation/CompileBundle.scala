@@ -74,24 +74,32 @@ final case class CompileBundle(
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
 
-  def toSourcesAndInstance: Either[Compiler.Result, CompileSourcesAndInstance] = {
+  def prepareSourcesAndInstance: Either[ResultBundle, CompileSourcesAndInstance] = {
+    import monix.execution.CancelableFuture
+    def earlyError(msg: String): ResultBundle =
+      ResultBundle(Compiler.Result.GlobalError(msg), None, CancelableFuture.unit)
+    def empty: ResultBundle = {
+      val last = Some(LastSuccessfulResult.empty(project))
+      ResultBundle(Compiler.Result.Empty, last, CancelableFuture.unit)
+    }
+
     val uniqueSources = javaSources ++ scalaSources
     project.scalaInstance match {
       case Some(instance) =>
         (scalaSources, javaSources) match {
-          case (Nil, Nil) => Left(Compiler.Result.Empty)
+          case (Nil, Nil) => Left(empty)
           case (Nil, _ :: _) => Right(CompileSourcesAndInstance(uniqueSources, instance, true))
           case _ => Right(CompileSourcesAndInstance(uniqueSources, instance, false))
         }
       case None =>
         (scalaSources, javaSources) match {
-          case (Nil, Nil) => Left(Compiler.Result.Empty)
+          case (Nil, Nil) => Left(empty)
           case (_: List[AbsolutePath], Nil) =>
             // Let's notify users there is no Scala configuration for a project with Scala sources
-            Left(Compiler.Result.GlobalError(Feedback.missingScalaInstance(project)))
+            Left(earlyError(Feedback.missingScalaInstance(project)))
           case (_, _: List[AbsolutePath]) =>
             // If Java sources exist, we cannot compile them without an instance, fail fast!
-            Left(Compiler.Result.GlobalError(Feedback.missingInstanceForJavaCompilation(project)))
+            Left(earlyError(Feedback.missingInstanceForJavaCompilation(project)))
         }
     }
   }

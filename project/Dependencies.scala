@@ -5,7 +5,7 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.8"
 
-  val nailgunVersion = "6992a3bf"
+  val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
   val nailgunCommit = "0c325237"
 
@@ -111,4 +111,5 @@ object Dependencies {
 
   val brave = "io.zipkin.brave" % "brave" % braveVersion
   val zipkinSender = "io.zipkin.reporter2" % "zipkin-sender-urlconnection" % zipkinSenderVersion
+  val zipkinOkHttp = "io.zipkin.reporter2" % "zipkin-sender-okhttp3" % zipkinSenderVersion
 }

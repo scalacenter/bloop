@@ -192,11 +192,6 @@ trait BloopHelpers {
       interpretedTask.runAsync(ExecutionContext.scheduler)
     }
 
-    def broadcastGlobally(): Unit = {
-      State.stateCache.updateBuild(state)
-      ()
-    }
-
     def getProjectFor(project: TestProject): Project =
       build.getProjectFor(project.config.name).get
 

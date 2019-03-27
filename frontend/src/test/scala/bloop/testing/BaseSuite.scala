@@ -469,6 +469,27 @@ class BaseSuite extends TestSuite with BloopHelpers {
     )
   }
 
+  import monix.execution.CancelableFuture
+  import java.util.concurrent.TimeUnit
+  import scala.concurrent.duration.FiniteDuration
+  def waitForDuration[T](future: CancelableFuture[T], duration: FiniteDuration)(
+      ifError: => Unit
+  ): T = {
+    import java.util.concurrent.TimeoutException
+    try Await.result(future, duration)
+    catch {
+      case t: TimeoutException => ifError; throw t
+    }
+  }
+
+  def waitInSeconds[T](future: CancelableFuture[T], seconds: Int)(ifError: => Unit): T = {
+    waitForDuration(future, FiniteDuration(seconds.toLong, TimeUnit.SECONDS))(ifError)
+  }
+
+  def waitInMillis[T](future: CancelableFuture[T], ms: Int)(ifError: => Unit): T = {
+    waitForDuration(future, FiniteDuration(ms.toLong, TimeUnit.MILLISECONDS))(ifError)
+  }
+
   override def utestAfterAll(): Unit = afterAll()
   override def utestFormatter: Formatter = new Formatter {
     override def exceptionMsgColor: Attrs = Attrs.Empty
