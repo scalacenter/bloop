@@ -17,7 +17,7 @@ sealed trait ClientInfo {
 }
 
 object ClientInfo {
-  case class CliClientInfo(
+  final case class CliClientInfo(
       id: String
   ) extends ClientInfo {
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {
@@ -27,7 +27,7 @@ object ClientInfo {
     }
   }
 
-  case class BspClientInfo(
+  final case class BspClientInfo(
       name: String,
       version: String,
       bspVersion: String

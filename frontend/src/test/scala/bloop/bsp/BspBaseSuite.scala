@@ -80,35 +80,67 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     val status = state.status
     val results = state.results
 
-    def compileTask(project: TestProject): Task[ManagedBspTestState] = {
-      import endpoints.{Workspace, BuildTarget}
-      // Use a default timeout of 30 seconds for every operation
+    import endpoints.{Workspace, BuildTarget}
+    def findBuildTarget(project: TestProject): bsp.BuildTarget = {
+      val workspaceTargetTask = {
+        Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
+          case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
+          case Right(ts) =>
+            ts.targets.map(t => t.id -> t).find(_._1 == project.bspId) match {
+              case Some((_, target)) => target
+              case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
+            }
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(workspaceTargetTask)
+    }
+
+    def workspaceTargets: bsp.WorkspaceBuildTargets = {
+      val workspaceTargetsTask = {
+        Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
+          case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
+          case Right(ts) => ts
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(workspaceTargetsTask)
+    }
+
+    def runAfterTargets[T](
+        project: TestProject
+    )(f: bsp.BuildTargetIdentifier => Task[T]): Task[T] = {
       Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
         case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
         case Right(ts) =>
           ts.targets.map(_.id).find(_ == project.bspId) match {
-            case Some(target) =>
-              // Handle internal state before sending compile request
-              diagnostics.clear()
-              currentCompileIteration.increment(1)
-
-              BuildTarget.compile.request(bsp.CompileParams(List(target), None, None)).flatMap {
-                case Right(r) =>
-                  // `headL` returns latest saved state from bsp because source is behavior subject
-                  serverStates.headL.map { state =>
-                    new ManagedBspTestState(
-                      state,
-                      r.statusCode,
-                      currentCompileIteration,
-                      diagnostics,
-                      client0,
-                      serverStates
-                    )
-                  }
-                case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
-              }
+            case Some(target) => f(target)
             case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
           }
+      }
+    }
+
+    def compileTask(project: TestProject): Task[ManagedBspTestState] = {
+      runAfterTargets(project) { target =>
+        // Handle internal state before sending compile request
+        diagnostics.clear()
+        currentCompileIteration.increment(1)
+
+        BuildTarget.compile.request(bsp.CompileParams(List(target), None, None)).flatMap {
+          case Right(r) =>
+            // `headL` returns latest saved state from bsp because source is behavior subject
+            serverStates.headL.map { state =>
+              new ManagedBspTestState(
+                state,
+                r.statusCode,
+                currentCompileIteration,
+                diagnostics,
+                client0,
+                serverStates
+              )
+            }
+          case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
+        }
       }
     }
 
@@ -131,6 +163,64 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       // Use a default timeout of 30 seconds for every operation
       TestUtil.await(FiniteDuration(30, "s")) {
         compileTask(project)
+      }
+    }
+
+    def requestSources(project: TestProject): bsp.SourcesResult = {
+      val sourcesTask = {
+        endpoints.BuildTarget.sources.request(bsp.SourcesParams(List(project.bspId))).map {
+          case Left(error) => fail(s"Received error ${error}")
+          case Right(sources) => sources
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(sourcesTask)
+    }
+
+    def requestDependencySources(project: TestProject): bsp.DependencySourcesResult = {
+      val dependencySourcesTask = {
+        endpoints.BuildTarget.dependencySources
+          .request(bsp.DependencySourcesParams(List(project.bspId)))
+          .map {
+            case Left(error) => fail(s"Received error ${error}")
+            case Right(sources) => sources
+          }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(dependencySourcesTask)
+    }
+
+    import bloop.cli.ExitStatus
+    def toBspStatus(status: ExitStatus): bsp.StatusCode = {
+      status match {
+        case ExitStatus.Ok => bsp.StatusCode.Ok
+        case _ => bsp.StatusCode.Error
+      }
+    }
+
+    def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
+      val scalacOptionsTask = runAfterTargets(project) { target =>
+        endpoints.BuildTarget.scalacOptions.request(bsp.ScalacOptionsParams(List(target))).map {
+          case Left(error) => fail(s"Received error ${error}")
+          case Right(options) => options
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s")) {
+        scalacOptionsTask.flatMap { result =>
+          serverStates.headL.map { state =>
+            val latestServerState = new ManagedBspTestState(
+              state,
+              toBspStatus(state.status),
+              currentCompileIteration,
+              diagnostics,
+              client0,
+              serverStates
+            )
+
+            latestServerState -> result
+          }
+        }
       }
     }
 
@@ -196,6 +286,32 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         val portNumber = 5202 + scala.util.Random.nextInt(2000)
         createTcpBspCommand(configDir, portNumber)
       case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
+    }
+  }
+
+  case class ManagedBspTestBuild(state: ManagedBspTestState, projects: List[TestProject]) {
+    val rawState = state.underlying
+    def projectFor(name: String): TestProject = {
+      projects.find(_.config.name == name).get
+    }
+    def configFileFor(project: TestProject): AbsolutePath = {
+      rawState.build.getProjectFor(project.config.name).get.origin.path
+    }
+  }
+
+  def loadBspBuildFromResources(
+      buildName: String,
+      workspace: AbsolutePath,
+      logger: RecordingLogger
+  )(runTest: ManagedBspTestBuild => Unit): Unit = {
+    val testBuild = loadBuildFromResources(buildName, workspace, logger)
+    val testState = testBuild.state
+    val configDir = testState.build.origin
+    val bspLogger = new BspClientLogger(logger)
+    val bspCommand = createBspCommand(configDir)
+    openBspConnection(testState.state, bspCommand, configDir, bspLogger).withinSession { bspState =>
+      val bspTestBuild = ManagedBspTestBuild(bspState, testBuild.projects)
+      runTest(bspTestBuild)
     }
   }
 

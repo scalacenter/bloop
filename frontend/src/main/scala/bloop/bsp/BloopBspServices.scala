@@ -94,7 +94,11 @@ final class BloopBspServices(
   /** Returns the final state after BSP commands that can be cached by bloop. */
   def stateAfterExecution: State = {
     // Use logger of the initial state instead of the bsp forwarder logger
-    currentState.copy(logger = callSiteState.logger)
+    val nextState0 = currentState.copy(logger = callSiteState.logger)
+    clientInfo.future.value match {
+      case Some(scala.util.Success(clientInfo)) => nextState0.copy(client = clientInfo)
+      case _ => nextState0
+    }
   }
 
   private val previouslyFailedCompilations = new TrieMap[Project, Compiler.Result.Failed]()
@@ -150,6 +154,7 @@ final class BloopBspServices(
     reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       clientInfo.success(client)
+      observer.foreach(_.onNext(state.copy(client = client)))
       Right(
         bsp.InitializeBuildResult(
           BuildInfo.bloopName,
@@ -192,7 +197,8 @@ final class BloopBspServices(
       .flatMap {
         case Left(e) => Task.now(Left(e))
         case Right(clientInfo) =>
-          reloadState(currentState.build.origin, clientInfo).flatMap { state =>
+          reloadState(currentState.build.origin, clientInfo).flatMap { state0 =>
+            val state = state0.copy(client = clientInfo)
             compute(state).flatMap {
               case (state, e) =>
                 if (!persistAnalysisFiles) Task.now(e)

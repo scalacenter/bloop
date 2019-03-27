@@ -38,7 +38,6 @@ import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 
 object TestUtil {
-  val defaultClient = ClientInfo.CliClientInfo("test-id")
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
   def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")

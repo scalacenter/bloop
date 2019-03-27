@@ -191,13 +191,19 @@ object CompileTask {
                   val blockingOnRunningTasks = Task
                     .fromFuture(runningTasks)
                     .executeOn(ExecutionContext.ioScheduler)
+                  import monix.execution.misc.NonFatal
                   val populatingTask = {
                     if (s.isNoOp) blockingOnRunningTasks
                     else {
                       for {
                         _ <- blockingOnRunningTasks
                         _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
-                      } yield ()
+                      } yield {
+                        // Protect ourselves from unwanted exceptions
+                        try bgTracer.terminate()
+                        catch { case NonFatal(t) => () }
+                        ()
+                      }
                     }
                   }.memoize
 

@@ -68,7 +68,8 @@ object TestProject {
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
     def classpathDeps(p: TestProject): List[AbsolutePath] = {
-      AbsolutePath(p.config.classesDir) :: p.deps.toList.flatten.flatMap(classpathDeps(_))
+      val dir = AbsolutePath(p.config.classesDir)
+      (dir :: p.deps.toList.flatten.flatMap(classpathDeps(_))).distinct
     }
 
     import bloop.engine.ExecutionContext.ioScheduler
