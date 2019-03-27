@@ -162,13 +162,14 @@ object TestInternals {
    * closing any resource used by the Scala.js test framework.
    */
   private[bloop] def runJsTestsInProcess(
-      discovered: Map[Framework, List[TaskDef]],
+      discovered0: Map[Framework, List[TaskDef]],
       args: List[TestArgument],
       failureHandler: LoggingEventHandler,
       checkCancelled: () => Boolean,
       logger: Logger
   ): Task[Int] = Task {
     // Cancellation is delegated to the call-site
+    val discovered = discovered0.toList.sortBy(_._1.name())
     discovered.foreach {
       case (framework, testSuites) =>
         // Only select those arguments that correspond to the framework we run
@@ -196,7 +197,14 @@ object TestInternals {
               }
 
               val summary = runner.done()
-              if (summary.nonEmpty) logger.info(s"Summary: $summary")
+              if (summary.nonEmpty) {
+                // Scala.js runner seems to always add ansi color codes, remove
+                // them here if logger doesn't support them (useful in bloop tests)
+                val summaryToPrint =
+                  if (logger.ansiCodesSupported()) summary
+                  else summary.replaceAll("\u001B\\[[;\\d]*m", "")
+                logger.info(s"Summary: $summaryToPrint")
+              }
               val events = events0.toList
 
               failureHandler.handle(TestSuiteEvent.Results(testSuite.fullyQualifiedName(), events))

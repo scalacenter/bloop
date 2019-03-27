@@ -521,11 +521,11 @@ object Compiler {
   }
 
   def triggerTaskForBackground(
-      backgroundTasksForFailedCompilation: List[BraveTracer => Task[Unit]]
+      tasks: List[BraveTracer => Task[Unit]]
   ): CompileBackgroundTasks = {
     new CompileBackgroundTasks {
       def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
-        val backgroundTasks = backgroundTasksForFailedCompilation.map(f => f(tracer))
+        val backgroundTasks = tasks.map(f => f(tracer))
         Task.gatherUnordered(backgroundTasks).memoize.map(_ => ())
       }
     }

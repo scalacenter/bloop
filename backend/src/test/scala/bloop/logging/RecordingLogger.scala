@@ -35,8 +35,12 @@ class RecordingLogger(
           else {
             seen match {
               case p :: ps =>
-                if (word == "ms" && Character.isDigit(p.last)) "ms" :: "???" :: ps
-                else if (word == "s" && Character.isDigit(p.last)) "s" :: "???" :: ps
+                if (word == "s" && Character.isDigit(p.last)) "s" :: "???" :: ps
+                else if (word == "ms" && Character.isDigit(p.last)) "ms" :: "???" :: ps
+                else if (word.startsWith("seconds") && Character.isDigit(p.last))
+                  word :: "???" :: ps
+                else if (word.startsWith("milliseconds") && Character.isDigit(p.last))
+                  word :: "???" :: ps
                 else word :: seen
               case _ => word :: seen
             }
@@ -56,7 +60,11 @@ class RecordingLogger(
 
   def renderTimeInsensitiveTestInfos: String = {
     captureTimeInsensitiveInfos
-      .filterNot(msg => msg.startsWith("Compiling ") || msg.startsWith("Compiled "))
+      .filterNot(
+        msg =>
+          msg.startsWith("Compiling ") || msg.startsWith("Compiled ") || msg
+            .startsWith("Generated ")
+      )
       .mkString(System.lineSeparator())
   }
 
