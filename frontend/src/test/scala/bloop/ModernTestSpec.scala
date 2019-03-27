@@ -162,6 +162,60 @@ object ModernJvmTestSpec extends BaseTestSpec("test-project-test") {
     )
   }
 
+  testProject("test exclusions work") { (build, logger) =>
+    val project = build.projectFor(projectName)
+    val testState = build.state.test(project, List("-hello.JUnitTest"), Nil)
+    assertNoDiff(
+      logger.renderTimeInsensitiveTestInfos,
+      """|Execution took ???ms
+         |No test suite was run
+         |
+         |+ Greeting.is personal: OK, passed 100 tests.
+         |Execution took ???ms
+         |1 tests, 1 passed
+         |All tests in hello.ScalaCheckTest passed
+         |
+         |ResourcesTest:
+         |Resources
+         |- should be found
+         |Execution took ???ms
+         |1 tests, 1 passed
+         |All tests in hello.ResourcesTest passed
+         |
+         |ScalaTestTest:
+         |A greeting
+         |- should be very personal
+         |Execution took ???ms
+         |1 tests, 1 passed
+         |All tests in hello.ScalaTestTest passed
+         |
+         |Specs2Test
+         |
+         | This is a specification to check the `Hello` object.
+         |
+         | A greeting
+         | + is very personal
+         |
+         |Total for specification Specs2Test
+         |Finished in ??? ms 1 example, 0 failure, 0 error
+         |
+         |Execution took ???ms
+         |1 tests, 1 passed
+         |All tests in hello.Specs2Test passed
+         |
+         |-------------------------------- Running Tests --------------------------------
+         |+ hello.UTestTest.Greetings are very personal ???ms
+         |Execution took ???ms
+         |1 tests, 1 passed
+         |All tests in hello.UTestTest passed
+         |
+         |===============================================
+         |Total duration: ???ms
+         |5 passed
+         |===============================================""".stripMargin
+    )
+  }
+
   testProject("specifying -h in Scalatest runner works") { (build, logger) =>
     val project = build.projectFor(projectName)
     val scalatestArgs = List("-h", "target/test-reports")

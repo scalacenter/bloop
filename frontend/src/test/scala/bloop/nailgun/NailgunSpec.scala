@@ -1,351 +1,189 @@
 package bloop.nailgun
 
-import java.nio.file.Files
-import java.util.concurrent.TimeUnit
-
 import bloop.io.{AbsolutePath, RelativePath}
-import org.junit.Test
-import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
+import bloop.testing.BaseSuite
 import bloop.logging.RecordingLogger
+import bloop.internal.build.BuildInfo
 import bloop.util.TestUtil
 
-class NailgunSpec extends NailgunTestUtils {
-  @Test
-  def unknownCommandTest(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
-      val command = "thatcommanddoesntexist"
-      client.fail(command)
-      val messages = logger.getMessages()
-      assertTrue(
-        s"Error was not reported in $messages",
-        messages.contains(("info", s"Command not found: $command")))
-    }
-  }
+import java.nio.file.{Paths, Files}
+import java.util.concurrent.TimeUnit
+import java.nio.charset.StandardCharsets.UTF_8
 
-  @Test
-  def testHelpCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
-      client.success("help")
-      val messages = logger.getMessages()
-      def contains(needle: String): Unit = {
-        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
-      }
-      contains("Usage:")
-      contains("Available commands:")
-    }
-  }
+object NailgunSpec extends BaseSuite with NailgunTestUtils {
+  val workspace = AbsolutePath(Files.createTempDirectory("bloop-test-workspace"))
+  val simpleBuild = loadBuildFromResources("simple-build", workspace, new RecordingLogger)
+  val configDir = simpleBuild.state.build.origin.underlying
 
-  @Test
-  def testHelpCommandInProjectWithNoConfigurationFiles(): Unit = {
-    val tmpDir = Files.createTempDirectory("bloop-nailgun-empty")
-    tmpDir.toFile.deleteOnExit()
-    withServer(tmpDir, false, new RecordingLogger()) { (logger, client) =>
-      client.success("help")
-      val messages = logger.getMessages()
-      def contains(needle: String): Unit = {
-        assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
-      }
+  def withServerInProject[T](op: (RecordingLogger, Client) => T): T =
+    withServer(configDir, false, new RecordingLogger(ansiCodesSupported = false))(op)
 
-      contains(s"bloop ")
-    }
-  }
+  def withServerInProject[T](noExit: Boolean)(
+      op: (RecordingLogger, Client) => T
+  ): T = withServer(configDir, noExit, new RecordingLogger(ansiCodesSupported = false))(op)
 
-  @Test
-  def testAboutCommandInProjectWithNoConfigurationFiles(): Unit = {
-    val tmpDir = Files.createTempDirectory("bloop-nailgun-empty")
-    tmpDir.toFile.deleteOnExit()
-    withServer(tmpDir, false, new RecordingLogger()) { (logger, client) =>
-      client.success("about")
-      val messages = logger.getMessages()
-      def contains(needle: String): Unit = {
-        assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
-      }
-
-      contains("bloop v")
-      contains("Running on Scala v")
-      contains("Maintained by the Scala Center")
-    }
-  }
-
-  @Test
-  def testAboutCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
-      client.success("about")
-      val messages = logger.getMessages()
-      def contains(needle: String): Unit = {
-        assertTrue(s"'$needle' not found in $messages", messages.exists(_._2.contains(needle)))
-      }
-
-      contains("bloop v")
-      contains("Running on Scala v")
-      contains("Maintained by the Scala Center")
-    }
-  }
-
-  @Test
-  def testFailedRecursiveBuild(): Unit = {
-    val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath(".bloop")).underlying
-    withServer(configDir, false, new RecordingLogger()) { (logger, client) =>
-      client.success("about")
-      val messages = logger.getMessages()
-
-      val msg = s"bloop v"
-      assertTrue(
-        s"'$msg' not found in $messages",
-        messages.exists(_._2.contains(msg))
-      )
-
-      // Check that any operation fails whenever there is a recursive cycle
-      client.fail("projects")
-      val messages2 = logger.getMessages()
-      val msg2 = "Fatal recursive dependency detected in 'g': List(g, g)"
-      assertTrue(
-        s"'$msg2' not found in $messages2",
-        messages2.exists(_._2.contains(msg2))
+  test("nailgun fails if command doesn't exist") {
+    withServerInProject { (logger, client) =>
+      client.fail("foobar")
+      assert(logger.errors.isEmpty)
+      assertNoDiff(
+        logger.infos.mkString(System.lineSeparator()),
+        """|Command not found: foobar
+           |""".stripMargin
       )
     }
   }
 
-  @Test
-  def testProjectsCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
+  test("nailgun help works in simple build") {
+    withServerInProject { (logger, client) =>
+      client.success("help")
+      assert(logger.errors.isEmpty)
+      assertNoDiff(
+        logger.infos.mkString(System.lineSeparator()),
+        s"""|bloop ${BuildInfo.version}
+            |Usage: bloop [options] [command] [command-options]
+            |
+            |
+            |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
+            |Type `bloop 'command' --help` for help on an individual command
+            |     
+            |Type `--nailgun-help` for help on the Nailgun CLI tool.
+            |""".stripMargin
+      )
+    }
+  }
+
+  test("nailgun help works in empty build") {
+    TestUtil.withinWorkspace { workspace =>
+      import java.nio.file.Files
+      val configDir = Files.createDirectories(workspace.resolve(".bloop").underlying)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      withServer(configDir, false, logger) { (logger, client) =>
+        client.success("help")
+        assert(logger.errors.isEmpty)
+        assertNoDiff(
+          logger.infos.mkString(System.lineSeparator()),
+          s"""|bloop ${BuildInfo.version}
+              |Usage: bloop [options] [command] [command-options]
+              |
+              |
+              |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
+              |Type `bloop 'command' --help` for help on an individual command
+              |     
+              |Type `--nailgun-help` for help on the Nailgun CLI tool.
+              |""".stripMargin
+        )
+      }
+    }
+  }
+
+  test("nailgun about works in simple build") {
+    withServerInProject { (logger, client) =>
+      client.success("about")
+      assert(logger.errors.isEmpty)
+      assertNoDiff(
+        logger.infos.mkString(System.lineSeparator()),
+        s"""|bloop v${BuildInfo.version}
+            |
+            |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
+            |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
+            |""".stripMargin
+      )
+    }
+  }
+
+  test("nailgun projects works in simple build") {
+    withServerInProject { (logger, client) =>
       client.success("projects")
-      val messages = logger.getMessages()
-      val expectedProjects = "with-resources" :: "with-resources-test" :: Nil
-
-      expectedProjects.foreach { proj =>
-        assertTrue(s"$messages did not contain $proj'", messages.contains(("info", proj)))
-      }
+      assert(logger.errors.isEmpty)
+      assertNoDiff(
+        logger.infos.mkString(System.lineSeparator()),
+        """|simple-build
+           |simple-build-test
+           |""".stripMargin
+      )
     }
   }
 
-  @Test
-  def testCompileCommand(): Unit = {
-    // This test ensures that we can compile `with-resources` and clean
-    withServerInProject("with-resources", noExit = true) { (logger, client) =>
-      client.success("clean", "with-resources")
-      client.success("compile", "with-resources")
-      client.success("clean", "-p", "with-resources")
-      client.success("compile", "-p", "with-resources")
-      client.success("exit")
-      val messages = logger.getMessages()
-      val needle = "Compiling"
+  test("nailgun projects works in simple build referenced from other cwd") {
+    withServerInProject { (logger, client) =>
+      TestUtil.withinWorkspace { workspace =>
+        val externalClient = Client(super.TEST_PORT, logger, workspace.underlying)
+        val clientConfig = client.config.toAbsolutePath().toString
+        val process = externalClient.issueAsProcess("projects", "--config-dir", clientConfig)
+        process.waitFor(1, TimeUnit.SECONDS)
+      }
 
-      assertTrue(
-        s"${messages.mkString("\n")} did not contain '$needle'",
-        messages.exists {
-          case ("info", msg) => msg.contains(needle)
-          case _ => false
-        }
+      assert(logger.errors.isEmpty)
+      assertNoDiff(
+        logger.infos.mkString(System.lineSeparator()),
+        """|simple-build
+           |simple-build-test
+           |""".stripMargin
+      )
+    }
+  }
+
+  test("nailgun about works in build that doesn't load, but listing projects fails") {
+    val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath(".bloop")).underlying
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    withServer(configDir, false, logger) { (logger, client) =>
+      client.success("about")
+      client.fail("projects", "--no-color")
+      assertNoDiff(
+        logger.infos.mkString(System.lineSeparator()),
+        s"""|bloop v${BuildInfo.version}
+            |
+            |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
+            |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
+            |""".stripMargin
+      )
+
+      assertNoDiff(
+        logger.errors.mkString(System.lineSeparator()),
+        "[E] Fatal recursive dependency detected in 'g': List(g, g)"
+      )
+    }
+  }
+
+  test("nailgun compile works in simple build") {
+    withServerInProject { (logger, client) =>
+      client.success("clean", "simple-build")
+      client.success("compile", "simple-build")
+      client.success("clean", "-p", "simple-build")
+      client.success("compile", "-p", "simple-build")
+      assert(logger.errors.isEmpty)
+      assertNoDiff(
+        logger.captureTimeInsensitiveInfos.mkString(System.lineSeparator()),
+        """|Compiling simple-build (1 Scala source)
+           |Compiled simple-build ???ms
+           |Compiling simple-build (1 Scala source)
+           |Compiled simple-build ???ms
+           |""".stripMargin
       )
     }
 
-    // Start another nailgun session with the bloop server
-    val newLogger = new RecordingLogger()
-    val withResourcesConfigDir = TestUtil.getBloopConfigDir("with-resources")
-    withServer(withResourcesConfigDir, false, newLogger) { (logger, client) =>
-      // Force a reload by making a change in the hash of one configuration file
-      import java.nio.charset.StandardCharsets.UTF_8
-      val configFile = withResourcesConfigDir.resolve("with-resources.json")
+    val newLogger = new RecordingLogger(ansiCodesSupported = false)
+    withServer(configDir, false, newLogger) { (logger, client) =>
+      val configFile = configDir.resolve("simple-build.json")
       val jsonContents = new String(Files.readAllBytes(configFile), UTF_8)
-      val newContents =
-        if (jsonContents.endsWith(" ")) jsonContents.stripSuffix(" ") else jsonContents + " "
+      val newContents = jsonContents + " "
       Files.write(configFile, newContents.getBytes(UTF_8))
 
-      // This test checks that a new nailgun session still produces a no-op compilation
-      client.success("compile", "with-resources")
-      val messages = logger.getMessages()
-      val needle = "Compiling"
-
-      assertFalse(
-        s"${messages.mkString("\n")} contained '$needle', expected no-op",
-        messages.exists {
-          case ("info", msg) => msg.contains(needle)
-          case _ => false
-        }
-      )
+      // Checks new nailgun session still produces a no-op compilation
+      client.success("compile", "simple-build")
+      assertNoDiff(newLogger.captureTimeInsensitiveInfos.mkString(System.lineSeparator()), "")
     }
   }
 
-  @Test
-  def testWatchCompileCommand(): Unit = {
-    var rlogger: RecordingLogger = null
-    withServerInProject("with-resources") { (logger, client) =>
-      client.success("clean", "with-resources")
-      val fileWatchingProcess = client.issueAsProcess("compile", "-w", "with-resources")
-      fileWatchingProcess.waitFor(4, TimeUnit.SECONDS)
-      fileWatchingProcess.destroyForcibly()
+  override def afterAll(): Unit = {
+    // Make sure that we never end up with a background nailgun server running
+    val cwd = Paths.get(System.getProperty("user.dir"))
+    val client = Client(super.TEST_PORT, new RecordingLogger(), cwd)
+    val process = client.issueAsProcess("shutdown")
+    process.waitFor(1, TimeUnit.SECONDS)
 
-      // Repeat the whole process again.
-      client.success("clean", "with-resources")
-      val fileWatchingProcess2 = client.issueAsProcess("compile", "-w", "with-resources")
-      fileWatchingProcess2.waitFor(4, TimeUnit.SECONDS)
-      fileWatchingProcess2.destroyForcibly()
-
-      // Ugly, but necessary for the sake of testing.
-      rlogger = logger
-    }
-
-    // We check here the logs because until 'exit' the server doesn't flush everything
-    val serverInfos = rlogger.getMessages().filter(_._1 == "server-info").map(_._2)
-    val timesCancelling = serverInfos.count(_.contains("Cancelling tasks..."))
-    val timesCancelled = serverInfos.count(
-      _ == "File watching on 'with-resources' and dependent projects has been successfully cancelled")
-
-    assertTrue(s"File watching cancellation happened $timesCancelled only", timesCancelled == 2)
-    assertTrue(s"Bloop registered task cancellation only $timesCancelling", timesCancelling == 2)
+    bloop.io.Paths.delete(workspace)
+    ()
   }
-
-  @Test
-  def testRunCommand(): Unit = {
-    def logger = new RecordingLogger(false, None)
-    withServer(TestUtil.getBloopConfigDir("with-resources"), noExit = false, logger) {
-      (logger, client) =>
-        client.success("clean", "with-resources")
-        client.success("run", "with-resources")
-        val messages = logger.getMessages()
-        val needle = ("info", "OK")
-        assertTrue(
-          s"${messages.mkString("\n")} did not contain '$needle'",
-          messages.contains(needle))
-    }
-  }
-
-  @Test
-  def testTestCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
-      client.success("clean", "with-resources")
-      client.success("test", "with-resources")
-      client.success("test", "-p", "with-resources")
-      val messages = logger.getMessages()
-      val needle = "- should be found"
-      assertTrue(s"${messages.mkString("\n")} did not contain '$needle'", messages.exists {
-        case ("info", msg) => msg.contains(needle)
-        case _ => false
-      })
-    }
-
-  }
-
-  @Test
-  def testCleanCommand(): Unit = {
-    withServerInProject("with-resources") { (logger, client) =>
-      client.success("clean", "-p", "with-resources")
-      client.success("compile", "-p", "with-resources")
-      client.success("clean", "-p", "with-resources")
-      client.success("compile", "-p", "with-resources")
-      client.success("clean", "with-resources")
-      client.success("compile", "with-resources")
-      client.success("clean", "with-resources")
-      client.success("compile", "with-resources")
-      val messages = logger.getMessages()
-      val needle = "Compiling"
-      val matches = messages.count {
-        case ("info", msg) => msg.contains(needle)
-        case _ => false
-      }
-      assertEquals(
-        s"${messages.mkString("\n")} should contain four times '$needle'",
-        4,
-        matches.toLong
-      )
-    }
-  }
-
-  @Test
-  def testConfigDirPathResolving(): Unit = {
-    val projectName = "with-resources"
-
-    withServerInProject(projectName) { (logger, client) =>
-      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
-      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
-
-      val relativeConfigDir = projectBase.relativize(absoluteConfigPath).toString
-
-      client.success("projects", "--config-dir", relativeConfigDir)
-
-      val messages = logger.getMessages()
-      def contains(needle: String): Unit = {
-        assertTrue(s"'$needle not found in $messages'", messages.exists(_._2.contains(needle)))
-      }
-
-      contains(projectName)
-      contains(projectName + "-test")
-    }
-  }
-
-  @Test
-  def testConfigDirPathResolvingForUnknownPath(): Unit = {
-    val projectName = "with-resources"
-    val wrongDirectory = "something-not-right"
-
-    withServerInProject(projectName) { (logger, client) =>
-      client.success("about")
-
-      val messages = logger.getMessages()
-      def contains(needle: String, msgs: List[(String, String)]): Unit = {
-        assertTrue(s"'$needle not found in $msgs'", msgs.exists(_._2.contains(needle)))
-      }
-
-      contains("bloop v", messages)
-      contains("Running on Scala v", messages)
-      contains("Maintained by the Scala Center", messages)
-
-      client.success("help")
-
-      client.fail("projects", "--config-dir", wrongDirectory)
-
-      val messages2 = logger.getMessages()
-      val absoluteConfigPath = TestUtil.getBloopConfigDir(projectName)
-      val projectBase = TestUtil.getBaseFromConfigDir(absoluteConfigPath)
-      val configDirectory = AbsolutePath(projectBase.resolve(wrongDirectory))
-      contains(s"Missing configuration directory in $configDirectory", messages2)
-    }
-  }
-
-  /*
-  @Test
-  def testSeveralConcurrentClients(): Unit = {
-    withServerInProject("with-resources") { (logger1, client1) =>
-      val debugPrefix = s"${RESET}${GREEN}[D]${RESET} "
-      val logger2 = new RecordingLogger
-      val client2 = client1.copy(log = logger2)
-
-      val thread1 = new Thread {
-        override def run() = {
-          (1 to 3).foreach { _ =>
-            client1.success("clean", "with-resources-test")
-            client1.success("compile", "with-resources-test", "--verbose")
-          }
-        }
-      }
-
-      val thread2 = new Thread {
-        override def run() = {
-          try while (true) client2.success("projects")
-          catch { case _: InterruptedException => () }
-        }
-      }
-
-      thread1.start()
-      Thread.sleep(1000)
-      thread2.start()
-
-      thread1.join()
-      thread2.interrupt()
-
-      val msgs1 = logger1.getMessages.map(_._2)
-      val msgs2 = logger2.getMessages.map(_._2)
-
-      assertTrue("`logger1` received messages of `logger2`",
-                 !msgs1.exists(_.startsWith("Projects loaded from")))
-      assertEquals("`logger` did not receive verbose messages",
-                   3,
-                   msgs1.count(_.startsWith(s"${debugPrefix}Elapsed:")).toLong)
-      assertTrue("`logger2` received messages of `logger1`",
-                 !msgs2.exists(_.startsWith("Compiling")))
-      assertTrue("`logger2` received verbose messages of `logger1`",
-                 !msgs2.exists(_.startsWith(debugPrefix)))
-    }
-  }*/
 }

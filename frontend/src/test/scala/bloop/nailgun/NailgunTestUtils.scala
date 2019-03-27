@@ -21,9 +21,9 @@ import scala.concurrent.duration.FiniteDuration
 /**
  * Base class for writing test for the nailgun integration.
  */
-abstract class NailgunTestUtils {
+trait NailgunTestUtils {
   NailgunTestUtils.init()
-  private final val TEST_PORT = 8996
+  protected final val TEST_PORT = 8996
   private final val nailgunPool = Scheduler.computation(parallelism = 2)
 
   /**
@@ -102,7 +102,7 @@ abstract class NailgunTestUtils {
     Task
       .zip2(serverLogic, runClient)
       .map(t => t._2)
-      .timeout(FiniteDuration(40, TimeUnit.SECONDS))
+      .timeout(FiniteDuration(10, TimeUnit.SECONDS))
   }
 
   /**
@@ -119,10 +119,10 @@ abstract class NailgunTestUtils {
       op: (RecordingLogger, Client) => T
   ): T = {
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
-    val f0 = withServerTask(log, config, noExit)(op)
+    val f = withServerTask(log, config, noExit)(op).runAsync(nailgunPool)
     // Note we cannot use restart because our task uses promises that cannot be completed twice
-    val f = f0.onErrorFallbackTo(f0.onErrorFallbackTo(f0)).runAsync(nailgunPool)
-    try Await.result(f, FiniteDuration(125, TimeUnit.SECONDS))
+    //val f = f0.onErrorFallbackTo(f0.onErrorFallbackTo(f0)).runAsync(nailgunPool)
+    try Await.result(f, FiniteDuration(10, TimeUnit.SECONDS))
     catch {
       case e: ExecutionException => throw e.getCause()
       case t: Throwable => throw t
@@ -151,7 +151,7 @@ abstract class NailgunTestUtils {
    * @param log recording logger for test run.
    * @param config The base directory with the configuration files.
    */
-  private case class Client(port: Int, log: RecordingLogger, config: Path) {
+  protected case class Client(port: Int, log: RecordingLogger, config: Path) {
     private val base = TestUtil.getBaseFromConfigDir(config)
     private val configPath = config.toAbsolutePath.toString
     private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
