@@ -1,10 +1,14 @@
 package bloop.engine.tasks
 
+import java.nio.file.Path
+import scala.collection.mutable.ArrayBuffer
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.data.{Platform, Project}
-import bloop.engine.{Dag, Feedback, State}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.engine.{Feedback, State}
 import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
@@ -16,9 +20,6 @@ import sbt.internal.inc.Analysis
 import sbt.testing.{Framework, SuiteSelector, TaskDef}
 import xsbt.api.Discovery
 import xsbti.compile.CompileAnalysis
-
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
 
 object TestTask {
   implicit private val logContext: DebugFilter = DebugFilter.Test
@@ -313,38 +314,39 @@ object TestTask {
       project: Project,
       args: List[Config.TestArgument]
   ): List[Config.TestArgument] = {
-    import java.nio.file.{Files, Paths}
     args.map {
       case Config.TestArgument(testArg :: testArgs, f @ Some(Config.TestFramework.ScalaTest)) =>
-        val fixedArgs = testArgs.foldLeft(List(testArg)) {
-          case (Nil, current) => current :: Nil
-          case (rest @ previous :: _, current) =>
-            if (previous != "-h") current :: rest
-            else {
-              val currentPath = Paths.get(current)
-              val path = {
-                if (currentPath.isAbsolute) currentPath
-                else {
-                  val potentialPath = project.baseDirectory.resolve(current)
-                  if (potentialPath.exists) potentialPath.underlying
-                  else {
-                    if (potentialPath.getParent.exists)
-                      Files.createFile(potentialPath.underlying)
-                    else {
-                      Files.createDirectories(potentialPath.getParent.underlying)
-                      Files.createFile(potentialPath.underlying)
-                    }
-                  }
-                }
-              }
-
-              path.toAbsolutePath.toString :: rest
-            }
+        val fixedArgs: ArrayBuffer[String] = testArgs.foldLeft(ArrayBuffer(testArg)) {
+          case (processed, current) if processed.last == "-h" =>
+            processed += fixScalatestHArgument(project, current)
+          case (processed, current) =>
+            processed += current
         }
 
-        Config.TestArgument(fixedArgs, f)
+        Config.TestArgument(fixedArgs.toList, f)
       case a => a
     }
   }
 
+  /**
+    * see https://github.com/scalacenter/bloop/issues/658
+    */
+  private def fixScalatestHArgument(project: Project,
+                                    current: String): String = {
+    import java.nio.file.{Files, Paths}
+    val currentPath: Path = Paths.get(current)
+    val fixedPath: Path = {
+      if (currentPath.isAbsolute) {
+        currentPath
+      } else {
+        val potentialPath: AbsolutePath = project.baseDirectory.resolve(current)
+        if (!potentialPath.exists) {
+          Files.createDirectories(potentialPath.underlying)
+        }
+        potentialPath.underlying
+      }
+    }
+
+    fixedPath.toAbsolutePath.toString
+  }
 }
