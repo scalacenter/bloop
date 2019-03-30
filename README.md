@@ -35,7 +35,7 @@ contributing to Bloop by [reading the CONTRIBUTING guide][contributing].
 follows the [Scala Code of Conduct][coc]. We are committed to providing a safe
 environment for all contributors.
 
-[gitter]: https://github.com/scalacenter/bloop
+[gitter]: https://gitter.im/scalacenter/bloop
 [contributing]: https://scalacenter.github.io/bloop/docs/developer-documentation/
 [scalacenter]: https://scala.epfl.ch
 [coc]: https://www.scala-lang.org/conduct/
