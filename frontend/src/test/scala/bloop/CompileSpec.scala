@@ -52,7 +52,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     val `2.11.11` = compileProjectFor("2.11.11")
     val `2.12.8` = compileProjectFor("2.12.8")
     val all = List(`2.10.7`, `2.11.11`, `2.12.8`)
-    TestUtil.await(FiniteDuration(30, "s")) {
+    TestUtil.await(FiniteDuration(60, "s")) {
       Task.gatherUnordered(all).map(_ => ())
     }
   }
@@ -230,13 +230,13 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       assertNoDiff(
         logger.renderErrors(exceptContaining = "failed to compile"),
-        """[E1] b/src/B.scala:2:17
-          |     type mismatch;
-          |      found   : String("")
-          |      required: Int
-          |     L2:   println(A.foo(""))
-          |                         ^
-          |b/src/B.scala: L2 [E1]""".stripMargin
+        s"""[E1] ${TestUtil.universalPath("b/src/B.scala")}:2:17
+           |     type mismatch;
+           |      found   : String("")
+           |      required: Int
+           |     L2:   println(A.foo(""))
+           |                         ^
+           |b/src/B.scala: L2 [E1]""".stripMargin
       )
 
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A.scala`))
@@ -479,16 +479,16 @@ object CompileSpec extends bloop.testing.BaseSuite {
       )
 
       assertNoDiff(
-        """
-          |[E2] a/src/main/scala/Bar.scala:2:22
-          |     not found: type Foo
-          |     L2:   val foo: Foo = new Foo
-          |                              ^
-          |[E1] a/src/main/scala/Bar.scala:2:12
-          |     not found: type Foo
-          |     L2:   val foo: Foo = new Foo
-          |                    ^
-          |a/src/main/scala/Bar.scala: L2 [E1], L2 [E2]
+        s"""
+           |[E2] ${TestUtil.universalPath("a/src/main/scala/Bar.scala")}:2:22
+           |     not found: type Foo
+           |     L2:   val foo: Foo = new Foo
+           |                              ^
+           |[E1] a/src/main/scala/Bar.scala:2:12
+           |     not found: type Foo
+           |     L2:   val foo: Foo = new Foo
+           |                    ^
+           |a/src/main/scala/Bar.scala: L2 [E1], L2 [E2]
           """.stripMargin,
         logger.renderErrors(exceptContaining = "failed to compile")
       )
@@ -569,16 +569,16 @@ object CompileSpec extends bloop.testing.BaseSuite {
       )
 
       assertNoDiff(
-        """
-          |[E2] c/src/main/scala/Bar.scala:2:22
-          |     not found: type Foo
-          |     L2:   val foo: Foo = new Foo
-          |                              ^
-          |[E1] c/src/main/scala/Bar.scala:2:12
-          |     not found: type Foo
-          |     L2:   val foo: Foo = new Foo
-          |                    ^
-          |c/src/main/scala/Bar.scala: L2 [E1], L2 [E2]
+        s"""
+           |[E2] ${TestUtil.universalPath("c/src/main/scala/Bar.scala")}:2:22
+           |     not found: type Foo
+           |     L2:   val foo: Foo = new Foo
+           |                              ^
+           |[E1] ${TestUtil.universalPath("c/src/main/scala/Bar.scala")}:2:12
+           |     not found: type Foo
+           |     L2:   val foo: Foo = new Foo
+           |                    ^
+           |c/src/main/scala/Bar.scala: L2 [E1], L2 [E2]
           """.stripMargin,
         logger.renderErrors(exceptContaining = "failed to compile")
       )
@@ -621,15 +621,15 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       val cannotFindSymbolError: String = {
         if (bloop.util.CrossPlatform.isMac) {
-          """[E1] a/src/B.java:1
-            |     cannot find symbol
-            |       symbol: class A
-            |a/src/B.java: L1 [E1]""".stripMargin
+          s"""[E1] ${TestUtil.universalPath("a/src/B.java")}:1
+             |     cannot find symbol
+             |       symbol: class A
+             |a/src/B.java: L1 [E1]""".stripMargin
         } else {
           // TODO: Figure out why error is different and why `A` is not in the msg
-          """[E1] a/src/B.java:1
-            |      error: cannot find symbol
-            |a/src/B.java: L1 [E1]""".stripMargin
+          s"""[E1] ${TestUtil.universalPath("a/src/B.java")}:1
+             |      error: cannot find symbol
+             |a/src/B.java: L1 [E1]""".stripMargin
         }
       }
 
@@ -668,11 +668,11 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       assertNoDiff(
         logger.renderErrors(exceptContaining = "failed to compile"),
-        """[E1] a/src/Foo.scala:2:18
-          |     ';' expected but '=' found.
-          |     L2:   al foo: String = 1
-          |                          ^
-          |a/src/Foo.scala: L2 [E1]""".stripMargin
+        s"""[E1] ${TestUtil.universalPath("a/src/Foo.scala")}:2:18
+           |     ';' expected but '=' found.
+           |     L2:   al foo: String = 1
+           |                          ^
+           |a/src/Foo.scala: L2 [E1]""".stripMargin
       )
     }
   }
@@ -929,20 +929,20 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assert(logger.errors.size == 4)
       assertNoDiff(
         logger.errors.mkString(System.lineSeparator),
-        """[E2] a/src/A.scala:3:17
-          |     type mismatch;
-          |      found   : String("")
-          |      required: Int
-          |     L3:   val a2: Int = ""
-          |                         ^
-          |[E1] a/src/A.scala:2:17
-          |     type mismatch;
-          |      found   : String("")
-          |      required: Int
-          |     L2:   val a1: Int = ""
-          |                         ^
-          |a/src/A.scala: L2 [E1], L3 [E2]
-          |'a' failed to compile.""".stripMargin
+        s"""[E2] ${TestUtil.universalPath("a/src/A.scala")}:3:17
+           |     type mismatch;
+           |      found   : String("")
+           |      required: Int
+           |     L3:   val a2: Int = ""
+           |                         ^
+           |[E1] ${TestUtil.universalPath("a/src/A.scala")}:2:17
+           |     type mismatch;
+           |      found   : String("")
+           |      required: Int
+           |     L2:   val a1: Int = ""
+           |                         ^
+           |a/src/A.scala: L2 [E1], L3 [E2]
+           |'a' failed to compile.""".stripMargin
       )
     }
   }

@@ -557,7 +557,7 @@ object TestUtil {
           sys.error("First line of contents file does not start with `/`")
         } else {
           val contents = lines.tail.mkString(System.lineSeparator)
-          val relPath = potentialPath.replace("/", File.separator)
+          val relPath = potentialPath.replace("/", File.separator).stripPrefix(File.separator)
           ParsedFile(RelativePath(relPath), contents)
         }
     }
