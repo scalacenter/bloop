@@ -10,12 +10,11 @@ import bloop.internal.build.BuildInfo
 
 import java.nio.file.Path
 
-object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp, true)
-object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local, false)
+object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
+object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
 
 class BspProtocolSpec(
-    override val protocol: BspProtocol,
-    override val runOnWindows: Boolean
+    override val protocol: BspProtocol
 ) extends BspBaseSuite {
   import ch.epfl.scala.bsp
   test("check the correct contents of scalac options") {

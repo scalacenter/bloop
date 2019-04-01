@@ -18,9 +18,8 @@ import monix.eval.Task
 import monix.execution.CancelableFuture
 
 object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
-  // Use TCP because it's the only one working in Windows
+  // Use only TCP to run deduplication
   override val protocol = BspProtocol.Tcp
-  override val runOnWindows = true
 
   private def random(baselineMs: Int, until: Int): FiniteDuration = {
     val ms = baselineMs + scala.util.Random.nextInt(until).toLong

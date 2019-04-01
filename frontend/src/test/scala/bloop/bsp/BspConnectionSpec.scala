@@ -10,12 +10,11 @@ import monix.execution.{Scheduler, ExecutionModel}
 
 import scala.concurrent.duration.FiniteDuration
 
-object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp, true)
-object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local, false)
+object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
+object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
 
 class BspConnectionSpec(
-    override val protocol: BspProtocol,
-    override val runOnWindows: Boolean
+    override val protocol: BspProtocol
 ) extends BspBaseSuite {
   // A custom pool we use to make sure we don't block on threads
   val poolFor6Clients: Scheduler = Scheduler(
