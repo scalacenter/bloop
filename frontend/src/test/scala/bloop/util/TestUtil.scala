@@ -1,5 +1,6 @@
 package bloop.util
 
+import java.io.File
 import java.nio.charset.Charset
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
@@ -472,7 +473,7 @@ object TestUtil {
   }
 
   def universalPath(path: String): String = {
-    path.split("/").mkString(java.io.File.separator)
+    path.split("/").mkString(File.separator)
   }
 
   def createSimpleRecursiveBuild(bloopDir: RelativePath): AbsolutePath = {
@@ -556,7 +557,8 @@ object TestUtil {
           sys.error("First line of contents file does not start with `/`")
         } else {
           val contents = lines.tail.mkString(System.lineSeparator)
-          ParsedFile(RelativePath(potentialPath.stripPrefix("/")), contents)
+          val relPath = potentialPath.replace("/", File.separator)
+          ParsedFile(RelativePath(relPath), contents)
         }
     }
   }
