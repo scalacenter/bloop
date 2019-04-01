@@ -18,7 +18,7 @@ import scala.concurrent.duration.FiniteDuration
 import monix.eval.Task
 import monix.execution.CancelableFuture
 
-object ModernCompileSpec extends bloop.testing.BaseSuite {
+object CompileSpec extends bloop.testing.BaseSuite {
   test("compile project for latest supported Scala versions") {
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>

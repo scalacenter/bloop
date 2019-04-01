@@ -17,7 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 import monix.eval.Task
 import monix.execution.CancelableFuture
 
-object ModernDeduplicationSpec extends bloop.bsp.BspBaseSuite {
+object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   // Use only TCP to run deduplication
   override val protocol = BspProtocol.Tcp
 

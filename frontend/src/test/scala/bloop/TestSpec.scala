@@ -39,7 +39,7 @@ abstract class BaseTestSpec(val projectName: String)
   }
 }
 
-object ModernJsTestSpec extends BaseTestSpec("test-projectJS-test") {
+object JsTestSpec extends BaseTestSpec("test-projectJS-test") {
   val expectedFullTestsOutput: String = {
     """|Execution took ???ms
        |1 tests, 1 passed
@@ -86,7 +86,7 @@ object ModernJsTestSpec extends BaseTestSpec("test-projectJS-test") {
   }
 }
 
-object ModernJvmTestSpec extends BaseTestSpec("test-project-test") {
+object JvmTestSpec extends BaseTestSpec("test-project-test") {
   val expectedFullTestsOutput: String = {
     """|Test run started
        |Test hello.JUnitTest.myTest started

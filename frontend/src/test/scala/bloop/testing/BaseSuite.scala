@@ -112,12 +112,13 @@ class BaseSuite extends TestSuite with BloopHelpers {
     bloop.io.Paths
       .attributedPathFilesUnder(dir, "glob:**.*", NoopLogger)
       .map { ap =>
-        val maskedRelativePath = AbsolutePath(ap.path.syntax.replace(dir.syntax, "/"))
+        val maskedRelativePath =
+          AbsolutePath.completelyUnsafe(ap.path.syntax.replace(dir.syntax, "/"))
         if (!maskedRelativePath.syntax.startsWith("/classes-")) {
           ap.copy(path = maskedRelativePath)
         } else {
           ap.copy(
-            path = AbsolutePath(
+            path = AbsolutePath.completelyUnsafe(
               "/" +
                 maskedRelativePath.syntax
                   .split(java.io.File.separator)
