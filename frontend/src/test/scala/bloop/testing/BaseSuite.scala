@@ -109,25 +109,19 @@ class BaseSuite extends TestSuite with BloopHelpers {
   def takeDirectorySnapshot(
       dir: AbsolutePath
   )(implicit filename: sourcecode.File, line: sourcecode.Line): List[AttributedPath] = {
+    import java.io.File
     bloop.io.Paths
       .attributedPathFilesUnder(dir, "glob:**.*", NoopLogger)
       .map { ap =>
-        val maskedRelativePath =
-          AbsolutePath.completelyUnsafe(ap.path.syntax.replace(dir.syntax, "/"))
+        val prefixPath = dir.syntax.stripSuffix("/")
+        val osInsensitivePath = ap.path.syntax.replace(prefixPath, "").replace(File.separator, "/")
+        val maskedRelativePath = AbsolutePath(osInsensitivePath)
         if (!maskedRelativePath.syntax.startsWith("/classes-")) {
           ap.copy(path = maskedRelativePath)
         } else {
-          ap.copy(
-            path = AbsolutePath.completelyUnsafe(
-              "/" +
-                maskedRelativePath.syntax
-                  .split(java.io.File.separator)
-                  // Two times because / is present at the beginning
-                  .tail
-                  .tail
-                  .mkString(java.io.File.separator)
-            )
-          )
+          // Remove '/classes-*' from path
+          val newPath = maskedRelativePath.syntax.split(File.separator).tail.tail.mkString("/")
+          ap.copy(path = AbsolutePath("/" + newPath))
         }
       }
   }
