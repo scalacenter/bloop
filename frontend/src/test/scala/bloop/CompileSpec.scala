@@ -780,10 +780,10 @@ object CompileSpec extends bloop.testing.BaseSuite {
             |package p1
             |class H extends p0.F
           """.stripMargin
-        val `G.scala` = "/G.scala\npackage p3\ntrait G"
-        """/G.scala
-          |package p3
-          |trait G
+        val `G.scala` =
+          """/G.scala
+            |package p3
+            |trait G
           """.stripMargin
         val `I.scala` =
           """/I.scala
