@@ -20,7 +20,8 @@ import monix.execution.misc.NonFatal
 import monix.execution.CancelableFuture
 
 object CompileSpec extends bloop.testing.BaseSuite {
-  test("compile project for latest supported Scala versions") {
+  // TODO: Enable this before next stable release
+  ignore("compile project for latest supported Scala versions") {
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>
         val sources = List(

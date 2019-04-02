@@ -31,11 +31,9 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("help")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop ${BuildInfo.version}
             |Usage: bloop [options] [command] [command-options]
-            |
-            |
             |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
             |Type `bloop 'command' --help` for help on an individual command
             |     
@@ -67,11 +65,9 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         client.expectSuccess("help")
         assertNoErrors(logger)
         assertNoDiff(
-          logger.infos.mkString(System.lineSeparator()),
+          logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
           s"""|bloop ${BuildInfo.version}
               |Usage: bloop [options] [command] [command-options]
-              |
-              |
               |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
               |Type `bloop 'command' --help` for help on an individual command
               |     
@@ -87,9 +83,8 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("about")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop v${BuildInfo.version}
-            |
             |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
@@ -136,9 +131,8 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("about")
       client.expectFailure("projects", "--no-color")
       assertNoDiff(
-        logger.infos.mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop v${BuildInfo.version}
-            |
             |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
