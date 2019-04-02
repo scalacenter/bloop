@@ -86,6 +86,10 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
       - /drone/.dodo
+      - ./frontend/src/test/resources/simple-build/bloop-config
+      - ./frontend/src/test/resources/simple-build/target/generation-cache-file
+      - ./frontend/src/test/resources/compiler-plugin-whitelist/bloop-config
+      - ./frontend/src/test/resources/compiler-plugin-whitelist/target/generation-cache-file
       - ./frontend/src/test/resources/cross-test-build-0.6/bloop-config
       - ./frontend/src/test/resources/cross-test-build-0.6/target/generation-cache-file
       - ./frontend/src/test/resources/cross-test-build-1.0/bloop-config
