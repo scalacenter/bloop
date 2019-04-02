@@ -604,7 +604,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
              |      required: String
              |     L3:   def foo(i: Int): String = i
              |                                     ^
-             |b/src/B.scala: L3 [E1]
+             |${TestUtil.universalPath("b/src/B.scala")}: L3 [E1]
              |'b' failed to compile.""".stripMargin
         )
 
@@ -615,16 +615,17 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
          """.stripMargin
         )
 
+        val targetB = TestUtil.universalPath("b/src/B.scala")
         assertNoDiff(
           cliLogger2.errors.mkString(System.lineSeparator()),
           s"""
-             |[E1] ${TestUtil.universalPath("b/src/B.scala")}:3:29
+             |[E1] ${targetB}:3:29
              |     type mismatch;
              |      found   : Int
              |      required: String
              |     L3:   def foo(i: Int): String = i
              |                                     ^
-             |b/src/B.scala: L3 [E1]
+             |${targetB}: L3 [E1]
              |'b' failed to compile.""".stripMargin
         )
 
@@ -656,7 +657,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
          """.stripMargin
         )
 
-        val targetB = TestUtil.universalPath("b/src/B.scala")
         assertNoDiff(
           cliLogger4.errors.mkString(System.lineSeparator()),
           s"""
