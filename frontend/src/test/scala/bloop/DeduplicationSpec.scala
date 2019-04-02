@@ -117,7 +117,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         import java.util.concurrent.TimeoutException
-        val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 1)
+        val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 2)
 
         assert(firstNoopState.status == ExitStatus.Ok)
         assert(secondNoopState.status == ExitStatus.Ok)
@@ -532,7 +532,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(2, TimeUnit.SECONDS))
         val (secondCompiledState, thirdCompiledState) =
-          TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 1)
+          TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 2)
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assert(secondCompiledState.status == ExitStatus.CompilationError)
