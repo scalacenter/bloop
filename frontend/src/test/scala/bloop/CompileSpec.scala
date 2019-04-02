@@ -770,10 +770,26 @@ object CompileSpec extends bloop.testing.BaseSuite {
        */
 
       object Sources {
-        val `F.scala` = "/F.scala\npackage p0\nclass F"
-        val `H.scala` = "/H.scala\npackage p1\nimport p0.F\nclass H extends F"
+        val `F.scala` =
+          """/F.scala
+            |package p0
+            |class F
+          """.stripMargin
+        val `H.scala` =
+          """/H.scala
+            |package p1
+            |class H extends p0.F
+          """.stripMargin
         val `G.scala` = "/G.scala\npackage p3\ntrait G"
-        val `I.scala` = "/I.scala\npackage p2\nimport p1.H\nimport p3.G\nclass I extends H with G"
+        """/G.scala
+          |package p3
+          |trait G
+          """.stripMargin
+        val `I.scala` =
+          """/I.scala
+            |package p2
+            |class I extends p1.H with p3.G
+          """.stripMargin
       }
 
       val `F` = TestProject(workspace, "F", List(Sources.`F.scala`))

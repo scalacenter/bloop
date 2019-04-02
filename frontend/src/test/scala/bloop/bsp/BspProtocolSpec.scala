@@ -20,8 +20,14 @@ class BspProtocolSpec(
   test("check the correct contents of scalac options") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
-        val `A.scala` = "/A.scala\nobject A"
-        val `B.scala` = "/B.scala\nobject B"
+        val `A.scala` =
+          """/A.scala
+            |object A
+          """.stripMargin
+        val `B.scala` =
+          """/B.scala
+            |object B
+          """.stripMargin
       }
 
       object ScalacOptions {

@@ -97,7 +97,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("projects")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         """|simple-build
            |simple-build-test
            |""".stripMargin
@@ -116,7 +116,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
 
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         """|simple-build
            |simple-build-test
            |""".stripMargin
@@ -153,7 +153,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("compile", "-p", "simple-build")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.captureTimeInsensitiveInfos.mkString(System.lineSeparator()),
+        logger.captureTimeInsensitiveInfos.filterNot(_ == "").mkString(System.lineSeparator()),
         """|Compiling simple-build (1 Scala source)
            |Compiled simple-build ???ms
            |Compiling simple-build (1 Scala source)

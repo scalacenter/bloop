@@ -314,7 +314,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
           |class JUnitTest {
           |  @Test
           |  def myTest: Unit = {
-          |    Thread.sleep(1500)
+          |    Thread.sleep(5000)
           |    assertEquals(4, 2 + 2)
           |  }
           |}""".stripMargin
@@ -342,7 +342,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
       )
 
       val testState = {
-        try Await.result(futureTestState, Duration(1100, "ms"))
+        try Await.result(futureTestState, Duration(3000, "ms"))
         catch {
           case scala.util.control.NonFatal(t) => futureTestState.cancel(); throw t
           case i: InterruptedException =>
