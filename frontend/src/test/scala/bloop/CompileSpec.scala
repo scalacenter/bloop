@@ -658,24 +658,32 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       val targetB = TestUtil.universalPath("a/src/B.java")
       val cannotFindSymbolError: String = {
-        if (bloop.util.CrossPlatform.isMac) {
-          s"""[E1] ${targetB}:1
-             |     cannot find symbol
-             |       symbol: class A
-             |${targetB}: L1 [E1]""".stripMargin
-        } else {
-          // TODO: Figure out why error is different and why `A` is not in the msg
-          s"""[E1] ${targetB}:1
-             |      error: cannot find symbol
-             |${targetB}: L1 [E1]""".stripMargin
-        }
+        s"""[E1] ${targetB}:1
+           |     cannot find symbol
+           |       symbol: class A
+           |${targetB}: L1 [E1]""".stripMargin
+      }
+
+      val cannotFindSymbolError2: String = {
+        s"""[E1] ${targetB}:1
+           |      error: cannot find symbol
+           |${targetB}: L1 [E1]""".stripMargin
       }
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
-      assertNoDiff(
-        logger.renderErrors(exceptContaining = "failed to compile"),
-        cannotFindSymbolError
-      )
+      import bloop.testing.DiffAssertions
+      try {
+        assertNoDiff(
+          logger.renderErrors(exceptContaining = "failed to compile"),
+          cannotFindSymbolError
+        )
+      } catch {
+        case _: DiffAssertions.TestFailedException =>
+          assertNoDiff(
+            logger.renderErrors(exceptContaining = "failed to compile"),
+            cannotFindSymbolError2
+          )
+      }
     }
   }
 

@@ -128,7 +128,7 @@ trait NailgunTestUtils {
     Task
       .zip2(serverLogic, runClient)
       .map(t => t._2)
-      .timeout(FiniteDuration(10, TimeUnit.SECONDS))
+      .timeout(FiniteDuration(20, TimeUnit.SECONDS))
   }
 
   /**
@@ -148,7 +148,7 @@ trait NailgunTestUtils {
     val f = withServerTask(log, config, noExit)(op).runAsync(nailgunPool)
     // Note we cannot use restart because our task uses promises that cannot be completed twice
     //val f = f0.onErrorFallbackTo(f0.onErrorFallbackTo(f0)).runAsync(nailgunPool)
-    try Await.result(f, FiniteDuration(10, TimeUnit.SECONDS))
+    try Await.result(f, FiniteDuration(20, TimeUnit.SECONDS))
     catch {
       case e: ExecutionException => throw e.getCause()
       case t: Throwable => throw t
