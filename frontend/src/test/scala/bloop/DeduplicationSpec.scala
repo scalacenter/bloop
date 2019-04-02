@@ -180,7 +180,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
@@ -241,7 +241,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompiledState =
           Await.result(secondCompilation, FiniteDuration(5, TimeUnit.SECONDS))
         val secondCliCompiledState =
-          Await.result(secondCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
+          Await.result(secondCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
 
         assert(secondCompiledState.status == ExitStatus.Ok)
         assert(secondCliCompiledState.status == ExitStatus.Ok)
@@ -342,7 +342,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
@@ -403,7 +403,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompiledState =
           Await.result(secondCompilation, FiniteDuration(5, TimeUnit.SECONDS))
         val secondCliCompiledState =
-          Await.result(secondCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
+          Await.result(secondCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
 
         assert(secondCompiledState.status == ExitStatus.Ok)
         assert(secondCliCompiledState.status == ExitStatus.Ok)
