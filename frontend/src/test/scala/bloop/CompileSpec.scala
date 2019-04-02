@@ -16,6 +16,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
 import monix.eval.Task
+import monix.execution.misc.NonFatal
 import monix.execution.CancelableFuture
 
 object CompileSpec extends bloop.testing.BaseSuite {
@@ -625,8 +626,14 @@ object CompileSpec extends bloop.testing.BaseSuite {
   test("report java errors when `JavaThenScala` is enabled") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
-        val `A.scala` = "/A.scala\nclass A"
-        val `B.java` = "/B.java\npublic class B extends A {}"
+        val `A.scala` =
+          """/A.scala
+            |class A
+          """.stripMargin
+        val `B.java` =
+          """/B.java
+            |public class B extends A {}
+          """.stripMargin
       }
 
       val `A` = TestProject(
@@ -810,9 +817,9 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       val compiledUserState = {
         // There are two macro calls in two different sources, cancellation must avoid one
-        try Await.result(backgroundCompiledUserState, Duration(2500, "ms"))
+        try Await.result(backgroundCompiledUserState, Duration(2950, "ms"))
         catch {
-          case scala.util.control.NonFatal(t) => backgroundCompiledUserState.cancel(); throw t
+          case NonFatal(t) => backgroundCompiledUserState.cancel(); throw t
           case i: InterruptedException => backgroundCompiledUserState.cancel(); compiledMacrosState
         }
       }

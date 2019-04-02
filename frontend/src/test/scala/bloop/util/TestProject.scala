@@ -145,7 +145,9 @@ object TestProject {
   }
 
   def srcFor(sources: List[AbsolutePath], relPath: String): AbsolutePath = {
-    val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))
+    import java.io.File
+    val universalRelPath = relPath.stripPrefix("/").split("/").mkString(File.separator)
+    val targetPath = RelativePath(universalRelPath)
     val rawFileName = targetPath.underlying.getFileName.toString
     if (rawFileName.endsWith(".scala") || rawFileName.endsWith(".java")) {
       val matchedPath = sources.foldLeft(None: Option[AbsolutePath]) {
