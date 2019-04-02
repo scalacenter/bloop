@@ -778,7 +778,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  def sleep(): Unit = macro sleepImpl
             |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
             |    import c.universe._
-            |    Thread.sleep(1000)
+            |    Thread.sleep(5000)
             |    reify { () }
             |  }
             |}""".stripMargin
@@ -812,12 +812,12 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
 
       loadBspState(workspace, projects, bspLogger) { bspState =>
-        val firstDelay = Some(random(200, 100))
+        val firstDelay = Some(random(500, 1000))
         val firstCompilation = bspState.compileHandle(`B`)
         val secondCompilation = compiledState.withLogger(cliLogger).compileHandle(`B`, firstDelay)
 
         ExecutionContext.ioScheduler.scheduleOnce(
-          400,
+          2000,
           TimeUnit.MILLISECONDS,
           new Runnable {
             override def run(): Unit = firstCompilation.cancel()
