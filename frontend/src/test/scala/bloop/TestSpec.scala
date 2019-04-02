@@ -331,8 +331,8 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
         compiledState.testHandle(testProject, List("hello.JUnitTest"), Nil, None)
 
       val waitTimeToCancel = {
-        val randomMs = scala.util.Random.nextInt(750)
-        (250 + randomMs).toLong
+        val randomMs = scala.util.Random.nextInt(2000)
+        (1000 + randomMs).toLong
       }
 
       ExecutionContext.ioScheduler.scheduleOnce(
