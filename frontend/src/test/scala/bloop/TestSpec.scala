@@ -314,7 +314,11 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
           |class JUnitTest {
           |  @Test
           |  def myTest: Unit = {
-          |    Thread.sleep(5000)
+          |    Thread.sleep(1000)
+          |    Thread.sleep(1000)
+          |    Thread.sleep(1000)
+          |    Thread.sleep(1000)
+          |    Thread.sleep(1000)
           |    assertEquals(4, 2 + 2)
           |  }
           |}""".stripMargin
@@ -330,9 +334,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
       val futureTestState =
         compiledState.testHandle(testProject, List("hello.JUnitTest"), Nil, None)
 
+      val baseMs = if (isWindows) 1000 else 500
       val waitTimeToCancel = {
         val randomMs = scala.util.Random.nextInt(2000)
-        (1000 + randomMs).toLong
+        (baseMs + randomMs).toLong
       }
 
       ExecutionContext.ioScheduler.scheduleOnce(
@@ -342,7 +347,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
       )
 
       val testState = {
-        try Await.result(futureTestState, Duration(3000, "ms"))
+        try Await.result(futureTestState, Duration(4500, "ms"))
         catch {
           case scala.util.control.NonFatal(t) => futureTestState.cancel(); throw t
           case i: InterruptedException =>
