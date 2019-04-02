@@ -302,13 +302,40 @@ object CompileSpec extends bloop.testing.BaseSuite {
   test("compile a build with diamond shape and check basic compilation invariants") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
-        val `A.scala` = "/A.scala\npackage p0\nclass A"
-        val `B.scala` = "/B.scala\npackage p1\nimport p0.A\nclass B extends A"
-        val `C.scala` = "/C.scala\npackage p2\nimport p0.A\nclass C extends A"
-        val `D.scala` = "/D.scala\npackage p3\ntrait D"
+        val `A.scala` =
+          """/A.scala
+            |package p0
+            |class A
+          """.stripMargin
+
+        val `B.scala` =
+          """/B.scala
+            |package p1
+            |class B extends p0.A
+          """.stripMargin
+
+        val `C.scala` =
+          """/C.scala
+            |package p2
+            |class C extends p0.A
+          """.stripMargin
+        val `D.scala` =
+          """/D.scala
+            |package p3
+            |trait D
+          """.stripMargin
         val `E.scala` =
-          "/E.scala\npackage p4\nimport p1.B\nimport p2.C\nimport p3.D\nobject E extends B with D"
-        val `F.scala` = "/F.scala\npackage p5\nimport p3.NotFound\nclass F"
+          """/E.scala
+            |package p4
+            |import p2.C
+            |object E extends p1.B with p3.D
+          """.stripMargin
+        val `F.scala` =
+          """/F.scala
+            |package p5
+            |import p3.NotFound
+            |class F
+          """.stripMargin
       }
 
       val `Empty` = TestProject(workspace, "empty", Nil)
