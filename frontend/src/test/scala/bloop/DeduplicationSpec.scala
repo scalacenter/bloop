@@ -531,10 +531,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(2, TimeUnit.SECONDS))
-        val secondCompiledState =
-          Await.result(secondCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
-        val thirdCompiledState =
-          Await.result(thirdCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
+        val (secondCompiledState, thirdCompiledState) =
+          TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 1)
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assert(secondCompiledState.status == ExitStatus.CompilationError)
