@@ -491,4 +491,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     assertSameExternalClassesDirs(s1.toTestState, s2.toTestState, projects)
   }
+
+  def mapBoth[A1, A2](f1: CancelableFuture[A1], f2: CancelableFuture[A2]): Task[(A1, A2)] = {
+    Task.mapBoth(Task.fromFuture(f1), Task.fromFuture(f2))((a1, a2) => a1 -> a2)
+  }
 }

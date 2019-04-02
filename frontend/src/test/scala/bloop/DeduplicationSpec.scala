@@ -61,13 +61,12 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val thirdCompilation =
           bspState.compileHandle(
             build.userProject,
-            Some(FiniteDuration(2, TimeUnit.SECONDS))
+            Some(FiniteDuration(1, TimeUnit.SECONDS))
           )
 
         val firstCompiledState = waitInSeconds(firstCompilation, 10)(logger1.writeToFile("1"))
-        // Wait only +- 200ms to check no extra compilation happens but there's time to finish
-        val secondCompiledState = waitInMillis(secondCompilation, 200)(logger2.writeToFile("2"))
-        val thirdCompiledState = waitInMillis(thirdCompilation, 200)(logger3.writeToFile("3"))
+        val (secondCompiledState, thirdCompiledState) =
+          TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 3)
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(secondCompiledState.status == ExitStatus.Ok)
@@ -112,12 +111,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val delayFirstNoop = Some(random(0, 20))
         val delaySecondNoop = Some(random(0, 20))
-        val noopCompiles = Task.mapBoth(
-          Task.fromFuture(thirdCompiledState.compileHandle(build.userProject, delayFirstNoop)),
-          Task.fromFuture(secondCompiledState.compileHandle(build.userProject, delaySecondNoop))
-        ) {
-          case states => states
-        }
+        val noopCompiles = mapBoth(
+          thirdCompiledState.compileHandle(build.userProject, delayFirstNoop),
+          secondCompiledState.compileHandle(build.userProject, delaySecondNoop)
+        )
 
         import java.util.concurrent.TimeoutException
         val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 1)
@@ -182,8 +179,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
-
-        // Wait only +- 200ms in both to check no extra compilation happens but there's time to finish
         val firstCliCompiledState =
           Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
 
@@ -346,8 +341,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
-
-        // Wait only +- 200ms in both to check no extra compilation happens but there's time to finish
         val firstCliCompiledState =
           Await.result(firstCliCompilation, FiniteDuration(200, TimeUnit.MILLISECONDS))
 
@@ -835,10 +828,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           }
         )
 
-        val firstCompiledState =
-          Await.result(firstCompilation, FiniteDuration(3, TimeUnit.SECONDS))
-        val secondCompiledState =
-          Await.result(secondCompilation, FiniteDuration(100, TimeUnit.MILLISECONDS))
+        val (firstCompiledState, secondCompiledState) =
+          TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 5)
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
