@@ -29,6 +29,7 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
   override def trace(exception: Supplier[Throwable]): Unit = trace(exception.get())
 
   def report(msg: String, t: Throwable): Unit = { error(msg); trace(t) }
+  def handleCompilationEvent(event: CompilationEvent): Unit = ()
 }
 
 /**

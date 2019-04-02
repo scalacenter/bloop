@@ -2,6 +2,7 @@ bloopExportJarClassifiers in Global := Some(Set("sources"))
 bloopConfigDir in Global := baseDirectory.value / "bloop-config"
 
 import sbtcrossproject.{crossProject, CrossType}
+val utestFramework = new TestFramework("utest.runner.Framework")
 lazy val `test-project` =
   crossProject(JSPlatform, JVMPlatform)
     .withoutSuffixFor(JVMPlatform)
@@ -16,7 +17,8 @@ lazy val `test-project` =
       libraryDependencies += "org.scalacheck" %%% "scalacheck" % "1.13.4" % "test",
       libraryDependencies += "org.specs2" %%% "specs2-core" % "4.3.3" % "test",
       libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
-      testFrameworks += new TestFramework("utest.runner.Framework"),
+      libraryDependencies += "org.pegdown" % "pegdown" % "1.6.0" % "test",
+      testFrameworks += utestFramework,
       List(Compile, Test).flatMap(inConfig(_) {
         resourceGenerators += Def.task {
           val configName = configuration.value.name
@@ -31,9 +33,8 @@ lazy val `test-project` =
         Tests.Exclude("hello.WritingTest" :: Nil),
         Tests.Exclude("hello.EternalUTest" :: Nil),
         Tests.Argument("-o"),
-        Tests.Argument(TestFrameworks.JUnit, "-v", "+q", "-n"),
-        Tests.Argument(TestFrameworks.ScalaTest, "-h", "target/test-reports")
-      ),
+        Tests.Argument(TestFrameworks.JUnit, "-v", "+q", "-n")
+      )
     )
     .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
 

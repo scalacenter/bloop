@@ -1,16 +1,13 @@
 package bloop.reporter
 
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{ObservedLogger, Logger}
 
 /**
  * Interface for a reporter that has a configuration.
  * This is the API visible from a `ReporterFormat`.
  */
 trait ConfigurableReporter {
-
-  /** Where to log the message */
-  def logger: Logger
 
   /** The current working directory of the user who started compilation. */
   def cwd: AbsolutePath

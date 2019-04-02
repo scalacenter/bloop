@@ -2,30 +2,32 @@ package bloop.bsp
 
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
 
-import bloop.cli.{Commands, CommonOptions}
-import bloop.data.Project
-import bloop.engine.State
+import bloop.engine.{State, Run}
+import bloop.data.{Project, ClientInfo}
+import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
+import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.util.TestUtil
+
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
-import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 
-object BspClientTest {
+object BspClientTest extends BspClientTest
+trait BspClientTest {
   private implicit val ctx: DebugFilter = DebugFilter.Bsp
   def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
@@ -36,6 +38,43 @@ object BspClientTest {
         else Files.delete(cmd.socket.underlying)
       case cmd: Commands.TcpBsp => ()
     }
+  }
+
+  def validateBsp(bspCommand: Commands.Bsp, configDir: AbsolutePath): Commands.ValidatedBsp = {
+    val baseDir = AbsolutePath(configDir.underlying.getParent)
+    Validate.bsp(bspCommand, bloop.util.CrossPlatform.isWindows) match {
+      case Run(bsp: Commands.ValidatedBsp, _) =>
+        BspClientTest.setupBspCommand(bsp, baseDir, configDir)
+      case failed => sys.error(s"Command validation failed: ${failed}")
+    }
+  }
+
+  def createLocalBspCommand(
+      configDir: AbsolutePath,
+      tempDir: Path
+  ): Commands.ValidatedBsp = {
+    val uniqueId = java.util.UUID.randomUUID().toString.take(4)
+    val socketFile = tempDir.resolve(s"test-$uniqueId.socket")
+    validateBsp(
+      Commands.Bsp(
+        protocol = BspProtocol.Local,
+        socket = Some(socketFile),
+        pipeName = Some(s"\\\\.\\pipe\\test-$uniqueId")
+      ),
+      configDir
+    )
+  }
+
+  def createTcpBspCommand(
+      configDir: AbsolutePath,
+      portNumber: Int = 5101,
+      verbose: Boolean = false
+  ): Commands.ValidatedBsp = {
+    val opts = if (verbose) CliOptions.default.copy(verbose = true) else CliOptions.default
+    validateBsp(
+      Commands.Bsp(protocol = BspProtocol.Tcp, port = portNumber, cliOptions = opts),
+      configDir
+    )
   }
 
   def setupBspCommand(
@@ -53,7 +92,7 @@ object BspClientTest {
   }
 
   // We limit the scheduler on purpose so that we don't have any thread leak.
-  val scheduler: Scheduler = Scheduler(
+  val defaultScheduler: Scheduler = Scheduler(
     java.util.concurrent.Executors.newFixedThreadPool(4),
     ExecutionModel.AlwaysAsyncExecution
   )
@@ -66,13 +105,15 @@ object BspClientTest {
       customServices: Services => Services = identity[Services],
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
-      addDiagnosticsHandler: Boolean = true
+      addDiagnosticsHandler: Boolean = true,
+      userState: Option[State] = None,
+      userScheduler: Option[Scheduler] = None
   )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Option[T] = {
+    val ioScheduler = userScheduler.getOrElse(defaultScheduler)
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
-    val state = {
-      val id = identity[List[Project]] _
-      val state0 = TestUtil.loadTestProject(configDirectory.underlying, id).copy(logger = logger)
+    val state = userState.getOrElse {
+      val state0 = TestUtil.loadTestProject(configDirectory.underlying, logger)
       // Return if we plan to reuse it, BSP reloads the state based on the state cache
       if (reusePreviousState) state0
       else {
@@ -82,7 +123,9 @@ object BspClientTest {
     }
 
     val configPath = RelativePath(configDirectory.underlying.getFileName)
-    val bspServer = BspServer.run(cmd, state, configPath, scheduler).runAsync(scheduler)
+    val bspServer = BspServer
+      .run(cmd, state, configPath, None, None, ExecutionContext.scheduler, ioScheduler)
+      .runAsync(ioScheduler)
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
       val out = socket.getOutputStream
@@ -90,8 +133,8 @@ object BspClientTest {
       implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
       val services = customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
-      val lsServer = new LanguageServer(messages, lsClient, services, scheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(scheduler)
+      val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
+      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -113,7 +156,7 @@ object BspClientTest {
         _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
         _ = endpoints.Build.exit.notify(bsp.Exit())
       } yield {
-        BspServer.closeSocket(cmd, socket)
+        socket.close()
         otherCalls match {
           case Right(res) => Some(res)
           case Left(error) if allowError => None
@@ -124,7 +167,7 @@ object BspClientTest {
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.runAsync(scheduler)
+    val bspClient = bspClientExecution.runAsync(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 60s
@@ -139,8 +182,10 @@ object BspClientTest {
     }
   }
 
-  private def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
+  def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
+    // Very important we use the socket implementations from ipcsocket for correctness
     import org.scalasbt.ipcsocket.UnixDomainSocket
+    import org.scalasbt.ipcsocket.Win32NamedPipeSocket
     val connectToServer = me.Task {
       cmd match {
         case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
@@ -188,6 +233,92 @@ object BspClientTest {
     }
   }
 
+  def addServicesTest(
+      configDir: AbsolutePath,
+      compileIteration: () => Int,
+      record: (bsp.BuildTargetIdentifier, StringBuilder => StringBuilder) => Unit
+  ): Services => Services = { (s: Services) =>
+    s.notification(endpoints.Build.taskStart) { taskStart =>
+        taskStart.dataKind match {
+          case Some(bsp.TaskDataKind.CompileTask) =>
+            val json = taskStart.data.get
+            bsp.CompileTask.decodeCompileTask(json.hcursor) match {
+              case Left(failure) => ()
+              case Right(compileTask) =>
+                record(
+                  compileTask.target,
+                  (builder: StringBuilder) => {
+                    builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
+                    taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
+                  }
+                )
+            }
+          case _ => ()
+        }
+        ()
+      }
+      .notification(endpoints.Build.taskFinish) { taskFinish =>
+        taskFinish.dataKind match {
+          case Some(bsp.TaskDataKind.CompileReport) =>
+            val json = taskFinish.data.get
+            bsp.CompileReport.decodeCompileReport(json.hcursor) match {
+              case Left(failure) => ()
+              case Right(report) =>
+                record(
+                  report.target,
+                  (builder: StringBuilder) => {
+                    builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
+                    builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                    taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
+                  }
+                )
+            }
+          case _ => ()
+        }
+
+        ()
+      }
+      .notification(endpoints.Build.publishDiagnostics) {
+        case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
+          record(
+            btid,
+            (builder: StringBuilder) => {
+              val pathString = {
+                val baseDir = {
+                  // Find out the current working directory of the workspace instead of project
+                  var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
+                  val workspaceFileName = configDir.underlying.getParent.getFileName
+                  while (!bdir.underlying.endsWith(workspaceFileName)) {
+                    bdir = bdir.getParent
+                  }
+                  bdir
+                }
+
+                val abs = AbsolutePath(tid.uri.toPath)
+                if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
+                else abs.toRelative(baseDir).toString
+              }
+
+              val canonical = pathString.replace(File.separatorChar, '/')
+              val report = diagnostics.map(
+                _.toString
+                  .replace("\n", " ")
+                  .replace(System.lineSeparator, " ")
+              )
+              builder
+                .++=(s"#${compileIteration()}: $canonical\n")
+                .++=(s"  -> $report\n")
+                .++=(s"  -> reset = $reset\n")
+            }
+          )
+          ()
+      }
+  }
+
   sealed trait BspClientAction
   object BspClientAction {
     case object CompileEmpty extends BspClientAction // Required to check errors when sending no tid
@@ -202,7 +333,9 @@ object BspClientTest {
       bspCmd: Commands.ValidatedBsp,
       testActions: List[BspClientAction],
       configDir: AbsolutePath,
-      expectErrors: Boolean = false
+      expectErrors: Boolean = false,
+      userState: Option[State] = None,
+      userScheduler: Option[Scheduler] = None
   ): Map[bsp.BuildTargetIdentifier, String] = {
     var compileIteration = 1
     val compilationResults = new StringBuilder()
@@ -338,7 +471,8 @@ object BspClientTest {
 
     def addToStringReport(
         btid: bsp.BuildTargetIdentifier,
-        add: StringBuilder => StringBuilder): Unit = {
+        add: StringBuilder => StringBuilder
+    ): Unit = {
       stringifiedDiagnostics.compute(
         btid,
         (_, builder0) => add(if (builder0 == null) new StringBuilder() else builder0)
@@ -346,95 +480,15 @@ object BspClientTest {
       ()
     }
 
-    val addServicesTest: Services => Services = { (s: Services) =>
-      s.notification(endpoints.Build.taskStart) { taskStart =>
-          taskStart.dataKind match {
-            case Some(bsp.TaskDataKind.CompileTask) =>
-              val json = taskStart.data.get
-              bsp.CompileTask.decodeCompileTask(json.hcursor) match {
-                case Left(failure) => ()
-                case Right(compileTask) =>
-                  addToStringReport(
-                    compileTask.target,
-                    (builder: StringBuilder) => {
-                      builder.++=(s"#${compileIteration}: task start ${taskStart.taskId.id}\n")
-                      taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
-                  )
-              }
-            case _ => ()
-          }
-          ()
-        }
-        .notification(endpoints.Build.taskFinish) { taskFinish =>
-          taskFinish.dataKind match {
-            case Some(bsp.TaskDataKind.CompileReport) =>
-              val json = taskFinish.data.get
-              bsp.CompileReport.decodeCompileReport(json.hcursor) match {
-                case Left(failure) => ()
-                case Right(report) =>
-                  addToStringReport(
-                    report.target,
-                    (builder: StringBuilder) => {
-                      builder.++=(s"#${compileIteration}: task finish ${taskFinish.taskId.id}\n")
-                      builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
-                      taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
-                  )
-              }
-            case _ => ()
-          }
-
-          ()
-        }
-        .notification(endpoints.Build.publishDiagnostics) {
-          case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
-            addToStringReport(
-              btid,
-              (builder: StringBuilder) => {
-                val pathString = {
-                  val baseDir = {
-                    // Find out the current working directory of the workspace instead of project
-                    var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
-                    val workspaceFileName = configDir.underlying.getParent.getFileName
-                    while (!bdir.underlying.endsWith(workspaceFileName)) {
-                      bdir = bdir.getParent
-                    }
-                    bdir
-                  }
-
-                  val abs = AbsolutePath(tid.uri.toPath)
-                  if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
-                  else abs.toRelative(baseDir).toString
-                }
-
-                val canonical = pathString.replace(File.separatorChar, '/')
-                val report = diagnostics.map(
-                  _.toString
-                    .replace("\n", " ")
-                    .replace(System.lineSeparator, " ")
-                )
-                builder
-                  .++=(s"#$compileIteration: $canonical\n")
-                  .++=(s"  -> $report\n")
-                  .++=(s"  -> reset = $reset\n")
-              }
-            )
-            ()
-        }
-    }
-
     reportIfError(logger, expectErrors) {
       val runTest = BspClientTest.runTest(
         bspCmd,
         configDir,
         logger,
-        addServicesTest,
-        addDiagnosticsHandler = false
+        addServicesTest(configDir, () => compileIteration, addToStringReport),
+        addDiagnosticsHandler = false,
+        userState = userState,
+        userScheduler = userScheduler
       ) { c =>
         implicit val client = c
         endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>

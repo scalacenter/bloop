@@ -14,24 +14,26 @@ import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
 
-final case class TestProject(config: Config.Project) {
-  def srcFor(relPath: String): AbsolutePath = {
+final case class TestProject(
+    config: Config.Project,
+    deps: Option[List[TestProject]]
+) {
+  def baseDir: AbsolutePath = AbsolutePath(config.directory)
+  def srcFor(relPath: String, exists: Boolean = true): AbsolutePath = {
     val sources = config.sources.map(AbsolutePath(_))
-    val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))
-    val rawFileName = targetPath.underlying.getFileName.toString
-    if (rawFileName.endsWith(".scala") || rawFileName.endsWith(".java")) {
-      val matchedPath = sources.foldLeft(None: Option[AbsolutePath]) {
-        case (matched, base) =>
-          if (matched.isDefined) matched
-          else {
-            val candidate = base.resolve(targetPath)
-            if (candidate.exists) Some(candidate) else matched
-          }
-      }
-      matchedPath.getOrElse(sys.error(s"Path ${targetPath} could not be found"))
-    } else {
-      sys.error(s"Source name in ${targetPath} does not end with '.scala' or '.java'")
+    if (exists) TestProject.srcFor(sources, relPath)
+    else {
+      val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))
+      val target = sources.head.resolve(targetPath)
+      Files.createDirectories(target.getParent.underlying)
+      target
     }
+  }
+
+  def externalClassFileFor(relPath: String): AbsolutePath = {
+    val classFile = AbsolutePath(config.classesDir).resolve(RelativePath(relPath))
+    if (classFile.exists) classFile
+    else sys.error(s"Missing class file path ${relPath}")
   }
 
   lazy val bspId: bsp.BuildTargetIdentifier = {
@@ -51,7 +53,7 @@ object TestProject {
       baseDir: AbsolutePath,
       name: String,
       sources: List[String],
-      dependencies: List[String] = Nil,
+      directDependencies: List[TestProject] = Nil,
       enableTests: Boolean = false,
       scalacOptions: List[String] = Nil,
       scalaVersion: Option[String] = None,
@@ -60,20 +62,24 @@ object TestProject {
       order: Config.CompileOrder = Config.Mixed,
       jars: Array[AbsolutePath] = Array()
   ): TestProject = {
+    val projectBaseDir = Files.createDirectories(baseDir.underlying.resolve(name))
     val origin = TestUtil.syntheticOriginFor(baseDir)
     val ProjectArchetype(sourceDir, outDir, resourceDir, classes) =
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
-    val depsTargets = dependencies
-      .map(d => AbsolutePath(TestUtil.classesDir(baseDir.underlying, d)))
-      .toList
+    def classpathDeps(p: TestProject): List[AbsolutePath] = {
+      val dir = AbsolutePath(p.config.classesDir)
+      (dir :: p.deps.toList.flatten.flatMap(classpathDeps(_))).distinct
+    }
 
     import bloop.engine.ExecutionContext.ioScheduler
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
     val instance = scalaVersion
-      .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, Nil, NoopLogger))
+      .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, jars.toList, NoopLogger))
       .getOrElse(TestUtil.scalaInstance)
+
     val allJars = instance.allJars.map(AbsolutePath.apply)
+    val depsTargets = directDependencies.flatMap(d => classpathDeps(d))
     val classpath = (depsTargets ++ allJars ++ jars).map(_.underlying)
     val javaConfig = jvmConfig.getOrElse(JavaEnv.toConfig(JavaEnv.default))
     val javaEnv = JavaEnv.fromConfig(javaConfig)
@@ -100,9 +106,9 @@ object TestProject {
 
     val config = Config.Project(
       name,
-      baseDir.underlying,
+      projectBaseDir,
       List(sourceDir.underlying),
-      dependencies,
+      directDependencies.map(_.config.name),
       classpath,
       outDir.underlying,
       classes.underlying,
@@ -115,16 +121,46 @@ object TestProject {
       resolution = None
     )
 
-    TestProject(config)
+    TestProject(config, Some(directDependencies))
+  }
+
+  def populateWorkspaceInConfigDir(
+      configDir: AbsolutePath,
+      projects: List[TestProject]
+  ): AbsolutePath = {
+    Files.createDirectories(configDir.underlying)
+    projects.foreach { project =>
+      val configFile = configDir.resolve(s"${project.config.name}.json")
+      Files.write(
+        configFile.underlying,
+        project.toJson.getBytes(StandardCharsets.UTF_8)
+      )
+    }
+    configDir
   }
 
   def populateWorkspace(baseDir: AbsolutePath, projects: List[TestProject]): AbsolutePath = {
     val configDir = baseDir.resolve(".bloop")
-    Files.createDirectories(configDir.underlying)
-    projects.foreach { project =>
-      val configFile = configDir.resolve(s"${project.config.name}.json")
-      Files.write(configFile.underlying, project.toJson.getBytes(StandardCharsets.UTF_8))
+    populateWorkspaceInConfigDir(configDir, projects)
+  }
+
+  def srcFor(sources: List[AbsolutePath], relPath: String): AbsolutePath = {
+    import java.io.File
+    val universalRelPath = relPath.stripPrefix("/").split("/").mkString(File.separator)
+    val targetPath = RelativePath(universalRelPath)
+    val rawFileName = targetPath.underlying.getFileName.toString
+    if (rawFileName.endsWith(".scala") || rawFileName.endsWith(".java")) {
+      val matchedPath = sources.foldLeft(None: Option[AbsolutePath]) {
+        case (matched, base) =>
+          if (matched.isDefined) matched
+          else {
+            val candidate = base.resolve(targetPath)
+            if (candidate.exists) Some(candidate) else matched
+          }
+      }
+      matchedPath.getOrElse(sys.error(s"Path ${targetPath} could not be found"))
+    } else {
+      sys.error(s"Source name in ${targetPath} does not end with '.scala' or '.java'")
     }
-    configDir
   }
 }

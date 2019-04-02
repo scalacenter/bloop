@@ -6,16 +6,18 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.data.{Platform, Project}
-import bloop.engine.tasks.{CompilationTask, Tasks}
+import bloop.data.{Platform, Project, ClientInfo}
+import bloop.engine.tasks.{CompileTask, Tasks}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.engine._
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
-import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig}
+import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
-import monix.eval.Task
+
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{
   BuildTargetIdentifier,
   MessageType,
@@ -25,8 +27,10 @@ import ch.epfl.scala.bsp.{
 }
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+
+import monix.eval.Task
+import monix.reactive.Observer
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
 
 import scala.collection.concurrent.TrieMap
@@ -38,7 +42,10 @@ final class BloopBspServices(
     client: JsonRpcClient,
     relativeConfigPath: RelativePath,
     socketInput: InputStream,
-    exitStatus: AtomicInt
+    exitStatus: AtomicInt,
+    observer: Option[Observer.Sync[State]],
+    computationScheduler: Scheduler,
+    ioScheduler: Scheduler
 ) {
   private implicit val debugFilter: DebugFilter = DebugFilter.Bsp
   private type ProtocolError = JsonRpcResponse.Error
@@ -53,22 +60,33 @@ final class BloopBspServices(
   /** The return type of a bsp computation wrapped by `ifInitialized` */
   private type BspComputation[T] = State => BspResult[T]
 
+  /**
+   * Schedule the async response handlers to run on the default computation
+   * thread pool and leave the serialization/deserialization work (bsp4s
+   * library work) to the IO thread pool. This is critical for performance.
+   */
+  def schedule[T](t: BspEndpointResponse[T]): BspEndpointResponse[T] = {
+    Task.fork(t, computationScheduler).asyncBoundary(ioScheduler)
+  }
+
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
   private val bspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
   final val services = JsonRpcServices
     .empty(bspLogger)
-    .requestAsync(endpoints.Build.initialize)(initialize(_))
+    .requestAsync(endpoints.Build.initialize)(p => schedule(initialize(p)))
     .notification(endpoints.Build.initialized)(initialized(_))
-    .request(endpoints.Build.shutdown)(shutdown(_))
-    .notificationAsync(endpoints.Build.exit)(exit(_))
-    .requestAsync(endpoints.Workspace.buildTargets)(buildTargets(_))
-    .requestAsync(endpoints.BuildTarget.dependencySources)(dependencySources(_))
-    .requestAsync(endpoints.BuildTarget.sources)(sources(_))
-    .requestAsync(endpoints.BuildTarget.scalacOptions)(scalacOptions(_))
-    .requestAsync(endpoints.BuildTarget.compile)(compile(_))
-    .requestAsync(endpoints.BuildTarget.test)(test(_))
-    .requestAsync(endpoints.BuildTarget.run)(run(_))
+    .request(endpoints.Build.shutdown)(p => shutdown(p))
+    .notificationAsync(endpoints.Build.exit)(p => exit(p))
+    .requestAsync(endpoints.Workspace.buildTargets)(p => schedule(buildTargets(p)))
+    .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
+    .requestAsync(endpoints.BuildTarget.scalacOptions)(p => schedule(scalacOptions(p)))
+    .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
+    .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
+    .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
+    .requestAsync(endpoints.BuildTarget.dependencySources)(
+      p => schedule(dependencySources(p))
+    )
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -76,16 +94,30 @@ final class BloopBspServices(
   /** Returns the final state after BSP commands that can be cached by bloop. */
   def stateAfterExecution: State = {
     // Use logger of the initial state instead of the bsp forwarder logger
-    currentState.copy(logger = callSiteState.logger)
+    val nextState0 = currentState.copy(logger = callSiteState.logger)
+    clientInfo.future.value match {
+      case Some(scala.util.Success(clientInfo)) => nextState0.copy(client = clientInfo)
+      case _ => nextState0
+    }
   }
 
-  private def reloadState(config: AbsolutePath): Task[State] = {
+  private val previouslyFailedCompilations = new TrieMap[Project, Compiler.Result.Failed]()
+  private def reloadState(config: AbsolutePath, clientInfo: ClientInfo): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
-    // TODO(jvican): Modify the in, out and err streams to go through the BSP wire
-    State.loadActiveStateFor(config, pool, defaultOpts, bspLogger).map { state0 =>
-      val newState = state0.copy(logger = bspLogger)
+    State.loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger).map { state0 =>
+      /* Create a new state that has the previously compiled results in this BSP
+       * client as the last compiled result available for a project. This is required
+       * because in diagnostics reporting in BSP is stateful. When compilations
+       * happen in other clients, the previous result does not contain the list of
+       * previous problems (that tracks where we reported diagnostics) that this client
+       * had and therefore we can fail to reset diagnostics. */
+      val newState = {
+        val previous = previouslyFailedCompilations.toMap
+        state0.copy(results = state0.results.replacePreviousResults(previous))
+      }
+
       currentState = newState
       newState
     }
@@ -95,14 +127,16 @@ final class BloopBspServices(
     Task {
       val configDir = state.build.origin
       bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
-      // Spawn the analysis persistence after every save
-      val persistOut = (msg: String) => bspLogger.debug(msg)
-      Tasks.persist(state, persistOut).runAsync(ExecutionContext.scheduler)
       // Save the state globally so that it can be accessed by other clients
       State.stateCache.updateBuild(state)
+      observer.foreach(_.onNext(state))
       ()
     }
   }
+
+  // Completed whenever the initialization happens, used in `initialized`
+  val clientInfo = Promise[ClientInfo]()
+  val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
 
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
@@ -115,8 +149,12 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    reloadState(configDir).map { state =>
+    val client = ClientInfo.BspClientInfo(params.displayName, params.version, params.bspVersion)
+
+    reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
+      clientInfo.success(client)
+      observer.foreach(_.onNext(state.copy(client = client)))
       Right(
         bsp.InitializeBuildResult(
           BuildInfo.bloopName,
@@ -151,14 +189,16 @@ final class BloopBspServices(
   )(compute: BspComputation[T]): BspEndpointResponse[T] = {
     // Give a time window for `isInitialized` to complete, otherwise assume it didn't happen
     isInitializedTask
+      .flatMap(response => clientInfoTask.map(clientInfo => response.map(_ => clientInfo)))
       .timeoutTo(
         FiniteDuration(1, TimeUnit.SECONDS),
         Task.now(Left(JsonRpcResponse.invalidRequest("The session has not been initialized.")))
       )
       .flatMap {
         case Left(e) => Task.now(Left(e))
-        case Right(_) =>
-          reloadState(currentState.build.origin).flatMap { state =>
+        case Right(clientInfo) =>
+          reloadState(currentState.build.origin, clientInfo).flatMap { state0 =>
+            val state = state0.copy(client = clientInfo)
             compute(state).flatMap {
               case (state, e) =>
                 if (!persistAnalysisFiles) Task.now(e)
@@ -220,8 +260,8 @@ final class BloopBspServices(
     def compile(projects: List[Project]): Task[State] = {
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
-      val createReporter = (project: Project, cwd: AbsolutePath) => {
-        val btid = bsp.BuildTargetIdentifier(project.bspUri)
+      val createReporter = (inputs: ReporterInputs[BspServerLogger]) => {
+        val btid = bsp.BuildTargetIdentifier(inputs.project.bspUri)
         val reportAllPreviousProblems = {
           compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
             case Some(_) => false
@@ -230,24 +270,24 @@ final class BloopBspServices(
         }
 
         new BspProjectReporter(
-          project,
-          bspLogger,
-          cwd,
-          identity,
+          inputs.project,
+          inputs.logger,
+          inputs.cwd,
           config,
           reportAllPreviousProblems
         )
       }
 
       val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
-      CompilationTask.compile(
+      CompileTask.compile(
         state,
         dag,
         createReporter,
         CompileMode.Sequential,
         pipeline,
         false,
-        cancelCompilation
+        cancelCompilation,
+        bspLogger
       )
     }
 
@@ -264,11 +304,14 @@ final class BloopBspServices(
           result match {
             case Compiler.Result.Empty => Nil
             case Compiler.Result.Blocked(_) => Nil
-            case Compiler.Result.Success(_, _, _) => Nil
+            case Compiler.Result.Success(_, _, _, _, _, _) =>
+              previouslyFailedCompilations.remove(p)
+              Nil
             case Compiler.Result.GlobalError(problem) => List(problem)
-            case Compiler.Result.Cancelled(problems, elapsed) =>
+            case Compiler.Result.Cancelled(problems, elapsed, _) =>
               List(reportError(p, problems, elapsed))
-            case Compiler.Result.Failed(problems, t, elapsed) =>
+            case f @ Compiler.Result.Failed(problems, t, elapsed, _) =>
+              previouslyFailedCompilations.put(p, f)
               val acc = List(reportError(p, problems, elapsed))
               t match {
                 case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc
@@ -578,13 +621,14 @@ final class BloopBspServices(
         projects.iterator.map {
           case (target, project) =>
             val dag = state.build.getDagFor(project)
-            val fullClasspath = project.dependencyClasspath(dag)
+            val fullClasspath = project.fullClasspath(dag, state.client)
             val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
+            val classesDir = state.client.getUniqueClassesDirFor(project).toBspUri
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
               classpath = classpath,
-              classDirectory = bsp.Uri(project.classesDir.toBspUri)
+              classDirectory = bsp.Uri(classesDir)
             )
         }.toList
       )

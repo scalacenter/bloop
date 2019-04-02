@@ -27,15 +27,16 @@ object Feedback {
     }
   }
 
-  def detectMissingDependencies(project: Project, missing: List[String]): Option[String] = {
+  def detectMissingDependencies(projectName: String, missing: List[String]): Option[String] = {
     missing match {
       case Nil => None
       case missing :: Nil =>
         Some(
-          s"Missing project '$missing', may cause compilation issues in project '${project.name}'")
+          s"Missing project '$missing' may cause compilation issues in project '${projectName}'"
+        )
       case xs =>
         val deps = missing.map(m => s"'$m'").mkString(", ")
-        Some(s"Missing projects $deps, may cause compilation issues in project '${project.name}'")
+        Some(s"Missing projects $deps, may cause compilation issues in project '${projectName}'")
     }
   }
 

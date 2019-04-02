@@ -4,6 +4,7 @@ import java.io.File.pathSeparator
 import java.nio.file.Files
 import java.net.URLClassLoader
 import java.nio.ByteBuffer
+import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
@@ -11,9 +12,12 @@ import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
+
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
+
 import monix.eval.Task
 import monix.execution.Cancelable
+import monix.execution.misc.NonFatal
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -75,10 +79,7 @@ final case class Forker(javaEnv: JavaEnv, classpath: Array[AbsolutePath]) {
           s"""
              |Fork options:
              |   command      = '${cmd.mkString(" ")}'
-             |   cwd          = '$cwd'
-             |   classpath    = '$fullClasspath'
-             |   java_home    = '${javaEnv.javaHome}'
-             |   java_options = '${jvmOptions.mkString(" ")}""".stripMargin
+             |   cwd          = '$cwd'""".stripMargin
         Task(logger.debug(debugOptions)(DebugFilter.All))
       } else Task.unit
     logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
@@ -182,9 +183,23 @@ object Forker {
         val duration = FiniteDuration(50, TimeUnit.MILLISECONDS)
         gobbleInput = ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
           val buffer = new Array[Byte](4096)
-          val read = opts.in.read(buffer, 0, buffer.length)
-          if (read == -1 || shutdownInput || !process.isRunning) ()
-          else process.writeStdin(ByteBuffer.wrap(buffer))
+          if (!shutdownInput) {
+            try {
+              if (opts.in.available() > 0) {
+                val read = opts.in.read(buffer, 0, buffer.length)
+                if (read == -1 || !process.isRunning()) ()
+                else process.writeStdin(ByteBuffer.wrap(buffer))
+              }
+            } catch {
+              case t: IOException =>
+                logger.debug(s"Error from input gobbler: ${t.getMessage()}")
+                logger.trace(t)
+                // Rethrow so that Monix cancels future scheduling of the same task
+                throw t
+            }
+          } else {
+            if (gobbleInput != null) gobbleInput.cancel()
+          }
         }
 
         Task {

@@ -21,13 +21,16 @@ class ScalaNativeToolchainSpec {
       val platform = p.platform match {
         case nativePlatform: Platform.Native =>
           nativePlatform.copy(
-            toolchain = Some(ScalaNativeToolchain.apply(this.getClass.getClassLoader)))
+            toolchain = Some(ScalaNativeToolchain.apply(this.getClass.getClassLoader))
+          )
         case _ => p.platform
       }
       p.copy(platform = platform)
     }
 
-    TestUtil.loadTestProject("cross-platform", _.map(setUpNative))
+    val configDir = TestUtil.getBloopConfigDir("cross-platform")
+    val logger = bloop.logging.BloopLogger.default(configDir.toString())
+    TestUtil.loadTestProject(configDir, logger, true, _.map(setUpNative))
   }
   @Test def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger

@@ -2,9 +2,13 @@ package sbt.internal.inc.bloop.internal
 
 import java.io.File
 
+import _root_.bloop.CompilerOracle
+import _root_.bloop.reporter.ZincReporter
+import _root_.bloop.tracing.BraveTracer
+
 import monix.eval.Task
+import sbt.util.Logger
 import sbt.internal.inc._
-import _root_.bloop.reporter.Reporter
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
 
 /**
@@ -22,8 +26,14 @@ import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
  * @param options The incremental compiler options.
  * @param profiler The profiler used for the incremental invalidation algorithm.
  */
-private final class BloopNameHashing(reporter: Reporter, options: IncOptions, profiler: RunProfiler)
-    extends IncrementalNameHashingCommon(reporter.logger, options, profiler) {
+private final class BloopNameHashing(
+    log: Logger,
+    reporter: ZincReporter,
+    oracleInputs: CompilerOracle.Inputs,
+    options: IncOptions,
+    profiler: RunProfiler,
+    tracer: BraveTracer
+) extends IncrementalNameHashingCommon(log, options, profiler) {
 
   /**
    * Compile a project as many times as it is required incrementally. This logic is the start
@@ -85,7 +95,8 @@ private final class BloopNameHashing(reporter: Reporter, options: IncOptions, pr
               detectAPIChanges(
                 recompiledClasses,
                 previous.apis.internalAPI,
-                current.apis.internalAPI)
+                current.apis.internalAPI
+              )
             debug("\nChanges:\n" + newApiChanges)
             val nextInvalidations = invalidateAfterInternalCompilation(
               current.relations,
@@ -121,6 +132,69 @@ private final class BloopNameHashing(reporter: Reporter, options: IncOptions, pr
             )
           }
       }
+    }
+  }
+
+  import xsbti.compile.analysis.{ReadStamps, Stamp => XStamp}
+  override def detectInitialChanges(
+      sources: Set[File],
+      previousAnalysis: Analysis,
+      stamps: ReadStamps,
+      lookup: Lookup
+  )(implicit equivS: Equiv[XStamp]): InitialChanges = {
+    tracer.trace("detecting initial changes") { tracer =>
+      // Copy pasting from IncrementalCommon to optimize/remove IO work
+      import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
+      val previous = previousAnalysis.stamps
+      val previousRelations = previousAnalysis.relations
+
+      val hashesMap = oracleInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
+      val sourceChanges = tracer.trace("source changes") { _ =>
+        lookup.changedSources(previousAnalysis).getOrElse {
+          val previousSources = previous.allSources.toSet
+          new UnderlyingChanges[File] {
+            private val inBoth = previousSources & sources
+            val removed = previousSources -- inBoth
+            val added = sources -- inBoth
+            val (changed, unmodified) = inBoth.partition { f =>
+              import sbt.internal.inc.Hash
+              // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
+              val newStamp = hashesMap
+                .get(f)
+                .map(bloopHash => BloopStamps.fromBloopHashToZincHash(bloopHash))
+                .getOrElse(BloopStamps.forHash(f))
+              !equivS.equiv(previous.source(f), newStamp)
+            }
+          }
+        }
+      }
+
+      // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
+      val removedProducts = Set.empty[File]
+      val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
+        lookup.changedBinaries(previousAnalysis).getOrElse {
+          val detectChange =
+            isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
+          previous.allBinaries.filter(detectChange).toSet
+        }
+      }
+
+      val externalApiChanges: APIChanges = tracer.trace("external api changes") { _ =>
+        val incrementalExternalChanges = {
+          val previousAPIs = previousAnalysis.apis
+          val externalFinder = findExternalAnalyzedClass(lookup) _
+          detectAPIChanges(previousAPIs.allExternals, previousAPIs.externalAPI, externalFinder)
+        }
+
+        val changedExternalClassNames = incrementalExternalChanges.allModified.toSet
+        if (!lookup.shouldDoIncrementalCompilation(changedExternalClassNames, previousAnalysis))
+          new APIChanges(Nil)
+        else incrementalExternalChanges
+      }
+
+      val init = InitialChanges(sourceChanges, removedProducts, changedBinaries, externalApiChanges)
+      profiler.registerInitial(init)
+      init
     }
   }
 

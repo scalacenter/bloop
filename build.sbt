@@ -28,7 +28,7 @@ import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version}
 val backend = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
+  .settings(testSettings ++ testSuiteSettings)
   .settings(
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
@@ -50,7 +50,11 @@ val backend = project
       Dependencies.monix,
       Dependencies.directoryWatcher,
       Dependencies.xxHashLibrary,
-      Dependencies.zt
+      Dependencies.zt,
+      Dependencies.brave,
+      Dependencies.zipkinSender,
+      Dependencies.pprint,
+      Dependencies.difflib
     )
   )
 
@@ -139,7 +143,12 @@ lazy val frontend: Project = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(assemblySettings, releaseSettings)
-  .settings(testSettings, integrationTestSettings, BuildDefaults.frontendTestBuildSettings)
+  .settings(
+    testSettings,
+    testSuiteSettings,
+    integrationTestSettings,
+    BuildDefaults.frontendTestBuildSettings
+  )
   .settings(
     name := "bloop-frontend",
     bloopName := "bloop",

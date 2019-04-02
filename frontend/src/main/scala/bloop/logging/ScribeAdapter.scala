@@ -1,4 +1,5 @@
 package bloop.logging
+
 import scribe.LogRecord
 
 trait ScribeAdapter extends scribe.LoggerSupport { self: Logger =>

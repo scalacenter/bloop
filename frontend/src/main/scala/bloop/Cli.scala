@@ -5,13 +5,16 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 import bloop.bsp.BspServer
+import bloop.util.CrossPlatform
+import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
+import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
+
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
-import bloop.engine.tasks.Tasks
 
 import scala.util.control.NonFatal
 
@@ -162,7 +165,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand, BspServer.isWindows)
+                Validate.bsp(newCommand, CrossPlatform.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
@@ -270,15 +273,22 @@ object Cli {
 
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
-    val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
+    val client = ClientInfo.CliClientInfo("bloop-cli")
+    val currentState =
+      State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
 
     val dir = configDirectory.underlying
     waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
       Interpreter.execute(action, currentState).map { newState =>
-        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-        // Persist successful result on the background for the new state -- it doesn't block!
-        val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
-        Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
+        // Only update the build if the command is not a BSP long-running
+        // session. The BSP implementation reads and stores the state in every
+        // action, so updating the build at the end of the BSP session can
+        // override a newer state updated by newer clients which is unknown to BSP
+        action match {
+          case Run(_: Commands.ValidatedBsp, _) => ()
+          case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        }
+
         newState
       }
     }
@@ -324,7 +334,8 @@ object Cli {
         .map { cancel =>
           if (cancel) {
             cliOptions.common.out.println(
-              s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
+              s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
+            )
             handle.cancel()
           } else ()
         }
@@ -347,7 +358,8 @@ object Cli {
         case e: CloseEvent =>
           if (!handle.isCompleted) {
             ngout.println(
-              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks...")
+              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
+            )
             handle.cancel()
             if (!cancel.isDone)
               cancel.complete(false)
@@ -356,7 +368,7 @@ object Cli {
       }
 
       val result: State = Await.result(handle, Duration.Inf)
-      ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
+      //ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
       result.status
     } catch {
       case i: InterruptedException => handleException(i)

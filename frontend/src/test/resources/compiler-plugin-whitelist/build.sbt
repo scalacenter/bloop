@@ -44,9 +44,8 @@ lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
     addCompilerPlugin("io.tryp" % "splain" % "0.3.5" cross CrossVersion.patch),
     libraryDependencies ++= List(
       "org.scalaz" %% "deriving-macro" % derivingVersion,
-      compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion),
+      compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion)
     ),
-
     // Now let's add our test plugin to the whitelist
     scalacOptions in Compile ++= {
       val jar = (Keys.`package` in (`bloop-test-plugin`, Compile)).value
@@ -64,7 +63,6 @@ lazy val sandbox = project
       val addPlugin = "-Xplugin:" + jar.getAbsolutePath
       Seq(addPlugin, "-Ycache-plugin-class-loader:last-modified")
     },
-
     scalacOptions in Compile := {
       val (pluginOptions, rest) =
         (scalacOptions in Compile).value.partition(_.contains("-Xplugin"))

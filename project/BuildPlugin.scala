@@ -93,13 +93,22 @@ object BuildKeys {
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
 
+  val testSuiteSettings: Seq[Def.Setting[_]] = List(
+    Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
+    Keys.libraryDependencies ++= List(
+      Dependencies.utest % Test,
+      Dependencies.scalatest % Test,
+      Dependencies.pprint % Test
+    )
+  )
+
   val testSettings: Seq[Def.Setting[_]] = List(
     Keys.testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test,
       Dependencies.difflib % Test
     ),
-    nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py",
+    nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
   )
 
   val integrationTestSettings: Seq[Def.Setting[_]] = List(
@@ -114,7 +123,7 @@ object BuildKeys {
     },
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
-    integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value,
+    integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
@@ -128,7 +137,7 @@ object BuildKeys {
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
-    updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
+    updateScoopFormula := ReleaseUtils.updateScoopFormula.value
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
@@ -270,7 +279,7 @@ object BuildImplementation {
     Pgp.pgpSecretRing := {
       if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
       else Pgp.pgpSecretRing.value
-    },
+    }
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
@@ -287,8 +296,8 @@ object BuildImplementation {
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
       // Only tag releases go directly to Maven Central, the rest go to bintray!
-      val isOnlyTag = DynVerKeys.dynverGitDescribeOutput.value.map(v =>
-        v.commitSuffix.isEmpty && v.dirtySuffix.value.isEmpty)
+      val isOnlyTag = DynVerKeys.dynverGitDescribeOutput.value
+        .map(v => v.commitSuffix.isEmpty && v.dirtySuffix.value.isEmpty)
       if (isOnlyTag.getOrElse(false)) ReleaseEarlyKeys.SonatypePublisher
       else ReleaseEarlyKeys.BintrayPublisher
     },
@@ -301,7 +310,7 @@ object BuildImplementation {
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
-    ),
+    )
   )
 
   import sbt.{CrossVersion, compilerPlugin}
@@ -316,7 +325,7 @@ object BuildImplementation {
         List(
           compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
         )
-    },
+    }
   )
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
@@ -345,7 +354,7 @@ object BuildImplementation {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
-    },
+    }
   ) // ++ metalsSettings
 
   final val reasonableCompileOptions = (
@@ -418,7 +427,8 @@ object BuildImplementation {
           val exitGenerate = Process(cmd, projectDir).!
           if (exitGenerate != 0)
             throw new sbt.MessageOnlyException(
-              s"Failed to generate bloop config for ${projectDir}.")
+              s"Failed to generate bloop config for ${projectDir}."
+            )
           state.log.success(s"Generated bloop configuration files for ${projectDir}")
           changedFiles
         }
@@ -460,7 +470,7 @@ object BuildImplementation {
         // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
         Dependencies.mavenScalaPlugin
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
-      ),
+      )
     )
 
     import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
@@ -486,7 +496,7 @@ object BuildImplementation {
         BuildInfoKeys.buildInfo in Compile := Nil,
         BuildInfoKeys.buildInfoKeys in Test := BuildKeys.GradleInfoKeys,
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
-        BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration",
+        BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration"
       )
     }
 
@@ -504,7 +514,7 @@ object BuildImplementation {
           List(junitTestJars)
         },
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
-        BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo",
+        BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"
       )
     }
 
@@ -601,7 +611,7 @@ object BuildImplementation {
       buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala",
       buildIntegrationsBase / "sbt-1.0-2" / "build.sbt",
       buildIntegrationsBase / "sbt-1.0-2" / "project" / "Integrations.scala",
-      buildIntegrationsBase / "global" / "src" / "main" / "scala" / "bloop" / "build" / "integrations" / "IntegrationPlugin.scala",
+      buildIntegrationsBase / "global" / "src" / "main" / "scala" / "bloop" / "build" / "integrations" / "IntegrationPlugin.scala"
     )
 
     val cachedGenerate =
@@ -615,7 +625,8 @@ object BuildImplementation {
           val dodoSetUp = Process(cmd, buildIntegrationsBase).!
           if (dodoSetUp != 0)
             throw new MessageOnlyException(
-              "Failed to publish locally dodo snapshots for twitter projects.")
+              "Failed to publish locally dodo snapshots for twitter projects."
+            )
         }
 
         val sbtVersion013Property = "-Dsbt.version=0.13.17"

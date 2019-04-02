@@ -2,7 +2,7 @@ package bloop.engine
 
 import bloop.CompilerCache
 import bloop.cli.{CommonOptions, ExitStatus}
-import bloop.data.Project
+import bloop.data.{Project, ClientInfo}
 import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
 import bloop.logging.{DebugFilter, Logger}
@@ -22,10 +22,11 @@ import monix.eval.Task
  * @param status The status in which the state is currently.
  * @param logger The logger that is used and is associated with a given build.
  */
-final case class State private (
+final case class State private[engine] (
     build: Build,
     results: ResultsCache,
     compilerCache: CompilerCache,
+    client: ClientInfo,
     pool: ClientPool,
     commonOptions: CommonOptions,
     status: ExitStatus,
@@ -52,16 +53,22 @@ object State {
 
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
     val opts = CommonOptions.default
+    val clientInfo = ClientInfo.CliClientInfo("tests")
     val results = ResultsCache.load(build, opts.workingPath, logger)
-    State(build, results, compilerCache, NoPool, opts, ExitStatus.Ok, logger)
+    State(build, results, compilerCache, clientInfo, NoPool, opts, ExitStatus.Ok, logger)
   }
 
-  def apply(build: Build, pool: ClientPool, opts: CommonOptions, logger: Logger): State = {
+  def apply(
+      build: Build,
+      client: ClientInfo,
+      pool: ClientPool,
+      opts: CommonOptions,
+      logger: Logger
+  ): State = {
     val results = ResultsCache.load(build, opts.workingPath, logger)
     val compilerCache = getCompilerCache(logger)
-    State(build, results, compilerCache, pool, opts, ExitStatus.Ok, logger)
+    State(build, results, compilerCache, client, pool, opts, ExitStatus.Ok, logger)
   }
-  import bloop.io.AbsolutePath
 
   /**
    * Loads an state active for the given configuration directory.
@@ -73,19 +80,21 @@ object State {
    * @return An state (cached or not) associated with the configuration directory.
    */
   def loadActiveStateFor(
-      configDir: AbsolutePath,
+      configDir: bloop.io.AbsolutePath,
+      client: ClientInfo,
       pool: ClientPool,
       opts: CommonOptions,
       logger: Logger
   ): Task[State] = {
-    val cached = State.stateCache.addIfMissing(configDir, path => {
+    def loadState(path: bloop.io.AbsolutePath): Task[State] = {
       BuildLoader.load(configDir, logger).map { projects =>
         val build: Build = Build(configDir, projects)
-        State(build, pool, opts, logger)
+        State(build, client, pool, opts, logger)
       }
-    })
+    }
 
-    cached.map(_.copy(pool = pool, commonOptions = opts, logger = logger))
+    val cached = State.stateCache.addIfMissing(configDir, client, pool, opts, logger, loadState(_))
+    cached.map(_.copy(pool = pool, client = client, commonOptions = opts, logger = logger))
   }
 
   implicit class XState(val s: State) extends AnyVal {

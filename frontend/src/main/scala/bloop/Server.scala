@@ -2,7 +2,16 @@ package bloop
 
 import java.net.InetAddress
 
+import bloop.logging.BloopLogger
+import bloop.logging.Logger
+import bloop.logging.Slf4jAdapter
 import bloop.util.ProxySetup
+
+import java.io.InputStream
+import java.io.PrintStream
+
+import com.martiansoftware.nailgun.NGListeningAddress
+import com.martiansoftware.nailgun.NGConstants
 import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
 
 import scala.util.Try
@@ -17,7 +26,23 @@ object Server {
   private[bloop] def instantiateServer(args: Array[String]): NGServer = {
     val port = Try(args(0).toInt).getOrElse(Server.defaultPort)
     val addr = InetAddress.getLoopbackAddress
-    val server = new NGServer(addr, port)
+    val logger = BloopLogger.default("bloop-nailgun-main")
+    launchServer(System.in, System.out, System.err, addr, port, logger)
+  }
+
+  private[bloop] def launchServer(
+      in: InputStream,
+      out: PrintStream,
+      err: PrintStream,
+      addr: InetAddress,
+      port: Int,
+      logger: Logger
+  ): NGServer = {
+    val javaLogger = new Slf4jAdapter(logger)
+    val address = new NGListeningAddress(addr, port)
+    val poolSize = NGServer.DEFAULT_SESSIONPOOLSIZE
+    val heartbeatMs = NGConstants.HEARTBEAT_TIMEOUT_MILLIS.toInt
+    val server = new NGServer(address, poolSize, heartbeatMs, in, out, err, javaLogger)
     registerAliases(server)
     ProxySetup.init()
     server

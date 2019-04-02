@@ -138,6 +138,8 @@ object ScalaInstance {
     instancesById.computeIfAbsent(instanceId, _ => resolveInstance)
   }
 
+  import java.util.concurrent.locks.ReentrantLock
+  private[this] var cachedBloopLock = new ReentrantLock()
   private[this] var cachedBloopScalaInstance: Option[ScalaInstance] = null
 
   /**
@@ -199,29 +201,33 @@ object ScalaInstance {
     if (cachedBloopScalaInstance != null) {
       cachedBloopScalaInstance
     } else {
-      logger.debug("Creating a scala instance from Bloop's classloader...")
-      val instance = {
-        for {
-          libraryJar <- findLocationForClazz(scala.Predef.getClass, "scala-library.jar")
-          reflectJar <- findLocationForClazz(classOf[scala.reflect.api.Trees], "scala-reflect.jar")
-          compilerJar <- findLocationForClazz(scala.tools.nsc.Main.getClass, "scala-compiler.jar")
-          xmlJar <- findLocationForClazz(classOf[scala.xml.Node], "scala-xml.jar")
-          jlineJar <- findLocationForClazz(classOf[jline.console.ConsoleReader], "jline.jar")
-        } yield {
-          logger.debug(s"Created Bloop scala instance for ${BloopScalaInfo.scalaVersion}")
-          val jars = List(libraryJar, reflectJar, compilerJar, xmlJar, jlineJar)
-          ScalaInstance(
-            BloopScalaInfo.scalaOrganization,
-            ScalacCompilerName,
-            BloopScalaInfo.scalaVersion,
-            jars.map(AbsolutePath(_)),
-            logger
-          )
+      cachedBloopLock.lock()
+      try {
+        logger.debug("Creating a scala instance from Bloop's classloader...")
+        val instance = {
+          for {
+            libraryJar <- findLocationForClazz(scala.Predef.getClass, "scala-library.jar")
+            treesClazz = classOf[scala.reflect.api.Trees]
+            reflectJar <- findLocationForClazz(treesClazz, "scala-reflect.jar")
+            compilerJar <- findLocationForClazz(scala.tools.nsc.Main.getClass, "scala-compiler.jar")
+            xmlJar <- findLocationForClazz(classOf[scala.xml.Node], "scala-xml.jar")
+            jlineJar <- findLocationForClazz(classOf[jline.console.ConsoleReader], "jline.jar")
+          } yield {
+            logger.debug(s"Created Bloop scala instance for ${BloopScalaInfo.scalaVersion}")
+            val jars = List(libraryJar, reflectJar, compilerJar, xmlJar, jlineJar)
+            ScalaInstance(
+              BloopScalaInfo.scalaOrganization,
+              ScalacCompilerName,
+              BloopScalaInfo.scalaVersion,
+              jars.map(AbsolutePath(_)),
+              logger
+            )
+          }
         }
-      }
 
-      cachedBloopScalaInstance = instance
-      instance
+        cachedBloopScalaInstance = instance
+        instance
+      } finally cachedBloopLock.unlock()
     }
   }
 

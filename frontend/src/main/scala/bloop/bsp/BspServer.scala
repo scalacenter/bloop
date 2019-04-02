@@ -4,22 +4,22 @@ import java.net.ServerSocket
 import java.util.Locale
 
 import bloop.cli.Commands
-import bloop.engine.State
+import bloop.data.ClientInfo
+import bloop.engine.{ExecutionContext, State}
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter}
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
+
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
+import monix.reactive.{Observer}
 
+import scala.concurrent.Promise
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
-  private[bloop] val isWindows: Boolean =
-    System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
-  private[bloop] val isMac: Boolean =
-    System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("mac")
 
   import java.net.InetSocketAddress
   private sealed trait ConnectionHandle { def serverSocket: ServerSocket }
@@ -49,23 +49,14 @@ object BspServer {
     }
   }
 
-  private[bloop] def closeSocket(cmd: Commands.ValidatedBsp, socket: java.net.Socket): Unit = {
-    cmd match {
-      case _: Commands.TcpBsp if !socket.isClosed() => socket.close()
-      case _: Commands.WindowsLocalBsp if !socket.isClosed() => socket.close()
-      case _: Commands.UnixLocalBsp if !socket.isClosed() =>
-        if (!socket.isInputShutdown) socket.shutdownInput()
-        if (!socket.isOutputShutdown) socket.shutdownOutput()
-        socket.close()
-      case _ => ()
-    }
-  }
-
   def run(
       cmd: ValidatedBsp,
       state: State,
-      configPath: RelativePath,
-      scheduler: Scheduler
+      config: RelativePath,
+      promiseWhenStarted: Option[Promise[Unit]],
+      obs: Option[Observer.Sync[State]],
+      scheduler: Scheduler,
+      ioScheduler: Scheduler
   ): Task[State] = {
     def uri(handle: ConnectionHandle): String = {
       handle match {
@@ -80,27 +71,75 @@ object BspServer {
       val connectionURI = uri(handle)
       // WARNING: Do NOT change this log, it's used by clients and bsp launcher to know when to start a connection
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
+      promiseWhenStarted.foreach(_.success(()))
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
-      val exitStatus = Atomic(0)
+      val status = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
       val bspLogger = new BspClientLogger(logger)
       val client = new LanguageClient(out, bspLogger)
-      val servicesProvider = new BloopBspServices(state, client, configPath, in, exitStatus)
-      val bloopServices = servicesProvider.services
+      val provider =
+        new BloopBspServices(state, client, config, in, status, obs, scheduler, ioScheduler)
+      val bloopServices = provider.services
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
-      val server = new LanguageServer(messages, client, bloopServices, scheduler, bspLogger)
+      val server = new LanguageServer(messages, client, bloopServices, ioScheduler, bspLogger)
 
-      server.startTask
-        .map(_ => servicesProvider.stateAfterExecution)
-        .onErrorHandleWith { t =>
-          Task.now(
-            servicesProvider.stateAfterExecution.withError(s"BSP server stopped by ${t.getMessage}")
-          )
+      def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
+
+      // Only consume requests in batches of 4 per client
+      val consumer = messages.consumeWith(monix.reactive.Consumer.foreachParallelAsync(4) { msg =>
+        server
+          .handleMessage(msg)
+          .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
+          .onErrorRecover {
+            case monix.execution.misc.NonFatal(e) =>
+              bspLogger.error("Unhandled error", e)
+              ()
+          }
+      })
+
+      def closeCommunication(): Unit = {
+        import bloop.io.Paths
+        val latestState = provider.stateAfterExecution
+        val deleteExternalDirsTask = latestState.build.projects.map { project =>
+          val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+          import java.io.IOException
+          if (externalClientClassesDir == project.genericClassesDir) Task.now(())
+          else {
+            Task {
+              Paths.delete(externalClientClassesDir)
+            }
+          }
         }
-        .doOnFinish(_ => Task { handle.serverSocket.close() })
+
+        // Run deletion of client external classes directories in IO pool
+        Task
+          .gatherUnordered(deleteExternalDirsTask)
+          .materialize
+          .map(_ => ())
+          .runAsync(ExecutionContext.ioScheduler)
+
+        // Close any socket communication asap
+        try socket.close()
+        finally handle.serverSocket.close()
+      }
+
+      consumer
+        .doOnCancel {
+          Task {
+            error(s"BSP server cancelled, closing socket...")
+            closeCommunication()
+          }
+        }
+        .doOnFinish { result =>
+          Task {
+            result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
+            closeCommunication()
+          }
+        }
+        .map(_ => provider.stateAfterExecution)
     }
 
     initServer(cmd, state).materialize.flatMap {
@@ -110,6 +149,10 @@ object BspServer {
             Task.now(state.withError(s"BSP server failed to start with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
+        promiseWhenStarted.foreach { p =>
+          if (!p.isCompleted) p.failure(t)
+        }
+
         Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
     }
   }

@@ -6,9 +6,10 @@ import java.net.ServerSocket
 import bloop.cli.CommonOptions
 import bloop.config.Config
 
-import scala.util.control.NonFatal
+import scala.util.Try
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
+import monix.execution.misc.NonFatal
 import sbt.{ForkConfiguration, ForkTags}
 import sbt.testing.{Event, TaskDef}
 
@@ -31,8 +32,11 @@ final class TestServer(
   private implicit val logContext: DebugFilter = DebugFilter.Test
 
   private val server = new ServerSocket(0)
-  private val frameworks = discoveredTests.keys
-  private val tasks = discoveredTests.values.flatten
+  private val (frameworks, tasks) = {
+    // Return frameworks and tasks in order to ensure a deterministic test execution
+    val sortedDiscovery = discoveredTests.toList.sortBy(_._1.name())
+    (sortedDiscovery.map(_._1), sortedDiscovery.flatMap(_._2.sortBy(_.fullyQualifiedName())))
+  }
 
   case class TestOrchestrator(startServer: Task[Unit], reporter: Task[Unit])
   val port = server.getLocalPort
@@ -71,31 +75,39 @@ final class TestServer(
     }
 
     def talk(is: ObjectInputStream, os: ObjectOutputStream, config: ForkConfiguration): Unit = {
-      os.writeObject(config)
-      val taskDefs = tasks.map(forkFingerprint)
-      os.writeObject(taskDefs.toArray)
-      os.writeInt(frameworks.size)
-      taskDefs.foreach { taskDef =>
-        taskDef.fingerprint()
-      }
-
-      frameworks.foreach { framework =>
-        val frameworkClass = framework.getClass.getName
-        val fargs = args.filter { arg =>
-          arg.framework match {
-            case Some(f) => f.names.contains(frameworkClass)
-            case None => true
-          }
+      try {
+        os.writeObject(config)
+        val taskDefs = tasks.map(forkFingerprint)
+        os.writeObject(taskDefs.toArray)
+        os.writeInt(frameworks.size)
+        taskDefs.foreach { taskDef =>
+          taskDef.fingerprint()
         }
 
-        val runner = TestInternals.getRunner(framework, fargs, classLoader)
-        os.writeObject(Array(framework.getClass.getCanonicalName))
-        os.writeObject(runner.args)
-        os.writeObject(runner.remoteArgs)
-      }
+        logger.debug(s"Sent task defs to test server: ${taskDefs.map(_.fullyQualifiedName())}")
+        frameworks.foreach { framework =>
+          val frameworkClass = framework.getClass.getName
+          val fargs = args.filter { arg =>
+            arg.framework match {
+              case Some(f) => f.names.contains(frameworkClass)
+              case None => true
+            }
+          }
 
-      os.flush()
-      receiveLogs(is, os)
+          val runner = TestInternals.getRunner(framework, fargs, classLoader)
+          logger.debug(s"Sending runner to test server: ${frameworkClass} ${runner.args.toList}")
+          os.writeObject(Array(frameworkClass))
+          os.writeObject(runner.args)
+          os.writeObject(runner.remoteArgs)
+        }
+
+        os.flush()
+        receiveLogs(is, os)
+      } catch {
+        case NonFatal(t) =>
+          logger.error(s"Failed to initialize communication: ${t.getMessage}")
+          logger.trace(t)
+      }
     }
 
     val serverStarted = Promise[Unit]()
@@ -113,18 +125,22 @@ final class TestServer(
       val config = new ForkConfiguration(logger.ansiCodesSupported, /* parallel = */ false)
 
       @volatile var alreadyClosed: Boolean = false
-      val cleanSocketResources = Task {
+      def cleanSocketResources(t: Option[Throwable]) = Task {
         if (!alreadyClosed) {
-          is.close()
-          os.close()
-          socket.close()
-          alreadyClosed = true
+          for {
+            _ <- Try(is.close())
+            _ <- Try(os.close())
+            _ <- Try(socket.close())
+          } yield {
+            alreadyClosed = false
+          }
+          ()
         }
       }
 
       Task(talk(is, os, config))
-        .doOnFinish(_ => cleanSocketResources)
-        .doOnCancel(cleanSocketResources)
+        .doOnFinish(cleanSocketResources(_))
+        .doOnCancel(cleanSocketResources(None))
     }
 
     def closeServer(t: Option[Throwable], fromCancel: Boolean) = Task {
@@ -137,8 +153,13 @@ final class TestServer(
 
       server.close()
       // Do both just in case the logger streams have been closed by nailgun
-      opts.ngout.println("The test execution was successfully cancelled.")
-      logger.debug("Test server has been successfully closed.")
+      if (fromCancel) {
+        opts.ngout.println("The test execution was successfully cancelled.")
+        logger.debug("Test server has been successfully cancelled.")
+      } else {
+        opts.ngout.println("The test execution was successfully closed.")
+        logger.debug("Test server has been successfully closed.")
+      }
     }
 
     val listener = testListeningTask

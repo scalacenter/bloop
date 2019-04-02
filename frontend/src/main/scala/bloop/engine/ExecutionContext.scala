@@ -39,10 +39,6 @@ object ExecutionContext {
   }
 
   import monix.execution.Scheduler
-  implicit lazy val bspScheduler: Scheduler = Scheduler {
-    java.util.concurrent.Executors.newFixedThreadPool(4)
-  }
-
   implicit lazy val scheduler: Scheduler = {
     Scheduler.forkJoin(
       nCPUs,
@@ -66,7 +62,7 @@ object ExecutionContext {
   }
 
   implicit lazy val ioScheduler: Scheduler =
-    ExecutorScheduler(ioExecutor, ioReporter, ExecutionModel.AlwaysAsyncExecution)
+    ExecutorScheduler(ioExecutor, ioReporter, ExecutionModel.Default)
 
   // Inlined from `monix.execution.schedulers.ThreadFactoryBuilder`
   private def monixThreadFactoryBuilder(
