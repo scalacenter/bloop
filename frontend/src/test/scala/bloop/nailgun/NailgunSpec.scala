@@ -153,7 +153,9 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("compile", "-p", "simple-build")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.captureTimeInsensitiveInfos.filterNot(_ == "").mkString(System.lineSeparator()),
+        logger.captureTimeInsensitiveInfos
+          .filterNot(msg => msg == "" || msg.startsWith("Non-compiled module"))
+          .mkString(System.lineSeparator()),
         """|Compiling simple-build (1 Scala source)
            |Compiled simple-build ???ms
            |Compiling simple-build (1 Scala source)
