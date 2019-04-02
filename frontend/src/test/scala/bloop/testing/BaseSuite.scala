@@ -505,9 +505,9 @@ class BaseSuite extends TestSuite with BloopHelpers {
   case class FlatTest(name: String, thunk: () => Unit)
   private val myTests = IndexedSeq.newBuilder[FlatTest]
 
-  def ignore(name: String)(fun: => Any): Unit = {
+  def ignore(name: String, label: String = "IGNORED")(fun: => Any): Unit = {
     myTests += FlatTest(
-      utest.ufansi.Color.LightRed(s"IGNORED - $name").toString(),
+      utest.ufansi.Color.LightRed(s"$label - $name").toString(),
       () => ()
     )
   }

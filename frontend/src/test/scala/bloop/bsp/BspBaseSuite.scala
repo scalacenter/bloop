@@ -264,6 +264,15 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   /** The protocol to use for the inheriting test suite. */
   def protocol: BspProtocol
 
+  override def test(name: String)(fun: => Any): Unit = {
+    if (isWindows && protocol == BspProtocol.Local) {
+      // https://github.com/scalacenter/bloop/issues/281
+      super.ignore(name, "DISABLED")(fun)
+    } else {
+      super.test(name)(fun)
+    }
+  }
+
   private final lazy val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
