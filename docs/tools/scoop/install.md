@@ -1,21 +1,21 @@
 Add the bloop bundle to [scoop](https://github.com/lukesampson/scoop):
 
 ```bash
-$ scoop bucket add bloop-stable https://github.com/scalacenter/scoop-bloop.git
+scoop bucket add bloop-stable https://github.com/scalacenter/scoop-bloop.git
 ```
 
 Check that the bucket is correctly configured:
 
 ```bash
-$ scoop bucket list
-$ scoop search bloop
+scoop bucket list
+scoop search bloop
 // You should see the bloop scoop package listed here
 ```
 
 Then, install it with:
 
 ```bash
-$ scoop install bloop
+scoop install bloop
 ```
 
 ### Requirements

@@ -1,6 +1,7 @@
 package bloop
 
 import java.util.Optional
+import java.util.UUID
 import java.io.File
 import java.util.concurrent.{Executor, ConcurrentHashMap}
 import java.util.UUID

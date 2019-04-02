@@ -33,7 +33,7 @@ where:
 1. `foo-test` comes from the test source set and depends on `foo`
 
 > If you want to configure the installation step, head to [the Bloop mill documentation
-page](build-tools/mill.md).
+page](docs/build-tools/mill.md).
 
 ## Verify installation and export
 
