@@ -167,4 +167,29 @@ object Paths {
     } catch { case _: IOException => () }
     ()
   }
+
+  def isDirectoryEmpty(path: AbsolutePath): Boolean = {
+    var isEmpty: Boolean = true
+    Files.walkFileTree(
+      path.underlying,
+      new SimpleFileVisitor[Path] {
+        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+          isEmpty = false
+          FileVisitResult.TERMINATE
+        }
+
+        override def preVisitDirectory(
+            directory: Path,
+            attributes: BasicFileAttributes
+        ): FileVisitResult = {
+          if (path.underlying == directory) FileVisitResult.CONTINUE
+          else {
+            isEmpty = false
+            FileVisitResult.TERMINATE
+          }
+        }
+      }
+    )
+    isEmpty
+  }
 }

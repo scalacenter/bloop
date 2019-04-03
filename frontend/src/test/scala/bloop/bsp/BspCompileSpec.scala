@@ -258,6 +258,36 @@ class BspCompileSpec(
     }
   }
 
+  test("populate bsp external classes directory if project doesn't compile but class files exist") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A""".stripMargin
+        val `A2.scala` =
+          """/A.scala
+            |abject A""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+
+      writeFile(`A`.srcFor("/A.scala"), Sources.`A2.scala`)
+      loadBspState(workspace, projects, logger) { bspState =>
+        val bspCompiledState = bspState.compile(`A`)
+        assert(bspCompiledState.status == ExitStatus.CompilationError)
+        val buildProject = compiledState.getProjectFor(`A`)
+        val externalClassesDirA = bspCompiledState.client.getUniqueClassesDirFor(buildProject)
+        val classFiles = list(externalClassesDirA)
+        assert(classFiles.size > 0)
+      }
+    }
+  }
+
   test("compile incrementally and clear previous errors") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
