@@ -74,10 +74,10 @@ const siteConfig = {
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
-    {page: 'setup', label: 'Install'},
-    {doc: 'what-is-bloop', label: 'Docs'},
-    {search: true},
-    {href: repoUrl, label: 'GitHub'},
+    { page: 'setup', label: 'Install' },
+    { doc: 'what-is-bloop', label: 'Docs' },
+    { search: true },
+    { href: repoUrl, label: 'GitHub' },
   ],
 
   tools,
@@ -90,7 +90,7 @@ const siteConfig = {
   users,
 
   /* path to images for header/footer */
-  headerIcon: 'img/orca-whale-white.svg',
+  headerIcon: 'img/impure-logo-bloop.svg',
   footerIcon: 'img/docusaurus.svg',
   favicon: 'img/favicon/favicon.ico',
 
