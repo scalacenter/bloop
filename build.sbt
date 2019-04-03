@@ -130,9 +130,7 @@ lazy val launcher: Project = project
       Dependencies.coursier,
       Dependencies.coursierCache,
       Dependencies.nuprocess,
-      Dependencies.ipcsocket,
-      Dependencies.junit % Test,
-      Dependencies.junitSystemRules % Test
+      Dependencies.ipcsocket
     )
   )
 
