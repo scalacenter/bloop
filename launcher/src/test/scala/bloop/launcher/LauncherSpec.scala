@@ -17,6 +17,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc._
 import scala.util.control.NonFatal
 
+// TODO: Make it work with the latest version
+// TODO: Replace bloop about by connecting to socket directly
 object LauncherSpec extends LauncherBaseSuite("1.2.1", "2.0.0-M1", 9012) {
   // Update the bsp version whenever we change the bloop version
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
