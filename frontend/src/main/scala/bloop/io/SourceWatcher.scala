@@ -92,25 +92,29 @@ final class SourceWatcher private (
     }
 
     import SourceWatcher.EventStream
+    @volatile var currentState: State = state0
     val fileEventConsumer = {
-      FoldLeftAsyncConsumer.consume[State, EventStream](state0) {
-        case (state, stream) =>
-          stream match {
-            case EventStream.Overflow => Task.now(state)
-            case EventStream.SourceChanges(events) =>
-              val eventsThatForceAction = events.collect { event =>
-                event.eventType match {
-                  case EventType.CREATE => event
-                  case EventType.MODIFY => event
-                  case EventType.OVERFLOW => event
-                }
+      import monix.reactive.Consumer
+      Consumer.foreachAsync { (e: EventStream) =>
+        e match {
+          case EventStream.Overflow => Task.unit
+          case EventStream.SourceChanges(events) =>
+            val eventsThatForceAction = events.collect { event =>
+              event.eventType match {
+                case EventType.CREATE => event
+                case EventType.MODIFY => event
+                case EventType.OVERFLOW => event
               }
+            }
 
-              eventsThatForceAction match {
-                case Nil => Task.now(state)
-                case events => runAction(state, events)
-              }
-          }
+            eventsThatForceAction match {
+              case Nil => Task.unit
+              case events =>
+                runAction(currentState, events).map { state =>
+                  currentState = state
+                }
+            }
+        }
       }
     }
 
@@ -129,6 +133,7 @@ final class SourceWatcher private (
       .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
+      .map(_ => currentState)
   }
 
   def notifyWatch(): Unit = {
