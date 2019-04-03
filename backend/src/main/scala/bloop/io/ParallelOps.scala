@@ -198,14 +198,8 @@ object ParallelOps {
     }
 
     Task {
-      /*
-      val id = scala.util.Random.nextInt(1000)
-      println(s"#${id} copying ${origin.getFileName} to ${target.getFileName} ${configuration}")
-       */
       Task.mapBoth(discoverFileTree, copyFilesInParallel) {
-        case (fileWalk, _) =>
-          //println(s"finished $id")
-          fileWalk
+        case (fileWalk, _) => fileWalk
       }
     }.flatten.executeOn(scheduler)
   }

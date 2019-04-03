@@ -173,7 +173,8 @@ object Compiler {
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
     val backgroundTasksWhenNewSuccessfulAnalysis =
       new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
-    val backgroundTasksForFailedCompilation = new mutable.ListBuffer[BraveTracer => Task[Unit]]()
+    val backgroundTasksForFailedCompilation =
+      new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
         import sbt.io.IO
@@ -252,10 +253,35 @@ object Compiler {
             )
           } else {
             // Delete all compilation products generated in the new classes directory
+            val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
             backgroundTasksForFailedCompilation.+=(
-              (clientTracer: BraveTracer) => {
-                clientTracer.traceTask("delete class files after ") { _ =>
-                  Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }
+              (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
+                clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
+              }
+            )
+
+            backgroundTasksForFailedCompilation.+=(
+              (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
+                clientTracer.traceTask("populate external classes dir as it's empty") { _ =>
+                  Task {
+                    if (!BloopPaths.isDirectoryEmpty(clientExternalClassesDir)) Task.unit
+                    else {
+                      if (BloopPaths.isDirectoryEmpty(compileOut.internalReadOnlyClassesDir)) {
+                        Task.unit
+                      } else {
+                        // Prepopulate external classes dir even though compilation failed
+                        val config = ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty)
+                        ParallelOps
+                          .copyDirectories(config)(
+                            readOnlyClassesDir,
+                            clientExternalClassesDir.underlying,
+                            compileInputs.ioScheduler,
+                            compileInputs.logger
+                          )
+                          .map(_ => ())
+                      }
+                    }
+                  }.flatten
                 }
               }
             )
@@ -522,11 +548,11 @@ object Compiler {
   }
 
   def triggerTaskForBackground(
-      tasks: List[BraveTracer => Task[Unit]]
+      tasks: List[(AbsolutePath, BraveTracer) => Task[Unit]]
   ): CompileBackgroundTasks = {
     new CompileBackgroundTasks {
       def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = {
-        val backgroundTasks = tasks.map(f => f(tracer))
+        val backgroundTasks = tasks.map(f => f(clientClassesDir, tracer))
         Task.gatherUnordered(backgroundTasks).memoize.map(_ => ())
       }
     }
