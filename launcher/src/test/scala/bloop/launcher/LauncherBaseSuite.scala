@@ -41,6 +41,7 @@ abstract class LauncherBaseSuite(
   protected val shellWithNoPython = new Shell(true, false)
 
   // Init code acting as beforeAll()
+  stopServer(complainIfError = false)
   prependToPath(bloopBinDirectory.syntax)
   System.setProperty("ivy.home", ivyHome.syntax)
   System.setProperty("coursier.cache", coursierCacheDir.syntax)
@@ -59,20 +60,7 @@ abstract class LauncherBaseSuite(
         System.setProperty("user.home", newHome.syntax)
         fun
       } finally {
-        val bloopPath = Environment.defaultBloopDirectory.resolve("bloop")
-        if (Files.exists(bloopPath)) {
-          // Kill the server in case it's potentially running in the background
-          val script = bloopPath.toAbsolutePath.toString
-          // Use ng-stop instead of exit b/c it closes the nailgun server but leaves threads hanging
-          val exitCmd = List(script, "--nailgun-port", bloopServerPort.toString, "ng-stop")
-          val exitStatus = shellWithPython.runCommand(exitCmd, Some(5))
-          if (!exitStatus.isOk) {
-            System.err.println(s"${exitCmd.mkString(" ")} produced:")
-            if (!exitStatus.output.isEmpty)
-              printQuoted(exitStatus.output, System.err)
-          }
-        }
-
+        stopServer(complainIfError = true)
         System.setProperty("user.dir", oldCwd.syntax)
         System.setProperty("user.home", oldHomeDir.syntax)
         ()
@@ -80,6 +68,22 @@ abstract class LauncherBaseSuite(
     }
 
     super.test(name)(newFun())
+  }
+
+  private def stopServer(complainIfError: Boolean): Unit = {
+    val bloopPath = Environment.defaultBloopDirectory.resolve("bloop")
+    if (Files.exists(bloopPath)) {
+      // Kill the server in case it's potentially running in the background
+      val script = bloopPath.toAbsolutePath.toString
+      // Use ng-stop instead of exit b/c it closes the nailgun server but leaves threads hanging
+      val exitCmd = List(script, "--nailgun-port", bloopServerPort.toString, "ng-stop")
+      val exitStatus = shellWithPython.runCommand(exitCmd, Some(5))
+      if (!exitStatus.isOk && complainIfError) {
+        System.err.println(s"${exitCmd.mkString(" ")} produced:")
+        if (!exitStatus.output.isEmpty)
+          printQuoted(exitStatus.output, System.err)
+      }
+    }
   }
 
   override def afterAll(): Unit = {
