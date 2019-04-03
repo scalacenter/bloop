@@ -70,7 +70,6 @@ object CompileTask {
       "client" -> clientName
     )
 
-    /*
     val bgTracer = rootTracer.toIndependentTracer(
       s"background IO work after compiling $topLevelTargets (transitively)",
       "bloop.version" -> BuildInfo.version,
@@ -79,7 +78,6 @@ object CompileTask {
       "compile.target" -> topLevelTargets,
       "client" -> clientName
     )
-     */
 
     def compile(graphInputs: CompileGraph.Inputs): Task[ResultBundle] = {
       val bundle = graphInputs.bundle
@@ -201,8 +199,8 @@ object CompileTask {
                     else {
                       for {
                         _ <- blockingOnRunningTasks
-                        _ <- createNewReadOnlyClassesDir(s.products, rawLogger)
-                        //.doOnFinish(_ => Task(bgTracer.terminate()))
+                        _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
+                          .doOnFinish(_ => Task(bgTracer.terminate()))
                       } yield ()
                     }
                   }.memoize
@@ -426,7 +424,7 @@ object CompileTask {
 
   private def createNewReadOnlyClassesDir(
       products: CompileProducts,
-      //tracer: BraveTracer,
+      tracer: BraveTracer,
       logger: Logger
   ): Task[Unit] = {
     // Do nothing if origin and target classes dir are the same, as protective measure
@@ -437,14 +435,14 @@ object CompileTask {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
       val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
-      val task = //tracer.traceTask("preparing new read-only classes directory") { _ =>
+      val task = tracer.traceTask("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(
           products.readOnlyClassesDir,
           products.newClassesDir,
           ExecutionContext.ioScheduler,
           logger
         )
-      //}
+      }
 
       task.map(rs => ()).memoize
     }
