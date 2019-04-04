@@ -198,7 +198,7 @@ class LauncherSpec extends AbstractLauncherSpec {
     val messages = BaseProtocolMessage.fromInputStream(in, logger)
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new LanguageServer(messages, lsClient, services, bspScheduler, logger)
-    val runningClientServer = lsServer.startTask.runAsync(bspScheduler)
+    val runningClientServer = lsServer.startTask.runToFuture(bspScheduler)
 
     val initializeServer = endpoints.Build.initialize.request(
       bsp.InitializeBuildParams(
@@ -266,7 +266,7 @@ class LauncherSpec extends AbstractLauncherSpec {
       }
     }
 
-    val runServer = startServer.runAsync(bspScheduler)
+    val runServer = startServer.runToFuture(bspScheduler)
 
     val logger = new RecordingLogger()
     val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>

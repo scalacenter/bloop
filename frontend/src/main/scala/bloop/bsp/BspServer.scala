@@ -11,11 +11,13 @@ import bloop.logging.{BspClientLogger, DebugFilter}
 import com.martiansoftware.nailgun.{NGUnixDomainServerSocket, NGWin32NamedPipeServerSocket}
 
 import monix.eval.Task
+import monix.reactive.Consumer
 import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
 import monix.reactive.{Observer}
 
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 
 object BspServer {
@@ -89,12 +91,12 @@ object BspServer {
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
 
       // Only consume requests in batches of 4 per client
-      val consumer = messages.consumeWith(monix.reactive.Consumer.foreachParallelAsync(4) { msg =>
+      val consumer = messages.consumeWith(Consumer.foreachParallelTask(4) { msg =>
         server
           .handleMessage(msg)
           .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
           .onErrorRecover {
-            case monix.execution.misc.NonFatal(e) =>
+            case NonFatal(e) =>
               bspLogger.error("Unhandled error", e)
               ()
           }
@@ -119,7 +121,7 @@ object BspServer {
           .gatherUnordered(deleteExternalDirsTask)
           .materialize
           .map(_ => ())
-          .runAsync(ExecutionContext.ioScheduler)
+          .runToFuture(ExecutionContext.ioScheduler)
 
         // Close any socket communication asap
         try socket.close()

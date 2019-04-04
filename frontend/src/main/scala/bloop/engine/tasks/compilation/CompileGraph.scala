@@ -273,7 +273,7 @@ object CompileGraph {
           ongoingCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
         val deduplicateStreamSideEffectsHandle =
-          replayEventsTask.runAsync(ExecutionContext.ioScheduler)
+          replayEventsTask.runToFuture(ExecutionContext.ioScheduler)
 
         /**
          * Deduplicate and change the implementation of the task returning the
@@ -294,7 +294,7 @@ object CompileGraph {
                     val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
                     val runningBackgroundTasks = s.backgroundTasks
                       .trigger(externalClassesDir, bundle.tracer)
-                      .runAsync(ExecutionContext.ioScheduler)
+                      .runToFuture(ExecutionContext.ioScheduler)
                     Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
                   case _: Compiler.Result.Cancelled =>
                     // Make sure to cancel the deduplicating task if compilation is cancelled
@@ -598,7 +598,7 @@ object CompileGraph {
                   val jcf = new CompletableFuture[Unit]()
                   val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
                   val running =
-                    Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
+                    Task.fromFuture(t.executeAsync.runToFuture(ExecutionContext.scheduler))
                   val completeJavaTask = Task
                     .deferFutureAction(jcf.asScala(_))
                     .materialize
@@ -664,7 +664,7 @@ object CompileGraph {
                     Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
                       val jf = new CompletableFuture[Unit]()
                       val t = compile(Inputs(bundle, dependencyStore, cf, jf, sig, oracle, true))
-                      val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                      val running = t.executeAsync.runToFuture(ExecutionContext.scheduler)
                       val ongoing = Task.fromFuture(running)
                       val completedJava = {
                         Task

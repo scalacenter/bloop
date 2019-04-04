@@ -56,9 +56,10 @@ object ClasspathHasher {
     case class AcquiredTask(file: File, idx: Int, p: Promise[FileHash])
 
     val parallelConsumer = {
-      Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
+      Consumer.foreachParallelTask[AcquiredTask](parallelUnits) {
         case AcquiredTask(file, idx, p) =>
           Task {
+            import scala.util.control.NonFatal
             val hash = try {
               val filePath = file.toPath
               val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
@@ -78,7 +79,7 @@ object ClasspathHasher {
               }
             } catch {
               // Can happen when a file doesn't exist, for example
-              case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
+              case NonFatal(t) => BloopStamps.emptyHash(file)
             }
             classpathHashes(idx) = hash
             p.success(hash)

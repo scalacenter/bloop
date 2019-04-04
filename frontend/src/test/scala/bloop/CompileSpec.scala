@@ -16,7 +16,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import monix.execution.CancelableFuture
 
 object CompileSpec extends bloop.testing.BaseSuite {
@@ -840,6 +839,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
         }
       )
 
+      import scala.util.control.NonFatal
       val compiledUserState = {
         // There are two macro calls in two different sources, cancellation must avoid one
         try Await.result(backgroundCompiledUserState, Duration(2950, "ms"))

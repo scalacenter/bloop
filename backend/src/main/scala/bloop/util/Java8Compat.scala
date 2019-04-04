@@ -3,8 +3,7 @@ package bloop.util
 import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
 import java.util.function.BiFunction
 
-import monix.execution.cancelables.SingleAssignmentCancelable
-import monix.execution.misc.NonFatal
+import monix.execution.cancelables.SingleAssignCancelable
 import monix.execution.schedulers.TrampolinedRunnable
 import monix.execution.{Cancelable, CancelableFuture}
 
@@ -44,14 +43,16 @@ object Java8Compat {
    * This is much like working with Scala's
    * [[scala.concurrent.Promise Promise]], only safer.
    */
-  def async[A](register: (Try[A] => Unit) => Cancelable)(
-      implicit ec: ExecutionContext): CancelableFuture[A] = {
+  def async[A](
+      register: (Try[A] => Unit) => Cancelable
+  )(implicit ec: ExecutionContext): CancelableFuture[A] = {
 
     val p = Promise[A]()
-    val cRef = SingleAssignmentCancelable()
+    val cRef = SingleAssignCancelable()
 
     // Light async boundary to guard against stack overflows
     ec.execute(new TrampolinedRunnable {
+      import scala.util.control.NonFatal
       def run(): Unit = {
         try {
           cRef := register(p.complete)

@@ -3,10 +3,10 @@ package bloop.tracing
 import brave.{Span, Tracer}
 import brave.propagation.TraceContext
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 
 import scala.util.Failure
 import scala.util.Success
+import scala.util.control.NonFatal
 
 final class BraveTracer private (
     tracer: Tracer,

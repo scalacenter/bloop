@@ -125,7 +125,7 @@ trait BspClientTest {
     val configPath = RelativePath(configDirectory.underlying.getFileName)
     val bspServer = BspServer
       .run(cmd, state, configPath, None, None, ExecutionContext.scheduler, ioScheduler)
-      .runAsync(ioScheduler)
+      .runToFuture(ioScheduler)
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
       val out = socket.getOutputStream
@@ -134,7 +134,7 @@ trait BspClientTest {
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
       val services = customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
       val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
+      val runningClientServer = lsServer.startTask.runToFuture(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -167,7 +167,7 @@ trait BspClientTest {
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.runAsync(ioScheduler)
+    val bspClient = bspClientExecution.runToFuture(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 60s

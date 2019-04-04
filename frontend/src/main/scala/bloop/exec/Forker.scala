@@ -17,7 +17,6 @@ import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
 
 import monix.eval.Task
 import monix.execution.Cancelable
-import monix.execution.misc.NonFatal
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -209,9 +208,11 @@ object Forker {
             exitCode
           } finally {
             shutdownInput = true
+            println("HEY/The proces")
             gobbleInput.cancel()
           }
         }.doOnCancel(Task {
+          println("running cancellation logic")
           shutdownInput = true
           gobbleInput.cancel()
           try process.closeStdin(true)

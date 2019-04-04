@@ -131,7 +131,7 @@ object ParallelOps {
     }
 
     val copyFilesInParallel = {
-      observable.consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
+      observable.consumeWith(Consumer.foreachParallelTask(configuration.parallelUnits) {
         case ((originFile, originAttrs), targetFile) =>
           def copy(replaceExisting: Boolean): Unit = {
             if (replaceExisting) {

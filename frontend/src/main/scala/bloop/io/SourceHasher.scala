@@ -67,7 +67,7 @@ object SourceHasher {
     }
 
     val copyFilesInParallel = observable
-      .mapAsync(parallelUnits) { source =>
+      .mapParallelUnordered(parallelUnits) { source =>
         Task.eval {
           val hash = ByteHasher.hashFileContents(source.toFile)
           CompilerOracle.HashedSource(AbsolutePath(source), hash)

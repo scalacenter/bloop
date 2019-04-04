@@ -291,7 +291,7 @@ class RunSpec {
       val cancelTime = Duration.apply(7, TimeUnit.SECONDS)
       def msgs = logger.getMessages
       val runTask = TestUtil.interpreterTask(action, state)
-      val handle = runTask.runAsync(ExecutionContext.ioScheduler)
+      val handle = runTask.runToFuture(ExecutionContext.ioScheduler)
       val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { handle.cancel() }
 
       val runState = {
@@ -305,6 +305,7 @@ class RunSpec {
         }
       }
 
+      pprint.log(msgs)
       assert(msgs.filter(_._1 == "info").exists(_._2.contains("Starting infinity.")))
       assert(!runState.status.isOk)
     }

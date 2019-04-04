@@ -91,7 +91,7 @@ object CompilerPluginWhitelist {
           tracer.traceTask("enabling plugin caching") { tracer =>
             // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
             val parallelConsumer = {
-              Consumer.foreachParallelAsync[WorkItem](parallelUnits) {
+              Consumer.foreachParallelTask[WorkItem](parallelUnits) {
                 case WorkItem(pluginCompilerFlag, idx, p) =>
                   shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
                     case scala.util.Success(cache) =>

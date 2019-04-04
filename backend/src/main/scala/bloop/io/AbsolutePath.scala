@@ -5,6 +5,8 @@ import java.io.File
 import java.net.URI
 import java.nio.file.{FileSystems, Files, Path, PathMatcher, Paths => NioPaths}
 
+import ch.epfl.scala.bsp
+
 final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def syntax: String = toString
   def structure: String = s"""AbsolutePath("$syntax")"""
@@ -24,14 +26,24 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def readAllBytes: Array[Byte] = Files.readAllBytes(underlying)
   def toFile: File = underlying.toFile
   def toBspUri: URI = underlying.toUri
-  def toBspSourceUri: URI = {
+
+  def toBspSourceItem(generated: Boolean): bsp.SourceItem = {
     val uri = toBspUri
-    if (exists) uri
-    else {
-      if (AbsolutePath.sourceFileNameMatcher.matches(underlying.getFileName)) uri
-      // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-      else new java.net.URI(uri.toString + "/")
+    val (realUri, sourceKind) = {
+      if (exists) {
+        if (!uri.toString.endsWith("/")) (uri, bsp.SourceItemKind.File)
+        else (uri, bsp.SourceItemKind.Directory)
+      } else {
+        if (AbsolutePath.sourceFileNameMatcher.matches(underlying.getFileName)) {
+          (uri, bsp.SourceItemKind.File)
+        } else {
+          val dirUri = new java.net.URI(uri.toString + "/")
+          (dirUri, bsp.SourceItemKind.Directory)
+        }
+      }
     }
+
+    bsp.SourceItem(bsp.Uri(realUri), sourceKind, generated)
   }
 }
 

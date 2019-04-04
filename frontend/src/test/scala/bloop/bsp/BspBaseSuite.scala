@@ -96,7 +96,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(workspaceTargetTask)
     }
 
-    def workspaceTargets: bsp.WorkspaceBuildTargets = {
+    def workspaceTargets: bsp.WorkspaceBuildTargetsResult = {
       val workspaceTargetsTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
           case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
@@ -156,7 +156,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         }
       }
 
-      interpretedTask.runAsync(ExecutionContext.scheduler)
+      interpretedTask.runToFuture(ExecutionContext.scheduler)
     }
 
     def compile(project: TestProject): ManagedBspTestState = {
@@ -348,7 +348,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       ioScheduler
     )
 
-    val bspServerStarted = bspServer.runAsync(ioScheduler)
+    val bspServerStarted = bspServer.runToFuture(ioScheduler)
     val stringifiedDiagnostics = new ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder]()
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
@@ -369,7 +369,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         addServicesTest(configDirectory, () => compileIteration.get, addToStringReport)
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
       val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
+      val runningClientServer = lsServer.startTask.runToFuture(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -385,7 +385,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val initializedTask = {
         val startedServer = Task.fromFuture(readyToConnect.future)
-        initializeServer.delayExecutionWith(startedServer).flatMap { _ =>
+        initializeServer.flatMap(_ => startedServer).flatMap { _ =>
           Task.fromFuture(endpoints.Build.initialized.notify(bsp.InitializedBuildParams()))
         }
       }
@@ -412,7 +412,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.runAsync(ioScheduler)
+    val bspClient = bspClientExecution.runToFuture(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 30s

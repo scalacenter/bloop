@@ -106,7 +106,7 @@ object ResultsCache {
     new ResultsCache(Map.empty, Map.empty)
 
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
-    val handle = loadAsync(build, cwd, logger).runAsync(ExecutionContext.ioScheduler)
+    val handle = loadAsync(build, cwd, logger).runToFuture(ExecutionContext.ioScheduler)
     Await.result(handle, Duration.Inf)
   }
 

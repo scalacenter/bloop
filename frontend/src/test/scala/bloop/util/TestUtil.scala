@@ -99,7 +99,7 @@ object TestUtil {
   }
 
   def await[T](duration: Duration, scheduler: Scheduler)(t: Task[T]): T = {
-    val handle = t.runAsync(scheduler)
+    val handle = t.runToFuture(scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t
@@ -117,7 +117,7 @@ object TestUtil {
 
   def blockOnTask[T](task: Task[T], seconds: Long): T = {
     val duration = Duration(seconds, TimeUnit.SECONDS)
-    val handle = task.runAsync(ExecutionContext.scheduler)
+    val handle = task.runToFuture(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) =>
@@ -130,7 +130,7 @@ object TestUtil {
   }
 
   def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
-    val handle = interpreterTask(a, state).runAsync(ExecutionContext.scheduler)
+    val handle = interpreterTask(a, state).runToFuture(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

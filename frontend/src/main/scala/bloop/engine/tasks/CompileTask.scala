@@ -183,7 +183,7 @@ object CompileTask {
                   backgroundTasks
                     .trigger(externalUserClassesDir, compileProjectTracer)
                     .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+                postCompilationTasks.runToFuture(ExecutionContext.ioScheduler)
               }
 
               // Populate the last successful result if result was success
@@ -193,7 +193,6 @@ object CompileTask {
                   val blockingOnRunningTasks = Task
                     .fromFuture(runningTasks)
                     .executeOn(ExecutionContext.ioScheduler)
-                  import monix.execution.misc.NonFatal
                   val populatingTask = {
                     if (s.isNoOp) blockingOnRunningTasks
                     else {
@@ -266,7 +265,7 @@ object CompileTask {
            * comes in. Note the task is memoized internally..
            */
           finalResult.result.successful
-            .foreach(l => l.populatingProducts.runAsync(ExecutionContext.ioScheduler))
+            .foreach(l => l.populatingProducts.runToFuture(ExecutionContext.ioScheduler))
         }
 
         //cleanStatePerBuildRun(dag, results, state)

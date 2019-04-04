@@ -10,7 +10,7 @@ object Dependencies {
   val nailgunCommit = "0c325237"
 
   val zincVersion = "1.2.1+110-85b9a03c"
-  val bspVersion = "2.0.0-M1"
+  val bspVersion = "2.0.0-M4+1-7c5dbafb"
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M8"
   val lmVersion = "1.0.0"
@@ -29,8 +29,8 @@ object Dependencies {
   val gradleVersion = "3.0"
   val groovyVersion = "2.5.0"
   val ipcsocketVersion = "1.0.1"
-  val monixVersion = "2.3.3"
-  val circeVersion = "0.9.3"
+  val monixVersion = "3.0.0-RC2"
+  val circeVersion = "0.11.0"
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNativeVersion = "0.3.7"
@@ -86,7 +86,7 @@ object Dependencies {
   val ipcsocket = "ch.epfl.scala" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
 
-  val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
+  val circeDerivation = "io.circe" %% "circe-derivation" % "0.11.0-M1"
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion

@@ -131,7 +131,7 @@ object TestInternals {
       runTask.map(exitCode => Forker.exitStatus(exitCode).code)
     }
 
-    val listenerHandle = listener.reporter.runAsync(ExecutionContext.ioScheduler)
+    val listenerHandle = listener.reporter.runToFuture(ExecutionContext.ioScheduler)
 
     def cancel(): Unit = {
       if (!cancelled.getAndSet(true)) {
@@ -140,7 +140,7 @@ object TestInternals {
     }
 
     runner
-      .delayExecutionWith(listener.startServer)
+      .flatMap(code => listener.startServer.map(_ => code))
       .executeOn(ExecutionContext.ioScheduler)
       .doOnCancel(Task(cancel()))
   }

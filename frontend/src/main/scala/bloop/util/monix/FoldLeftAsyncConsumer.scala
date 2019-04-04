@@ -1,3 +1,4 @@
+/*
 package bloop.util.monix
 
 import monix.eval.{Callback, Task}
@@ -81,3 +82,5 @@ object FoldLeftAsyncConsumer {
   def consume[S, A](initial: => S)(f: (S, A) => Task[S]): Consumer[A, S] =
     new FoldLeftAsyncConsumer[A, S](initial _, f)
 }
+
+ */

@@ -14,12 +14,12 @@ import bloop.util.{TestUtil, CrossPlatform}
 import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import monix.execution.Scheduler
 
 import org.apache.commons.io.IOUtils
 
 import scala.concurrent.Await
+import scala.util.control.NonFatal
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -71,7 +71,6 @@ trait NailgunTestUtils {
       // Trick nailgun into thinking these are the real streams
       import java.net.InetAddress
       val addr = InetAddress.getLoopbackAddress
-      import monix.execution.misc.NonFatal
       try {
         val server = Server.launchServer(localIn, localOut, localErr, addr, TEST_PORT, log)
         serverIsStarted.success(())
@@ -126,7 +125,7 @@ trait NailgunTestUtils {
 
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
     Task
-      .zip2(serverLogic, runClient)
+      .parZip2(serverLogic, runClient)
       .map(t => t._2)
       .timeout(FiniteDuration(20, TimeUnit.SECONDS))
   }
@@ -145,7 +144,7 @@ trait NailgunTestUtils {
       op: (RecordingLogger, Client) => T
   ): T = {
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
-    val f = withServerTask(log, config, noExit)(op).runAsync(nailgunPool)
+    val f = withServerTask(log, config, noExit)(op).runToFuture(nailgunPool)
     // Note we cannot use restart because our task uses promises that cannot be completed twice
     //val f = f0.onErrorFallbackTo(f0.onErrorFallbackTo(f0)).runAsync(nailgunPool)
     try Await.result(f, FiniteDuration(20, TimeUnit.SECONDS))

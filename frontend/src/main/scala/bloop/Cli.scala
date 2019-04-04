@@ -324,7 +324,7 @@ object Cli {
         .flatMap(start => taskState.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
         .dematerialize
-        .runAsync(ExecutionContext.scheduler)
+        .runToFuture(ExecutionContext.scheduler)
 
     if (!cancel.isDone) {
       // Add support for a client to cancel bloop via Java's completable future
@@ -339,7 +339,7 @@ object Cli {
             handle.cancel()
           } else ()
         }
-        .runAsync(ExecutionContext.scheduler)
+        .runToFuture(ExecutionContext.scheduler)
     }
 
     def handleException(t: Throwable) = {

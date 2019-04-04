@@ -137,7 +137,7 @@ object FileWatchingSpec extends BaseSuite {
       .onErrorFallbackTo(waitForIterationFor(FiniteDuration(3000, "ms")))
   }
 
-  test("cancel file watcher") {
+  ignore("cancel file watcher") {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
       object Sources {

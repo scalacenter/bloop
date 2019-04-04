@@ -48,7 +48,7 @@ object ExecutionContext {
     )
   }
 
-  val ioReporter = UncaughtExceptionReporter.LogExceptionsToStandardErr
+  val ioReporter = UncaughtExceptionReporter.default
   lazy val ioExecutor: ThreadPoolExecutor = {
     val threadFactory = monixThreadFactoryBuilder("bloop-io", ioReporter, daemonic = true)
     new ThreadPoolExecutor(

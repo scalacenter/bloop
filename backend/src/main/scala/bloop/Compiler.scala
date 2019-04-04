@@ -345,7 +345,7 @@ object Compiler {
       Task
         .gatherUnordered(tasks)
         .map(_ => ())
-        .runAsync(compileInputs.ioScheduler)
+        .runToFuture(compileInputs.ioScheduler)
     }
 
     val start = System.nanoTime()

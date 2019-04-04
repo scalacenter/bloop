@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 import bloop.bsp.BspServer
 import bloop.engine.{ExecutionContext, State}
 import bloop.logging.{DebugFilter, Logger, Slf4jAdapter}
-import bloop.util.monix.FoldLeftAsyncConsumer
+//import bloop.util.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
@@ -95,7 +95,7 @@ final class SourceWatcher private (
     @volatile var currentState: State = state0
     val fileEventConsumer = {
       import monix.reactive.Consumer
-      Consumer.foreachAsync { (e: EventStream) =>
+      Consumer.foreachTask { (e: EventStream) =>
         e match {
           case EventStream.Overflow => Task.unit
           case EventStream.SourceChanges(events) =>
@@ -127,8 +127,8 @@ final class SourceWatcher private (
      * have changed. If they have, we force another action, otherwise we call it
      * a day and wait for the next events.
      */
-    observable
-      .bufferTimed(FiniteDuration(20, "ms"))
+    import bloop.util.monix.BloopBufferTimedObservable
+    new BloopBufferTimedObservable(observable, FiniteDuration(20, "ms"))
       .map(es => EventStream.SourceChanges(es))
       .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
       .consumeWith(fileEventConsumer)
