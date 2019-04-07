@@ -14,6 +14,7 @@ import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
 
 import monix.eval.Task
+import monix.reactive.Consumer
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 
@@ -123,8 +124,11 @@ final class SourceWatcher private (
      * have changed. If they have, we force another action, otherwise we call it
      * a day and wait for the next events.
      */
+
+    import bloop.util.monix.BloopBufferTimedObservable
+    val timespan = FiniteDuration(20, "ms")
     observable
-      .bufferTimed(FiniteDuration(20, "ms"))
+      .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       .map(es => EventStream.SourceChanges(es))
       .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
       .consumeWith(fileEventConsumer)
