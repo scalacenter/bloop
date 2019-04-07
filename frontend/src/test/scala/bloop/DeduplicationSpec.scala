@@ -765,7 +765,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompilation = compiledState.withLogger(cliLogger).compileHandle(`B`, firstDelay)
 
         ExecutionContext.ioScheduler.scheduleOnce(
-          1200,
+          2000,
           TimeUnit.MILLISECONDS,
           new Runnable {
             override def run(): Unit = firstCompilation.cancel()
@@ -773,7 +773,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         val (firstCompiledState, secondCompiledState) =
-          TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 5)
+          TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 7)
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
