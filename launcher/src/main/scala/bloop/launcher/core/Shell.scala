@@ -147,6 +147,42 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     }
   }
 
+  def connectToBloopPort(
+      binaryCmd: List[String],
+      port: Int,
+      out: PrintStream
+  ): Option[ServerStatus] = {
+    import java.net.Socket
+    var socket: Socket = null
+    import scala.util.control.NonFatal
+    try {
+      socket = new Socket()
+      socket.setReuseAddress(true)
+      socket.setTcpNoDelay(true)
+      import java.net.InetAddress
+      import java.net.InetSocketAddress
+      socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, port))
+      Some {
+        if (socket.isConnected) ListeningAndAvailableAt(binaryCmd)
+        else AvailableAt(binaryCmd)
+      }
+    } catch {
+      case NonFatal(t) =>
+        out.println(s"Connection to port $port failed with '${t.getMessage()}'")
+        Some(AvailableAt(binaryCmd))
+    } finally {
+      if (socket != null) {
+        try {
+          val in = socket.getInputStream()
+          val out = socket.getOutputStream()
+          in.close()
+          out.close()
+          socket.close()
+        } catch { case NonFatal(_) => }
+      }
+    }
+  }
+
   def detectBloopInSystemPath(
       binaryCmd: List[String],
       out: PrintStream

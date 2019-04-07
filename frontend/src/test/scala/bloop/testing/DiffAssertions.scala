@@ -2,24 +2,20 @@ package bloop.testing
 
 import bloop.util.Diff
 
-import org.scalactic.source.Position
-
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import utest.ufansi.Color
 
-import org.scalatest.FunSuiteLike
-
 // Borrowed from scalameta/scalameta to experiment a bit with richer test infra
-object DiffAssertions extends FunSuiteLike {
+object DiffAssertions {
   class TestFailedException(msg: String) extends Exception(msg)
   def assertNoDiffOrPrintObtained(
       obtained: String,
       expected: String,
       obtainedTitle: String,
       expectedTitle: String
-  )(implicit source: Position): Unit = {
+  )(implicit source: sourcecode.Line): Unit = {
     orPrintObtained(
       () => { assertNoDiff(obtained, expected, obtainedTitle, expectedTitle); () },
       obtained
@@ -33,7 +29,7 @@ object DiffAssertions extends FunSuiteLike {
       expectedTitle: String,
       print: Boolean = true
   )(
-      implicit source: Position
+      implicit source: sourcecode.Line
   ): Boolean = {
     try assertNoDiff(obtained, expected, obtainedTitle, expectedTitle)
     catch {
@@ -65,7 +61,7 @@ object DiffAssertions extends FunSuiteLike {
       expected: String,
       obtainedTitle: String,
       expectedTitle: String
-  )(implicit source: Position): Boolean = colored {
+  )(implicit source: sourcecode.Line): Boolean = colored {
     if (obtained.isEmpty && !expected.isEmpty) fail("Obtained empty output!")
     val result = Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
     if (result.isEmpty) true
@@ -146,5 +142,11 @@ object DiffAssertions extends FunSuiteLike {
         }
         throw ex
     }
+  }
+
+  def fail(msg: String, stackBump: Int = 0): Nothing = {
+    val ex = new DiffAssertions.TestFailedException(msg)
+    ex.setStackTrace(ex.getStackTrace.slice(1 + stackBump, 2 + stackBump))
+    throw ex
   }
 }

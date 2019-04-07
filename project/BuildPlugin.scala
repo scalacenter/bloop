@@ -86,6 +86,9 @@ object BuildKeys {
   val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
   val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
+  val versionedInstallScript = Def.taskKey[File]("Generate a versioned install script")
+  val generateInstallationWitness =
+    Def.taskKey[File]("Generate a witness file to know which version is installed locally")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
   val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
@@ -97,7 +100,6 @@ object BuildKeys {
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
     Keys.libraryDependencies ++= List(
       Dependencies.utest % Test,
-      Dependencies.scalatest % Test,
       Dependencies.pprint % Test
     )
   )
@@ -136,6 +138,7 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
+    generateInstallationWitness := ReleaseUtils.generateInstallationWitness.value,
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
     updateScoopFormula := ReleaseUtils.updateScoopFormula.value
   )
@@ -502,6 +505,7 @@ object BuildImplementation {
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
+        BuildKeys.versionedInstallScript := ReleaseUtils.versionedInstallScript.value,
         BuildInfoKeys.buildInfoKeys in Test := {
           import sbtbuildinfo.BuildInfoKey
           val junitTestJars = BuildInfoKey.map(Keys.externalDependencyClasspath in Test) {
@@ -511,7 +515,7 @@ object BuildImplementation {
               "junitTestJars" -> junitJars
           }
 
-          List(junitTestJars)
+          List(junitTestJars, BuildKeys.versionedInstallScript, Keys.baseDirectory in ThisBuild)
         },
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
         BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"
