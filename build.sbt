@@ -371,8 +371,11 @@ addCommandAlias(
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    // Force build info generators in frontend-test
+    s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
-    "createLocalScoopFormula"
+    "createLocalScoopFormula",
+    "generateInstallationWitness"
   ).mkString(";", ";", "")
 )
 

@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
+import bloop.internal.build.BuildInfo
 import bloop.launcher.util.Environment
 import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.util.TestUtil
@@ -17,9 +18,11 @@ import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc._
 import scala.util.control.NonFatal
 
-// TODO: Make it work with the latest version
-// TODO: Replace bloop about by connecting to socket directly
-object LauncherSpec extends LauncherBaseSuite("1.2.1", "2.0.0-M1", 9012) {
+object StableLauncherSpec extends LauncherSpec("1.2.1", "2.0.0-M1")
+object LatestLauncherSpec extends LauncherSpec(BuildInfo.version, BuildInfo.bspVersion)
+
+abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
+    extends LauncherBaseSuite(bloopVersion, bspVersion, 9012) {
   // Update the bsp version whenever we change the bloop version
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   test("check that environment is correctly mocked") {
@@ -79,7 +82,8 @@ object LauncherSpec extends LauncherBaseSuite("1.2.1", "2.0.0-M1", 9012) {
         bloopVersion,
         launcher.out,
         launcher.detectServerState(_),
-        launcher.shell
+        launcher.shell,
+        bloopInstallerURL
       )
 
       // We should detect the bloop binary in the place where we installed it!

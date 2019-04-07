@@ -21,36 +21,40 @@ object ReleaseUtils {
    * the version of Bloop that we're releasing.
    */
   val versionedInstallScript = Def.task {
-    val nailgun = Dependencies.nailgunCommit
-    val coursier = Dependencies.coursierVersion
-    val version = Keys.version.value
+    val bloopVersion = Keys.version.value
+    val nailgunCommit = Dependencies.nailgunCommit
+    val coursierVersion = Dependencies.coursierVersion
     val target = Keys.target.value
     val log = Keys.streams.value.log
     val cacheDirectory = Keys.streams.value.cacheDirectory
-    val cachedWrite =
-      FileFunction.cached(cacheDirectory) { scripts =>
-        scripts.map { script =>
-          val lines = IO.readLines(script)
-          val marker = "# INSERT_INSTALL_VARIABLES"
-          lines.span(_ != marker) match {
-            case (before, _ :: after) =>
-              val customizedVariables =
-                List(
-                  s"""NAILGUN_COMMIT = "$nailgun"""",
-                  s"""BLOOP_VERSION = "$version"""",
-                  s"""COURSIER_VERSION = "$coursier""""
-                )
-              val newContent = before ::: customizedVariables ::: after
-              val scriptTarget = target / script.getName
-              IO.writeLines(scriptTarget, newContent)
-              scriptTarget
+    val scriptTemplate = installScript.value
+    val scriptTarget = target / scriptTemplate.getName
 
-            case _ =>
-              sys.error(s"Couldn't find '$marker' in '$script'.")
-          }
-        }
-      }
-    cachedWrite(Set(installScript.value)).head
+    val lines = IO.readLines(scriptTemplate)
+    val marker = "# INSERT_INSTALL_VARIABLES"
+    lines.span(_ != marker) match {
+      case (before, _ :: after) =>
+        val customizedVariables =
+          List(
+            s"""NAILGUN_COMMIT = "${nailgunCommit}"""",
+            s"""BLOOP_VERSION = "${bloopVersion}"""",
+            s"""COURSIER_VERSION = "${coursierVersion}""""
+          )
+        val newContent = before ::: customizedVariables ::: after
+        IO.writeLines(scriptTarget, newContent)
+        scriptTarget
+
+      case _ =>
+        sys.error(s"Couldn't find '$marker' in '$scriptTemplate'.")
+    }
+  }
+
+  val generateInstallationWitness = Def.task {
+    val target = Keys.target.value
+    val bloopVersion = Keys.version.value
+    val witnessFile = target / "installed.txt"
+    IO.writeLines(witnessFile, List(bloopVersion))
+    witnessFile
   }
 
   /* Defines an origin where the left is a path to a local file and the right a tag name. */

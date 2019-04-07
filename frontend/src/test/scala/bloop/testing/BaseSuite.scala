@@ -537,7 +537,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
 
   def fail(msg: String, stackBump: Int = 0): Nothing = {
     val ex = new DiffAssertions.TestFailedException(msg)
-    ex.setStackTrace(ex.getStackTrace.slice(1 + stackBump, 2 + stackBump))
+    ex.setStackTrace(ex.getStackTrace.slice(1 + stackBump, 5 + stackBump))
     throw ex
   }
 

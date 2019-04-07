@@ -5,6 +5,7 @@ import bloop.io.AbsolutePath
 import bloop.testing.BaseSuite
 import bloop.launcher.core.Shell
 import bloop.launcher.util.Environment
+import bloop.internal.build.BuildTestInfo
 
 import java.nio.file.Files
 import java.io.InputStream
@@ -39,35 +40,65 @@ abstract class LauncherBaseSuite(
 
   protected val shellWithPython = new Shell(true, true)
   protected val shellWithNoPython = new Shell(true, false)
+  protected val bloopInstallerURL = installpyURL(bloopVersion)
 
   // Init code acting as beforeAll()
   stopServer(complainIfError = false)
   prependToPath(bloopBinDirectory.syntax)
   System.setProperty("ivy.home", ivyHome.syntax)
+  System.setProperty("bloop.home", AbsolutePath(BuildTestInfo.baseDirectory).syntax)
   System.setProperty("coursier.cache", coursierCacheDir.syntax)
   val hijackedBloop = bloopBinDirectory.resolve("bloop")
   writeFile(hijackedBloop, "I am not a script and I must fail to be executed")
   hijackedBloop.toFile.setExecutable(true)
   assertIsFile(hijackedBloop)
 
-  override def test(name: String)(fun: => Any): Unit = {
-    val newCwd = AbsolutePath(Files.createTempDirectory("cwd-test"))
-    val newHome = AbsolutePath(Files.createTempDirectory("home-test"))
+  private def isStable(bloopVersion: String): Boolean = !bloopVersion.contains("-")
+  private def shouldSkipTestSuite(bloopVersion: String): Boolean = {
+    import java.io.File
+    import java.io.IOException
+    try {
+      val f = new File(bloopInstallerURL.toURI())
+      val witnessInstalledFile = new File(f.getParentFile(), "installed.txt")
+      if (!witnessInstalledFile.exists()) true
+      else {
+        val contents = new String(
+          Files.readAllBytes(witnessInstalledFile.toPath),
+          StandardCharsets.UTF_8
+        )
 
-    val newFun = () => {
-      try {
-        System.setProperty("user.dir", newCwd.syntax)
-        System.setProperty("user.home", newHome.syntax)
-        fun
-      } finally {
-        stopServer(complainIfError = true)
-        System.setProperty("user.dir", oldCwd.syntax)
-        System.setProperty("user.home", oldHomeDir.syntax)
-        ()
+        !contents.contains(bloopVersion)
       }
+    } catch {
+      // URL is not a file, so it's GitHub hosted for a stable version
+      case _: IllegalArgumentException => false
     }
+  }
 
-    super.test(name)(newFun())
+  val skipTestSuite = shouldSkipTestSuite(bloopVersion)
+  override def test(name: String)(fun: => Any): Unit = {
+    if (skipTestSuite) {
+      super.ignore(name)(fun)
+    } else {
+      val newCwd = AbsolutePath(Files.createTempDirectory("cwd-test"))
+      val newHome = AbsolutePath(Files.createTempDirectory("home-test"))
+
+      val newFun = () => {
+        try {
+          stopServer(complainIfError = false)
+          System.setProperty("user.dir", newCwd.syntax)
+          System.setProperty("user.home", newHome.syntax)
+          fun
+        } finally {
+          stopServer(complainIfError = true)
+          System.setProperty("user.dir", oldCwd.syntax)
+          System.setProperty("user.home", oldHomeDir.syntax)
+          ()
+        }
+      }
+
+      super.test(name)(newFun())
+    }
   }
 
   private def stopServer(complainIfError: Boolean): Unit = {
@@ -160,7 +191,16 @@ abstract class LauncherBaseSuite(
     val baos = new ByteArrayOutputStream()
     val ps = new PrintStream(baos, true, "UTF-8")
     val port = Some(bloopServerPort)
-    val launcher = new LauncherMain(in, out, ps, StandardCharsets.UTF_8, shell, port, startedServer)
+    val launcher = new LauncherMain(
+      in,
+      out,
+      ps,
+      StandardCharsets.UTF_8,
+      shell,
+      port,
+      startedServer,
+      _ => bloopInstallerURL
+    )
     val run = new LauncherRun(launcher, baos)
 
     import monix.execution.misc.NonFatal
@@ -358,8 +398,14 @@ abstract class LauncherBaseSuite(
   }
 
   def installpyURL(version: String): java.net.URL = {
-    new java.net.URL(
-      s"https://github.com/scalacenter/bloop/releases/download/v${version}/install.py"
-    )
+    // Assumes non-stable releases will always have a dash inside its version
+    if (isStable(version)) {
+      // Use GitHub-hosted installation script for stable releases
+      new java.net.URL(
+        s"https://github.com/scalacenter/bloop/releases/download/v${version}/install.py"
+      )
+    } else {
+      BuildTestInfo.versionedInstallScript.toPath.toUri().toURL()
+    }
   }
 }
