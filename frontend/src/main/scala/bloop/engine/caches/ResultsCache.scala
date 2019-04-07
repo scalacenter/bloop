@@ -130,7 +130,7 @@ object ResultsCache {
                       val classesDir = classesDirFile.toPath
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
-                      val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath, originHash)
+                      val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath)
                       import bloop.CompileBackgroundTasks
                       val dummyTasks = CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)

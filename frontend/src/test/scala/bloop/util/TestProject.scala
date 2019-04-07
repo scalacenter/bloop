@@ -41,6 +41,19 @@ final case class TestProject(
     bsp.BuildTargetIdentifier(bsp.Uri(uri))
   }
 
+  def rewriteProject(
+      changeScala: Config.Scala => Config.Scala = identity[Config.Scala],
+      changeClasspath: List[Path] => List[Path] = identity[List[Path]]
+  ): TestProject = {
+    val newScala = changeScala(config.scala.get)
+    val newClasspath = changeClasspath(config.classpath)
+    val newConfig = config.copy(
+      classpath = newClasspath,
+      scala = Some(newScala)
+    )
+    new TestProject(newConfig, this.deps)
+  }
+
   def toJson: String = {
     bloop.config.toStr(
       Config.File.empty.copy(project = config)

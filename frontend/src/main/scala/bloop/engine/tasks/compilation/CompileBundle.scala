@@ -172,11 +172,14 @@ object CompileBundle {
           }
           javaSources.toList -> scalaSources.toList
         }
+        val scalacOptions = project.scalacOptions.toVector
+        val scalaJars = project.scalaInstance.toVector.flatMap(_.allJars.map(_.getAbsolutePath()))
         val inputs = CompilerOracle.Inputs(
           sourceHashes.toVector,
           classpathHashes.toVector,
-          originPath,
-          originHash
+          scalacOptions,
+          scalaJars,
+          originPath
         )
 
         new CompileBundle(
