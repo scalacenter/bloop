@@ -163,6 +163,7 @@ lazy val launcher: Project = project
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher",
+    parallelExecution in Test := false,
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
