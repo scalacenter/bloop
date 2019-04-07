@@ -97,7 +97,6 @@ object BuildKeys {
     Keys.testFrameworks += new sbt.TestFramework("utest.runner.Framework"),
     Keys.libraryDependencies ++= List(
       Dependencies.utest % Test,
-      Dependencies.scalatest % Test,
       Dependencies.pprint % Test
     )
   )

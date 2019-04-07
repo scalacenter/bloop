@@ -121,19 +121,6 @@ val jsonConfig212 = project
     }
   )
 
-lazy val launcher: Project = project
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(frontend % "test->test")
-  .settings(
-    name := "bloop-launcher",
-    libraryDependencies ++= List(
-      Dependencies.coursier,
-      Dependencies.coursierCache,
-      Dependencies.nuprocess,
-      Dependencies.ipcsocket
-    )
-  )
-
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
@@ -168,6 +155,20 @@ lazy val frontend: Project = project
       Dependencies.ipcsocket % Test
     ),
     dependencyOverrides += Dependencies.shapeless
+  )
+
+lazy val launcher: Project = project
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(frontend % "test->test")
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher",
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.nuprocess,
+      Dependencies.ipcsocket
+    )
   )
 
 val benchmarks = project
