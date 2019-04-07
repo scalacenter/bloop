@@ -70,9 +70,9 @@ val jsonConfig210 = project
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(
-        Dependencies.circeParser,
-        Dependencies.circeCore,
-        Dependencies.circeGeneric,
+        Dependencies.circeParser210,
+        Dependencies.circeCore210,
+        Dependencies.circeGeneric210,
         compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
         Dependencies.scalacheck % Test
       )

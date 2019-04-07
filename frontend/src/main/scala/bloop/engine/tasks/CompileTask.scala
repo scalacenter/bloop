@@ -93,12 +93,14 @@ object CompileTask {
 
       bundle.prepareSourcesAndInstance match {
         case Left(earlyResultBundle) =>
+          logger.debug(s"Early compile result for ${project.name}")
           val complete = CompileExceptions.CompletePromise(graphInputs.store)
           graphInputs.irPromise.completeExceptionally(complete)
           graphInputs.completeJava.complete(())
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
+          logger.debug(s"Obtained compilation sources and instance for ${project.name}")
           val readOnlyClassesDir = lastSuccessful.classesDir
           val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
           val compileOut = CompileOutPaths(

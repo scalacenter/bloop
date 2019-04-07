@@ -86,6 +86,10 @@ object Dependencies {
   val ipcsocket = "ch.epfl.scala" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
 
+  val circeDerivation210 = "io.circe" %% "circe-derivation" % "0.9.3-M1"
+  val circeParser210 = "io.circe" %% "circe-parser" % "0.9.3"
+  val circeCore210 = "io.circe" %% "circe-core" % "0.9.3"
+
   val circeDerivation = "io.circe" %% "circe-derivation" % "0.11.0-M1"
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion

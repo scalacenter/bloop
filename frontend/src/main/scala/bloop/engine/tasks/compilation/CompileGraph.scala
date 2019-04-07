@@ -272,8 +272,10 @@ object CompileGraph {
         val ongoingCompilationTask =
           ongoingCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
-        val deduplicateStreamSideEffectsHandle =
-          replayEventsTask.runToFuture(ExecutionContext.ioScheduler)
+        val deduplicateStreamSideEffectsHandle = {
+          val opts = Task.defaultOptions.disableAutoCancelableRunLoops
+          replayEventsTask.runToFutureOpt(ExecutionContext.ioScheduler, opts)
+        }
 
         /**
          * Deduplicate and change the implementation of the task returning the

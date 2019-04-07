@@ -72,24 +72,7 @@ final class SourceWatcher private (
       .logger(slf4jLogger)
       .listener(listener)
       .fileHashing(true)
-      .build();
-
-    // Use Java's completable future because we can stop/complete it from the cancelable
-    val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
-    val watchController = Task {
-      try watcherHandle.get()
-      finally watcher.close()
-      logger.debug("File watcher was successfully closed")
-    }
-
-    val watchCancellation = Cancelable { () =>
-      watchingEnabled = false
-      watcherHandle.complete(null)
-      observer.onComplete()
-      ngout.println(
-        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled"
-      )
-    }
+      .build()
 
     import SourceWatcher.EventStream
     @volatile var currentState: State = state0
@@ -118,6 +101,20 @@ final class SourceWatcher private (
       }
     }
 
+    // Use Java's completable future because we can stop/complete it from the cancelable
+    var watchCancellation: Cancelable = Cancelable.empty
+    val startWatcher = Task {
+      val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
+      watchCancellation = Cancelable { () =>
+        watchingEnabled = false
+        watcherHandle.complete(null)
+        observer.onComplete()
+        ngout.println(
+          s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled"
+        )
+      }
+    }
+
     /*
      * We capture events during a time window of 20ms to give time to the OS to
      * give us all of the modifications to files. After that, we trigger the
@@ -129,6 +126,7 @@ final class SourceWatcher private (
      */
     import bloop.util.monix.BloopBufferTimedObservable
     new BloopBufferTimedObservable(observable, FiniteDuration(20, "ms"))
+      .doAfterSubscribe(startWatcher)
       .map(es => EventStream.SourceChanges(es))
       .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
       .consumeWith(fileEventConsumer)

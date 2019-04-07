@@ -30,7 +30,7 @@ object SourceHasher {
   ): Task[List[CompilerOracle.HashedSource]] = {
     val sourceFilesAndDirectories = project.sources.distinct
     val (observer, observable) = Observable.multicast[Path](
-      MulticastStrategy.publish
+      MulticastStrategy.replay
     )(ExecutionContext.ioScheduler)
 
     val discovery = new FileVisitor[Path] {

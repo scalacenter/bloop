@@ -106,7 +106,8 @@ object ResultsCache {
     new ResultsCache(Map.empty, Map.empty)
 
   def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
-    val handle = loadAsync(build, cwd, logger).runToFuture(ExecutionContext.ioScheduler)
+    val opts = Task.defaultOptions.disableAutoCancelableRunLoops
+    val handle = loadAsync(build, cwd, logger).runToFutureOpt(ExecutionContext.ioScheduler, opts)
     Await.result(handle, Duration.Inf)
   }
 

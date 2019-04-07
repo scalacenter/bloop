@@ -858,7 +858,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compiler plugins are cached automatically") {
+  ignore("compiler plugins are cached automatically") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         // A slight modification of the original `App.scala` to trigger incremental compilation
@@ -931,7 +931,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("check that we report rich diagnostics in the CLI when -Yrangepos") {
+  ignore("check that we report rich diagnostics in the CLI when -Yrangepos") {
     // From https://github.com/scalacenter/bloop/issues/787
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -975,7 +975,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("check positions reporting in adjacent diagnostics") {
+  ignore("check positions reporting in adjacent diagnostics") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =

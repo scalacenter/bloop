@@ -253,7 +253,10 @@ object Compiler {
             )
           } else {
             // Delete all compilation products generated in the new classes directory
-            val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
+            val deleteNewDir = Task.evalAsync {
+              BloopPaths.delete(AbsolutePath(newClassesDir))
+              ()
+            }.memoize
             backgroundTasksForFailedCompilation.+=(
               (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
                 clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
@@ -263,7 +266,7 @@ object Compiler {
             backgroundTasksForFailedCompilation.+=(
               (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
                 clientTracer.traceTask("populate external classes dir as it's empty") { _ =>
-                  Task {
+                  Task.evalAsync {
                     if (!BloopPaths.isDirectoryEmpty(clientExternalClassesDir)) Task.unit
                     else {
                       if (BloopPaths.isDirectoryEmpty(compileOut.internalReadOnlyClassesDir)) {
@@ -342,10 +345,11 @@ object Compiler {
     }
 
     def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
+      val opts = Task.defaultOptions.disableAutoCancelableRunLoops
       Task
         .gatherUnordered(tasks)
         .map(_ => ())
-        .runToFuture(compileInputs.ioScheduler)
+        .runToFutureOpt(compileInputs.ioScheduler, opts)
     }
 
     val start = System.nanoTime()

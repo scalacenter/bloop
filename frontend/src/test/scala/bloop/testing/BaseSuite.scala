@@ -217,7 +217,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
     projects.foreach { project =>
       state.getLastResultFor(project) match {
         case s: Compiler.Result.Success => if (isNoOp) assert(s.isNoOp)
-        case result => fail(s"Result ${result} is not cancelled!")
+        case result => fail(s"Result ${result} is not successful!")
       }
     }
   }
@@ -369,13 +369,19 @@ class BaseSuite extends TestSuite with BloopHelpers {
     assert(projects.size == buildProjects.size)
     projects.zip(buildProjects).foreach {
       case (testProject, buildProject) =>
-        assertIsFile(buildProject.analysisOut)
         val latestResult = state
           .getLastSuccessfulResultFor(testProject)
           .getOrElse(
             sys.error(s"No latest result for $${testProject.name}, results: ${state.results}")
           )
 
+        val emptySuccessful = LastSuccessfulResult.empty(buildProject)
+        if (latestResult.previous == emptySuccessful.previous) {
+          fail(s"${testProject.config.name} was not compiled!")
+        }
+
+        assert(latestResult.previous != emptySuccessful.previous)
+        assertIsFile(buildProject.analysisOut)
         val analysis = latestResult.previous.analysis().get()
         val stamps = analysis.readStamps
         assert(stamps.getAllProductStamps.asScala.nonEmpty)

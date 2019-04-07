@@ -117,11 +117,12 @@ object BspServer {
         }
 
         // Run deletion of client external classes directories in IO pool
+        val opts = Task.defaultOptions.disableAutoCancelableRunLoops
         Task
           .gatherUnordered(deleteExternalDirsTask)
           .materialize
           .map(_ => ())
-          .runToFuture(ExecutionContext.ioScheduler)
+          .runAsyncAndForgetOpt(ExecutionContext.ioScheduler, opts)
 
         // Close any socket communication asap
         try socket.close()

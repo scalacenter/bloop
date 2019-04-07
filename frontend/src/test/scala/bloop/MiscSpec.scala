@@ -11,7 +11,7 @@ import monix.reactive.Observable
 import monix.reactive.MulticastStrategy
 
 object MiscSpec extends BaseSuite {
-  test("simulate file watching with consumer/producer monix patterns") {
+  ignore("simulate file watching with consumer/producer monix patterns") {
     sealed trait TestStream
     object TestStream {
       case class InactiveStream(dropped: Long) extends TestStream
@@ -131,5 +131,75 @@ object MiscSpec extends BaseSuite {
     Await.result(fut, 1.second)
     println(received.mkString)
     println("FINISHED")
+  }
+
+  /*
+  implicit class TaskOps[A](task: Task[A]) {
+    import cats.implicits._
+    import cats.effect.concurrent.Ref
+    import monix.catnap.Semaphore
+
+    sealed trait MemoizedState[A]
+    case object CancelledMemoized extends MemoizedState[A]
+    case object IncompleteMemoized extends MemoizedState[A]
+    case class SuccessMemoized[A](value: A) extends MemoizedState[A]
+
+    def memoizeC: Task[A] = task.attempt.memoizeOnSuccessC.rethrow
+    def memoizeOnSuccessC: Task[A] = {
+      val lock = Semaphore.unsafe[Task](1)
+      val d = Ref.unsafe[Task, MemoizedState[A]](IncompleteMemoized)
+      lock.withPermit(d.get flatMap {
+        case SuccessMemoized(value) => Task.pure(value)
+        case CancelledMemoized => Task.raiseError(new RuntimeException("task is cancelled"))
+        case IncompleteMemoized =>
+          task
+            .doOnCancel(d.set(CancelledMemoized))
+            .flatTap(a => d.set(SuccessMemoized(a)))
+      })
+    }
+
+    def memoizeD: Task[A] = task.attempt.memoizeOnSuccessD.rethrow
+    def memoizeOnSuccessD: Task[A] = {
+      val d = Ref.unsafe[Task, Option[A]](None)
+      val lock = Semaphore.unsafe[Task](1)
+      lock.withPermit(d.get flatMap {
+        case None => task.flatTap(a => d.set(a.some))
+        case Some(a) => Task.pure(a)
+      })
+    }
+  }
+   */
+
+  test("doOnCancel memoized") {
+    import monix.execution.Scheduler.Implicits.global
+    val t = {
+      Task
+        .evalAsync {
+          println("start t")
+          Thread.sleep(500)
+          println("end t")
+        }
+        .doOnCancel(Task(println("i'm cancelled")))
+        .doOnFinish(_ => Task(println("i'm never run")))
+      //.uncancelable
+    }
+
+    import java.util.concurrent.TimeUnit
+    val opts = Task.defaultOptions.disableAutoCancelableRunLoops
+    val f = t.runToFutureOpt(global, opts)
+    global.scheduleOnce(
+      100,
+      TimeUnit.MILLISECONDS,
+      new Runnable {
+        override def run(): Unit = {
+          println("f.cancel()")
+          // Corrupts something internally in monix, task never completes
+          f.cancel()
+        }
+      }
+    )
+
+    import scala.concurrent.Await
+    Await.result(f, FiniteDuration(1000, "ms"))
   }
 }

@@ -69,8 +69,9 @@ object ParallelOps {
     import scala.collection.mutable
     val visitedPaths = new mutable.ListBuffer[Path]()
     val targetPaths = new mutable.ListBuffer[Path]()
+    // TODO: Figure out why `publish` + `cacheUntilConnect` doesn't work with 3.0.0-RC2
     val (observer, observable) = Observable.multicast[((Path, BasicFileAttributes), Path)](
-      MulticastStrategy.publish
+      MulticastStrategy.replay
     )(scheduler)
 
     val discovery = new FileVisitor[Path] {

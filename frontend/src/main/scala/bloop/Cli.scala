@@ -311,6 +311,7 @@ object Cli {
       userArgs: Array[String],
       cancel: CompletableFuture[java.lang.Boolean] = FalseCancellation
   )(taskState: Task[State]): ExitStatus = {
+    val opts = Task.defaultOptions.disableAutoCancelableRunLoops
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
       val elapsed = (System.nanoTime() - since).toDouble / 1e6
@@ -324,7 +325,7 @@ object Cli {
         .flatMap(start => taskState.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
         .dematerialize
-        .runToFuture(ExecutionContext.scheduler)
+        .runToFutureOpt(ExecutionContext.scheduler, opts)
 
     if (!cancel.isDone) {
       // Add support for a client to cancel bloop via Java's completable future
@@ -339,7 +340,7 @@ object Cli {
             handle.cancel()
           } else ()
         }
-        .runToFuture(ExecutionContext.scheduler)
+        .runToFutureOpt(ExecutionContext.scheduler, opts)
     }
 
     def handleException(t: Throwable) = {
