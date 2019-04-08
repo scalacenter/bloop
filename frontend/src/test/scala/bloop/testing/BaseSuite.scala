@@ -448,21 +448,35 @@ class BaseSuite extends TestSuite with BloopHelpers {
     import java.nio.file.StandardOpenOption
     val body = Try(TestUtil.parseFile(contents)).map(_.contents).getOrElse(contents)
 
-    // Delete the file, there are weird issues when creating new files and
-    // SYNCING for existing files in macOS, so it's just better to remove this
-    if (Files.exists(path.underlying)) {
-      Files.delete(path.underlying)
+    // Running this piece in Windows can produce spurious `AccessDeniedException`s
+    if (!bloop.util.CrossPlatform.isWindows) {
+      // Delete the file, there are weird issues when creating new files and
+      // SYNCING for existing files in macOS, so it's just better to remove this
+      if (Files.exists(path.underlying)) {
+        Files.delete(path.underlying)
+      }
+
+      AbsolutePath(
+        Files.write(
+          path.underlying,
+          body.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.CREATE_NEW,
+          StandardOpenOption.SYNC,
+          StandardOpenOption.WRITE
+        )
+      )
+    } else {
+      AbsolutePath(
+        Files.write(
+          path.underlying,
+          body.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.TRUNCATE_EXISTING,
+          StandardOpenOption.SYNC,
+          StandardOpenOption.WRITE
+        )
+      )
     }
 
-    AbsolutePath(
-      Files.write(
-        path.underlying,
-        body.getBytes(StandardCharsets.UTF_8),
-        StandardOpenOption.CREATE_NEW,
-        StandardOpenOption.SYNC,
-        StandardOpenOption.WRITE
-      )
-    )
   }
 
   import monix.execution.CancelableFuture

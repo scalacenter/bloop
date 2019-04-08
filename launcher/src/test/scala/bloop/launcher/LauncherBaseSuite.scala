@@ -341,8 +341,8 @@ abstract class LauncherBaseSuite(
     try {
       import scala.concurrent.Await
       import scala.concurrent.duration.FiniteDuration
-      TestUtil.await(FiniteDuration(25, "s"))(connectToServer)
-      Await.result(runServer, FiniteDuration(5, "s"))
+      TestUtil.await(FiniteDuration(30, "s"))(connectToServer)
+      Await.result(runServer, FiniteDuration(10, "s"))
       captureLogs
     } catch {
       case NonFatal(t) =>
