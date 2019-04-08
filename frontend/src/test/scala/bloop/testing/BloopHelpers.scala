@@ -93,7 +93,7 @@ trait BloopHelpers {
       }
     }
 
-    TestUtil.await(FiniteDuration(5, "s")) {
+    TestUtil.await(FiniteDuration(12, "s")) {
       loadFromNewWorkspace
     }
   }
