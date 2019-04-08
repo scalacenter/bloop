@@ -470,6 +470,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
         Files.write(
           path.underlying,
           body.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.CREATE,
           StandardOpenOption.TRUNCATE_EXISTING,
           StandardOpenOption.SYNC,
           StandardOpenOption.WRITE
