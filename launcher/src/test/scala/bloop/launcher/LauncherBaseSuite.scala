@@ -93,6 +93,8 @@ abstract class LauncherBaseSuite(
           stopServer(complainIfError = true)
           System.setProperty("user.dir", oldCwd.syntax)
           System.setProperty("user.home", oldHomeDir.syntax)
+          Paths.delete(newCwd)
+          Paths.delete(newHome)
           ()
         }
       }

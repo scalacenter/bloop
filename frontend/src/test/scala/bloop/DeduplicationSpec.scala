@@ -180,7 +180,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(1, TimeUnit.SECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
@@ -579,7 +579,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val fourthCompilation = thirdCompiledState.withLogger(cliLogger4).compileHandle(`B`)
         val fifthCompilation =
-          thirdCompiledState.withLogger(cliLogger5).compileHandle(`B`, secondDelay)
+          thirdCompiledState.withLogger(cliLogger5).compileHandle(`B`, firstDelay)
         val sixthCompilation = bspState.compileHandle(`B`, firstDelay)
 
         val fourthCompiledState =
