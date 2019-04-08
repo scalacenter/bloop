@@ -87,31 +87,48 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compile a project incrementally sourcing from an analysis file") {
+  test("compile build incrementally sourcing from an analysis file") {
     TestUtil.withinWorkspace { workspace =>
-      val sources = List(
-        """/main/scala/Foo.scala
-          |class Foo
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |class A
           """.stripMargin
-      )
+        val `B.scala` =
+          """/B.scala
+            |class B extends A
+          """.stripMargin
+      }
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val `A` = TestProject(workspace, "a", sources)
-      val projects = List(`A`)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val `B` = TestProject(workspace, "b", List(Sources.`B.scala`), List(`A`))
+      val projects = List(`A`, `B`)
       val state = loadState(workspace, projects, logger)
-      val compiledState = state.compile(`A`)
+      val compiledState = state.compile(`B`)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
       // This state loads the previous analysis from the persisted file
       val independentLogger = new RecordingLogger(ansiCodesSupported = false)
       val independentState = loadState(workspace, projects, independentLogger)
-      assertSuccessfulCompilation(independentState, List(`A`), isNoOp = false)
+      independentState.results.successful.foreach {
+        case (p, result) =>
+          pprint.log(p)
+          import bloop.util.JavaCompat.EnrichOptional
+          import scala.collection.JavaConverters._
+          result.previous.analysis().toOption.foreach { a =>
+            pprint.log(a.readSourceInfos().getAllSourceInfos().asScala.toMap)
+          }
+      }
+
+      independentLogger.dump()
+      assertSuccessfulCompilation(independentState, projects, isNoOp = false)
 
       // Assert that it's a no-op even if we sourced from the analysis
-      val secondCompiledState = independentState.compile(`A`)
+      val secondCompiledState = independentState.compile(`B`)
       assert(secondCompiledState.status == ExitStatus.Ok)
-      assertSuccessfulCompilation(secondCompiledState, List(`A`), isNoOp = true)
+      assertSuccessfulCompilation(secondCompiledState, projects, isNoOp = true)
       assertValidCompilationState(secondCompiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(secondCompiledState, projects)

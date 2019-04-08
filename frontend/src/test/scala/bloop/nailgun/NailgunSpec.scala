@@ -98,7 +98,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       assertNoErrors(logger)
       assertNoDiff(
         logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
-        """|simple-build
+        """|a
+           |a-test
+           |b
+           |b-test
+           |simple-build
            |simple-build-test
            |""".stripMargin
       )
@@ -117,7 +121,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       assertNoErrors(logger)
       assertNoDiff(
         logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
-        """|simple-build
+        """|a
+           |a-test
+           |b
+           |b-test
+           |simple-build
            |simple-build-test
            |""".stripMargin
       )
@@ -147,10 +155,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
 
   test("nailgun compile works in simple build") {
     withServerInProject { (logger, client) =>
-      client.expectSuccess("clean", "simple-build")
-      client.expectSuccess("compile", "simple-build")
-      client.expectSuccess("clean", "-p", "simple-build")
-      client.expectSuccess("compile", "-p", "simple-build")
+      client.expectSuccess("clean", "b", "--propagate")
+      client.expectSuccess("compile", "b")
+      client.expectSuccess("clean", "-p", "b", "--propagate")
+      client.expectSuccess("compile", "-p", "b")
       assertNoErrors(logger)
       assertNoDiff(
         logger.captureTimeInsensitiveInfos
@@ -160,24 +168,31 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
                 .startsWith(" Compilation completed in")
           )
           .mkString(System.lineSeparator()),
-        """|Compiling simple-build (1 Scala source)
-           |Compiled simple-build ???ms
-           |Compiling simple-build (1 Scala source)
-           |Compiled simple-build ???ms
+        """|Compiling a (1 Scala source)
+           |Compiled a ???ms
+           |Compiling b (1 Scala source)
+           |Compiled b ???ms
+           |Compiling a (1 Scala source)
+           |Compiled a ???ms
+           |Compiling b (1 Scala source)
+           |Compiled b ???ms
            |""".stripMargin
       )
     }
 
     val newLogger = new RecordingLogger(ansiCodesSupported = false)
     withServer(configDir, false, newLogger) { (logger, client) =>
-      val configFile = configDir.resolve("simple-build.json")
+      // Add change to configuration file of project
+      val configFile = configDir.resolve("b.json")
       val jsonContents = new String(Files.readAllBytes(configFile), UTF_8)
       val newContents = jsonContents + " "
       Files.write(configFile, newContents.getBytes(UTF_8))
 
       // Checks new nailgun session still produces a no-op compilation
-      client.expectSuccess("compile", "simple-build")
+      client.expectSuccess("compile", "b")
       assertNoDiff(newLogger.captureTimeInsensitiveInfos.mkString(System.lineSeparator()), "")
+      newLogger.dump()
+      newLogger.dump()
     }
   }
 
@@ -185,7 +200,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
     // Make sure that we never end up with a background nailgun server running
     val cwd = Paths.get(System.getProperty("user.dir"))
     val client = Client(super.TEST_PORT, new RecordingLogger(), cwd)
-    val process = client.issueAsProcess("shutdown")
+    val process = client.issueAsProcess("exit")
     process.waitFor(1, TimeUnit.SECONDS)
 
     bloop.io.Paths.delete(workspace)

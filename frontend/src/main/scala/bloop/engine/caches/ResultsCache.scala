@@ -131,11 +131,14 @@ object ResultsCache {
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
                       val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath)
-                      import bloop.CompileBackgroundTasks
-                      val dummyTasks = CompileBackgroundTasks.empty
+                      val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
                       val products = CompileProducts(classesDir, classesDir, r, r, Set.empty)
+                      println(
+                        p.name + ": " +
+                          LastSuccessfulResult(inputs, products, Task.now(())).previous.toString
+                      )
                       ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false),
                         Some(LastSuccessfulResult(inputs, products, Task.now(()))),
@@ -169,8 +172,8 @@ object ResultsCache {
 
     val all = build.projects.map(p => fetchPreviousResult(p).map(r => p -> r))
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
-      val cache = new ResultsCache(Map.empty, Map.empty)
-      projectResults.foldLeft(cache) {
+      val newCache = new ResultsCache(Map.empty, Map.empty)
+      projectResults.foldLeft(newCache) {
         case (rs, (p, r)) => rs.addResult(p, r)
       }
     }

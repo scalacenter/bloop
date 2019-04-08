@@ -133,6 +133,9 @@ object CompileTask {
               )
           }
 
+          logger.info(lastSuccessful.previous.toString)
+          logger.info(state.results.successful.get(project).map(_.previous).toString)
+
           val inputs = newScalacOptions.map { newScalacOptions =>
             CompileInputs(
               instance,
@@ -230,15 +233,16 @@ object CompileTask {
       // Compute the previous and last successful results from the results cache
       val (prev, last) = {
         import inputs.project
-        // The last successful result is picked in [[CompileGraph]], doesn't
-        // come from the results cache, which is only used to populate result
-        val clientLastSuccessful = LastSuccessfulResult.empty(project)
         if (pipeline) {
+          val emptySuccessful = LastSuccessfulResult.empty(project)
           // Disable incremental compilation if pipelining is enabled
-          Compiler.Result.Empty -> clientLastSuccessful
+          Compiler.Result.Empty -> emptySuccessful
         } else {
+          // Use last successful from user cache, only useful if this is its first
+          // compilation, otherwise we use the last successful from [[CompileGraph]]
           val latestResult = state.results.latestResult(project)
-          latestResult -> clientLastSuccessful
+          val lastSuccessful = state.results.lastSuccessfulResultOrEmpty(project)
+          latestResult -> lastSuccessful
         }
       }
 

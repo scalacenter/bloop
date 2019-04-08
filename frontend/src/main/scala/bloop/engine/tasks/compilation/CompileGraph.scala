@@ -176,23 +176,34 @@ object CompileGraph {
           val mostRecentSuccessful = {
             val result = lastSuccessfulResults.compute(
               inputs.project.uniqueId,
-              (_: String, current: LastSuccessfulResult) => {
-                if (current != null) {
-                  // Register that we're using this classes directory in a thread-safe way
-                  val counter0 = AtomicInt(1)
-                  val counter = currentlyUsedClassesDirs.putIfAbsent(current.classesDir, counter0)
-                  if (counter == null) () else counter.increment(1)
-                }
-                // We continue with whatever value we receive
+              (_: String, current0: LastSuccessfulResult) => {
+                // Pick result in map or successful from bundle if it's first compilation in server
+                val current = Option(current0).getOrElse(bundle.lastSuccessful)
+                // Register that we're using this classes directory in a thread-safe way
+                val counter0 = AtomicInt(1)
+                val counter = currentlyUsedClassesDirs.putIfAbsent(current.classesDir, counter0)
+                if (counter == null) () else counter.increment(1)
                 current
               }
             )
 
-            if (result != null && !result.classesDir.exists) {
+            val projectName = inputs.project.name
+            if (!result.classesDir.exists) {
+              logger.debug(
+                s"Ignoring analysis for ${projectName}, directory ${result.classesDir} is missing"
+              )
               LastSuccessfulResult.empty(inputs.project)
-            } else if (bundle.latestResult != Compiler.Result.Empty && result != null) {
+            } else if (bundle.latestResult != Compiler.Result.Empty) {
+              logger.debug(
+                s"Using successful analysis for ${projectName} associated with ${result.classesDir}"
+              )
               result
-            } else LastSuccessfulResult.empty(inputs.project)
+            } else {
+              logger.debug(
+                s"Ignoring existing analysis for ${projectName}, last result was empty"
+              )
+              LastSuccessfulResult.empty(inputs.project)
+            }
           }
 
           val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
