@@ -19,8 +19,9 @@ object CompilerOracle {
   case class Inputs(
       sources: Vector[HashedSource],
       classpath: Vector[FileHash],
-      originProjectPath: String,
-      originProjectHash: Int
+      options: Vector[String],
+      scalaJars: Vector[String],
+      originProjectPath: String
   ) extends CacheHashCode {
 
     /**
@@ -31,10 +32,11 @@ object CompilerOracle {
      */
     override lazy val hashCode: Int = {
       import scala.util.hashing.MurmurHash3
-      val initialHashCode = originProjectHash.hashCode
-      val sourcesHashCode = MurmurHash3.unorderedHash(sources, initialHashCode)
+      val sourcesHashCode = MurmurHash3.unorderedHash(sources, 0)
       val classpathHashCode = MurmurHash3.unorderedHash(classpath, sourcesHashCode)
-      MurmurHash3.stringHash(originProjectPath, classpathHashCode)
+      val optionsHashCode = MurmurHash3.unorderedHash(options, classpathHashCode)
+      val scalaJarsHashCode = MurmurHash3.unorderedHash(scalaJars, optionsHashCode)
+      MurmurHash3.stringHash(originProjectPath, scalaJarsHashCode)
     }
 
     override def equals(other: Any): Boolean = {
@@ -46,8 +48,8 @@ object CompilerOracle {
   }
 
   object Inputs {
-    def emptyFor(originPath: String, projectHash: Int): Inputs = {
-      Inputs(Vector.empty, Vector.empty, originPath, projectHash)
+    def emptyFor(originPath: String): Inputs = {
+      Inputs(Vector.empty, Vector.empty, Vector.empty, Vector.empty, originPath)
     }
   }
 }

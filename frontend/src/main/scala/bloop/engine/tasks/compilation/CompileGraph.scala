@@ -18,6 +18,7 @@ import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore, CompileProduc
 import bloop.engine.caches.LastSuccessfulResult
 
 import monix.eval.Task
+import monix.execution.atomic.AtomicInt
 import monix.execution.CancelableFuture
 import monix.reactive.{Observable, MulticastStrategy}
 import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
@@ -127,15 +128,14 @@ object CompileGraph {
 
   type RunningCompilationsInAllClients =
     ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]
+
   private val runningCompilations: RunningCompilationsInAllClients =
     new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
 
-  private val lastSuccessfulResults =
-    new ConcurrentHashMap[Project, LastSuccessfulResult]()
+  type ProjectId = String
+  private val lastSuccessfulResults = new ConcurrentHashMap[ProjectId, LastSuccessfulResult]()
 
-  import monix.execution.atomic.AtomicInt
-  private val currentlyUsingDirectories =
-    new ConcurrentHashMap[AbsolutePath, AtomicInt]()
+  private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
 
   private val emptyOracle = ImmutableCompilerOracle.empty()
 
@@ -175,12 +175,12 @@ object CompileGraph {
           // Replace client-specific last successful with the most recent result
           val mostRecentSuccessful = {
             val result = lastSuccessfulResults.compute(
-              inputs.project,
-              (_: Project, current: LastSuccessfulResult) => {
+              inputs.project.uniqueId,
+              (_: String, current: LastSuccessfulResult) => {
                 if (current != null) {
                   // Register that we're using this classes directory in a thread-safe way
                   val counter0 = AtomicInt(1)
-                  val counter = currentlyUsingDirectories.putIfAbsent(current.classesDir, counter0)
+                  val counter = currentlyUsedClassesDirs.putIfAbsent(current.classesDir, counter0)
                   if (counter == null) () else counter.increment(1)
                 }
                 // We continue with whatever value we receive
@@ -348,7 +348,7 @@ object CompileGraph {
       // If error in result, remove from running compilation and decrement use
       runningCompilations.remove(oinputs)
       val classesDirOfFailedResult = previous.classesDir
-      Option(currentlyUsingDirectories.get(classesDirOfFailedResult))
+      Option(currentlyUsedClassesDirs.get(classesDirOfFailedResult))
         .foreach(counter => counter.decrement(1))
     }
 
@@ -421,11 +421,11 @@ object CompileGraph {
       oracleInputs,
       (_: CompilerOracle.Inputs, _: RunningCompilation) => {
         lastSuccessfulResults.compute(
-          project,
-          (_: Project, previous: LastSuccessfulResult) => {
+          project.uniqueId,
+          (_: String, previous: LastSuccessfulResult) => {
             if (previous != null) {
               val previousClassesDir = previous.classesDir
-              val counter = currentlyUsingDirectories.get(previousClassesDir)
+              val counter = currentlyUsedClassesDirs.get(previousClassesDir)
               val toDelete = counter == null || {
                 // Decrement has to happen within the compute function
                 val currentCount = counter.decrementAndGet(1)

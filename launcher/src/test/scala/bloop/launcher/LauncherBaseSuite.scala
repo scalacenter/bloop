@@ -93,6 +93,8 @@ abstract class LauncherBaseSuite(
           stopServer(complainIfError = true)
           System.setProperty("user.dir", oldCwd.syntax)
           System.setProperty("user.home", oldHomeDir.syntax)
+          Paths.delete(newCwd)
+          Paths.delete(newHome)
           ()
         }
       }
@@ -128,10 +130,15 @@ abstract class LauncherBaseSuite(
 
   import java.{util => ju}
   private def prependToPath(newEntry: String): Unit = {
+    import java.io.File
+    import bloop.util.CrossPlatform
+    val pathVariableName = if (CrossPlatform.isWindows) "Path" else "PATH"
     val ourEnv = System.getenv().asScala.toMap
-    val currentPath = ourEnv.get("PATH").getOrElse(sys.error("No PATH in env!"))
-    val newPath = newEntry + ":" + currentPath
-    changeEnvironment((ourEnv + ("PATH" -> newPath)).asJava)
+    val currentPath = ourEnv
+      .get(pathVariableName)
+      .getOrElse(sys.error(s"No $pathVariableName in env!"))
+    val newPath = newEntry + File.pathSeparator + currentPath
+    changeEnvironment((ourEnv + (pathVariableName -> newPath)).asJava)
   }
 
   private def changeEnvironment(newEnv: ju.Map[String, String]): Unit = {
@@ -334,8 +341,8 @@ abstract class LauncherBaseSuite(
     try {
       import scala.concurrent.Await
       import scala.concurrent.duration.FiniteDuration
-      TestUtil.await(FiniteDuration(25, "s"))(connectToServer)
-      Await.result(runServer, FiniteDuration(5, "s"))
+      TestUtil.await(FiniteDuration(30, "s"))(connectToServer)
+      Await.result(runServer, FiniteDuration(10, "s"))
       captureLogs
     } catch {
       case NonFatal(t) =>

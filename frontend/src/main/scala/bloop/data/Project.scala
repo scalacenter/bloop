@@ -60,7 +60,7 @@ final case class Project(
     case Config.ScalaThenJava => CompileOrder.ScalaThenJava
   }
 
-  val uniqueId = s"${origin.path}#${name}"
+  val uniqueId = s"${origin.path.syntax}#${name}"
   override def toString: String = s"$name"
   override val hashCode: Int =
     ByteHasher.hashBytes(uniqueId.getBytes(StandardCharsets.UTF_8))

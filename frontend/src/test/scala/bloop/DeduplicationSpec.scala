@@ -180,7 +180,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(1, TimeUnit.SECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
@@ -321,43 +321,58 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       val bspLogger = new RecordingLogger(ansiCodesSupported = false)
       val cliLogger = new RecordingLogger(ansiCodesSupported = false)
 
+      object Sources {
+        val `User2.scala` =
+          """/main/scala/User2.scala
+            |package user
+            |
+            |object User2 extends App {
+            |  // Should report warning with -Ywarn-numeric-widen
+            |  val i: Long = 1.toInt
+            |  macros.SleepMacro.sleep()
+            |}
+          """.stripMargin
+      }
+
+      writeFile(build.userProject.srcFor("/main/scala/User2.scala"), Sources.`User2.scala`)
       loadBspState(build.workspace, projects, bspLogger) { bspState =>
         val firstCompilation = bspState.compileHandle(build.userProject)
-        val firstCliCompilation = {
-          /*
-          val changeUserDefinition = Task {
-            val userConfig = build.userProject.config
-            userConfig.writeFile(testBuild.configFileFor(build.userProject))
-          }
-           */
 
+        val changeOpts = (s: Config.Scala) => s.copy(options = "-Ywarn-numeric-widen" :: s.options)
+        val newFutureProject = build.userProject.rewriteProject(changeOpts)
+
+        val firstCliCompilation = {
           compiledMacrosState
             .withLogger(cliLogger)
             .compileHandle(
               build.userProject,
-              Some(FiniteDuration(2, TimeUnit.SECONDS))
+              Some(FiniteDuration(2, TimeUnit.SECONDS)),
+              beforeTask = Task {
+                // Write config file before forcing second compilation
+                reloadWithNewProject(newFutureProject, compiledMacrosState).withLogger(cliLogger)
+              }
             )
         }
 
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(10, TimeUnit.SECONDS))
         val firstCliCompiledState =
-          Await.result(firstCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
+          Await.result(firstCliCompilation, FiniteDuration(10, TimeUnit.SECONDS))
 
         assert(firstCompiledState.status == ExitStatus.Ok)
         assert(firstCliCompiledState.status == ExitStatus.Ok)
 
-        // We get the same class files in all their external directories
-        assertValidCompilationState(firstCompiledState, projects)
+        //assertValidCompilationState(firstCompiledState, projects)
         assertValidCompilationState(firstCliCompiledState, projects)
-        assertSameExternalClassesDirs(
+        assertDifferentExternalClassesDirs(
           firstCliCompiledState,
           firstCompiledState.toTestState,
           projects
         )
 
-        checkDeduplication(cliLogger, isDeduplicated = true)
+        checkDeduplication(cliLogger, isDeduplicated = false)
 
+        // First compilation should not report warning
         assertNoDiff(
           firstCompiledState.lastDiagnostics(build.userProject),
           """#1: task start 2
@@ -377,87 +392,15 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
          """.stripMargin
         )
 
-        object Sources {
-          // A modified version of `User2` that instead renames to `User3`
-          val `User2.scala` =
-            """/main/scala/User2.scala
-              |package user
-              |
-              |object User3 extends App {
-              |  macros.SleepMacro.sleep()
-              |}
-            """.stripMargin
-        }
-
-        val `User2.scala` = build.userProject.srcFor("/main/scala/User2.scala")
-        assertIsFile(writeFile(`User2.scala`, Sources.`User2.scala`))
-        val secondCompilation = firstCompiledState.compileHandle(build.userProject)
-        val secondCliCompilation =
-          firstCliCompiledState
-            .withLogger(cliLogger)
-            .compileHandle(
-              build.userProject,
-              Some(FiniteDuration(700, TimeUnit.MILLISECONDS))
-            )
-
-        val secondCompiledState =
-          Await.result(secondCompilation, FiniteDuration(5, TimeUnit.SECONDS))
-        val secondCliCompiledState =
-          Await.result(secondCliCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
-
-        assert(secondCompiledState.status == ExitStatus.Ok)
-        assert(secondCliCompiledState.status == ExitStatus.Ok)
-        assertValidCompilationState(secondCompiledState, projects)
-        assertValidCompilationState(secondCliCompiledState, projects)
-
-        assertNonExistingCompileProduct(
-          secondCompiledState.toTestState,
-          build.userProject,
-          RelativePath("User2.class")
-        )
-
-        assertNonExistingCompileProduct(
-          secondCompiledState.toTestState,
-          build.userProject,
-          RelativePath("User2$.class")
-        )
-
-        assertNonExistingCompileProduct(
-          secondCliCompiledState,
-          build.userProject,
-          RelativePath("User2.class")
-        )
-
-        assertNonExistingCompileProduct(
-          secondCliCompiledState,
-          build.userProject,
-          RelativePath("User2$.class")
-        )
-
-        assertSameExternalClassesDirs(
-          secondCompiledState.toTestState,
-          secondCliCompiledState,
-          projects
-        )
-
+        // Second compilation should be independent from 1 and report warning
         assertNoDiff(
-          cliLogger.compilingInfos.mkString(System.lineSeparator()),
-          s"""
-             |Compiling user (2 Scala sources)
-             |Compiling user (1 Scala source)
-         """.stripMargin
-        )
-
-        assertNoDiff(
-          secondCompiledState.lastDiagnostics(build.userProject),
-          """#2: task start 4
-            |  -> Msg: Compiling user (1 Scala source)
-            |  -> Data kind: compile-task
-            |#2: task finish 4
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'user'
-            |  -> Data kind: compile-report
-        """.stripMargin
+          cliLogger.warnings.mkString(System.lineSeparator()),
+          s"""| [E1] ${TestUtil.universalPath("user/src/main/scala/User2.scala")}:5:19
+              |      implicit numeric widening
+              |      L5:   val i: Long = 1.toInt
+              |                            ^
+              |${TestUtil.universalPath("user/src/main/scala/User2.scala")}: L5 [E1]
+              |""".stripMargin
         )
       }
     }
@@ -637,7 +580,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val fourthCompilation = thirdCompiledState.withLogger(cliLogger4).compileHandle(`B`)
         val fifthCompilation =
           thirdCompiledState.withLogger(cliLogger5).compileHandle(`B`, firstDelay)
-        val sixthCompilation = bspState.compileHandle(`B`, secondDelay)
+        val sixthCompilation = bspState.compileHandle(`B`, firstDelay)
 
         val fourthCompiledState =
           Await.result(fourthCompilation, FiniteDuration(2, TimeUnit.SECONDS))
@@ -731,7 +674,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val seventhCompiledState =
           Await.result(seventhCompilation, FiniteDuration(2, TimeUnit.SECONDS))
         val thirdBspState =
-          Await.result(eigthCompilation, FiniteDuration(500, TimeUnit.MILLISECONDS))
+          Await.result(eigthCompilation, FiniteDuration(1, TimeUnit.SECONDS))
 
         checkDeduplication(cliLogger7, isDeduplicated = false)
         checkDeduplication(bspLogger, isDeduplicated = true)
@@ -822,7 +765,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompilation = compiledState.withLogger(cliLogger).compileHandle(`B`, firstDelay)
 
         ExecutionContext.ioScheduler.scheduleOnce(
-          1200,
+          2000,
           TimeUnit.MILLISECONDS,
           new Runnable {
             override def run(): Unit = firstCompilation.cancel()
@@ -830,7 +773,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         val (firstCompiledState, secondCompiledState) =
-          TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 5)
+          TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 7)
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))

@@ -21,6 +21,7 @@ import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
 
 trait BloopHelpers {
+  self: BaseSuite =>
   def loadState(
       workspace: AbsolutePath,
       projects: List[TestProject],
@@ -45,6 +46,15 @@ trait BloopHelpers {
   def populateWorkspace(build: TestBuild, projects: List[TestProject]): AbsolutePath = {
     val configDir = build.state.build.origin
     TestProject.populateWorkspaceInConfigDir(configDir, projects)
+  }
+
+  def reloadWithNewProject(project: TestProject, state: TestState): TestState = {
+    val buildProject = state.getProjectFor(project)
+    val configFile = buildProject.origin.path
+    val newConfigJson = project.toJson
+    writeFile(configFile, newConfigJson)
+    val configDir = state.build.origin
+    new TestState(TestUtil.loadTestProject(configDir.underlying, state.state.logger))
   }
 
   def loadBuildFromResources(
@@ -83,7 +93,7 @@ trait BloopHelpers {
       }
     }
 
-    TestUtil.await(FiniteDuration(5, "s")) {
+    TestUtil.await(FiniteDuration(12, "s")) {
       loadFromNewWorkspace
     }
   }
@@ -137,13 +147,17 @@ trait BloopHelpers {
     def compileHandle(
         project: TestProject,
         delay: Option[FiniteDuration] = None,
-        watch: Boolean = false
+        watch: Boolean = false,
+        beforeTask: Task[TestState] = Task.now(this)
     ): CancelableFuture[TestState] = {
       val interpretedTask = {
-        val task = compileTask(project, watch)
+        val task0 = beforeTask.flatMap { newState =>
+          newState.compileTask(project, watch)
+        }
+
         delay match {
-          case Some(duration) => task.delayExecution(duration)
-          case None => task
+          case Some(duration) => task0.delayExecution(duration)
+          case None => task0
         }
       }
 
