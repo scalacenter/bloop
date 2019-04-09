@@ -115,7 +115,7 @@ object MojoImplementation {
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass))
         val resolution = None
         // Resources in Maven require
-        val resources = Some(resources0.asScala.toList.map(Option(_.getTargetPath)).flatMap(classesDir.resolve))
+        val resources = Some(resources0.asScala.toList.map(Option(_.getTargetPath)).flatten.map(classesDir.resolve))
         val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution)
         Config.File(Config.File.LatestVersion, project)
       }
