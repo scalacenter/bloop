@@ -19,6 +19,8 @@ import sbt.util.InterfaceUtil
 import xsbti.compile._
 
 object BloopZincCompiler {
+  import bloop.logging.DebugFilter
+  private implicit val filter = DebugFilter.Compilation
 
   /**
    * Performs an incremental compilation based on [[xsbti.compile.Inputs]].
@@ -125,7 +127,7 @@ object BloopZincCompiler {
         val setOfSources = sources.toSet
         val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer)
         val lookup = new BloopLookup(config, previousSetup, logger)
-        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager)
+        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
@@ -156,7 +158,8 @@ object BloopZincCompiler {
       ignoredScalacOptions: Array[String],
       sources: Set[File],
       previousAnalysis: CompileAnalysis,
-      manager: ClassFileManager
+      manager: ClassFileManager,
+      logger: ObservedLogger[_]
   ): CompileAnalysis = {
     // Copied from `Incremental` to pass in the class file manager we want
     def prune(invalidatedSrcs: Set[File], previous0: CompileAnalysis, classfileManager: ClassFileManager): Analysis = {
@@ -197,7 +200,9 @@ object BloopZincCompiler {
         if (equiv.equiv(previous, setup)) previousAnalysis
         else if (!equivPairs.equiv(previous.extra, setup.extra)) Analysis.empty
         else prune(sources, previousAnalysis, manager)
-      case None => prune(sources, previousAnalysis, manager)
+      case None =>
+        logger.debug("No previous setup found, invalidating everything.")
+        prune(sources, previousAnalysis, manager)
     }
   }
 

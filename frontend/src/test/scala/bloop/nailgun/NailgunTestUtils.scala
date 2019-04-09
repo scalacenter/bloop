@@ -91,6 +91,9 @@ trait NailgunTestUtils {
 
     val client = new Client(TEST_PORT, log, config)
     def clientCancel(t: Option[Throwable]) = Task {
+      out.flush()
+      err.flush()
+
       t.foreach(t => log.trace(t))
       if (!noExit) {
         /* Exit on Windows seems to return a failing exit code (but no logs are logged).
@@ -101,9 +104,6 @@ trait NailgunTestUtils {
           log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
         } else client.expectSuccess("exit")
       }
-
-      out.flush()
-      err.flush()
 
       System.in.synchronized {
         System.setIn(currentIn)

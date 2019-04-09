@@ -341,7 +341,8 @@ abstract class LauncherBaseSuite(
     try {
       import scala.concurrent.Await
       import scala.concurrent.duration.FiniteDuration
-      TestUtil.await(FiniteDuration(30, "s"))(connectToServer)
+      // Test can be slow in Windows...
+      TestUtil.await(FiniteDuration(40, "s"))(connectToServer)
       Await.result(runServer, FiniteDuration(10, "s"))
       captureLogs
     } catch {

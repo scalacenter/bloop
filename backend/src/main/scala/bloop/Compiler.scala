@@ -76,6 +76,7 @@ case class CompileOutPaths(
 }
 
 object Compiler {
+  private implicit val filter = bloop.logging.DebugFilter.Compilation
   private final class ZincClasspathEntryLookup(results: Map[File, PreviousResult])
       extends PerClasspathEntryLookup {
     override def analysis(classpathEntry: File): Optional[CompileAnalysis] = {
@@ -151,7 +152,6 @@ object Compiler {
     }
   }
 
-  implicit val compilation = bloop.logging.DebugFilter.Compilation
   private final val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val logger = compileInputs.logger
@@ -655,10 +655,13 @@ object Compiler {
   ): Unit = {
     val label = s"Writing analysis to ${storeFile.syntax}..."
     tracer.trace(label) { _ =>
-      val filter = bloop.logging.DebugFilter.Compilation
-      logger.debug(label)(filter)
-      FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
-      logger.debug(s"Wrote analysis to ${storeFile.syntax}...")(filter)
+      if (analysis == Analysis.Empty || analysis.equals(Analysis.empty)) {
+        logger.debug(s"Skipping analysis persistence to ${storeFile.syntax}, analysis is empty")
+      } else {
+        logger.debug(label)
+        FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
+        logger.debug(s"Wrote analysis to ${storeFile.syntax}...")
+      }
     }
   }
 }

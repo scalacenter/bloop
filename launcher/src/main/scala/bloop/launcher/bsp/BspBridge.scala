@@ -115,7 +115,7 @@ final class BspBridge(
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
     println("Waiting 200ms until the bsp connection is up...", out)
     Thread.sleep(200)
-    if (attempts == 25) {
+    if (attempts == 50) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
       printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
       None
@@ -222,7 +222,8 @@ final class BspBridge(
 
     println(
       "Starting thread that pumps server stdout and redirects it to the client stdout...",
-      out)
+      out
+    )
     val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", false) {
       var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {
