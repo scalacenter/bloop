@@ -70,7 +70,7 @@ object Feedback {
        |     If so, change your current directory or point directly to your `.bloop` directory via `--config-dir`.
        |
        |  2. Did you forget to generate configuration files for your build?
-       |     Check the installation instructions https://scalacenter.github.io/bloop/docs/installation/
+       |     Check the installation instructions https://scalacenter.github.io/bloop/setup
     """.stripMargin
 
   val MissingPipeName = "Missing pipe name to establish a local connection in Windows"
