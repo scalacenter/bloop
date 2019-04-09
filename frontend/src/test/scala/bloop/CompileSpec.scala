@@ -112,17 +112,6 @@ object CompileSpec extends bloop.testing.BaseSuite {
       // This state loads the previous analysis from the persisted file
       val independentLogger = new RecordingLogger(ansiCodesSupported = false)
       val independentState = loadState(workspace, projects, independentLogger)
-      independentState.results.successful.foreach {
-        case (p, result) =>
-          pprint.log(p)
-          import bloop.util.JavaCompat.EnrichOptional
-          import scala.collection.JavaConverters._
-          result.previous.analysis().toOption.foreach { a =>
-            pprint.log(a.readSourceInfos().getAllSourceInfos().asScala.toMap)
-          }
-      }
-
-      independentLogger.dump()
       assertSuccessfulCompilation(independentState, projects, isNoOp = false)
 
       // Assert that it's a no-op even if we sourced from the analysis

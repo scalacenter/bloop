@@ -133,9 +133,6 @@ object CompileTask {
               )
           }
 
-          logger.info(lastSuccessful.previous.toString)
-          logger.info(state.results.successful.get(project).map(_.previous).toString)
-
           val inputs = newScalacOptions.map { newScalacOptions =>
             CompileInputs(
               instance,

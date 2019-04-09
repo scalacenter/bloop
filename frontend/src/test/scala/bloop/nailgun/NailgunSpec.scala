@@ -191,8 +191,6 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       // Checks new nailgun session still produces a no-op compilation
       client.expectSuccess("compile", "b")
       assertNoDiff(newLogger.captureTimeInsensitiveInfos.mkString(System.lineSeparator()), "")
-      newLogger.dump()
-      newLogger.dump()
     }
   }
 
