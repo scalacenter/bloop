@@ -466,8 +466,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
 
       loadBspState(workspace, projects, bspLogger) { bspState =>
-        val firstDelay = Some(random(200, 100))
-        val secondDelay = Some(random(200, 200))
+        val firstDelay = Some(random(400, 100))
+        val secondDelay = Some(random(400, 200))
         val firstCompilation = bspState.compileHandle(`B`)
         val secondCompilation = compiledState.withLogger(cliLogger1).compileHandle(`B`, firstDelay)
         val thirdCompilation = compiledState.withLogger(cliLogger2).compileHandle(`B`, secondDelay)
@@ -475,7 +475,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val firstCompiledState =
           Await.result(firstCompilation, FiniteDuration(5, TimeUnit.SECONDS))
         val (secondCompiledState, thirdCompiledState) =
-          TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 2)
+          TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 3)
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assert(secondCompiledState.status == ExitStatus.CompilationError)
