@@ -421,7 +421,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  def sleep(): Unit = macro sleepImpl
             |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
             |    import c.universe._
-            |    Thread.sleep(500)
+            |    Thread.sleep(1000)
             |    reify { () }
             |  }
             |}""".stripMargin
@@ -473,7 +473,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val thirdCompilation = compiledState.withLogger(cliLogger2).compileHandle(`B`, secondDelay)
 
         val firstCompiledState =
-          Await.result(firstCompilation, FiniteDuration(4, TimeUnit.SECONDS))
+          Await.result(firstCompilation, FiniteDuration(5, TimeUnit.SECONDS))
         val (secondCompiledState, thirdCompiledState) =
           TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 2)
 
