@@ -247,6 +247,9 @@ trait BloopHelpers {
     def withLogger(logger: Logger): TestState =
       new TestState(state.copy(logger = logger))
 
+    def withNewCompilerCache: TestState =
+      new TestState(state.copy(compilerCache = state.compilerCache.duplicateWith(state.logger)))
+
     def backup: TestState = {
       import java.nio.file.Files
       val logger = this.state.logger

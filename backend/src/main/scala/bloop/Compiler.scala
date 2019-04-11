@@ -183,8 +183,9 @@ object Compiler {
           // Add to the blacklist so that we never copy them
           allInvalidatedClassFilesForProject.++=(classes)
           val invalidatedExtraCompileProducts = classes.flatMap { classFile =>
+            val prefixClassName = classFile.getName().stripSuffix(".class")
             supportedCompileProducts.flatMap { supportedProductSuffix =>
-              val productName = classFile.getName().stripSuffix(".class") + supportedProductSuffix
+              val productName = prefixClassName + supportedProductSuffix
               val productAssociatedToClassFile = new File(classFile.getParentFile, productName)
               if (!productAssociatedToClassFile.exists()) Nil
               else List(productAssociatedToClassFile)

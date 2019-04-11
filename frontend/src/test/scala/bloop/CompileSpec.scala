@@ -427,7 +427,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("don't compile after renaming a class and not its references in the same project") {
+  test("don't compile after renaming a Scala class and not its references in the same project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
@@ -542,6 +542,179 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.nir"))
       assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.tasty"))
       assertNonExistingInternalClassesDir(thirdCompiledState)(compiledState, projects)
+    }
+  }
+
+  test("detect binary changes in Java within the same project") {
+    def compileTestWithOrder(order: Config.CompileOrder): Unit = {
+      TestUtil.withinWorkspace { workspace =>
+        object Sources {
+          val `Foo.java` =
+            """/Foo.java
+              |public class Foo {
+              |  public String greeting() {
+              |    return "Hello World";
+              |  }
+              |}
+          """.stripMargin
+
+          val `Bar.scala` =
+            """/Bar.scala
+              |class Bar {
+              |  val foo: Foo = new Foo
+              |  println(foo.greeting())
+              |}
+          """.stripMargin
+
+          val `Foo2.java` =
+            """/Foo.java
+              |public class Foo {
+              |  public String hello() {
+              |    return "Hello World";
+              |  }
+              |}
+          """.stripMargin
+
+          val `Bar2.scala` =
+            """/Bar.scala
+              |class Bar {
+              |  val foo: Foo = new Foo
+              |  println(foo.hello())
+              |}
+          """.stripMargin
+        }
+
+        val logger = new RecordingLogger(ansiCodesSupported = false)
+        val `A` = TestProject(
+          workspace,
+          "a",
+          List(Sources.`Foo.java`, Sources.`Bar.scala`),
+          order = order
+        )
+        val projects = List(`A`)
+        val state = loadState(workspace, projects, logger)
+        val compiledState = state.compile(`A`)
+        val compiledStateBackup = compiledState.backup
+        assert(compiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        // #2: Compiler after changing public API of `Foo`, which should make `Bar` fail
+        assertIsFile(writeFile(`A`.srcFor("Foo.java"), Sources.`Foo2.java`))
+        val secondCompiledState = compiledState.compile(`A`)
+        assert(ExitStatus.CompilationError == secondCompiledState.status)
+        assertInvalidCompilationState(
+          secondCompiledState,
+          List(`A`),
+          existsAnalysisFile = true,
+          hasPreviousSuccessful = true,
+          hasSameContentsInClassesDir = true
+        )
+
+        val targetBar = TestUtil.universalPath("a/src/Bar.scala")
+        assertNoDiff(
+          logger.renderErrors(exceptContaining = "failed to compile"),
+          s"""|[E1] ${targetBar}:3:15
+              |     value greeting is not a member of Foo
+              |     L3:   println(foo.greeting())
+              |                       ^
+              |${targetBar}: L3 [E1]
+              |""".stripMargin
+        )
+
+        assertIsFile(writeFile(`A`.srcFor("/Bar.scala"), Sources.`Bar2.scala`))
+        val thirdCompiledState = secondCompiledState.compile(`A`)
+        Predef.assert(thirdCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(thirdCompiledState, projects)
+        assertDifferentExternalClassesDirs(thirdCompiledState, compiledStateBackup, projects)
+        assertExistingCompileProduct(secondCompiledState, `A`, RelativePath("Foo.class"))
+      }
+    }
+
+    compileTestWithOrder(Config.Mixed)
+    compileTestWithOrder(Config.JavaThenScala)
+  }
+
+  test("invalidate Scala class files in javac forked and local compilation") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Foo.java` =
+          """/Foo.java
+            |public class Foo {
+            |  public String printHelloWorld() {
+            |    Bar bar = new Bar();
+            |    return bar.greeting();
+            |  }
+            |}
+          """.stripMargin
+
+        val `Bar.scala` =
+          """/Bar.scala
+            |class Bar {
+            |  def greeting(): String = "Hello World"
+            |}
+          """.stripMargin
+
+        val `Bar2.scala` =
+          """/Bar.scala
+            |class Bar2 {
+            |  def bla(): String = "Hello World"
+            |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Foo.java`, Sources.`Bar.scala`),
+        order = Config.ScalaThenJava
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      val compiledStateBackup = compiledState.backup
+      Predef.assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      assertIsFile(writeFile(`A`.srcFor("Bar.scala"), Sources.`Bar2.scala`))
+      val secondCompiledState = compiledState.compile(`A`)
+      Predef.assert(ExitStatus.CompilationError == secondCompiledState.status)
+      assertInvalidCompilationState(
+        secondCompiledState,
+        List(`A`),
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+
+      val targetFoo = TestUtil.universalPath("a/src/Foo.java")
+      val expectedMessage = {
+        val supportsLocalCompilation =
+          javax.tools.ToolProvider.getSystemJavaCompiler() != null
+        if (supportsLocalCompilation) {
+          s"""|[E2] ${targetFoo}:3
+              |     cannot find symbol
+              |       symbol:   class Bar
+              |       location: class Foo
+              |[E1] ${targetFoo}:3
+              |     cannot find symbol
+              |       symbol:   class Bar
+              |       location: class Foo
+              |${targetFoo}: L3 [E1], L3 [E2]
+              |""".stripMargin
+        } else {
+          s"""|[E1] ${targetFoo}:3
+              |      error: cannot find symbol Bar
+              |${targetFoo}: L3 [E1]
+              |""".stripMargin
+        }
+      }
+
+      assertNoDiff(
+        logger.renderErrors(exceptContaining = "failed to compile"),
+        expectedMessage
+      )
     }
   }
 

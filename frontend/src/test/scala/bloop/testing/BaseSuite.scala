@@ -295,14 +295,32 @@ class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   import bloop.io.RelativePath
+  def assertCompileProduct(
+      state: TestState,
+      project: TestProject,
+      classFile: RelativePath,
+      existing: Boolean
+  ): Unit = {
+    val buildProject = state.build.getProjectFor(project.config.name).get
+    val externalClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+    if (existing) assert(externalClassesDir.resolve(classFile).exists)
+    else assert(!externalClassesDir.resolve(classFile).exists)
+  }
+
   def assertNonExistingCompileProduct(
       state: TestState,
       project: TestProject,
       classFile: RelativePath
   ): Unit = {
-    val buildProject = state.build.getProjectFor(project.config.name).get
-    val externalClassesDir = state.client.getUniqueClassesDirFor(buildProject)
-    assert(!externalClassesDir.resolve(classFile).exists)
+    assertCompileProduct(state, project, classFile, false)
+  }
+
+  def assertExistingCompileProduct(
+      state: TestState,
+      project: TestProject,
+      classFile: RelativePath
+  ): Unit = {
+    assertCompileProduct(state, project, classFile, true)
   }
 
   def assertExistingInternalClassesDir(lastState: TestState)(
