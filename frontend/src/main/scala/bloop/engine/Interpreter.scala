@@ -244,34 +244,35 @@ object Interpreter {
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
       // Projects to test != projects that need compiling
+      val userDefinedProjects = lookup.found
       val (projectsToCompile, projectsToTest) = {
         if (!cmd.cascade) {
-          val projects = lookup.found
           val projectsToTest = {
-            if (!cmd.includeDependencies) projects
-            else projects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
+            if (!cmd.includeDependencies) userDefinedProjects
+            else userDefinedProjects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
           }
 
-          (projects, projectsToTest)
+          (userDefinedProjects, projectsToTest)
         } else {
-          val result = Dag.inverseDependencies(state.build.dags, lookup.found)
+          val result = Dag.inverseDependencies(state.build.dags, userDefinedProjects)
           (result.reduced, result.strictlyInverseNodes)
         }
       }
 
       logger.debug(
-        s"Test command will compile ${projectsToCompile.mkString(", ")} transitively"
-      )(DebugFilter.Test)
-
-      logger.debug(
-        s"Test command will test ${projectsToTest.mkString(", ")}"
+        s"Preparing compilation of ${projectsToCompile.mkString(", ")} transitively"
       )(DebugFilter.Test)
 
       def testAllProjects(state: State): Task[State] = {
         val testFilter = TestInternals.parseFilters(cmd.only)
         compileAnd(cmd, state, projectsToCompile, false, "`test`") { state =>
+          logger.debug(
+            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+          )(DebugFilter.Test)
+
           val handler = new LoggingEventHandler(state.logger)
-          Tasks.test(state, projectsToTest, cmd.args, testFilter, handler)
+          val failIfNoFrameworks = userDefinedProjects.size == projectsToTest.size
+          Tasks.test(state, projectsToTest, cmd.args, testFilter, handler, failIfNoFrameworks)
         }
       }
 

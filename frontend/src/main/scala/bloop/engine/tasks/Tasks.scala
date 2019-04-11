@@ -87,13 +87,14 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
-      testEventHandler: TestSuiteEventHandler
+      testEventHandler: TestSuiteEventHandler,
+      failIfNoTestFrameworks: Boolean
   ): Task[State] = {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
 
     var failure = false
-    val testTasks = projectsToTest.filter(_.testFrameworks.nonEmpty).map { project =>
+    val testTasks = projectsToTest.map { project =>
       /* Intercept test failures to set the correct error code */
       val failureHandler = new LoggingEventHandler(state.logger) {
         override def report(): Unit = testEventHandler.report()
@@ -109,7 +110,15 @@ object Tasks {
       }
 
       val cwd = project.baseDirectory
-      TestTask.runTestSuites(state, project, cwd, userTestOptions, testFilter, failureHandler)
+      TestTask.runTestSuites(
+        state,
+        project,
+        cwd,
+        userTestOptions,
+        testFilter,
+        failureHandler,
+        failIfNoTestFrameworks
+      )
     }
 
     // For now, test execution is only sequential.

@@ -21,8 +21,12 @@ class RecordingLogger(
   def errors: List[String] = getMessagesAt(Some("error"))
 
   private def replaceTimingInfo(msg: String): String = {
-    def representsTime(word: String, idx: Int): Boolean =
-      idx > 0 && Character.isDigit(word.charAt(idx - 1))
+    def representsTime(word: String, idx: Int): Boolean = {
+      idx > 0 && {
+        val currentChar = word.charAt(idx - 1)
+        currentChar == '.' || Character.isDigit(currentChar)
+      }
+    }
 
     msg
       .split("\\s+")
