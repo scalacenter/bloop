@@ -41,21 +41,21 @@ abstract class BaseTestSpec(val projectName: String)
 
 object JsTestSpec extends BaseTestSpec("test-projectJS-test") {
   val expectedFullTestsOutput: String = {
-    """|Execution took ???ms
+    """|Execution took ???
        |1 tests, 1 passed
        |All tests in hello.JUnitTest passed
        |
        |+ Greeting.is personal: OK, passed 100 tests.
        |Summary: Passed: Total 1, Failed 0, Errors 0, Passed 1 Warning: Unknown ScalaCheck args provided: -o
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.ScalaCheckTest passed
        |
        |ScalaTestTest:
        |A greeting
        |- should be very personal
-       |Summary: Run completed in ??? milliseconds. Total number of tests run: 0 Suites: completed 0, aborted 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 No tests were executed.
-       |Execution took ???ms
+       |Summary: Run completed in ??? Total number of tests run: 0 Suites: completed 0, aborted 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 No tests were executed.
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.ScalaTestTest passed
        |
@@ -67,22 +67,23 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test") {
        | + is very personal
        |
        |Total for specification Specs2Test
-       |Finished in ??? ms 1 example, 0 failure, 0 error
+       |Finished in ??? 1 example, 0 failure, 0 error
        |
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.Specs2Test passed
        |
        |Summary: Tests: 1, Passed: 1, Failed: 0
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.UTestTest passed
        |
        |===============================================
-       |Total duration: ???ms
+       |Total duration: ???
        |All 5 test suites passed.
        |===============================================
        |""".stripMargin
+
   }
 }
 
@@ -90,30 +91,30 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
   val expectedFullTestsOutput: String = {
     """|Test run started
        |Test hello.JUnitTest.myTest started
-       |Test run finished: 0 failed, 0 ignored, 1 total, ???s
-       |Execution took ???ms
+       |Test run finished: 0 failed, 0 ignored, 1 total, ???
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.JUnitTest passed
        |
-       |Execution took ???ms
+       |Execution took ???
        |No test suite was run
        |
        |+ Greeting.is personal: OK, passed 100 tests.
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.ScalaCheckTest passed
        |
        |ResourcesTest:
        |Resources
        |- should be found
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.ResourcesTest passed
        |
        |ScalaTestTest:
        |A greeting
        |- should be very personal
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.ScalaTestTest passed
        |
@@ -125,20 +126,20 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
        | + is very personal
        |
        |Total for specification Specs2Test
-       |Finished in ??? ms 1 example, 0 failure, 0 error
+       |Finished in ??? 1 example, 0 failure, 0 error
        |
-       |Execution took ???ms
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.Specs2Test passed
        |
        |-------------------------------- Running Tests --------------------------------
-       |+ hello.UTestTest.Greetings are very personal ???ms
-       |Execution took ???ms
+       |+ hello.UTestTest.Greetings are very personal ???
+       |Execution took ???
        |1 tests, 1 passed
        |All tests in hello.UTestTest passed
        |
        |===============================================
-       |Total duration: ???ms
+       |Total duration: ???
        |6 passed
        |===============================================""".stripMargin
   }
@@ -150,13 +151,13 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
       logger.renderTimeInsensitiveTestInfos,
       """Test run started
         |Test hello.JUnitTest.myTest started
-        |Test run finished: 0 failed, 0 ignored, 1 total, ???s
-        |Execution took ???ms
+        |Test run finished: 0 failed, 0 ignored, 1 total, ???
+        |Execution took ???
         |1 tests, 1 passed
         |All tests in hello.JUnitTest passed
         |
         |===============================================
-        |Total duration: ???ms
+        |Total duration: ???
         |All 1 test suites passed.
         |===============================================""".stripMargin
     )
@@ -167,25 +168,25 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
     val testState = build.state.test(project, List("-hello.JUnitTest"), Nil)
     assertNoDiff(
       logger.renderTimeInsensitiveTestInfos,
-      """|Execution took ???ms
+      """|Execution took ???
          |No test suite was run
          |
          |+ Greeting.is personal: OK, passed 100 tests.
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.ScalaCheckTest passed
          |
          |ResourcesTest:
          |Resources
          |- should be found
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.ResourcesTest passed
          |
          |ScalaTestTest:
          |A greeting
          |- should be very personal
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.ScalaTestTest passed
          |
@@ -197,20 +198,20 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
          | + is very personal
          |
          |Total for specification Specs2Test
-         |Finished in ??? ms 1 example, 0 failure, 0 error
+         |Finished in ??? 1 example, 0 failure, 0 error
          |
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.Specs2Test passed
          |
          |-------------------------------- Running Tests --------------------------------
-         |+ hello.UTestTest.Greetings are very personal ???ms
-         |Execution took ???ms
+         |+ hello.UTestTest.Greetings are very personal ???
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.UTestTest passed
          |
          |===============================================
-         |Total duration: ???ms
+         |Total duration: ???
          |5 passed
          |===============================================""".stripMargin
     )
@@ -225,12 +226,12 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
       """ScalaTestTest:
         |A greeting
         |- should be very personal
-        |Execution took ???ms
+        |Execution took ???
         |1 tests, 1 passed
         |All tests in hello.ScalaTestTest passed
         |
         |===============================================
-        |Total duration: ???ms
+        |Total duration: ???
         |All 1 test suites passed.
         |===============================================""".stripMargin
     )
@@ -249,30 +250,30 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
       logger.renderTimeInsensitiveTestInfos,
       """|Test run started
          |Test hello.JUnitTest.myTest started
-         |Test run finished: 0 failed, 0 ignored, 1 total, ???s
-         |Execution took ???ms
+         |Test run finished: 0 failed, 0 ignored, 1 total, ???
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.JUnitTest passed
          |
-         |Execution took ???ms
+         |Execution took ???
          |No test suite was run
          |
          |+ Greeting.is personal: OK, passed 100 tests.
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.ScalaCheckTest passed
          |
          |ResourcesTest:
          |Resources
          |- should be found
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.ResourcesTest passed
          |
          |ScalaTestTest:
          |A greeting
          |- should be very personal
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.ScalaTestTest passed
          |
@@ -284,20 +285,20 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
          | + is very personal
          |
          |Total for specification Specs2Test
-         |Finished in ??? ms 1 example, 0 failure, 0 error
+         |Finished in ??? 1 example, 0 failure, 0 error
          |
-         |Execution took ???ms
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.Specs2Test passed
          |
          |-------------------------------- Running Tests --------------------------------
-         |+ hello.UTestTest.Greetings are very personal ???ms
-         |Execution took ???ms
+         |+ hello.UTestTest.Greetings are very personal ???
+         |Execution took ???
          |1 tests, 1 passed
          |All tests in hello.UTestTest passed
          |
          |===============================================
-         |Total duration: ???ms
+         |Total duration: ???
          |6 passed
          |===============================================""".stripMargin
     )

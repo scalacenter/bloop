@@ -169,13 +169,13 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
           )
           .mkString(System.lineSeparator()),
         """|Compiling a (1 Scala source)
-           |Compiled a ???ms
+           |Compiled a ???
            |Compiling b (1 Scala source)
-           |Compiled b ???ms
+           |Compiled b ???
            |Compiling a (1 Scala source)
-           |Compiled a ???ms
+           |Compiled a ???
            |Compiling b (1 Scala source)
-           |Compiled b ???ms
+           |Compiled b ???
            |""".stripMargin
       )
     }

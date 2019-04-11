@@ -65,7 +65,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       val pending = events.count(_.status() == Status.Pending)
       val errors = events.count(_.status() == Status.Error)
 
-      logger.info(s"Execution took ${TimeFormat.printUntilHours(duration)}")
+      logger.info(s"Execution took ${TimeFormat.readableMillis(duration)}")
       val regularMetrics = List(
         testsTotal -> "tests",
         passed -> "passed",
@@ -97,7 +97,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   override def report(): Unit = {
     // TODO: Shall we think of a better way to format this delimiter based on screen length?
     logger.info("===============================================")
-    logger.info(s"Total duration: ${TimeFormat.printUntilHours(suitesDuration)}")
+    logger.info(s"Total duration: ${TimeFormat.readableMillis(suitesDuration)}")
 
     if (suitesTotal == 0) {
       logger.info(s"No test suites were run.")
