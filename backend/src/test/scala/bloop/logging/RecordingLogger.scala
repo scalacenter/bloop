@@ -23,8 +23,8 @@ class RecordingLogger(
   private def replaceTimingInfo(msg: String): String = {
     def representsTime(word: String, idx: Int): Boolean = {
       idx > 0 && {
-        val currentChar = word.charAt(idx - 1)
-        currentChar == '.' || Character.isDigit(currentChar)
+        val lastChar = word.charAt(idx - 1)
+        Character.isDigit(lastChar)
       }
     }
 
@@ -34,17 +34,17 @@ class RecordingLogger(
         case (seen, word) =>
           val indexOfMs = word.lastIndexOf("ms")
           val indexOfS = word.lastIndexOf("s")
-          if (representsTime(word, indexOfMs)) "???ms" :: seen
-          else if (representsTime(word, indexOfS)) "???s" :: seen
+          if (representsTime(word, indexOfMs)) "???" :: seen
+          else if (representsTime(word, indexOfS)) "???" :: seen
           else {
             seen match {
               case p :: ps =>
-                if (word == "s" && Character.isDigit(p.last)) "s" :: "???" :: ps
-                else if (word == "ms" && Character.isDigit(p.last)) "ms" :: "???" :: ps
+                if (word == "s" && Character.isDigit(p.last)) "???" :: ps
+                else if (word == "ms" && Character.isDigit(p.last)) "???" :: ps
                 else if (word.startsWith("seconds") && Character.isDigit(p.last))
-                  word :: "???" :: ps
+                  "???" :: ps
                 else if (word.startsWith("milliseconds") && Character.isDigit(p.last))
-                  word :: "???" :: ps
+                  "???" :: ps
                 else word :: seen
               case _ => word :: seen
             }
