@@ -121,10 +121,18 @@ val jsonConfig212 = project
     }
   )
 
+lazy val sockets: Project = project
+  .settings(
+    crossPaths := false,
+    autoScalaLibrary := false,
+    description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
+    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform)
+  )
+
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
-  .dependsOn(backend, backend % "test->test", jsonConfig212)
+  .dependsOn(sockets, backend, backend % "test->test", jsonConfig212)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(assemblySettings, releaseSettings)
@@ -151,15 +159,14 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.nuprocess,
-      Dependencies.ipcsocket % Test
+      Dependencies.nuprocess
     ),
     dependencyOverrides += Dependencies.shapeless
   )
 
 lazy val launcher: Project = project
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(frontend % "test->test")
+  .dependsOn(sockets, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher",
@@ -168,8 +175,7 @@ lazy val launcher: Project = project
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
-      Dependencies.nuprocess,
-      Dependencies.ipcsocket
+      Dependencies.nuprocess
     )
   )
 
@@ -333,7 +339,8 @@ val allProjects = Seq(
   nativeBridge,
   jsBridge06,
   jsBridge10,
-  launcher
+  launcher,
+  sockets
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -348,9 +355,9 @@ val bloop = project
     commands += BuildDefaults.exportProjectsInTestResourcesCmd
   )
 
-/***************************************************************************************************/
-/*                      This is the corner for all the command definitions                         */
-/***************************************************************************************************/
+/**************************************************************************************************/
+/*                      This is the corner for all the command definitions                        */
+/**************************************************************************************************/
 val publishLocalCmd = Keys.publishLocal.key.label
 
 // Runs the scripted tests to setup integration tests
@@ -372,6 +379,7 @@ addCommandAlias(
     s"${millBloop.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
+    s"${sockets.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
     // Force build info generators in frontend-test
     s"${frontend.id}/test:compile",
@@ -398,6 +406,7 @@ val allBloopReleases = List(
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
+  s"${sockets.id}/$releaseEarlyCmd",
   s"${launcher.id}/$releaseEarlyCmd"
 )
 

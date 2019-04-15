@@ -42,6 +42,7 @@ object Dependencies {
   val difflibVersion = "1.3.0"
   val braveVersion = "5.6.1"
   val zipkinSenderVersion = "2.7.15"
+  val jnaVersion = "4.5.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -83,9 +84,7 @@ object Dependencies {
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
 
-  val ipcsocket = "ch.epfl.scala" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
-
   val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
@@ -112,4 +111,7 @@ object Dependencies {
   val brave = "io.zipkin.brave" % "brave" % braveVersion
   val zipkinSender = "io.zipkin.reporter2" % "zipkin-sender-urlconnection" % zipkinSenderVersion
   val zipkinOkHttp = "io.zipkin.reporter2" % "zipkin-sender-okhttp3" % zipkinSenderVersion
+
+  val jna = "net.java.dev.jna" % "jna" % jnaVersion
+  val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
 }

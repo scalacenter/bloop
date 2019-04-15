@@ -310,7 +310,7 @@ object CompileTask {
               )
             case _ => Nil
           }
-        }
+        }.executeOn(ExecutionContext.ioScheduler)
 
         // Block on all background task operations to fully populate classes directories
         backgroundTasks.map(_ => newState).doOnFinish(_ => Task(rootTracer.terminate()))

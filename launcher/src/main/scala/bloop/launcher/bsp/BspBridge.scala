@@ -8,6 +8,7 @@ import java.nio.file.Path
 import bloop.launcher.core.{Feedback, Shell}
 import bloop.launcher.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
+import bloop.sockets.UnixDomainSocket
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
@@ -151,7 +152,6 @@ final class BspBridge(
   def connectToOpenSession(serverConnection: BspConnection): Option[Socket] = {
     import scala.util.Try
     def establishSocketConnection(connection: BspConnection): Try[Socket] = {
-      import org.scalasbt.ipcsocket.UnixDomainSocket
       Try {
         connection match {
           case BspConnection.Tcp(host, port) => new Socket(host, port)
