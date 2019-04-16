@@ -414,7 +414,6 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       // This task closes the streams to simulate a client dropping out,
       // but doesn't properly close the server. This happens on purpose.
       val closeStreamsForcibly = () => {
-        //socket.setSoLinger(true, 0)
         socket.close()
       }
 

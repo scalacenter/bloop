@@ -18,9 +18,11 @@ import monix.execution.Scheduler
 import monix.execution.Cancelable
 import monix.execution.atomic.Atomic
 import monix.execution.misc.NonFatal
+import monix.reactive.OverflowStrategy
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Observer, Observable}
 import monix.reactive.observables.ObservableLike
+import monix.execution.cancelables.CompositeCancelable
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -99,18 +101,6 @@ object BspServer {
 
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
 
-      import bloop.util.monix.FoldLeftAsyncConsumer
-
-      val consumer = FoldLeftAsyncConsumer.consume[Unit, BaseProtocolMessage](()) {
-        case (state, msg) =>
-          import scala.meta.jsonrpc.Response.Empty
-          import scala.meta.jsonrpc.Response.Success
-          server
-            .handleMessage(msg)
-            .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
-            .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
-      }
-
       /* This implementation of starting a server relies on two observables:
        *
        *   1. An observable with a publish strategy that gets protocol messages
@@ -134,19 +124,64 @@ object BspServer {
       val (bufferedObserver, endObservable) =
         Observable.multicast(MulticastStrategy.publish[BaseProtocolMessage])(ioScheduler)
 
+      import scala.collection.mutable
+      import monix.execution.cancelables.AssignableCancelable
+      // We set the value of this cancelable when we start consuming task
+      var completeSubscribers: Cancelable = Cancelable.empty
+      val cancelables = new mutable.ListBuffer[Cancelable]()
+      val cancelable = AssignableCancelable.multi { () =>
+        val tasksToCancel = cancelables.synchronized { cancelables.toList }
+        Cancelable.cancelAll(completeSubscribers :: tasksToCancel)
+      }
+
       val isCommunicationActive = Atomic(true)
       def onFinishOrCancel[T](cancelled: Boolean, result: Option[Throwable]) = Task {
         if (isCommunicationActive.getAndSet(false)) {
           if (cancelled) error(s"BSP server cancelled, closing socket...")
           else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
+          cancelable.cancel()
           server.cancelAllRequests()
           val latestState = provider.stateAfterExecution
           closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
         }
       }
 
-      val consumingTask = endObservable
-        .consumeWith(consumer)
+      import monix.reactive.Consumer
+      val singleThreadedConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
+        import scala.meta.jsonrpc.Response.Empty
+        import scala.meta.jsonrpc.Response.Success
+        val taskToRun = {
+          server
+            .handleMessage(msg)
+            .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
+            .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
+        }
+
+        val cancelable = taskToRun.runAsync(ioScheduler)
+        cancelables.synchronized { cancelables.+=(cancelable) }
+        Task
+          .fromFuture(cancelable)
+          .doOnFinish(_ => Task { cancelables.synchronized { cancelables.-=(cancelable) }; () })
+      }
+
+      val startedSubscription: Promise[Unit] = Promise[Unit]()
+
+      /**
+       * Make manual subscription to consumer so that we can control the
+       * cancellation for both the source and the consumer. Otherwise, there is
+       * no way to call the cancelable produced by the consumer.
+       */
+      val consumingWithBalancedForeach = Task.create[List[Unit]] { (scheduler, cb) =>
+        val parallelConsumer = Consumer.loadBalance(4, singleThreadedConsumer)
+        val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
+        val cancelOut = Cancelable(() => out.onComplete())
+        completeSubscribers = CompositeCancelable(cancelOut)
+        val sourceSubscription = endObservable.subscribe(out)
+        startedSubscription.success(())
+        CompositeCancelable(sourceSubscription, consumerSubscription)
+      }
+
+      val consumingTask = consumingWithBalancedForeach
         .doOnCancel(onFinishOrCancel(true, None))
         .doOnFinish(result => onFinishOrCancel(false, result))
         .flatMap(_ => server.awaitRunningTasks.map(_ => provider.stateAfterExecution))
@@ -169,7 +204,7 @@ object BspServer {
         }
       }
 
-      messages
+      val startListeningToMessages = messages
         .liftByOperator(new PumpOperator(bufferedObserver, consumerFuture))
         .completedL
         .doOnFinish(_ => cancelIfAwaitingExit)
@@ -181,7 +216,13 @@ object BspServer {
             latestState
           }
         }
-        .executeOn(ioScheduler)
+
+      // Make sure we only start listening when the subscription has started,
+      // there is a race condition and we might miss the initialization messages
+      for {
+        _ <- Task.fromFuture(startedSubscription.future).executeOn(ioScheduler)
+        latestState <- startListeningToMessages.executeOn(ioScheduler)
+      } yield latestState
     }
 
     initServer(cmd, state).materialize.flatMap {

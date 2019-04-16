@@ -11,7 +11,7 @@ import monix.reactive.{Consumer, Observable}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
-// Fork of `FoldLeftAsyncConsumer` from Monix
+// Fork of `FoldLeftAsyncConsumer` from Monix, not thread-safe
 final class FoldLeftAsyncConsumer[A, R](
     initial: () => R,
     f: (R, A) => Task[R]
@@ -38,7 +38,11 @@ final class FoldLeftAsyncConsumer[A, R](
 
           val future = task.runAsync
           cancelables.+=(future)
-          future
+          // Unregister from the cancelables when future completes
+          future.transform(
+            ack => { cancelables.-=(future); ack },
+            t => { cancelables.-=(future); t }
+          )
         } catch {
           case NonFatal(ex) =>
             onError(ex)
