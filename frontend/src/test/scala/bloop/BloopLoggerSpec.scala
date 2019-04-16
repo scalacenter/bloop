@@ -7,9 +7,9 @@ import java.io.{
   InputStreamReader,
   PrintStream
 }
-import java.util.UUID
 
 import bloop.logging.{BloopLogger, DebugFilter}
+import bloop.util.UUIDUtil
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.Test
 import org.junit.experimental.categories.Category
@@ -217,7 +217,7 @@ class BloopLoggerSpec {
     val out = new PrintStream(outStream)
     val err = new PrintStream(errStream)
 
-    val loggerName = UUID.randomUUID().toString
+    val loggerName = UUIDUtil.randomUUID
     val logger = BloopLogger.at(loggerName, out, err, false, ctx)
     op(logger)
 

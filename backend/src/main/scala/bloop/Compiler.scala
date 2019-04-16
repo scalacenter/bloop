@@ -1,10 +1,8 @@
 package bloop
 
 import java.util.Optional
-import java.util.UUID
 import java.io.File
 import java.util.concurrent.{Executor, ConcurrentHashMap}
-import java.util.UUID
 import java.nio.file.{Files, Path}
 
 import bloop.io.{Paths => BloopPaths}
@@ -14,7 +12,7 @@ import bloop.io.ParallelOps.CopyMode
 import bloop.tracing.BraveTracer
 import bloop.logging.{ObservedLogger, Logger}
 import bloop.reporter.{ProblemPerPhase, ZincReporter}
-import bloop.util.{AnalysisUtils, CacheHashCode}
+import bloop.util.{AnalysisUtils, UUIDUtil, CacheHashCode}
 
 import xsbti.compile._
 import xsbti.T2
@@ -68,7 +66,7 @@ case class CompileOutPaths(
     val classesDir = internalReadOnlyClassesDir.underlying
     val parentDir = classesDir.getParent()
     val classesName = externalClassesDir.underlying.getFileName()
-    val newClassesName = s"${classesName}-${UUID.randomUUID}"
+    val newClassesName = s"${classesName}-${UUIDUtil.randomUUID}"
     AbsolutePath(
       Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
     )
