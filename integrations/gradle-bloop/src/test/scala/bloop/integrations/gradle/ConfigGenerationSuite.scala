@@ -254,20 +254,44 @@ class ConfigGenerationSuite {
     def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
       config.project.classpath.exists(_.toString.contains(entryName))
 
+    def assertSources(config: Config.File, entryName: String): Unit = {
+      assertTrue(
+        s"Resolution field for ${config.project.name} does not exist",
+        config.project.resolution.isDefined)
+      config.project.resolution.foreach { resolution =>
+        val sources = resolution.modules.find(
+          module =>
+            module.name.contains(entryName) && module.artifacts.exists(
+              _.classifier.contains("sources")))
+        assertTrue(s"Sources for $entryName do not exist", sources.isDefined)
+        assertTrue(
+          s"There are more sources than one for $entryName:\n${sources.get.artifacts.mkString("\n")}",
+          sources.exists(_.artifacts.size == 2))
+      }
+    }
+
     assertTrue(hasClasspathEntryName(configA, "scala-library"))
+    assertSources(configA, "scala-library")
     assertTrue(hasClasspathEntryName(configB, "scala-library"))
+    assertSources(configB, "scala-library")
     assertTrue(hasClasspathEntryName(configC, "scala-library"))
+    assertSources(configC, "scala-library")
     assertTrue(hasClasspathEntryName(configATest, "scala-library"))
+    assertSources(configATest, "scala-library")
     assertTrue(hasClasspathEntryName(configBTest, "scala-library"))
+    assertSources(configBTest, "scala-library")
     assertTrue(hasClasspathEntryName(configCTest, "scala-library"))
+    assertSources(configCTest, "scala-library")
     assertTrue(
       hasClasspathEntryName(configATest, "/a/build/classes".replace('/', File.separatorChar)))
     assertTrue(
       hasClasspathEntryName(configCTest, "/c/build/classes".replace('/', File.separatorChar)))
     assertTrue(hasClasspathEntryName(configB, "cats-core"))
+    assertSources(configB, "cats-core")
     assertTrue(hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
     assertTrue(hasClasspathEntryName(configB, "/c/build/classes".replace('/', File.separatorChar)))
     assertTrue(hasClasspathEntryName(configBTest, "cats-core"))
+    assertSources(configBTest, "cats-core")
     assertTrue(
       hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
     assertTrue(

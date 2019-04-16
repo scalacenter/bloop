@@ -10,6 +10,7 @@ import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.{GradleException, Project}
 import org.gradle.api.artifacts._
+import org.gradle.api.artifacts.result.ResolvedArtifactResult
 import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.publish.ArchivePublishArtifact
 import org.gradle.api.internal.file.copy.DefaultCopySpec
@@ -20,6 +21,9 @@ import org.gradle.api.specs.Specs
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
+import org.gradle.jvm.JvmLibrary
+import org.gradle.language.base.artifact.SourcesArtifact
+import org.gradle.language.java.artifact.JavadocArtifact
 import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
 
 import scala.collection.JavaConverters._
@@ -183,8 +187,8 @@ final class BloopConverter(parameters: BloopParameters) {
         (strictProjectDependencies.map(_.classesDir) ++ compileClasspathItems ++ runtimeClasspathItems ++
           compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths).distinct
 
-      val modules = (nonProjectDependencies.map(artifactToConfigModule) ++
-        additionalArtifacts.map(artifactToConfigModule)).distinct
+      val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
+        additionalArtifacts.map(artifactToConfigModule(_, project))).distinct
 
       for {
         scalaConfig <- getScalaConfig(project, sourceSet, compileArtifacts)
@@ -465,20 +469,45 @@ final class BloopConverter(parameters: BloopParameters) {
     projectDependencies.exists(dep => isProjectDependency(dep, resolvedArtifact))
   }
 
-  private def artifactToConfigModule(artifact: ResolvedArtifact): Config.Module = {
+  private def artifactToConfigModule(
+      artifact: ResolvedArtifact,
+      project: Project): Config.Module = {
+
+    val resolutionResult = project
+      .getDependencies()
+      .createArtifactResolutionQuery()
+      .forComponents(artifact.getId.getComponentIdentifier)
+      .withArtifacts(classOf[JvmLibrary], classOf[SourcesArtifact], classOf[JavadocArtifact])
+      .execute()
+
+    val name = artifact.getModuleVersion().getId().getName()
+    val resolvedSourcesDependencies =
+      resolutionResult
+        .getResolvedComponents()
+        .asScala
+        .flatMap(_.getArtifacts(classOf[SourcesArtifact]).asScala)
+        .collect {
+          case artifact: ResolvedArtifactResult =>
+            Config.Artifact(
+              name = name,
+              classifier = Option("sources"),
+              checksum = None,
+              path = artifact.getFile.toPath
+            )
+        }
+        .toList
+
     Config.Module(
-      organization = artifact.getModuleVersion.getId.getGroup,
-      name = artifact.getName,
-      version = artifact.getModuleVersion.getId.getVersion,
+      organization = artifact.getModuleVersion().getId().getGroup(),
+      name = artifact.getName(),
+      version = artifact.getModuleVersion().getId().getVersion(),
       configurations = None,
-      List(
-        Config.Artifact(
-          name = artifact.getModuleVersion.getId.getName,
-          classifier = Option(artifact.getClassifier),
-          checksum = None,
-          path = artifact.getFile.toPath
-        )
-      )
+      Config.Artifact(
+        name = name,
+        classifier = Option(artifact.getClassifier()),
+        checksum = None,
+        path = artifact.getFile().toPath()
+      ) :: resolvedSourcesDependencies
     )
   }
 
