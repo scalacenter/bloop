@@ -10,6 +10,7 @@ import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.{GradleException, Project}
 import org.gradle.api.artifacts._
+import org.gradle.api.artifacts.result.ResolvedArtifactResult
 import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.publish.ArchivePublishArtifact
 import org.gradle.api.internal.file.copy.DefaultCopySpec
@@ -20,6 +21,9 @@ import org.gradle.api.specs.Specs
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
+import org.gradle.jvm.JvmLibrary
+import org.gradle.language.base.artifact.SourcesArtifact
+import org.gradle.language.java.artifact.JavadocArtifact
 import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
 
 import scala.collection.JavaConverters._
@@ -63,8 +67,8 @@ final class BloopConverter(parameters: BloopParameters) {
     // Gradle always creates a main and test source set regardless of whether they are needed.
     // ignore test sourceset if there are no sources or resources
     if (isTestSourceSet &&
-      !sources.exists(_.toFile.exists()) &&
-      !resources.exists(_.toFile.exists())) {
+        !sources.exists(_.toFile.exists()) &&
+        !resources.exists(_.toFile.exists())) {
       Failure(new GradleException("Test project has no source so ignore it"))
     } else {
       val compileClassPathConfiguration =
@@ -89,8 +93,10 @@ final class BloopConverter(parameters: BloopParameters) {
 
       // retrieve direct project dependencies.
       // Bloop doesn't require transitive project dependencies
-      val compileProjectDependencies = getProjectDependencies(allSourceSetsToProjects, compileClassPathConfiguration)
-      val runtimeProjectDependencies = getProjectDependencies(allSourceSetsToProjects, runtimeClassPathConfiguration)
+      val compileProjectDependencies =
+        getProjectDependencies(allSourceSetsToProjects, compileClassPathConfiguration)
+      val runtimeProjectDependencies =
+        getProjectDependencies(allSourceSetsToProjects, runtimeClassPathConfiguration)
 
       // Strict project dependencies should have more priority than regular project dependencies
       val allDependencies = (strictProjectDependencies.map(_.bloopModuleName) ++
@@ -98,8 +104,10 @@ final class BloopConverter(parameters: BloopParameters) {
 
       // retrieve project dependencies recursively to include transitive project dependencies
       // Bloop requires this for the classpath
-      val allCompileProjectDependencies = getProjectDependenciesRecursively(compileClassPathConfiguration)
-      val allRuntimeProjectDependencies = getProjectDependenciesRecursively(runtimeClassPathConfiguration)
+      val allCompileProjectDependencies = getProjectDependenciesRecursively(
+        compileClassPathConfiguration)
+      val allRuntimeProjectDependencies = getProjectDependenciesRecursively(
+        runtimeClassPathConfiguration)
 
       // retrieve all artifacts (includes transitive) + file/dir dependencies
       val compileArtifacts: List[ResolvedArtifact] =
@@ -112,40 +120,61 @@ final class BloopConverter(parameters: BloopParameters) {
       // this can bring too many artifacts into the resolution section (e.g. junit on main projects) but there's no way to know which artifact is required by which sourceset
       val additionalArtifacts = project.getConfigurations.asScala
         .flatMap(c => {
-            try {
-              c.getResolvedConfiguration.getResolvedArtifacts.asScala.toSet
-            } catch {
-              case _: Exception => Set.empty[ResolvedArtifact]
-            }
-          }).toSet.filter(resolvedArtifact =>
-              !isProjectDependency(allCompileProjectDependencies, resolvedArtifact) &&
-                !isProjectDependency(allCompileProjectDependencies, resolvedArtifact))
+          try {
+            c.getResolvedConfiguration.getResolvedArtifacts.asScala.toSet
+          } catch {
+            case _: Exception => Set.empty[ResolvedArtifact]
+          }
+        })
+        .toSet
+        .filter(resolvedArtifact =>
+          !isProjectDependency(allCompileProjectDependencies, resolvedArtifact) &&
+            !isProjectDependency(allCompileProjectDependencies, resolvedArtifact))
 
       // convert artifacts to class dirs for projects and file paths for non-projects
-      val compileClasspathItems = compileArtifacts.map(resolvedArtifact =>
-        convertToPath(allSourceSetsToProjects, targetDir, allCompileProjectDependencies, resolvedArtifact))
-      val runtimeClasspathItems = runtimeArtifacts.map(resolvedArtifact =>
-        convertToPath(allSourceSetsToProjects, targetDir, allRuntimeProjectDependencies, resolvedArtifact))
+      val compileClasspathItems = compileArtifacts.map(
+        resolvedArtifact =>
+          convertToPath(
+            allSourceSetsToProjects,
+            targetDir,
+            allCompileProjectDependencies,
+            resolvedArtifact))
+      val runtimeClasspathItems = runtimeArtifacts.map(
+        resolvedArtifact =>
+          convertToPath(
+            allSourceSetsToProjects,
+            targetDir,
+            allRuntimeProjectDependencies,
+            resolvedArtifact))
 
       // retrieve all file/dir dependencies (includes transitive?)
       val compileArtifactFiles: Set[File] =
-        compileClassPathConfiguration.getResolvedConfiguration.getFiles(Specs.SATISFIES_ALL).asScala.toSet
+        compileClassPathConfiguration.getResolvedConfiguration
+          .getFiles(Specs.SATISFIES_ALL)
+          .asScala
+          .toSet
       val runtimeArtifactFiles: Set[File] =
-        runtimeClassPathConfiguration.getResolvedConfiguration.getFiles(Specs.SATISFIES_ALL).asScala.toSet
+        runtimeClassPathConfiguration.getResolvedConfiguration
+          .getFiles(Specs.SATISFIES_ALL)
+          .asScala
+          .toSet
 
       val compileClasspathFilesAsPaths = compileArtifactFiles
-      .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
-      .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
+        .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
+        .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
       val runtimeClasspathFilesAsPaths = runtimeArtifactFiles
-      .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
-      .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
+        .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
+        .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
 
       // get non-project artifacts for resolution
       val compileNonProjectDependencies: List[ResolvedArtifact] = compileArtifacts
-        .filter(resolvedArtifact => !isProjectDependency(allCompileProjectDependencies, resolvedArtifact))
+        .filter(resolvedArtifact =>
+          !isProjectDependency(allCompileProjectDependencies, resolvedArtifact))
       val runtimeNonProjectDependencies: List[ResolvedArtifact] = runtimeArtifacts
-        .filter(resolvedArtifact => !isProjectDependency(allRuntimeProjectDependencies, resolvedArtifact))
-      val nonProjectDependencies = (compileNonProjectDependencies ++ runtimeNonProjectDependencies).distinct
+        .filter(resolvedArtifact =>
+          !isProjectDependency(allRuntimeProjectDependencies, resolvedArtifact))
+      val nonProjectDependencies =
+        (compileNonProjectDependencies ++ runtimeNonProjectDependencies).distinct
 
       /* The classes directory is independent from Gradle's because Gradle has a different classes
        * directory for Scala and Java projects, whereas Bloop doesn't (it inherited this design from
@@ -158,8 +187,8 @@ final class BloopConverter(parameters: BloopParameters) {
         (strictProjectDependencies.map(_.classesDir) ++ compileClasspathItems ++ runtimeClasspathItems ++
           compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths).distinct
 
-      val modules = (nonProjectDependencies.map(artifactToConfigModule) ++
-        additionalArtifacts.map(artifactToConfigModule)).distinct
+      val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
+        additionalArtifacts.map(artifactToConfigModule(_, project))).distinct
 
       for {
         scalaConfig <- getScalaConfig(project, sourceSet, compileArtifacts)
@@ -229,7 +258,9 @@ final class BloopConverter(parameters: BloopParameters) {
   }
 
   // find the source of the data going into an archive
-  private def getSourceSet(allSourceSetsToProjects: Map[SourceSet, Project], abstractCopyTask: AbstractCopyTask): Option[SourceSet] = {
+  private def getSourceSet(
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      abstractCopyTask: AbstractCopyTask): Option[SourceSet] = {
     try {
       // protected method
       val getMainSpec = classOf[AbstractCopyTask].getDeclaredMethod("getMainSpec")
@@ -240,10 +271,15 @@ final class BloopConverter(parameters: BloopParameters) {
       else {
         val getSourcePaths = classOf[DefaultCopySpec].getMethod("getSourcePaths")
         val sourcePaths = getSourcePaths.invoke(mainSpec)
-        sourcePaths.asInstanceOf[java.util.Set[Object]].asScala.flatMap({
-          case sourceSetOutput: DefaultSourceSetOutput => allSourceSetsToProjects.keySet.find(p => p.getOutput == sourceSetOutput)
-          case _ => None
-        }).headOption
+        sourcePaths
+          .asInstanceOf[java.util.Set[Object]]
+          .asScala
+          .flatMap({
+            case sourceSetOutput: DefaultSourceSetOutput =>
+              allSourceSetsToProjects.keySet.find(p => p.getOutput == sourceSetOutput)
+            case _ => None
+          })
+          .headOption
       }
     } catch {
       case _: NoSuchMethodException => None;
@@ -268,12 +304,12 @@ final class BloopConverter(parameters: BloopParameters) {
     }
   }
 
-  private def isProjectSourceSet(allSourceSetsToProjects: Map[SourceSet, Project],
-                                  file: File): Boolean = {
+  private def isProjectSourceSet(
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      file: File): Boolean = {
     // check if the dependency matches any projects output dir
     allSourceSetsToProjects.keys
-      .exists(
-        ss => matchesOutputDir(ss.getOutput, file) || file == ss.getOutput.getResourcesDir)
+      .exists(ss => matchesOutputDir(ss.getOutput, file) || file == ss.getOutput.getResourcesDir)
   }
 
   private def isProjectSourceSet(
@@ -282,11 +318,10 @@ final class BloopConverter(parameters: BloopParameters) {
     // check if the dependency matches any projects output dir
     val sourceOutputDirs = selfResolvingDependency.resolve().asScala
     allSourceSetsToProjects.keys
-      .exists(
-        ss =>
-          sourceOutputDirs
-            .exists(outputDir =>
-              matchesOutputDir(ss.getOutput, outputDir) || outputDir == ss.getOutput.getResourcesDir))
+      .exists(ss =>
+        sourceOutputDirs
+          .exists(outputDir =>
+            matchesOutputDir(ss.getOutput, outputDir) || outputDir == ss.getOutput.getResourcesDir))
   }
 
   private def getProjectDependencies(
@@ -332,7 +367,9 @@ final class BloopConverter(parameters: BloopParameters) {
   private def getResources(sourceSet: SourceSet): List[Path] =
     sourceSet.getResources.getSrcDirs.asScala.map(_.toPath).toList
 
-  private def getSourceSet(allSourceSetsToProjects: Map[SourceSet, Project], projectDependency: ProjectDependency): SourceSet = {
+  private def getSourceSet(
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      projectDependency: ProjectDependency): SourceSet = {
     // use configuration to find which is the correct source set
     val depProject = projectDependency.getDependencyProject
     val configurationName = getTargetConfiguration(projectDependency)
@@ -342,7 +379,8 @@ final class BloopConverter(parameters: BloopParameters) {
     val archiveTasks = configuration.getArtifacts.asScala.collect {
       case archivePublishArtifact: ArchivePublishArtifact => archivePublishArtifact.getArchiveTask
     }
-    val possibleArchiveSourceSet = archiveTasks.flatMap(archiveTask => getSourceSet(allSourceSetsToProjects, archiveTask))
+    val possibleArchiveSourceSet =
+      archiveTasks.flatMap(archiveTask => getSourceSet(allSourceSetsToProjects, archiveTask))
 
     possibleArchiveSourceSet.headOption.getOrElse({
       // no archive source set so revert to default project references
@@ -350,9 +388,13 @@ final class BloopConverter(parameters: BloopParameters) {
       // this attempts to check if a non-default source set is referenced
       val configurationHierarchy = configuration.getHierarchy.iterator.asScala.toList
       val sourceSetToConfigNames = depProject.allSourceSets
-        .flatMap(s => List(s.getCompileClasspathConfigurationName,
+        .flatMap(
+          s =>
+            List(
+              s.getCompileClasspathConfigurationName,
               s.getRuntimeConfigurationName,
-              s.getRuntimeConfigurationName + "Classpath").map(name => name -> s)).toMap
+              s.getRuntimeConfigurationName + "Classpath").map(name => name -> s))
+        .toMap
 
       // take first source set that matches the configuration or default to main
       configurationHierarchy
@@ -375,25 +417,35 @@ final class BloopConverter(parameters: BloopParameters) {
       .get
   }
 
-  private def dependencyToProjectName(allSourceSetsToProjects: Map[SourceSet, Project], file: File): String = {
+  private def dependencyToProjectName(
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      file: File): String = {
     allSourceSetsToProjects
-      .find(ss => matchesOutputDir(ss._1.getOutput, file) ||
+      .find(
+        ss =>
+          matchesOutputDir(ss._1.getOutput, file) ||
             file == ss._1.getOutput.getResourcesDir)
       .map(ss => getProjectName(ss._2, ss._1))
       .get
   }
 
-  private def dependencyToProjectName(allSourceSetsToProjects: Map[SourceSet, Project],projectDependency: ProjectDependency): String = {
+  private def dependencyToProjectName(
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      projectDependency: ProjectDependency): String = {
     val depProject = projectDependency.getDependencyProject
     getProjectName(depProject, getSourceSet(allSourceSetsToProjects, projectDependency))
   }
 
-  private def dependencyToClassPath(allSourceSetsToProjects: Map[SourceSet, Project],targetDir: File, projectDependency: ProjectDependency): Path = {
+  private def dependencyToClassPath(
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      targetDir: File,
+      projectDependency: ProjectDependency): Path = {
     val depProject = projectDependency.getDependencyProject
     getClassesDir(targetDir, depProject, getSourceSet(allSourceSetsToProjects, projectDependency))
   }
 
-  private def convertToPath(allSourceSetsToProjects: Map[SourceSet, Project],
+  private def convertToPath(
+      allSourceSetsToProjects: Map[SourceSet, Project],
       targetDir: File,
       projectDependencies: List[ProjectDependency],
       resolvedArtifact: ResolvedArtifact): Path = {
@@ -417,20 +469,45 @@ final class BloopConverter(parameters: BloopParameters) {
     projectDependencies.exists(dep => isProjectDependency(dep, resolvedArtifact))
   }
 
-  private def artifactToConfigModule(artifact: ResolvedArtifact): Config.Module = {
+  private def artifactToConfigModule(
+      artifact: ResolvedArtifact,
+      project: Project): Config.Module = {
+
+    val resolutionResult = project
+      .getDependencies()
+      .createArtifactResolutionQuery()
+      .forComponents(artifact.getId.getComponentIdentifier)
+      .withArtifacts(classOf[JvmLibrary], classOf[SourcesArtifact], classOf[JavadocArtifact])
+      .execute()
+
+    val name = artifact.getModuleVersion().getId().getName()
+    val resolvedSourcesDependencies =
+      resolutionResult
+        .getResolvedComponents()
+        .asScala
+        .flatMap(_.getArtifacts(classOf[SourcesArtifact]).asScala)
+        .collect {
+          case artifact: ResolvedArtifactResult =>
+            Config.Artifact(
+              name = name,
+              classifier = Option("sources"),
+              checksum = None,
+              path = artifact.getFile.toPath
+            )
+        }
+        .toList
+
     Config.Module(
-      organization = artifact.getModuleVersion.getId.getGroup,
-      name = artifact.getName,
-      version = artifact.getModuleVersion.getId.getVersion,
+      organization = artifact.getModuleVersion().getId().getGroup(),
+      name = artifact.getName(),
+      version = artifact.getModuleVersion().getId().getVersion(),
       configurations = None,
-      List(
-        Config.Artifact(
-          name = artifact.getModuleVersion.getId.getName,
-          classifier = Option(artifact.getClassifier),
-          checksum = None,
-          path = artifact.getFile.toPath
-        )
-      )
+      Config.Artifact(
+        name = name,
+        classifier = Option(artifact.getClassifier()),
+        checksum = None,
+        path = artifact.getFile().toPath()
+      ) :: resolvedSourcesDependencies
     )
   }
 
