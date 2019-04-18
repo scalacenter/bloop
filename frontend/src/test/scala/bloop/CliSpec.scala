@@ -2,9 +2,9 @@ package bloop
 
 import java.nio.file.Files
 
-import bloop.bsp.BspServer
 import bloop.cli.{BspProtocol, Commands, ExitStatus, Validate}
 import bloop.engine.{Action, Exit, Feedback, Print, Run}
+import bloop.util.UUIDUtil
 import org.junit.Test
 
 class CliSpec {
@@ -192,7 +192,7 @@ class CliSpec {
     checkReservedPort(23)
   }
 
-  def uniqueId = java.util.UUID.randomUUID().toString.take(8)
+  def uniqueId = UUIDUtil.randomUUID.take(8)
   def checkIsCliError(action: Action, expected: String): Unit = {
     action match {
       case Print(obtained, _, Exit(code))

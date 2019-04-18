@@ -1,6 +1,7 @@
 package bloop.data
 
 import bloop.io.AbsolutePath
+import bloop.util.UUIDUtil
 
 import java.nio.file.Files
 
@@ -32,8 +33,7 @@ object ClientInfo {
       version: String,
       bspVersion: String
   ) extends ClientInfo {
-    import java.util.UUID
-    val uniqueId: String = s"${this.name}-${UUID.randomUUID()}"
+    val uniqueId: String = s"${this.name}-${UUIDUtil.randomUUID}"
     import java.util.concurrent.ConcurrentHashMap
     private val uniqueDirs = new ConcurrentHashMap[Project, AbsolutePath]()
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {

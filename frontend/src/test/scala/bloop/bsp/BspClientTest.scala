@@ -3,18 +3,16 @@ package bloop.bsp
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
 
 import bloop.engine.{State, Run}
-import bloop.data.{Project, ClientInfo}
-import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
+import bloop.cli.{Commands, Validate, CliOptions, BspProtocol}
 import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
-import bloop.util.TestUtil
+import bloop.util.{UUIDUtil, TestUtil}
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
@@ -53,7 +51,7 @@ trait BspClientTest {
       configDir: AbsolutePath,
       tempDir: Path
   ): Commands.ValidatedBsp = {
-    val uniqueId = java.util.UUID.randomUUID().toString.take(4)
+    val uniqueId = UUIDUtil.randomUUID.take(4)
     val socketFile = tempDir.resolve(s"test-$uniqueId.socket")
     validateBsp(
       Commands.Bsp(
