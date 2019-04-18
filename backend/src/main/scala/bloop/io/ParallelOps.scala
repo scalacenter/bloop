@@ -130,77 +130,79 @@ object ParallelOps {
       case None => Task(observer.onComplete())
     }
 
+    val subscribed = Promise[Unit]()
     val copyFilesInParallel = {
-      observable.consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
-        case ((originFile, originAttrs), targetFile) =>
-          def copy(replaceExisting: Boolean): Unit = {
-            if (replaceExisting) {
-              Files.copy(
-                originFile,
-                targetFile,
-                StandardCopyOption.COPY_ATTRIBUTES,
-                StandardCopyOption.REPLACE_EXISTING
-              )
-            } else {
-              Files.copy(
-                originFile,
-                targetFile,
-                StandardCopyOption.COPY_ATTRIBUTES
-              )
-            }
-            ()
-          }
-
-          def triggerCopy(p: Promise[Unit]) = Task.eval {
-            try {
-              configuration.mode match {
-                case CopyMode.ReplaceExisting => copy(replaceExisting = true)
-                case CopyMode.ReplaceIfMetadataMismatch =>
-                  import scala.util.{Try, Success, Failure}
-                  Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
-                    case Success(targetAttrs) =>
-                      val changedMetadata = {
-                        originAttrs.lastModifiedTime
-                          .compareTo(targetAttrs.lastModifiedTime) != 0 ||
-                        originAttrs.size() != targetAttrs.size()
-                      }
-
-                      if (!changedMetadata) ()
-                      else copy(replaceExisting = true)
-                    // Can happen when the file does not exist, replace in that case
-                    case Failure(t: IOException) => copy(replaceExisting = true)
-                    case Failure(t) => throw t
-                  }
-                case CopyMode.NoReplace =>
-                  if (Files.exists(targetFile)) ()
-                  else copy(replaceExisting = false)
+      observable
+        .doOnSubscribe(() => subscribed.success(()))
+        .consumeWith(Consumer.foreachParallelAsync(configuration.parallelUnits) {
+          case ((originFile, originAttrs), targetFile) =>
+            def copy(replaceExisting: Boolean): Unit = {
+              if (replaceExisting) {
+                Files.copy(
+                  originFile,
+                  targetFile,
+                  StandardCopyOption.COPY_ATTRIBUTES,
+                  StandardCopyOption.REPLACE_EXISTING
+                )
+              } else {
+                Files.copy(
+                  originFile,
+                  targetFile,
+                  StandardCopyOption.COPY_ATTRIBUTES
+                )
               }
-            } finally {
-              takenByOtherCopyProcess.remove(originFile)
-              // Complete successfully to unblock other tasks
-              p.success(())
+              ()
             }
-            ()
-          }
 
-          def acquireFile: Task[Unit] = {
-            val currentPromise = Promise[Unit]()
-            val promiseInMap = takenByOtherCopyProcess.putIfAbsent(originFile, currentPromise)
-            if (promiseInMap == null) {
-              triggerCopy(currentPromise)
-            } else {
-              Task.fromFuture(promiseInMap.future).flatMap(_ => acquireFile)
+            def triggerCopy(p: Promise[Unit]) = Task.eval {
+              try {
+                configuration.mode match {
+                  case CopyMode.ReplaceExisting => copy(replaceExisting = true)
+                  case CopyMode.ReplaceIfMetadataMismatch =>
+                    import scala.util.{Try, Success, Failure}
+                    Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
+                      case Success(targetAttrs) =>
+                        val changedMetadata = {
+                          originAttrs.lastModifiedTime
+                            .compareTo(targetAttrs.lastModifiedTime) != 0 ||
+                          originAttrs.size() != targetAttrs.size()
+                        }
+
+                        if (!changedMetadata) ()
+                        else copy(replaceExisting = true)
+                      // Can happen when the file does not exist, replace in that case
+                      case Failure(t: IOException) => copy(replaceExisting = true)
+                      case Failure(t) => throw t
+                    }
+                  case CopyMode.NoReplace =>
+                    if (Files.exists(targetFile)) ()
+                    else copy(replaceExisting = false)
+                }
+              } finally {
+                takenByOtherCopyProcess.remove(originFile)
+                // Complete successfully to unblock other tasks
+                p.success(())
+              }
+              ()
             }
-          }
 
-          acquireFile
-      })
+            def acquireFile: Task[Unit] = {
+              val currentPromise = Promise[Unit]()
+              val promiseInMap = takenByOtherCopyProcess.putIfAbsent(originFile, currentPromise)
+              if (promiseInMap == null) {
+                triggerCopy(currentPromise)
+              } else {
+                Task.fromFuture(promiseInMap.future).flatMap(_ => acquireFile)
+              }
+            }
+
+            acquireFile
+        })
     }
 
+    val orderlyDiscovery = Task.fromFuture(subscribed.future).flatMap(_ => discoverFileTree)
     Task {
-      Task.mapBoth(discoverFileTree, copyFilesInParallel) {
-        case (fileWalk, _) => fileWalk
-      }
+      Task.mapBoth(orderlyDiscovery, copyFilesInParallel) { case (fileWalk, _) => fileWalk }
     }.flatten.executeOn(scheduler)
   }
 }
