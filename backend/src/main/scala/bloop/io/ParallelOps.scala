@@ -25,9 +25,6 @@ import monix.execution.{Scheduler, Cancelable}
 import monix.reactive.{Observable, Consumer, Observer}
 import monix.reactive.MulticastStrategy
 
-import io.methvin.watcher.DirectoryChangeEvent.EventType
-import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
-
 object ParallelOps {
 
   sealed trait CopyMode
@@ -66,6 +63,8 @@ object ParallelOps {
       scheduler: Scheduler,
       logger: Logger
   ): Task[FileWalk] = {
+    @volatile var isCancelled = false
+
     import scala.collection.mutable
     val visitedPaths = new mutable.ListBuffer[Path]()
     val targetPaths = new mutable.ListBuffer[Path]()
@@ -78,17 +77,20 @@ object ParallelOps {
       var firstVisit: Boolean = true
       var currentTargetDirectory: Path = target
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (attributes.isDirectory || configuration.blacklist.contains(file)) ()
+        if (isCancelled) FileVisitResult.TERMINATE
         else {
-          val rebasedFile = currentTargetDirectory.resolve(file.getFileName)
-          if (configuration.blacklist.contains(rebasedFile)) ()
+          if (attributes.isDirectory || configuration.blacklist.contains(file)) ()
           else {
-            visitedPaths.+=(file)
-            targetPaths.+=(rebasedFile)
-            observer.onNext((file -> attributes, rebasedFile))
+            val rebasedFile = currentTargetDirectory.resolve(file.getFileName)
+            if (configuration.blacklist.contains(rebasedFile)) ()
+            else {
+              visitedPaths.+=(file)
+              targetPaths.+=(rebasedFile)
+              observer.onNext((file -> attributes, rebasedFile))
+            }
           }
+          FileVisitResult.CONTINUE
         }
-        FileVisitResult.CONTINUE
       }
 
       def visitFileFailed(
@@ -100,13 +102,16 @@ object ParallelOps {
           directory: Path,
           attributes: BasicFileAttributes
       ): FileVisitResult = {
-        if (firstVisit) {
-          firstVisit = false
-        } else {
-          currentTargetDirectory = currentTargetDirectory.resolve(directory.getFileName)
+        if (isCancelled) FileVisitResult.TERMINATE
+        else {
+          if (firstVisit) {
+            firstVisit = false
+          } else {
+            currentTargetDirectory = currentTargetDirectory.resolve(directory.getFileName)
+          }
+          Files.createDirectories(currentTargetDirectory)
+          FileVisitResult.CONTINUE
         }
-        Files.createDirectories(currentTargetDirectory)
-        FileVisitResult.CONTINUE
       }
 
       def postVisitDirectory(
@@ -156,27 +161,31 @@ object ParallelOps {
 
             def triggerCopy(p: Promise[Unit]) = Task.eval {
               try {
-                configuration.mode match {
-                  case CopyMode.ReplaceExisting => copy(replaceExisting = true)
-                  case CopyMode.ReplaceIfMetadataMismatch =>
-                    import scala.util.{Try, Success, Failure}
-                    Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
-                      case Success(targetAttrs) =>
-                        val changedMetadata = {
-                          originAttrs.lastModifiedTime
-                            .compareTo(targetAttrs.lastModifiedTime) != 0 ||
-                          originAttrs.size() != targetAttrs.size()
-                        }
+                // Skip work if cancellation is on and complete promise in finalizer
+                if (isCancelled) ()
+                else {
+                  configuration.mode match {
+                    case CopyMode.ReplaceExisting => copy(replaceExisting = true)
+                    case CopyMode.ReplaceIfMetadataMismatch =>
+                      import scala.util.{Try, Success, Failure}
+                      Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
+                        case Success(targetAttrs) =>
+                          val changedMetadata = {
+                            originAttrs.lastModifiedTime
+                              .compareTo(targetAttrs.lastModifiedTime) != 0 ||
+                            originAttrs.size() != targetAttrs.size()
+                          }
 
-                        if (!changedMetadata) ()
-                        else copy(replaceExisting = true)
-                      // Can happen when the file does not exist, replace in that case
-                      case Failure(t: IOException) => copy(replaceExisting = true)
-                      case Failure(t) => throw t
-                    }
-                  case CopyMode.NoReplace =>
-                    if (Files.exists(targetFile)) ()
-                    else copy(replaceExisting = false)
+                          if (!changedMetadata) ()
+                          else copy(replaceExisting = true)
+                        // Can happen when the file does not exist, replace in that case
+                        case Failure(t: IOException) => copy(replaceExisting = true)
+                        case Failure(t) => throw t
+                      }
+                    case CopyMode.NoReplace =>
+                      if (Files.exists(targetFile)) ()
+                      else copy(replaceExisting = false)
+                  }
                 }
               } finally {
                 takenByOtherCopyProcess.remove(originFile)
@@ -201,8 +210,9 @@ object ParallelOps {
     }
 
     val orderlyDiscovery = Task.fromFuture(subscribed.future).flatMap(_ => discoverFileTree)
-    Task {
+    val aggregatedCopyTask = Task {
       Task.mapBoth(orderlyDiscovery, copyFilesInParallel) { case (fileWalk, _) => fileWalk }
     }.flatten.executeOn(scheduler)
+    aggregatedCopyTask.doOnCancel(Task { isCancelled = true; () })
   }
 }
