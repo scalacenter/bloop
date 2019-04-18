@@ -183,7 +183,6 @@ trait BspClientTest {
   }
 
   def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
-    // Very important we use the socket implementations from ipcsocket for correctness
     import bloop.sockets.UnixDomainSocket
     import bloop.sockets.Win32NamedPipeSocket
     val connectToServer = me.Task {
