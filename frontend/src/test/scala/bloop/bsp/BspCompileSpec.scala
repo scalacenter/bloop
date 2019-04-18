@@ -654,6 +654,9 @@ class BspCompileSpec(
           """|#2: task start 2
              |  -> Msg: Compiling a (1 Scala source)
              |  -> Data kind: compile-task
+             |#2: a/src/main/scala/App.scala
+             |  -> List()
+             |  -> reset = true
              |#2: task finish 2
              |  -> errors 0, warnings 0
              |  -> Msg: Compiled 'a'

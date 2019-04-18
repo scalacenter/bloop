@@ -705,7 +705,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
               |""".stripMargin
         } else {
           s"""|[E1] ${targetFoo}:3
-              |      error: cannot access symbol Bar
+              |      error: cannot access Bar
               |${targetFoo}: L3 [E1]
               |""".stripMargin
         }

@@ -152,33 +152,53 @@ class BspConnectionSpec(
             |  def sleep(): Unit = macro sleepImpl
             |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
             |    import c.universe._
-            |    Thread.sleep(500)
+            |    Thread.sleep(1000)
             |    reify { () }
             |  }
             |}""".stripMargin
 
         val `B.scala` =
           """/B.scala
-            |object B {
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  def foo(s: String): String = s.toString
-            |}
+            |object B { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `B2.scala` =
+          """/B2.scala
+            |object B2 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `B3.scala` =
+          """/B3.scala
+            |object B3 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `B4.scala` =
+          """/B4.scala
+            |object B4 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `B5.scala` =
+          """/B5.scala
+            |object B5 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `B6.scala` =
+          """/B6.scala
+            |object B6 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
           """.stripMargin
       }
 
       val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
-      val `B` = TestProject(workspace, "b", List(Sources.`B.scala`), List(`A`))
+      val sourcesB = List(
+        Sources.`B.scala`,
+        Sources.`B2.scala`,
+        Sources.`B3.scala`,
+        Sources.`B4.scala`,
+        Sources.`B5.scala`,
+        Sources.`B6.scala`
+      )
+
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
 
       val projects = List(`A`, `B`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -242,11 +262,7 @@ class BspConnectionSpec(
       // of compilation, which would take more than 6 seconds as there are 12 sleeps
       val safeDelay = FiniteDuration(5, "s")
       import java.util.concurrent.TimeoutException
-      try TestUtil.await(safeDelay, poolFor1Client)(createHangingCompilationViaBsp)
-      catch {
-        case t: TimeoutException => //logger.dump(); throw t
-          throw t
-      }
+      TestUtil.await(safeDelay, poolFor1Client)(createHangingCompilationViaBsp)
     }
   }
 }

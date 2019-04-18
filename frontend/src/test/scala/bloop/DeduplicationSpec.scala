@@ -733,17 +733,38 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |}
           """.stripMargin
 
+        // Sleep in independent files to force compiler to check for cancelled status
         val `B2.scala` =
           """/B.scala
             |object B {
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
-            |  macros.SleepMacro.sleep()
             |  def foo(s: String): String = s.toString
+            |  macros.SleepMacro.sleep()
             |}
+          """.stripMargin
+
+        val `Extra.scala` =
+          """/Extra.scala
+            |object Extra { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `Extra2.scala` =
+          """/Extra2.scala
+            |object Extra2 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `Extra3.scala` =
+          """/Extra3.scala
+            |object Extra3 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `Extra4.scala` =
+          """/Extra4.scala
+            |object Extra4 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+        val `Extra5.scala` =
+          """/Extra5.scala
+            |object Extra5 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
           """.stripMargin
       }
 
@@ -758,6 +779,11 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       val compiledState = state.compile(`B`)
 
       writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
+      writeFile(`B`.srcFor("Extra.scala", exists = false), Sources.`Extra.scala`)
+      writeFile(`B`.srcFor("Extra2.scala", exists = false), Sources.`Extra2.scala`)
+      writeFile(`B`.srcFor("Extra3.scala", exists = false), Sources.`Extra3.scala`)
+      writeFile(`B`.srcFor("Extra4.scala", exists = false), Sources.`Extra4.scala`)
+      writeFile(`B`.srcFor("Extra5.scala", exists = false), Sources.`Extra5.scala`)
 
       loadBspState(workspace, projects, bspLogger) { bspState =>
         val firstDelay = Some(random(300, 500))
@@ -796,7 +822,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           firstCompiledState.lastDiagnostics(`B`),
           s"""
              |#1: task start 2
-             |  -> Msg: Compiling b (1 Scala source)
+             |  -> Msg: Compiling b (6 Scala sources)
              |  -> Data kind: compile-task
              |#1: task finish 2
              |  -> errors 0, warnings 0
