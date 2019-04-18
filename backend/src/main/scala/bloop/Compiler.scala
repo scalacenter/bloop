@@ -365,6 +365,9 @@ object Compiler {
       cancelPromise.synchronized {
         // Avoid illegal state exception if client cancellation promise is completed
         if (!cancelPromise.isCompleted) {
+          logger.debug(
+            s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}"
+          )
           compileInputs.cancelPromise.success(())
         }
       }

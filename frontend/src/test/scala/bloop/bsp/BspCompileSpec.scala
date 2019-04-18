@@ -640,6 +640,29 @@ class BspCompileSpec(
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
+
+        import java.nio.file.Files
+        Files.delete(`A`.srcFor("main/scala/App.scala").underlying)
+
+        // Test that deleting a file with a warning doesn't make bloop send clear diagnostics
+        val secondCompiledState = compiledState.compile(`A`)
+        assert(secondCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
+          """|#2: task start 2
+             |  -> Msg: Compiling a (1 Scala source)
+             |  -> Data kind: compile-task
+             |#2: a/src/main/scala/App.scala
+             |  -> List()
+             |  -> reset = true
+             |#2: task finish 2
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
       }
     }
   }

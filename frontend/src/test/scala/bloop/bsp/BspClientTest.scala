@@ -181,14 +181,13 @@ trait BspClientTest {
   }
 
   def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
-    // Very important we use the socket implementations from ipcsocket for correctness
-    import org.scalasbt.ipcsocket.UnixDomainSocket
-    import org.scalasbt.ipcsocket.Win32NamedPipeSocket
+    import bloop.sockets.UnixDomainSocket
+    import bloop.sockets.Win32NamedPipeSocket
     val connectToServer = me.Task {
       cmd match {
-        case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
-        case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.syntax)
         case cmd: Commands.TcpBsp => new java.net.Socket(cmd.host, cmd.port)
+        case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.syntax)
+        case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
       }
     }
     retryBackoff(connectToServer, 3, FiniteDuration(1, "s"))

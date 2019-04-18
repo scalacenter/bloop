@@ -23,7 +23,6 @@ import monix.reactive.{Observable, MulticastStrategy, Observer}
 import monix.execution.{ExecutionModel, Scheduler, CancelableFuture}
 import monix.execution.atomic.AtomicInt
 
-import org.scalasbt.ipcsocket.Win32NamedPipeSocket
 import sbt.internal.util.MessageOnlyException
 
 import java.nio.file.Files
@@ -43,10 +42,21 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       closeStreamsForcibly: () => Unit,
       currentCompileIteration: AtomicInt,
       diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
-      implicit val client: LanguageClient,
+      implicit val client: BloopLanguageClient,
       private val serverStates: Observable[State]
   ) {
     val status = state.status
+
+    def toUnsafeManagedState: ManagedBspTestState = {
+      new ManagedBspTestState(
+        state,
+        bsp.StatusCode.Ok,
+        currentCompileIteration,
+        diagnostics,
+        client,
+        serverStates
+      )
+    }
 
     def withinSession(f: ManagedBspTestState => Unit): Unit = {
       try f(
@@ -72,8 +82,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       lastBspStatus: bsp.StatusCode,
       currentCompileIteration: AtomicInt,
       diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
-      implicit val client0: LanguageClient,
-      private val serverStates: Observable[State]
+      implicit val client0: BloopLanguageClient,
+      val serverStates: Observable[State]
   ) {
     val underlying = state
     val client = state.client
@@ -363,12 +373,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         ()
       }
 
-      implicit val lsClient = new LanguageClient(out, logger)
+      implicit val lsClient = new BloopLanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
       val addDiagnosticsHandler =
         addServicesTest(configDirectory, () => compileIteration.get, addToStringReport)
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
-      val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
+      import bloop.bsp.BloopLanguageServer
+
+      val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent

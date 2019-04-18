@@ -36,7 +36,7 @@ object Validate {
     }
 
     def validatePipeName = cmd.pipeName match {
-      case Some(PipeName(pipeName)) => Run(Commands.WindowsLocalBsp(pipeName, cliOptions))
+      case Some(pipeName @ PipeName(_)) => Run(Commands.WindowsLocalBsp(pipeName, cliOptions))
       case Some(wrong) => cliError(Feedback.unexpectedPipeFormat(wrong), commonOptions)
       case None => cliError(Feedback.MissingPipeName, commonOptions)
     }

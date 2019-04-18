@@ -184,9 +184,7 @@ final class BloopBspServices(
     callSiteState.logger.info("BSP initialization handshake complete.")
   }
 
-  def ifInitialized[T](
-      persistAnalysisFiles: Boolean = false
-  )(compute: BspComputation[T]): BspEndpointResponse[T] = {
+  def ifInitialized[T](compute: BspComputation[T]): BspEndpointResponse[T] = {
     // Give a time window for `isInitialized` to complete, otherwise assume it didn't happen
     isInitializedTask
       .flatMap(response => clientInfoTask.map(clientInfo => response.map(_ => clientInfo)))
@@ -200,9 +198,7 @@ final class BloopBspServices(
           reloadState(currentState.build.origin, clientInfo).flatMap { state0 =>
             val state = state0.copy(client = clientInfo)
             compute(state).flatMap {
-              case (state, e) =>
-                if (!persistAnalysisFiles) Task.now(e)
-                else saveState(state).map(_ => e)
+              case (state, e) => saveState(state).map(_ => e)
             }
           }
       }
@@ -336,7 +332,7 @@ final class BloopBspServices(
   }
 
   def compile(params: bsp.CompileParams): BspEndpointResponse[bsp.CompileResult] = {
-    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
+    ifInitialized { (state: State) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -360,7 +356,7 @@ final class BloopBspServices(
       Tasks.test(state, List(project), Nil, testFilter, handler, false)
     }
 
-    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
+    ifInitialized { (state: State) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -429,7 +425,7 @@ final class BloopBspServices(
       }
     }
 
-    ifInitialized(persistAnalysisFiles = true) { (state: State) =>
+    ifInitialized { (state: State) =>
       mapToProject(params.target, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -495,7 +491,7 @@ final class BloopBspServices(
   def buildTargets(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargets] = {
-    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
+    ifInitialized { (state: State) =>
       def reportBuildError(msg: String): Unit = {
         endpoints.Build.showMessage.notify(
           ShowMessageParams(MessageType.Error, None, None, msg)
@@ -563,7 +559,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
+    ifInitialized { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -599,7 +595,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
+    ifInitialized { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -636,7 +632,7 @@ final class BloopBspServices(
       Task.now((state, Right(response)))
     }
 
-    ifInitialized(persistAnalysisFiles = false) { (state: State) =>
+    ifInitialized { (state: State) =>
       mapToProjects(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
@@ -656,13 +652,17 @@ final class BloopBspServices(
     ()
   }
 
+  import monix.execution.atomic.Atomic
+  val exited = Atomic(false)
   def exit(shutdown: bsp.Exit): Task[Unit] = {
     def closeServices(code: Int): Unit = {
-      exitStatus.set(code)
-      // Closing the input stream is our way to stopping these services
-      try socketInput.close()
-      catch { case t: Throwable => () }
-      ()
+      if (exited.getAndSet(true)) {
+        exitStatus.set(code)
+        // Closing the input stream is our way to stopping these services
+        try socketInput.close()
+        catch { case t: Throwable => () }
+        ()
+      }
     }
 
     isShutdownTask

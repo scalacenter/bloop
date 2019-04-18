@@ -97,6 +97,7 @@ final class SourceWatcher private (
       FoldLeftAsyncConsumer.consume[State, EventStream](state0) {
         case (state, stream) =>
           stream match {
+            // Ignore overflow for now, though we could restart run if changes are found
             case EventStream.Overflow => Task.now(state)
             case EventStream.SourceChanges(events) =>
               val eventsThatForceAction = events.collect { event =>
