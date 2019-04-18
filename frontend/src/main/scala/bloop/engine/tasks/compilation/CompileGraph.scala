@@ -390,7 +390,15 @@ object CompileGraph {
                           // Delete in background after running tasks which could be using this dir
                           .doOnFinish { _ =>
                             Task {
-                              BloopPaths.delete(toDeleteResult.classesDir)
+                              // Don't delete classes dir if it's an empty
+                              if (toDeleteResult.hasEmptyClassesDir) {
+                                // The empty classes dir should not exist in the
+                                // first place but we guarantee that even if it
+                                // does we don't delete it to avoid any conflicts
+                                logger.debug(s"Skipping delete for ${toDeleteResult.classesDir}")
+                              } else {
+                                BloopPaths.delete(toDeleteResult.classesDir)
+                              }
                             }.executeOn(ExecutionContext.ioScheduler)
                           }
                       }.memoize

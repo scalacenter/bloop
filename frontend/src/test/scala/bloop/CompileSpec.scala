@@ -302,8 +302,8 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       // Check that initial classes directory doesn't exist either
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
-      // There should only be three classes dirs: empty-a, current classes dir and external
-      assert(list(workspace.resolve("target").resolve("a")).size == 3)
+      // There should only be 2 dirs: current classes dir and external (no empty classes dir)
+      assert(list(workspace.resolve("target").resolve("a")).size == 2)
     }
   }
 

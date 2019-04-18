@@ -17,8 +17,10 @@ final class BloopLookup(
   override def changedClasspathHash: Option[Vector[FileHash]] = {
     if (classpathHash == previousClasspathHash) None
     else {
-      // Previous classpath hash may contain directories, discard them and check again
-      val newPreviousClasspathHash = previousClasspathHash.filterNot(fh => fh.file.isDirectory())
+      // Discard directories and known empty classes dirs and check if there's still a hash mismatch
+      val newPreviousClasspathHash = previousClasspathHash
+        .filterNot(fh => fh.file.isDirectory() || fh.file.getName().startsWith("classes-empty-"))
+
       if (classpathHash == newPreviousClasspathHash) None
       else {
         logger.debug("Classpath hash changed!")
