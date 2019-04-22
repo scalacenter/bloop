@@ -190,7 +190,7 @@ object ReleaseUtils {
        |  "env_add_path": "$$dir",
        |  "env_set": {
        |    "HOME": "$$dir",
-       |    "SCOOP": "true"
+       |    "BLOOP_IN_SCOOP": "true"
        |  },
        |  "installer": {
        |    "script": "python $$dir/install.py --dest $$dir"
