@@ -5,12 +5,14 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
 
+import ch.epfl.scala.bsp.StatusCode
 import bloop.io.{ParallelOps, AbsolutePath, Paths => BloopPaths}
 import bloop.io.ParallelOps.CopyMode
 import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
 import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.util.JavaCompat.EnrichOptional
+import bloop.util.SystemProperties
 import bloop.engine.{Dag, Leaf, Parent, Aggregate, ExecutionContext}
 import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
@@ -20,9 +22,11 @@ import bloop.engine.caches.LastSuccessfulResult
 import monix.eval.Task
 import monix.execution.atomic.AtomicInt
 import monix.execution.CancelableFuture
+import monix.execution.atomic.AtomicBoolean
 import monix.reactive.{Observable, MulticastStrategy}
 import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
 
+import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
 object CompileGraph {
@@ -123,6 +127,8 @@ object CompileGraph {
   case class RunningCompilation(
       traversal: CompileTraversal,
       previousLastSuccessful: LastSuccessfulResult,
+      cancelPromise: Promise[Unit],
+      isUnsubscribed: AtomicBoolean,
       mirror: Observable[Either[ReporterAction, LoggerAction]]
   )
 
@@ -138,6 +144,13 @@ object CompileGraph {
   private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
 
   private val emptyOracle = ImmutableCompilerOracle.empty()
+
+  private sealed trait DeduplicationResult
+  private object DeduplicationResult {
+    final case object Ok extends DeduplicationResult
+    final case object DisconnectFromDeduplication extends DeduplicationResult
+    final case class DeduplicationError(t: Throwable) extends DeduplicationResult
+  }
 
   /**
    * Sets up project compilation, deduplicates compilation based on ongoing compilations in all
@@ -172,58 +185,7 @@ object CompileGraph {
         bundle.oracleInputs,
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
-          // Replace client-specific last successful with the most recent result
-          val mostRecentSuccessful = {
-            val result = lastSuccessfulResults.compute(
-              inputs.project.uniqueId,
-              (_: String, current0: LastSuccessfulResult) => {
-                // Pick result in map or successful from bundle if it's first compilation in server
-                val current = Option(current0).getOrElse(bundle.lastSuccessful)
-                // Register that we're using this classes directory in a thread-safe way
-                val counter0 = AtomicInt(1)
-                val counter = currentlyUsedClassesDirs.putIfAbsent(current.classesDir, counter0)
-                if (counter == null) () else counter.increment(1)
-                current
-              }
-            )
-
-            val projectName = inputs.project.name
-            if (!result.classesDir.exists) {
-              logger.debug(
-                s"Ignoring analysis for ${projectName}, directory ${result.classesDir} is missing"
-              )
-              LastSuccessfulResult.empty(inputs.project)
-            } else if (bundle.latestResult != Compiler.Result.Empty) {
-              logger.debug(
-                s"Using successful analysis for ${projectName} associated with ${result.classesDir}"
-              )
-              result
-            } else {
-              logger.debug(
-                s"Ignoring existing analysis for ${projectName}, last result was empty"
-              )
-              LastSuccessfulResult.empty(inputs.project)
-            }
-          }
-
-          val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
-          val compileAndUnsubscribe = {
-            compile(newBundle)
-              .doOnFinish(_ => Task(logger.observer.onComplete()))
-              .map { result =>
-                // Unregister deduplication atomically and register last successful if any
-                processResultAtomically(
-                  result,
-                  inputs.project,
-                  bundle.oracleInputs,
-                  mostRecentSuccessful,
-                  logger
-                )
-              }
-              .memoize // Without memoization, there is no deduplication
-          }
-
-          RunningCompilation(compileAndUnsubscribe, mostRecentSuccessful, bundle.mirror)
+          scheduleCompilation(inputs, bundle, compile)
         }
       )
 
@@ -241,38 +203,51 @@ object CompileGraph {
           Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
 
         // Replay events asynchronously to waiting for the compilation result
-        val replayEventsTask = ongoingCompilation.mirror.foreachL {
-          case Left(action) =>
-            action match {
-              case ReporterAction.ReportStartCompilation =>
-                reporter.reportStartCompilation(previousProblems)
-              case a: ReporterAction.ReportStartIncrementalCycle =>
-                reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
-              case a: ReporterAction.ReportProblem => reporter.log(a.problem)
-              case ReporterAction.PublishDiagnosticsSummary =>
-                reporter.printSummary()
-              case a: ReporterAction.ReportNextPhase =>
-                reporter.reportNextPhase(a.phase, a.sourceFile)
-              case a: ReporterAction.ReportCompilationProgress =>
-                reporter.reportCompilationProgress(a.progress, a.total)
-              case a: ReporterAction.ReportEndIncrementalCycle =>
-                reporter.reportEndIncrementalCycle(a.durationMs, a.result)
-              case ReporterAction.ReportCancelledCompilation =>
-                reporter.reportCancelledCompilation()
-              case a: ReporterAction.ReportEndCompilation =>
-                reporter.reportEndCompilation(previousSuccessfulProblems, a.code)
-            }
-          case Right(action) =>
-            action match {
-              case LoggerAction.LogErrorMessage(msg) => rawLogger.error(msg)
-              case LoggerAction.LogWarnMessage(msg) => rawLogger.warn(msg)
-              case LoggerAction.LogInfoMessage(msg) => rawLogger.info(msg)
-              case LoggerAction.LogDebugMessage(msg) =>
-                rawLogger.debug(msg)
-              case LoggerAction.LogTraceMessage(msg) =>
-                rawLogger.debug(msg)
-            }
-        }
+        import scala.concurrent.duration.FiniteDuration
+        import java.util.concurrent.TimeUnit
+        import monix.execution.exceptions.UpstreamTimeoutException
+        val disconnectionTime = SystemProperties.getCompileDisconnectionTime(rawLogger)
+        val replayEventsTask = ongoingCompilation.mirror
+          .timeoutOnSlowUpstream(disconnectionTime)
+          .foreachL {
+            case Left(action) =>
+              action match {
+                case ReporterAction.ReportStartCompilation =>
+                  reporter.reportStartCompilation(previousProblems)
+                case a: ReporterAction.ReportStartIncrementalCycle =>
+                  reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
+                case a: ReporterAction.ReportProblem => reporter.log(a.problem)
+                case ReporterAction.PublishDiagnosticsSummary =>
+                  reporter.printSummary()
+                case a: ReporterAction.ReportNextPhase =>
+                  reporter.reportNextPhase(a.phase, a.sourceFile)
+                case a: ReporterAction.ReportCompilationProgress =>
+                  reporter.reportCompilationProgress(a.progress, a.total)
+                case a: ReporterAction.ReportEndIncrementalCycle =>
+                  reporter.reportEndIncrementalCycle(a.durationMs, a.result)
+                case ReporterAction.ReportCancelledCompilation =>
+                  reporter.reportCancelledCompilation()
+                case a: ReporterAction.ReportEndCompilation =>
+                  reporter.reportEndCompilation(previousSuccessfulProblems, a.code)
+              }
+            case Right(action) =>
+              action match {
+                case LoggerAction.LogErrorMessage(msg) => rawLogger.error(msg)
+                case LoggerAction.LogWarnMessage(msg) => rawLogger.warn(msg)
+                case LoggerAction.LogInfoMessage(msg) => rawLogger.info(msg)
+                case LoggerAction.LogDebugMessage(msg) =>
+                  rawLogger.debug(msg)
+                case LoggerAction.LogTraceMessage(msg) =>
+                  rawLogger.debug(msg)
+              }
+          }
+          .materialize
+          .map {
+            case Success(value) => DeduplicationResult.Ok
+            case Failure(t: UpstreamTimeoutException) =>
+              DeduplicationResult.DisconnectFromDeduplication
+            case Failure(t) => DeduplicationResult.DeduplicationError(t)
+          }
 
         /* The task set up by another process whose memoized result we're going to
          * reuse. To prevent blocking compilations, we execute this task (which will
@@ -319,16 +294,155 @@ object CompileGraph {
           }
         }
 
-        val waitUntilDeduplicationFinishes = for {
-          result <- obtainResultFromDeduplication
-          _ <- Task.fromFuture(deduplicateStreamSideEffectsHandle)
-        } yield result
+        val compileAndDeduplicate = Task
+          .chooseFirstOf(
+            obtainResultFromDeduplication,
+            Task.fromFuture(deduplicateStreamSideEffectsHandle)
+          )
+          .executeOn(ExecutionContext.ioScheduler)
+
+        val finalCompileTask = compileAndDeduplicate.flatMap {
+          case Left((result, deduplicationFuture)) =>
+            Task.fromFuture(deduplicationFuture).map(_ => result)
+          case Right((compilationFuture, deduplicationResult)) =>
+            deduplicationResult match {
+              case DeduplicationResult.Ok => Task.fromFuture(compilationFuture)
+              case DeduplicationResult.DeduplicationError(t) =>
+                rawLogger.trace(t)
+                val failedDeduplicationResult = Compiler.Result.GlobalError(
+                  s"Unexpected error while deduplicating compilation for ${inputs.project.name}: ${t.getMessage}"
+                )
+
+                /*
+                 * When an error happens while replaying all events of the
+                 * deduplicated compilation, we keep track of the error, wait
+                 * until the deduplicated compilation finishes and then we
+                 * replace the result by a failed result that informs the
+                 * client compilation was not successfully deduplicated.
+                 */
+                Task.fromFuture(compilationFuture).map { resultDag =>
+                  enrichResultDag(resultDag) { (p: PartialCompileResult) =>
+                    p match {
+                      case s: PartialSuccess =>
+                        val failedBundle =
+                          ResultBundle(failedDeduplicationResult, None, CancelableFuture.unit)
+                        s.copy(result = s.result.map(_ => failedBundle))
+                      case result => result
+                    }
+                  }
+                }
+
+              case DeduplicationResult.DisconnectFromDeduplication =>
+                /*
+                 * Deduplication timed out after no compilation updates were
+                 * recorded. In theory, this could happen because a rogue
+                 * compilation process has stalled or is blocked. To ensure
+                 * deduplicated clients always make progress, we now proceed
+                 * with:
+                 *
+                 * 1. Cancelling the dead-looking compilation, hoping that the
+                 *    process will wake up at some point and stop running.
+                 * 2. Shutting down the deduplication and triggering a new
+                 *    compilation. If there are several clients deduplicating this
+                 *    compilation, they will compete to start the compilation again
+                 *    with new compile inputs, as they could have already changed.
+                 * 3. Reporting the end of compilation in case it hasn't been
+                 *    reported. Clients must handle two end compilation notifications
+                 *    gracefully.
+                 * 4. Display the user that the deduplication was cancelled and a
+                 *    new compilation was scheduled.
+                 */
+                ongoingCompilation.isUnsubscribed.compareAndSet(false, true)
+                runningCompilations.remove(bundle.oracleInputs, ongoingCompilation)
+                compilationFuture.cancel()
+                reporter.reportEndCompilation(Nil, StatusCode.Cancelled)
+                logger.displayWarningToUser(
+                  s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'
+                     |No progress update for ${(disconnectionTime: FiniteDuration)
+                       .toString()} caused bloop to cancel compilation and schedule a new compile.
+                  """.stripMargin
+                )
+                setupAndDeduplicate(client, inputs, setup)(compile)
+            }
+        }
 
         bundle.tracer.traceTask(s"deduplicating ${bundle.project.name}") { _ =>
-          waitUntilDeduplicationFinishes.executeOn(ExecutionContext.ioScheduler)
+          finalCompileTask.executeOn(ExecutionContext.ioScheduler)
         }
       }
     }
+  }
+
+  /**
+   * Schedules a compilation for a project that can be deduplicated by other clients.
+   */
+  def scheduleCompilation(
+      inputs: BundleInputs,
+      bundle: CompileBundle,
+      compile: CompileBundle => CompileTraversal
+  ): RunningCompilation = {
+    import inputs.project
+    import bundle.logger
+    import logger.debug
+    import bundle.cancelCompilation
+
+    logger.debug(s"Scheduling compilation for ${project.name}...")
+
+    // Replace client-specific last successful with the most recent result
+    val mostRecentSuccessful = {
+      val result = lastSuccessfulResults.compute(
+        project.uniqueId,
+        (_: String, current0: LastSuccessfulResult) => {
+          // Pick result in map or successful from bundle if it's first compilation in server
+          val current = Option(current0).getOrElse(bundle.lastSuccessful)
+          // Register that we're using this classes directory in a thread-safe way
+          val counter0 = AtomicInt(1)
+          val counter = currentlyUsedClassesDirs.putIfAbsent(current.classesDir, counter0)
+          if (counter == null) () else counter.increment(1)
+          current
+        }
+      )
+
+      // Ignore analysis or consider the last queried result the most recent successful result
+      if (!result.classesDir.exists) {
+        debug(s"Ignoring analysis for ${project.name}, directory ${result.classesDir} is missing")
+        LastSuccessfulResult.empty(inputs.project)
+      } else if (bundle.latestResult != Compiler.Result.Empty) {
+        debug(s"Using successful analysis for ${project.name} associated with ${result.classesDir}")
+        result
+      } else {
+        debug(s"Ignoring existing analysis for ${project.name}, last result was empty")
+        LastSuccessfulResult.empty(inputs.project)
+      }
+    }
+
+    val isUnsubscribed = AtomicBoolean(false)
+    val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
+    val compileAndUnsubscribe = {
+      compile(newBundle)
+        .doOnFinish(_ => Task(logger.observer.onComplete()))
+        .map { result =>
+          val oinputs = bundle.oracleInputs
+          // Unregister deduplication atomically and register last successful if any
+          processResultAtomically(
+            result,
+            project,
+            oinputs,
+            mostRecentSuccessful,
+            isUnsubscribed,
+            logger
+          )
+        }
+        .memoize // Without memoization, there is no deduplication
+    }
+
+    RunningCompilation(
+      compileAndUnsubscribe,
+      mostRecentSuccessful,
+      cancelCompilation,
+      isUnsubscribed,
+      bundle.mirror
+    )
   }
 
   /**
@@ -352,12 +466,16 @@ object CompileGraph {
       project: Project,
       oinputs: CompilerOracle.Inputs,
       previous: LastSuccessfulResult,
+      isAlreadyUnsubscribed: AtomicBoolean,
       logger: Logger
   ): Dag[PartialCompileResult] = {
 
     def unregisterWhenError(): Unit = {
-      // If error in result, remove from running compilation and decrement use
-      runningCompilations.remove(oinputs)
+      // If error and compilation is not stalled, remove from running compilations map
+      // Else don't unregister again, a deduplicated compilation has overridden it
+      if (!isAlreadyUnsubscribed.get) runningCompilations.remove(oinputs)
+
+      // Decrement classes dir use always
       val classesDirOfFailedResult = previous.classesDir
       Option(currentlyUsedClassesDirs.get(classesDirOfFailedResult))
         .foreach(counter => counter.decrement(1))

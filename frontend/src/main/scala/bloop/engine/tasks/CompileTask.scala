@@ -243,10 +243,11 @@ object CompileTask {
         }
       }
 
+      val cancel = cancelCompilation
       val logger = ObservedLogger(rawLogger, observer)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(inputs, reporter, last, prev, logger, obs, rootTracer)
+      CompileBundle.computeFrom(inputs, reporter, last, prev, cancel, logger, obs, rootTracer)
     }
 
     val client = state.client
@@ -300,17 +301,19 @@ object CompileTask {
           }
         }
 
-        val backgroundTasks = Task.gatherUnordered {
-          results.flatMap {
-            case FinalNormalCompileResult(_, results: ResultBundle, _) =>
-              List(
-                Task
-                  .fromFuture(results.runningBackgroundTasks)
-                  .executeOn(ExecutionContext.ioScheduler)
-              )
-            case _ => Nil
+        val backgroundTasks = Task
+          .gatherUnordered {
+            results.flatMap {
+              case FinalNormalCompileResult(_, results: ResultBundle, _) =>
+                List(
+                  Task
+                    .fromFuture(results.runningBackgroundTasks)
+                    .executeOn(ExecutionContext.ioScheduler)
+                )
+              case _ => Nil
+            }
           }
-        }.executeOn(ExecutionContext.ioScheduler)
+          .executeOn(ExecutionContext.ioScheduler)
 
         // Block on all background task operations to fully populate classes directories
         backgroundTasks.map(_ => newState).doOnFinish(_ => Task(rootTracer.terminate()))

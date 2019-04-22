@@ -5,7 +5,7 @@ import bloop.io.RelativePath
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus, BspProtocol}
 import bloop.engine.ExecutionContext
-import bloop.util.{TestProject, TestUtil, BuildUtil}
+import bloop.util.{TestProject, TestUtil, BuildUtil, SystemProperties}
 
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
@@ -706,6 +706,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     }
   }
 
+  // TODO(jvican): Compile project of cancelled compilation to ensure no deduplication trace is left
   test("cancel deduplicated compilation finishes all clients") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
@@ -836,6 +837,117 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           "Cancelling compilation of b"
         )
       }
+    }
+  }
+
+  test("cancel deduplication on blocked compilation") {
+    // Change default value to speed up test and only wait for 2 seconds
+    val testWaitingSeconds = 2
+    System.setProperty(
+      SystemProperties.Keys.SecondsBeforeDisconnectionKey,
+      testWaitingSeconds.toString
+    )
+
+    try {
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      TestUtil.withinWorkspace { workspace =>
+        object Sources {
+          val `A.scala` =
+            s"""/A.scala
+               |package macros
+               |
+               |import scala.reflect.macros.blackbox.Context
+               |import scala.language.experimental.macros
+               |
+               |object SleepMacro {
+               |  def sleep(): Unit = macro sleepImpl
+               |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+               |    import c.universe._
+               |    Thread.sleep(1000 + ($testWaitingSeconds * 1000))
+               |    reify { () }
+               |  }
+               |}""".stripMargin
+
+          val `B.scala` =
+            """/B.scala
+              |object B {
+              |  def foo(s: String): String = s.toString
+              |}
+          """.stripMargin
+
+          // Sleep in independent files to force compiler to check for cancelled status
+          val `B2.scala` =
+            """/B.scala
+              |object B {
+              |  macros.SleepMacro.sleep()
+              |  def foo(s: String): String = s.toString
+              |}
+          """.stripMargin
+        }
+
+        val cliLogger = new RecordingLogger(ansiCodesSupported = false)
+        val bspLogger = new RecordingLogger(ansiCodesSupported = false)
+
+        val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+        val `B` = TestProject(workspace, "b", List(Sources.`B.scala`), List(`A`))
+
+        val projects = List(`A`, `B`)
+        val state = loadState(workspace, projects, cliLogger)
+        val compiledState = state.compile(`B`)
+
+        writeFile(`B`.srcFor("B.scala"), Sources.`B2.scala`)
+        loadBspState(workspace, projects, bspLogger) { bspState =>
+          val firstDelay = Some(random(300, 500))
+          val firstCompilation = bspState.compileHandle(`B`)
+          val secondCompilation = compiledState.withLogger(cliLogger).compileHandle(`B`, firstDelay)
+
+          val (firstCompiledState, secondCompiledState) =
+            TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 10)
+
+          assert(firstCompiledState.status == ExitStatus.CompilationError)
+          assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
+          assertNoDiff(
+            bspLogger.infos.filterNot(_.contains("tcp")).mkString(System.lineSeparator()),
+            """
+              |request received: build/initialize
+              |BSP initialization handshake complete.
+          """.stripMargin
+          )
+
+          assert(secondCompiledState.status == ExitStatus.Ok)
+          assertValidCompilationState(secondCompiledState, List(`B`))
+
+          checkDeduplication(bspLogger, isDeduplicated = false)
+          // Deduplication happens even if there is a disconnection afterwards
+          checkDeduplication(cliLogger, isDeduplicated = true)
+
+          assertNoDiff(
+            cliLogger.warnings.mkString(System.lineSeparator()),
+            """Disconnecting from deduplication of ongoing compilation for 'b'
+              |No progress update for 2 seconds caused bloop to cancel compilation and schedule a new compile.
+              |""".stripMargin
+          )
+
+          assertNoDiff(
+            cliLogger.renderTimeInsensitiveInfos,
+            """|Compiling a (1 Scala source)
+               |Compiled a ???
+               |Compiling b (1 Scala source)
+               |Compiled b ???
+               |Compiling b (1 Scala source)
+               |Compiling b (1 Scala source)
+               |Compiled b ???
+               |""".stripMargin
+          )
+        }
+      }
+    } finally {
+      // Restore the previous value before running this test
+      System.setProperty(
+        SystemProperties.Keys.SecondsBeforeDisconnectionKey,
+        SystemProperties.Defaults.SecondsBeforeDisconnection.toString
+      )
+      ()
     }
   }
 }
