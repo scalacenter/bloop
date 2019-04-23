@@ -24,7 +24,8 @@ matrix:
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
-          "frontend/test" \
+          "frontend/testOnly -bloop.IntegrationTestSuite" \
+          "frontend/testOnly bloop.IntegrationTestSuite" \
           "gradleBloop212/test" \
           "docs/run"
 
