@@ -138,21 +138,21 @@ pipeline:
       - git log --oneline --graph | head -n 20
       - ${RUN_BENCHMARKS_AND_SCRIPTED}
 
-#  run_community_pipelined:
-#    image: scalacenter/scala-docs:1.4
-#    group: build
-#    when:
-#      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
-#      matrix:
-#        OS: linux
-#        OPS: community-build
-#    commands:
-#      - export DRONE_DIR="/drone"
-#      - export PIPELINE_COMMUNITY_BUILD="true"
-#      - . bin/set-up-dodo.sh # Source it because it exports variables
-#      - git log --oneline --graph | head -n 20
-#      - . bin/detect-community-build.sh # Source it because it exports variables
-#      - ${RUN_COMMUNITY_BUILD_EXTRA}
+  run_community_pipelined:
+    image: scalacenter/scala-docs:1.4
+    group: build
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
+        OPS: community-build
+    commands:
+      - export DRONE_DIR="/drone"
+      - export PIPELINE_COMMUNITY_BUILD="true"
+      - . bin/set-up-dodo.sh # Source it because it exports variables
+      - git log --oneline --graph | head -n 20
+      - . bin/detect-community-build.sh # Source it because it exports variables
+      - ${RUN_COMMUNITY_BUILD_EXTRA}
 
   build_windows:
     group: build
