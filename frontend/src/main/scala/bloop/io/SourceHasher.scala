@@ -29,6 +29,8 @@ object SourceHasher {
       parallelUnits: Int
   ): Task[List[CompilerOracle.HashedSource]] = {
     val sourceFilesAndDirectories = project.sources.distinct
+    import scala.collection.mutable
+    val visitedDirs = new mutable.HashSet[Path]()
     val (observer, observable) = Observable.multicast[Path](
       MulticastStrategy.publish
     )(ExecutionContext.ioScheduler)
@@ -48,7 +50,10 @@ object SourceHasher {
       def preVisitDirectory(
           directory: Path,
           attributes: BasicFileAttributes
-      ): FileVisitResult = FileVisitResult.CONTINUE
+      ): FileVisitResult = {
+        visitedDirs.+=(directory)
+        FileVisitResult.CONTINUE
+      }
 
       def postVisitDirectory(
           directory: Path,
@@ -59,7 +64,8 @@ object SourceHasher {
     val discoverFileTree = Task {
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
-        Files.walkFileTree(sourcePath.underlying, opts, Int.MaxValue, discovery)
+        if (visitedDirs.contains(sourcePath.underlying)) ()
+        else Files.walkFileTree(sourcePath.underlying, opts, Int.MaxValue, discovery)
       }
     }.doOnFinish {
       case Some(t) => Task(observer.onError(t))
