@@ -128,17 +128,21 @@ class IntegrationTestSuite(testDirectory: Path) {
       )
     }
 
+    import bloop.cli.CliOptions
     val enablePipelining = isPipeliningEnabled
     val action = Run(
       Commands.Compile(
         List(projectToCompile.name),
         incremental = true,
         pipeline = isPipeliningEnabled
+        //cliOptions = CliOptions.default.copy(verbose = true)
       ),
       Exit(ExitStatus.Ok)
     )
 
-    val state1 = TestUtil.blockingExecute(action, state)
+    val verboseState = state //.copy(logger = state.logger.asVerbose)
+    val state1 = TestUtil.blockingExecute(action, verboseState)
+    assert(state1.status.isOk)
     reachable.foreach { p =>
       assertTrue(
         s"Project `$integrationTestName/${p.name}` has not been compiled.",

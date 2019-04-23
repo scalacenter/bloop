@@ -548,7 +548,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
              |     L3:   def foo(i: Int): String = i
              |                                     ^
              |${TestUtil.universalPath("b/src/B.scala")}: L3 [E1]
-             |'b' failed to compile.""".stripMargin
+             |Failed to compile 'b'""".stripMargin
         )
 
         assertNoDiff(
@@ -569,7 +569,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
              |     L3:   def foo(i: Int): String = i
              |                                     ^
              |${targetB}: L3 [E1]
-             |'b' failed to compile.""".stripMargin
+             |Failed to compile 'b'""".stripMargin
         )
 
         /* Repeat the same but this time the CLI client runs the compilation first */
@@ -608,7 +608,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
              |     L3:   def foo(i: Int): String = i
              |                                     ^
              |${targetB}: L3 [E1]
-             |'b' failed to compile.""".stripMargin
+             |Failed to compile 'b'""".stripMargin
         )
 
         assertNoDiff(
@@ -628,7 +628,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
              |     L3:   def foo(i: Int): String = i
              |                                     ^
              |${targetB}: L3 [E1]
-             |'b' failed to compile.""".stripMargin
+             |Failed to compile 'b'""".stripMargin
         )
 
         assertNoDiff(

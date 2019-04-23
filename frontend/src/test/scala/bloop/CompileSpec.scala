@@ -238,7 +238,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       val targetBPath = TestUtil.universalPath("b/src/B.scala")
       assertNoDiff(
-        logger.renderErrors(exceptContaining = "failed to compile"),
+        logger.renderErrors(exceptContaining = "Failed to compile"),
         s"""[E1] ${targetBPath}:2:17
            |     type mismatch;
            |      found   : String("")
@@ -527,7 +527,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
            |                    ^
            |${targetBar}: L2 [E1], L2 [E2]
           """.stripMargin,
-        logger.renderErrors(exceptContaining = "failed to compile")
+        logger.renderErrors(exceptContaining = "Failed to compile")
       )
 
       assertIsFile(writeFile(`A`.srcFor("main/scala/Bar.scala"), Sources.`Bar2.scala`))
@@ -612,7 +612,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
         val targetBar = TestUtil.universalPath("a/src/Bar.scala")
         assertNoDiff(
-          logger.renderErrors(exceptContaining = "failed to compile"),
+          logger.renderErrors(exceptContaining = "Failed to compile"),
           s"""|[E1] ${targetBar}:3:15
               |     value greeting is not a member of Foo
               |     L3:   println(foo.greeting())
@@ -712,7 +712,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       }
 
       assertNoDiff(
-        logger.renderErrors(exceptContaining = "failed to compile"),
+        logger.renderErrors(exceptContaining = "Failed to compile"),
         expectedMessage
       )
     }
@@ -791,7 +791,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
            |                    ^
            |${targetBar}: L2 [E1], L2 [E2]
           """.stripMargin,
-        logger.renderErrors(exceptContaining = "failed to compile")
+        logger.renderErrors(exceptContaining = "Failed to compile")
       )
 
       assertIsFile(writeFile(`C`.srcFor("main/scala/Bar.scala"), Sources.`Bar2.scala`))
@@ -854,13 +854,13 @@ object CompileSpec extends bloop.testing.BaseSuite {
       import bloop.testing.DiffAssertions
       try {
         assertNoDiff(
-          logger.renderErrors(exceptContaining = "failed to compile"),
+          logger.renderErrors(exceptContaining = "Failed to compile"),
           cannotFindSymbolError
         )
       } catch {
         case _: DiffAssertions.TestFailedException =>
           assertNoDiff(
-            logger.renderErrors(exceptContaining = "failed to compile"),
+            logger.renderErrors(exceptContaining = "Failed to compile"),
             cannotFindSymbolError2
           )
       }
@@ -894,7 +894,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val targetFoo = TestUtil.universalPath("a/src/Foo.scala")
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       assertNoDiff(
-        logger.renderErrors(exceptContaining = "failed to compile"),
+        logger.renderErrors(exceptContaining = "Failed to compile"),
         s"""[E1] ${targetFoo}:2:18
            |     ';' expected but '=' found.
            |     L2:   al foo: String = 1
@@ -929,7 +929,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       assertNoDiff(
-        logger.renderErrors(exceptContaining = "failed to compile"),
+        logger.renderErrors(exceptContaining = "Failed to compile"),
         """bad option: '-Ytyper-degug'""".stripMargin
       )
     }
@@ -1149,7 +1149,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
            |     L2:   "".lengthCompare("1".substring(0))
            |                            ^^^^^^^^^^^^^^^^
            |${targetA}: L2 [E1], L6 [E2]
-           |'a' failed to compile.""".stripMargin
+           |Failed to compile 'a'""".stripMargin
       )
     }
   }
@@ -1189,7 +1189,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
            |     L2:   val a1: Int = ""
            |                         ^
            |${targetA}: L2 [E1], L3 [E2]
-           |'a' failed to compile.""".stripMargin
+           |Failed to compile 'a'""".stripMargin
       )
     }
   }

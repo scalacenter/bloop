@@ -783,11 +783,11 @@ object CompileGraph {
                   val bundleInputs = BundleInputs(project, dag, Map.empty)
                   setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                     // Place IRs stores in same order as classes dirs show up in the raw classpath!
-                    val classpath = bundle.project.rawClasspath
-                    val indexDirs = classpath.iterator.filter(_.isDirectory).zipWithIndex.toMap
                     val dependencyStore = {
+                      val indexDirs =
+                        bundle.project.rawClasspath.filter(_.isDirectory).zipWithIndex.toMap
                       val transitive = results.flatMap { r =>
-                        val classesDir = client.getUniqueClassesDirFor(r.bundle.project)
+                        val classesDir = r.bundle.project.genericClassesDir
                         indexDirs.get(classesDir).iterator.map(i => i -> r.store)
                       }
                       SimpleIRStore(

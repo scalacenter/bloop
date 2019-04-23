@@ -296,7 +296,14 @@ object CompileTask {
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
-            failures.foreach(p => rawLogger.error(s"'${p.name}' failed to compile."))
+            val projectsFailedToCompile = failures.map(p => s"'${p.name}'")
+            val failureMessage =
+              if (failures.size <= 2) projectsFailedToCompile.mkString(",")
+              else {
+                s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
+              }
+
+            rawLogger.error("Failed to compile " + failureMessage)
             stateWithResults.copy(status = ExitStatus.CompilationError)
           }
         }
