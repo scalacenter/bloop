@@ -51,6 +51,17 @@ final class BspServerLogger private (
     ()
   }
 
+  override def displayWarningToUser(msg: String): Unit = {
+    // Log warning too despite the `logMessage`
+    warn(msg)
+    // Metals and other clients should be showing `showMessage` to users
+    import ch.epfl.scala.bsp.MessageType
+    import ch.epfl.scala.bsp.ShowMessageParams
+    val showParams = ShowMessageParams(MessageType.Warning, None, None, msg)
+    bsp.endpoints.Build.showMessage.notify(showParams)
+    ()
+  }
+
   override def warn(msg: String): Unit = {
     Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, None, msg))
     ()

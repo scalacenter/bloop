@@ -15,6 +15,7 @@ import java.io.File
 import java.nio.file.Path
 
 import scala.collection.mutable
+import scala.concurrent.Promise
 
 import monix.eval.Task
 import monix.reactive.Observable
@@ -47,6 +48,7 @@ import xsbti.compile.PreviousResult
  * @param scalaSources A list of Scala sources in the project.
  * @param oracleInputs The compiler oracle inputs are the main input to the
  * compilation task called by [[CompileGraph]].
+ * @param cancelCompilation A promise that can be completed to cancel the compilation.
  * @param reporter A reporter instance that will register every reporter action
  * produced by the compilation started by this compile bundle.
  * @param logger A logger instance that will register every logger action
@@ -65,6 +67,7 @@ final case class CompileBundle(
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
     oracleInputs: CompilerOracle.Inputs,
+    cancelCompilation: Promise[Unit],
     reporter: ObservedReporter,
     logger: ObservedLogger[Logger],
     mirror: Observable[Either[ReporterAction, LoggerAction]],
@@ -126,6 +129,7 @@ object CompileBundle {
       reporter: ObservedReporter,
       lastSuccessful: LastSuccessfulResult,
       lastResult: Compiler.Result,
+      cancelCompilation: Promise[Unit],
       logger: ObservedLogger[Logger],
       mirror: Observable[Either[ReporterAction, LoggerAction]],
       tracer: BraveTracer
@@ -188,6 +192,7 @@ object CompileBundle {
           javaSources,
           scalaSources,
           inputs,
+          cancelCompilation,
           reporter,
           logger,
           mirror,

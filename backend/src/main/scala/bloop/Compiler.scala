@@ -381,6 +381,13 @@ object Compiler {
     val previousProblems =
       previousProblemsFromResult(compileInputs.previousCompilerResult, previousSuccessfulProblems)
 
+    def handleCancellation: Compiler.Result = {
+      reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
+      val backgroundTasks =
+        triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+      Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
+    }
+
     val mode = compileInputs.mode
     val manager = getClassFileManager()
     val oracleInputs = compileInputs.oracleInputs
@@ -390,6 +397,7 @@ object Compiler {
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
+        case Success(_) if cancelPromise.isCompleted => handleCancellation
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Ok)
@@ -518,11 +526,7 @@ object Compiler {
               isNoOp
             )
           }
-        case Failure(_: xsbti.CompileCancelled) =>
-          reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
-          val backgroundTasks =
-            triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
-          Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
+        case Failure(_: xsbti.CompileCancelled) => handleCancellation
         case Failure(cause) =>
           reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Error)
 
