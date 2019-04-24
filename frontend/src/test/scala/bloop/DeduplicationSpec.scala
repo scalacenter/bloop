@@ -27,7 +27,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   private def checkDeduplication(logger: RecordingLogger, isDeduplicated: Boolean): Unit = {
-    val deduplicated = logger.debugs.exists(_.startsWith("Deduplicating compilation"))
+    val deduplicated = logger.infos.exists(_.startsWith("Deduplicating compilation"))
     if (isDeduplicated) assert(deduplicated) else assert(!deduplicated)
   }
 
@@ -934,6 +934,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
                |Compiled a ???
                |Compiling b (1 Scala source)
                |Compiled b ???
+               |Deduplicating compilation of b from bsp client 'test-bloop-client 1.0.0'
                |Compiling b (1 Scala source)
                |Compiling b (1 Scala source)
                |Compiled b ???
