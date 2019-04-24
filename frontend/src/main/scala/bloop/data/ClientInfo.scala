@@ -26,6 +26,8 @@ object ClientInfo {
       // we don't support concurrent CLI client executions for the same build
       AbsolutePath(Files.createDirectories(project.genericClassesDir.underlying).toRealPath())
     }
+
+    override def toString(): String = s"cli client '$id'"
   }
 
   final case class BspClientInfo(
@@ -50,5 +52,7 @@ object ClientInfo {
         }
       )
     }
+
+    override def toString(): String = s"bsp client '$name $version'"
   }
 }

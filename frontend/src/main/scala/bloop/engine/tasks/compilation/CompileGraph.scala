@@ -124,12 +124,12 @@ object CompileGraph {
     }
   }
 
-  case class RunningCompilation(
+  private[bloop] final case class RunningCompilation(
       traversal: CompileTraversal,
       previousLastSuccessful: LastSuccessfulResult,
-      cancelPromise: Promise[Unit],
       isUnsubscribed: AtomicBoolean,
-      mirror: Observable[Either[ReporterAction, LoggerAction]]
+      mirror: Observable[Either[ReporterAction, LoggerAction]],
+      client: ClientInfo
   )
 
   type RunningCompilationsInAllClients =
@@ -185,7 +185,7 @@ object CompileGraph {
         bundle.oracleInputs,
         (_: CompilerOracle.Inputs) => {
           deduplicate = false
-          scheduleCompilation(inputs, bundle, compile)
+          scheduleCompilation(inputs, bundle, client, compile)
         }
       )
 
@@ -193,7 +193,9 @@ object CompileGraph {
         ongoingCompilation.traversal
       } else {
         val rawLogger = logger.underlying
-        rawLogger.debug(s"Deduplicating compilation for ${bundle.project.name} (${client}")
+        rawLogger.info(
+          s"Deduplicating compilation of ${bundle.project.name} from ${ongoingCompilation.client}"
+        )
         val reporter = bundle.reporter.underlying
         // Don't use `bundle.lastSuccessful`, it's not the final input to `compile`
         val analysis = ongoingCompilation.previousLastSuccessful.previous.analysis().toOption
@@ -379,6 +381,7 @@ object CompileGraph {
   def scheduleCompilation(
       inputs: BundleInputs,
       bundle: CompileBundle,
+      client: ClientInfo,
       compile: CompileBundle => CompileTraversal
   ): RunningCompilation = {
     import inputs.project
@@ -439,9 +442,9 @@ object CompileGraph {
     RunningCompilation(
       compileAndUnsubscribe,
       mostRecentSuccessful,
-      cancelCompilation,
       isUnsubscribed,
-      bundle.mirror
+      bundle.mirror,
+      client
     )
   }
 
