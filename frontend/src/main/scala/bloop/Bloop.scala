@@ -20,6 +20,7 @@ import jline.console.ConsoleReader
 import _root_.monix.eval.Task
 
 import scala.annotation.tailrec
+import scala.concurrent.Promise
 
 object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()
@@ -46,7 +47,8 @@ object Bloop extends CaseApp[CliOptions] {
     val config = origin.underlying
     def waitForState(a: Action, t: Task[State]): State = {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
-      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, Array("from-shell")) {
+      val p = Promise[Unit]().success(())
+      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, p) {
         t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s })
       }
 

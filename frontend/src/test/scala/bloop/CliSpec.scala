@@ -6,28 +6,30 @@ import bloop.cli.{BspProtocol, Commands, ExitStatus, Validate}
 import bloop.engine.{Action, Exit, Feedback, Print, Run}
 import bloop.util.UUIDUtil
 import org.junit.Test
+import bloop.util.TestUtil
+import bloop.testing.BaseSuite
 
-class CliSpec {
+object CliSpec extends BaseSuite {
   val tempDir = Files.createTempDirectory("validate")
   tempDir.toFile.deleteOnExit()
 
-  @Test def FailAtWrongEndingPipeName(): Unit = {
+  test("fail at wrong end of pipe name") {
     checkInvalidPipeName(s"\\\\.\\pie\\test-$uniqueId")
   }
 
-  @Test def FailAtWrongMiddlePipeName(): Unit = {
+  test("fail at wrong middle part of pipe name") {
     checkInvalidPipeName(s"\\,\\pipe\\test-$uniqueId")
   }
 
-  @Test def FailAtWrongStartingPipeName(): Unit = {
+  test("fail at wrong start of pipe name") {
     checkInvalidPipeName(s"\\.\\pipe\\test-$uniqueId")
   }
 
-  @Test def FailAtCommonWrongPipeName(): Unit = {
+  test("fail at common wrong pipe name") {
     checkInvalidPipeName("test-pipe-name")
   }
 
-  @Test def FailAtExistingSocket(): Unit = {
+  test("fail at existing socket") {
     val socketPath = tempDir.resolve("test.socket")
     Files.createFile(socketPath)
     val bspCommand = Commands.Bsp(
@@ -42,7 +44,7 @@ class CliSpec {
     )
   }
 
-  @Test def SucceedAtNonExistingSocketRelativeFile(): Unit = {
+  test("succeed at non-existing relative file for socket ") {
     // Don't specify the parent on purpose, simulate relative paths from CLI
     val socketPath = java.nio.file.Paths.get("test.socket")
     val bspCommand = Commands.Bsp(
@@ -54,7 +56,7 @@ class CliSpec {
     checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
   }
 
-  @Test def FailAtNonExistingSocketFolder(): Unit = {
+  test("fail at non-existing socket folder") {
     val socketPath = tempDir.resolve("folder").resolve("test.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
@@ -68,7 +70,7 @@ class CliSpec {
     )
   }
 
-  @Test def FailAtLengthySocket(): Unit = {
+  test("fail at socket lengthy name") {
     // See http://www.cs.utah.edu/plt/popl16/doc/unix-socket/index.html
     val tempBytes = Validate.bytesOf(tempDir.toString)
     val limit = if (bloop.util.CrossPlatform.isMac) 104 else 108
@@ -88,7 +90,7 @@ class CliSpec {
     checkIsCliError(Validate.bsp(bspCommand, isWindows = false), msg)
   }
 
-  @Test def FailAtMissingSocket(): Unit = {
+  test("fail at missing socket") {
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
       socket = None,
@@ -101,7 +103,7 @@ class CliSpec {
     )
   }
 
-  @Test def FailAtMissingPipeName(): Unit = {
+  test("fail at missing pipe name") {
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
       socket = None,
@@ -114,7 +116,7 @@ class CliSpec {
     )
   }
 
-  @Test def SucceedAtCorrectPipeName(): Unit = {
+  test("succeed at correct pipe name") {
     val pipeName = s"\\\\.\\pipe\\test-$uniqueId"
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
@@ -125,7 +127,7 @@ class CliSpec {
     checkIsCommand[Commands.WindowsLocalBsp](Validate.bsp(bspCommand, isWindows = true))
   }
 
-  @Test def SucceedAtNonExistingSocket(): Unit = {
+  test("succeed at non-existing socket file") {
     val socketPath = tempDir.resolve("alsjkdflkjasdf.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
@@ -136,12 +138,12 @@ class CliSpec {
     checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
   }
 
-  @Test def SucceedAtDefaultTcpOptions(): Unit = {
+  test("succeed at default tcp options") {
     val bspCommand = Commands.Bsp(protocol = BspProtocol.Tcp)
     checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
   }
 
-  @Test def SucceedAtCustomTcpOptions(): Unit = {
+  test("succeed at custom tcp options") {
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Tcp,
       host = "localhost",
@@ -151,40 +153,40 @@ class CliSpec {
     checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
   }
 
-  @Test def FailAtNonsensicalHostAddress(): Unit = {
+  test("fail at non-sensical host address") {
     checkInvalidAddress("localhos")
   }
 
-  @Test def FailAtInvalidIpv4HostAddresses(): Unit = {
+  test("fail at invalid ipv4 host addresses") {
     checkInvalidAddress("127.1.1.1.1")
     checkInvalidAddress("1278.1.1.1.1")
   }
 
-  @Test def FailAtInvalidIpv6HostAddress(): Unit = {
+  test("fail at invalid ipv6 host address") {
     checkInvalidAddress("0.1000.0.0.0.0.0.0")
   }
 
-  @Test def SuccessAtValidIpv4Addresses(): Unit = {
+  test("success at valid ipv4 addresses") {
     checkValidAddress("142.123.1.1")
     checkValidAddress("92.13.8.0")
   }
 
-  @Test def SuccessAtValidIpv6Addresses(): Unit = {
+  test("succeed at valid ipv6 addresses") {
     checkValidAddress("::1")
     checkValidAddress("::")
   }
 
-  @Test def SuccessAtValidPort(): Unit = {
+  test("success at valid port number") {
     checkValidPort(4333)
   }
 
-  @Test def FailAtOutOfRangePort(): Unit = {
+  test("fail at out of range port number") {
     checkOutOfRangePort(0)
     checkOutOfRangePort(Integer.MIN_VALUE)
     checkOutOfRangePort(Integer.MAX_VALUE)
   }
 
-  @Test def FailAtReservedPorts(): Unit = {
+  test("fail at reserved port numbers") {
     checkReservedPort(1023)
     checkReservedPort(1)
     checkReservedPort(127)
