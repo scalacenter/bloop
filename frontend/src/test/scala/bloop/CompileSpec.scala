@@ -18,6 +18,11 @@ import scala.concurrent.duration.FiniteDuration
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 import monix.execution.CancelableFuture
+import bloop.cli.CommonOptions
+import bloop.engine.NoPool
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
 
 object CompileSpec extends bloop.testing.BaseSuite {
   // TODO: Enable this before next stable release
@@ -1190,6 +1195,36 @@ object CompileSpec extends bloop.testing.BaseSuite {
            |                         ^
            |${targetA}: L2 [E1], L3 [E2]
            |Failed to compile 'a'""".stripMargin
+      )
+    }
+  }
+
+  test("don't compile build in two concurrent CLI clients") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+      val testOut = new ByteArrayOutputStream()
+      val options = CommonOptions.default.copy(out = new PrintStream(testOut))
+      val `A` = TestProject(workspace, "a", sources)
+      val configDir = TestProject.populateWorkspace(workspace, List(`A`))
+      val compileArgs = Array("compile", "a", "--config-dir", configDir.syntax)
+      val compileAction = Cli.parse(compileArgs, options)
+      def runCompileAsync = Task.fork(Task.eval(Cli.run(compileAction, NoPool)))
+      val runCompile = Task.gatherUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
+      Await.result(runCompile.runAsync(ExecutionContext.ioScheduler), FiniteDuration(10, "s"))
+
+      val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
+      assertNoDiff(
+        actionsOutput
+          .split(System.lineSeparator())
+          .filterNot(_.startsWith("Compiled"))
+          .mkString(System.lineSeparator()),
+        """|Waiting on external CLI client to release lock on this build...
+           |Compiling a (1 Scala source)
+           |""".stripMargin
       )
     }
   }
