@@ -192,4 +192,62 @@ object FileWatchingSpec extends BaseSuite {
       java.nio.file.Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java")
     }.length
   }
+
+  ignore("playground for monix primitives") {
+    import scala.concurrent.duration._
+    import monix.execution.Scheduler.Implicits.global
+    val (observer, observable) =
+      Observable.multicast[String](MulticastStrategy.publish)
+
+    val received = new StringBuilder()
+    import monix.reactive.Consumer
+
+    import bloop.util.monix.FoldLeftAsyncConsumer
+    val slowConsumer = FoldLeftAsyncConsumer.consume[Unit, Seq[String]](()) {
+      case (_: Unit, msg: Seq[String]) =>
+        Task {
+          Thread.sleep(40)
+          received
+            .++=("Received ")
+            .++=(msg.mkString(", "))
+            .++=(System.lineSeparator)
+          ()
+        }
+    }
+
+    import bloop.util.monix.BloopBufferTimedObservable
+    val a: Observable[Seq[String]] = new BloopBufferTimedObservable(observable, 40.millis, 0)
+    import monix.reactive.OverflowStrategy
+
+    val consumingTask =
+      new BloopBufferTimedObservable(observable, 40.millis, 0)
+      //observable
+      //  .debounce(40.millis)
+        .collect { case s if !s.isEmpty => s }
+        //.whileBusyBuffer(OverflowStrategy.Unbounded)
+        .whileBusyDropEventsAndSignal(_ => List("boo"))
+        .consumeWith(slowConsumer)
+    val createEvents = Task {
+      Thread.sleep(60)
+      observer.onNext("a")
+      Thread.sleep(45)
+      observer.onNext("b")
+      Thread.sleep(20)
+      observer.onNext("c")
+
+      /*
+      Thread.sleep(200)
+      observer.onNext("b")
+      Thread.sleep(60)
+      observer.onNext("c")
+       */
+      Thread.sleep(1500)
+      observer.onComplete()
+      ()
+    }
+
+    val f = Task.mapBoth(consumingTask, createEvents)((_: Unit, _: Unit) => ()).runAsync
+    scala.concurrent.Await.result(f, 2.second)
+    println(received.toString)
+  }
 }

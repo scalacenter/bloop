@@ -96,6 +96,7 @@ final class SourceWatcher private (
     val fileEventConsumer = {
       FoldLeftAsyncConsumer.consume[State, EventStream](state0) {
         case (state, stream) =>
+          logger.debug(s"Received $stream in file watcher consumer")
           stream match {
             // Ignore overflow for now, though we could restart run if changes are found
             case EventStream.Overflow => Task.now(state)
@@ -117,7 +118,7 @@ final class SourceWatcher private (
     }
 
     /*
-     * We capture events during a time window of 20ms to give time to the OS to
+     * We capture events during a time window of 40ms to give time to the OS to
      * give us all of the modifications to files. After that, we trigger the
      * action and we don't emit more sources while the action runs. If there
      * have been more file watching events happening while the action was
@@ -127,9 +128,11 @@ final class SourceWatcher private (
      */
 
     import bloop.util.monix.BloopBufferTimedObservable
-    val timespan = FiniteDuration(20, "ms")
+    val timespan = FiniteDuration(40, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
+      // Filter out empty events coming from buffer timed operator
+      .collect { case s if !s.isEmpty => s }
       .map(es => EventStream.SourceChanges(es))
       .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
       .consumeWith(fileEventConsumer)
