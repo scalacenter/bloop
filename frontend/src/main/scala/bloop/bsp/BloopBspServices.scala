@@ -84,6 +84,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
     .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
+    .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(
       p => schedule(dependencySources(p))
     )
@@ -385,6 +386,32 @@ final class BloopBspServices(
                 case Left(error) => Task.now((newState, Left(error)))
               }
           }
+      }
+    }
+  }
+
+  def scalaMainClasses(
+      params: bsp.ScalaMainClassesParams
+  ): BspEndpointResponse[bsp.ScalaMainClassesResult] = {
+    def findMainClasses(state: State, project: Project): List[bsp.ScalaMainClass] =
+      for {
+        className <- Tasks.findMainClasses(state, project)
+      } yield bsp.ScalaMainClass(className, Nil, Nil)
+
+    ifInitialized { state: State =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) =>
+          bspLogger.error(error)
+          Task.now((state, Right(bsp.ScalaMainClassesResult(Nil))))
+
+        case Right(projects) =>
+          val items = for {
+            (id, project) <- projects.toList
+            mainClasses = findMainClasses(state, project)
+          } yield bsp.ScalaMainClassesItem(id, mainClasses)
+
+          val result = new bsp.ScalaMainClassesResult(items)
+          Task.now((state, Right(result)))
       }
     }
   }
