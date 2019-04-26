@@ -258,7 +258,7 @@ val millBloop = project
 val docs = project
   .in(file("docs"))
   .dependsOn(frontend)
-  .enablePlugins(DocusaurusPlugin)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
   .settings(
     name := "bloop-docs",
     moduleName := "bloop-docs",
