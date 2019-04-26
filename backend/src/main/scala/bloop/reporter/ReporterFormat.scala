@@ -52,7 +52,7 @@ abstract class ReporterFormat(reporter: Reporter) {
    * @return The prefixed and indented paragraph.
    */
   protected def prefixed(prefixColor: String, prefix: String, paragraph: String): String =
-    paragraph.lines.mkString(colored(prefixColor, prefix), EOL + " " * prefix.length, "")
+    paragraph.linesIterator.mkString(colored(prefixColor, prefix), EOL + " " * prefix.length, "")
 
   /**
    * Retrieves the right color to use for `problem` based on Severity.
