@@ -16,6 +16,12 @@ const GridBlock = CompLibrary.GridBlock;
 
 const siteConfig = require(`${process.cwd()}/siteConfig.js`);
 
+function repoUrl() {
+  return `https://github.com/${siteConfig.organizationName}/${
+    siteConfig.projectName
+    }`;
+}
+
 function imgUrl(img) {
   return `${siteConfig.baseUrl}img/${img}`;
 }
@@ -91,11 +97,12 @@ const Hero = ({ language }) => (
       <h1>
         Bloop is a Scala build server.
       </h1>
-      <p>
+      <p style={{ margin: "1rem 0 1.5rem 0" }}>
         Compile, test and run Scala fast.
       </p>
+      <a class="github-button" href={`${repoUrl()}`} data-size="large" data-show-count="true" aria-label="Star ntkme/github-buttons on GitHub">Star</a>
     </div>
-  </div>
+  </div >
 );
 
 class HomeSplash extends React.Component {
