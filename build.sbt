@@ -180,7 +180,7 @@ lazy val launcher: Project = project
   )
 
 val benchmarks = project
-  .dependsOn(frontend % "compile->test")
+  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
