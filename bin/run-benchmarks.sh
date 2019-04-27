@@ -17,7 +17,6 @@ usage() {
     echo "Usage: ./run-benchmarks.sh -r | --ref <git-ref>       Build and benchmark the given reference."
     echo "                                                      Defaults to \"$BLOOP_DEFAULT_REFERENCE\""
     echo "                           --upload                   If set, upload the results to InfluxDB."
-    echo "                           --log-file                 Pass the file location for the logs."
     echo "                           -js | --jmh-options-small  Pass the given options to JMH (small projects)."
     echo "                                                      Defaults to \"$BLOOP_SMALL_JMH_OPTIONS\""
     echo "                           -jm | --jmh-options-medium Pass the given options to JMH (medium projects)."
@@ -39,7 +38,7 @@ main() {
     # This ensures we cannot run benchmarks concurrently (& there are no stale benchmark processes)
     (
       set -o pipefail
-      ((ps -C java -o pid && echo "A java process was found running.") | tee "$LOG_FILE") || exit 1
+      (ps -C java -o pid && echo "A java process was found running.") || exit 1
     )
 
     # Delete the directory to start afresh (mkdir it)
@@ -116,13 +115,11 @@ main() {
     #done
 
     TARGET_LOG_FILE="$BLOOP_LOGS_DIR/benchmarks-$(date --iso-8601=seconds).log"
-    if ! sbt -no-colors "${SBT_COMMANDS[@]}" | tee "$LOG_FILE"; then
+    if ! sbt -no-colors "${SBT_COMMANDS[@]}" | tee "$TARGET_LOG_FILE"; then
       popd
-      cp "$LOG_FILE" "$TARGET_LOG_FILE"
       echo "BENCHMARKS FAILED. Log file is $TARGET_LOG_FILE"
       exit 1
     else
-      cp "$LOG_FILE" "$TARGET_LOG_FILE"
       popd
       echo "FINISHED OK. Log file is $TARGET_LOG_FILE"
     fi
@@ -136,9 +133,6 @@ while [ "$1" != "" ]; do
         --upload )                   BLOOP_JMH_RUNNER="benchmarks/jmh:runMain scala.bench.UploadingRunner"
                                      ;;
 
-        --log-file )                 shift
-                                     LOG_FILE=$1
-                                     ;;
         -js | --jmh-options-small )  shift
                                      BLOOP_SMALL_JMH_OPTIONS=$1
                                      ;;

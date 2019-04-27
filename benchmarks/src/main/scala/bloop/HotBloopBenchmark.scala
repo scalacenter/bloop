@@ -36,8 +36,8 @@ abstract class HotBloopBenchmarkBase {
   var output = new java.lang.StringBuilder()
 
   def findMaxHeap(project: String): String = project match {
-    case "lichess" | "akka" => "-Xmx3G"
-    case _ => "-Xmx2G"
+    case "lichess" | "akka" => "-Xmx4G"
+    case _ => "-Xmx3G"
   }
 
   import bloop.benchmarks.BuildInfo
