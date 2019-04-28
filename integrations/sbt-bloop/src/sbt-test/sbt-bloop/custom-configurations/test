@@ -1,3 +1,6 @@
+> show foo/it:dependencyClasspath
+> show bar/custom-it:dependencyClasspath
+> bar/custom-it:compile
 > bloopInstall
 $ exists .bloop/foo.json
 $ exists .bloop/foo-test.json

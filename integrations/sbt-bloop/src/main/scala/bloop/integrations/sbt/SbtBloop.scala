@@ -408,7 +408,7 @@ object BloopDefaults {
       configuration: Configuration,
       project: ResolvedProject,
       logger: Logger
-  ): String = {
+  ): List[String] = {
     val ref = dep.project
     dep.configuration match {
       case Some(_) =>
@@ -421,20 +421,28 @@ object BloopDefaults {
         )
 
         mapping(configuration.name) match {
-          case Nil => projectNameFromString(ref.project, configuration, logger)
-          case List(conf) if Compile.name == conf => ref.project
-          case List(conf) if Test.name == conf => s"${ref.project}-test"
-          case List(conf1, conf2) if Test.name == conf1 && Compile.name == conf2 =>
-            s"${ref.project}-test"
-          case List(conf1, conf2) if Compile.name == conf1 && Test.name == conf2 =>
-            s"${ref.project}-test"
+          case Nil => List(projectNameFromString(ref.project, configuration, logger))
+          case List(conf) if Compile.name == conf => List(ref.project)
+          case List(conf) if Test.name == conf => List(s"${ref.project}-test")
+          case List(conf) if IntegrationTest.name == conf => List(s"${ref.project}-it")
+          case configurations
+              if configurations.exists(_ == IntegrationTest.name) &&
+                configurations.exists(_ == Test.name) =>
+            // Both of these imply a dependency on compile
+            List(s"${ref.project}-it", s"${ref.project}-test")
+          case configurations if configurations.exists(_ == IntegrationTest.name) =>
+            // Implies dependency on compile
+            List(s"${ref.project}-it")
+          case configurations if configurations.exists(_ == Test.name) =>
+            // Implies dependency on compile
+            List(s"${ref.project}-test")
           case unknown =>
             logger.warn(Feedback.unknownConfigurations(project, unknown, ref))
-            s"${ref.project}-test"
+            List(s"${ref.project}-test")
         }
       case None =>
         // If no configuration, default is `Compile` dependency (see scripted tests `cross-compile-test-configuration`)
-        projectNameFromString(ref.project, Compile, logger)
+        List(projectNameFromString(ref.project, Compile, logger))
     }
   }
 
@@ -684,7 +692,9 @@ object BloopDefaults {
         val dependencies = {
           // Project dependencies come from classpath deps and also inter-project config deps
           val classpathProjectDependencies =
-            project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
+            project.dependencies.flatMap(
+              d => projectDependencyName(d, configuration, project, logger)
+            )
           val configDependencies =
             eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c, logger))
           /*          println(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")
