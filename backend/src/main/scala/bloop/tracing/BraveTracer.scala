@@ -7,6 +7,7 @@ import monix.execution.misc.NonFatal
 
 import scala.util.Failure
 import scala.util.Success
+import java.util.concurrent.TimeUnit
 
 final class BraveTracer private (
     tracer: Tracer,
@@ -88,7 +89,6 @@ object BraveTracer {
       .newBuilder()
       .localServiceName("bloop")
       .spanReporter(spanReporter)
-      .sampler(Sampler.NEVER_SAMPLE)
       .build()
     val tracer = tracing.tracer()
     val newParentTrace = ctx.map(c => tracer.newChild(c)).getOrElse(tracer.newTrace())

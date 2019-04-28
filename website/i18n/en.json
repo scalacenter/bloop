@@ -109,11 +109,72 @@
       "what-is-bloop": {
         "title": "What is Bloop",
         "sidebar_label": "What is Bloop"
+      },
+      "version-1.2.0/build-tools/version-1.2.0-gradle": {
+        "title": "Gradle",
+        "sidebar_label": "Gradle"
+      },
+      "version-1.2.0/build-tools/version-1.2.0-maven": {
+        "title": "Maven",
+        "sidebar_label": "Maven"
+      },
+      "version-1.2.0/build-tools/version-1.2.0-mill": {
+        "title": "Mill",
+        "sidebar_label": "Mill"
+      },
+      "version-1.2.0/build-tools/version-1.2.0-overview": {
+        "title": "Overview",
+        "sidebar_label": "Overview"
+      },
+      "version-1.2.0/build-tools/version-1.2.0-sbt": {
+        "title": "sbt",
+        "sidebar_label": "sbt"
+      },
+      "version-1.2.0/version-1.2.0-cli-reference": {
+        "title": "CLI --help",
+        "sidebar_label": "CLI --help"
+      },
+      "version-1.2.0/version-1.2.0-configuration-format": {
+        "title": "JSON Configuration Reference",
+        "sidebar_label": "JSON Configuration"
+      },
+      "version-1.2.0/ides/version-1.2.0-intellij": {
+        "title": "IntelliJ",
+        "sidebar_label": "IntelliJ"
+      },
+      "version-1.2.0/ides/version-1.2.0-metals": {
+        "title": "Metals",
+        "sidebar_label": "Metals"
+      },
+      "version-1.2.0/ides/version-1.2.0-overview": {
+        "title": "Overview",
+        "sidebar_label": "Overview"
+      },
+      "version-1.2.0/version-1.2.0-integration": {
+        "title": "Integrate with the Build Server",
+        "sidebar_label": "Integration Guide"
+      },
+      "version-1.2.0/version-1.2.0-launcher-reference": {
+        "title": "Launcher Reference",
+        "sidebar_label": "Built-in Launcher"
+      },
+      "version-1.2.0/version-1.2.0-server-reference": {
+        "title": "Build Server Reference",
+        "sidebar_label": "Build Server"
+      },
+      "version-1.2.0/version-1.2.0-usage": {
+        "title": "Quickstart",
+        "sidebar_label": "Quickstart"
+      },
+      "version-1.2.0/version-1.2.0-what-is-bloop": {
+        "title": "What is Bloop",
+        "sidebar_label": "What is Bloop"
       }
     },
     "links": {
       "Install": "Install",
       "Docs": "Docs",
+      "Blog": "Blog",
       "GitHub": "GitHub"
     },
     "categories": {

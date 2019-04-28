@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# ------------------------------------------------------------------
+# Disclaimer: this script is only meant to be run by our benchmarking
+# infrastructure and running it in our machine can be fatal. Use with
+# care and don't be afraid of forking it, removing most of the code
+# and only running those benchmarks that you care the most about.
+#
+# More information on benchmarking bloop and sbt can be found in the
+# performance reference published in the website.
+# ------------------------------------------------------------------
+
 set -o pipefail
 
 BLOOP_DEFAULT_REFERENCE="master"

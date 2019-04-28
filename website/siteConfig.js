@@ -76,6 +76,7 @@ const siteConfig = {
   headerLinks: [
     { page: 'setup', label: 'Install' },
     { doc: 'what-is-bloop', label: 'Docs' },
+    { blog: true, label: 'Blog' },
     { search: true },
     { href: repoUrl, label: 'GitHub' },
   ],
@@ -142,6 +143,7 @@ const siteConfig = {
     'https://code.jquery.com/jquery-3.2.1.slim.min.js',
     'https://buttons.github.io/buttons.js',
     'https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js',
+    'https://buttons.github.io/buttons.js',
     baseUrl + 'scripts/code-block-buttons.js'
   ],
 

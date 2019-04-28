@@ -180,7 +180,7 @@ lazy val launcher: Project = project
   )
 
 val benchmarks = project
-  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
+  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
@@ -258,7 +258,7 @@ val millBloop = project
 val docs = project
   .in(file("docs"))
   .dependsOn(frontend)
-  .enablePlugins(DocusaurusPlugin)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
   .settings(
     name := "bloop-docs",
     moduleName := "bloop-docs",
