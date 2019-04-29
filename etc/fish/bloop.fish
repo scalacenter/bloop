@@ -54,7 +54,7 @@ function __assert_prev_arg_in
         return 0
     end
     for arg in $argv
-        if string match -q -- $tokens[-1] $argv[0]
+        if string match -q -- $tokens[-1] $argv[1]
             return 1
         end
     end
