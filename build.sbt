@@ -264,6 +264,7 @@ val docs = project
     moduleName := "bloop-docs",
     skip in publish := true,
     scalaVersion := "2.12.6",
+    mdoc := run.in(Compile).evaluated,
     mainClass.in(Compile) := Some("bloop.Docs")
   )
 
