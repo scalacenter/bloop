@@ -4,7 +4,7 @@ val Custom = config("custom-it") extend Test
 
 val foo = project
   .in(file(".") / "foo")
-  .configs(IntegrationTest)
+  .configs(IntegrationTest.extend(Test))
   .settings(
     inConfig(IntegrationTest)(
       Defaults.itSettings ++
@@ -52,14 +52,14 @@ checkBloopFile in ThisBuild := {
   // Read foo-it config file, remove all whitespace
   val fooItConfigContents = readBareFile(fooItConfig.toPath)
   assert(
-    fooItConfigContents.contains(""""dependencies":["foo"]"""),
+    fooItConfigContents.contains(""""dependencies":["foo-test","foo"]"""),
     "Dependency it->compile is missing in foo-it."
   )
 
   // Read foo-it config file, remove all whitespace
   val barItConfigContents = readBareFile(barCustomTestConfig.toPath)
   assert(
-    barItConfigContents.contains(""""dependencies":["foo-it","foo-test","bar-test","bar"]"""),
+    barItConfigContents.contains(""""dependencies":["foo-it","foo-test","bar","bar-test"]"""),
     "Dependency custom-it->test is missing in bar-custom-it."
   )
 }

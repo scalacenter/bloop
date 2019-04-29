@@ -270,7 +270,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "4.2-refresh2",
+    BuildKeys.schemaVersion := "4.2-refresh-3",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
@@ -366,7 +366,7 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
-  final val jvmOptions = "-Xmx8g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
+  final val jvmOptions = "-Xmx4g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
     private final val kafka =

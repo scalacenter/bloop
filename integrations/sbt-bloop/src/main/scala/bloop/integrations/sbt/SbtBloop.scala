@@ -296,6 +296,16 @@ object BloopDefaults {
     sources.filter(source => !sourceDirs.exists(dir => checkIfParent(dir, source.getParent)))
   }
 
+  private def distinctOn[A, B](list: Seq[A], f: A => B): List[A] = {
+    list.foldLeft(List.empty[A]) { (acc, elem) =>
+      val value = f(elem)
+      acc.find(item => f(item) == value) match {
+        case Some(_) => acc
+        case None => elem :: acc
+      }
+    }
+  }
+
   /**
    * Detect the eligible configuration dependencies from a given configuration.
    *
@@ -313,16 +323,45 @@ object BloopDefaults {
   lazy val eligibleDepsFromConfig: Def.Initialize[Task[List[Configuration]]] = {
     Def.task {
       def depsFromConfig(configuration: Configuration): List[Configuration] = {
-        configuration.extendsConfigs.toList match {
-          case config :: Nil if config.extendsConfigs.isEmpty => config :: Nil
-          case config :: Nil => config :: depsFromConfig(config)
-          case Nil => Nil
-        }
+        configuration :: configuration.extendsConfigs.toList.flatMap(dep => depsFromConfig(dep))
       }
 
+      /*
+       * When we resolve `Keys.configuration.value`, we don't obtain the same
+       * configuration object that is passed in the following code snippet:
+       *
+       * ```
+       * val foo = project
+       *  .in(file(".") / "foo")
+       *  .configs(IntegrationTest.extend(Test)) // line 2
+       *  .settings(
+       *    inConfig(IntegrationTest)( // line 3
+       *      Defaults.itSettings ++
+       *        BloopDefaults.configSettings(IntegrationTest)
+       *    )
+       *)
+       * ```
+       *
+       * But instead obtain the configuration object in "line 3", which is
+       * different from that on "line 2" because it does not exted `Test`.
+       *
+       * To work around this limitation, we obtain here both the config
+       * in the scope and the possibly other real config from the project
+       * (which we map by name) and then try to resolve dependencies and
+       * add them together. Those dependencies are then the ones we process.
+       *
+       * We work around this problem to avoid telling the users how they
+       * should be using the configuration-related sbt APIs, it's just more
+       * time-efficient than correcting the wrong code out there.
+       */
       val config = Keys.configuration.value
-      val configs = depsFromConfig(config)
-      val activeProjectConfigs = Keys.thisProject.value.configurations.toSet
+      val activeProjectConfigs = Keys.thisProject.value.configurations
+      val resolvedConfig = activeProjectConfigs.find(_.name == config.name)
+      val resolvedConfigDeps = resolvedConfig.toList.flatMap(depsFromConfig(_))
+      val configs = distinctOn(
+        depsFromConfig(config) ++ resolvedConfigDeps,
+        (c: Configuration) => c.name
+      ).filterNot(c => c == config || resolvedConfig.exists(_ == c))
 
       import scala.collection.JavaConverters._
       val data = Keys.settingsData.value
@@ -340,7 +379,7 @@ object BloopDefaults {
             }
           case None => false
         }
-      }
+      }.toSet
 
       configs.filter(c => eligibleConfigs.contains(c))
     }

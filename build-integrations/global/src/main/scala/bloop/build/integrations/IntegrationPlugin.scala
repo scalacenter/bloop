@@ -32,7 +32,9 @@ object PluginImplementation {
     PluginKeys.schemaVersion := {
       Option(System.getProperty("bloop.integrations.schemaVersion"))
         .getOrElse(sys.error("Schema version is missing!"))
-    }
+    },
+    // Very important to avoid wrong export in community build
+    BloopKeys.bloopAggregateSourceDependencies := false
   )
 
   def buildSettings: Seq[Def.Setting[_]] = Nil
