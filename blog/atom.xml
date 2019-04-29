@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://scalacenter.github.io/bloop/blog</id>
+    <title>Bloop Blog</title>
+    <updated>2019-04-25T06:00:00Z</updated>
+    <generator>Feed for Node.js</generator>
+    <link rel="alternate" href="https://scalacenter.github.io/bloop/blog"/>
+    <subtitle>The best place to stay up-to-date with the latest Bloop news and events.</subtitle>
+    <logo>https://scalacenter.github.io/bloop/img/impure-logo-bloop.svg</logo>
+    <rights>Copyright © 2019 Scala Center</rights>
+    <entry>
+        <title type="html"><![CDATA[Introducing Docusaurus]]></title>
+        <id>https://scalacenter.github.io/bloop/blog/2019/04/25/Compiler-Isolation.html</id>
+        <link href="https://scalacenter.github.io/bloop/blog/2019/04/25/Compiler-Isolation.html">
+        </link>
+        <updated>2019-04-25T06:00:00Z</updated>
+        <summary type="html"><![CDATA[<p>Lorem Ipsum...</p> ]]></summary>
+        <author>
+            <name>Jorge Vicente Cantero</name>
+            <uri>https://twitter.com/jvican</uri>
+        </author>
+    </entry>
+</feed>
