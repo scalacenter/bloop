@@ -3,22 +3,25 @@ import bloop.integrations.sbt.{BloopDefaults, BloopKeys}
 val Custom = config("custom-it") extend Test
 
 val foo = project
-  .in(file("."))
+  .in(file(".") / "foo")
   .configs(IntegrationTest)
   .settings(
     inConfig(IntegrationTest)(
       Defaults.itSettings ++
-        BloopDefaults.configSettings
-    ))
+        BloopDefaults.configSettings(IntegrationTest)
+    )
+  )
 
 val bar = project
   .in(file(".") / "bar")
   .configs(Custom)
   .settings(
     inConfig(Custom)(
-      Defaults.itSettings ++
-        BloopDefaults.configSettings
-   ))
+      inConfig(Custom)(Defaults.testSettings) ++
+        BloopDefaults.configSettings(Custom)
+    )
+  )
+  .dependsOn(foo % "custom-it->it;custom-it->test;test->test")
 
 val checkBloopFile = taskKey[Unit]("Check bloop file contents")
 checkBloopFile in ThisBuild := {
@@ -48,11 +51,15 @@ checkBloopFile in ThisBuild := {
 
   // Read foo-it config file, remove all whitespace
   val fooItConfigContents = readBareFile(fooItConfig.toPath)
-  assert(fooItConfigContents.contains(""""dependencies":["foo"]"""),
-         "Dependency it->compile is missing in foo-it.")
+  assert(
+    fooItConfigContents.contains(""""dependencies":["foo"]"""),
+    "Dependency it->compile is missing in foo-it."
+  )
 
   // Read foo-it config file, remove all whitespace
   val barItConfigContents = readBareFile(barCustomTestConfig.toPath)
-  assert(barItConfigContents.contains(""""dependencies":["bar-test","bar"]"""),
-         "Dependency custom-it->test is missing in bar-custom-it.")
+  assert(
+    barItConfigContents.contains(""""dependencies":["foo-it","foo-test","bar-test","bar"]"""),
+    "Dependency custom-it->test is missing in bar-custom-it."
+  )
 }

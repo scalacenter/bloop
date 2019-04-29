@@ -22,6 +22,7 @@ import sbt.{
   ProjectRef,
   ResolvedProject,
   Test,
+  IntegrationTest,
   ThisBuild,
   ThisProject
 }
@@ -132,11 +133,24 @@ object BloopDefaults {
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
   )
 
-  lazy val configSettings: Seq[Def.Setting[_]] =
+  /**
+   * These config settings can be applied in configuration that have not yet
+   * been enabled in a project. Therefore, their implementations must protect
+   * themselves fro depending on tasks that do not exist in the scope (which
+   * happens when the configuration is disabled but a task refers to it
+   * nonetheless). See an example in the definition of `bloopInternalClasspath`
+   * or the implementation of `bloopGenerate`.
+   */
+  def configSettings(config: Configuration): Seq[Def.Setting[_]] =
     List(
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
-      BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
+      BloopKeys.bloopInternalClasspath in config := Def.taskDyn {
+        Keys.productDirectories.in(config).?.value match {
+          case Some(config) => bloopInternalDependencyClasspath
+          case None => Def.task(Nil: Seq[(File, File)])
+        }
+      }.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None,
       BloopKeys.bloopMainClass := None,
@@ -144,8 +158,9 @@ object BloopDefaults {
     ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
-    sbt.inConfig(Compile)(configSettings) ++
-      sbt.inConfig(Test)(configSettings) ++
+    sbt.inConfig(Compile)(configSettings(Compile)) ++
+      sbt.inConfig(Test)(configSettings(Test)) ++
+      sbt.inConfig(IntegrationTest)(configSettings(IntegrationTest)) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
@@ -393,33 +408,41 @@ object BloopDefaults {
       configuration: Configuration,
       project: ResolvedProject,
       logger: Logger
-  ): String = {
+  ): List[String] = {
     val ref = dep.project
     dep.configuration match {
       case Some(_) =>
         val mapping = sbt.Classpaths.mapped(
           dep.configuration,
-          List("compile", "test"),
-          List("compile", "test"),
+          List("compile", "test", "it"),
+          List("compile", "test", "it"),
           "compile",
           "*->compile"
         )
 
         mapping(configuration.name) match {
-          case Nil => projectNameFromString(ref.project, configuration, logger)
-          case List(conf) if Compile.name == conf => ref.project
-          case List(conf) if Test.name == conf => s"${ref.project}-test"
-          case List(conf1, conf2) if Test.name == conf1 && Compile.name == conf2 =>
-            s"${ref.project}-test"
-          case List(conf1, conf2) if Compile.name == conf1 && Test.name == conf2 =>
-            s"${ref.project}-test"
+          case Nil => List(projectNameFromString(ref.project, configuration, logger))
+          case List(conf) if Compile.name == conf => List(ref.project)
+          case List(conf) if Test.name == conf => List(s"${ref.project}-test")
+          case List(conf) if IntegrationTest.name == conf => List(s"${ref.project}-it")
+          case configurations
+              if configurations.exists(_ == IntegrationTest.name) &&
+                configurations.exists(_ == Test.name) =>
+            // Both of these imply a dependency on compile
+            List(s"${ref.project}-it", s"${ref.project}-test")
+          case configurations if configurations.exists(_ == IntegrationTest.name) =>
+            // Implies dependency on compile
+            List(s"${ref.project}-it")
+          case configurations if configurations.exists(_ == Test.name) =>
+            // Implies dependency on compile
+            List(s"${ref.project}-test")
           case unknown =>
             logger.warn(Feedback.unknownConfigurations(project, unknown, ref))
-            s"${ref.project}-test"
+            List(s"${ref.project}-test")
         }
       case None =>
         // If no configuration, default is `Compile` dependency (see scripted tests `cross-compile-test-configuration`)
-        projectNameFromString(ref.project, Compile, logger)
+        List(projectNameFromString(ref.project, Compile, logger))
     }
   }
 
@@ -655,8 +678,10 @@ object BloopDefaults {
     val project = Keys.thisProject.value
     val configuration = Keys.configuration.value
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+    val existsIntegrationTest = Keys.productDirectories.in(IntegrationTest).?.value.isDefined
 
     if (isMetaBuild && configuration == Test) Def.task(None)
+    else if (configuration == IntegrationTest && !existsIntegrationTest) Def.task(None)
     else {
       Def.task {
         val projectName = projectNameFromString(project.id, configuration, logger)
@@ -667,7 +692,9 @@ object BloopDefaults {
         val dependencies = {
           // Project dependencies come from classpath deps and also inter-project config deps
           val classpathProjectDependencies =
-            project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
+            project.dependencies.flatMap(
+              d => projectDependencyName(d, configuration, project, logger)
+            )
           val configDependencies =
             eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c, logger))
           /*          println(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")

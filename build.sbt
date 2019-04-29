@@ -256,7 +256,7 @@ val millBloop = project
   .settings(BuildDefaults.millModuleBuildSettings)
 
 val docs = project
-  .in(file("docs"))
+  .in(file("docs-gen"))
   .dependsOn(frontend)
   .enablePlugins(MdocPlugin, DocusaurusPlugin)
   .settings(
