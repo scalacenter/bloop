@@ -59,7 +59,8 @@ checkBloopFile in ThisBuild := {
   // Read foo-it config file, remove all whitespace
   val barItConfigContents = readBareFile(barCustomTestConfig.toPath)
   assert(
-    barItConfigContents.contains(""""dependencies":["foo-it","foo-test","bar","bar-test"]"""),
+    // foo-it shows up, but not foo-test as it's implied by foo-it (IntegrationTest.extend(Test))
+    barItConfigContents.contains(""""dependencies":["foo-it","bar","bar-test"]"""),
     "Dependency custom-it->test is missing in bar-custom-it."
   )
 }
