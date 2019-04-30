@@ -484,7 +484,7 @@ object BloopDefaults {
         )
 
         mapping(configuration.name) match {
-          case Nil => List(projectNameFromString(ref.project, configuration, logger))
+          case Nil => List(projectNameFromString(ref.project, Compile, logger))
           case configurationNames =>
             val configurations = configurationNames.iterator
               .flatMap(name => activeDependentConfigurations.find(_.name == name).toList)
