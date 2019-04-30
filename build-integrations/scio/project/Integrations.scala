@@ -2,6 +2,6 @@ import sbt.{RootProject, uri}
 
 object Integrations {
   val Scio = RootProject(
-    uri("https://github.com/spotify/scio.git#825267ca5a891e69a822d3b6e77b1ee8f92a31f4")
+    uri("https://github.com/jvican/scio.git#da2e33cdd3fca0ebb1302f83ff772748290b6e0b")
   )
 }
