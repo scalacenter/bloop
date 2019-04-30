@@ -22,8 +22,16 @@ import bloop.engine.BuildLoader
 
 import scala.collection.JavaConverters._
 
-class ConfigGenerationSuite {
-  private val gradleVersion: String = "4.8.1"
+class ConfigGenerationSuite481 extends ConfigGenerationSuite{
+  protected val gradleVersion: String = "4.8.1"
+}
+
+class ConfigGenerationSuite531 extends ConfigGenerationSuite{
+  protected val gradleVersion: String = "5.3.1"
+}
+
+abstract class ConfigGenerationSuite {
+  protected val gradleVersion: String
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
