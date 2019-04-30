@@ -786,9 +786,9 @@ object BloopDefaults {
           Config.Test(frameworks, options)
         }
 
-        val javacOptions = Keys.javacOptions.value.toList
+        val javacOptions = Keys.javacOptions.in(Keys.compile).in(configuration).value.toList
         val scalacOptions = {
-          val options = Keys.scalacOptions.value.toList
+          val options = Keys.scalacOptions.in(Keys.compile).in(configuration).value.toList
           val internalClasspath = BloopKeys.bloopInternalClasspath.value
           replaceScalacOptionsPaths(options, internalClasspath, logger)
         }
