@@ -6,7 +6,7 @@ import buildpress.internal.build.BuildpressInfo
 
 object Main
     extends Buildpress(
-      BuildpressInfo.version,
+      BuildpressPluginSource.SourceDependency(AbsolutePath(BuildpressInfo.baseDirectory)),
       System.in,
       System.out,
       System.err,
@@ -14,6 +14,6 @@ object Main
       None,
       AbsolutePath.workingDirectory
     ) {
-  def main(args: Array[String]): Unit = run()
-  def exit(exitCode: Int): Unit = ()
+  def main(args: Array[String]): Unit = run(args)
+  def exit(exitCode: Int): Unit = System.exit(exitCode)
 }

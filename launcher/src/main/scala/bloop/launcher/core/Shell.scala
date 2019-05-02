@@ -39,7 +39,15 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       cmd0: List[String],
       cwd: Path,
       timeoutInSeconds: Option[Long],
-      msgsBuffer: Option[ListBuffer[String]] = None
+      userOutput: Option[PrintStream]
+  ): StatusCommand = runCommand(cmd0, cwd, timeoutInSeconds, None, userOutput)
+
+  def runCommand(
+      cmd0: List[String],
+      cwd: Path,
+      timeoutInSeconds: Option[Long],
+      msgsBuffer: Option[ListBuffer[String]] = None,
+      userOutput: Option[PrintStream] = None
   ): StatusCommand = {
     val isServerRun = cmd0.exists(_.contains("server"))
     val outBuilder = StringBuilder.newBuilder
@@ -47,12 +55,12 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       override def onStart(nuProcess: NuProcess): Unit = ()
 
       override def onExit(statusCode: Int): Unit = ()
-
       override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
         val bytes = new Array[Byte](buffer.remaining())
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
         outBuilder.++=(msg)
+        userOutput.foreach(out => out.print(msg))
         msgsBuffer.foreach(b => b += msg)
       }
 
@@ -61,6 +69,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
         buffer.get(bytes)
         val msg = new String(bytes, StandardCharsets.UTF_8)
         outBuilder.++=(msg)
+        userOutput.foreach(out => out.print(msg))
         msgsBuffer.foreach(b => b += msg)
       }
     }
@@ -86,6 +95,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     addAdditionalEnvironmentVariables(currentEnv)
 
     val process = builder.start()
+    process.closeStdin(true)
     val code = Try(process.waitFor(timeoutInSeconds.getOrElse(0), TimeUnit.SECONDS)).getOrElse(1)
     StatusCommand(code, outBuilder.toString)
   }

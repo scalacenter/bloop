@@ -261,11 +261,16 @@ val buildpress = project
   .settings(
     scalaVersion := Scala212Version,
     buildInfoObject := "BuildpressInfo",
-    buildInfoKeys := List[BuildInfoKey](Keys.version),
+    buildInfoKeys := List[BuildInfoKey](Keys.baseDirectory.in(ThisBuild)),
     buildInfoPackage := "buildpress.internal.build",
+    fork in run := true,
+    javaOptions in run ++= List(
+      "-Dbuildpress.home=" + System.getProperty("user.home") + "/.buildpress"
+    ),
     // The application is not runnable outside of sbt
     bloopMainClass in (Compile, run) := None,
     libraryDependencies ++= List(
+      Dependencies.caseApp,
       Dependencies.nuprocess
     )
   )
