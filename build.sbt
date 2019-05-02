@@ -255,6 +255,21 @@ val millBloop = project
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
 
+val buildpress = project
+  .dependsOn(launcher)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+    scalaVersion := Scala212Version,
+    buildInfoObject := "BuildpressInfo",
+    buildInfoKeys := List[BuildInfoKey](Keys.version),
+    buildInfoPackage := "buildpress.internal.build",
+    // The application is not runnable outside of sbt
+    bloopMainClass in (Compile, run) := None,
+    libraryDependencies ++= List(
+      Dependencies.nuprocess
+    )
+  )
+
 val docs = project
   .in(file("docs-gen"))
   .dependsOn(frontend)

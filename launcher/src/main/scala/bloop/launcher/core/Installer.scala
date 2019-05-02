@@ -7,6 +7,7 @@ import java.nio.file.Paths
 import bloop.launcher.{printError, printQuoted, println}
 
 import scala.util.control.NonFatal
+import bloop.launcher.util.Environment
 
 object Installer {
   import java.net.URL
@@ -65,7 +66,7 @@ object Installer {
           }
 
           val installCmd = "python" :: targetPath :: installArgs
-          val installStatus = shell.runCommand(installCmd, None)
+          val installStatus = shell.runCommand(installCmd, Environment.cwd, None)
           if (installStatus.isOk) {
             // We've just installed bloop in `$HOME/.bloop`, let's now detect the installation
             if (!installStatus.output.isEmpty)

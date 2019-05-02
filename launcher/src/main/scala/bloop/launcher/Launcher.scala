@@ -370,7 +370,7 @@ class LauncherMain(
       }
 
       println(Feedback.startingBloopServer(startCmd), out)
-      val status = shell.runCommand(startCmd, None)
+      val status = shell.runCommand(startCmd, Environment.cwd, None)
 
       // Communicate to the driver logic in `connectToServer` if server failed or not
       bloopBackgroundError = Some(startCmd.mkString(" ") -> status)

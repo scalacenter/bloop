@@ -37,6 +37,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 
   def runCommand(
       cmd0: List[String],
+      cwd: Path,
       timeoutInSeconds: Option[Long],
       msgsBuffer: Option[ListBuffer[String]] = None
   ): StatusCommand = {
@@ -65,22 +66,20 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     }
 
     val cmd = {
-      if (!runWithInterpreter) cmd0
-      else {
-        if (Environment.isWindows) {
-          // Avoid long classpath issues in Windows (e.g. https://github.com/sbt/sbt-native-packager/issues/72)
-          if (cmd0.headOption.exists(_.startsWith("java"))) cmd0
-          else List("cmd.exe", "/C") ++ cmd0
-        } else {
-          // If sh -c is used, wrap the whole command in single quotes
-          List("sh", "-c", cmd0.mkString(" "))
-        }
+      if (Environment.isWindows && !Environment.isCygwin) {
+        // Interpret all commands in Windows except java (used in tests) which causes
+        // long classpath issues, see https://github.com/sbt/sbt-native-packager/issues/72
+        if (cmd0.headOption.exists(_.startsWith("java"))) cmd0
+        else List("cmd.exe", "/C") ++ cmd0
+      } else {
+        if (!runWithInterpreter) cmd0
+        else List("sh", "-c", cmd0.mkString(" "))
       }
     }
 
     val builder = new NuProcessBuilder(cmd: _*)
     builder.setProcessListener(new ProcessHandler)
-    builder.setCwd(Environment.cwd)
+    builder.setCwd(cwd)
 
     val currentEnv = builder.environment()
     currentEnv.putAll(System.getenv())
@@ -140,7 +139,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 
   def runBloopAbout(binaryCmd: List[String], out: PrintStream): Option[ServerStatus] = {
     // bloop is installed, let's check if it's running now
-    val statusAbout = runCommand(binaryCmd ++ List("about"), Some(10))
+    val statusAbout = runCommand(binaryCmd ++ List("about"), Environment.cwd, Some(10))
     Some {
       if (statusAbout.isOk) ListeningAndAvailableAt(binaryCmd)
       else AvailableAt(binaryCmd)
@@ -188,14 +187,14 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       out: PrintStream
   ): Option[ServerStatus] = {
     // --nailgun-help is always interpreted in the script, no connection with the server is required
-    val status = runCommand(binaryCmd ++ List("--nailgun-help"), Some(2))
+    val status = runCommand(binaryCmd ++ List("--nailgun-help"), Environment.cwd, Some(2))
     if (!status.isOk) None
     else runBloopAbout(binaryCmd, out)
   }
 
   def isPythonInClasspath: Boolean = {
     if (!detectPython) false
-    else runCommand(List("python", "--help"), Some(2)).isOk
+    else runCommand(List("python", "--help"), Environment.cwd, Some(2)).isOk
   }
 }
 
