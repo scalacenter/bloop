@@ -257,22 +257,21 @@ val millBloop = project
 
 val buildpress = project
   .dependsOn(launcher)
-  .enablePlugins(BuildInfoPlugin)
+  .settings(buildpressSettings)
   .settings(
     scalaVersion := Scala212Version,
-    buildInfoObject := "BuildpressInfo",
-    buildInfoKeys := List[BuildInfoKey](Keys.baseDirectory.in(ThisBuild)),
-    buildInfoPackage := "buildpress.internal.build",
-    fork in run := true,
-    javaOptions in run ++= List(
-      "-Dbuildpress.home=" + System.getProperty("user.home") + "/.buildpress"
-    ),
-    // The application is not runnable outside of sbt
-    bloopMainClass in (Compile, run) := None,
     libraryDependencies ++= List(
       Dependencies.caseApp,
       Dependencies.nuprocess
-    )
+    ),
+    // Depend on mill, maven and gradle integrations when they are supported
+    Keys.run in Compile :=
+      (Keys.run in Compile)
+        .dependsOn(Keys.publishLocal.in(jsonConfig210))
+        .dependsOn(Keys.publishLocal.in(jsonConfig212))
+        .dependsOn(Keys.publishLocal.in(sbtBloop013))
+        .dependsOn(Keys.publishLocal.in(sbtBloop10))
+        .evaluated
   )
 
 val docs = project
@@ -402,6 +401,7 @@ addCommandAlias(
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${sockets.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    s"${buildpress.id}/$publishLocalCmd",
     // Force build info generators in frontend-test
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
@@ -428,7 +428,8 @@ val allBloopReleases = List(
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
   s"${sockets.id}/$releaseEarlyCmd",
-  s"${launcher.id}/$releaseEarlyCmd"
+  s"${launcher.id}/$releaseEarlyCmd",
+  s"${buildpress.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

@@ -1,1 +1,5 @@
 cats,https://github.com/typelevel/cats.git#e306a5011d580d35ed7c34246dae297d874f4fa7
+circe,https://github.com/circe/circe.git#5349535ca0631678a76939daa695c8b05db70ac5
+http4s,https://github.com/http4s/http4s.git#d54c8a427313a337e21753caf57f6109fdaa37f0
+linkerd,https://github.com/jvican/linkerd.git#351032288eba1cef2ead16822361a1b944e14513
+quill,https://github.com/getquill/quill.git#5ad49311e3490972489e66cc999eacb4eda37862

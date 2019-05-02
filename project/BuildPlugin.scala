@@ -113,6 +113,31 @@ object BuildKeys {
     nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
   )
 
+  import sbt.Compile
+  val buildpressSettings: Seq[Def.Setting[_]] = List(
+    Keys.fork in Keys.run := true,
+    Keys.run in Compile := {
+      val mainClass = "buildpress.Main"
+      val bloopVersion = Keys.version.value
+      val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
+      val file = Keys.resourceDirectory.in(Compile).value./("bloop-community-build.buildpress")
+      val args = List(
+        "--buildpress-file",
+        file.toString,
+        "--buildpress-home",
+        buildpressHomePath,
+        "--bloop-version",
+        bloopVersion
+      )
+
+      val s = Keys.streams.value
+      import sbt.internal.util.Attributed.data
+      val classpath = (Keys.fullClasspath in Compile).value
+      val runner = (Keys.runner in (Compile, Keys.run)).value
+      runner.run(mainClass, data(classpath), args, s.log).get
+    }
+  )
+
   val integrationTestSettings: Seq[Def.Setting[_]] = List(
     integrationStagingBase :=
       BuildImplementation.BuildDefaults.getStagingDirectory(Keys.state.value),

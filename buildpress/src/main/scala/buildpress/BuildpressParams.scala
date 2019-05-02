@@ -16,10 +16,8 @@ final case class BuildpressParams(
     buildpressFile: AbsolutePath,
     @HelpMessage("The bloop version to export a build with")
     bloopVersion: String,
-    @HelpMessage(
-      "The base directory pointing to the bloop base dir, required if bloop version is not stable"
-    )
-    bloopBaseDirectory: Option[AbsolutePath]
+    @HelpMessage("The buildpress home directory where repositories are cloned and cached")
+    buildpressHome: AbsolutePath
 )
 
 object BuildpressParams {

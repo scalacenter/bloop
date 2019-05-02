@@ -2,11 +2,9 @@ package buildpress
 
 import buildpress.io.AbsolutePath
 import bloop.launcher.core.Shell
-import buildpress.internal.build.BuildpressInfo
 
 object Main
     extends Buildpress(
-      BuildpressPluginSource.SourceDependency(AbsolutePath(BuildpressInfo.baseDirectory)),
       System.in,
       System.out,
       System.err,
