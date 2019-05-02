@@ -105,6 +105,7 @@ abstract class Buildpress(
             detectBuildTool(buildPath) match {
               case Some(sbtBuild: BuildTool.Sbt) =>
                 out.println(success(s"Detected $sbtBuild"))
+                out.println("Exporting build to bloop in ${buildPath}...")
                 exportSbtBuild(sbtBuild, params.bloopVersion).flatMap { _ =>
                   whenBloopDirExists(sbtBuild.baseDir) { bloopDir =>
                     bloopDir :: previousBloopDirs
@@ -264,7 +265,7 @@ abstract class Buildpress(
       val completeErrorMsg =
         failureMsgs.mkString(System.lineSeparator) +
           System.lineSeparator() +
-          error("Found ${failures.size} errors when parsing URIs")
+          error(s"Found ${failures.size} errors when parsing URIs")
       Left(BuildpressError.ParseFailure(completeErrorMsg, None))
     } else {
       val validationInit: Either[BuildpressError.ParseFailure, List[(String, URI)]] = Right(Nil)
