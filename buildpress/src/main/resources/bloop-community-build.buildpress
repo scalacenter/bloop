@@ -1,4 +1,4 @@
-cats,https://github.com/jvican/cats.git#c52fdbbecc60ce7c2bbaec5ab5c308d8876f5e76
+cats,https://github.com/jvican/cats.git#9b4744b83d7132b5124a0939bcf52f384e22833e
 circe,https://github.com/circe/circe.git#5349535ca0631678a76939daa695c8b05db70ac5
 http4s,https://github.com/http4s/http4s.git#d54c8a427313a337e21753caf57f6109fdaa37f0
 linkerd,https://github.com/jvican/linkerd.git#387fd0269d7839c574ba369e07e5043a8e4c5f1f

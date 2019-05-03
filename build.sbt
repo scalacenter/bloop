@@ -207,7 +207,7 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("0.13.17", jsonConfig210))
+  .settings(sbtPluginSettings("0.13.18", jsonConfig210))
   .dependsOn(jsonConfig210)
 
 val mavenBloop = project
@@ -368,7 +368,7 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     skip in publish := true,
-    crossSbtVersions := Seq("1.1.0", "0.13.16"),
+    crossSbtVersions := Seq("1.2.8", "0.13.18"),
     commands += BuildDefaults.exportProjectsInTestResourcesCmd
   )
 

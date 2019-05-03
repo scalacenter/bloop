@@ -33,11 +33,13 @@ object CommunityBuild
     extends CommunityBuild(
       AbsolutePath(System.getProperty("user.home")).resolve(".buildpress")
     ) {
+  def exit(exitCode: Int): Unit = System.exit(exitCode)
   def main(args: Array[String]): Unit = {
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      builds.foreach {
+      val buildsToCompile = builds.filter(_._1 == "cats")
+      buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
           System.out.println(s"✅  Compiled all projects in $buildBaseDir")
@@ -46,13 +48,14 @@ object CommunityBuild
   }
 }
 
-class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
+abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
+  def exit(exitCode: Int): Unit
   val buildpressCacheDir = buildpressHomeDir.resolve("cache")
   val buildpressCacheFile = buildpressHomeDir.resolve("buildpress.out")
-  def exit(exitCode: Int): Unit = System.exit(exitCode)
 
-  lazy val builds: Map[String, AbsolutePath] = {
-    if (!buildpressCacheFile.exists) Map.empty
+  // Use a list to preserve ordering, performance is not a big deal
+  lazy val builds: List[(String, AbsolutePath)] = {
+    if (!buildpressCacheFile.exists) Nil
     else {
       val bytes = Files.readAllBytes(buildpressCacheFile.underlying)
       val lines = new String(bytes, StandardCharsets.UTF_8).split(System.lineSeparator())
@@ -77,12 +80,14 @@ class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
                 )
             }
           }
-      }.toMap
+      }
     }
   }
 
   def getConfigDirForBenchmark(name: String): Path = {
-    builds.getOrElse(name, sys.error(s"Missing buildpress base dir for $name")).underlying
+    builds.find(_._1 == name).map(_._2.underlying).getOrElse {
+      sys.error(s"Missing buildpress base dir for $name")
+    }
   }
 
   val compilerCache: CompilerCache = {
@@ -112,7 +117,7 @@ class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
 
       // After reporting the state of the execution, compile the projects accordingly.
       val logger = BloopLogger.default("community-build-logger")
-      val initialState = loadStateForBuild(buildBaseDir, logger)
+      val initialState = loadStateForBuild(buildBaseDir.resolve(".bloop"), logger)
       val allProjectsInBuild = initialState.build.projects
 
       val rootProjectName = "bloop-test-root"
@@ -142,14 +147,16 @@ class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         origin = origin
       )
 
-      val allReachable = Dag.dfs(initialState.build.getDagFor(rootProject))
+      val newProjects = rootProject :: allProjectsInBuild
+      val state = initialState.copy(build = initialState.build.copy(projects = newProjects))
+      val allReachable = Dag.dfs(state.build.getDagFor(rootProject))
       val reachable = allReachable.filter(_ != rootProject)
       val cleanAction = Run(Commands.Clean(reachable.map(_.name)), Exit(ExitStatus.Ok))
-      val state = execute(cleanAction, initialState)
+      val cleanedState = execute(cleanAction, state)
 
       reachable.foreach { project =>
         removeClassFiles(project)
-        if (!noPreviousAnalysis(project, state)) {
+        if (hasCompileAnalysis(project, cleanedState)) {
           System.err.println(s"Project ${project.baseDirectory} already compiled!")
           exit(1)
         }
@@ -165,11 +172,12 @@ class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         Exit(ExitStatus.Ok)
       )
 
-      val verboseState = state //.copy(logger = state.logger.asVerbose)
+      val verboseState = cleanedState //.copy(logger = state.logger.asVerbose)
       val compiledState = execute(action, verboseState)
       assert(compiledState.status.isOk)
       reachable.foreach { project =>
-        if (noPreviousAnalysis(project, state)) {
+        if (!hasCompileAnalysis(project, compiledState)) {
+          println(compiledState.results.successful.mkString(", "))
           System.err.println(s"Project ${project.baseDirectory} was not compiled!")
           exit(1)
         }
@@ -194,8 +202,8 @@ class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     }
   }
 
-  private def noPreviousAnalysis(project: Project, state: State): Boolean =
-    !state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().isPresent
+  private def hasCompileAnalysis(project: Project, state: State): Boolean =
+    state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().isPresent
 
   private val isCommunityBuildEnabled: Boolean =
     isEnvironmentEnabled(List("RUN_COMMUNITY_BUILD", "run.community.build"), "false")

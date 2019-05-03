@@ -347,9 +347,7 @@ abstract class Buildpress(
     // TODO: Don't add bloop sbt plugin if build already has set it up
     def addSbtPlugin(buildpressSbtFile: AbsolutePath) = {
       val sbtFileContents =
-        s"""
-           |addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "$bloopVersion")
-       """.stripMargin
+        s"""addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "$bloopVersion")""".stripMargin
       try {
         val bytes = sbtFileContents.getBytes(StandardCharsets.UTF_8)
         Files.write(buildpressSbtFile.underlying, bytes)

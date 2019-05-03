@@ -4,13 +4,19 @@ import buildpress.io.AbsolutePath
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 import java.io.IOException
+import scala.collection.mutable
 
 final case class RepositoryCache(source: AbsolutePath, repositories: List[Repository]) {
   def getCachedRepoFor(target: Repository): Option[Repository] =
     repositories.find(_.id == target.id)
   def merge(newRepositories: List[Repository]): RepositoryCache = {
-    val overriddenRepos = (newRepositories ++ repositories).distinct
-    RepositoryCache(source, overriddenRepos)
+    val mergedRepositories = new mutable.ListBuffer[Repository]
+    mergedRepositories.++=(newRepositories)
+    repositories.map { repository =>
+      if (newRepositories.exists(_.id == repository.id)) ()
+      else mergedRepositories.+=(repository)
+    }
+    RepositoryCache(source, mergedRepositories.toList)
   }
 }
 
