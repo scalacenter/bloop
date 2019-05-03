@@ -142,7 +142,6 @@ lazy val frontend: Project = project
     testSettings,
     testSuiteSettings,
     Defaults.itSettings,
-    integrationTestSettings,
     BuildDefaults.frontendTestBuildSettings,
     // Can be removed when metals upgrades to 1.3.0
     inConfig(IntegrationTest)(BloopDefaults.configSettings)
@@ -369,7 +368,20 @@ val bloop = project
     releaseEarly := { () },
     skip in publish := true,
     crossSbtVersions := Seq("1.2.8", "0.13.18"),
-    commands += BuildDefaults.exportProjectsInTestResourcesCmd
+    commands += BuildDefaults.exportProjectsInTestResourcesCmd,
+    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
+    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
+    exportCommunityBuild := {
+      build.BuildImplementation
+        .exportCommunityBuild(
+          buildpress,
+          jsonConfig210,
+          jsonConfig212,
+          sbtBloop013,
+          sbtBloop10
+        )
+        .value
+    }
   )
 
 /**************************************************************************************************/

@@ -1,10 +1,10 @@
 cats,https://github.com/jvican/cats.git#9b4744b83d7132b5124a0939bcf52f384e22833e
 circe,https://github.com/circe/circe.git#5349535ca0631678a76939daa695c8b05db70ac5
 http4s,https://github.com/http4s/http4s.git#d54c8a427313a337e21753caf57f6109fdaa37f0
-linkerd,https://github.com/jvican/linkerd.git#387fd0269d7839c574ba369e07e5043a8e4c5f1f
+linkerd,https://github.com/jvican/linkerd.git#c3a2babcff34d431403be8bb9aeb9e3f2363b0a6
 quill,https://github.com/getquill/quill.git#5ad49311e3490972489e66cc999eacb4eda37862
-spark,https://github.com/apache/spark.git#a44880ba74caab7a987128cb09c4bee41617770a
+spark,https://github.com/scalacenter/spark.git#0180497e2af2218a2298a1b5e8f207c873464cad
 lichess,https://github.com/ornicar/lila.git#d49d5dfcdb7cc108fbc22dc0e0f943d2bfe3dee3
-scalding,https://github.com/jvican/scalding.git#f35e5f6f6e514088220432c7e831d22007858461
+scalding,https://github.com/jvican/scalding.git#572a1e4c060bfd15d7f3e3749482b61d9a9cb320
 summingbird,https://github.com/jvican/summingbird.git#42d3e19ef898722c34dbe0f8f8744144cf910f0b
 scio,https://github.com/jvican/scio.git#da2e33cdd3fca0ebb1302f83ff772748290b6e0b

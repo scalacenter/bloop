@@ -38,7 +38,7 @@ object CommunityBuild
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      val buildsToCompile = builds.filter(_._1 == "cats")
+      val buildsToCompile = builds.filter(_._1 == "summingbird")
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
@@ -118,7 +118,9 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       // After reporting the state of the execution, compile the projects accordingly.
       val logger = BloopLogger.default("community-build-logger")
       val initialState = loadStateForBuild(buildBaseDir.resolve(".bloop"), logger)
-      val allProjectsInBuild = initialState.build.projects
+      val blacklistedProjects = readBlacklistFile(buildBaseDir.resolve("blacklist.buildpress"))
+      val allProjectsInBuild =
+        initialState.build.projects.filterNot(p => blacklistedProjects.contains(p.name))
 
       val rootProjectName = "bloop-test-root"
       val dummyExistingBaseDir = buildBaseDir.resolve("project")
@@ -176,11 +178,27 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       val compiledState = execute(action, verboseState)
       assert(compiledState.status.isOk)
       reachable.foreach { project =>
-        if (!hasCompileAnalysis(project, compiledState)) {
-          println(compiledState.results.successful.mkString(", "))
+        val projectHasSources = project.sources.exists { dir =>
+          dir.exists &&
+          Files.newDirectoryStream(dir.underlying, "**.{scala,java}").iterator.hasNext()
+        }
+
+        if (projectHasSources && !hasCompileAnalysis(project, compiledState)) {
           System.err.println(s"Project ${project.baseDirectory} was not compiled!")
           exit(1)
         }
+      }
+    }
+  }
+
+  private def readBlacklistFile(blacklist: AbsolutePath): List[String] = {
+    if (!blacklist.exists) Nil
+    else {
+      val bytes = Files.readAllBytes(blacklist.underlying)
+      val lines = new String(bytes, StandardCharsets.UTF_8).split(System.lineSeparator())
+      lines.toList.flatMap { line =>
+        if (line == "") Nil
+        else List(line)
       }
     }
   }

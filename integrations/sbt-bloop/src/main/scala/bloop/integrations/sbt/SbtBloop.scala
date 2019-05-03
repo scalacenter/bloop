@@ -501,7 +501,7 @@ object BloopDefaults {
                 else {
                   logger.warn(Feedback.unknownConfigurations(project, List(dc.name), ref))
                   // Use test dependency as the conservative default if a configuration is unknown
-                  List(s"${ref.project}-test")
+                  List(projectNameFromString(ref.project, Test, logger))
                 }
               }.toSet
             }
@@ -509,10 +509,7 @@ object BloopDefaults {
             // A dependency cannot depend on each other, so this way of computing the roots works
             val rootDependencies =
               configurations.filterNot(c => validDependentConfigurations.contains(c))
-            rootDependencies.map { dep =>
-              if (dep.name == Compile.name) ref.project
-              else s"${ref.project}-${dep.name}"
-            }.distinct
+            rootDependencies.map(c => projectNameFromString(ref.project, c, logger)).distinct
         }
       case None =>
         // If no configuration, default is `Compile` dependency (see scripted tests `cross-compile-test-configuration`)

@@ -69,15 +69,9 @@ object BuildKeys {
 
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
-  val integrationStagingBase =
-    Def.taskKey[File]("The base directory for sbt staging in all versions.")
-  val integrationSetUpBloop =
-    Def.taskKey[Unit]("Generate the bloop config for integration tests.")
-  val cloneCommunityBuild = Def.taskKey[Unit]("Clone bloop's community build.")
-  val buildIntegrationsIndex =
-    Def.taskKey[File]("A csv index with complete information about our integrations.")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
+  val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -113,37 +107,8 @@ object BuildKeys {
   )
 
   import sbt.Compile
-  val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
   val buildpressSettings: Seq[Def.Setting[_]] = List(
-    Keys.fork in Keys.run := true,
-    cloneCommunityBuild in Compile := {
-      val mainClass = "buildpress.Main"
-      val bloopVersion = Keys.version.value
-      val file = Keys.resourceDirectory.in(Compile).value./("bloop-community-build.buildpress")
-      val args = List(
-        "--buildpress-file",
-        file.toString,
-        "--buildpress-home",
-        buildpressHomePath,
-        "--bloop-version",
-        bloopVersion
-      )
-
-      val s = Keys.streams.value
-      import sbt.internal.util.Attributed.data
-      val classpath = (Keys.fullClasspath in Compile).value
-      val runner = (Keys.runner in (Compile, Keys.run)).value
-      runner.run(mainClass, data(classpath), args, s.log).get
-    }
-  )
-
-  val integrationTestSettings: Seq[Def.Setting[_]] = List(
-    integrationStagingBase :=
-      BuildImplementation.BuildDefaults.getStagingDirectory(Keys.state.value),
-    buildIntegrationsIndex := file(buildpressHomePath),
-    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
-    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
-    integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value
+    Keys.fork in Keys.run := true
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
@@ -197,7 +162,6 @@ object BuildKeys {
       Keys.version,
       Keys.scalaVersion,
       Keys.sbtVersion,
-      buildIntegrationsIndex,
       nailgunClientLocation
     )
     commonKeys ++ extra
@@ -607,13 +571,108 @@ object BuildImplementation {
     }
   }
 
+  import java.util.Locale
+  import sbt.MessageOnlyException
+  import sbt.{Reference, Compile}
   import scala.sys.process.Process
-  val integrationSetUpBloop = Def.task {
-    import sbt.MessageOnlyException
-    import java.util.Locale
+  import java.nio.file.Files
+  val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
+  def exportCommunityBuild(
+      buildpress: Reference,
+      circeConfig210: Reference,
+      circeConfig212: Reference,
+      sbtBloop013: Reference,
+      sbtBloop10: Reference
+  ) = Def.taskDyn {
+    val isWindows: Boolean =
+      System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+    if (isWindows) Def.task(println("Skipping export community build in Windows."))
+    else {
+      val baseDir = Keys.baseDirectory.in(ThisBuild).value
+      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
 
+      // Only sbt sources are added, add new plugin sources when other build tools are supported
+      val allPluginSourceDirs = Set(
+        baseDir / "config" / "src" / "main" / "scala",
+        baseDir / "config" / "src" / "main" / "scala-2.10",
+        baseDir / "config" / "src" / "main" / "scala-2.11",
+        baseDir / "config" / "src" / "main" / "scala-2.12",
+        baseDir / "config" / "src" / "main" / "scala-2.11-12",
+        pluginMainDir / "scala",
+        pluginMainDir / "scala-2.10",
+        pluginMainDir / "scala-2.12",
+        pluginMainDir / s"scala-sbt-0.13",
+        pluginMainDir / s"scala-sbt-1.0"
+      )
+
+      val allPluginSourceFiles = allPluginSourceDirs.flatMap { sourceDir =>
+        val sourcePath = sourceDir.toPath
+        if (!Files.exists(sourcePath)) Nil
+        else {
+          import scala.collection.JavaConverters._
+          Files.newDirectoryStream(sourcePath, "**.{scala,java}").iterator.asScala.toList.map(_.toFile)
+        }
+      }.toSet
+
+      var regenerate: Boolean = false
+      val cacheDirectory = Keys.target.value./("community-build-cache")
+      val regenerationFile = Keys.target.value./("regeneration-file.txt")
+      val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
+        // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
+        val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+        val dodoSetUp = Process(cmd, baseDir).!
+        if (dodoSetUp != 0)
+          throw new MessageOnlyException(
+            "Failed to publish local snapshots for twitter projects."
+          )
+
+        // Write a dummy regeneration file for the caching to work
+        regenerate = true
+        IO.write(regenerationFile, "true")
+        Set(regenerationFile)
+      }
+
+      val s = Keys.streams.value
+      val mainClass = "buildpress.Main"
+      val bloopVersion = Keys.version.value
+
+      cachedGenerate(allPluginSourceFiles)
+      Def.task {
+        // Publish the projects before we invoke buildpress
+        Keys.publishLocal.in(circeConfig210).value
+        Keys.publishLocal.in(circeConfig212).value
+        Keys.publishLocal.in(sbtBloop013).value
+        Keys.publishLocal.in(sbtBloop10).value
+
+        val file = Keys.resourceDirectory
+          .in(Compile)
+          .in(buildpress)
+          .value
+          ./("bloop-community-build.buildpress")
+
+        // We regenerate again if something in the plugin sources has changed
+        val regenerateArgs = if (regenerate) List("--regenerate") else Nil
+        val buildpressArgs = List(
+          "--buildpress-file",
+          file.toString,
+          "--buildpress-home",
+          buildpressHomePath,
+          "--bloop-version",
+          bloopVersion
+        ) ++ regenerateArgs
+
+        import sbt.internal.util.Attributed.data
+        val classpath = (Keys.fullClasspath in Compile in buildpress).value
+        val runner = (Keys.runner in (Compile, Keys.run) in buildpress).value
+        runner.run(mainClass, data(classpath), buildpressArgs, s.log).get
+      }
+    }
+  }
+
+  /*
+  val integrationSetUpBloop = Def.task {
     val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
-    val buildIndexFile = BuildKeys.buildIntegrationsIndex.value
+    val buildIndexFile = ???
     val schemaVersion = BuildKeys.schemaVersion.value
     val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
     val cacheDirectory = file(stagingBase) / "integrations-cache"
@@ -710,6 +769,7 @@ object BuildImplementation {
       }
     cachedGenerate(buildFiles)
   }
+ */
 }
 
 object Header {

@@ -15,7 +15,7 @@ matrix:
           "show schemaVersion" \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
-          "integrationSetUpBloop" \
+          "exportCommunityBuild" \
           "backend/test" \
           "nativeBridge/test" \
           "jsBridge06/test" \
@@ -24,8 +24,8 @@ matrix:
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
-          "frontend/testOnly -bloop.IntegrationTestSuite" \
-          "frontend/testOnly bloop.IntegrationTestSuite" \
+          "frontend/test" \
+          "frontend/it:run" \
           "gradleBloop212/test" \
           "docs/run"
 
@@ -33,8 +33,8 @@ matrix:
     - bin/sbt-ci.sh \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
-          "integrationSetUpBloop" \
-          "frontend/testOnly bloop.IntegrationTestSuite"
+          "exportCommunityBuild" \
+          "frontend/it:run"
 
   RUN_BENCHMARKS_AND_SCRIPTED:
     - bin/sbt-ci.sh \
