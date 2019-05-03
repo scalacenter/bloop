@@ -17,7 +17,9 @@ final case class BuildpressParams(
     @HelpMessage("The bloop version to export a build with")
     bloopVersion: String,
     @HelpMessage("The buildpress home directory where repositories are cloned and cached")
-    buildpressHome: AbsolutePath
+    buildpressHome: AbsolutePath,
+    @HelpMessage("Regenerate bloop configuration files for every repository")
+    regenerate: Boolean = false
 )
 
 object BuildpressParams {

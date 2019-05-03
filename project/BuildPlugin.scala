@@ -73,6 +73,7 @@ object BuildKeys {
     Def.taskKey[File]("The base directory for sbt staging in all versions.")
   val integrationSetUpBloop =
     Def.taskKey[Unit]("Generate the bloop config for integration tests.")
+  val cloneCommunityBuild = Def.taskKey[Unit]("Clone bloop's community build.")
   val buildIntegrationsIndex =
     Def.taskKey[File]("A csv index with complete information about our integrations.")
   val localBenchmarksIndex =
@@ -116,7 +117,7 @@ object BuildKeys {
   import sbt.Compile
   val buildpressSettings: Seq[Def.Setting[_]] = List(
     Keys.fork in Keys.run := true,
-    Keys.run in Compile := {
+    cloneCommunityBuild in Compile := {
       val mainClass = "buildpress.Main"
       val bloopVersion = Keys.version.value
       val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"

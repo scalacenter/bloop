@@ -1,23 +1,27 @@
 package buildpress
 
 import buildpress.io.AbsolutePath
+import buildpress.io.BuildpressPaths
+
+import bloop.launcher.core.Shell
+import bloop.launcher.util.Environment
 
 import java.nio.file.Files
 import java.io.InputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.io.IOException
-import scala.util.control.NonFatal
 import java.nio.ByteBuffer
-import scala.util.Try
 import java.util.concurrent.TimeUnit
 import java.net.URISyntaxException
 import java.net.URI
 import java.nio.file.Paths
 import java.nio.file.InvalidPathException
-import bloop.launcher.core.Shell
-import bloop.launcher.util.Environment
+
+import scala.util.control.NonFatal
+import scala.util.Try
 import scala.collection.mutable
+
 import caseapp.CaseApp
 import caseapp.core.WithHelp
 import caseapp.core.Messages
@@ -30,6 +34,7 @@ abstract class Buildpress(
     explicitBuildpressHome: Option[AbsolutePath],
     implicit val cwd: AbsolutePath
 ) {
+  type EitherErrorOr[T] = Either[BuildpressError, T]
   def exit(exitCode: Int): Unit
 
   import BuildpressParams.buildpressParamsParser
@@ -37,8 +42,6 @@ abstract class Buildpress(
     Messages.messages[BuildpressParams].copy(appName = "buildpress", progName = "buildpress")
   implicit val messagesParamsHelp = messagesParams.withHelp
 
-  def error(msg: String): String = s"❌  $msg"
-  def success(msg: String): String = s"✅  $msg"
   def run(args: Array[String]): Unit = {
     def errorAndExit(msg: String): Unit = { err.println(msg); exit(1) }
 
@@ -60,71 +63,24 @@ abstract class Buildpress(
                 case Left(f: BuildpressError.ImportFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.InvalidBuildpressHome) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.ParseFailure) => errorAndExit(f.msg)
+                case Left(f: BuildpressError.PersistFailure) => errorAndExit(f.msg)
               }
             }
         }
     }
   }
 
-  def press(params: BuildpressParams): Either[BuildpressError, Unit] = {
-    val clonedPaths = validateBuildpressHome(params.buildpressHome).flatMap { buildpressHome =>
-      val buildpressCacheDir = buildpressHome.resolve("cache")
-      Files.createDirectories(buildpressCacheDir.underlying)
-      val bytes = Files.readAllBytes(params.buildpressFile.underlying)
-      val contents = new String(bytes, StandardCharsets.UTF_8)
-      parseUris(contents).flatMap { uris =>
-        val init: Either[BuildpressError, List[AbsolutePath]] = Right(Nil)
-        uris
-          .foldLeft(init) {
-            case (previousResult, (repoId, repoUri)) =>
-              previousResult.flatMap { clonedPaths =>
-                processUri(repoId, repoUri, buildpressCacheDir)
-                  .map(path => path :: clonedPaths)
-              }
-          }
-          .map(_.reverse)
-      }
-    }
-
-    def whenBloopDirExists[T](
-        buildBaseDir: AbsolutePath
-    )(processBloopDir: AbsolutePath => T): Either[BuildpressError, T] = {
-      val bloopConfigDir = buildBaseDir.resolve(".bloop")
-      if (bloopConfigDir.exists) Right(processBloopDir(bloopConfigDir))
-      else {
-        val msg = s"Missing $bloopConfigDir after build import!"
-        Left(BuildpressError.ImportFailure(error(msg), None))
-      }
-    }
-
-    val bloopConfigDirs = clonedPaths.flatMap { buildPaths =>
-      val init: Either[BuildpressError, List[AbsolutePath]] = Right(Nil)
-      buildPaths.foldLeft(init) {
-        case (previousResult, buildPath) =>
-          previousResult.flatMap { previousBloopDirs =>
-            detectBuildTool(buildPath) match {
-              case Some(sbtBuild: BuildTool.Sbt) =>
-                out.println(success(s"Detected $sbtBuild"))
-                out.println("Exporting build to bloop in ${buildPath}...")
-                exportSbtBuild(sbtBuild, params.bloopVersion).flatMap { _ =>
-                  whenBloopDirExists(sbtBuild.baseDir) { bloopDir =>
-                    bloopDir :: previousBloopDirs
-                  }.map(_.reverse)
-                }
-              case Some(unsupportedBuildTool) =>
-                val msg = s"Unsupported build tool $unsupportedBuildTool"
-                Left(BuildpressError.ImportFailure(error(msg), None))
-              case None =>
-                val msg = s"No detected build tool in $buildPath"
-                Left(BuildpressError.ImportFailure(error(msg), None))
-            }
-          }
-      }
-    }
-
-    bloopConfigDirs.map { configDirs =>
-      out.println("Generation completed:")
-      configDirs.foreach { configDir =>
+  def press(params: BuildpressParams): EitherErrorOr[Unit] = {
+    for {
+      home <- validateBuildpressHome(params.buildpressHome)
+      cache <- parseRepositoryCache(home)
+      clonedRepositories <- parseAndCloneRepositories(params, home, cache)
+      bloopConfigDirs <- exportRepositories(params, clonedRepositories.map(_._2))
+      newCache = cache.merge(clonedRepositories.map(_._1))
+      _ <- RepositoryCache.persist(newCache)
+    } yield {
+      out.println(s"Cache file ${newCache.source}")
+      bloopConfigDirs.foreach { configDir =>
         out.println(success(s"Generated $configDir"))
       }
       out.println(s"😎  Buildpress finished successfully")
@@ -140,76 +96,116 @@ abstract class Buildpress(
     } else {
       // We don't create the parent of the buildpress home out of precaution
       val msg =
-        s"Detected buildpress home '${homeDir.syntax}' cannot be created because its parent doesn't exist"
+        s"Detected buildpress home '${homeDir.syntax}' cannot be created, its parent doesn't exist"
       Left(BuildpressError.InvalidBuildpressHome(error(msg)))
     }
   }
 
-  def processUri(
-      id: String,
-      uri: URI,
-      cacheDir: AbsolutePath
-  ): Either[BuildpressError.CloningFailure, AbsolutePath] = {
-    val scheme = uri.getScheme()
-    if (scheme == "file") Right(AbsolutePath(uri))
+  def parseRepositoryCache(home: AbsolutePath): EitherErrorOr[RepositoryCache] = {
+    val buildpressCacheFile = home.resolve("buildpress.out")
+    if (!buildpressCacheFile.exists) Right(RepositoryCache.empty(buildpressCacheFile))
     else {
-      val supportsGit = {
-        scheme == "git" ||
-        ((scheme == "http" || scheme == "https") && {
-          val part = uri.getRawSchemeSpecificPart()
-          part != null && part.endsWith(".git")
-        })
-      }
+      val bytes = Files.readAllBytes(buildpressCacheFile.underlying)
+      val contents = new String(bytes, StandardCharsets.UTF_8)
+      parseUris(buildpressCacheFile.syntax, contents)
+        .map(repos => RepositoryCache(buildpressCacheFile, repos))
+    }
+  }
 
-      if (!supportsGit) {
+  def parseAndCloneRepositories(
+      params: BuildpressParams,
+      buildpressHome: AbsolutePath,
+      cachedRepos: RepositoryCache
+  ): EitherErrorOr[List[(Repository, AbsolutePath)]] = {
+    val buildpressCacheDir = buildpressHome.resolve("cache")
+    Files.createDirectories(buildpressCacheDir.underlying)
+    val bytes = Files.readAllBytes(params.buildpressFile.underlying)
+    val contents = new String(bytes, StandardCharsets.UTF_8)
+    parseUris(buildpressCacheDir.syntax, contents).flatMap { uris =>
+      val init: EitherErrorOr[List[(Repository, AbsolutePath)]] = Right(Nil)
+      val repositories = uris.foldLeft(init) {
+        case (previousResult, repository) =>
+          previousResult.flatMap { clonedPaths =>
+            setUpRepoContents(repository, buildpressCacheDir, cachedRepos)
+              .map(path => (repository -> path) :: clonedPaths)
+          }
+      }
+      repositories.map(_.reverse)
+    }
+  }
+
+  def exportRepositories(
+      params: BuildpressParams,
+      repositoryPaths: List[AbsolutePath]
+  ): EitherErrorOr[List[AbsolutePath]] = {
+    val init: EitherErrorOr[List[AbsolutePath]] = Right(Nil)
+    repositoryPaths.foldLeft(init) {
+      case (previousResult, buildPath) =>
+        val configDirs = previousResult.flatMap { previousBloopDirs =>
+          detectBuildTool(buildPath) match {
+            case Some(sbtBuild: BuildTool.Sbt) =>
+              out.println(success(s"Detected $sbtBuild"))
+              out.println(s"Exporting build to bloop in ${buildPath}...")
+              exportSbtBuild(sbtBuild, params.regenerate, params.bloopVersion).flatMap {
+                generated =>
+                  val bloopDir = sbtBuild.baseDir.resolve(".bloop")
+                  if (generated && bloopDir.exists) Right(bloopDir :: previousBloopDirs)
+                  else if (!generated) Right(previousBloopDirs)
+                  else {
+                    val msg = s"Missing $bloopDir after build import!"
+                    Left(BuildpressError.ImportFailure(error(msg), None))
+                  }
+              }
+            case Some(unsupportedBuildTool) =>
+              val msg = s"Unsupported build tool $unsupportedBuildTool"
+              Left(BuildpressError.ImportFailure(error(msg), None))
+            case None =>
+              val msg = s"No detected build tool in $buildPath"
+              Left(BuildpressError.ImportFailure(error(msg), None))
+          }
+        }
+        // Reverse because we have aggregated config dirs backwards
+        configDirs.map(_.reverse)
+    }
+  }
+
+  def setUpRepoContents(
+      repo: Repository,
+      cacheDir: AbsolutePath,
+      cachedRepos: RepositoryCache
+  ): Either[BuildpressError.CloningFailure, AbsolutePath] = {
+    if (repo.isLocal) Right(AbsolutePath(repo.uri))
+    else {
+      if (!repo.supportsGit) {
         val msg = "Expected valid git reference or https to git repo"
         Left(BuildpressError.CloningFailure(error(msg), None))
       } else {
-        cloneGitUri(id, uri, cacheDir)
+        cloneGitUri(repo, cacheDir, cachedRepos)
       }
     }
   }
 
   def cloneGitUri(
-      id: String,
-      uri: URI,
-      cacheDir: AbsolutePath
+      repo: Repository,
+      cacheDir: AbsolutePath,
+      cachedRepos: RepositoryCache
   ): Either[BuildpressError.CloningFailure, AbsolutePath] = {
-    val supportsGit = {
-      val scheme = uri.getScheme()
-      scheme == "git" ||
-      ((scheme == "http" || scheme == "https") && {
-        val part = uri.getRawSchemeSpecificPart()
-        part != null && part.endsWith(".git")
-      })
-    }
-
-    if (!supportsGit) {
-      val msg = "Expected valid git reference or https to git repo"
-      Left(BuildpressError.CloningFailure(error(msg), None))
-    } else {
-      val sha = uri.getFragment()
-      if (sha == null) {
+    repo.sha match {
+      case None =>
         val msg =
-          s"Missing sha hash in uri $uri, expected format 'git://github.com/foo/repo.git#23063e2813c81daee64d31dd7760f5a4fae392e6'"
+          s"Missing sha hash in uri ${repo.uri.toASCIIString()}, expected format 'git://github.com/foo/repo.git#23063e2813c81daee64d31dd7760f5a4fae392e6'"
         Left(BuildpressError.CloningFailure(error(msg), None))
-      } else {
-        val cloneTargetDir = cacheDir.resolve(id).resolve(sha)
-        // If it exists, skip cloning, it's already cached
-        if (cloneTargetDir.exists) {
-          out.println(s"Skipping git clone for ${id}, ${cloneTargetDir.syntax} exists")
-          Right(cloneTargetDir)
-        } else {
-          val clonedPath = cloneTargetDir.underlying
-          val fragmentLessUri =
-            (new URI(uri.getScheme, uri.getSchemeSpecificPart, null)).toASCIIString()
-          val cloneCmd = List("git", "clone", fragmentLessUri, cloneTargetDir.syntax)
-          out.println(s"Cloning ${fragmentLessUri}...")
+      case Some(sha) =>
+        def clone(cloneTargetDir: AbsolutePath) = {
+          val clonePath = cloneTargetDir.underlying
+          val cloneUri = repo.uriWithoutSha
+          val cloneCmd = List("git", "clone", cloneUri, cloneTargetDir.syntax)
+          out.println(s"Cloning ${cloneUri}...")
           shell.runCommand(cloneCmd, cwd.underlying, Some(2 * 60L), Some(out)) match {
             case status if status.isOk =>
-              out.println(success(s"Cloned $fragmentLessUri"))
+              out.println(success(s"Cloned $cloneUri"))
               val checkoutCmd = List("git", "checkout", "-q", sha)
-              shell.runCommand(checkoutCmd, clonedPath, Some(30L), Some(out)) match {
+              shell.runCommand(checkoutCmd, clonePath, Some(30L), Some(out)) match {
                 case checkoutStatus if checkoutStatus.isOk => Right(cloneTargetDir)
                 case failedCheckout =>
                   val checkoutMsg = s"Failed to checkout $sha in $cloneTargetDir"
@@ -217,34 +213,73 @@ abstract class Buildpress(
               }
 
             case failedClone =>
-              val cloneErroMsg = s"Failed to clone $fragmentLessUri in $clonedPath"
+              val cloneErroMsg = s"Failed to clone $cloneUri in $clonePath"
               Left(BuildpressError.CloningFailure(error(cloneErroMsg), None))
           }
         }
-      }
+
+        def deleteCloneDir(cloneTargetDir: AbsolutePath) = {
+          try {
+            BuildpressPaths.delete(cloneTargetDir)
+            Right(())
+          } catch {
+            case t: IOException =>
+              val msg = s"Failed to delete $cloneTargetDir: '${t.getMessage()}'"
+              Left(BuildpressError.CloningFailure(error(msg), None))
+          }
+        }
+
+        val cloneTargetDir = cacheDir.resolve(repo.id)
+        if (!cloneTargetDir.exists) clone(cloneTargetDir)
+        else {
+          cachedRepos.getCachedRepoFor(repo) match {
+            case None =>
+              out.println(
+                s"Deleting ${cloneTargetDir.syntax}, missing ${repo.uriWithoutSha} in cache file"
+              )
+              deleteCloneDir(cloneTargetDir)
+              clone(cloneTargetDir)
+            case Some(oldRepo) =>
+              if (oldRepo.uri == repo.uri) {
+                out.println(s"Skipping git clone for ${repo.id}, ${cloneTargetDir.syntax} exists")
+                Right(cloneTargetDir)
+              } else {
+                out.println(
+                  s"Deleting ${cloneTargetDir.syntax}, uri ${repo.uri.toASCIIString()} != ${oldRepo.uri.toASCIIString}"
+                )
+                deleteCloneDir(cloneTargetDir)
+                clone(cloneTargetDir)
+              }
+          }
+        }
     }
   }
 
-  def parseUris(contents: String): Either[BuildpressError.ParseFailure, List[(String, URI)]] = {
+  def parseUris(
+      fromPath: String,
+      contents: String
+  ): Either[BuildpressError.ParseFailure, List[Repository]] = {
     val parseResults = contents.split(System.lineSeparator).zipWithIndex.flatMap {
       case (line, idx) =>
         if (line.startsWith("//")) Nil
         else {
           val lineNumber = idx + 1
+          def position = s"$fromPath:$lineNumber"
           line.split(",") match {
+            case Array("") => Nil
             case Array() | Array(_) =>
-              val msg = "Missing comma between repo id and repo URI"
+              val msg = "Missing comma between repo id and repo URI at $position"
               List(Left(BuildpressError.ParseFailure(error(msg), None)))
             case Array(untrimmedRepoId, untrimmedUri) =>
               val repoId = untrimmedRepoId.trim
-              try List(Right(untrimmedRepoId -> new URI(untrimmedUri.trim)))
+              try List(Right(Repository(untrimmedRepoId, new URI(untrimmedUri.trim))))
               catch {
                 case t: URISyntaxException =>
-                  val msg = s"Expected URI syntax at line $lineNumber, obtained '$untrimmedUri'"
+                  val msg = s"Expected URI syntax at $position, obtained '$untrimmedUri'"
                   List(Left(BuildpressError.ParseFailure(error(msg), Some(t))))
               }
             case elements =>
-              val msg = s"Expected buildpress line format 'id,uri', obtained '$line'"
+              val msg = s"Expected buildpress line format 'id,uri' at $position, obtained '$line'"
               List(Left(BuildpressError.ParseFailure(error(msg), None)))
           }
         }
@@ -268,24 +303,23 @@ abstract class Buildpress(
           error(s"Found ${failures.size} errors when parsing URIs")
       Left(BuildpressError.ParseFailure(completeErrorMsg, None))
     } else {
-      val validationInit: Either[BuildpressError.ParseFailure, List[(String, URI)]] = Right(Nil)
+      val validationInit: Either[BuildpressError.ParseFailure, List[Repository]] = Right(Nil)
       val uriEntries = parseResults.collect { case Right(uri) => uri }.toList
       val visitedIds = new mutable.HashMap[String, URI]()
-      uriEntries
-        .foldLeft(validationInit) {
-          case (validatedEntries, entry @ (id, uri)) =>
-            validatedEntries.flatMap { entries =>
-              visitedIds.get(id) match {
-                case Some(alreadyMappedUri) =>
-                  val msg = s"Id '$id' is already used by URI ${alreadyMappedUri}"
-                  Left(BuildpressError.ParseFailure(error(msg), None))
-                case None =>
-                  visitedIds.+=(id -> uri)
-                  Right(entry :: entries)
-              }
+      val repositories = uriEntries.foldLeft(validationInit) {
+        case (validatedEntries, entry @ Repository(id, uri)) =>
+          validatedEntries.flatMap { entries =>
+            visitedIds.get(id) match {
+              case Some(alreadyMappedUri) =>
+                val msg = s"Id '$id' is already used by URI ${alreadyMappedUri}"
+                Left(BuildpressError.ParseFailure(error(msg), None))
+              case None =>
+                visitedIds.+=(id -> uri)
+                Right(entry :: entries)
             }
-        }
-        .map(_.reverse)
+          }
+      }
+      repositories.map(_.reverse)
     }
   }
 
@@ -307,8 +341,9 @@ abstract class Buildpress(
 
   def exportSbtBuild(
       buildTool: BuildTool.Sbt,
+      regenerate: Boolean,
       bloopVersion: String
-  ): Either[BuildpressError, Unit] = {
+  ): Either[BuildpressError, Boolean] = {
     // TODO: Don't add bloop sbt plugin if build already has set it up
     def addSbtPlugin(buildpressSbtFile: AbsolutePath) = {
       val sbtFileContents =
@@ -345,13 +380,20 @@ abstract class Buildpress(
       }
     }
 
+    val bloopConfigDir = buildTool.baseDir.resolve(".bloop")
     val metaProjectDir = buildTool.baseDir.resolve("project")
     val buildpressSbtFile = metaProjectDir.resolve("buildpress.sbt")
-    for {
-      _ <- addSbtPlugin(buildpressSbtFile)
-      _ <- runBloopInstall(buildTool.baseDir)
-    } yield {
-      out.println(success(s"Exported ${buildTool.baseDir}"))
+    if (bloopConfigDir.exists && !regenerate) {
+      out.println(success(s"Skipping export, ${buildTool.baseDir} exists"))
+      Right(false)
+    } else {
+      for {
+        _ <- addSbtPlugin(buildpressSbtFile)
+        _ <- runBloopInstall(buildTool.baseDir)
+      } yield {
+        out.println(success(s"Exported ${buildTool.baseDir}"))
+        true
+      }
     }
   }
 }

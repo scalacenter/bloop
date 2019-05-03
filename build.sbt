@@ -263,15 +263,7 @@ val buildpress = project
     libraryDependencies ++= List(
       Dependencies.caseApp,
       Dependencies.nuprocess
-    ),
-    // Depend on mill, maven and gradle integrations when they are supported
-    Keys.run in Compile :=
-      (Keys.run in Compile)
-        .dependsOn(Keys.publishLocal.in(jsonConfig210))
-        .dependsOn(Keys.publishLocal.in(jsonConfig212))
-        .dependsOn(Keys.publishLocal.in(sbtBloop013))
-        .dependsOn(Keys.publishLocal.in(sbtBloop10))
-        .evaluated
+    )
   )
 
 val docs = project
@@ -407,6 +399,16 @@ addCommandAlias(
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
     "generateInstallationWitness"
+  ).mkString(";", ";", "")
+)
+
+addCommandAlias(
+  "publishSbtBloop",
+  Seq(
+    s"${jsonConfig210.id}/$publishLocalCmd",
+    s"${jsonConfig212.id}/$publishLocalCmd",
+    s"${sbtBloop013.id}/$publishLocalCmd",
+    s"${sbtBloop10.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
