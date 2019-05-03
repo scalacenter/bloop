@@ -6,7 +6,6 @@ import java.util.concurrent.TimeUnit
 
 import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
-import bloop.util.TestUtil
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(SampleTime))
@@ -76,7 +75,7 @@ class HotSbtBenchmark {
       else s"${projectName}/compile"
     }
 
-    path = TestUtil.getConfigDirForBenchmark(project).getParent.getParent
+    path = CommunityBuild.getConfigDirForBenchmark(project).getParent.getParent
     cleanClassesPath = path.resolve("project").resolve("CleanClassesPlugin.scala")
     Files.write(cleanClassesPath, cleanClassesPlugin.getBytes("UTF-8"))
     val sbtLaucherPath = System.getProperty("sbt.launcher")

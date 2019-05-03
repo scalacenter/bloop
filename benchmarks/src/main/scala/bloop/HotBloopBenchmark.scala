@@ -6,7 +6,6 @@ import java.util.concurrent.TimeUnit
 
 import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
-import bloop.util.TestUtil
 import pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler
 
 @State(Scope.Benchmark)
@@ -42,7 +41,7 @@ abstract class HotBloopBenchmarkBase {
 
   import bloop.benchmarks.BuildInfo
   @Setup(Level.Trial) def spawn(): Unit = {
-    val configDir = TestUtil.getConfigDirForBenchmark(project)
+    val configDir = CommunityBuild.getConfigDirForBenchmark(project)
     val base = configDir.getParent
     val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
 

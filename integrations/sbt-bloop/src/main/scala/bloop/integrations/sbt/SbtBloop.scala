@@ -146,13 +146,13 @@ object BloopDefaults {
    * nonetheless). See an example in the definition of `bloopInternalClasspath`
    * or the implementation of `bloopGenerate`.
    */
-  def configSettings(config: Configuration): Seq[Def.Setting[_]] =
+  def configSettings: Seq[Def.Setting[_]] =
     List(
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
-      BloopKeys.bloopInternalClasspath in config := Def.taskDyn {
-        Keys.productDirectories.in(config).?.value match {
-          case Some(config) => bloopInternalDependencyClasspath
+      BloopKeys.bloopInternalClasspath := Def.taskDyn {
+        Keys.productDirectories.?.value match {
+          case Some(_) => bloopInternalDependencyClasspath
           case None => Def.task(Nil: Seq[(File, File)])
         }
       }.value,
@@ -163,9 +163,9 @@ object BloopDefaults {
     ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
-    sbt.inConfig(Compile)(configSettings(Compile)) ++
-      sbt.inConfig(Test)(configSettings(Test)) ++
-      sbt.inConfig(IntegrationTest)(configSettings(IntegrationTest)) ++
+    sbt.inConfig(Compile)(configSettings) ++
+      sbt.inConfig(Test)(configSettings) ++
+      sbt.inConfig(IntegrationTest)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
@@ -341,9 +341,9 @@ object BloopDefaults {
        *  .in(file(".") / "foo")
        *  .configs(IntegrationTest.extend(Test)) // line 2
        *  .settings(
+       *    Defaults.itSettings,
        *    inConfig(IntegrationTest)( // line 3
-       *      Defaults.itSettings ++
-       *        BloopDefaults.configSettings(IntegrationTest)
+       *      BloopDefaults.configSettings
        *    )
        *)
        * ```

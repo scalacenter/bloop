@@ -1,3 +1,4 @@
+/*
 package bloop
 
 import java.nio.file.{Files, Path}
@@ -31,30 +32,6 @@ object IntegrationTestSuite {
 @RunWith(classOf[Parameterized])
 class IntegrationTestSuite(testDirectory: Path) {
   val integrationTestName = TestUtil.getBaseFromConfigDir(testDirectory).getFileName.toString
-
-  val isCommunityBuildEnabled: Boolean =
-    isEnvironmentEnabled(List("RUN_COMMUNITY_BUILD", "run.community.build"), "false")
-  val isPipeliningEnabled: Boolean =
-    isEnvironmentEnabled(List("PIPELINE_COMMUNITY_BUILD", "pipeline.community.build"), "false")
-  val runCommunityBuildExtraIterations: Boolean =
-    isEnvironmentEnabled(
-      List("RUN_ITERATIONS_COMMUNITY_BUILD", "run.community.build.iteration"),
-      "false"
-    )
-
-  private def isEnvironmentEnabled(keys: List[String], default: String): Boolean = {
-    import scala.util.Try
-    def bool(v: String): Boolean = {
-      Try(java.lang.Boolean.parseBoolean(v)) match {
-        case scala.util.Success(isEnabled) => isEnabled
-        case scala.util.Failure(f) =>
-          System.err.println(s"Error happened when converting '$v' to boolean.")
-          false
-      }
-    }
-
-    keys.exists(k => bool(sys.env.getOrElse(k, default)))
-  }
 
   @Test
   def compileProject(): Unit = {
@@ -169,3 +146,4 @@ class IntegrationTestSuite(testDirectory: Path) {
     else None
   }
 }
+ */

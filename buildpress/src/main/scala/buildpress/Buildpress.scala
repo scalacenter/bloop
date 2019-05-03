@@ -268,7 +268,7 @@ abstract class Buildpress(
           line.split(",") match {
             case Array("") => Nil
             case Array() | Array(_) =>
-              val msg = "Missing comma between repo id and repo URI at $position"
+              val msg = s"Missing comma between repo id and repo URI at $position"
               List(Left(BuildpressError.ParseFailure(error(msg), None)))
             case Array(untrimmedRepoId, untrimmedUri) =>
               val repoId = untrimmedRepoId.trim

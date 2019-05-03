@@ -5,12 +5,7 @@ val Custom = config("custom-it") extend Test
 val foo = project
   .in(file(".") / "foo")
   .configs(IntegrationTest.extend(Test))
-  .settings(
-    inConfig(IntegrationTest)(
-      Defaults.itSettings ++
-        BloopDefaults.configSettings(IntegrationTest)
-    )
-  )
+  .settings(Defaults.itSettings)
 
 val bar = project
   .in(file(".") / "bar")

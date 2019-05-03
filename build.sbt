@@ -1,3 +1,4 @@
+import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
@@ -135,12 +136,16 @@ lazy val frontend: Project = project
   .dependsOn(sockets, backend, backend % "test->test", jsonConfig212)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
+  .configs(IntegrationTest)
   .settings(assemblySettings, releaseSettings)
   .settings(
     testSettings,
     testSuiteSettings,
+    Defaults.itSettings,
     integrationTestSettings,
-    BuildDefaults.frontendTestBuildSettings
+    BuildDefaults.frontendTestBuildSettings,
+    // Can be removed when metals upgrades to 1.3.0
+    inConfig(IntegrationTest)(BloopDefaults.configSettings)
   )
   .settings(
     name := "bloop-frontend",
@@ -180,7 +185,7 @@ lazy val launcher: Project = project
   )
 
 val benchmarks = project
-  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->compile")
+  .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))

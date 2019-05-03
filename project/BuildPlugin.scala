@@ -76,8 +76,6 @@ object BuildKeys {
   val cloneCommunityBuild = Def.taskKey[Unit]("Clone bloop's community build.")
   val buildIntegrationsIndex =
     Def.taskKey[File]("A csv index with complete information about our integrations.")
-  val localBenchmarksIndex =
-    Def.taskKey[File]("A csv index with complete information about our benchmarks (for local use).")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
 
@@ -115,12 +113,12 @@ object BuildKeys {
   )
 
   import sbt.Compile
+  val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
   val buildpressSettings: Seq[Def.Setting[_]] = List(
     Keys.fork in Keys.run := true,
     cloneCommunityBuild in Compile := {
       val mainClass = "buildpress.Main"
       val bloopVersion = Keys.version.value
-      val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
       val file = Keys.resourceDirectory.in(Compile).value./("bloop-community-build.buildpress")
       val args = List(
         "--buildpress-file",
@@ -142,13 +140,7 @@ object BuildKeys {
   val integrationTestSettings: Seq[Def.Setting[_]] = List(
     integrationStagingBase :=
       BuildImplementation.BuildDefaults.getStagingDirectory(Keys.state.value),
-    buildIntegrationsIndex := {
-      val staging = integrationStagingBase.value
-      staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
-    },
-    localBenchmarksIndex := {
-      new File(System.getProperty("user.dir"), ".local-benchmarks")
-    },
+    buildIntegrationsIndex := file(buildpressHomePath),
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
     integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value
@@ -206,7 +198,6 @@ object BuildKeys {
       Keys.scalaVersion,
       Keys.sbtVersion,
       buildIntegrationsIndex,
-      localBenchmarksIndex,
       nailgunClientLocation
     )
     commonKeys ++ extra

@@ -156,21 +156,6 @@ trait NailgunTestUtils {
   }
 
   /**
-   * Starts a server and provides a client in the directory of project `name`.
-   * A logger that will receive all output will be created and passed to `op`.
-   *
-   * @param name The name of the project where the client will be.
-   * @param noExit Don't exit, the client is responsible for exiting the server.
-   * @param op   A function that accepts a logger and a client.
-   * @return The result of executing `op` on the logger and client.
-   */
-  def withServerInProject[T](name: String, noExit: Boolean = false)(
-      op: (RecordingLogger, Client) => T
-  ): T = {
-    withServer(TestUtil.getBloopConfigDir(name), noExit, new RecordingLogger())(op)
-  }
-
-  /**
    * A client that interacts with a running Nailgun server.
    *
    * @param port The port on which the client should communicate with the server.
