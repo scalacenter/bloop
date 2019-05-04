@@ -608,10 +608,7 @@ object BuildImplementation {
       val allPluginSourceFiles = allPluginSourceDirs.flatMap { sourceDir =>
         val sourcePath = sourceDir.toPath
         if (!Files.exists(sourcePath)) Nil
-        else {
-          import scala.collection.JavaConverters._
-          Files.newDirectoryStream(sourcePath, "**.{scala,java}").iterator.asScala.toList.map(_.toFile)
-        }
+        else pathFilesUnder(sourcePath, "glob:**.{scala,java}").map(_.toFile)
       }.toSet
 
       var regenerate: Boolean = false
@@ -667,6 +664,44 @@ object BuildImplementation {
         runner.run(mainClass, data(classpath), buildpressArgs, s.log).get
       }
     }
+  }
+
+  import java.io.IOException
+  import java.nio.file.attribute.BasicFileAttributes
+  import java.nio.file.{FileSystems, FileVisitOption, FileVisitResult, FileVisitor, Files, Path}
+  def pathFilesUnder(
+      base: Path,
+      pattern: String,
+      maxDepth: Int = Int.MaxValue
+  ): List[Path] = {
+    val out = collection.mutable.ListBuffer.empty[Path]
+    val matcher = FileSystems.getDefault.getPathMatcher(pattern)
+
+    val visitor = new FileVisitor[Path] {
+      def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
+        if (matcher.matches(file)) out += file
+        FileVisitResult.CONTINUE
+      }
+
+      def visitFileFailed(
+          t: Path,
+          e: IOException
+      ): FileVisitResult = FileVisitResult.CONTINUE
+
+      def preVisitDirectory(
+          directory: Path,
+          attributes: BasicFileAttributes
+      ): FileVisitResult = FileVisitResult.CONTINUE
+
+      def postVisitDirectory(
+          directory: Path,
+          exception: IOException
+      ): FileVisitResult = FileVisitResult.CONTINUE
+    }
+
+    val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
+    Files.walkFileTree(base, opts, maxDepth, visitor)
+    out.toList
   }
 
   /*

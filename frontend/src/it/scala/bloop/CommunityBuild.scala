@@ -38,7 +38,7 @@ object CommunityBuild
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      val buildsToCompile = builds.filter(_._1 == "summingbird")
+      val buildsToCompile = builds.filter(_._1 == "scio")
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
@@ -180,7 +180,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       reachable.foreach { project =>
         val projectHasSources = project.sources.exists { dir =>
           dir.exists &&
-          Files.newDirectoryStream(dir.underlying, "**.{scala,java}").iterator.hasNext()
+          bloop.io.Paths.pathFilesUnder(dir, "glob:**.{scala,java}").nonEmpty
         }
 
         if (projectHasSources && !hasCompileAnalysis(project, compiledState)) {
@@ -214,9 +214,11 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
   }
 
   private def removeClassFiles(p: Project): Unit = {
-    val classesDirPath = p.genericClassesDir.underlying
-    if (Files.exists(classesDirPath)) {
-      Files.newDirectoryStream(classesDirPath, "*.class").forEach(p => Files.delete(p))
+    val classesDir = p.genericClassesDir
+    if (Files.exists(classesDir.underlying)) {
+      bloop.io.Paths
+        .pathFilesUnder(classesDir, "glob:**.class")
+        .foreach(p => Files.delete(p.underlying))
     }
   }
 
