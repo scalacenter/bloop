@@ -91,7 +91,7 @@ abstract class Buildpress(
       homeDir: AbsolutePath
   ): Either[BuildpressError.InvalidBuildpressHome, AbsolutePath] = {
     if (homeDir.getParent.exists) {
-      Files.createDirectories(homeDir.underlying)
+      if (!homeDir.exists) Files.createDirectory(homeDir.underlying)
       Right(homeDir)
     } else {
       // We don't create the parent of the buildpress home out of precaution
