@@ -1,10 +1,14 @@
 cats,https://github.com/jvican/cats.git#9b4744b83d7132b5124a0939bcf52f384e22833e
 circe,https://github.com/circe/circe.git#5349535ca0631678a76939daa695c8b05db70ac5
 http4s,https://github.com/http4s/http4s.git#d54c8a427313a337e21753caf57f6109fdaa37f0
-linkerd,https://github.com/jvican/linkerd.git#c3a2babcff34d431403be8bb9aeb9e3f2363b0a6
+linkerd,https://github.com/jvican/linkerd.git#a0887eda27c0e689bedfed10591ad19f396b6a59
 quill,https://github.com/getquill/quill.git#5ad49311e3490972489e66cc999eacb4eda37862
 spark,https://github.com/scalacenter/spark.git#0180497e2af2218a2298a1b5e8f207c873464cad
 lichess,https://github.com/ornicar/lila.git#d49d5dfcdb7cc108fbc22dc0e0f943d2bfe3dee3
 scalding,https://github.com/jvican/scalding.git#572a1e4c060bfd15d7f3e3749482b61d9a9cb320
 summingbird,https://github.com/jvican/summingbird.git#42d3e19ef898722c34dbe0f8f8744144cf910f0b
-scio,https://github.com/jvican/scio.git#da2e33cdd3fca0ebb1302f83ff772748290b6e0b
+scio,https://github.com/jvican/scio.git#da3e28edda80b838fd2bdedd552bbe01ed89e4a9
+prisma,https://github.com/jvican/prisma.git#27a520eb2048161e28413914485ea3b4096e4d1a
+gatling,https://github.com/jvican/gatling.git#6b6b881273331400f5ac5178c5261f4c6897955b
+marathon,https://github.com/jvican/marathon.git#81820d7bc8aec1168a0cf813035d0a7d969bbc47
+coursier,https://github.com/coursier/coursier.git#ca4aa4e1e26947ef9aa514547adbac157320e808
