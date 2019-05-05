@@ -141,6 +141,13 @@ object CompileGraph {
   type ProjectId = String
   private val lastSuccessfulResults = new ConcurrentHashMap[ProjectId, LastSuccessfulResult]()
 
+  // Expose clearing mechanism so that it can be invoked in the tests and community build runner
+  private[bloop] def clearSuccessfulResults(): Unit = {
+    lastSuccessfulResults.synchronized {
+      lastSuccessfulResults.clear()
+    }
+  }
+
   private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
 
   private val emptyOracle = ImmutableCompilerOracle.empty()

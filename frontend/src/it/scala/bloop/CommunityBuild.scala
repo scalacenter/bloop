@@ -28,6 +28,7 @@ import bloop.engine.Interpreter
 import monix.eval.Task
 import scala.concurrent.Await
 import monix.execution.misc.NonFatal
+import bloop.engine.tasks.compilation.CompileGraph
 
 object CommunityBuild
     extends CommunityBuild(
@@ -38,7 +39,7 @@ object CommunityBuild
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      val buildsToCompile = builds//.filter(_._1 == "coursier")
+      val buildsToCompile = builds//.filter(_._1 == "quill")
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
@@ -114,6 +115,9 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       } else {
         println(s"➡️  Compiling all projects in $buildBaseDir")
       }
+
+      // First thing to do: clear cache of successful results between project runs to free up space
+      CompileGraph.clearSuccessfulResults()
 
       // After reporting the state of the execution, compile the projects accordingly.
       val logger = BloopLogger.default("community-build-logger")
