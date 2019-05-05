@@ -12,7 +12,7 @@ prisma,https://github.com/jvican/prisma.git#27a520eb2048161e28413914485ea3b4096e
 gatling,https://github.com/jvican/gatling.git#6b6b881273331400f5ac5178c5261f4c6897955b
 marathon,https://github.com/jvican/marathon.git#81820d7bc8aec1168a0cf813035d0a7d969bbc47
 coursier,https://github.com/coursier/coursier.git#ca4aa4e1e26947ef9aa514547adbac157320e808
-sbt,https://github.com/scalacenter/sbt.git#42482796a86cef7f415dec13caa39093cb74f6e2
+sbt,https://github.com/scalacenter/sbt.git#0525b2e7df388af291a0b0d869c936c4cd7b914b
 akka,https://github.com/scalacenter/akka.git#74ad005219770552d0a7c72c61394f88ebae3b13
 frontend,https://github.com/guardian/frontend.git#fe23fdf8bda1080f245027e87535282ae0bcf400
 grid,https://github.com/guardian/grid.git#875b2bbb9e83968de43f1bbee2d1fec2d116d8ac
