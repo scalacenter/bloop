@@ -8,7 +8,12 @@ import java.io.IOException
 import java.nio.file.DirectoryNotEmptyException
 
 object BuildpressPaths {
-  val UserHome = AbsolutePath(System.getProperty("user.home"))
+  val UserHome: AbsolutePath = {
+    Option(System.getenv("HOME"))
+      .filterNot(_.isEmpty)
+      .map(AbsolutePath(_))
+      .getOrElse(AbsolutePath(System.getProperty("user.home")))
+  }
 
   def delete(path: AbsolutePath): Unit = {
     try {
