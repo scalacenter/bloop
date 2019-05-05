@@ -1,5 +1,7 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
 # Only test sbt-bloop 1.x because of bug in `^`
+
+# TODO: re-add `nativeBridge/test`
 matrix:
   TEST_BLOOP:
     - bin/sbt-ci.sh \
@@ -15,9 +17,7 @@ matrix:
           "show schemaVersion" \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
-          "exportCommunityBuild" \
           "backend/test" \
-          "nativeBridge/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
           "jsBridge06/publishLocal" \
@@ -25,6 +25,7 @@ matrix:
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
           "frontend/test" \
+          "exportCommunityBuild" \
           "frontend/it:run" \
           "gradleBloop212/test" \
           "docs/run"
@@ -88,6 +89,7 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
       - /drone/.dodo
+      - /drone/.buildpress
       - ./frontend/src/test/resources/simple-build/bloop-config
       - ./frontend/src/test/resources/simple-build/target/generation-cache-file
       - ./frontend/src/test/resources/compiler-plugin-whitelist/bloop-config
@@ -223,6 +225,7 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
       - /drone/.dodo
+      - /drone/.buildpress
       - ./frontend/src/test/resources/cross-test-build-0.6/bloop-config
       - ./frontend/src/test/resources/cross-test-build-0.6/target/generation-cache-file
       - ./frontend/src/test/resources/cross-test-build-1.0/bloop-config
