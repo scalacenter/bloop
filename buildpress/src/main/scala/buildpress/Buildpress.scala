@@ -201,7 +201,7 @@ abstract class Buildpress(
           val cloneUri = repo.uriWithoutSha
           val cloneCmd = List("git", "clone", cloneUri, cloneTargetDir.syntax)
           out.println(s"Cloning ${cloneUri}...")
-          shell.runCommand(cloneCmd, cwd.underlying, Some(2 * 60L), Some(out)) match {
+          shell.runCommand(cloneCmd, cwd.underlying, Some(4 * 60L), Some(out)) match {
             case status if status.isOk =>
               val cloneSubmoduleCmd = List("git", "submodule", "update", "--init")
               out.println(s"Cloning submodules of ${cloneUri}...")
