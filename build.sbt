@@ -159,7 +159,7 @@ lazy val frontend: Project = project
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
     fork in Test := true,
-    fork in IntegrationTest := true,
+    fork in run in IntegrationTest := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
       Dependencies.scalazCore,
