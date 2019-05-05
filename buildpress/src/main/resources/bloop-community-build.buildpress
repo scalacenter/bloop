@@ -7,7 +7,7 @@ spark,https://github.com/scalacenter/spark.git#0180497e2af2218a2298a1b5e8f207c87
 lichess,https://github.com/ornicar/lila.git#d49d5dfcdb7cc108fbc22dc0e0f943d2bfe3dee3
 scalding,https://github.com/jvican/scalding.git#5d25466db09cc4d3b50ff8478d70560a027be7f4
 summingbird,https://github.com/jvican/summingbird.git#42d3e19ef898722c34dbe0f8f8744144cf910f0b
-scio,https://github.com/jvican/scio.git#da3e28edda80b838fd2bdedd552bbe01ed89e4a9
+scio,https://github.com/jvican/scio.git#b7b8b900b33e264af5a77f1506701c4cac1e413d
 prisma,https://github.com/jvican/prisma.git#27a520eb2048161e28413914485ea3b4096e4d1a
 gatling,https://github.com/jvican/gatling.git#6b6b881273331400f5ac5178c5261f4c6897955b
 marathon,https://github.com/jvican/marathon.git#81820d7bc8aec1168a0cf813035d0a7d969bbc47
