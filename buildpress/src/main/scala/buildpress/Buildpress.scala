@@ -203,18 +203,26 @@ abstract class Buildpress(
           out.println(s"Cloning ${cloneUri}...")
           shell.runCommand(cloneCmd, cwd.underlying, Some(2 * 60L), Some(out)) match {
             case status if status.isOk =>
-              out.println(success(s"Cloned $cloneUri"))
-              val checkoutCmd = List("git", "checkout", "-q", sha)
-              shell.runCommand(checkoutCmd, clonePath, Some(30L), Some(out)) match {
-                case checkoutStatus if checkoutStatus.isOk => Right(cloneTargetDir)
-                case failedCheckout =>
-                  val checkoutMsg = s"Failed to checkout $sha in $cloneTargetDir"
-                  Left(BuildpressError.CloningFailure(error(checkoutMsg), None))
+              val cloneSubmoduleCmd = List("git", "submodule", "update", "init")
+              out.println(s"Cloning submodules of ${cloneUri}...")
+              shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), Some(out)) match {
+                case finalCloneStatus if finalCloneStatus.isOk =>
+                  out.println(success(s"Cloned $cloneUri"))
+                  val checkoutCmd = List("git", "checkout", "-q", sha)
+                  shell.runCommand(checkoutCmd, clonePath, Some(30L), Some(out)) match {
+                    case checkoutStatus if checkoutStatus.isOk => Right(cloneTargetDir)
+                    case failedCheckout =>
+                      val checkoutMsg = s"Failed to checkout $sha in $cloneTargetDir"
+                      Left(BuildpressError.CloningFailure(error(checkoutMsg), None))
+                  }
+                case failedClone =>
+                  val cloneErrorMsg = s"Failed to clone submodules of $cloneUri"
+                  Left(BuildpressError.CloningFailure(error(cloneErrorMsg), None))
               }
 
             case failedClone =>
-              val cloneErroMsg = s"Failed to clone $cloneUri in $clonePath"
-              Left(BuildpressError.CloningFailure(error(cloneErroMsg), None))
+              val cloneErrorMsg = s"Failed to clone $cloneUri in $clonePath"
+              Left(BuildpressError.CloningFailure(error(cloneErrorMsg), None))
           }
         }
 
