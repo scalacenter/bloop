@@ -203,7 +203,7 @@ abstract class Buildpress(
           out.println(s"Cloning ${cloneUri}...")
           shell.runCommand(cloneCmd, cwd.underlying, Some(2 * 60L), Some(out)) match {
             case status if status.isOk =>
-              val cloneSubmoduleCmd = List("git", "submodule", "update", "init")
+              val cloneSubmoduleCmd = List("git", "submodule", "update", "--init")
               out.println(s"Cloning submodules of ${cloneUri}...")
               shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), Some(out)) match {
                 case finalCloneStatus if finalCloneStatus.isOk =>
