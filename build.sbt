@@ -155,9 +155,11 @@ lazy val frontend: Project = project
     buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
+    javaOptions in IntegrationTest ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
     fork in Test := true,
+    fork in IntegrationTest := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
       Dependencies.scalazCore,
