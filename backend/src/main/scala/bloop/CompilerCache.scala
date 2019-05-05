@@ -223,6 +223,19 @@ final class CompilerCache(
       import sbt.internal.inc.javac.WriteReportingFileManager
       val zincFileManager = incToolOptions.classFileManager().get()
       val fileManager = new BloopInvalidatingFileManager(fileManager0, zincFileManager)
+
+      // Java APIs fail if a source dir doesn't exist, so create them beforehand
+      sources.toList.foreach { source =>
+        val sourcePath = source.toPath()
+        val sourceName = sourcePath.getFileName().toString()
+        if (sourceName.endsWith(".scala") || sourceName.endsWith(".java")) ()
+        else {
+          import java.nio.file.Files
+          if (Files.exists(sourcePath)) ()
+          else Files.createDirectories(sourcePath) 
+        }
+      }
+
       val jfiles = fileManager0.getJavaFileObjectsFromFiles(sources.toList.asJava)
       try {
         val newJavacOptions = cleanedOptions.toList.asJava
