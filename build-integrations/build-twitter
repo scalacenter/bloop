@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -euo pipefail
+set -euo pipefail
 
 #######################################################################
 # Script for building Twitter OSS libraries based on either their 
@@ -7,14 +7,14 @@
 #
 # See: print_usage function for usage
 #######################################################################
-VERSION="18.9.0"
+VERSION="19.4.0"
 NAME="Dodo"
 
-UTIL_COMMANDS="./sbt +test:compile +publishLocal; ./sbt ++2.11.11 util-intellij/publishLocal"
+UTIL_COMMANDS="./sbt +test:compile +publishLocal; ./sbt ++2.11.12 util-intellij/publishLocal"
 declare "util_name=util"
 declare "util_commands=$UTIL_COMMANDS"
 
-SCROOGE_CORE_COMMANDS="./sbt +scrooge-publish-local/publishLocal;./sbt ++2.10.6 scrooge-generator/publishLocal;./sbt ^^0.13.16 scrooge-sbt-plugin/publishLocal;./sbt \"project scrooge-sbt-plugin\" ^^1.1.4 publishLocal"
+SCROOGE_CORE_COMMANDS="./sbt +scrooge-publish-local/publishLocal;./sbt ++2.10.6 scrooge-generator/publishLocal;./sbt ++2.12.8 scrooge-generator/publishLocal;./sbt ^^0.13.16 scrooge-sbt-plugin/publishLocal;./sbt \"project scrooge-sbt-plugin\" ^^1.1.4 publishLocal"
 
 declare "scroogecore_name=scrooge"
 declare "scroogecore_commands=$SCROOGE_CORE_COMMANDS"
@@ -207,8 +207,8 @@ function run_commands {
         IFS=';' read -ra commandsArray <<< "$commands"
         for command in "${commandsArray[@]}"; do
             if [[ -n "$scala_version" ]]; then
-                if [[ $command != *"++"* ]]; then
-                    # if we were passed a scala version and the command doesn't already explicity set a scala version
+                if [[ $command != *"++"* ]] && [[ $command != *"^^"* ]]; then
+                    # if we were passed a scala version and the command doesn't already explicity set a scala nor sbt version
                     command="${command//+/}" # remove + for cross-compile
                     command="${command//.\/sbt /./sbt ++$scala_version }" # add scala version
                 fi
@@ -221,6 +221,10 @@ function run_commands {
                 retry 3 "$command"
             fi
         done
+        # clean the project since we publish artifacts we do not need to keep classes and other detritus
+        if [[ "$dry_run" != true ]]; then 
+            retry 3 "./sbt clean cleanFiles"
+        fi
         record_build "$project" "$commands_hash"
     else
         log "info" "Using previously built results..."
