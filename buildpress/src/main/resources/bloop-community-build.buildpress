@@ -17,6 +17,6 @@ akka,https://github.com/scalacenter/akka.git#74ad005219770552d0a7c72c61394f88eba
 frontend,https://github.com/guardian/frontend.git#fe23fdf8bda1080f245027e87535282ae0bcf400
 grid,https://github.com/jvican/grid.git#8474aa4d3ec9b508234f74459d3ab58051e51aef
 algebird,https://github.com/jvican/algebird.git#116ed790a953c009c54c3e7344aba93803d07abe
-finagle,https://github.com/finagle/finagle.git#29948ea60cacc865c55814fc3741a7d058553ac5
+finagle,https://github.com/twitter/finagle.git#29948ea60cacc865c55814fc3741a7d058553ac5
 scalatra,https://github.com/scalatra/scalatra.git#d5658c38ac839d3b29866dc7f3801b50756b3071
 atlas,https://github.com/Netflix/atlas.git#8e4565f97df1bc78bb883667eb02460e6c2982a9
