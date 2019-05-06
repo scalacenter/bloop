@@ -13,7 +13,8 @@ import xsbti.compile.PreviousResult
 case class CompileDependenciesData(
     dependencyClasspath: Array[AbsolutePath],
     dependentResults: Map[File, PreviousResult],
-    allInvalidatedClassFiles: Set[File]
+    allInvalidatedClassFiles: Set[File],
+    allGeneratedClassFilePaths: Set[String]
 ) {
   def buildFullCompileClasspathFor(
       project: Project,
@@ -36,6 +37,7 @@ object CompileDependenciesData {
     val dependentClassesDir = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentResources = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
+    val dependentGeneratedClassFilePaths = new mutable.HashSet[String]()
     dependentProducts.foreach {
       case (project, products) =>
         val genericClassesDir = project.genericClassesDir
@@ -48,6 +50,7 @@ object CompileDependenciesData {
 
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
+        dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths)
         dependentResources.put(genericClassesDir, project.pickValidResources)
         resultsMap.put(genericClassesDir.toFile, products.resultForDependentCompilationsInSameRun)
     }
@@ -71,7 +74,8 @@ object CompileDependenciesData {
     CompileDependenciesData(
       rewrittenClasspath,
       resultsMap.toMap,
-      dependentInvalidatedClassFiles.toSet
+      dependentInvalidatedClassFiles.toSet,
+      dependentGeneratedClassFilePaths.toSet
     )
   }
 }

@@ -134,7 +134,8 @@ object ResultsCache {
                       val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-                      val products = CompileProducts(classesDir, classesDir, r, r, Set.empty)
+                      val products =
+                        CompileProducts(classesDir, classesDir, r, r, Set.empty, Set.empty)
                       ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false),
                         Some(LastSuccessfulResult(inputs, products, Task.now(()))),
