@@ -75,11 +75,11 @@ abstract class Buildpress(
       home <- validateBuildpressHome(params.buildpressHome)
       cache <- parseRepositoryCache(home)
       clonedRepositories <- parseAndCloneRepositories(params, home, cache)
+      newCacheAfterCloning = cache.merge(clonedRepositories.map(_._1))
+      _ <- RepositoryCache.persist(newCacheAfterCloning)
       bloopConfigDirs <- exportRepositories(params, clonedRepositories.map(_._2))
-      newCache = cache.merge(clonedRepositories.map(_._1))
-      _ <- RepositoryCache.persist(newCache)
     } yield {
-      out.println(s"Cache file ${newCache.source}")
+      out.println(s"Cache file ${newCacheAfterCloning.source}")
       bloopConfigDirs.foreach { configDir =>
         out.println(success(s"Generated $configDir"))
       }
