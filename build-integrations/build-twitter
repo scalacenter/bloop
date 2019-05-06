@@ -10,28 +10,28 @@ set -euo pipefail
 VERSION="19.4.0"
 NAME="Dodo"
 
-UTIL_COMMANDS="./sbt +test:compile +publishLocal; ./sbt ++2.11.12 util-intellij/publishLocal"
+UTIL_COMMANDS="./sbt -warn +test:compile +publishLocal; ./sbt ++2.11.12 util-intellij/publishLocal"
 declare "util_name=util"
 declare "util_commands=$UTIL_COMMANDS"
 
-SCROOGE_CORE_COMMANDS="./sbt +scrooge-publish-local/publishLocal;./sbt ++2.10.6 scrooge-generator/publishLocal;./sbt ++2.12.8 scrooge-generator/publishLocal;./sbt ^^0.13.16 scrooge-sbt-plugin/publishLocal;./sbt \"project scrooge-sbt-plugin\" ^^1.1.4 publishLocal"
+SCROOGE_CORE_COMMANDS="./sbt -warn +scrooge-publish-local/publishLocal;./sbt ++2.10.6 scrooge-generator/publishLocal;./sbt ++2.12.8 scrooge-generator/publishLocal;./sbt ^^0.13.16 scrooge-sbt-plugin/publishLocal;./sbt \"project scrooge-sbt-plugin\" ^^1.1.4 publishLocal"
 
 declare "scroogecore_name=scrooge"
 declare "scroogecore_commands=$SCROOGE_CORE_COMMANDS"
 
-FINAGLE_COMMANDS="./sbt +test:compile +publishLocal"
+FINAGLE_COMMANDS="./sbt -warn +test:compile +publishLocal"
 declare "finagle_name=finagle"
 declare "finagle_commands=$FINAGLE_COMMANDS"
 
-SCROOGE_COMMANDS="./sbt +test:compile scrooge-generator-tests/test:compile"
+SCROOGE_COMMANDS="./sbt -warn +test:compile scrooge-generator-tests/test:compile"
 declare "scrooge_name=scrooge"
 declare "scrooge_commands=$SCROOGE_COMMANDS"
 
-TWITTER_SERVER_COMMANDS="./sbt +test:compile +publishLocal"
+TWITTER_SERVER_COMMANDS="./sbt -warn +test:compile +publishLocal"
 declare "twitterserver_name=twitter-server"
 declare "twitterserver_commands=$TWITTER_SERVER_COMMANDS"
 
-FINATRA_COMMANDS="./sbt +test:compile +publishLocal"
+FINATRA_COMMANDS="./sbt -warn +test:compile +publishLocal"
 declare "finatra_name=finatra"
 declare "finatra_commands=$FINATRA_COMMANDS"
 
