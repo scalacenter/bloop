@@ -371,6 +371,7 @@ abstract class Buildpress(
       // Run bloop install for 15 minutes at maximum per project
       val cmd = List(
         "sbt",
+        "-warn",
         "-J-Djline.terminal=jline.UnsupportedTerminal",
         "-J-Dsbt.log.noformat=true",
         "-J-Dfile.encoding=UTF-8",
