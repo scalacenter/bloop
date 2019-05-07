@@ -87,6 +87,52 @@ class BspProtocolSpec(
     }
   }
 
+  test("find main classes") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Main.scala` =
+          """/main/scala/foo/Main.scala
+            |package foo
+            |object Main {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `ClassWithMainFunc.scala` =
+          """/main/scala/foo/NotMain.scala
+            |package foo
+            |class ClassWithMainFunc {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `InheritedMain.scala` =
+          """/main/scala/foo/InheritedMain.scala
+            |package foo
+            |object InheritedMain extends ClassWithMainFunc
+          """.stripMargin
+
+        val all = List(`Main.scala`, `ClassWithMainFunc.scala`, `InheritedMain.scala`)
+      }
+      val expectedClasses = Set("foo.Main", "foo.InheritedMain")
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "p", Sources.all)
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val compilation = state.compile(project)
+        assert(compilation.status == ExitStatus.Ok)
+
+        val mainClasses = state.mainClasses(project)
+        val items = mainClasses.items
+        assert(items.size == 1)
+
+        val classes = items.head.classes.map(_.`class`).toSet
+        assert(classes == expectedClasses)
+      }
+    }
+  }
+
   test("build targets request works on complicated build") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)

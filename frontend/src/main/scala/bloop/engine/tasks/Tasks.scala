@@ -198,7 +198,9 @@ object Tasks {
       state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().toOption match {
         case Some(analysis: Analysis) => analysis
         case _ =>
-          logger.warn(s"`Run` is triggered but no compilation detected from '${project.name}'.")
+          logger.warn(
+            s"Cannot find main classes in '${project.name}'. No successful compilation detected."
+          )
           Analysis.empty
       }
     }
