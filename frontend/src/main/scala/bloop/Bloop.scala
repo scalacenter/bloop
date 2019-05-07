@@ -1,5 +1,6 @@
 package bloop
 
+import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, Commands, ExitStatus}
 import bloop.cli.CliParsers.{
   OptionsParser,
@@ -19,6 +20,7 @@ import jline.console.ConsoleReader
 import _root_.monix.eval.Task
 
 import scala.annotation.tailrec
+import scala.concurrent.Promise
 
 object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()
@@ -29,11 +31,13 @@ object Bloop extends CaseApp[CliOptions] {
     val logger = BloopLogger.default(configDirectory.syntax)
     logger.warn("The Nailgun integration should be preferred over the Bloop shell.")
     logger.warn(
-      "The Bloop shell provides less features, is not supported and can be removed without notice.")
+      "The Bloop shell provides less features, is not supported and can be removed without notice."
+    )
     logger.warn("Please refer to our documentation for more information.")
+    val client = ClientInfo.CliClientInfo("bloop-single-app")
     val projects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, projects)
-    val state = State(build, NoPool, options.common, logger)
+    val state = State(build, client, NoPool, options.common, logger)
     run(state, options)
   }
 
@@ -43,19 +47,23 @@ object Bloop extends CaseApp[CliOptions] {
     val config = origin.underlying
     def waitForState(a: Action, t: Task[State]): State = {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
-      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, Array("from-shell")) {
+      val p = Promise[Unit]().success(())
+      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, p) {
         t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s })
       }
 
       // Recover the state if the previous task has been successful.
-      State.stateCache.getStateFor(origin).getOrElse(state)
+      State.stateCache
+        .getStateFor(origin, state.client, state.pool, options.common, state.logger)
+        .getOrElse(state)
+
     }
 
     val input = reader.readLine()
     input.split(" ") match {
       case Array("exit") =>
         val persistOut = (msg: String) => state.commonOptions.ngout.println(msg)
-        waitForState(Exit(ExitStatus.Ok), Tasks.persist(state, persistOut).map(_ => state))
+        waitForState(Exit(ExitStatus.Ok), Task.now(state))
         ()
 
       case Array("projects") =>

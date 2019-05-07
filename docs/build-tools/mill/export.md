@@ -8,7 +8,7 @@ import $ivy.`ch.epfl.scala::mill-bloop:@VERSION@`
 
 ### Requirements
 
-* `mill` >= 0.3.5.
+* `mill` >= 0.3.6.
 
 > bloop makes a best effort to support always the latest mill version. The current plugin may not
 work for older and newer versions due to breaking binary changes in mill's public API.
@@ -33,7 +33,7 @@ where:
 1. `foo-test` comes from the test source set and depends on `foo`
 
 > If you want to configure the installation step, head to [the Bloop mill documentation
-page](build-tools/mill.md).
+page](docs/build-tools/mill.md).
 
 ## Verify installation and export
 

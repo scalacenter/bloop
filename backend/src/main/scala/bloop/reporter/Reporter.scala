@@ -3,7 +3,7 @@ package bloop.reporter
 import java.io.File
 
 import bloop.io.AbsolutePath
-import bloop.logging.Logger
+import bloop.logging.{Logger, ObservedLogger}
 import xsbti.{Position, Severity}
 import ch.epfl.scala.bsp
 import sbt.util.InterfaceUtil
@@ -22,18 +22,15 @@ import scala.util.Try
  *
  * @param logger The logger that will receive the output of the reporter.
  * @param cwd    The current working directory of the user who started compilation.
- * @param sourcePositionMapper A function that transforms positions.
  * @param config The configuration for this reporter.
  */
 abstract class Reporter(
     val logger: Logger,
-    val cwd: AbsolutePath,
-    sourcePositionMapper: Position => Position,
-    val config: ReporterConfig,
+    override val cwd: AbsolutePath,
+    override val config: ReporterConfig,
     val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
-) extends xsbti.Reporter
-    with ConfigurableReporter {
-  case class PositionId(sourcePath: String, pointer: Int)
+) extends ZincReporter {
+  private case class PositionId(sourcePath: String, offset: Int)
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]
 
@@ -52,16 +49,15 @@ abstract class Reporter(
 
   override def problems(): Array[xsbti.Problem] = _problems.map(_.problem).toArray
   override def allProblems: Seq[Problem] = _problems.map(p => liftProblem(p.problem)).toList
+  override def allProblemsPerPhase: Seq[ProblemPerPhase] = _problems.toList
 
-  def allProblemsPerPhase: Seq[ProblemPerPhase] = _problems.toList
-
-  protected def logFull(problem: Problem): Unit
+  private[reporter] def logFull(problem: Problem): Unit
 
   protected def liftProblem(p: xsbti.Problem): Problem = {
     p match {
       case p: Problem => p
       case _ =>
-        val mappedPos = sourcePositionMapper(p.position)
+        val mappedPos = p.position
         val problemID = if (p.position.sourceFile.isPresent) nextID() else -1
         Problem(problemID, p.severity, p.message, mappedPos, p.category)
     }
@@ -81,9 +77,9 @@ abstract class Reporter(
       supress
     }
 
-    (InterfaceUtil.toOption(pos.sourcePath()), InterfaceUtil.toOption(pos.pointer())) match {
-      case (Some(sourcePath), Some(pointer)) =>
-        val positionId = PositionId(sourcePath, pointer)
+    (InterfaceUtil.toOption(pos.sourcePath()), InterfaceUtil.toOption(pos.offset())) match {
+      case (Some(sourcePath), Some(offset)) =>
+        val positionId = PositionId(sourcePath, offset)
         _severities.get(positionId) match {
           case Some(xsbti.Severity.Error) => processNewPosition(positionId, true)
           case Some(severity) if severity == problem.severity =>
@@ -123,13 +119,6 @@ abstract class Reporter(
     }
   }
 
-  /** Report when the compiler enters in a phase. */
-  def reportNextPhase(phase: String, sourceFile: File): Unit = {
-    // Update the phase that we have for every source file
-    val newPhaseStack = phase :: filesToPhaseStack.getOrElse(sourceFile, Nil)
-    filesToPhaseStack.update(sourceFile, newPhaseStack)
-  }
-
   override def comment(pos: Position, msg: String): Unit = ()
 
   private def hasErrors(problems: Seq[ProblemPerPhase]): Boolean =
@@ -137,6 +126,25 @@ abstract class Reporter(
 
   private def hasWarnings(problems: Seq[ProblemPerPhase]): Boolean =
     problems.exists(_.problem.severity == Severity.Warn)
+
+  /** Report when the compiler enters in a phase. */
+  override def reportNextPhase(phase: String, sourceFile: File): Unit = {
+    // Update the phase that we have for every source file
+    val newPhaseStack = phase :: filesToPhaseStack.getOrElse(sourceFile, Nil)
+    filesToPhaseStack.update(sourceFile, newPhaseStack)
+  }
+
+  override def reportEndCompilation(
+      previousSuccessfulProblems: List[ProblemPerPhase],
+      code: bsp.StatusCode
+  ): Unit = {
+    phasesAtFile.clear()
+    filesToPhaseStack.clear()
+  }
+}
+
+trait ZincReporter extends xsbti.Reporter with ConfigurableReporter {
+  def allProblemsPerPhase: Seq[ProblemPerPhase]
 
   /** Report the progress from the compiler. */
   def reportCompilationProgress(progress: Long, total: Long): Unit
@@ -148,41 +156,42 @@ abstract class Reporter(
   def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit
 
   /**
-   * A function called at the very end of compilation, before returning from Zinc to bloop.
+   * A function called at the very end of compilation, before returning from
+   * Zinc to bloop. This method **is** called if the compilation is a no-op.
    *
-   * This method **is** called if the compilation is a no-op.
-   *
-   * @param previousAnalysis An instance of a previous compiler analysis, if any.
+   * @param previousProblems The problems reported in the previous compiler analysis.
    * @param analysis An instance of a new compiler analysis, if no error happened.
    * @param code The status code for a given compilation. The status code can be used whenever
    *             there is a noop compile and it's successful or cancelled.
    */
   def reportEndCompilation(
-      previousAnalysis: Option[CompileAnalysis],
-      analysis: Option[CompileAnalysis],
+      previousSuccessfulProblems: List[ProblemPerPhase],
       code: bsp.StatusCode
-  ): Unit = {
-    phasesAtFile.clear()
-    filesToPhaseStack.clear()
-  }
+  ): Unit
 
   /**
-   * A function called before every incremental cycle with the compilation inputs.
-   *
-   * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   * A function called before every incremental cycle with the compilation
+   * inputs. This method is not called if the compilation is a no-op (e.g. same
+   * analysis as before).
    */
   def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit
 
+  /** Report when the compiler enters in a phase. */
+  def reportNextPhase(phase: String, sourceFile: File): Unit
+
   /**
-   * A function called after every incremental cycle, even if any compilation errors happen.
-   *
-   * This method is not called if the compilation is a no-op (e.g. same analysis as before).
+   * A function called after every incremental cycle, even if any compilation
+   * errors happen. This method is not called if the compilation is a no-op
+   * (e.g. same analysis as before).
    *
    * @param durationMs The time it took to complete the incremental compiler cycle.
    * @param result The result of the incremental cycle. We don't use `bsp.StatusCode` because the
    *               bloop backend, where this method is used, should not depend on bsp4j.
    */
   def reportEndIncrementalCycle(durationMs: Long, result: Try[Unit]): Unit
+}
+
+object Reporter {
 
   /** Create a compilation message summarizing the compilation of `sources` in `projectName`. */
   def compilationMsgFor(projectName: String, sources: Seq[File]): String = {
@@ -192,5 +201,18 @@ abstract class Reporter(
     val javaMsg = Analysis.counted("Java source", "", "s", javaSources.size)
     val combined = scalaMsg ++ javaMsg
     combined.mkString(s"Compiling $projectName (", " and ", ")")
+  }
+
+  /** Groups problems per file where they originated. */
+  def groupProblemsByFile(ps: List[ProblemPerPhase]): Map[File, List[ProblemPerPhase]] = {
+    val problemsPerFile = mutable.HashMap[File, List[ProblemPerPhase]]()
+    ps.foreach {
+      case pp @ ProblemPerPhase(p, phase) =>
+        InterfaceUtil.toOption(p.position().sourceFile).foreach { file =>
+          val newProblemsPerFile = pp :: problemsPerFile.getOrElse(file, Nil)
+          problemsPerFile.+=(file -> newProblemsPerFile)
+        }
+    }
+    problemsPerFile.toMap
   }
 }

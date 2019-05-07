@@ -14,7 +14,7 @@ import bloop.io.AbsolutePath
  *
  * @param reporter The reporter that will use this format.
  */
-abstract class ReporterFormat(reporter: ConfigurableReporter) {
+abstract class ReporterFormat(reporter: Reporter) {
 
   /**
    * Returns a string representation of `Problem`, as it should be shown by
@@ -52,7 +52,7 @@ abstract class ReporterFormat(reporter: ConfigurableReporter) {
    * @return The prefixed and indented paragraph.
    */
   protected def prefixed(prefixColor: String, prefix: String, paragraph: String): String =
-    paragraph.lines.mkString(colored(prefixColor, prefix), EOL + " " * prefix.length, "")
+    paragraph.linesIterator.mkString(colored(prefixColor, prefix), EOL + " " * prefix.length, "")
 
   /**
    * Retrieves the right color to use for `problem` based on Severity.

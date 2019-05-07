@@ -8,6 +8,7 @@ import java.nio.file.Path
 import bloop.launcher.core.{Feedback, Shell}
 import bloop.launcher.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
+import bloop.sockets.UnixDomainSocket
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
@@ -64,6 +65,7 @@ final class BspBridge(
             shell.runCommand(
               // Make it verbose so that bsp preparation logs are emitted
               bspCmd ++ List("--verbose"),
+              Environment.cwd,
               None,
               Some(logsBuffer)
             )
@@ -100,6 +102,7 @@ final class BspBridge(
       println(Feedback.startingBloopServer(cmd), out)
       val status = shell.runCommand(
         cmd ++ List("--verbose"),
+        Environment.cwd,
         None,
         Some(logsBuffer)
       )
@@ -115,7 +118,7 @@ final class BspBridge(
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
     println("Waiting 200ms until the bsp connection is up...", out)
     Thread.sleep(200)
-    if (attempts == 25) {
+    if (attempts == 50) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
       printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
       None
@@ -151,7 +154,6 @@ final class BspBridge(
   def connectToOpenSession(serverConnection: BspConnection): Option[Socket] = {
     import scala.util.Try
     def establishSocketConnection(connection: BspConnection): Try[Socket] = {
-      import org.scalasbt.ipcsocket.UnixDomainSocket
       Try {
         connection match {
           case BspConnection.Tcp(host, port) => new Socket(host, port)
@@ -222,7 +224,8 @@ final class BspBridge(
 
     println(
       "Starting thread that pumps server stdout and redirects it to the client stdout...",
-      out)
+      out
+    )
     val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", false) {
       var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {

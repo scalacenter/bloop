@@ -1,3 +1,4 @@
+import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
@@ -28,7 +29,7 @@ import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version}
 val backend = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
+  .settings(testSettings ++ testSuiteSettings)
   .settings(
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
@@ -50,7 +51,11 @@ val backend = project
       Dependencies.monix,
       Dependencies.directoryWatcher,
       Dependencies.xxHashLibrary,
-      Dependencies.zt
+      Dependencies.zt,
+      Dependencies.brave,
+      Dependencies.zipkinSender,
+      Dependencies.pprint,
+      Dependencies.difflib
     )
   )
 
@@ -117,29 +122,30 @@ val jsonConfig212 = project
     }
   )
 
-lazy val launcher: Project = project
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(frontend % "test->test")
+lazy val sockets: Project = project
   .settings(
-    name := "bloop-launcher",
-    libraryDependencies ++= List(
-      Dependencies.coursier,
-      Dependencies.coursierCache,
-      Dependencies.nuprocess,
-      Dependencies.ipcsocket,
-      Dependencies.junit % Test,
-      Dependencies.junitSystemRules % Test
-    )
+    crossPaths := false,
+    autoScalaLibrary := false,
+    description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
+    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform)
   )
 
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
-  .dependsOn(backend, backend % "test->test", jsonConfig212)
+  .dependsOn(sockets, backend, backend % "test->test", jsonConfig212)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
+  .configs(IntegrationTest)
   .settings(assemblySettings, releaseSettings)
-  .settings(testSettings, integrationTestSettings, BuildDefaults.frontendTestBuildSettings)
+  .settings(
+    testSettings,
+    testSuiteSettings,
+    Defaults.itSettings,
+    BuildDefaults.frontendTestBuildSettings,
+    // Can be removed when metals upgrades to 1.3.0
+    inConfig(IntegrationTest)(BloopDefaults.configSettings)
+  )
   .settings(
     name := "bloop-frontend",
     bloopName := "bloop",
@@ -149,22 +155,38 @@ lazy val frontend: Project = project
     buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
+    javaOptions in IntegrationTest ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
     fork in Test := true,
+    fork in run in IntegrationTest := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.nuprocess,
-      Dependencies.ipcsocket % Test
+      Dependencies.nuprocess
     ),
     dependencyOverrides += Dependencies.shapeless
   )
 
+lazy val launcher: Project = project
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, frontend % "test->test")
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher",
+    fork in Test := true,
+    parallelExecution in Test := false,
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.nuprocess
+    )
+  )
+
 val benchmarks = project
-  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->jmh")
+  .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
@@ -186,7 +208,7 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("0.13.17", jsonConfig210))
+  .settings(sbtPluginSettings("0.13.18", jsonConfig210))
   .dependsOn(jsonConfig210)
 
 val mavenBloop = project
@@ -239,15 +261,27 @@ val millBloop = project
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
 
+val buildpress = project
+  .dependsOn(launcher)
+  .settings(buildpressSettings)
+  .settings(
+    scalaVersion := Scala212Version,
+    libraryDependencies ++= List(
+      Dependencies.caseApp,
+      Dependencies.nuprocess
+    )
+  )
+
 val docs = project
-  .in(file("docs"))
+  .in(file("docs-gen"))
   .dependsOn(frontend)
-  .enablePlugins(DocusaurusPlugin)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
   .settings(
     name := "bloop-docs",
     moduleName := "bloop-docs",
     skip in publish := true,
     scalaVersion := "2.12.6",
+    mdoc := run.in(Compile).evaluated,
     mainClass.in(Compile) := Some("bloop.Docs")
   )
 
@@ -323,7 +357,8 @@ val allProjects = Seq(
   nativeBridge,
   jsBridge06,
   jsBridge10,
-  launcher
+  launcher,
+  sockets
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -334,13 +369,26 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     skip in publish := true,
-    crossSbtVersions := Seq("1.1.0", "0.13.16"),
-    commands += BuildDefaults.exportProjectsInTestResourcesCmd
+    crossSbtVersions := Seq("1.2.8", "0.13.18"),
+    commands += BuildDefaults.exportProjectsInTestResourcesCmd,
+    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
+    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
+    exportCommunityBuild := {
+      build.BuildImplementation
+        .exportCommunityBuild(
+          buildpress,
+          jsonConfig210,
+          jsonConfig212,
+          sbtBloop013,
+          sbtBloop10
+        )
+        .value
+    }
   )
 
-/***************************************************************************************************/
-/*                      This is the corner for all the command definitions                         */
-/***************************************************************************************************/
+/**************************************************************************************************/
+/*                      This is the corner for all the command definitions                        */
+/**************************************************************************************************/
 val publishLocalCmd = Keys.publishLocal.key.label
 
 // Runs the scripted tests to setup integration tests
@@ -362,9 +410,24 @@ addCommandAlias(
     s"${millBloop.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
+    s"${sockets.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    s"${buildpress.id}/$publishLocalCmd",
+    // Force build info generators in frontend-test
+    s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
-    "createLocalScoopFormula"
+    "createLocalScoopFormula",
+    "generateInstallationWitness"
+  ).mkString(";", ";", "")
+)
+
+addCommandAlias(
+  "publishSbtBloop",
+  Seq(
+    s"${jsonConfig210.id}/$publishLocalCmd",
+    s"${jsonConfig212.id}/$publishLocalCmd",
+    s"${sbtBloop013.id}/$publishLocalCmd",
+    s"${sbtBloop10.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
@@ -385,7 +448,9 @@ val allBloopReleases = List(
   s"${nativeBridge.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
-  s"${launcher.id}/$releaseEarlyCmd"
+  s"${sockets.id}/$releaseEarlyCmd",
+  s"${launcher.id}/$releaseEarlyCmd",
+  s"${buildpress.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

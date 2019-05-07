@@ -5,11 +5,11 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.8"
 
-  val nailgunVersion = "6992a3bf"
+  val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
-  val nailgunCommit = "0c325237"
+  val nailgunCommit = "8d42b9b6"
 
-  val zincVersion = "1.2.1+106-0dad4a69"
+  val zincVersion = "1.2.1+110-85b9a03c"
   val bspVersion = "2.0.0-M1"
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M8"
@@ -28,7 +28,7 @@ object Dependencies {
   val mavenScalaPluginVersion = "3.2.2"
   val gradleVersion = "3.0"
   val groovyVersion = "2.5.0"
-  val ipcsocketVersion = "1.0.0"
+  val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.4"
@@ -36,10 +36,13 @@ object Dependencies {
   val scalaNativeVersion = "0.3.7"
   val scalaJs06Version = "0.6.25"
   val scalaJs10Version = "1.0.0-M5"
-  val millVersion = "0.3.5"
+  val millVersion = "0.3.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
   val difflibVersion = "1.3.0"
+  val braveVersion = "5.6.1"
+  val zipkinSenderVersion = "2.7.15"
+  val jnaVersion = "4.5.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -59,6 +62,9 @@ object Dependencies {
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
 
+  val scalatest = "org.scalatest" % "scalatest_2.12" % "3.0.5"
+  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
@@ -78,9 +84,7 @@ object Dependencies {
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
 
-  val ipcsocket = "org.scala-sbt.ipcsocket" % "ipcsocket" % ipcsocketVersion
   val monix = "io.monix" %% "monix" % monixVersion
-
   val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
@@ -103,4 +107,11 @@ object Dependencies {
   val mill = "com.lihaoyi" %% "mill-scalalib" % millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
+
+  val brave = "io.zipkin.brave" % "brave" % braveVersion
+  val zipkinSender = "io.zipkin.reporter2" % "zipkin-sender-urlconnection" % zipkinSenderVersion
+  val zipkinOkHttp = "io.zipkin.reporter2" % "zipkin-sender-okhttp3" % zipkinSenderVersion
+
+  val jna = "net.java.dev.jna" % "jna" % jnaVersion
+  val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
 }

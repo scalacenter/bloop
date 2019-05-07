@@ -3,16 +3,22 @@ package bloop
 import java.io.{InputStream, PrintStream}
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 
 import bloop.bsp.BspServer
+import bloop.io.AbsolutePath
+import bloop.util.CrossPlatform
+import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
+import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
+
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
-import bloop.engine.tasks.Tasks
 
+import scala.concurrent.Promise
 import scala.util.control.NonFatal
 
 class Cli
@@ -20,7 +26,7 @@ object Cli {
 
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, NoPool, args)
+    val exitStatus = run(action, NoPool)
     sys.exit(exitStatus.code)
   }
 
@@ -45,7 +51,7 @@ object Cli {
     )
 
     val cmd = parse(args, nailgunOptions)
-    val exitStatus = run(cmd, NoPool, args, cancel)
+    val exitStatus = run(cmd, NoPool, cancel)
     exitStatus.code
   }
 
@@ -75,7 +81,7 @@ object Cli {
       else parse(args, nailgunOptions)
     }
 
-    val exitStatus = run(cmd, NailgunPool(ngContext), args)
+    val exitStatus = run(cmd, NailgunPool(ngContext))
     ngContext.exit(exitStatus.code)
   }
 
@@ -162,7 +168,7 @@ object Cli {
                 run(newCommand, newCommand.cliOptions.copy(version = false))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand, BspServer.isWindows)
+                Validate.bsp(newCommand, CrossPlatform.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
@@ -227,14 +233,13 @@ object Cli {
     }
   }
 
-  def run(action: Action, pool: ClientPool, userArgs: Array[String]): ExitStatus = {
-    run(action, pool, userArgs, FalseCancellation)
+  def run(action: Action, pool: ClientPool): ExitStatus = {
+    run(action, pool, FalseCancellation)
   }
 
   private def run(
       action: Action,
       pool: ClientPool,
-      userArgs: Array[String],
       cancel: CompletableFuture[java.lang.Boolean]
   ): ExitStatus = {
     import bloop.io.AbsolutePath
@@ -270,24 +275,57 @@ object Cli {
 
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
-    val currentState = State.loadActiveStateFor(configDirectory, pool, cliOptions.common, logger)
+    val client = ClientInfo.CliClientInfo("bloop-cli")
+    val currentState =
+      State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
 
+    val exitPromise = Promise[Unit]()
     val dir = configDirectory.underlying
-    waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, userArgs, cancel) {
-      Interpreter.execute(action, currentState).map { newState =>
-        State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-        // Persist successful result on the background for the new state -- it doesn't block!
-        val persistOut = (msg: String) => newState.commonOptions.ngout.println(msg)
-        Tasks.persist(newState, persistOut).runAsync(ExecutionContext.ioScheduler)
+    waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, exitPromise, cancel) {
+      val taskToInterpret = Interpreter.execute(action, currentState).map { newState =>
+        // Only update the build if the command is not a BSP long-running
+        // session. The BSP implementation reads and stores the state in every
+        // action, so updating the build at the end of the BSP session can
+        // override a newer state updated by newer clients which is unknown to BSP
+        action match {
+          case Run(_: Commands.ValidatedBsp, _) => ()
+          case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+        }
+
         newState
       }
+
+      acquireBuildCliLock(configDirectory, action, exitPromise, taskToInterpret, logger)
     }
   }
 
-  private final val FalseCancellation: CompletableFuture[java.lang.Boolean] = {
-    val cancel = new CompletableFuture[java.lang.Boolean]()
-    cancel.complete(false)
-    cancel
+  private final val FalseCancellation =
+    CompletableFuture.completedFuture[java.lang.Boolean](false)
+
+  private val activeCliSessions = new ConcurrentHashMap[AbsolutePath, Promise[Unit]]()
+
+  def acquireBuildCliLock(
+      configDir: AbsolutePath,
+      action: Action,
+      syncPromise: Promise[Unit],
+      taskToRun: Task[State],
+      logger: Logger
+  ): Task[State] = {
+    action match {
+      case Exit(exitStatus) => taskToRun
+      // Don't synchronize BSP commands, BSP sessions can run concurrently on the same build
+      case Run(_: Commands.Bsp, next) => taskToRun
+      case Run(_: Commands.ValidatedBsp, next) => taskToRun
+      case _ =>
+        val currentPromise = activeCliSessions.putIfAbsent(configDir, syncPromise)
+        if (currentPromise == null) taskToRun
+        else {
+          logger.info("Waiting on external CLI client to release lock on this build...")
+          Task
+            .fromFuture(currentPromise.future)
+            .flatMap(_ => acquireBuildCliLock(configDir, action, syncPromise, taskToRun, logger))
+        }
+    }
   }
 
   import scala.concurrent.Await
@@ -298,7 +336,7 @@ object Cli {
       pool: ClientPool,
       configDirectory: Path,
       logger: Logger,
-      userArgs: Array[String],
+      exitPromise: Promise[Unit],
       cancel: CompletableFuture[java.lang.Boolean] = FalseCancellation
   )(taskState: Task[State]): ExitStatus = {
     val ngout = cliOptions.common.ngout
@@ -307,12 +345,20 @@ object Cli {
       logger.debug(s"Elapsed: $elapsed ms")(DebugFilter.All)
     }
 
+    def releaseBuildCliLock(): Unit = {
+      activeCliSessions.remove(AbsolutePath(configDirectory), exitPromise)
+      exitPromise.trySuccess(())
+      ()
+    }
+
     // Simulate try-catch-finally with monix tasks to time the task execution
     val handle =
       Task
         .now(System.nanoTime())
         .flatMap(start => taskState.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
+        .doOnFinish(_ => Task(releaseBuildCliLock()))
+        .doOnCancel(Task(releaseBuildCliLock()))
         .dematerialize
         .runAsync(ExecutionContext.scheduler)
 
@@ -324,11 +370,12 @@ object Cli {
         .map { cancel =>
           if (cancel) {
             cliOptions.common.out.println(
-              s"Client in $configDirectory triggered cancellation. Cancelling tasks...")
+              s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
+            )
             handle.cancel()
           } else ()
         }
-        .runAsync(ExecutionContext.scheduler)
+        .runAsync(ExecutionContext.ioScheduler)
     }
 
     def handleException(t: Throwable) = {
@@ -347,7 +394,8 @@ object Cli {
         case e: CloseEvent =>
           if (!handle.isCompleted) {
             ngout.println(
-              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks...")
+              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
+            )
             handle.cancel()
             if (!cancel.isDone)
               cancel.complete(false)
@@ -355,9 +403,7 @@ object Cli {
           }
       }
 
-      val result: State = Await.result(handle, Duration.Inf)
-      ngout.println(s"The task for '${userArgs.mkString(" ")}' finished.")
-      result.status
+      Await.result(handle, Duration.Inf).status
     } catch {
       case i: InterruptedException => handleException(i)
       case NonFatal(t) => handleException(t)

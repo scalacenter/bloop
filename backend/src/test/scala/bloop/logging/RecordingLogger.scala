@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.collection.JavaConverters.asScalaIteratorConverter
 
-final class RecordingLogger(
+class RecordingLogger(
     debug: Boolean = false,
     debugOut: Option[PrintStream] = None,
     val ansiCodesSupported: Boolean = true,
@@ -15,9 +15,69 @@ final class RecordingLogger(
 
   def clear(): Unit = messages.clear()
 
+  def debugs: List[String] = getMessagesAt(Some("debug"))
   def infos: List[String] = getMessagesAt(Some("info"))
   def warnings: List[String] = getMessagesAt(Some("warn"))
   def errors: List[String] = getMessagesAt(Some("error"))
+
+  private def replaceTimingInfo(msg: String): String = {
+    def representsTime(word: String, idx: Int): Boolean = {
+      idx > 0 && {
+        val lastChar = word.charAt(idx - 1)
+        Character.isDigit(lastChar)
+      }
+    }
+
+    msg
+      .split("\\s+")
+      .foldLeft(Nil: List[String]) {
+        case (seen, word) =>
+          val indexOfMs = word.lastIndexOf("ms")
+          val indexOfS = word.lastIndexOf("s")
+          if (representsTime(word, indexOfMs)) "???" :: seen
+          else if (representsTime(word, indexOfS)) "???" :: seen
+          else {
+            seen match {
+              case p :: ps =>
+                if (word == "s" && Character.isDigit(p.last)) "???" :: ps
+                else if (word == "ms" && Character.isDigit(p.last)) "???" :: ps
+                else if (word.startsWith("seconds") && Character.isDigit(p.last))
+                  "???" :: ps
+                else if (word.startsWith("milliseconds") && Character.isDigit(p.last))
+                  "???" :: ps
+                else word :: seen
+              case _ => word :: seen
+            }
+          }
+      }
+      .reverse
+      .mkString(" ")
+  }
+
+  def captureTimeInsensitiveInfos: List[String] = {
+    infos.map(info => replaceTimingInfo(info))
+  }
+
+  def renderTimeInsensitiveInfos: String = {
+    captureTimeInsensitiveInfos.mkString(System.lineSeparator())
+  }
+
+  def renderTimeInsensitiveTestInfos: String = {
+    captureTimeInsensitiveInfos
+      .filterNot(
+        msg =>
+          msg.startsWith("Compiling ") || msg.startsWith("Compiled ") || msg
+            .startsWith("Generated ")
+      )
+      .mkString(System.lineSeparator())
+  }
+
+  def renderErrors(exceptContaining: String = ""): String = {
+    val exclude = exceptContaining.nonEmpty
+    val newErrors = if (!exclude) errors else errors.filterNot(_.contains(exceptContaining))
+    newErrors.mkString(System.lineSeparator)
+  }
+
   def getMessagesAt(level: Option[String]): List[String] = getMessages(level).map(_._2)
   def getMessages(): List[(String, String)] = getMessages(None)
   private def getMessages(level: Option[String]): List[(String, String)] = {
@@ -88,5 +148,22 @@ final class RecordingLogger(
   /** Returns all infos that contain the word `Test` */
   def startedTestInfos: List[String] = {
     getMessagesAt(Some("info")).filter(m => m.contains("Test ") && m.contains("started"))
+  }
+
+  def render: String = {
+    getMessages()
+      .map {
+        case (level, msg) => s"[${level}] ${msg}"
+      }
+      .mkString(System.lineSeparator())
+  }
+
+  import java.nio.file.Path
+  import java.nio.file.Files
+  import java.nio.charset.StandardCharsets
+  def writeToFile(id: String): Unit = {
+    val path = Files.createTempFile("recording", id)
+    Files.write(path, render.getBytes(StandardCharsets.UTF_8))
+    System.err.println(s"Wrote logger ${id} output to ${path}")
   }
 }

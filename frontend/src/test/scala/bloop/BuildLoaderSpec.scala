@@ -8,35 +8,28 @@ import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{Logger, RecordingLogger}
 import bloop.util.TestUtil
 import monix.eval.Task
-import org.junit.Test
 
-class BuildLoaderSpec {
-  @Test
-  def noReloadWhenNothingChanges(): Unit = {
-    val logger = new RecordingLogger()
-    val BuildLoaderState(state, configurationFiles) = loadBuildState(logger)
-    val checkTask = state.build.checkForChange(logger).map {
+import bloop.testing.BaseSuite
+object BuildLoaderSpec extends BaseSuite {
+  testLoad("don't reload if nothing changes") { (testBuild, logger) =>
+    testBuild.state.build.checkForChange(logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState => sys.error(s"Expected return previous state, got ${action}")
     }
-
-    TestUtil.blockOnTask(checkTask, 5)
   }
 
-  @Test
-  def noReloadWhenConfigurationFilesAreTouched(): Unit = {
-    val logger = new RecordingLogger()
-    val BuildLoaderState(state, configurationFiles) = loadBuildState(logger)
-    val randomConfigFiles = scala.util.Random.shuffle(configurationFiles).take(5)
+  private def configurationFiles(build: TestBuild): List[AbsolutePath] = {
+    build.projects.map(p => build.configFileFor(p))
+  }
+
+  testLoad("don't reload when configuration files are touched") { (testBuild, logger) =>
+    val randomConfigFiles = scala.util.Random.shuffle(configurationFiles(testBuild)).take(5)
     // Update the timestamps of the configuration files to trigger a reload
     randomConfigFiles.foreach(f => Files.write(f.underlying, Files.readAllBytes(f.underlying)))
-
-    val checkTask = state.build.checkForChange(logger).map {
+    testBuild.state.build.checkForChange(logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState => sys.error(s"Expected return previous state, got ${action}")
     }
-
-    TestUtil.blockOnTask(checkTask, 5)
   }
 
   // We add a new project with the bare minimum information
@@ -56,14 +49,11 @@ class BuildLoaderSpec {
       |}""".stripMargin
   }
 
-  @Test
-  def reloadWhenNewConfigurationFile(): Unit = {
-    val logger = new RecordingLogger()
-    val BuildLoaderState(state, configurationFiles) = loadBuildState(logger)
-    val pathOfDummyFile = state.build.origin.resolve("dummy.json").underlying
+  testLoad("reload when new configuration file is added to the build") { (testBuild, logger) =>
+    val pathOfDummyFile = testBuild.state.build.origin.resolve("dummy.json").underlying
     Files.write(pathOfDummyFile, ContentsNewConfigurationFile.getBytes(StandardCharsets.UTF_8))
 
-    val checkTask = state.build
+    testBuild.state.build
       .checkForChange(logger)
       .map {
         case action: Build.UpdateState =>
@@ -74,23 +64,10 @@ class BuildLoaderSpec {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected state with new project addition, got ReturnPreviousState")
       }
-      .doOnFinish {
-        // Delete only if it exists in case there has been an early exception
-        case _ =>
-          Task {
-            Files.deleteIfExists(pathOfDummyFile)
-            ()
-          }
-      }
-
-    TestUtil.blockOnTask(checkTask, 5)
   }
 
-  @Test
-  def reloadWhenExistingConfigurationFilesChange(): Unit = {
-    val logger = new RecordingLogger()
-    val BuildLoaderState(state, _) = loadBuildState(logger)
-    val projectsToModify = state.build.projects.take(2)
+  testLoad("reload when existing configuration files change") { (testBuild, logger) =>
+    val projectsToModify = testBuild.state.build.projects.take(2)
     val backups = projectsToModify.map(p => p -> p.origin.path.readAllBytes)
 
     val changes = backups.map {
@@ -101,10 +78,10 @@ class BuildLoaderSpec {
         }
     }
 
-    val checkTask = Task
+    Task
       .gatherUnordered(changes)
       .flatMap { _ =>
-        state.build.checkForChange(logger).map {
+        testBuild.state.build.checkForChange(logger).map {
           case action: Build.UpdateState =>
             val hasAllProjects = {
               val originProjects = projectsToModify.map(_.origin.path).toSet
@@ -117,63 +94,53 @@ class BuildLoaderSpec {
             sys.error(s"Expected state modifying ${projectsToModify}, got ReturnPreviousState")
         }
       }
-      .doOnFinish {
-        case _ =>
-          Task {
-            // Restore the contents of the configuration files before the test
-            backups.foreach {
-              case (p, bytes) => Files.write(p.origin.path.underlying, bytes)
-            }
-          }
-      }
-
-    TestUtil.blockOnTask(checkTask, 5)
   }
 
-  @Test
-  def reloadWhenConfigurationFileIsDeleted(): Unit = {
-    val logger = new RecordingLogger()
-    val BuildLoaderState(state, configurationFile :: _) = loadBuildState(logger)
-    val backup = configurationFile.readAllBytes
-
+  testLoad("reload when new configuration file is deleted") { (testBuild, logger) =>
+    val configurationFile = testBuild.configFileFor(testBuild.projects.head)
     val change = Task {
       Files.delete(configurationFile.underlying)
     }
 
-    val checkTask = change
-      .flatMap { _ =>
-        state.build.checkForChange(logger).map {
-          case action: Build.UpdateState =>
-            val hasProjectDeleted = {
-              action.deleted match {
-                case List(p) if p == configurationFile => true
-                case _ => false
-              }
+    change.flatMap { _ =>
+      testBuild.state.build.checkForChange(logger).map {
+        case action: Build.UpdateState =>
+          val hasProjectDeleted = {
+            action.deleted match {
+              case List(p) if p == configurationFile => true
+              case _ => false
             }
-
-            if (action.createdOrModified.isEmpty && hasProjectDeleted) ()
-            else sys.error(s"Expected state with deletion of ${configurationFile}, got ${action}")
-          case Build.ReturnPreviousState =>
-            sys.error(
-              s"Expected state with deletion of ${configurationFile}, got ReturnPreviousState")
-        }
-      }
-      .doOnFinish {
-        case _ =>
-          Task {
-            Files.write(configurationFile.underlying, backup)
-            ()
           }
-      }
 
-    TestUtil.blockOnTask(checkTask, 5)
+          if (action.createdOrModified.isEmpty && hasProjectDeleted) ()
+          else sys.error(s"Expected state with deletion of ${configurationFile}, got ${action}")
+        case Build.ReturnPreviousState =>
+          sys.error(
+            s"Expected state with deletion of ${configurationFile}, got ReturnPreviousState"
+          )
+      }
+    }
   }
 
-  case class BuildLoaderState(state: State, configurationFiles: List[AbsolutePath])
-  def loadBuildState(logger: Logger): BuildLoaderState = {
-    val state = TestUtil.loadTestProject("lichess").copy(logger = logger)
-    val configDir = state.build.origin
-    val configurationFiles = Paths.pathFilesUnder(configDir, BuildLoader.JsonFilePattern, 1)
-    BuildLoaderState(state, configurationFiles)
+  def testLoad[T](name: String)(fun: (TestBuild, RecordingLogger) => Task[T]): Unit = {
+    test(name) {
+      loadBuildState(fun)
+    }
+  }
+
+  def loadBuildState[T](f: (TestBuild, RecordingLogger) => Task[T]): T = {
+    TestUtil.withinWorkspace { workspace =>
+      import bloop.util.TestProject
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val a = TestProject(workspace, "a", Nil)
+      val b = TestProject(workspace, "b", Nil)
+      val c = TestProject(workspace, "c", Nil)
+      val d = TestProject(workspace, "d", Nil)
+      val projects = List(a, b, c, d)
+      val state = loadState(workspace, projects, logger)
+      val configDir = state.build.origin
+      val build = TestBuild(state, projects)
+      TestUtil.blockOnTask(f(build, logger), 5)
+    }
   }
 }

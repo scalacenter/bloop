@@ -240,7 +240,7 @@ class DagSpec {
     Assert.assertEquals("reduced case 9", Set(g, i), reduceInverseDeps(List(f)))
 
     def allInverseDeps(targets: List[Project]): Set[Project] =
-      Dag.inverseDependencies(dags, targets).all.toSet
+      Dag.inverseDependencies(dags, targets).strictlyInverseNodes.toSet
 
     Assert.assertEquals("all case 1", allProjects.toSet, allInverseDeps(List(a, f)))
     Assert.assertEquals("all case 2", Set(e, g, i, b), allInverseDeps(List(e, g, i, b)))

@@ -79,8 +79,8 @@ start the Bloop server and under which conditions. The property list is installe
 
 Command examples:
 
-1. `cat /usr/local/var/log/bloop/bloop.out.log`: check the build server logs via stdout.
-1. `cat /usr/local/var/log/bloop/bloop.err.log`: check the build server logs via stderr.
+1. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.out.log`: check the build server logs via stdout.
+1. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.err.log`: check the build server logs via stderr.
 1. `brew services start bloop`: starts up the bloop server.
 1. `brew services stop bloop`: stops the bloop server.
 1. `brew services restart bloop`: restarts the bloop server.

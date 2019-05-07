@@ -22,6 +22,7 @@ import sbt.{
   ProjectRef,
   ResolvedProject,
   Test,
+  IntegrationTest,
   ThisBuild,
   ThisProject
 }
@@ -49,7 +50,8 @@ object BloopKeys {
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir")
   val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
     settingKey[Option[Set[String]]](
-      "The classifiers that will be exported with `updateClassifiers`")
+      "The classifiers that will be exported with `updateClassifiers`"
+    )
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopClassDirectory: SettingKey[File] =
@@ -70,6 +72,10 @@ object BloopKeys {
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
+  val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
+    settingKey[Seq[Configuration]](
+      "The sequence of configurations that are used to detect inter-project dependencies by bloop."
+    )
 }
 
 object BloopDefaults {
@@ -80,7 +86,7 @@ object BloopDefaults {
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopExportJarClassifiers := None,
     BloopKeys.bloopInstall := bloopInstall.value,
-    BloopKeys.bloopAggregateSourceDependencies := false,
+    BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
     Keys.transitiveClassifiers in Keys.updateClassifiers := {
       val old = (Keys.transitiveClassifiers in Keys.updateClassifiers).value
@@ -100,7 +106,8 @@ object BloopDefaults {
         if (!isMetaBuild) state
         else runCommandAndRemaining("bloopInstall")(state)
       }
-    }
+    },
+    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest)
   )
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
@@ -131,11 +138,24 @@ object BloopDefaults {
       BloopKeys.bloopAggregateSourceDependencies.in(Global).value
   )
 
-  lazy val configSettings: Seq[Def.Setting[_]] =
+  /**
+   * These config settings can be applied in configuration that have not yet
+   * been enabled in a project. Therefore, their implementations must protect
+   * themselves fro depending on tasks that do not exist in the scope (which
+   * happens when the configuration is disabled but a task refers to it
+   * nonetheless). See an example in the definition of `bloopInternalClasspath`
+   * or the implementation of `bloopGenerate`.
+   */
+  def configSettings: Seq[Def.Setting[_]] =
     List(
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
-      BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
+      BloopKeys.bloopInternalClasspath := Def.taskDyn {
+        Keys.productDirectories.?.value match {
+          case Some(_) => bloopInternalDependencyClasspath
+          case None => Def.task(Nil: Seq[(File, File)])
+        }
+      }.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None,
       BloopKeys.bloopMainClass := None,
@@ -145,6 +165,7 @@ object BloopDefaults {
   lazy val projectSettings: Seq[Def.Setting[_]] = {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
+      sbt.inConfig(IntegrationTest)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
@@ -280,6 +301,20 @@ object BloopDefaults {
     sources.filter(source => !sourceDirs.exists(dir => checkIfParent(dir, source.getParent)))
   }
 
+  private def distinctOn[A, B](list: Seq[A], f: A => B): List[A] = {
+    list.foldLeft(List.empty[A]) { (acc, elem) =>
+      val value = f(elem)
+      acc.find(item => f(item) == value) match {
+        case Some(_) => acc
+        case None => elem :: acc
+      }
+    }
+  }
+
+  private def depsFromConfig(configuration: Configuration): List[Configuration] = {
+    configuration :: configuration.extendsConfigs.toList.flatMap(dep => depsFromConfig(dep))
+  }
+
   /**
    * Detect the eligible configuration dependencies from a given configuration.
    *
@@ -296,17 +331,43 @@ object BloopDefaults {
    */
   lazy val eligibleDepsFromConfig: Def.Initialize[Task[List[Configuration]]] = {
     Def.task {
-      def depsFromConfig(configuration: Configuration): List[Configuration] = {
-        configuration.extendsConfigs.toList match {
-          case config :: Nil if config.extendsConfigs.isEmpty => config :: Nil
-          case config :: Nil => config :: depsFromConfig(config)
-          case Nil => Nil
-        }
-      }
 
+      /*
+       * When we resolve `Keys.configuration.value`, we don't obtain the same
+       * configuration object that is passed in the following code snippet:
+       *
+       * ```
+       * val foo = project
+       *  .in(file(".") / "foo")
+       *  .configs(IntegrationTest.extend(Test)) // line 2
+       *  .settings(
+       *    Defaults.itSettings,
+       *    inConfig(IntegrationTest)( // line 3
+       *      BloopDefaults.configSettings
+       *    )
+       *)
+       * ```
+       *
+       * But instead obtain the configuration object in "line 3", which is
+       * different from that on "line 2" because it does not exted `Test`.
+       *
+       * To work around this limitation, we obtain here both the config
+       * in the scope and the possibly other real config from the project
+       * (which we map by name) and then try to resolve dependencies and
+       * add them together. Those dependencies are then the ones we process.
+       *
+       * We work around this problem to avoid telling the users how they
+       * should be using the configuration-related sbt APIs, it's just more
+       * time-efficient than correcting the wrong code out there.
+       */
       val config = Keys.configuration.value
-      val configs = depsFromConfig(config)
-      val activeProjectConfigs = Keys.thisProject.value.configurations.toSet
+      val activeProjectConfigs = Keys.thisProject.value.configurations
+      val resolvedConfig = activeProjectConfigs.find(_.name == config.name)
+      val resolvedConfigDeps = resolvedConfig.toList.flatMap(depsFromConfig(_))
+      val configs = distinctOn(
+        depsFromConfig(config) ++ resolvedConfigDeps,
+        (c: Configuration) => c.name
+      ).filterNot(c => c == config || resolvedConfig.exists(_ == c))
 
       import scala.collection.JavaConverters._
       val data = Keys.settingsData.value
@@ -324,7 +385,7 @@ object BloopDefaults {
             }
           case None => false
         }
-      }
+      }.toSet
 
       configs.filter(c => eligibleConfigs.contains(c))
     }
@@ -366,7 +427,8 @@ object BloopDefaults {
             new java.util.function.Function[String, String] {
               override def apply(supposedName: String): String = {
                 logger.warn(
-                  s"Derived target name '${supposedName}' already exists in the build, changing to ${newUnambiguousName}")
+                  s"Derived target name '${supposedName}' already exists in the build, changing to ${newUnambiguousName}"
+                )
                 newUnambiguousName
               }
             }
@@ -375,6 +437,15 @@ object BloopDefaults {
       }
     }
   }
+
+  import sbt.{Settings, Scope}
+  private def getConfigurations(
+      p: sbt.ResolvedReference,
+      data: Settings[Scope]
+  ): Seq[Configuration] = Keys.ivyConfigurations.in(p).get(data).getOrElse(Nil)
+
+  private val disabledSbtConfigurationNames: List[String] =
+    List(sbt.Runtime, sbt.Default, sbt.Provided, sbt.Optional).map(_.name)
 
   /**
    * Creates a project name from a classpath dependency and its configuration.
@@ -390,34 +461,59 @@ object BloopDefaults {
       dep: ClasspathDep[ProjectRef],
       configuration: Configuration,
       project: ResolvedProject,
+      activeProjectConfigurationNames: Seq[String],
+      supportedConfigurationNames: Seq[String],
+      data: sbt.Settings[sbt.Scope],
       logger: Logger
-  ): String = {
+  ): List[String] = {
+    // We only detect dependencies for those configurations that are supported
+    def filterSupported(configurationNames: Seq[String]): Seq[String] = {
+      configurationNames.filter(conf => supportedConfigurationNames.exists(_ == conf))
+    }
+
     val ref = dep.project
+    val activeDependentConfigurations = getConfigurations(ref, data)
     dep.configuration match {
       case Some(_) =>
         val mapping = sbt.Classpaths.mapped(
           dep.configuration,
-          List("compile", "test"),
-          List("compile", "test"),
+          filterSupported(activeProjectConfigurationNames),
+          filterSupported(activeDependentConfigurations.map(_.name)),
           "compile",
           "*->compile"
         )
 
         mapping(configuration.name) match {
-          case Nil => projectNameFromString(ref.project, configuration, logger)
-          case List(conf) if Compile.name == conf => ref.project
-          case List(conf) if Test.name == conf => s"${ref.project}-test"
-          case List(conf1, conf2) if Test.name == conf1 && Compile.name == conf2 =>
-            s"${ref.project}-test"
-          case List(conf1, conf2) if Compile.name == conf1 && Test.name == conf2 =>
-            s"${ref.project}-test"
-          case unknown =>
-            logger.warn(Feedback.unknownConfigurations(project, unknown, ref))
-            s"${ref.project}-test"
+          case Nil => List(projectNameFromString(ref.project, Compile, logger))
+          case configurationNames =>
+            val configurations = configurationNames.iterator
+              .flatMap(name => activeDependentConfigurations.find(_.name == name).toList)
+              .toList
+
+            val allDependentConfigurations = configurations
+              .flatMap(c => depsFromConfig(c).filterNot(_ == c))
+              .filterNot(c => disabledSbtConfigurationNames.contains(c.name))
+
+            val validDependentConfigurations = {
+              allDependentConfigurations.flatMap { dc =>
+                val isValid = supportedConfigurationNames.contains(dc.name)
+                if (isValid) List(dc)
+                else {
+                  logger.warn(Feedback.unknownConfigurations(project, List(dc.name), ref))
+                  // Use test dependency as the conservative default if a configuration is unknown
+                  List(projectNameFromString(ref.project, Test, logger))
+                }
+              }.toSet
+            }
+
+            // A dependency cannot depend on each other, so this way of computing the roots works
+            val rootDependencies =
+              configurations.filterNot(c => validDependentConfigurations.contains(c))
+            rootDependencies.map(c => projectNameFromString(ref.project, c, logger)).distinct
         }
       case None =>
         // If no configuration, default is `Compile` dependency (see scripted tests `cross-compile-test-configuration`)
-        projectNameFromString(ref.project, Compile, logger)
+        List(projectNameFromString(ref.project, Compile, logger))
     }
   }
 
@@ -506,8 +602,9 @@ object BloopDefaults {
 
   def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
     ms0.map { m0 =>
-      ms1.find(m =>
-        m0.organization == m.organization && m0.name == m.name && m0.version == m.version) match {
+      ms1.find(
+        m => m0.organization == m.organization && m0.name == m.name && m0.version == m.version
+      ) match {
         case Some(m1) => m0.copy(artifacts = m0.artifacts ++ m1.artifacts)
         case None => m0
       }
@@ -652,8 +749,10 @@ object BloopDefaults {
     val project = Keys.thisProject.value
     val configuration = Keys.configuration.value
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+    val existsIntegrationTest = Keys.productDirectories.in(IntegrationTest).?.value.isDefined
 
     if (isMetaBuild && configuration == Test) Def.task(None)
+    else if (configuration == IntegrationTest && !existsIntegrationTest) Def.task(None)
     else {
       Def.task {
         val projectName = projectNameFromString(project.id, configuration, logger)
@@ -662,13 +761,27 @@ object BloopDefaults {
         val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
         val dependencies = {
+          val data = Keys.settingsData.value
+          val projectRef = Keys.thisProjectRef.value
+          val projectConfigurationNames = getConfigurations(projectRef, data).map(_.name)
+          val supportedConfigurationNames = BloopKeys.bloopSupportedConfigurations.value.map(_.name)
           // Project dependencies come from classpath deps and also inter-project config deps
-          val classpathProjectDependencies =
-            project.dependencies.map(d => projectDependencyName(d, configuration, project, logger))
+          val classpathProjectDependencies = project.dependencies.flatMap { d =>
+            projectDependencyName(
+              d,
+              configuration,
+              project,
+              projectConfigurationNames,
+              supportedConfigurationNames,
+              data,
+              logger
+            )
+          }
+
           val configDependencies =
             eligibleDepsFromConfig.value.map(c => projectNameFromString(project.id, c, logger))
-          /*          println(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")
-          println(s"[${projectName}] Dependencies from configurations ${configDependencies}")*/
+          logger.debug(s"[${projectName}] Classpath dependencies ${classpathProjectDependencies}")
+          logger.debug(s"[${projectName}] Dependencies from configurations ${configDependencies}")
 
           // The distinct here is important to make sure that there are no repeated project deps
           (classpathProjectDependencies ++ configDependencies).distinct.toList
@@ -717,9 +830,9 @@ object BloopDefaults {
           Config.Test(frameworks, options)
         }
 
-        val javacOptions = Keys.javacOptions.value.toList
+        val javacOptions = Keys.javacOptions.in(Keys.compile).in(configuration).value.toList
         val scalacOptions = {
-          val options = Keys.scalacOptions.value.toList
+          val options = Keys.scalacOptions.in(Keys.compile).in(configuration).value.toList
           val internalClasspath = BloopKeys.bloopInternalClasspath.value
           replaceScalacOptionsPaths(options, internalClasspath, logger)
         }
@@ -782,16 +895,17 @@ object BloopDefaults {
 
   private final val allJson = sbt.GlobFilter("*.json")
   private final val removeStaleProjects = {
-    allConfigDirs: Set[File] => { (s: State, generatedFiles: Set[Option[File]]) =>
-      val logger = s.globalLogging.full
-      val allConfigs =
-        allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
-      allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
-        sbt.IO.delete(configFile)
-        logger.warn(s"Removed stale $configFile")
+    allConfigDirs: Set[File] =>
+      { (s: State, generatedFiles: Set[Option[File]]) =>
+        val logger = s.globalLogging.full
+        val allConfigs =
+          allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
+        allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
+          sbt.IO.delete(configFile)
+          logger.warn(s"Removed stale $configFile")
+        }
+        s
       }
-      s
-    }
   }
 
   lazy val bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
@@ -851,7 +965,8 @@ object BloopDefaults {
       }
 
       val generatedTask = productDirs.toList.join.map(_.flatten.distinct).flatMap { a =>
-        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b => a.zip(b)
+        bloopProductDirs.toList.join.map(_.flatten.distinct).map { b =>
+          a.zip(b)
         }
       }
 

@@ -43,28 +43,32 @@ $ sbt bloopInstall
 
 ## Enable custom configurations
 
-By default, `bloopInstall` exports projects for the standard `Compile` and `Test` sbt
-configurations. If your build defines additional configurations in a project, such as
-[`IntegrationTest`][integration-test-conf], you might want to export these configurations to Bloop
-projects too.
+By default, `bloopInstall` exports projects for the standard `Compile`,
+`Test` and `IntegrationTest` sbt configurations. If your build defines
+additional configurations in a project, such as [your own sbt custom
+configuration](https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Custom+test+configuration),
+you might want to export these configurations to Bloop projects too.
 
-Exporting projects for additional sbt configuration requires changes in the build definition in
-`build.sbt`:
+Exporting projects for additional sbt configuration requires changes in the
+build definition in `build.sbt` (which in turn requires adding the
+`sbt-bloop` plugin to your build):
 
 ```scala
 import bloop.integrations.sbt.BloopDefaults
 
-// Example of a project configured with an additional `IntegrationTest` configuration
+val MyCustom = config("custom-config") extend Test
+
+// Example of a project configured with an additional `MyCustom` configuration
 val foo = project
-  .configs(IntegrationTest)
+  .configs(MyCustom)
   .settings(
-    // Scopes bloop configuration settings in `IntegrationTest`
-    inConfig(IntegrationTest)(BloopDefaults.configSettings)
+    // Scopes bloop configuration settings in `MyCustom`
+    inConfig(MyCustom)(BloopDefaults.configSettings)
   )
 ```
 
 When you reload your build, you can check that `bloopInstall` exports a new project called
-`foo-it.json`.
+`foo-custom-config.json`.
 
 ```
 sbt> bloopInstall
@@ -72,12 +76,8 @@ sbt> bloopInstall
 (...)
 [success] Generated '/disk/foo/.bloop/foo.json'.
 [success] Generated '/disk/foo/.bloop/foo-test.json'.
-[success] Generated '/disk/foo/.bloop/foo-it.json'.
+[success] Generated '/disk/foo/.bloop/foo-custom-config.json'.
 ```
-
-If you want to avoid using Bloop-specific settings in your build definition, add the previous
-`inConfig` line in another file (e.g. a `local.sbt` file) and add this local file to your global
-`.gitignore`.
 
 ## Enable sbt project references 
 

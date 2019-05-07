@@ -42,13 +42,6 @@ object MojoImplementation {
 
   private val emptyLauncher = new AppLauncher("", "", Array(), Array())
 
-  def writeConfig(
-      asScala: mutable.Buffer[File],
-      getTestOutputDir: File,
-      strings: util.List[String],
-      launcher: AppLauncher,
-      str: String): Int = ???
-
   def writeCompileAndTestConfiguration(mojo: BloopMojo, session: MavenSession, log: Log): Unit = {
     import scala.collection.JavaConverters._
     def abs(file: File): Path = file.toPath().toRealPath().toAbsolutePath()
@@ -84,7 +77,8 @@ object MojoImplementation {
         classpath0: java.util.List[_],
         resources0: java.util.List[Resource],
         launcher: AppLauncher,
-        configuration: String): Unit = {
+        configuration: String
+    ): Unit = {
       val suffix = if (configuration == "compile") "" else s"-$configuration"
       val name = project.getArtifactId() + suffix
       val build = project.getBuild()
@@ -115,7 +109,7 @@ object MojoImplementation {
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass))
         val resolution = None
         // Resources in Maven require
-        val resources = Some(resources0.asScala.toList.map(r => classesDir.resolve(r.getTargetPath)))
+        val resources = Some(resources0.asScala.toList.flatMap(a => Option(a.getTargetPath).toList).map(classesDir.resolve))
         val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution)
         Config.File(Config.File.LatestVersion, project)
       }

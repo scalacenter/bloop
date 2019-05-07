@@ -4,7 +4,10 @@ package sbt.internal.inc.bloop.internal
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-import bloop.reporter.Reporter
+import bloop.CompilerOracle
+import bloop.reporter.ZincReporter
+import bloop.tracing.BraveTracer
+
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
 import sbt.util.Logger
@@ -18,14 +21,17 @@ object BloopIncremental {
     (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
   def compile(
       sources: Iterable[File],
+      oracleInputs: CompilerOracle.Inputs,
       lookup: Lookup,
       compile: CompileFunction,
       previous0: CompileAnalysis,
       output: Output,
       log: Logger,
-      reporter: Reporter,
+      reporter: ZincReporter,
       options: IncOptions,
-      irPromise: CompletableFuture[Array[IR]]
+      irPromise: CompletableFuture[Array[IR]],
+      manager: ClassFileManager,
+      tracer: BraveTracer
   ): Task[(Boolean, Analysis)] = {
     def getExternalAPI(lookup: Lookup): (File, String) => Option[AnalyzedClass] = { (_: File, binaryClassName: String) =>
       lookup.lookupAnalysis(binaryClassName) flatMap {
@@ -36,9 +42,8 @@ object BloopIncremental {
       }
     }
 
+    val current = BloopStamps.initial
     val externalAPI = getExternalAPI(lookup)
-    val current = Stamps.initial(Stamper.forLastModified, Stamper.forHash, Stamper.forLastModified)
-
     val previous = previous0 match { case a: Analysis => a }
     val previousRelations = previous.relations
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
@@ -46,30 +51,34 @@ object BloopIncremental {
 
     val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, lookup, previous, current, compile, builder, reporter, log, options)
+    compileIncremental(sources, oracleInputs, lookup, previous, current, compile, builder, reporter, log, options, manager, tracer)
   }
 
   def compileIncremental(
       sources: Iterable[File],
+      oracleInputs: CompilerOracle.Inputs,
       lookup: Lookup,
       previous: Analysis,
       current: ReadStamps,
       compile: CompileFunction,
       callbackBuilder: AnalysisCallbackImpl.Builder,
-      reporter: Reporter,
+      reporter: ZincReporter,
       log: sbt.util.Logger,
       options: IncOptions,
+      manager: ClassFileManager,
+      tracer: BraveTracer,
       // TODO(jvican): Enable profiling of the invalidation algorithm down the road
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(reporter, options, profiler.profileRun)
+    val incremental = new BloopNameHashing(log, reporter, oracleInputs, options, profiler.profileRun, tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray
       val modifiedClasses = initialChanges.external.allModified.toArray
       def isEmpty = modifiedBinaries.isEmpty && modifiedClasses.isEmpty
     }
+
     val (initialInvClasses, initialInvSources) =
       incremental.invalidateInitial(previous.relations, initialChanges)
 
@@ -78,29 +87,29 @@ object BloopIncremental {
       else {
         incremental.log.debug(
           "All initially invalidated classes: " + initialInvClasses + "\n" +
-            "All initially invalidated sources:" + initialInvSources + "\n")
+            "All initially invalidated sources:" + initialInvSources + "\n"
+        )
       }
     }
 
     import sbt.internal.inc.{ClassFileManager => ClassFileManagerImpl}
-    val classfileManager = ClassFileManagerImpl.getClassFileManager(options)
     val analysisTask = {
       val doCompile = (srcs: Set[File], changes: DependencyChanges) => {
         for {
           callback <- Task.now(callbackBuilder.build())
-          _ <- compile(srcs, changes, callback, classfileManager)
+          _ <- compile(srcs, changes, callback, manager)
         } yield callback.get
       }
 
-      incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, classfileManager, 1)
+      incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, manager, 1)
     }
 
     analysisTask.materialize.map {
       case scala.util.Success(analysis) =>
-        classfileManager.complete(true)
+        manager.complete(true)
         (initialInvClasses.nonEmpty || initialInvSources.nonEmpty, analysis)
       case scala.util.Failure(e) =>
-        classfileManager.complete(false)
+        manager.complete(false)
         throw e
     }
   }

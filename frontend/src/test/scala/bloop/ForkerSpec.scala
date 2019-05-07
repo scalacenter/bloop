@@ -44,20 +44,16 @@ class ForkerSpec {
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
       val project = TestUtil.getProject(TestUtil.RootProject, state)
       val env = JavaEnv.default
-      val classpath = project.dependencyClasspath(state.build.getDagFor(project))
+      val classpath = project.fullClasspath(state.build.getDagFor(project), state.client)
       val config = Forker(env, classpath)
       val logger = new RecordingLogger
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
       val mainClass = s"$packageName.$mainClassName"
-      try {
-        val wait = Duration.apply(25, TimeUnit.SECONDS)
-        val exitCode =
-          TestUtil.await(wait)(config.runMain(cwd, mainClass, args, false, logger.asVerbose, opts))
-        val messages = logger.getMessages()
-        op(exitCode, messages)
-      } finally {
-        logger.dump()
-      }
+      val wait = Duration.apply(25, TimeUnit.SECONDS)
+      val exitCode =
+        TestUtil.await(wait)(config.runMain(cwd, mainClass, args, false, logger.asVerbose, opts))
+      val messages = logger.getMessages()
+      op(exitCode, messages)
     }
 
   @Test

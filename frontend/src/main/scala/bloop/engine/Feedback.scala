@@ -27,15 +27,16 @@ object Feedback {
     }
   }
 
-  def detectMissingDependencies(project: Project, missing: List[String]): Option[String] = {
+  def detectMissingDependencies(projectName: String, missing: List[String]): Option[String] = {
     missing match {
       case Nil => None
       case missing :: Nil =>
         Some(
-          s"Missing project '$missing', may cause compilation issues in project '${project.name}'")
+          s"Missing project '$missing' may cause compilation issues in project '${projectName}'"
+        )
       case xs =>
         val deps = missing.map(m => s"'$m'").mkString(", ")
-        Some(s"Missing projects $deps, may cause compilation issues in project '${project.name}'")
+        Some(s"Missing projects $deps, may cause compilation issues in project '${projectName}'")
     }
   }
 
@@ -69,7 +70,7 @@ object Feedback {
        |     If so, change your current directory or point directly to your `.bloop` directory via `--config-dir`.
        |
        |  2. Did you forget to generate configuration files for your build?
-       |     Check the installation instructions https://scalacenter.github.io/bloop/docs/installation/
+       |     Check the installation instructions https://scalacenter.github.io/bloop/setup
     """.stripMargin
 
   val MissingPipeName = "Missing pipe name to establish a local connection in Windows"

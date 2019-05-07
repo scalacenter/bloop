@@ -29,6 +29,10 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
   override def trace(exception: Supplier[Throwable]): Unit = trace(exception.get())
 
   def report(msg: String, t: Throwable): Unit = { error(msg); trace(t) }
+  def handleCompilationEvent(event: CompilationEvent): Unit = ()
+
+  /** Display a message as a warning to user using `showMessage` in BSP-based loggers and `warn` otherwise. */
+  def displayWarningToUser(msg: String): Unit = warn(msg)
 }
 
 /**

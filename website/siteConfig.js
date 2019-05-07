@@ -74,10 +74,11 @@ const siteConfig = {
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
-    {page: 'setup', label: 'Install'},
-    {doc: 'what-is-bloop', label: 'Docs'},
-    {search: true},
-    {href: repoUrl, label: 'GitHub'},
+    { page: 'setup', label: 'Install' },
+    { doc: 'what-is-bloop', label: 'Docs' },
+    { blog: true, label: 'Blog' },
+    { search: true },
+    { href: repoUrl, label: 'GitHub' },
   ],
 
   tools,
@@ -90,7 +91,7 @@ const siteConfig = {
   users,
 
   /* path to images for header/footer */
-  headerIcon: 'img/orca-whale-white.svg',
+  headerIcon: 'img/impure-logo-bloop.svg',
   footerIcon: 'img/docusaurus.svg',
   favicon: 'img/favicon/favicon.ico',
 
@@ -142,6 +143,7 @@ const siteConfig = {
     'https://code.jquery.com/jquery-3.2.1.slim.min.js',
     'https://buttons.github.io/buttons.js',
     'https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js',
+    'https://buttons.github.io/buttons.js',
     baseUrl + 'scripts/code-block-buttons.js'
   ],
 
@@ -171,7 +173,10 @@ const siteConfig = {
   editUrl: `${repoUrl}/edit/master/docs/`,
   algolia: {
     apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
-    indexName: 'bloop_scala'
+    indexName: 'bloop_scala',
+    algoliaOptions: {
+      facetFilters: ["version:VERSION"]
+    }
   },
 };
 

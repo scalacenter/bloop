@@ -2,9 +2,9 @@ package bloop
 
 import java.nio.file.Files
 
+import bloop.data.ClientInfo
 import bloop.io.AbsolutePath
 import bloop.logging.NoopLogger
-import bloop.util.TestUtil
 import org.openjdk.jmh.annotations.Benchmark
 import java.util.concurrent.TimeUnit
 
@@ -14,6 +14,9 @@ import org.openjdk.jmh.annotations._
 import bloop.engine.NoPool
 
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.Await
+import monix.execution.misc.NonFatal
+import bloop.engine.ExecutionContext
 
 @State(Scope.Benchmark)
 @BenchmarkMode(Array(SampleTime))
@@ -24,8 +27,15 @@ import scala.concurrent.duration.FiniteDuration
 class ProjectBenchmark {
   final def loadProject(configDir: AbsolutePath): Unit = {
     import bloop.engine.State
-    val t = State.loadActiveStateFor(configDir, NoPool, CommonOptions.default, NoopLogger)
-    TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS))(t)
+    val client = ClientInfo.CliClientInfo("bloop-cli")
+    val t = State.loadActiveStateFor(configDir, client, NoPool, CommonOptions.default, NoopLogger)
+    val duration = FiniteDuration(10, TimeUnit.SECONDS)
+    val handle = t.runAsync(ExecutionContext.scheduler)
+    try Await.result(handle, duration)
+    catch {
+      case NonFatal(t) => handle.cancel(); throw t
+      case i: InterruptedException => handle.cancel(); throw i
+    }
     ()
   }
 
@@ -39,9 +49,9 @@ class ProjectBenchmark {
       path
     }
 
-    sbt = existing(AbsolutePath(TestUtil.getBloopConfigDir("sbt")))
-    lichess = existing(AbsolutePath(TestUtil.getBloopConfigDir("lichess")))
-    akka = existing(AbsolutePath(TestUtil.getBloopConfigDir("akka")))
+    sbt = existing(AbsolutePath(CommunityBuild.getConfigDirForBenchmark("sbt")))
+    lichess = existing(AbsolutePath(CommunityBuild.getConfigDirForBenchmark("lichess")))
+    akka = existing(AbsolutePath(CommunityBuild.getConfigDirForBenchmark("akka")))
   }
 
   @Benchmark

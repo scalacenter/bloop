@@ -5,8 +5,8 @@ import scala.compat.Platform.EOL
 /**
  * Helper object for easy configuration.
  */
-object DefaultReporterFormat extends (ConfigurableReporter => ReporterFormat) {
-  override def apply(reporter: ConfigurableReporter): DefaultReporterFormat =
+object DefaultReporterFormat extends (Reporter => ReporterFormat) {
+  override def apply(reporter: Reporter): DefaultReporterFormat =
     new DefaultReporterFormat(reporter)
 }
 
@@ -15,7 +15,7 @@ object DefaultReporterFormat extends (ConfigurableReporter => ReporterFormat) {
  *
  * @param reporter The reporter that uses this format.
  */
-class DefaultReporterFormat(reporter: ConfigurableReporter) extends ReporterFormat(reporter) {
+class DefaultReporterFormat(reporter: Reporter) extends ReporterFormat(reporter) {
 
   protected def formatSourcePath(problem: Problem): Option[String] =
     problem.position.pfile.map { filePath =>

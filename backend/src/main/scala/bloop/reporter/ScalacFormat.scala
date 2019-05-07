@@ -5,8 +5,8 @@ import scala.compat.Platform.EOL
 
 import java.util.Optional
 
-object ScalacFormat extends (ConfigurableReporter => ReporterFormat) {
-  override def apply(reporter: ConfigurableReporter): ReporterFormat =
+object ScalacFormat extends (Reporter => ReporterFormat) {
+  override def apply(reporter: Reporter): ReporterFormat =
     new ScalacFormat(reporter)
 }
 
@@ -17,7 +17,7 @@ object ScalacFormat extends (ConfigurableReporter => ReporterFormat) {
  * see LICENSE_Scala
  * Original author: Martin Odersky
  */
-class ScalacFormat(reporter: ConfigurableReporter) extends ReporterFormat(reporter) {
+class ScalacFormat(reporter: Reporter) extends ReporterFormat(reporter) {
 
   override def formatProblem(problem: Problem): String =
     format(problem.position, problem.message)

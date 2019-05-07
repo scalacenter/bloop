@@ -23,36 +23,40 @@ object ReleaseUtils {
    * the version of Bloop that we're releasing.
    */
   val versionedInstallScript = Def.task {
-    val nailgun = Dependencies.nailgunCommit
-    val coursier = Dependencies.coursierVersion
-    val version = Keys.version.value
+    val bloopVersion = Keys.version.value
+    val nailgunCommit = Dependencies.nailgunCommit
+    val coursierVersion = Dependencies.coursierVersion
     val target = Keys.target.value
     val log = Keys.streams.value.log
     val cacheDirectory = Keys.streams.value.cacheDirectory
-    val cachedWrite =
-      FileFunction.cached(cacheDirectory) { scripts =>
-        scripts.map { script =>
-          val lines = IO.readLines(script)
-          val marker = "# INSERT_INSTALL_VARIABLES"
-          lines.span(_ != marker) match {
-            case (before, _ :: after) =>
-              val customizedVariables =
-                List(
-                  s"""NAILGUN_COMMIT = "$nailgun"""",
-                  s"""BLOOP_VERSION = "$version"""",
-                  s"""COURSIER_VERSION = "$coursier""""
-                )
-              val newContent = before ::: customizedVariables ::: after
-              val scriptTarget = target / script.getName
-              IO.writeLines(scriptTarget, newContent)
-              scriptTarget
+    val scriptTemplate = installScript.value
+    val scriptTarget = target / scriptTemplate.getName
 
-            case _ =>
-              sys.error(s"Couldn't find '$marker' in '$script'.")
-          }
-        }
-      }
-    cachedWrite(Set(installScript.value)).head
+    val lines = IO.readLines(scriptTemplate)
+    val marker = "# INSERT_INSTALL_VARIABLES"
+    lines.span(_ != marker) match {
+      case (before, _ :: after) =>
+        val customizedVariables =
+          List(
+            s"""NAILGUN_COMMIT = "${nailgunCommit}"""",
+            s"""BLOOP_VERSION = "${bloopVersion}"""",
+            s"""COURSIER_VERSION = "${coursierVersion}""""
+          )
+        val newContent = before ::: customizedVariables ::: after
+        IO.writeLines(scriptTarget, newContent)
+        scriptTarget
+
+      case _ =>
+        sys.error(s"Couldn't find '$marker' in '$scriptTemplate'.")
+    }
+  }
+
+  val generateInstallationWitness = Def.task {
+    val target = Keys.target.value
+    val bloopVersion = Keys.version.value
+    val witnessFile = target / "installed.txt"
+    IO.writeLines(witnessFile, List(bloopVersion))
+    witnessFile
   }
 
   /* Defines an origin where the left is a path to a local file and the right a tag name. */
@@ -89,7 +93,7 @@ object ReleaseUtils {
     }
 
     s"""class Bloop < Formula
-       |  desc "Bloop gives you fast edit/compile/test workflows for Scala."
+       |  desc "Bloop is a build server to compile, test and run Scala fast"
        |  homepage "https://github.com/scalacenter/bloop"
        |  version "$version"
        |  $url
@@ -189,7 +193,7 @@ object ReleaseUtils {
        |  "env_add_path": "$$dir",
        |  "env_set": {
        |    "HOME": "$$dir",
-       |    "SCOOP": "true"
+       |    "BLOOP_IN_SCOOP": "true"
        |  },
        |  "installer": {
        |    "script": "python $$dir/install.py --dest $$dir"
@@ -218,26 +222,13 @@ object ReleaseUtils {
     val repository = "https://github.com/scalacenter/scoop-bloop.git"
     val buildBase = BuildKeys.buildBase.value
     val version = Keys.version.value
+    val installScript = versionedInstallScript.value
+    val installSha = sha256(installScript)
     val token = GitUtils.authToken()
     cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.json"
       val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
-      val contents =
-        s"""{
-           |  "version": "$version",
-           |  "url": "$url",
-           |  "depends": "python",
-           |  "bin": "bloop.cmd",
-           |  "env_add_path": "$$dir",
-           |  "env_set": {
-           |    "HOME": "$$dir",
-           |    "SCOOP": "true"
-           |  },
-           |  "installer": {
-           |    "script": "python $$dir/install.py --dest $$dir"
-           |  }
-           |}
-        """.stripMargin
+      val contents = generateScoopFormulaContents(version, installSha, Right(inputs.tag))
       FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
   }
@@ -302,7 +293,7 @@ object ReleaseUtils {
        |  # systemd service
        |  install -Dm644 systemd/bloop.service "$$pkgdir"/usr/lib/systemd/user/bloop.service
        |}
-    |""".stripMargin
+       |""".stripMargin
   }
 
   def generateArchInfoContents(
@@ -323,7 +314,7 @@ object ReleaseUtils {
        |source = $source
        |sha256sums = $installSha
        |pkgname = bloop
-    |""".stripMargin
+       |""".stripMargin
   }
 
   /**
@@ -368,7 +359,13 @@ object ReleaseUtils {
   private final val bloopoidEmail = "bloop@trashmail.ws"
 
   /** Clones a git repository, generates a formula/package and pushes the result.*/
-  def cloneAndPush(repository: String, buildBase: File, version: String, auth: GitAuth, pushTag: Boolean)(
+  def cloneAndPush(
+      repository: String,
+      buildBase: File,
+      version: String,
+      auth: GitAuth,
+      pushTag: Boolean
+  )(
       generateFormula: FormulaInputs => Seq[FormulaArtifact]
   ): Unit = {
     val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {

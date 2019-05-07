@@ -46,7 +46,13 @@ object CommonOptions {
   object PrettyProperties {
     def from(p: Properties): PrettyProperties = {
       val pp = new PrettyProperties()
-      pp.putAll(p)
+      // Scala bug #10418 work-around
+      import scala.collection.JavaConverters._
+      p.asScala.foreach {
+        case (k, v) =>
+          pp.setProperty(k, v)
+      }
+      
       pp
     }
   }

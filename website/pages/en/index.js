@@ -16,6 +16,12 @@ const GridBlock = CompLibrary.GridBlock;
 
 const siteConfig = require(`${process.cwd()}/siteConfig.js`);
 
+function repoUrl() {
+  return `https://github.com/${siteConfig.organizationName}/${
+    siteConfig.projectName
+    }`;
+}
+
 function imgUrl(img) {
   return `${siteConfig.baseUrl}img/${img}`;
 }
@@ -87,15 +93,16 @@ const Hero = ({ language }) => (
   <div className="hero">
     <div className="hero__container">
 
-      <Logo img_src={imgUrl('orca-whale-white.svg')} />
+      <Logo img_src={imgUrl('impure-logo-bloop.svg')} />
       <h1>
         Bloop is a Scala build server.
       </h1>
-      <p>
+      <p style={{ margin: "1rem 0 1.5rem 0" }}>
         Compile, test and run Scala fast.
       </p>
+      <a class="github-button" href={`${repoUrl()}`} data-size="large" data-show-count="true" aria-label="Star ntkme/github-buttons on GitHub">Star</a>
     </div>
-  </div>
+  </div >
 );
 
 class HomeSplash extends React.Component {
@@ -173,12 +180,12 @@ const Features1 = () => (
       },
       {
         content:
-           "|            | Supported     |\n" +
-           "| -----------|-------------- |\n" +
-           "| **sbt**    | ✅            |\n" +
-           "| **Maven**  | ✅            |\n" +
-           "| **Gradle** | ✅            |\n" +
-           "| **mill**   | ✅            |\n"
+          "|            | Supported     |\n" +
+          "| -----------|-------------- |\n" +
+          "| **sbt**    | ✅            |\n" +
+          "| **Maven**  | ✅            |\n" +
+          "| **Gradle** | ✅            |\n" +
+          "| **mill**   | ✅            |\n"
       },
     ]}
   </Block>
@@ -203,14 +210,14 @@ const Features2 = () => (
 const FeatureCallout = () => (
   <div
     className="productShowcaseSection paddingBottom"
-    style={{textAlign: 'center'}}>
+    style={{ textAlign: 'center' }}>
     <h2>Maintained by the Scala Center</h2>
     <MarkdownBlock>
-    The Scala Center is a non-profit organization established at EPFL (École Polytechnique Federal de Lausanne) with the goals of promoting, supporting, and advancing the Scala language.
+      The Scala Center is a non-profit organization established at EPFL (École Polytechnique Federal de Lausanne) with the goals of promoting, supporting, and advancing the Scala language.
     </MarkdownBlock>
     <img
       src={imgUrl('scala-center-logo.png')}
-      style={{paddingTop: '30px'}}></img>
+      style={{ paddingTop: '30px' }}></img>
   </div>
 );
 

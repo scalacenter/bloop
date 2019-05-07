@@ -1,5 +1,6 @@
 package bloop.util
 
+import java.io.File
 import java.nio.charset.Charset
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
@@ -9,9 +10,10 @@ import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
-import bloop.data.{Origin, Project}
+import bloop.data.{Origin, Project, ClientInfo}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
+import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.Paths.delete
 import bloop.io.{AbsolutePath, RelativePath}
@@ -23,7 +25,10 @@ import bloop.logging.{
   Logger,
   RecordingLogger
 }
+
 import _root_.monix.eval.Task
+import _root_.monix.execution.Scheduler
+
 import org.junit.Assert
 import sbt.internal.inc.bloop.ZincInternals
 
@@ -55,12 +60,11 @@ object TestUtil {
   }
 
   final lazy val scalaInstance: ScalaInstance = {
-    val logger = new RecordingLogger
     ScalaInstance.resolve(
       "org.scala-lang",
       "scala-compiler",
       Properties.versionNumberString,
-      logger
+      bloop.logging.NoopLogger
     )(bloop.engine.ExecutionContext.ioScheduler)
   }
 
@@ -94,14 +98,17 @@ object TestUtil {
     }
   }
 
-  def await[T](duration: Duration)(t: Task[T]): T = {
-    val handle = t
-      .runAsync(ExecutionContext.scheduler)
+  def await[T](duration: Duration, scheduler: Scheduler)(t: Task[T]): T = {
+    val handle = t.runAsync(scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t
       case i: InterruptedException => handle.cancel(); throw i
     }
+  }
+
+  def await[T](duration: Duration)(t: Task[T]): T = {
+    await(duration, ExecutionContext.scheduler)(t)
   }
 
   def interpreterTask(a: Action, state: State): Task[State] = {
@@ -147,72 +154,54 @@ object TestUtil {
     }
   }
 
-  private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
-  private final val benchmarksIndexPath = BuildInfo.localBenchmarksIndex.toPath
-
-  private[bloop] lazy val testProjectsIndex = indexFromPath(integrationsIndexPath, false)
-  private[bloop] lazy val localBenchmarksIndex = indexFromPath(benchmarksIndexPath, true)
-  private[bloop] def indexFromPath(
-      target: Path,
-      allowMissing: Boolean
-  ): Map[String, Path] = {
-    if (Files.exists(target)) {
-      import scala.collection.JavaConverters._
-      val lines = Files.readAllLines(target).asScala
-      val entries = lines.map(line => line.split(",").toList)
-      entries.map {
-        case List(key, value) => key -> Paths.get(value)
-        case _ => sys.error(s"Malformed index file: ${lines.mkString(System.lineSeparator)}")
-      }.toMap
-    } else if (!allowMissing) sys.error(s"Missing integration index at ${target}!")
-    else Map.empty
-  }
-
-  def getConfigDirForBenchmark(name: String): Path = {
-    testProjectsIndex
-      .get(name)
-      .orElse(localBenchmarksIndex.get(name))
-      .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
-  }
-
   def getBloopConfigDir(buildName: String): Path = {
-    def fallbackToIntegrationBaseDir(buildName: String): Path = {
-      testProjectsIndex
-        .get(buildName)
-        .getOrElse(sys.error(s"Project ${buildName} does not exist at ${integrationsIndexPath}"))
-    }
-
     val baseDirURL = ThisClassLoader.getResource(buildName)
     if (baseDirURL == null) {
-      // The project is not in `test/resources`, let's load it from the integrations directory
-      fallbackToIntegrationBaseDir(buildName)
+      sys.error(s"Project ${buildName} does not exist in test resources")
     } else {
       val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
       val bloopConfigDir = baseDir.resolve("bloop-config")
       if (Files.exists(bloopConfigDir)) bloopConfigDir
-      // The project is not an integration test, let's load it from the integrations directory
-      else fallbackToIntegrationBaseDir(buildName)
+      else sys.error(s"Project ${buildName} does not exist in test resources")
     }
   }
 
   private final val ThisClassLoader = this.getClass.getClassLoader
-  def loadTestProject(
-      buildName: String,
-      transformProjects: List[Project] => List[Project] = identity
-  ): State = loadTestProject(getBloopConfigDir(buildName), transformProjects)
+
+  def loadTestProject(buildName: String): State = {
+    val configDir = getBloopConfigDir(buildName)
+    val logger = BloopLogger.default(configDir.toString())
+    loadTestProject(configDir, logger, true)
+  }
+
+  def loadTestProject(buildName: String, logger: Logger): State =
+    loadTestProject(getBloopConfigDir(buildName), logger, true)
+
+  def loadTestProject(configDir: Path): State = {
+    val logger = BloopLogger.default(configDir.toString())
+    loadTestProject(configDir, logger, false)
+  }
+
+  def loadTestProject(configDir: Path, logger: Logger): State =
+    loadTestProject(configDir, logger, false, identity[List[Project]] _)
+
+  def loadTestProject(configDir: Path, logger: Logger, emptyResults: Boolean): State =
+    loadTestProject(configDir, logger, emptyResults, identity[List[Project]] _)
 
   def loadTestProject(
       configDir: Path,
+      logger: Logger,
+      emptyResults: Boolean,
       transformProjects: List[Project] => List[Project]
   ): State = {
-    val logger = BloopLogger.default(configDir.toString())
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = transformProjects(BuildLoader.loadSynchronously(configDirectory, logger))
     val build = Build(configDirectory, loadedProjects)
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
-    state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
+    val state1 = state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
+    if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
   }
 
   private[bloop] final val runAndTestProperties = {
@@ -302,7 +291,7 @@ object TestUtil {
   }
 
   def noPreviousAnalysis(project: Project, state: State): Boolean =
-    !state.results.lastSuccessfulResultOrEmpty(project).analysis().isPresent
+    !state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().isPresent
 
   def hasPreviousResult(project: Project, state: State): Boolean =
     state.results.lastSuccessfulResult(project).isDefined
@@ -346,7 +335,7 @@ object TestUtil {
       rawClasspath = classpath,
       resources = Nil,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
-      classesDir = AbsolutePath(target),
+      genericClassesDir = AbsolutePath(target),
       scalacOptions = Nil,
       javacOptions = Nil,
       sources = sourceDirectories,
@@ -448,7 +437,7 @@ object TestUtil {
   }
 
   def universalPath(path: String): String = {
-    path.split("/").mkString(java.io.File.separator)
+    path.split("/").mkString(File.separator)
   }
 
   def createSimpleRecursiveBuild(bloopDir: RelativePath): AbsolutePath = {
@@ -532,13 +521,15 @@ object TestUtil {
           sys.error("First line of contents file does not start with `/`")
         } else {
           val contents = lines.tail.mkString(System.lineSeparator)
-          ParsedFile(RelativePath(potentialPath.stripPrefix("/")), contents)
+          val relPath = potentialPath.replace("/", File.separator).stripPrefix(File.separator)
+          ParsedFile(RelativePath(relPath), contents)
         }
     }
   }
 
   def loadStateFromProjects(baseDir: AbsolutePath, projects: List[TestProject]): State = {
     val configDir = TestProject.populateWorkspace(baseDir, projects)
-    TestUtil.loadTestProject(configDir.underlying, identity(_))
+    val logger = BloopLogger.default(configDir.toString())
+    TestUtil.loadTestProject(configDir.underlying, logger, false, identity(_))
   }
 }

@@ -41,7 +41,7 @@ object Paths {
    *
    * Example:
    * ```
-   * Paths.getAll(src, "glob:**.{scala,java}")
+   * Paths.pathFilesUnder(src, "glob:**.{scala,java}")
    * ```
    */
   def pathFilesUnder(
@@ -79,7 +79,7 @@ object Paths {
     out.toList
   }
 
-  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime)
+  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime, size: Long = 0L)
 
   /**
    * Get all files under `base` that match the pattern `pattern` up to depth `maxDepth`.
@@ -105,8 +105,13 @@ object Paths {
 
     val visitor = new FileVisitor[Path] {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (matcher.matches(file))
-          out += AttributedPath(AbsolutePath(file), attributes.lastModifiedTime())
+        if (matcher.matches(file)) {
+          out += AttributedPath(
+            AbsolutePath(file),
+            attributes.lastModifiedTime(),
+            attributes.size()
+          )
+        }
         FileVisitResult.CONTINUE
       }
 
@@ -138,24 +143,58 @@ object Paths {
   /**
    * Recursively delete `path` and all its content.
    *
+   * Ignores any IO error that happens related to the deletion.
+   *
    * @param path The path to delete
    */
   def delete(path: AbsolutePath): Unit = {
-    Files.walkFileTree(
-      path.underlying,
-      new SimpleFileVisitor[Path] {
-        override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-          Files.delete(file)
-          FileVisitResult.CONTINUE
-        }
+    try {
+      Files.walkFileTree(
+        path.underlying,
+        new SimpleFileVisitor[Path] {
+          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            Files.delete(file)
+            FileVisitResult.CONTINUE
+          }
 
-        override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-          try Files.delete(dir)
-          catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
-          FileVisitResult.CONTINUE
+          override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+            try Files.delete(dir)
+            catch { case _: DirectoryNotEmptyException => () } // Happens sometimes on Windows?
+            FileVisitResult.CONTINUE
+          }
         }
-      }
-    )
+      )
+    } catch { case _: IOException => () }
     ()
+  }
+
+  def isDirectoryEmpty(path: AbsolutePath): Boolean = {
+    var isEmpty: Boolean = true
+    import java.nio.file.NoSuchFileException
+    try {
+      Files.walkFileTree(
+        path.underlying,
+        new SimpleFileVisitor[Path] {
+          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            isEmpty = false
+            FileVisitResult.TERMINATE
+          }
+
+          override def preVisitDirectory(
+              directory: Path,
+              attributes: BasicFileAttributes
+          ): FileVisitResult = {
+            if (path.underlying == directory) FileVisitResult.CONTINUE
+            else {
+              isEmpty = false
+              FileVisitResult.TERMINATE
+            }
+          }
+        }
+      )
+    } catch {
+      case _: NoSuchFileException => isEmpty = true
+    }
+    isEmpty
   }
 }

@@ -6,14 +6,16 @@ import bloop.cli._
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
-import bloop.logging.DebugFilter
+import bloop.logging.{DebugFilter, Logger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompilationTask, LinkTask, Tasks, TestTask}
+import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
-import bloop.data.{Platform, Project}
+import bloop.data.{Platform, Project, ClientInfo}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.reporter.{ReporterInputs, LogReporter}
+
 import caseapp.core.CommandMessages
 import monix.eval.Task
 
@@ -103,22 +105,27 @@ object Interpreter {
     Aggregate(projects.map(p => state.build.getDagFor(p)))
 
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
-    val scheduler = ExecutionContext.bspScheduler
-    BspServer.run(cmd, state, RelativePath(".bloop"), scheduler)
+    import ExecutionContext.{scheduler, ioScheduler}
+    BspServer
+      .run(cmd, state, RelativePath(".bloop"), None, None, scheduler, ioScheduler)
+      .executeOn(ioScheduler)
   }
 
   private[bloop] def watch(projects: List[Project], state: State)(
-      f: State => Task[State]): Task[State] = {
+      f: State => Task[State]
+  ): Task[State] = {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
     val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
-    val fg = (state: State) =>
-      f(state).map { state =>
+    val fg = (state: State) => {
+      val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
+      f(newState).map { state =>
         watcher.notifyWatch()
         State.stateCache.updateBuild(state)
+      }
     }
 
-    if (!BspServer.isWindows)
+    if (!bloop.util.CrossPlatform.isWindows)
       state.logger.info("\u001b[H\u001b[2J")
     // Force the first execution before relying on the file watching task
     fg(state).flatMap(newState => watcher.watch(newState, fg))
@@ -140,16 +147,17 @@ object Interpreter {
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       val dag = getProjectsDag(projects, state)
-      val createReporter = (project: Project, cwd: AbsolutePath) =>
-        CompilationTask.toReporter(project, cwd, config, state.logger)
-      CompilationTask.compile(
+      val createReporter = (inputs: ReporterInputs[Logger]) =>
+        new LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
+      CompileTask.compile(
         state,
         dag,
         createReporter,
         compilerMode,
         cmd.pipeline,
         excludeRoot,
-        Promise[Unit]()
+        Promise[Unit](),
+        state.logger
       )
     }
 
@@ -236,34 +244,35 @@ object Interpreter {
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
       // Projects to test != projects that need compiling
+      val userDefinedProjects = lookup.found
       val (projectsToCompile, projectsToTest) = {
         if (!cmd.cascade) {
-          val projects = lookup.found
           val projectsToTest = {
-            if (!cmd.includeDependencies) projects
-            else projects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
+            if (!cmd.includeDependencies) userDefinedProjects
+            else userDefinedProjects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
           }
 
-          (projects, projectsToTest)
+          (userDefinedProjects, projectsToTest)
         } else {
-          val result = Dag.inverseDependencies(state.build.dags, lookup.found)
-          (result.reduced, result.all)
+          val result = Dag.inverseDependencies(state.build.dags, userDefinedProjects)
+          (result.reduced, result.strictlyInverseNodes)
         }
       }
 
       logger.debug(
-        s"Test command will compile ${projectsToCompile.mkString(", ")} transitively"
-      )(DebugFilter.Test)
-
-      logger.debug(
-        s"Test command will test ${projectsToTest.mkString(", ")}"
+        s"Preparing compilation of ${projectsToCompile.mkString(", ")} transitively"
       )(DebugFilter.Test)
 
       def testAllProjects(state: State): Task[State] = {
         val testFilter = TestInternals.parseFilters(cmd.only)
         compileAnd(cmd, state, projectsToCompile, false, "`test`") { state =>
+          logger.debug(
+            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+          )(DebugFilter.Test)
+
           val handler = new LoggingEventHandler(state.logger)
-          Tasks.test(state, projectsToTest, cmd.args, testFilter, handler)
+          val failIfNoFrameworks = userDefinedProjects.size == projectsToTest.size
+          Tasks.test(state, projectsToTest, cmd.args, testFilter, handler, failIfNoFrameworks)
         }
       }
 

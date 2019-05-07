@@ -2,6 +2,7 @@ package bloop.launcher
 
 import java.io._
 import java.net.Socket
+import java.net.URL
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
 
@@ -35,7 +36,8 @@ object Launcher
       StandardCharsets.UTF_8,
       Shell.default,
       nailgunPort = None,
-      Promise[Unit]()
+      Promise[Unit](),
+      Installer.defaultWebsiteURL(_)
     )
 
 class LauncherMain(
@@ -45,7 +47,8 @@ class LauncherMain(
     charset: Charset,
     val shell: Shell,
     val nailgunPort: Option[Int],
-    startedServer: Promise[Unit]
+    startedServer: Promise[Unit],
+    generateBloopInstallerURL: String => URL
 ) {
   private final val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
   private final val bloopAdditionalArgs: List[String] = {
@@ -75,7 +78,8 @@ class LauncherMain(
     val skipBspConnection = cliFlags.exists(_ == SkipBspConnection)
     if (cliArgs.size == 1) {
       val bloopVersion = cliArgs.apply(0)
-      runLauncher(bloopVersion, skipBspConnection, jvmOptions.toList)
+      val bloopInstallerURL = generateBloopInstallerURL(bloopVersion)
+      runLauncher(bloopVersion, bloopInstallerURL, skipBspConnection, jvmOptions.toList)
     } else {
       printError(Feedback.NoBloopVersion, out)
       FailedToParseArguments
@@ -84,6 +88,7 @@ class LauncherMain(
 
   def runLauncher(
       bloopVersionToInstall: String,
+      bloopInstallerURL: URL,
       skipBspConnection: Boolean,
       serverJvmOptions: List[String]
   ): LauncherStatus = {
@@ -92,7 +97,13 @@ class LauncherMain(
     println("Starting the bsp launcher for bloop...", out)
     val bridge = new BspBridge(clientIn, clientOut, startedServer, out, shell, launcherTmpDir)
 
-    connectToBloopBspServer(bloopVersionToInstall, skipBspConnection, bridge, serverJvmOptions) match {
+    connectToBloopBspServer(
+      bloopVersionToInstall,
+      bloopInstallerURL,
+      skipBspConnection,
+      bridge,
+      serverJvmOptions
+    ) match {
       case Right(Left(_)) => SuccessfulRun
 
       case Right(Right(Some(socket))) =>
@@ -113,6 +124,7 @@ class LauncherMain(
   type ConnectionResult = Either[Unit, Option[Socket]]
   def connectToBloopBspServer(
       bloopVersion: String,
+      bloopInstallerURL: URL,
       skipBspConnection: Boolean,
       bridge: BspBridge,
       serverJvmOptions: List[String]
@@ -158,7 +170,7 @@ class LauncherMain(
 
     val latestServerStatus = detectServerState(bloopVersion) match {
       case s @ Some(_) => println(Feedback.DetectedBloopinstallation, out); s
-      case None => recoverFromUninstalledServer(bloopVersion)
+      case None => recoverFromUninstalledServer(bloopVersion, bloopInstallerURL)
     }
 
     latestServerStatus match {
@@ -176,7 +188,7 @@ class LauncherMain(
         println("Server was started in a thread, waiting until it's up and running...", out)
 
         // Run `bloop about` until server is running for a max of N attempts (about 10s)
-        val maxAttempts: Int = 25
+        val maxAttempts: Int = 40
         var attempts: Int = 1
         var totalMs: Long = 0
         var listening: Option[ServerStatus] = None
@@ -187,12 +199,12 @@ class LauncherMain(
             case _ => false
           }
         }) {
-          val waitMs = 400.toLong
+          val waitMs = 250.toLong
           Thread.sleep(waitMs)
           totalMs += waitMs
-          // In total, we wait about 6 seconds until the server starts...
-          println(s"Sleeping for ${waitMs}ms until we run `bloop about` to check server", out)
-          listening = shell.runBloopAbout(binary, out)
+          val port = nailgunPort.getOrElse(8212)
+          println(s"Sleeping for ${waitMs}ms until we connect to server port $port", out)
+          listening = shell.connectToBloopPort(binary, port, out)
           attempts += 1
         }
 
@@ -282,7 +294,10 @@ class LauncherMain(
    * @param bloopVersion The version we want to install, passed in by the client.
    * @return An optional server state depending on whether any of the installation method succeeded.
    */
-  def recoverFromUninstalledServer(bloopVersion: String): Option[ServerStatus] = {
+  def recoverFromUninstalledServer(
+      bloopVersion: String,
+      bloopInstallerURL: URL
+  ): Option[ServerStatus] = {
     isValidBloopVersion(bloopVersion) match {
       case Some(true) =>
         println(Feedback.installingBloop(bloopVersion), out)
@@ -292,7 +307,8 @@ class LauncherMain(
           bloopVersion,
           out,
           detectServerState(_),
-          shell
+          shell,
+          bloopInstallerURL
         )
 
         fullyInstalled.orElse {
@@ -354,7 +370,7 @@ class LauncherMain(
       }
 
       println(Feedback.startingBloopServer(startCmd), out)
-      val status = shell.runCommand(startCmd, None)
+      val status = shell.runCommand(startCmd, Environment.cwd, None)
 
       // Communicate to the driver logic in `connectToServer` if server failed or not
       bloopBackgroundError = Some(startCmd.mkString(" ") -> status)

@@ -16,8 +16,8 @@ val `bloop-build` = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
-    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3"),
-    addSbtPlugin("com.geirsson" % "sbt-docusaurus" % "0.3.3"),
+    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M13-2"),
+    addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),
     libraryDependencies += { "org.scala-sbt" %% "scripted-plugin" % sbtVersion.value },
     // Let's add our sbt plugin to the sbt too ;)
     unmanagedSourceDirectories in Compile ++= {
@@ -54,7 +54,8 @@ Keys.onLoad in Global := {
       throw new sbt.internal.util.MessageOnlyException(
         """
           |It looks like you didn't fully set up Bloop after cloning (git submodules are missing).
-          |Read the contributing guide for more information: https://scalacenter.github.io/bloop/docs/developer-documentation/#opening-up-our-sbt-build""".stripMargin)
+          |Read the contributing guide for more information: https://scalacenter.github.io/bloop/docs/developer-documentation/#opening-up-our-sbt-build""".stripMargin
+      )
     } else state
   }
 }

@@ -8,9 +8,13 @@ import bloop.logging.{DebugFilter, Logger, Slf4jAdapter}
 import bloop.util.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.FiniteDuration
+
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
+
 import monix.eval.Task
+import monix.reactive.Consumer
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 
@@ -27,17 +31,18 @@ final class SourceWatcher private (
 
   def watch(state0: State, action: State => Task[State]): Task[State] = {
     val ngout = state0.commonOptions.ngout
-    def runAction(state: State, event: DirectoryChangeEvent): Task[State] = {
-      // Someone that wants this to be supported by Windows will need to make it work for all terminals
-      if (!BspServer.isWindows)
-        logger.info("\u001b[H\u001b[2J") // Clean the terminal before acting on the file event action
-      logger.debug(s"A ${event.eventType()} in ${event.path()} has triggered an event")
+    def runAction(state: State, events: Seq[DirectoryChangeEvent]): Task[State] = {
+      // Windows is not supported for now
+      if (!bloop.util.CrossPlatform.isWindows)
+        logger.info("\u001b[H\u001b[2J") // Clean terminal before acting on the event action
+      events.foreach(e => logger.debug(s"A ${e.eventType()} in ${e.path()} has triggered an event"))
       action(state)
     }
 
     val (observer, observable) =
       Observable.multicast[DirectoryChangeEvent](MulticastStrategy.publish)(
-        ExecutionContext.ioScheduler)
+        ExecutionContext.ioScheduler
+      )
 
     var watchingEnabled: Boolean = true
     val listener = new DirectoryChangeListener {
@@ -83,22 +88,53 @@ final class SourceWatcher private (
       watcherHandle.complete(null)
       observer.onComplete()
       ngout.println(
-        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled")
+        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled"
+      )
     }
 
+    import SourceWatcher.EventStream
     val fileEventConsumer = {
-      FoldLeftAsyncConsumer.consume[State, DirectoryChangeEvent](state0) {
-        case (state, event) =>
-          event.eventType match {
-            case EventType.CREATE => runAction(state, event)
-            case EventType.MODIFY => runAction(state, event)
-            case EventType.OVERFLOW => runAction(state, event)
-            case EventType.DELETE => Task.now(state)
+      FoldLeftAsyncConsumer.consume[State, EventStream](state0) {
+        case (state, stream) =>
+          logger.debug(s"Received $stream in file watcher consumer")
+          stream match {
+            // Ignore overflow for now, though we could restart run if changes are found
+            case EventStream.Overflow => Task.now(state)
+            case EventStream.SourceChanges(events) =>
+              val eventsThatForceAction = events.collect { event =>
+                event.eventType match {
+                  case EventType.CREATE => event
+                  case EventType.MODIFY => event
+                  case EventType.OVERFLOW => event
+                }
+              }
+
+              eventsThatForceAction match {
+                case Nil => Task.now(state)
+                case events => runAction(state, events)
+              }
           }
       }
     }
 
+    /*
+     * We capture events during a time window of 40ms to give time to the OS to
+     * give us all of the modifications to files. After that, we trigger the
+     * action and we don't emit more sources while the action runs. If there
+     * have been more file watching events happening while the action was
+     * running, at the end we send an overflow and check if the source inputs
+     * have changed. If they have, we force another action, otherwise we call it
+     * a day and wait for the next events.
+     */
+
+    import bloop.util.monix.BloopBufferTimedObservable
+    val timespan = FiniteDuration(40, "ms")
     observable
+      .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
+      // Filter out empty events coming from buffer timed operator
+      .collect { case s if !s.isEmpty => s }
+      .map(es => EventStream.SourceChanges(es))
+      .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
   }
@@ -117,5 +153,11 @@ object SourceWatcher {
     val dirs = existingPaths.filter(p => Files.isDirectory(p))
     val files = existingPaths.filter(p => Files.isRegularFile(p))
     new SourceWatcher(projectNames, dirs, files, logger)
+  }
+
+  sealed trait EventStream
+  object EventStream {
+    case object Overflow extends EventStream
+    case class SourceChanges(es: Seq[DirectoryChangeEvent]) extends EventStream
   }
 }

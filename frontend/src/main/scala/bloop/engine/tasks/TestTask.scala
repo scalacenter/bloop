@@ -33,7 +33,7 @@ object TestTask {
    *                         contain arguments starting with `-J`, they will be interpreted
    *                         as jvm options.
    * @param testFilter The test filter for test suites.
-   * @param failureHandler The handler that will intervene if there's an error.
+   * @param handler The handler that will intervene if there's an error.
    * @return A status code that will signal success or failure.
    */
   def runTestSuites(
@@ -42,87 +42,102 @@ object TestTask {
       cwd: AbsolutePath,
       rawTestOptions: List[String],
       testFilter: String => Boolean,
-      failureHandler: LoggingEventHandler
+      handler: LoggingEventHandler,
+      failIfNoTestFrameworks: Boolean
   ): Task[Int] = {
     import state.logger
-    TestTask.discoverTestFrameworks(project, state).flatMap {
-      case None => Task.now(ExitStatus.TestExecutionError.code)
-      case Some(found) =>
-        val frameworks = found.frameworks
-        if (frameworks.isEmpty) logger.error("No test frameworks found")
-        else logger.debug(s"Found test frameworks: ${frameworks.map(_.name).mkString(", ")}")
+    def handleEmptyTestFrameworks: Task[Int] = {
+      if (failIfNoTestFrameworks) {
+        logger.error(s"Missing configured test frameworks in ${project.name}")
+        Task.now(1)
+      } else {
+        logger.warn(s"Missing configured test frameworks in ${project.name}")
+        Task.now(0)
+      }
+    }
 
-        val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
-        val frameworkArgs = considerFrameworkArgs(frameworks, userTestOptions, logger)
-        val args = fixTestOptions(project, project.testOptions.arguments ++ frameworkArgs)
-        logger.debug(s"Running test suites with arguments: $args")
-
-        val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
-        val analysis = lastCompileResult.analysis().toOption.getOrElse {
-          logger
-            .warn(s"Test execution was triggered, but no compilation detected for ${project.name}")
-          Analysis.empty
+    val lastCompilerResult = state.results.latestResult(project)
+    val lastSuccessful = state.results.lastSuccessfulResultOrEmpty(project)
+    val compileAnalysis = lastSuccessful.previous.analysis().toOption.getOrElse(Analysis.Empty)
+    if (compileAnalysis == Analysis.Empty) {
+      if (lastCompilerResult == bloop.Compiler.Result.Empty) {
+        logger.warn(s"Skipping test for ${project.name} because compiler result is empty")
+        Task.now(0)
+      } else {
+        if (failIfNoTestFrameworks) {
+          logger.error(s"Missing compilation to test ${project.name}")
+          Task.now(1)
+        } else {
+          logger.warn(s"Missing compilation to test ${project.name}")
+          Task.now(0)
         }
+      }
+    } else {
+      TestTask.discoverTestFrameworks(project, state).flatMap {
+        case None => handleEmptyTestFrameworks
+        case Some(found) if found.frameworks.isEmpty => handleEmptyTestFrameworks
+        case Some(found) =>
+          val configuredFrameworks = found.frameworks
+          logger.debug(s"Found test frameworks: ${configuredFrameworks.map(_.name).mkString(", ")}")
+          val suites =
+            discoverTestSuites(state, project, configuredFrameworks, compileAnalysis, testFilter)
+          val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
+          val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
+          val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
+          val args = project.testOptions.arguments ++ frameworkArgs
+          logger.debug(s"Running test suites with arguments: $args")
 
-        val discovered = discoverTestSuites(state, project, frameworks, analysis, testFilter)
-        found match {
-          case DiscoveredTestFrameworks.Jvm(_, forker, loader) =>
-            val opts = state.commonOptions
-            TestInternals.execute(
-              cwd,
-              forker,
-              loader,
-              discovered,
-              args,
-              userJvmOptions,
-              failureHandler,
-              logger,
-              opts
-            )
-          case DiscoveredTestFrameworks.Js(_, closeResources) =>
-            val cancelled: AtomicBoolean = AtomicBoolean(false)
-            def cancel(): Unit = {
-              if (!cancelled.getAndSet(true)) {
-                closeResources()
+          found match {
+            case DiscoveredTestFrameworks.Jvm(frameworks, forker, loader) =>
+              val opts = state.commonOptions
+              // FORMAT: OFF
+              TestInternals.execute(cwd, forker, loader, suites, args, userJvmOptions, handler, logger, opts)
+              // FORMAT: ON
+            case DiscoveredTestFrameworks.Js(frameworks, closeResources) =>
+              val cancelled: AtomicBoolean = AtomicBoolean(false)
+              def cancel(): Unit = {
+                if (!cancelled.getAndSet(true)) {
+                  closeResources()
+                }
               }
-            }
 
-            def reportTestException(t: Throwable): scala.util.Try[Int] = {
-              logger.error(Feedback.printException("Unexpected test-related exception", t))
-              logger.trace(t)
-              scala.util.Success(ExitStatus.TestExecutionError.code)
-            }
+              def reportTestException(t: Throwable): scala.util.Try[Int] = {
+                logger.error(Feedback.printException("Unexpected test-related exception", t))
+                logger.trace(t)
+                scala.util.Success(ExitStatus.TestExecutionError.code)
+              }
 
-            val checkCancelled = () => cancelled.get
-            TestInternals
-              .runJsTestsInProcess(discovered, args, failureHandler, checkCancelled, logger)
-              .materialize
-              .doOnCancel(Task(cancel()))
-              .map {
-                case s @ scala.util.Success(exitCode) => closeResources(); s
-                case f @ scala.util.Failure(e) =>
-                  e match {
-                    case NonFatal(t) =>
-                      if (!checkCancelled()) {
-                        closeResources()
-                        reportTestException(t)
-                      } else {
-                        t.getCause match {
-                          // Swallow the ISE because we know it happens when cancelling
-                          case _: IllegalStateException =>
-                            logger.debug("Test server has been successfully closed.")
-                            scala.util.Success(0)
-                          // Swallow the IAE because we know it happens when cancelling
-                          case _: IllegalArgumentException =>
-                            logger.debug("Test server has been successfully closed.")
-                            scala.util.Success(0)
-                          case _ => reportTestException(t)
+              val checkCancelled = () => cancelled.get
+              TestInternals
+                .runJsTestsInProcess(suites, args, handler, checkCancelled, logger)
+                .materialize
+                .doOnCancel(Task(cancel()))
+                .map {
+                  case s @ scala.util.Success(exitCode) => closeResources(); s
+                  case f @ scala.util.Failure(e) =>
+                    e match {
+                      case NonFatal(t) =>
+                        if (!checkCancelled()) {
+                          closeResources()
+                          reportTestException(t)
+                        } else {
+                          t.getCause match {
+                            // Swallow the ISE because we know it happens when cancelling
+                            case _: IllegalStateException =>
+                              logger.debug("Test server has been successfully closed.")
+                              scala.util.Success(0)
+                            // Swallow the IAE because we know it happens when cancelling
+                            case _: IllegalArgumentException =>
+                              logger.debug("Test server has been successfully closed.")
+                              scala.util.Success(0)
+                            case _ => reportTestException(t)
+                          }
                         }
-                      }
-                  }
-              }
-              .dematerialize
-        }
+                    }
+                }
+                .dematerialize
+          }
+      }
     }
   }
 
@@ -141,7 +156,8 @@ object TestTask {
     implicit val logContext: DebugFilter = DebugFilter.Test
     project.platform match {
       case Platform.Jvm(env, _, _) =>
-        val classpath = project.dependencyClasspath(state.build.getDagFor(project))
+        val dag = state.build.getDagFor(project)
+        val classpath = project.fullClasspath(dag, state.client)
         val forker = Forker(env, classpath)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
         val frameworks = project.testFrameworks.flatMap(
@@ -153,8 +169,8 @@ object TestTask {
         val target = ScalaJsToolchain.linkTargetFrom(project, config)
         toolchain match {
           case Some(toolchain) =>
-            val fullClasspath =
-              project.dependencyClasspath(state.build.getDagFor(project)).map(_.underlying)
+            val dag = state.build.getDagFor(project)
+            val fullClasspath = project.fullClasspath(dag, state.client).map(_.underlying)
             toolchain
               .link(config, project, fullClasspath, false, userMainClass, target, state.logger)
               .map {
@@ -196,7 +212,7 @@ object TestTask {
     if (options.isEmpty) Nil
     else {
       val cls = frameworks.map(f => f.getClass.getName)
-      frameworks match {
+      frameworks.sortBy(_.name) match {
         case Nil => Nil
         case oneFramework :: Nil =>
           val cls = oneFramework.getClass.getName
@@ -284,7 +300,7 @@ object TestTask {
       case Some(found) =>
         val frameworks = found.frameworks
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
-        val analysis = lastCompileResult.analysis().toOption.getOrElse {
+        val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
           logger.warn(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")
           Analysis.empty
         }
@@ -296,55 +312,4 @@ object TestTask {
           .map(_._2.fullyQualifiedName)
     }
   }
-
-  /**
-   * Fixes the test arguments for a given framework.
-   *
-   * This is a generic function that accumulates fixes we do to the test arguments
-   * that a build has exported. https://github.com/scalacenter/bloop/issues/658 is
-   * a good example of a test option (`-h` in Scalatest) which requires us to check
-   * that its path exists.
-   *
-   * @param project The project we fix test options for.
-   * @param args The test arguments.
-   * @return The list of fixed test arguments.
-   */
-  def fixTestOptions(
-      project: Project,
-      args: List[Config.TestArgument]
-  ): List[Config.TestArgument] = {
-    import java.nio.file.{Files, Paths}
-    args.map {
-      case Config.TestArgument(testArg :: testArgs, f @ Some(Config.TestFramework.ScalaTest)) =>
-        val fixedArgs = testArgs.foldLeft(List(testArg)) {
-          case (Nil, current) => current :: Nil
-          case (rest @ previous :: _, current) =>
-            if (previous != "-h") current :: rest
-            else {
-              val currentPath = Paths.get(current)
-              val path = {
-                if (currentPath.isAbsolute) currentPath
-                else {
-                  val potentialPath = project.baseDirectory.resolve(current)
-                  if (potentialPath.exists) potentialPath.underlying
-                  else {
-                    if (potentialPath.getParent.exists)
-                      Files.createFile(potentialPath.underlying)
-                    else {
-                      Files.createDirectories(potentialPath.getParent.underlying)
-                      Files.createFile(potentialPath.underlying)
-                    }
-                  }
-                }
-              }
-
-              path.toAbsolutePath.toString :: rest
-            }
-        }
-
-        Config.TestArgument(fixedArgs, f)
-      case a => a
-    }
-  }
-
 }

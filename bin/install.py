@@ -43,7 +43,7 @@ parser.add_argument(
     '-d',
     '--dest',
     default=BLOOP_DEFAULT_INSTALLATION_TARGET,
-    help="Where to install Bloop, defaults to %s" % os.getcwd())
+    help="Where to install Bloop, defaults to %s" % BLOOP_DEFAULT_INSTALLATION_TARGET)
 parser.add_argument(
     '-v',
     '--version',
@@ -281,7 +281,7 @@ if is_windows:
         output_file.write(generate_bat(BLOOP_CLIENT_TARGET))
     make_executable(target)
 
-    if not "SCOOP" in os.environ:
+    if not "BLOOP_IN_SCOOP" in os.environ:
         print("You can run `bloop` in Windows with " + target)
         print("Recommended: Add " + BLOOP_INSTALLATION_TARGET + " to the Windows $PATH")
 

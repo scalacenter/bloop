@@ -54,10 +54,12 @@ object Tasks {
     import state.logger
     project.scalaInstance match {
       case Some(instance) =>
-        val classpath = project.dependencyClasspath(state.build.getDagFor(project))
+        val dag = state.build.getDagFor(project)
+        val classpath = project.fullClasspath(dag, state.client)
         val entries = classpath.map(_.underlying.toFile).toSeq
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
-          DebugFilter.All)
+          DebugFilter.All
+        )
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
@@ -68,46 +70,6 @@ object Tasks {
     }
 
     state
-  }
-
-  /**
-   * Persists every analysis file (the state of the incremental compiler) on disk in parallel.
-   *
-   * Logging during the execution of `persist` is not straight-forward because this task
-   * is executed asynchronously after a client disconnects and, therefore, the state
-   * output streams cannot be used as there is no guarantee they will not be closed.
-   *
-   * @param state The current state of Bloop
-   * @param log A log function based on the call-site (necessary to redirect to ngout for CLI
-   *            applications and to BSP loggers during a BSP session).
-   * @return The task that will persist all the results in parallel.
-   */
-  def persist(state: State, log: String => Unit): Task[Unit] = {
-    def persist(project: Project, result: PreviousResult): Unit = {
-      def toBinaryFile(analysis: CompileAnalysis, setup: MiniSetup): Unit = {
-        val storeFile = project.analysisOut
-        log(s"Writing ${storeFile.syntax}.")
-        FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
-        ResultsCache.persisted.add(result)
-        ()
-      }
-
-      val analysis = result.analysis().toOption
-      val setup = result.setup().toOption
-      (analysis, setup) match {
-        case (Some(analysis), Some(setup)) =>
-          if (ResultsCache.persisted.contains(result)) ()
-          else toBinaryFile(analysis, setup)
-        case (Some(analysis), None) =>
-          log(s"$project has analysis but not setup after compilation. Report upstream.")
-        case (None, Some(analysis)) =>
-          log(s"$project has setup but not analysis after compilation. Report upstream.")
-        case (None, None) => log(s"Project $project has no analysis and setup.")
-      }
-    }
-
-    val ts = state.results.allSuccessful.map { case (p, result) => Task(persist(p, result)) }
-    Task.gatherUnordered(ts).map(_ => ())
   }
 
   /**
@@ -125,13 +87,14 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
-      testEventHandler: TestSuiteEventHandler
+      testEventHandler: TestSuiteEventHandler,
+      failIfNoTestFrameworks: Boolean
   ): Task[State] = {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
 
     var failure = false
-    val testTasks = projectsToTest.filter(_.testFrameworks.nonEmpty).map { project =>
+    val testTasks = projectsToTest.map { project =>
       /* Intercept test failures to set the correct error code */
       val failureHandler = new LoggingEventHandler(state.logger) {
         override def report(): Unit = testEventHandler.report()
@@ -147,7 +110,15 @@ object Tasks {
       }
 
       val cwd = project.baseDirectory
-      TestTask.runTestSuites(state, project, cwd, userTestOptions, testFilter, failureHandler)
+      TestTask.runTestSuites(
+        state,
+        project,
+        cwd,
+        userTestOptions,
+        testFilter,
+        failureHandler,
+        failIfNoTestFrameworks
+      )
     }
 
     // For now, test execution is only sequential.
@@ -180,7 +151,8 @@ object Tasks {
       args: Array[String],
       skipJargs: Boolean
   ): Task[State] = {
-    val classpath = project.dependencyClasspath(state.build.getDagFor(project))
+    val dag = state.build.getDagFor(project)
+    val classpath = project.fullClasspath(dag, state.client)
     val processConfig = Forker(javaEnv, classpath)
     val runTask =
       processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
@@ -222,16 +194,19 @@ object Tasks {
   def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
 
-    val analysis = state.results.lastSuccessfulResultOrEmpty(project).analysis().toOption match {
-      case Some(analysis: Analysis) => analysis
-      case _ =>
-        logger.warn(s"`Run` is triggered but no compilation detected from '${project.name}'.")
-        Analysis.empty
+    val analysis = {
+      state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().toOption match {
+        case Some(analysis: Analysis) => analysis
+        case _ =>
+          logger.warn(s"`Run` is triggered but no compilation detected from '${project.name}'.")
+          Analysis.empty
+      }
     }
 
     val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
     logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(
-      DebugFilter.All)
+      DebugFilter.All
+    )
     mainClasses
   }
 

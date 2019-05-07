@@ -16,7 +16,6 @@ import syntax._
  * {{{
  * bloop {
  *   targetDir "$projectDir/.bloop"
- *   mainSourceSet "main"
  *   compilerName "scala-compiler"
  * }
  * }}}
@@ -30,15 +29,6 @@ class BloopParameters(project: Project) {
   def targetDir(path: String): Unit = setTargetDir(new File(path))
   def setTargetDir(value: File): Unit = {
     targetDir_ = value
-  }
-
-  // mainSourceSet
-  private var mainSourceSet_ : String = "main"
-  def getMainSourceSet: String = mainSourceSet_
-  def mainSourceSet: String = getMainSourceSet
-  def mainSourceSet(value: String): Unit = setMainSourceSet(value)
-  def setMainSourceSet(value: String): Unit = {
-    mainSourceSet_ = value
   }
 
   // compiler name
