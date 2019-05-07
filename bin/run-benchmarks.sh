@@ -74,7 +74,7 @@ main() {
     echo "Setting up the machine before benchmarks..."
     /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns -nf -nl -ni || exit 1
 
-    SBT_COMMANDS+=("integrationSetUpBloop")
+    SBT_COMMANDS+=("exportCommunityBuild")
 
     SCALAC_SBT_BLOOP_BENCHMARKS=(
       #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"

@@ -110,7 +110,7 @@ abstract class LauncherBaseSuite(
       val script = bloopPath.toAbsolutePath.toString
       // Use ng-stop instead of exit b/c it closes the nailgun server but leaves threads hanging
       val exitCmd = List(script, "--nailgun-port", bloopServerPort.toString, "ng-stop")
-      val exitStatus = shellWithPython.runCommand(exitCmd, Some(5))
+      val exitStatus = shellWithPython.runCommand(exitCmd, Environment.cwd, Some(5))
       if (!exitStatus.isOk && complainIfError) {
         System.err.println(s"${exitCmd.mkString(" ")} produced:")
         if (!exitStatus.output.isEmpty)

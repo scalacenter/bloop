@@ -41,7 +41,7 @@ object Paths {
    *
    * Example:
    * ```
-   * Paths.getAll(src, "glob:**.{scala,java}")
+   * Paths.pathFilesUnder(src, "glob:**.{scala,java}")
    * ```
    */
   def pathFilesUnder(

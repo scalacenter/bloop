@@ -296,7 +296,8 @@ object CompileTask {
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
-            val projectsFailedToCompile = failures.map(p => s"'${p.name}'")
+            // Reverse list of failed projects to get ~correct order of failure
+            val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
             val failureMessage =
               if (failures.size <= 2) projectsFailedToCompile.mkString(",")
               else {

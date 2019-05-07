@@ -1,3 +1,4 @@
+import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
@@ -135,12 +136,15 @@ lazy val frontend: Project = project
   .dependsOn(sockets, backend, backend % "test->test", jsonConfig212)
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
+  .configs(IntegrationTest)
   .settings(assemblySettings, releaseSettings)
   .settings(
     testSettings,
     testSuiteSettings,
-    integrationTestSettings,
-    BuildDefaults.frontendTestBuildSettings
+    Defaults.itSettings,
+    BuildDefaults.frontendTestBuildSettings,
+    // Can be removed when metals upgrades to 1.3.0
+    inConfig(IntegrationTest)(BloopDefaults.configSettings)
   )
   .settings(
     name := "bloop-frontend",
@@ -151,9 +155,11 @@ lazy val frontend: Project = project
     buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
+    javaOptions in IntegrationTest ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
     fork in Test := true,
+    fork in run in IntegrationTest := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
       Dependencies.scalazCore,
@@ -180,7 +186,7 @@ lazy val launcher: Project = project
   )
 
 val benchmarks = project
-  .dependsOn(frontend % "compile->test", BenchmarkBridgeCompilation % "compile->compile")
+  .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(benchmarksSettings(frontend))
@@ -202,7 +208,7 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("0.13.17", jsonConfig210))
+  .settings(sbtPluginSettings("0.13.18", jsonConfig210))
   .dependsOn(jsonConfig210)
 
 val mavenBloop = project
@@ -254,6 +260,17 @@ val millBloop = project
   .dependsOn(jsonConfig212)
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
+
+val buildpress = project
+  .dependsOn(launcher)
+  .settings(buildpressSettings)
+  .settings(
+    scalaVersion := Scala212Version,
+    libraryDependencies ++= List(
+      Dependencies.caseApp,
+      Dependencies.nuprocess
+    )
+  )
 
 val docs = project
   .in(file("docs-gen"))
@@ -352,8 +369,21 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     skip in publish := true,
-    crossSbtVersions := Seq("1.1.0", "0.13.16"),
-    commands += BuildDefaults.exportProjectsInTestResourcesCmd
+    crossSbtVersions := Seq("1.2.8", "0.13.18"),
+    commands += BuildDefaults.exportProjectsInTestResourcesCmd,
+    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
+    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
+    exportCommunityBuild := {
+      build.BuildImplementation
+        .exportCommunityBuild(
+          buildpress,
+          jsonConfig210,
+          jsonConfig212,
+          sbtBloop013,
+          sbtBloop10
+        )
+        .value
+    }
   )
 
 /**************************************************************************************************/
@@ -382,11 +412,22 @@ addCommandAlias(
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${sockets.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    s"${buildpress.id}/$publishLocalCmd",
     // Force build info generators in frontend-test
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
     "generateInstallationWitness"
+  ).mkString(";", ";", "")
+)
+
+addCommandAlias(
+  "publishSbtBloop",
+  Seq(
+    s"${jsonConfig210.id}/$publishLocalCmd",
+    s"${jsonConfig212.id}/$publishLocalCmd",
+    s"${sbtBloop013.id}/$publishLocalCmd",
+    s"${sbtBloop10.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
@@ -408,7 +449,8 @@ val allBloopReleases = List(
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
   s"${sockets.id}/$releaseEarlyCmd",
-  s"${launcher.id}/$releaseEarlyCmd"
+  s"${launcher.id}/$releaseEarlyCmd",
+  s"${buildpress.id}/$releaseEarlyCmd"
 )
 
 val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")

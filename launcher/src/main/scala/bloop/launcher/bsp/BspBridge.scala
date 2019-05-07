@@ -65,6 +65,7 @@ final class BspBridge(
             shell.runCommand(
               // Make it verbose so that bsp preparation logs are emitted
               bspCmd ++ List("--verbose"),
+              Environment.cwd,
               None,
               Some(logsBuffer)
             )
@@ -101,6 +102,7 @@ final class BspBridge(
       println(Feedback.startingBloopServer(cmd), out)
       val status = shell.runCommand(
         cmd ++ List("--verbose"),
+        Environment.cwd,
         None,
         Some(logsBuffer)
       )

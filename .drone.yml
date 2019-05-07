@@ -1,5 +1,7 @@
 # We publishLocal the maven plugin instead of compile to check the maven plugin integration
 # Only test sbt-bloop 1.x because of bug in `^`
+
+# TODO: re-add `nativeBridge/test`
 matrix:
   TEST_BLOOP:
     - bin/sbt-ci.sh \
@@ -15,17 +17,16 @@ matrix:
           "show schemaVersion" \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
-          "integrationSetUpBloop" \
           "backend/test" \
-          "nativeBridge/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
-          "frontend/testOnly -bloop.IntegrationTestSuite" \
-          "frontend/testOnly bloop.IntegrationTestSuite" \
+          "frontend/test" \
+          "exportCommunityBuild" \
+          "frontend/it:run" \
           "gradleBloop212/test" \
           "docs/run"
 
@@ -33,8 +34,8 @@ matrix:
     - bin/sbt-ci.sh \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
-          "integrationSetUpBloop" \
-          "frontend/testOnly bloop.IntegrationTestSuite"
+          "exportCommunityBuild" \
+          "frontend/it:run"
 
   RUN_BENCHMARKS_AND_SCRIPTED:
     - bin/sbt-ci.sh \
@@ -87,6 +88,7 @@ pipeline:
       - /drone/.ivy2/cache
       - /drone/.coursier
       - /drone/.sbt
+      - /drone/.buildpress
       - /drone/.dodo
       - ./frontend/src/test/resources/simple-build/bloop-config
       - ./frontend/src/test/resources/simple-build/target/generation-cache-file
@@ -115,7 +117,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - git log --oneline --graph | head -n 20
-      - . bin/set-up-dodo.sh # Source it because it exports variables
+      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - . bin/detect-community-build.sh # Source it because it exports variables
       - touch ~/.profile
       - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
@@ -134,25 +136,25 @@ pipeline:
         OPS: extra
     commands:
       - export DRONE_DIR="/drone"
-      - . bin/set-up-dodo.sh # Source it because it exports variables
+      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - git log --oneline --graph | head -n 20
       - ${RUN_BENCHMARKS_AND_SCRIPTED}
 
-  run_community_pipelined:
-    image: scalacenter/scala-docs:1.4
-    group: build
-    when:
-      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
-      matrix:
-        OS: linux
-        OPS: community-build
-    commands:
-      - export DRONE_DIR="/drone"
-      - export PIPELINE_COMMUNITY_BUILD="true"
-      - . bin/set-up-dodo.sh # Source it because it exports variables
-      - git log --oneline --graph | head -n 20
-      - . bin/detect-community-build.sh # Source it because it exports variables
-      - ${RUN_COMMUNITY_BUILD_EXTRA}
+#  run_community_pipelined:
+#    image: scalacenter/scala-docs:1.4
+#    group: build
+#    when:
+#      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+#      matrix:
+#        OS: linux
+#        OPS: community-build
+#    commands:
+#      - export DRONE_DIR="/drone"
+#      - export PIPELINE_COMMUNITY_BUILD="true"
+#      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
+#      - git log --oneline --graph | head -n 20
+#      - . bin/detect-community-build.sh # Source it because it exports variables
+#      - ${RUN_COMMUNITY_BUILD_EXTRA}
 
   build_windows:
     group: build
@@ -182,7 +184,7 @@ pipeline:
       - git log --oneline --graph | head -n 20
       # I have no idea why this has to be done manually... TODO: inspect why.
       - export DRONE_DIR="/drone"
-      - . bin/set-up-dodo.sh # Source it because it exports variables
+      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - /usr/local/bin/setup_keys.sh
       - ./bin/ci-setup-bloopoid-keys.sh
       - touch ~/.profile
@@ -206,7 +208,7 @@ pipeline:
         OPS: basic
     commands:
       - export DRONE_DIR="/drone"
-      - . bin/set-up-dodo.sh # Source it because it exports variables
+      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${UPDATE_GITHUB_AND_INSTALLERS}
 
@@ -223,6 +225,7 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
       - /drone/.dodo
+      - /drone/.buildpress
       - ./frontend/src/test/resources/cross-test-build-0.6/bloop-config
       - ./frontend/src/test/resources/cross-test-build-0.6/target/generation-cache-file
       - ./frontend/src/test/resources/cross-test-build-1.0/bloop-config
