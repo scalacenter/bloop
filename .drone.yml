@@ -88,7 +88,6 @@ pipeline:
       - /drone/.ivy2/cache
       - /drone/.coursier
       - /drone/.sbt
-      - /drone/.dodo
       - /drone/.buildpress
       - ./frontend/src/test/resources/simple-build/bloop-config
       - ./frontend/src/test/resources/simple-build/target/generation-cache-file
