@@ -125,6 +125,7 @@ pipeline:
       - yarn --help
       - ${TEST_BLOOP}
       - . bin/check-good-practices.sh # Check that good practices in the repo hold
+      - mv /root/.buildpress /drone/.buildpress # Move so that it can be cached
 
   run_benchmarks_scripted:
     image: scalacenter/scala-docs:1.4
