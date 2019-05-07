@@ -7,8 +7,12 @@ Bloop is a build server to compile, test and runs Scala programs <b>fast</b>. It
 </p>
 
 <p align="center">
+<a href="https://ci.scala-lang.org/scalacenter/bloop">
 <img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square">
+</a>
+<a href="https://gitter.im/scalacenter/bloop">
 <img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square">
+</a>
 <img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square">
 </p>
 
