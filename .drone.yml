@@ -115,6 +115,7 @@ pipeline:
         OS: linux
         OPS: basic
     commands:
+      - mv /drone/.buildpress /root/.buildpress # Move so that it can be cached
       - export DRONE_DIR="/drone"
       - git log --oneline --graph | head -n 20
       - . bin/set-up-dodo.sh # Source it because it exports variables
