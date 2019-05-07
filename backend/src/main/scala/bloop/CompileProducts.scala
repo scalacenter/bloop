@@ -34,5 +34,6 @@ case class CompileProducts(
     newClassesDir: Path,
     resultForDependentCompilationsInSameRun: PreviousResult,
     resultForFutureCompilationRuns: PreviousResult,
-    invalidatedCompileProducts: Set[File]
+    invalidatedCompileProducts: Set[File],
+    generatedRelativeClassFilePaths: Set[String]
 )

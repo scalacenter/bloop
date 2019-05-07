@@ -432,6 +432,55 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("compile after moving a class from a project to a dependent project") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Foo.scala` =
+          """/Foo.scala
+            |class Foo
+          """.stripMargin
+
+        val `Bar.scala` =
+          """/Bar.scala
+            |class Bar {
+            |  val foo: Foo = new Foo
+            |}
+          """.stripMargin
+
+        val `Baz.scala` =
+          """/Baz.scala
+            |class Baz extends Bar
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`))
+      val `B` =
+        TestProject(workspace, "b", List(Sources.`Bar.scala`, Sources.`Baz.scala`), List(`A`))
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`B`)
+      val compiledStateBackup = compiledState.backup
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      // Move `Bar.scala` from `B` to `A`; code still compiles
+      Files.move(
+        `B`.srcFor("Bar.scala").underlying,
+        `A`.srcFor("Bar.scala", exists = false).underlying
+      )
+
+      val secondCompiledState = compiledState.compile(`B`)
+      assertNoDiff(
+        logger.errors.mkString(System.lineSeparator),
+        ""
+      )
+      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(secondCompiledState, projects)
+      assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, projects)
+    }
+  }
+
   test("don't compile after renaming a Scala class and not its references in the same project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {

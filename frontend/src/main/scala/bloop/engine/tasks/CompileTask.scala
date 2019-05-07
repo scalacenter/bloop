@@ -157,7 +157,8 @@ object CompileTask {
               compileProjectTracer,
               ExecutionContext.ioScheduler,
               ExecutionContext.ioExecutor,
-              bundle.dependenciesData.allInvalidatedClassFiles
+              bundle.dependenciesData.allInvalidatedClassFiles,
+              bundle.dependenciesData.allGeneratedClassFilePaths
             )
           }
 
