@@ -612,8 +612,12 @@ object BuildImplementation {
       }.toSet
 
       var regenerate: Boolean = false
-      val cacheDirectory = Keys.target.value./("community-build-cache")
-      val regenerationFile = Keys.target.value./("regeneration-file.txt")
+      val state = Keys.state.value
+      val globalBase = sbt.BuildPaths.getGlobalBase(state)
+      val stagingDir = sbt.BuildPaths.getStagingDirectory(state, globalBase)
+      java.nio.file.Files.createDirectories(stagingDir.toPath)
+      val cacheDirectory = stagingDir./("community-build-cache")
+      val regenerationFile = stagingDir./("regeneration-file.txt")
       val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
         // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
         val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil

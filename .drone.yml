@@ -115,10 +115,9 @@ pipeline:
         OS: linux
         OPS: basic
     commands:
-      - mv /drone/.buildpress /root/.buildpress # Move so that it can be cached
       - export DRONE_DIR="/drone"
       - git log --oneline --graph | head -n 20
-      - . bin/set-up-dodo.sh # Source it because it exports variables
+      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - . bin/detect-community-build.sh # Source it because it exports variables
       - touch ~/.profile
       - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
@@ -126,7 +125,6 @@ pipeline:
       - yarn --help
       - ${TEST_BLOOP}
       - . bin/check-good-practices.sh # Check that good practices in the repo hold
-      - mv /root/.buildpress /drone/.buildpress # Move so that it can be cached
 
   run_benchmarks_scripted:
     image: scalacenter/scala-docs:1.4
