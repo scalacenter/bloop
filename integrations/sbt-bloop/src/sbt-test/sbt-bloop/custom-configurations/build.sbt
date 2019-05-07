@@ -12,8 +12,8 @@ val bar = project
   .configs(Custom)
   .settings(
     inConfig(Custom)(
-      inConfig(Custom)(Defaults.testSettings) ++
-        BloopDefaults.configSettings(Custom)
+      Defaults.testSettings ++
+        BloopDefaults.configSettings
     )
   )
   .dependsOn(foo % "custom-it->it;custom-it->test;test->test")
