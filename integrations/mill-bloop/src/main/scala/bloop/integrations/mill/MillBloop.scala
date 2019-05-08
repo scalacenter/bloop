@@ -33,7 +33,8 @@ object Bloop extends ExternalModule {
     val scalaConfig = module match {
       case s: ScalaModule =>
         T.task {
-          val pluginOptions = s.scalacPluginClasspath().map { pathRef => s"-Xplugin:${pathRef.path}"
+          val pluginOptions = s.scalacPluginClasspath().map { pathRef =>
+            s"-Xplugin:${pathRef.path}"
           }
 
           Some(
@@ -109,7 +110,8 @@ object Bloop extends ExternalModule {
         sbt = None,
         test = testConfig(),
         platform = Some(platform()),
-        resolution = None
+        resolution = None,
+        module = None
       )
     }
 

@@ -110,7 +110,7 @@ object MojoImplementation {
         val resolution = None
         // Resources in Maven require
         val resources = Some(resources0.asScala.toList.flatMap(a => Option(a.getTargetPath).toList).map(classesDir.resolve))
-        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution)
+        val project = Config.Project(name, baseDirectory, sourceDirs, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, None)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

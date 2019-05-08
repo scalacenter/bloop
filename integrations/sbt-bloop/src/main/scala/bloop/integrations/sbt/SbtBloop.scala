@@ -847,6 +847,17 @@ object BloopDefaults {
         val nativeConfig = None
         val platform = findOutPlatform.value
 
+        val projectModule = {
+          val moduleId = Keys.projectID.value
+          Config.Module(
+            moduleId.organization,
+            moduleId.name,
+            moduleId.revision,
+            moduleId.configurations,
+            Nil
+          )
+        }
+
         val binaryModules = configModules(Keys.update.value)
         val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
         val allModules = mergeModules(binaryModules, sourceModules)
@@ -869,7 +880,7 @@ object BloopDefaults {
 
           val sbt = computeSbtMetadata.value.map(_.config)
           val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
-            classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
+            classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution, Some(projectModule))
           Config.File(Config.File.LatestVersion, project)
         }
         // format: ON

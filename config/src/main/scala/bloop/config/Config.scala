@@ -227,12 +227,13 @@ object Config {
       sbt: Option[Sbt],
       test: Option[Test],
       platform: Option[Platform],
-      resolution: Option[Resolution]
+      resolution: Option[Resolution],
+      module: Option[Module]
   )
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None, None)
+    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -286,12 +287,16 @@ object Config {
             List(),
             Some(outAnalysisFile),
             Some(CompileSetup.empty)
-          )),
+          )
+        ),
         Some(Java(List("-version"))),
         Some(Sbt("1.1.0", Nil)),
         Some(Test(List(), TestOptions(Nil, Nil))),
         Some(platform),
-        Some(Resolution(Nil))
+        Some(Resolution(Nil)),
+        Some(
+          Module("ch.epfl.scala", "dummy-artifact", "1.0.0", Some("compile"), Nil)
+        )
       )
 
       File(LatestVersion, project)

@@ -131,7 +131,8 @@ object TestProject {
       sbt = None,
       test = Some(testConfig),
       platform = Some(platform),
-      resolution = None
+      resolution = None,
+      module = None
     )
 
     TestProject(config, Some(directDependencies))
