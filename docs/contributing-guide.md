@@ -22,7 +22,7 @@ above directories. The next directories define the rest of the project and
 tooling infrastructure.
 
 1. `bridges` contains Scala code written against Scala.js and Scala Native tooling APIs in a version-agnostic way.
-1. `buildpress` is an application that given a list of `(name, uri)` will export a build to bloop.
+1. `buildpress` is an application that given a list of `(project-name, vcs-uri)` will export a build to bloop.
 1. `config` contains Scala 2.10 and 2.12 module to read and write configuration files.
 1. `docs` and `docs-gen` defines our docs infrastructure.
 1. `benchmark-bridge` and `benchmarks` defines our compiler benchmark infrastructure.
