@@ -790,7 +790,7 @@ object BloopDefaults {
         // Aggregates are considered to be dependencies too for the sake of user-friendliness
         val aggregates =
           project.aggregate.map(agg => projectNameFromString(agg.project, configuration, logger))
-        val dependenciesAndAggregates = dependencies ++ aggregates
+        val dependenciesAndAggregates = (dependencies ++ aggregates).distinct
 
         val bloopConfigDir = BloopKeys.bloopConfigDir.value
         val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
