@@ -25,7 +25,7 @@ tooling infrastructure.
 1. `buildpress` is an application that given a list of `(project-name, vcs-uri)` will export a build to bloop.
 1. `config` contains Scala 2.10 and 2.12 module to read and write configuration files.
 1. `docs` and `docs-gen` define our docs infrastructure.
-1. `benchmark-bridge` and `benchmarks` defines our compiler benchmark infrastructure.
+1. `benchmark-bridge` and `benchmarks` define our compiler benchmark infrastructure.
 1. `launcher` is an application to spawn a bloop server and establish a
 bsp/cli connection to it.
 1. `nailgun` is a git submodule of `scalacenter/nailgun`, a fork of `facebook/nailgun`.
