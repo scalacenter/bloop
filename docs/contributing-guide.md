@@ -30,7 +30,7 @@ tooling infrastructure.
 bsp/cli connection to it.
 1. `nailgun` is a git submodule of `scalacenter/nailgun`, a fork of `facebook/nailgun`.
 1. `sockets` is a library to use Unix Domain sockets and Named Pipes in Windows.
-1. `website` contains the Docusaurus code of our website. 
+1. `website` contains the [Docusaurus](https://docusaurus.io/) code of our website. 
 1. `zinc` is a git submodule to the version of Zinc that bloop master is using.
 
 ## Set the repository up
