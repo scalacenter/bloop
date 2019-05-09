@@ -1,8 +1,7 @@
 ---
-id: version-1.2.5-contributing-guide
+id: contributing-guide
 title: Contributing to bloop
 sidebar_label: Contributing Guide
-original_id: contributing-guide
 ---
 
 ## Requirements
@@ -23,15 +22,15 @@ above directories. The next directories define the rest of the project and
 tooling infrastructure.
 
 1. `bridges` contains Scala code written against Scala.js and Scala Native tooling APIs in a version-agnostic way.
-1. `buildpress` is an application that given a list of `(name, uri)` will export a build to bloop.
+1. `buildpress` is an application that given a list of `(project-name, vcs-uri)` will export a build to bloop.
 1. `config` contains Scala 2.10 and 2.12 module to read and write configuration files.
-1. `docs` and `docs-gen` defines our docs infrastructure.
-1. `benchmark-bridge` and `benchmarks` defines our compiler benchmark infrastructure.
+1. `docs` and `docs-gen` define our docs infrastructure.
+1. `benchmark-bridge` and `benchmarks` define our compiler benchmark infrastructure.
 1. `launcher` is an application to spawn a bloop server and establish a
 bsp/cli connection to it.
 1. `nailgun` is a git submodule of `scalacenter/nailgun`, a fork of `facebook/nailgun`.
 1. `sockets` is a library to use Unix Domain sockets and Named Pipes in Windows.
-1. `website` contains the Docusaurus code of our website. 
+1. `website` contains the [Docusaurus](https://docusaurus.io/) code of our website. 
 1. `zinc` is a git submodule to the version of Zinc that bloop master is using.
 
 ## Set the repository up
@@ -51,7 +50,7 @@ build in order to get started.
 ## Learn the developer workflow
 
 The recommended way to build and hack on bloop is by using bloop. Run
-`bloopInstall` if you are not using Metals to export the build to the
+`bloopInstall` in your sbt shell if you are not using Metals to export the build to the
 `.bloop/` configuration directory.
 
 ### Common commands
@@ -77,13 +76,26 @@ message so that Bloop does not run tests for your commit.
 When a PR is merged in `scalacenter/bloop`, the CI cuts a new release
 available to any Bloop user. The version number of the latest SNAPSHOT
 release can be found in the version table available in the [Installation
-guide](http://localhost:3000/bloop/setup). It has a stable version number to
+guide](/bloop/setup). It has a stable version number to
 make dependencies reproducible.
 
 ### Depend on SNAPSHOT releases
 
-If you are using bloop as a library dependency, you can add Scala Center
-Bintray's resolver and use the version right away.
+The following table shows the latest stable and SNAPSHOT versions available.
+
+```scala mdoc:releases
+I am going to be replaced by the docs infrastructure.
+```
+
+Take a look at the list of published artifacts in [this Sonatype
+link](https://search.maven.org/search?q=g:ch.epfl.scala%20a:bloop*) and add
+them to your project. For example, to depend on the latest SNAPSHOT of bloop
+launcher in sbt, add the following to your project:
+
+```scala
+resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
+libraryDependencies += "ch.epfl.scala" % "bloop-launcher" % "$VERSION"
+```
 
 ### Install a SNAPSHOT release in your machine
 
@@ -127,7 +139,7 @@ Server reference](server.md) explains the available startup mechanisms.
 If you have installed bloop via the CURL script in the website, you can use a
 local Python script to override your installation in `$HOME/.bloop`:
 
-1. Give executable permission to `$BLOOP_REPO/frontend/target/install.py`.
+1. Give executable permission to the install script: `chmod +x $BLOOP_REPO/frontend/target/install.py`.
 1. Run script with `./$BLOOP_REPO/frontend/target/install.py`.
 
 Then, **restart the bloop server** to pick up the new installed version.
@@ -159,7 +171,7 @@ The workflow to update the documentation is the following:
 
 1. Run the docs generation via `bloop run docs -w` or `~docs/run` if you're using the sbt shell.
 1. Run `yarn start` inside the `website/` directory. Yarn will start a local web server with the current state of the docs.
-1. Locate the Markdown file you want to edit
+1. Locate the Markdown file you want to editd
 1. Make a change in the Markdown file. The first command will automatically rebuild the docs and the second one will show it in the browser.
 
 If the previous procedure doesn't show a change because, for example, you
