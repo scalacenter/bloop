@@ -144,6 +144,11 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(compileTask, state))
     }
 
+    def console(projects: TestProject*): TestState = {
+      val compileTask = Run(Commands.Console(projects.map(_.config.name).toList))
+      new TestState(TestUtil.blockingExecute(compileTask, state))
+    }
+
     def compileHandle(
         project: TestProject,
         delay: Option[FiniteDuration] = None,
