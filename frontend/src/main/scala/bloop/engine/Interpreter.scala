@@ -255,7 +255,7 @@ object Interpreter {
 
                   import bloop.engine.ExecutionContext.ioScheduler
                   val dag = state.build.getDagFor(project)
-                  // If none version found, default on Bloop's scala version
+                  // If none version is found (e.g. all Java projects), use Bloop's scala version
                   val scalaVersion = findScalaVersion(dag)
                     .getOrElse(ScalaInstance.scalaInstanceFromBloop(state.logger))
 
@@ -265,7 +265,10 @@ object Interpreter {
                     "launch",
                     s"com.lihaoyi:ammonite_$scalaVersion:$ammVersion",
                     "--main-class",
-                    "ammonite.Main"
+                    "ammonite.Main",
+                    "--scala-version",
+                    scalaVersion,
+                    "--force-scala-version"
                   )
 
                   val classpath = project.fullClasspath(dag, state.client)
