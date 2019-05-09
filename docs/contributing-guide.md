@@ -76,13 +76,26 @@ message so that Bloop does not run tests for your commit.
 When a PR is merged in `scalacenter/bloop`, the CI cuts a new release
 available to any Bloop user. The version number of the latest SNAPSHOT
 release can be found in the version table available in the [Installation
-guide](http://localhost:3000/bloop/setup). It has a stable version number to
+guide](/bloop/setup). It has a stable version number to
 make dependencies reproducible.
 
 ### Depend on SNAPSHOT releases
 
-If you are using bloop as a library dependency, you can add Scala Center
-Bintray's resolver and use the version right away.
+The following table shows the latest stable and SNAPSHOT versions available.
+
+```scala mdoc:releases
+I am going to be replaced by the docs infrastructure.
+```
+
+Take a look at the list of published artifacts in [this Sonatype
+link](https://search.maven.org/search?q=g:ch.epfl.scala%20a:bloop*) and add
+them to your project. For example, to depend on the latest SNAPSHOT of bloop
+launcher in sbt, add the following to your project:
+
+```scala
+resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
+libraryDependencies += "ch.epfl.scala" % "bloop-launcher" % "$VERSION"
+```
 
 ### Install a SNAPSHOT release in your machine
 
