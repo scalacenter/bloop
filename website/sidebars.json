@@ -21,7 +21,8 @@
       "cli-reference",
       "server-reference",
       "launcher-reference",
-      "configuration-format"
+      "configuration-format",
+      "contributing-guide"
     ]
   }
 }
