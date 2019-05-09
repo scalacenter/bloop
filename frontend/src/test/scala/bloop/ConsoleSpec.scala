@@ -9,9 +9,10 @@ import coursier.CoursierPaths
 import coursier.Cache
 import scala.util.Properties
 import java.nio.file.Paths
+import bloop.io.AbsolutePath
 
 object ConsoleSpec extends BaseSuite {
-  test("console works") {
+  test("default ammonite console works") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -33,8 +34,18 @@ object ConsoleSpec extends BaseSuite {
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
-      val cache = Paths.get(Properties.userHome, ".cache", "coursier", "v1")
-      val expectedCommand = s"coursier launch com.lihaoyi:ammonite_2.12.8:latest.release --main-class ammonite.Main --extra-jars ${workspace.syntax}/resources --extra-jars ${workspace.syntax}/target/b/classes --extra-jars ${workspace.syntax}/target/a/classes --extra-jars $cache/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8.jar --extra-jars $cache/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar --extra-jars $cache/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-xml_2.12/1.0.6/scala-xml_2.12-1.0.6.jar --extra-jars $cache/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.12.8/scala-reflect-2.12.8.jar"
+      val cache = CoursierPaths.cacheDirectory()
+      val workspacePath = AbsolutePath(workspace.underlying.toRealPath())
+
+      val projectB = state.getProjectFor(`B`)
+      val dagB = state.getDagFor(`B`)
+      val classpathB = projectB.fullClasspath(dagB, state.client)
+      val coursierClasspathArgs =
+        classpathB.flatMap(elem => Seq("--extra-jars", elem.syntax))
+      val expectedCommand =
+        s"coursier launch com.lihaoyi:ammonite_2.12.7:latest.release --main-class ammonite.Main ${coursierClasspathArgs
+          .mkString(" ")}"
+
       assertNoDiff(
         logger.captureTimeInsensitiveInfos
           .filterNot(
@@ -43,12 +54,12 @@ object ConsoleSpec extends BaseSuite {
                 .startsWith(" Compilation completed in")
           )
           .mkString(System.lineSeparator()),
-          s"""|Compiling a (1 Scala source)
-          |Compiled a ???
-          |Compiling b (1 Scala source)
-          |Compiled b ???
-          |$expectedCommand
-          |""".stripMargin
+        s"""|Compiling a (1 Scala source)
+            |Compiled a ???
+            |Compiling b (1 Scala source)
+            |Compiled b ???
+            |$expectedCommand
+            |""".stripMargin
       )
     }
   }
