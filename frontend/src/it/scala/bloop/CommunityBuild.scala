@@ -39,7 +39,7 @@ object CommunityBuild
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      val buildsToCompile = builds//.filter(_._1 == "quill")
+      val buildsToCompile = builds //.filter(_._1 == "quill")
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
@@ -86,7 +86,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
   }
 
   def getConfigDirForBenchmark(name: String): Path = {
-    builds.find(_._1 == name).map(_._2.underlying).getOrElse {
+    builds.find(_._1 == name).map(_._2.resolve(".bloop").underlying).getOrElse {
       sys.error(s"Missing buildpress base dir for $name")
     }
   }
