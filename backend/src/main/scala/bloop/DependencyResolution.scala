@@ -16,17 +16,18 @@ object DependencyResolution {
   }
 
   import java.io.File
+  import coursier.util.{Gather, Task}
+  import coursier.cache.{Cache, ArtifactError}
   import coursier.{
-    Cache,
     Dependency,
-    FileError,
     Fetch,
     MavenRepository,
     Module,
     Repository,
-    Resolution
+    Resolution,
+    LocalRepositories,
+    ResolutionProcess
   }
-  import scalaz.concurrent.Task
 
   /**
    * Resolve the specified module and get all the files. By default, the local ivy
@@ -46,27 +47,25 @@ object DependencyResolution {
       logger: Logger,
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
-    import coursier._
-    import coursier.util.{Gather, Task}
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)
     val dependency = Dependency(Module(org, moduleName), version)
-    val start = Resolution(Set(dependency))
+    val start = Resolution(List(dependency))
     val repositories = {
       val baseRepositories = Seq(
-        Cache.ivy2Local,
+        LocalRepositories.ivy2Local,
         MavenRepository("https://repo1.maven.org/maven2"),
         MavenRepository("https://dl.bintray.com/scalacenter/releases")
       )
       baseRepositories ++ additionalRepositories
     }
-    val fetch = Fetch.from(repositories, Cache.fetch[Task]())
+    val fetch = ResolutionProcess.fetch(repositories, Cache.default.fetch)
     val resolution = start.process.run(fetch).unsafeRun()
-    val localArtifacts: Seq[(Boolean, Either[FileError, File])] = {
+    val localArtifacts: Seq[(Boolean, Either[ArtifactError, File])] = {
       Gather[Task]
         .gather(resolution.artifacts().map { artifact =>
-          Cache.file[Task](artifact).run.map(artifact.optional -> _)
+          Cache.default.file(artifact).run.map(artifact.optional -> _)
         })
         .unsafeRun()
     }

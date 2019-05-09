@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream
 import scala.concurrent.Promise
 import scala.collection.JavaConverters._
 
-import coursier.CoursierPaths
+import coursier.paths.CoursierPaths
 
 /**
  * Defines a base suite to test the launcher. The test suite hijacks system
