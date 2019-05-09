@@ -50,7 +50,7 @@ build in order to get started.
 ## Learn the developer workflow
 
 The recommended way to build and hack on bloop is by using bloop. Run
-`bloopInstall` if you are not using Metals to export the build to the
+`bloopInstall` in your sbt shell if you are not using Metals to export the build to the
 `.bloop/` configuration directory.
 
 ### Common commands
@@ -126,7 +126,7 @@ Server reference](server.md) explains the available startup mechanisms.
 If you have installed bloop via the CURL script in the website, you can use a
 local Python script to override your installation in `$HOME/.bloop`:
 
-1. Give executable permission to `$BLOOP_REPO/frontend/target/install.py`.
+1. Give executable permission to the install script: `chmod +x $BLOOP_REPO/frontend/target/install.py`.
 1. Run script with `./$BLOOP_REPO/frontend/target/install.py`.
 
 Then, **restart the bloop server** to pick up the new installed version.
