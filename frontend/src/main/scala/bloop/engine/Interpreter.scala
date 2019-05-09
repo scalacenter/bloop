@@ -267,8 +267,7 @@ object Interpreter {
                     "--main-class",
                     "ammonite.Main",
                     "--scala-version",
-                    scalaVersion,
-                    "--force-scala-version"
+                    scalaVersion
                   )
 
                   val classpath = project.fullClasspath(dag, state.client)
