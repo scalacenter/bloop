@@ -90,6 +90,7 @@ pipeline:
       - /drone/.coursier
       - /drone/.sbt
       - /drone/.buildpress
+      - /drone/.dodo
       - ./frontend/src/test/resources/simple-build/bloop-config
       - ./frontend/src/test/resources/simple-build/target/generation-cache-file
       - ./frontend/src/test/resources/compiler-plugin-whitelist/bloop-config
@@ -123,6 +124,8 @@ pipeline:
       - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
       - curl -o- -L https://yarnpkg.com/install.sh | bash
       - yarn --help
+      - rm -rf ~/.dodo
+      - rm -rf ~/.buildpress/cache/finagle
       - ${TEST_BLOOP}
       - . bin/check-good-practices.sh # Check that good practices in the repo hold
 
