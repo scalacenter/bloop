@@ -2,6 +2,7 @@
 id: contributing-guide
 title: Contributing to bloop
 sidebar_label: Contributing Guide
+original_id: contributing-guide
 ---
 
 ## Requirements
