@@ -126,6 +126,7 @@ pipeline:
       - yarn --help
       - rm -rf ~/.dodo
       - rm -rf ~/.buildpress/cache/finagle
+      - rm -rf ~/.buildpress/cache/scalding
       - ${TEST_BLOOP}
       - . bin/check-good-practices.sh # Check that good practices in the repo hold
 
