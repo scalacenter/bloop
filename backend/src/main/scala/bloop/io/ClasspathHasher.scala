@@ -59,7 +59,7 @@ object ClasspathHasher {
       Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
         case AcquiredTask(file, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
-          Task.now {
+          val hashingTask = Task.now {
             val hash = try {
               val filePath = file.toPath
               val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
@@ -82,10 +82,19 @@ object ClasspathHasher {
               case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
             }
             classpathHashes(idx) = hash
-            p.success(hash)
             hashingPromises.remove(file)
+            p.success(hash)
             ()
           }
+
+          hashingTask.doOnCancel(Task {
+            val hash = BloopStamps.cancelledHash(file)
+            if (p.trySuccess(hash)) {
+              classpathHashes(idx) = hash
+              hashingPromises.remove(file)
+              ()
+            }
+          })
       }
     }
 
@@ -93,21 +102,33 @@ object ClasspathHasher {
       val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
+      def acquireHashingEntry(entry: File, entryIdx: Int): Unit = {
+        val entryPromise = Promise[FileHash]()
+        val promise = hashingPromises.putIfAbsent(entry, entryPromise)
+        if (promise == null) { // The hashing is done by this process
+          acquiredByThisHashingProcess.+=(AcquiredTask(entry, entryIdx, entryPromise))
+        } else { // The hashing is acquired by another process, wait on its result
+          acquiredByOtherTasks.+=(
+            Task.fromFuture(promise.future).flatMap { hash =>
+              if (hash == BloopStamps.cancelledHash) {
+                // If the process that acquired it cancels the computation, try acquiring it again
+                Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
+              } else {
+                Task.now {
+                  // Save the result hash in its index
+                  classpathHashes(entryIdx) = hash
+                  ()
+                }
+              }
+            }
+          )
+        }
+      }
+
       classpath.zipWithIndex.foreach {
         case t @ (absoluteEntry, idx) =>
           val entry = absoluteEntry.toFile
-          val entryPromise = Promise[FileHash]()
-          val promise = hashingPromises.putIfAbsent(entry, entryPromise)
-          if (promise != null) { // The entry was acquired by other task
-            acquiredByOtherTasks.+=(
-              Task.fromFuture(promise.future).map { hash =>
-                classpathHashes(idx) = hash
-                ()
-              }
-            )
-          } else { // The entry is acquired by this task
-            acquiredByThisHashingProcess.+=(AcquiredTask(entry, idx, entryPromise))
-          }
+          acquireHashingEntry(entry, idx)
       }
 
       // Let's first obtain the hashes for those entries which we acquired
