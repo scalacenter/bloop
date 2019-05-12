@@ -18,6 +18,7 @@ import monix.reactive.Consumer
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 import monix.execution.misc.NonFatal
+import monix.execution.atomic.AtomicBoolean
 
 final class SourceWatcher private (
     projectNames: List[String],
@@ -76,49 +77,58 @@ final class SourceWatcher private (
       .fileHashing(true)
       .build();
 
+    val watchLogId = s"File watching on '${projectNames.mkString("', '")}' and dependent projects"
+    val isClosed = AtomicBoolean.apply(false)
+
     // Use Java's completable future because we can stop/complete it from the cancelable
     val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
     val watchController = Task {
       try watcherHandle.get()
       catch {
         case NonFatal(t) => ()
-      } finally watcher.close()
-      logger.debug("File watcher was successfully closed")
+      } finally {
+        if (isClosed.compareAndSet(false, true)) {
+          watcher.close()
+        }
+      }
+      ngout.println(s"$watchLogId has been successfully closed")
+      logger.debug(s"$watchLogId has been successfully closed")
     }
 
     val watchCancellation = Cancelable { () =>
+      observer.onComplete()
       watchingEnabled = false
+
       // Cancel the future to interrupt blocking event polling of file stream
       watcherHandle.cancel(true)
+
       // Complete future to force the controller to close the watcher
       watcherHandle.complete(null)
-      observer.onComplete()
-      ngout.println(
-        s"File watching on '${projectNames.mkString("', '")}' and dependent projects has been successfully cancelled"
-      )
+
+      // Force closing the file watcher in case it doesn't work
+      if (isClosed.compareAndSet(false, true)) {
+        watcher.close()
+      }
+
+      ngout.println(s"$watchLogId has been successfully cancelled")
     }
 
     import SourceWatcher.EventStream
     val fileEventConsumer = {
-      FoldLeftAsyncConsumer.consume[State, EventStream](state0) {
-        case (state, stream) =>
-          logger.debug(s"Received $stream in file watcher consumer")
-          stream match {
-            // Ignore overflow for now, though we could restart run if changes are found
-            case EventStream.Overflow => Task.now(state)
-            case EventStream.SourceChanges(events) =>
-              val eventsThatForceAction = events.collect { event =>
-                event.eventType match {
-                  case EventType.CREATE => event
-                  case EventType.MODIFY => event
-                  case EventType.OVERFLOW => event
-                }
-              }
+      FoldLeftAsyncConsumer.consume[State, Seq[DirectoryChangeEvent]](state0) {
+        case (state, events) =>
+          logger.debug(s"Received $events in file watcher consumer")
+          val eventsThatForceAction = events.collect { event =>
+            event.eventType match {
+              case EventType.CREATE => event
+              case EventType.MODIFY => event
+              case EventType.OVERFLOW => event
+            }
+          }
 
-              eventsThatForceAction match {
-                case Nil => Task.now(state)
-                case events => runAction(state, events)
-              }
+          eventsThatForceAction match {
+            case Nil => Task.now(state)
+            case events => runAction(state, events)
           }
       }
     }
@@ -139,8 +149,7 @@ final class SourceWatcher private (
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       // Filter out empty events coming from buffer timed operator
       .collect { case s if !s.isEmpty => s }
-      .map(es => EventStream.SourceChanges(es))
-      .whileBusyDropEventsAndSignal(_ => SourceWatcher.EventStream.Overflow)
+      .whileBusyDropEventsAndSignal(_ => Nil)
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
   }
