@@ -147,8 +147,6 @@ final class SourceWatcher private (
     val timespan = FiniteDuration(40, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
-      // Filter out empty events coming from buffer timed operator
-      .collect { case s if !s.isEmpty => s }
       .whileBusyDropEventsAndSignal(_ => Nil)
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
