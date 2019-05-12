@@ -17,6 +17,7 @@ import monix.eval.Task
 import monix.reactive.Consumer
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
+import monix.execution.misc.NonFatal
 
 final class SourceWatcher private (
     projectNames: List[String],
@@ -79,12 +80,17 @@ final class SourceWatcher private (
     val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
     val watchController = Task {
       try watcherHandle.get()
-      finally watcher.close()
+      catch {
+        case NonFatal(t) => ()
+      } finally watcher.close()
       logger.debug("File watcher was successfully closed")
     }
 
     val watchCancellation = Cancelable { () =>
       watchingEnabled = false
+      // Cancel the future to interrupt blocking event polling of file stream
+      watcherHandle.cancel(true)
+      // Complete future to force the controller to close the watcher
       watcherHandle.complete(null)
       observer.onComplete()
       ngout.println(
