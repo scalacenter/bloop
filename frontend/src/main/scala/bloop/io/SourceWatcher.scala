@@ -118,22 +118,19 @@ final class SourceWatcher private (
     val fileEventConsumer = {
       FoldLeftAsyncConsumer.consume[State, Seq[DirectoryChangeEvent]](state0) {
         case (state, events) =>
-          val processorTask = Task {
-            logger.debug(s"Received $events in file watcher consumer")
-            val eventsThatForceAction = events.collect { event =>
-              event.eventType match {
-                case EventType.CREATE => event
-                case EventType.MODIFY => event
-                case EventType.OVERFLOW => event
-              }
-            }
-
-            eventsThatForceAction match {
-              case Nil => Task.now(state)
-              case events => runAction(state, events)
+          logger.debug(s"Received $events in file watcher consumer")
+          val eventsThatForceAction = events.collect { event =>
+            event.eventType match {
+              case EventType.CREATE => event
+              case EventType.MODIFY => event
+              case EventType.OVERFLOW => event
             }
           }
-          processorTask.flatten
+
+          eventsThatForceAction match {
+            case Nil => Task.now(state)
+            case events => runAction(state, events)
+          }
       }
     }
 
@@ -147,11 +144,11 @@ final class SourceWatcher private (
      * a day and wait for the next events.
      */
 
-    import bloop.util.monix.BloopBufferTimedObservable
-    val timespan = FiniteDuration(40, "ms")
+    import bloop.util.monix.{BloopBufferTimedObservable, BloopWhileBusyDropEventsAndSignalOperator}
+    val timespan = FiniteDuration(20, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
-      .whileBusyBuffer(OverflowStrategy.Unbounded)
+      .liftByOperator(new BloopWhileBusyDropEventsAndSignalOperator(_ => Nil))
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
   }
