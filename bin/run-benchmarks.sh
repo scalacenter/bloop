@@ -97,13 +97,13 @@ main() {
       #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=grid -p projectName=grid-test"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=circe -p projectName=circe-test"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=linkerd -p projectName=all-test"
-      "$BLOOP_SMALL_JMH_OPTIONS -p project=summingbird -p projectName=summingbird-test"
+      "-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=http4s -p projectName=root-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=prisma -p projectName=root-test"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=gatling -p projectName=gatling-parent-test"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=marathon -p projectName=marathon-test"
-      "-wi 5 -i 5 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
       "$BLOOP_LARGE_JMH_OPTIONS -p project=coursier -p projectName=coursier-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=prisma -p projectName=root-test"
+      "-wi 5 -i 5 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=scio -p projectName=scio+test"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka-test"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=spark-test"
