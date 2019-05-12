@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------
 # Disclaimer: this script is only meant to be run by our benchmarking
-# infrastructure and running it in our machine can be fatal. Use with
+# infrastructure and running it in your machine can be fatal. Use with
 # care and don't be afraid of forking it, removing most of the code
 # and only running those benchmarks that you care the most about.
 #
@@ -90,23 +90,23 @@ main() {
       #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=frontend -p projectName=root-test"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=finagle -p projectName=finagle-test"
-      #"$BLOOP_LARGE_JMH_OPTIONS -p project=scalding -p projectName=scalding-test"
-      #"$BLOOP_LARGE_JMH_OPTIONS -p project=algebird -p projectName=algebird-test"
-      #"$BLOOP_LARGE_JMH_OPTIONS -p project=scalatra -p projectName=scalatra-project-test"
-      #"$BLOOP_LARGE_JMH_OPTIONS -p project=atlas -p projectName=root-test"
-      #"$BLOOP_LARGE_JMH_OPTIONS -p project=grid -p projectName=grid-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=cats -p projectName=cats-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=circe -p projectName=circe-test"
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=scalding -p projectName=scalding-test"
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=algebird -p projectName=algebird-test"
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=scalatra -p projectName=scalatra-project-test"
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=atlas -p projectName=root-test"
+      #"$BLOOP_MEDIUM_JMH_OPTIONS -p project=grid -p projectName=grid-test"
+      "$BLOOP_MEDIUM_JMH_OPTIONS -p project=cats -p projectName=cats-test"
+      "$BLOOP_MEDIUM_JMH_OPTIONS -p project=circe -p projectName=circe-test"
       "$BLOOP_LARGE_JMH_OPTIONS -p project=linkerd -p projectName=all-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=summingbird -p projectName=summingbird-test"
+      "$BLOOP_SMALL_JMH_OPTIONS -p project=summingbird -p projectName=summingbird-test"
       "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=http4s -p projectName=root-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=scio -p projectName=scio+test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=prisma -p projectName=root-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=gatling -p projectName=gatling-parent-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=marathon -p projectName=marathon-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=coursier -p projectName=coursier-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=prisma -p projectName=root-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=gatling -p projectName=gatling-parent-test"
+      "$BLOOP_LARGE_JMH_OPTIONS -p project=marathon -p projectName=marathon-test"
+      "$BLOOP_MEDIUM_JMH_OPTIONS -p project=coursier -p projectName=coursier-test"
+      #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=scio -p projectName=scio+test"
       #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka-test"
-      #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
+      #"$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=spark-test"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
