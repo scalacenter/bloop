@@ -58,7 +58,8 @@ object ClasspathHasher {
     val parallelConsumer = {
       Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
         case AcquiredTask(file, idx, p) =>
-          Task {
+          // Use task.now because Monix's load balancer already forces an async boundary
+          Task.now {
             val hash = try {
               val filePath = file.toPath
               val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
@@ -114,18 +115,8 @@ object ClasspathHasher {
         .fromIterable(acquiredByThisHashingProcess)
         .consumeWith(parallelConsumer)
         .flatMap { _ =>
-          // Then, we block on the hashes
-          val blockingBatches = {
-            acquiredByOtherTasks.toList
-              .grouped(parallelUnits)
-              .map { group =>
-                Task.gatherUnordered(group)
-              }
-          }
-
-          Task.sequence(blockingBatches).map(_.flatten).map { _ =>
-            classpathHashes
-          }
+          // Then, we block on the hashes sequentially to avoid creating too many blocking threads
+          Task.sequence(acquiredByOtherTasks.toList).map(_ => classpathHashes)
         }
     }
   }
