@@ -19,6 +19,7 @@ import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
 import monix.execution.misc.NonFatal
 import monix.execution.atomic.AtomicBoolean
+import monix.reactive.OverflowStrategy
 
 final class SourceWatcher private (
     projectNames: List[String],
@@ -117,19 +118,22 @@ final class SourceWatcher private (
     val fileEventConsumer = {
       FoldLeftAsyncConsumer.consume[State, Seq[DirectoryChangeEvent]](state0) {
         case (state, events) =>
-          logger.debug(s"Received $events in file watcher consumer")
-          val eventsThatForceAction = events.collect { event =>
-            event.eventType match {
-              case EventType.CREATE => event
-              case EventType.MODIFY => event
-              case EventType.OVERFLOW => event
+          val processorTask = Task {
+            logger.debug(s"Received $events in file watcher consumer")
+            val eventsThatForceAction = events.collect { event =>
+              event.eventType match {
+                case EventType.CREATE => event
+                case EventType.MODIFY => event
+                case EventType.OVERFLOW => event
+              }
+            }
+
+            eventsThatForceAction match {
+              case Nil => Task.now(state)
+              case events => runAction(state, events)
             }
           }
-
-          eventsThatForceAction match {
-            case Nil => Task.now(state)
-            case events => runAction(state, events)
-          }
+          processorTask.flatten
       }
     }
 
@@ -147,7 +151,7 @@ final class SourceWatcher private (
     val timespan = FiniteDuration(40, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
-      .whileBusyDropEventsAndSignal(_ => Nil)
+      .whileBusyBuffer(OverflowStrategy.Unbounded)
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
   }
