@@ -65,7 +65,7 @@ class HotSbtBenchmark {
        |}""".stripMargin
 
   def findMaxHeap(project: String): String = project match {
-    case "lichess" | "akka" | "scio" | "summingbird" | "http4s" => "-Xmx4G"
+    case "lichess" | "akka" | "scio" | "summingbird" | "http4s" | "gatling" => "-Xmx4G"
     case _ => "-Xmx3G"
   }
 
