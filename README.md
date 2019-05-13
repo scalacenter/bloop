@@ -4,7 +4,7 @@
 
 # Compile, test and run Scala fast
 
-<img alt="Sonatype Nexus (Releases)" src="https://img.shields.io/nexus/r/https/oss.sonatype.org/ch.epfl.scala/bloop-frontend_2.12.svg?color=green&style=flat-square">
+<img alt="Maven Central" src="https://img.shields.io/maven-central/v/ch.epfl.scala/bloop-frontend_2.12.svg?color=green&logo=maven&style=flat-square">
 <a href="https://gitter.im/scalacenter/bloop">
 <img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square" />
 </a>
