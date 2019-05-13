@@ -155,10 +155,11 @@ object Commands {
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
-      @HelpMessage(s"Pick REPL to use. By default, Ammonite is used. Available REPLs: ${ReplKind.repls.map(_.name).mkString(", ")}")
+      @HelpMessage(s"Pick REPL to run console. The default is Ammonite, available REPLs are: ${ReplKind.repls.map(_.name).mkString(", ")}")
       repl: ReplKind = AmmoniteRepl,
-      @HelpMessage("The Ammonite version to use. Defaults to latest release.")
+      @HelpMessage("The Ammonite version to use, it defaults to latest release. Ammonite REPL only.")
       ammoniteVersion: Option[String] = None,
+      @HelpMessage("The output file where the Ammonite command is written. Ammonite REPL only.")
       outFile: Option[Path] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
