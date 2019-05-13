@@ -177,6 +177,12 @@ sidebar_label: CLI --help
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
   <dt><code>--exclude-root</code> (type: <code>bool</code>)</dt>
   <dd><p>Start up the console compiling only the target project's dependencies.</p></dd>
+  <dt><code>--repl</code> (type: <code>repl</code>)</dt>
+  <dd><p>Pick REPL to run console. The default is Ammonite, available REPLs are: scalac, ammonite</p></dd>
+  <dt><code>--ammonite-version</code> (type: <code>string?</code>)</dt>
+  <dd><p>The Ammonite version to use, it defaults to latest release. Ammonite REPL only.</p></dd>
+  <dt><code>--out-file</code> (type: <code>path?</code>)</dt>
+  <dd><p>The output file where the Ammonite command is written. Ammonite REPL only.</p></dd>
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>

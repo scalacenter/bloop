@@ -20,6 +20,12 @@ import caseapp.core.CommandMessages
 import monix.eval.Task
 
 import scala.concurrent.Promise
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
+import bloop.ScalaInstance
+import scala.collection.immutable.Nil
+import scala.annotation.tailrec
+import java.io.IOException
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -223,9 +229,66 @@ object Interpreter {
       case project :: Nil =>
         state.build.getProjectFor(project) match {
           case Some(project) =>
-            compileAnd(cmd, state, List(project), cmd.excludeRoot, "`console`")(
-              state => Tasks.console(state, project, cmd.excludeRoot)
-            )
+            compileAnd(cmd, state, List(project), cmd.excludeRoot, "`console`") { state =>
+              cmd.repl match {
+                case ScalacRepl =>
+                  if (cmd.ammoniteVersion.isDefined) {
+                    val errMsg =
+                      "Specifying an Ammonite version while using the Scalac console does not work"
+                    Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
+                  } else {
+                    Tasks.console(state, project, cmd.excludeRoot)
+                  }
+                case AmmoniteRepl =>
+                  // Look for version of scala instance in any of the projects
+                  def findScalaVersion(dag: Dag[Project]): Option[String] = {
+                    dag match {
+                      case Aggregate(dags) => dags.flatMap(findScalaVersion).headOption
+                      case Leaf(value) => value.scalaInstance.map(_.version)
+                      case Parent(value, children) =>
+                        children.flatMap(findScalaVersion) match {
+                          case Nil => value.scalaInstance.map(_.version)
+                          case xs => Some(xs.head)
+                        }
+                    }
+                  }
+
+                  import bloop.engine.ExecutionContext.ioScheduler
+                  val dag = state.build.getDagFor(project)
+                  // If none version is found (e.g. all Java projects), use Bloop's scala version
+                  val scalaVersion = findScalaVersion(dag)
+                    .getOrElse(ScalaInstance.scalaInstanceFromBloop(state.logger))
+
+                  val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
+                  val coursierCmd = List(
+                    "coursier",
+                    "launch",
+                    s"com.lihaoyi:ammonite_$scalaVersion:$ammVersion",
+                    "--main-class",
+                    "ammonite.Main",
+                    "--scala-version",
+                    scalaVersion
+                  )
+
+                  val classpath = project.fullClasspath(dag, state.client)
+                  val coursierClasspathArgs =
+                    classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
+                  val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs).mkString(" ")
+                  cmd.outFile match {
+                    case None => Task.now(state.withInfo(ammoniteCmd))
+                    case Some(outFile) =>
+                      try {
+                        Files.write(outFile, ammoniteCmd.getBytes(StandardCharsets.UTF_8))
+                        val msg = s"Wrote Ammonite command to $outFile"
+                        Task.now(state.withDebug(msg)(DebugFilter.All))
+                      } catch {
+                        case _: IOException =>
+                          val msg = s"Unexpected error when writing Ammonite command to $outFile"
+                          Task.now(state.withError(msg, ExitStatus.RunError))
+                      }
+                  }
+              }
+            }
           case None => Task.now(reportMissing(project :: Nil, state))
         }
       case projects =>
