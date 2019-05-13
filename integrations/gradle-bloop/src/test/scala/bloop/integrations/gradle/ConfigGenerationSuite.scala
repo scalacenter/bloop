@@ -94,7 +94,7 @@ abstract class ConfigGenerationSuite {
   }
 
   @Test def worksWithScala212Project(): Unit = {
-    worksWithGivenScalaVersion("2.12.6")
+    worksWithGivenScalaVersion("2.12.8")
   }
 
   @Test def worksWithTransientProjectDependencies(): Unit = {
@@ -131,7 +131,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -173,7 +173,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -246,10 +246,10 @@ abstract class ConfigGenerationSuite {
     val configCTest = readValidBloopConfig(bloopCTest)
     val configDTest = readValidBloopConfig(bloopDTest)
 
-    assertTrue(configA.project.`scala`.exists(_.version == "2.12.6"))
-    assertTrue(configB.project.`scala`.exists(_.version == "2.12.6"))
-    assertTrue(configC.project.`scala`.exists(_.version == "2.12.6"))
-    assertTrue(configD.project.`scala`.exists(_.version == "2.12.6"))
+    assertTrue(configA.project.`scala`.exists(_.version == "2.12.8"))
+    assertTrue(configB.project.`scala`.exists(_.version == "2.12.8"))
+    assertTrue(configC.project.`scala`.exists(_.version == "2.12.8"))
+    assertTrue(configD.project.`scala`.exists(_.version == "2.12.8"))
     assertTrue(configA.project.dependencies.isEmpty)
     assertEquals(List("a", "c"), configB.project.dependencies.sorted)
     assertTrue(configC.project.dependencies.isEmpty)
@@ -351,7 +351,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -371,7 +371,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.scala-lang:scala-library:2.12.8'
          |  testImplementation project(':a').sourceSets.test.output
          |}
       """.stripMargin
@@ -473,7 +473,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -493,7 +493,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.6'
+         |  compile 'org.scala-lang:scala-library:2.12.8'
          |  testImplementation project( path: ':a', configuration: 'testArtifacts')
          |}
       """.stripMargin
@@ -569,7 +569,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.6'
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
          |}
          |
          |tasks.withType(ScalaCompile) {
@@ -617,7 +617,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.6'
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
          |}
          |
          |tasks.withType(ScalaCompile) {
@@ -703,7 +703,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.6'
+        |  compile 'org.scala-lang:scala-library:2.12.8'
         |  compile project(':a')
         |}
         |
@@ -857,7 +857,7 @@ abstract class ConfigGenerationSuite {
     assertFalse(bloopATest.exists())
     val configB = readValidBloopConfig(bloopB)
     val configBTest = readValidBloopConfig(bloopBTest)
-    assertTrue(configB.project.`scala`.exists(_.version == "2.12.6"))
+    assertTrue(configB.project.`scala`.exists(_.version == "2.12.8"))
     assertEquals(Nil, configB.project.dependencies)
     assertEquals(List("b"), configBTest.project.dependencies)
 
@@ -965,7 +965,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.6'
+        |  compile 'org.scala-lang:scala-library:2.12.8'
         |}
       """.stripMargin
     )
@@ -1052,8 +1052,8 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.6'
-        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.6:4.1.4"
+        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.8:4.1.4"
         |}
         |
         |tasks.withType(ScalaCompile) {
@@ -1084,7 +1084,7 @@ abstract class ConfigGenerationSuite {
 
     assertTrue(resultConfig.project.resolution.nonEmpty)
     assertTrue(
-      resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.6"))
+      resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.8"))
 
     assertTrue(
       resultConfig.project.`scala`.get.options
