@@ -21,6 +21,8 @@ import xsbti.compile.FileHash
 import sbt.internal.inc.{EmptyStamp, Stamper}
 import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.io.IO
+import java.util.concurrent.TimeUnit
+import monix.eval.Callback
 
 object ClasspathHasher {
   // For more safety, store both the time and size
@@ -49,8 +51,11 @@ object ClasspathHasher {
   def hash(
       classpath: Array[AbsolutePath],
       parallelUnits: Int,
+      scheduler: Scheduler,
+      logger: Logger,
       tracer: BraveTracer
   ): Task[Seq[FileHash]] = {
+    val timeoutSeconds: Long = 15L
     // We'll add the file hashes to the indices here and return it at the end
     val classpathHashes = new Array[FileHash](classpath.length)
     case class AcquiredTask(file: File, idx: Int, p: Promise[FileHash])
@@ -82,19 +87,41 @@ object ClasspathHasher {
               case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
             }
             classpathHashes(idx) = hash
-            hashingPromises.remove(file)
-            p.success(hash)
+            hashingPromises.remove(file, p)
+            p.trySuccess(hash)
             ()
           }
 
-          hashingTask.doOnCancel(Task {
-            val hash = BloopStamps.cancelledHash(file)
-            if (p.trySuccess(hash)) {
-              classpathHashes(idx) = hash
-              hashingPromises.remove(file)
-              ()
+          /* 
+           * As a protective measure, set up a task that will be run after 15s
+           * of hashing and will complete the downstream promise to unlock
+           * downstream clients on the assumption that the hashing of this
+           * entry is too slow because of something that happened to this
+           * process. The completion of the downstream promise will also log a
+           * warning to the downstream users so that they know that a hashing
+           * process is unusally slow.
+           */
+          val timeoutCancellation = scheduler.scheduleOnce(
+            timeoutSeconds,
+            TimeUnit.SECONDS,
+            new Runnable {
+              def run(): Unit = {
+                val hash = BloopStamps.cancelledHash(file)
+                // Complete if hashing for this entry hasn't finished in 15s, otherwise ignore
+                hashingPromises.remove(file, p)
+                if (p.trySuccess(hash)) {
+                  logger.warn(
+                    s"Hashing ${file} is taking more than ${timeoutSeconds}s, detaching downstream clients to unblock them..."
+                  )
+                }
+                ()
+              }
             }
-          })
+          )
+
+          hashingTask
+            .doOnCancel(Task(timeoutCancellation.cancel()))
+            .doOnFinish(_ => Task(timeoutCancellation.cancel()))
       }
     }
 
@@ -111,6 +138,7 @@ object ClasspathHasher {
           acquiredByOtherTasks.+=(
             Task.fromFuture(promise.future).flatMap { hash =>
               if (hash == BloopStamps.cancelledHash) {
+                logger.warn(s"Disabling sharing of hash for $entry, upstream hashing took more than ${timeoutSeconds}s!")
                 // If the process that acquired it cancels the computation, try acquiring it again
                 Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
               } else {
