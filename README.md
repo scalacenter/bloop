@@ -4,10 +4,6 @@
 
 # Compile, test and run Scala fast.
 
-<p align="center">
-Bloop is a build server to compile, test and runs Scala programs <b>fast</b>. It integrates with editors, build tools and any developer tool needing these features to provide the best out-of-the-box Scala developer experience.
-</p>
-
 <a href="https://ci.scala-lang.org/scalacenter/bloop">
 <img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square">
 </a>
@@ -17,6 +13,10 @@ Bloop is a build server to compile, test and runs Scala programs <b>fast</b>. It
 <img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square">
 
 </div>
+
+Bloop is a Scala build server and CLI tool. Bloop integrates with any editor,
+build tool and developer tool to provide the best out-of-the-box developer
+experience of the Scala programming language.
 
 <br>
 
