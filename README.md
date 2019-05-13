@@ -4,13 +4,14 @@
 
 # Compile, test and run Scala fast
 
-<img alt="Maven Central" src="https://img.shields.io/maven-central/v/ch.epfl.scala/bloop-frontend_2.12.svg?color=green&logo=maven&style=flat-square">
+<img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/scalacenter/bloop/total.svg?color=orange&style=flat-square">
 <a href="https://gitter.im/scalacenter/bloop">
 <img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square" />
 </a>
 <a href="https://ci.scala-lang.org/scalacenter/bloop">
 <img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square" />
 </a>
+<img alt="GitHub release" src="https://img.shields.io/github/release/scalacenter/bloop.svg?color=green&logo=github">
 <img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square" />
 
 <div align="left">
