@@ -4,6 +4,7 @@
 
 # Compile, test and run Scala fast
 
+<img alt="Sonatype Nexus (Releases)" src="https://img.shields.io/nexus/r/https/oss.sonatype.org/ch.epfl.scala/bloop-frontend_2.12.svg?color=green&style=flat-square">
 <a href="https://gitter.im/scalacenter/bloop">
 <img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square" />
 </a>
@@ -15,9 +16,10 @@
 <div align="left">
 <br>
   
-Bloop is a build server and CLI tool for the Scala programming language.
-Bloop integrates with any editor, build tool and developer tool to provide
-the *best out-of-the-box* developer experience.
+Bloop is a build server and CLI tool for the [Scala programming
+language](https://scala-lang.org). Bloop integrates with editors, build tools
+and developer tools to provide the **best** out-of-the-box developer
+experience.
 
 <br>
 
