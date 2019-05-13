@@ -51,8 +51,8 @@ object GitUtils {
   }
 
   /** SSH private key file given by the environment variable BLOOPOID_AUR_KEY_PATH. */
-  private def getEnvKey: File = sys.env.get("BLOOPOID_AUR_KEY_PATH").map(new File(_)).getOrElse {
-    throw new MessageOnlyException("Couldn't find AUR ssh key in `BLOOPOID_AUR_KEY_PATH`")
+  private def getEnvSshKey: File = sys.env.get("BLOOPOID_PRIVATE_KEY_PATH").map(new File(_)).getOrElse {
+    throw new MessageOnlyException("Couldn't find AUR ssh key in `BLOOPOID_PRIVATE_KEY_PATH`")
   }
 
   /**
@@ -69,7 +69,7 @@ object GitUtils {
    *
    * @param keyFile the file that contains the private SSH key
    */
-  def authSshKey(keyFile: File = getEnvKey): GitAuth = {
+  def authSshKey(keyFile: File = getEnvSshKey): GitAuth = {
     import com.jcraft.jsch.Session
     import org.eclipse.jgit.api.TransportConfigCallback
     import org.eclipse.jgit.transport.{JschConfigSessionFactory, Transport, SshTransport}

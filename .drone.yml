@@ -189,7 +189,7 @@ pipeline:
       - export DRONE_DIR="/drone"
       - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - /usr/local/bin/setup_keys.sh
-      - ./bin/ci-setup-bloopoid-keys.sh
+      - . bin/ci-setup-bloopoid-keys.sh
       - touch ~/.profile
       - export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
       - curl -o- -L https://yarnpkg.com/install.sh | bash
