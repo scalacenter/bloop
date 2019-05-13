@@ -23,8 +23,10 @@ object BloopStamps {
 
   private final val emptyHash = scala.util.Random.nextInt()
   private final val directoryHash = scala.util.Random.nextInt()
+  final val cancelledHash = scala.util.Random.nextInt()
 
   def emptyHash(file: File): FileHash = FileHash.of(file, emptyHash)
+  def cancelledHash(file: File): FileHash = FileHash.of(file, cancelledHash)
 
   def directoryHash(file: File): FileHash = FileHash.of(file, directoryHash)
   def isDirectoryHash(fh: FileHash): Boolean = fh.hash == directoryHash
