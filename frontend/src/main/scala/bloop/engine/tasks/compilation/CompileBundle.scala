@@ -21,6 +21,7 @@ import monix.eval.Task
 import monix.reactive.Observable
 
 import xsbti.compile.PreviousResult
+import scala.concurrent.ExecutionContext
 
 /**
  * Define a bundle of high-level information about a project that is going to be
@@ -146,15 +147,16 @@ object CompileBundle {
       }
 
       // Dependency classpath is not yet complete, but the hashes only cares about jars
+      import bloop.engine.ExecutionContext.ioScheduler
       val classpathHashesTask = bloop.io.ClasspathHasher
-        .hash(compileDependenciesData.dependencyClasspath, 10, tracer)
-        .executeOn(ExecutionContext.ioScheduler)
+        .hash(compileDependenciesData.dependencyClasspath, 10, ioScheduler, logger, tracer)
+        .executeOn(ioScheduler)
 
       val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
           .findAndHashSourcesInProject(project, 20)
           .map(_.sortBy(_.source.syntax))
-          .executeOn(ExecutionContext.ioScheduler)
+          .executeOn(ioScheduler)
       }
 
       logger.debug(s"Computing sources and classpath hashes for ${project.name}")

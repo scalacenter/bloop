@@ -1,16 +1,26 @@
-<p align="center">
-  <img src="website/static/img/impure-logo-bloop.png" alt="logo" width="20%">
-</p>
+<div align="center">
 
-<p align="center">
-Bloop is a build server to compile, test and runs Scala programs <b>fast</b>. It integrates with editors, build tools and any developer tool needing these features to provide the best out-of-the-box Scala developer experience.
-</p>
+<img src="website/static/img/impure-logo-bloop.png" alt="logo" width="20%">
 
-<p align="center">
-<img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square">
-<img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square">
-<img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square">
-</p>
+# Compile, test and run Scala fast
+
+<img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/scalacenter/bloop/total.svg?color=orange&style=flat-square">
+<a href="https://gitter.im/scalacenter/bloop">
+<img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square" />
+</a>
+<a href="https://ci.scala-lang.org/scalacenter/bloop">
+<img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square" />
+</a>
+<img alt="GitHub release" src="https://img.shields.io/github/release/scalacenter/bloop.svg?color=green&logo=github">
+<img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square" />
+
+<div align="left">
+<br>
+  
+Bloop is a build server and CLI tool for the [Scala programming
+language](https://scala-lang.org). Bloop integrates with editors, build tools
+and developer tools to provide the **best** out-of-the-box developer
+experience.
 
 <br>
 
