@@ -1,12 +1,13 @@
-<p align="center">
-  <img src="website/static/img/impure-logo-bloop.png" alt="logo" width="20%">
-</p>
+<div align="center">
+
+<img src="website/static/img/impure-logo-bloop.png" alt="logo" width="20%">
+
+# Compile, test and run Scala fast.
 
 <p align="center">
 Bloop is a build server to compile, test and runs Scala programs <b>fast</b>. It integrates with editors, build tools and any developer tool needing these features to provide the best out-of-the-box Scala developer experience.
 </p>
 
-<p align="center">
 <a href="https://ci.scala-lang.org/scalacenter/bloop">
 <img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square">
 </a>
@@ -14,7 +15,8 @@ Bloop is a build server to compile, test and runs Scala programs <b>fast</b>. It
 <img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square">
 </a>
 <img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square">
-</p>
+
+</div>
 
 <br>
 
