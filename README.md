@@ -2,21 +2,22 @@
 
 <img src="website/static/img/impure-logo-bloop.png" alt="logo" width="20%">
 
-# Compile, test and run Scala fast.
+# Compile, test and run Scala fast
 
-<a href="https://ci.scala-lang.org/scalacenter/bloop">
-<img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square">
-</a>
 <a href="https://gitter.im/scalacenter/bloop">
-<img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square">
+<img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square" />
 </a>
-<img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square">
+<a href="https://ci.scala-lang.org/scalacenter/bloop">
+<img alt="Drone (self-hosted)" src="https://img.shields.io/drone/build/scalacenter/bloop.svg?logo=drone&server=https%3A%2F%2Fci.scala-lang.org&style=flat-square" />
+</a>
+<img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square" />
 
-</div>
-
-Bloop is a Scala build server and CLI tool. Bloop integrates with any editor,
-build tool and developer tool to provide the best out-of-the-box developer
-experience of the Scala programming language.
+<div align="left">
+<br>
+  
+Bloop is a build server and CLI tool for the Scala programming language.
+Bloop integrates with any editor, build tool and developer tool to provide
+the *best out-of-the-box* developer experience.
 
 <br>
 
