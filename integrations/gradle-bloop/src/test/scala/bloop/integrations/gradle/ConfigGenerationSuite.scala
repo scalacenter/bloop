@@ -857,7 +857,7 @@ abstract class ConfigGenerationSuite {
     assert(!bloopATest.exists())
     val configB = readValidBloopConfig(bloopB)
     val configBTest = readValidBloopConfig(bloopBTest)
-    assert(configB.project.`scala`.exists(_.version == "2.12.8"))
+    assert(configB.project.`scala`.exists(_.version == "2.12.6"))
     assertEquals(Nil, configB.project.dependencies)
     assertEquals(List("b"), configBTest.project.dependencies)
 
@@ -1053,7 +1053,7 @@ abstract class ConfigGenerationSuite {
         |
         |dependencies {
         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
-        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.8:4.1.4"
+        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.8:4.1.9"
         |}
         |
         |tasks.withType(ScalaCompile) {
@@ -1088,7 +1088,7 @@ abstract class ConfigGenerationSuite {
 
     assert(
       resultConfig.project.`scala`.get.options
-        .contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot}"))
+        .contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot.getCanonicalPath()}"))
     assert(resultConfig.project.`scala`.get.options.exists(p => p.startsWith("-Xplugin:")))
   }
 
