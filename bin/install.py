@@ -79,7 +79,7 @@ BASH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "bash")
 FISH_COMPLETION_DIR = join(BLOOP_INSTALLATION_TARGET, "fish")
 SYSTEMD_SERVICE_DIR = join(BLOOP_INSTALLATION_TARGET, "systemd")
 XDG_DIR = join(BLOOP_INSTALLATION_TARGET, "xdg")
-COURSIER_URL = "https://github.com/coursier/coursier/raw/v" + args.coursier + "/coursier"
+COURSIER_URL = "https://github.com/coursier/coursier/releases/download/v" + args.coursier + "/coursier"
 
 # If this is not a released version of Bloop, we need to extract the commit SHA
 # to know how to download the completion and startup scripts.
