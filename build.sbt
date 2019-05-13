@@ -420,6 +420,7 @@ addCommandAlias(
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
+    "createLocalArchPackage",
     "generateInstallationWitness"
   ).mkString(";", ";", "")
 )

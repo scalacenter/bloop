@@ -83,7 +83,7 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
 
           if (!hasOverflow)
             out.onComplete()
-          else
+          else {
             ack.syncOnContinue {
               // Protects calls to user code from within the operator and
               // stream the error downstream if it happens, but if the
@@ -100,6 +100,8 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
                   out.onError(ex)
               }
             }
+            ()
+          }
         }
     }
 }
