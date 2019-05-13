@@ -28,6 +28,19 @@ object FileWatchingSpec extends BaseSuite {
             |class A {
             |  def foo(s: String) = s.toString
             |}
+            |
+            |import scala.reflect.macros.blackbox.Context
+            |import scala.language.experimental.macros
+            |
+            |object SleepMacro {
+            |  def sleep(): Unit = macro sleepImpl
+            |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+            |    import c.universe._
+            |    // Sleep for 1 second
+            |    Thread.sleep(1000)
+            |    reify { () }
+            |  }
+            |}
           """.stripMargin
 
         val `B.scala` =
@@ -49,12 +62,21 @@ object FileWatchingSpec extends BaseSuite {
 
         val `C2.scala` =
           """/C.scala
-            |object C2 extends A with B
+            |object C2 extends A with B {
+            |  SleepMacro.sleep()
+            |}
           """.stripMargin
 
         val `D2.scala` =
           """/D.scala
-            |object D extends A
+            |object D {}
+          """.stripMargin
+
+        val `D3.scala` =
+          """/D.scala
+            |object D extends A {
+            |  SleepMacro.sleep()
+            |}
           """.stripMargin
       }
 
@@ -87,23 +109,32 @@ object FileWatchingSpec extends BaseSuite {
         state
       }
 
-      TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
+      TestUtil.await(FiniteDuration(12, TimeUnit.SECONDS)) {
         for {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(testValidLatestState)
+          // Write two events, notifications should be buffered and trigger one compilation
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
-          //_ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
-          //_ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
+          // Write another change with a delay, no recompilation should happen
+          // because consumer is still busy with the previous compilation
+          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D3.scala`))
+            .delayExecution(FiniteDuration(900, TimeUnit.MILLISECONDS))
           _ <- waitUntilIteration(2)
           firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
           _ <- waitUntilIteration(2)
           secondWatchedState <- Task(testValidLatestState)
+          // Revert to change without macro calls, third compilation should happen
+          _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`))
+          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`))
+          _ <- waitUntilIteration(3)
+          thirdWatchedState <- Task(testValidLatestState)
         } yield {
-
+          assert(firstWatchedState.status == ExitStatus.Ok)
           assert(secondWatchedState.status == ExitStatus.Ok)
-          assertValidCompilationState(secondWatchedState, projects)
+          assert(thirdWatchedState.status == ExitStatus.Ok)
+          assertValidCompilationState(thirdWatchedState, projects)
 
           assert(
             initialWatchedState.getLastSuccessfulResultFor(`C`) !=
@@ -113,6 +144,11 @@ object FileWatchingSpec extends BaseSuite {
           assert(
             firstWatchedState.getLastSuccessfulResultFor(`C`) ==
               secondWatchedState.getLastSuccessfulResultFor(`C`)
+          )
+
+          assert(
+            firstWatchedState.getLastSuccessfulResultFor(`C`) !=
+              thirdWatchedState.getLastSuccessfulResultFor(`C`)
           )
         }
       }
