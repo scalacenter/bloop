@@ -35,7 +35,7 @@ abstract class HotBloopBenchmarkBase {
   var output = new java.lang.StringBuilder()
 
   def findMaxHeap(project: String): String = project match {
-    case "lichess" | "akka" => "-Xmx4G"
+    case "lichess" | "akka" | "scio" | "http4s" | "summingbird" | "gatling" => "-Xmx4G"
     case _ => "-Xmx3G"
   }
 

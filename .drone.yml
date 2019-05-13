@@ -88,6 +88,7 @@ pipeline:
       - /drone/.ivy2/cache
       - /drone/.ivy2/local
       - /drone/.coursier
+      - /drone/.gradle
       - /drone/.sbt
       - /drone/.buildpress
       - /drone/.dodo
@@ -225,6 +226,7 @@ pipeline:
       - /drone/.ivy2/cache
       - /drone/.ivy2/local
       - /drone/.coursier
+      - /drone/.gradle
       - /drone/.sbt
       - /drone/.dodo
       - /drone/.buildpress

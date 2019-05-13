@@ -8,7 +8,7 @@ lichess,https://github.com/ornicar/lila.git#d49d5dfcdb7cc108fbc22dc0e0f943d2bfe3
 scalding,https://github.com/jvican/scalding.git#5d25466db09cc4d3b50ff8478d70560a027be7f4
 summingbird,https://github.com/jvican/summingbird.git#42d3e19ef898722c34dbe0f8f8744144cf910f0b
 scio,https://github.com/jvican/scio.git#d93e3577651c3364a786c1da3e035cb8379ae36a
-prisma,https://github.com/jvican/prisma.git#27a520eb2048161e28413914485ea3b4096e4d1a
+prisma,https://github.com/jvican/prisma.git#f0928fa51f27ce43f7862bbe2274d133c682a891
 gatling,https://github.com/jvican/gatling.git#6b6b881273331400f5ac5178c5261f4c6897955b
 marathon,https://github.com/jvican/marathon.git#81820d7bc8aec1168a0cf813035d0a7d969bbc47
 coursier,https://github.com/coursier/coursier.git#ca4aa4e1e26947ef9aa514547adbac157320e808
