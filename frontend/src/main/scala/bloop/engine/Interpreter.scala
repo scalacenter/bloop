@@ -280,7 +280,7 @@ object Interpreter {
                       try {
                         Files.write(outFile, ammoniteCmd.getBytes(StandardCharsets.UTF_8))
                         val msg = s"Wrote Ammonite command to $outFile"
-                        Task.now(state.withInfo(msg))
+                        Task.now(state.withDebug(msg)(DebugFilter.All))
                       } catch {
                         case _: IOException =>
                           val msg = s"Unexpected error when writing Ammonite command to $outFile"

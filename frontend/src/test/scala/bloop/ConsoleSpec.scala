@@ -11,7 +11,7 @@ import java.nio.file.Paths
 import bloop.io.AbsolutePath
 
 object ConsoleSpec extends BaseSuite {
-  test("default ammonite console works") {
+  test("default ammonite console works in multi-build project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
