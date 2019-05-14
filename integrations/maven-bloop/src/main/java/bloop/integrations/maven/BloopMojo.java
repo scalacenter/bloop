@@ -37,6 +37,9 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(property = "bloop.executionFork", defaultValue = "false")
     private boolean bloopExecutionFork;
 
+    @Parameter(property = "downloadSources", defaultValue = "false")
+    private boolean downloadSources;
+
     @Parameter(property = "bloop.classpathOptions.bootLibrary", defaultValue = "true")
     private boolean classpathOptionsBootLibrary;
 
@@ -80,6 +83,10 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
 
     public File getBloopConfigDir() {
         return bloopConfigDir;
+    }
+
+    public boolean shouldDownloadSources(){
+        return downloadSources;
     }
 
     public Config.CompileSetup getCompileSetup() {
