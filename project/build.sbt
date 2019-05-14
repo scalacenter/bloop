@@ -1,5 +1,5 @@
-val mvnVersion = "3.5.2"
-val mvnPluginToolsVersion = "3.5"
+val mvnVersion = "3.6.1"
+val mvnPluginToolsVersion = "3.6.0"
 val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 
 val `bloop-build` = project
