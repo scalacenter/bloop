@@ -14,7 +14,7 @@ case class CompileDependenciesData(
     dependencyClasspath: Array[AbsolutePath],
     dependentResults: Map[File, PreviousResult],
     allInvalidatedClassFiles: Set[File],
-    allGeneratedClassFilePaths: Set[String]
+    allGeneratedClassFilePaths: Map[String, File]
 ) {
   def buildFullCompileClasspathFor(
       project: Project,
@@ -37,7 +37,7 @@ object CompileDependenciesData {
     val dependentClassesDir = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentResources = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
-    val dependentGeneratedClassFilePaths = new mutable.HashSet[String]()
+    val dependentGeneratedClassFilePaths = new mutable.HashMap[String, File]()
     dependentProducts.foreach {
       case (project, products) =>
         val genericClassesDir = project.genericClassesDir
@@ -50,7 +50,7 @@ object CompileDependenciesData {
 
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
-        dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths)
+        dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths.iterator)
         dependentResources.put(genericClassesDir, project.pickValidResources)
         resultsMap.put(genericClassesDir.toFile, products.resultForDependentCompilationsInSameRun)
     }
@@ -75,7 +75,7 @@ object CompileDependenciesData {
       rewrittenClasspath,
       resultsMap.toMap,
       dependentInvalidatedClassFiles.toSet,
-      dependentGeneratedClassFilePaths.toSet
+      dependentGeneratedClassFilePaths.toMap
     )
   }
 }

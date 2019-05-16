@@ -55,7 +55,7 @@ case class CompileInputs(
     ioScheduler: Scheduler,
     ioExecutor: Executor,
     invalidatedClassFilesInDependentProjects: Set[File],
-    generatedClassFilePathsInDependentProjects: Set[String]
+    generatedClassFilePathsInDependentProjects: Map[String, File]
 )
 
 case class CompileOutPaths(
@@ -167,7 +167,7 @@ object Compiler {
     logger.debug(s"Read-only classes directory ${readOnlyClassesDirPath}")
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
 
-    val allGeneratedRelativeClassFilePaths = new mutable.HashSet[String]()
+    val allGeneratedRelativeClassFilePaths = new mutable.HashMap[String, File]()
     val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
@@ -194,7 +194,14 @@ object Compiler {
           allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
         }
 
-        import compileInputs.invalidatedClassFilesInDependentProjects
+        /*
+         * Filter out the dependent generated class files in the dependent
+         * invalidations. This is key to avoid "not found type" or not found
+         * symbols during incremental compilation.
+         */
+        val dependentClassFilesThatShouldNotBeLoaded =
+          compileInputs.invalidatedClassFilesInDependentProjects -- compileInputs.generatedClassFilePathsInDependentProjects.valuesIterator
+
         def invalidatedClassFiles(): Array[File] = {
           // Invalidate class files from dependent projects + those invalidated in last incremental run
           val invalidatedClassFilesForRun = allInvalidatedClassFilesForProject.iterator.filter {
@@ -219,14 +226,14 @@ object Compiler {
               }
           }
 
-          (invalidatedClassFilesInDependentProjects ++ invalidatedClassFilesForRun).toArray
+          (dependentClassFilesThatShouldNotBeLoaded ++ invalidatedClassFilesForRun).toArray
         }
 
         def generated(generatedClassFiles: Array[File]): Unit = {
           generatedClassFiles.foreach { generatedClassFile =>
             val newClassFile = generatedClassFile.getAbsolutePath
             val relativeClassFilePath = newClassFile.replace(newClassesDirPath, "")
-            allGeneratedRelativeClassFilePaths.+=(relativeClassFilePath)
+            allGeneratedRelativeClassFilePaths.put(relativeClassFilePath, generatedClassFile)
             val rebasedClassFile =
               new File(newClassFile.replace(newClassesDirPath, readOnlyClassesDirPath))
             allInvalidatedClassFilesForProject.-=(rebasedClassFile)
@@ -460,7 +467,7 @@ object Compiler {
               compileInputs.previousResult,
               compileInputs.previousResult,
               Set(),
-              Set()
+              Map.empty
             )
 
             val backgroundTasks = new CompileBackgroundTasks {
@@ -530,7 +537,7 @@ object Compiler {
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
-              allGeneratedRelativeClassFilePaths.toSet
+              allGeneratedRelativeClassFilePaths.toMap
             )
 
             Result.Success(

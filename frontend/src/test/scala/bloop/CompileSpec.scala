@@ -432,31 +432,67 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compile after moving a class from a project to a dependent project") {
+  test("compile after moving a class across project + invalidating symbol in a dependent project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
           """/Foo.scala
+            |import Enrichments._
             |class Foo
+          """.stripMargin
+
+        // A dummy file to avoid surpassing the 50% changed sources and trigger a full compile
+        val `Dummy.scala` =
+          """/Dummy.scala
+            |class Dummy
+          """.stripMargin
+
+        // A second dummy file
+        val `Dummy2.scala` =
+          """/Dummy2.scala
+            |class Dummy2
+          """.stripMargin
+
+        val `Enrichments.scala` =
+          """/Enrichments.scala
+            |object Enrichments {}
+          """.stripMargin
+
+        val `Enrichments2.scala` =
+          """/Enrichments.scala
+            |object Enrichments {
+            |  implicit class XtensionString(str: String) {
+            |    def isGreeting: Boolean = str == "Hello world"
+            |  }
+            |}
           """.stripMargin
 
         val `Bar.scala` =
           """/Bar.scala
+            |import Enrichments._
             |class Bar {
             |  val foo: Foo = new Foo
+            |  def hello: String = "hello"
+            |  println(hello)
             |}
           """.stripMargin
 
         val `Baz.scala` =
           """/Baz.scala
+            |import Enrichments._
             |class Baz extends Bar
           """.stripMargin
       }
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`))
-      val `B` =
-        TestProject(workspace, "b", List(Sources.`Bar.scala`, Sources.`Baz.scala`), List(`A`))
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`, Sources.`Enrichments.scala`))
+      val sourcesB = List(
+        Sources.`Bar.scala`,
+        Sources.`Baz.scala`,
+        Sources.`Dummy.scala`,
+        Sources.`Dummy2.scala`
+      )
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
       val projects = List(`A`, `B`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`B`)
@@ -471,13 +507,17 @@ object CompileSpec extends bloop.testing.BaseSuite {
       )
 
       val secondCompiledState = compiledState.compile(`B`)
-      assertNoDiff(
-        logger.errors.mkString(System.lineSeparator),
-        ""
-      )
+      assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
       assert(secondCompiledState.status == ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
       assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, projects)
+
+      writeFile(`A`.srcFor("Enrichments.scala"), Sources.`Enrichments2.scala`)
+      val thirdCompiledState = secondCompiledState.compile(`B`)
+      assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
+      assert(thirdCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(thirdCompiledState, projects)
+      assertDifferentExternalClassesDirs(thirdCompiledState, secondCompiledState, projects)
     }
   }
 
