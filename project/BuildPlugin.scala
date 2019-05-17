@@ -455,6 +455,7 @@ object BuildImplementation {
         Dependencies.mavenCore,
         Dependencies.mavenPluginApi,
         Dependencies.mavenPluginAnnotations,
+        Dependencies.mavenInvoker,
         // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
         Dependencies.mavenScalaPlugin
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
