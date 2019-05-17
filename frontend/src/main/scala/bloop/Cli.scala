@@ -20,6 +20,7 @@ import _root_.monix.eval.Task
 
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
+import caseapp.core.CommandsMessages
 
 class Cli
 object Cli {
@@ -314,7 +315,10 @@ object Cli {
   ): Task[ExitStatus] = {
     action match {
       case Exit(_) => taskToRun.map(_.status)
-      // Don't synchronize BSP commands, BSP sessions can run concurrently on the same build
+      // Don't synchronize on lock commands that can run concurrently on the same build for the same client
+      case Run(_: Commands.About, next) => taskToRun.map(_.status)
+      case Run(_: Commands.Projects, next) => taskToRun.map(_.status)
+      case Run(_: Commands.Autocomplete, next) => taskToRun.map(_.status)
       case Run(_: Commands.Bsp, next) => taskToRun.map(_.status)
       case Run(_: Commands.ValidatedBsp, next) => taskToRun.map(_.status)
       case _ =>
