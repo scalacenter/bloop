@@ -3,8 +3,8 @@ package bloop.bsp
 import bloop.engine.State
 import bloop.config.Config
 import bloop.io.AbsolutePath
-import bloop.cli.{ExitStatus, BspProtocol}
-import bloop.util.{TestUtil, TestProject}
+import bloop.cli.{BspProtocol, ExitStatus}
+import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 
@@ -129,6 +129,32 @@ class BspProtocolSpec(
 
         val classes = items.head.classes.map(_.`class`).toSet
         assert(classes == expectedClasses)
+      }
+    }
+  }
+
+  test("find test classes") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+        val project = build.projectFor("test-project-test")
+        val expectedClasses = Set(
+          "JUnitTest",
+          "ScalaTestTest",
+          "ScalaCheckTest",
+          "WritingTest",
+          "Specs2Test",
+          "EternalUTest",
+          "UTestTest",
+          "ResourcesTest"
+        ).map("hello." + _)
+
+        val testClasses = build.state.testClasses(project)
+        val items = testClasses.items
+        assert(items.size == 1)
+
+        val classes = items.head.classes.toSet
+        assertEquals(classes, expectedClasses)
       }
     }
   }
