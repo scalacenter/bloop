@@ -21,6 +21,9 @@ import _root_.monix.eval.Task
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
 import caseapp.core.CommandsMessages
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
+import scala.util.Try
 
 class Cli
 object Cli {
@@ -306,6 +309,12 @@ object Cli {
   // If completed and true, client exited, otherwise client disconnected/cancelled
   private val activeCliSessions = new ConcurrentHashMap[Path, Promise[Unit]]()
 
+  private final val CliTimeoutProperty = "bloop.cli-lock.seconds-to-timeout"
+  private final val secondsTimeout: Long = {
+    val default = java.lang.Integer.getInteger(CliTimeoutProperty)
+    if (default == null) 60L else default.toLong
+  }
+
   def acquireBuildCliLock(
       configDir: AbsolutePath,
       action: Action,
@@ -313,9 +322,15 @@ object Cli {
       taskToRun: Task[State],
       logger: Logger
   ): Task[ExitStatus] = {
+    val timeoutTask = Task {
+      logger.error(s"Timed out waiting on CLI lock after ${secondsTimeout}s")
+      logger.info(s"  -> Tweak the default value by changing `-D$CliTimeoutProperty` in the server")
+      ExitStatus.UnexpectedError
+    }
+
     action match {
       case Exit(_) => taskToRun.map(_.status)
-      // Don't synchronize on lock commands that can run concurrently on the same build for the same client
+      // Don't synchrknize on lock commands that can run concurrently on the same build for the same client
       case Run(_: Commands.About, next) => taskToRun.map(_.status)
       case Run(_: Commands.Projects, next) => taskToRun.map(_.status)
       case Run(_: Commands.Autocomplete, next) => taskToRun.map(_.status)
@@ -328,6 +343,7 @@ object Cli {
           logger.info("Waiting on external CLI client to release lock on this build...")
           Task
             .fromFuture(currentPromise.future)
+            .timeoutTo(FiniteDuration(secondsTimeout, TimeUnit.SECONDS), timeoutTask)
             .flatMap { _ =>
               // Don't try to acquire lock if client waiting for it already disconnected
               if (syncPromise.isCompleted) {
