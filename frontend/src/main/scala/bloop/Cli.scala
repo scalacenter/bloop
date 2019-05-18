@@ -330,7 +330,7 @@ object Cli {
 
     action match {
       case Exit(_) => taskToRun.map(_.status)
-      // Don't synchrknize on lock commands that can run concurrently on the same build for the same client
+      // Don't synchronize on lock commands that can run concurrently on the same build for the same client
       case Run(_: Commands.About, next) => taskToRun.map(_.status)
       case Run(_: Commands.Projects, next) => taskToRun.map(_.status)
       case Run(_: Commands.Autocomplete, next) => taskToRun.map(_.status)
