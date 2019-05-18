@@ -75,6 +75,7 @@ object Dependencies {
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
+  val mavenInvoker = "org.apache.maven.shared" % "maven-invoker" % "3.0.1"
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 
