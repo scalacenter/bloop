@@ -290,7 +290,7 @@ object TestTask {
    * @param project The project for which to find tests.
    * @return An array containing all the testsFQCN that were detected.
    */
-  private[bloop] def findFullyQualifiedTestNames(
+  def findFullyQualifiedTestNames(
       project: Project,
       state: State
   ): Task[List[String]] = {
