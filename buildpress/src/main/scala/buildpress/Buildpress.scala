@@ -45,7 +45,7 @@ abstract class Buildpress(
                 // Verbose, but we will enrich failure handling in the future, so required
                 case Left(f: BuildpressError.CloningFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.GitImportFailure) => errorAndExit(f.msg)
-                case Left(f: BuildpressError.SbtImportFailure) => errorAndExit(f.msg)
+                case Left(f: BuildpressError.BuildImportFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.InvalidBuildpressHome) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.ParseFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.PersistFailure) => errorAndExit(f.msg)
@@ -159,15 +159,15 @@ abstract class Buildpress(
                   else if (!generated) Right(previousBloopDirs)
                   else {
                     val msg = s"Missing $bloopDir after build import!"
-                    Left(BuildpressError.SbtImportFailure(error(msg), None))
+                    Left(BuildpressError.BuildImportFailure(error(msg), None))
                   }
               }
             case Some(unsupportedBuildTool) =>
               val msg = s"Unsupported build tool $unsupportedBuildTool"
-              Left(BuildpressError.SbtImportFailure(error(msg), None))
+              Left(BuildpressError.BuildImportFailure(error(msg), None))
             case None =>
               val msg = s"No detected build tool in $buildPath"
-              Left(BuildpressError.SbtImportFailure(error(msg), None))
+              Left(BuildpressError.BuildImportFailure(error(msg), None))
           }
         }
         // Reverse because we have aggregated config dirs backwards
@@ -369,7 +369,7 @@ abstract class Buildpress(
       } catch {
         case NonFatal(t) =>
           val msg = s"Unexpected exception when writing to to $buildpressSbtFile"
-          Left(BuildpressError.SbtImportFailure(error(msg), Some(t)))
+          Left(BuildpressError.BuildImportFailure(error(msg), Some(t)))
       }
     }
 
@@ -389,7 +389,7 @@ abstract class Buildpress(
         case status if status.isOk => Right(())
         case failed =>
           val msg = s"Unexpected failure when running `${cmd.mkString(" ")}` in $baseDir"
-          Left(BuildpressError.SbtImportFailure(error(msg), None))
+          Left(BuildpressError.BuildImportFailure(error(msg), None))
       }
     }
 
