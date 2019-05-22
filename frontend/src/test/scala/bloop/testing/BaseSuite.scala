@@ -81,13 +81,13 @@ class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   def assertNotFile(path: AbsolutePath): Unit = {
-    if (path.isFile) {
+    if (path.isFile()) {
       fail(s"file exists: $path", stackBump = 1)
     }
   }
 
   def assertIsFile(path: AbsolutePath): Unit = {
-    if (!path.isFile) {
+    if (!path.isFile()) {
       fail(s"no such file: $path", stackBump = 1)
     }
   }

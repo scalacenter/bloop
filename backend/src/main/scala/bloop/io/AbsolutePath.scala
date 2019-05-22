@@ -19,7 +19,12 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def getParent: AbsolutePath = AbsolutePath(underlying.getParent)
 
   def exists: Boolean = Files.exists(underlying)
-  def isFile: Boolean = Files.isRegularFile(underlying)
+  def isFile(checkNonExistent: Boolean = false): Boolean = {
+    if (exists)
+      Files.isRegularFile(underlying)
+    else
+      checkNonExistent && AbsolutePath.sourceFileNameMatcher.matches(underlying.getFileName)
+  }
   def isDirectory: Boolean = Files.isDirectory(underlying)
   def readAllBytes: Array[Byte] = Files.readAllBytes(underlying)
   def toFile: File = underlying.toFile
