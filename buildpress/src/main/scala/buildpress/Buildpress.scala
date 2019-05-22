@@ -5,10 +5,8 @@ import java.net.{URI, URISyntaxException}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import scala.collection.mutable
-import scala.util.Try
 import scala.util.control.NonFatal
 import bloop.launcher.core.Shell
-import buildpress.BuildpressError.GitImportFailure
 import buildpress.io.{AbsolutePath, BuildpressPaths}
 import caseapp.core.{Messages, WithHelp}
 
@@ -79,46 +77,19 @@ abstract class Buildpress(
       home: AbsolutePath,
       cache: RepositoryCache
   ): EitherErrorOr[List[(Repository, AbsolutePath)]] = {
-    if (params.input.isFile) {
-      parseAndCloneRepositories(params.input, home, cache)
-    } else if (params.input.isDirectory) {
-      importExistingRepo(params.input).map(r => List(r -> params.input))
+    val input: AbsolutePath = params.input
+
+    if (input.isFile) {
+      parseAndCloneRepositories(input, home, cache)
+    } else if (input.isDirectory) {
+      val repoName: String = input.underlying.getFileName.toString
+      // treat externally cloned repos as local
+      val localRepoUri: URI = URI.create(s"file://${input.syntax}")
+      Right(List(Repository(repoName, localRepoUri) -> input))
     } else {
       Left(
-        BuildpressError.GitImportFailure(s"Don't know how to treat input [${params.input}]", None)
+        BuildpressError.GitImportFailure(s"Don't know how to treat input [$input]", None)
       )
-    }
-  }
-
-  private def importExistingRepo(path: AbsolutePath): Either[BuildpressError, Repository] = {
-    val getOrigin = List("git", "-C", path.syntax, "ls-remote", "--get-url")
-
-    def uri(s: String): Either[GitImportFailure, URI] =
-      Try(URI.create(s)).toEither.left
-        .map(e => GitImportFailure(s"Invalid repository URI at [$path]: [$s]", Some(e)))
-
-    for {
-      origin <- shell
-        .runCommand(getOrigin, cwd.underlying, Some(10L), Some(out))
-        .toEither
-        .map(_.trim)
-        .left
-        .map {
-          case (code, msg) =>
-            GitImportFailure(
-              s"${getOrigin.mkString("`", " ", "`")} failed: [$code | $msg]",
-              None
-            )
-        }
-
-      // best-effort to guess uri (FIXME?)
-      uri <- if (origin.matches("[(https?)|(ssh)|(rsync)]://.*")) {
-        uri(origin)
-      } else {
-        uri(s"ssh://$origin")
-      }
-    } yield {
-      Repository(origin, uri)
     }
   }
 
