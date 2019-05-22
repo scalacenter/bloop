@@ -46,6 +46,7 @@ abstract class Buildpress(
                 case Right(_) => ()
                 // Verbose, but we will enrich failure handling in the future, so required
                 case Left(f: BuildpressError.CloningFailure) => errorAndExit(f.msg)
+                case Left(f: BuildpressError.GitImportFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.SbtImportFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.InvalidBuildpressHome) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.ParseFailure) => errorAndExit(f.msg)
@@ -84,7 +85,7 @@ abstract class Buildpress(
       importExistingRepo(params.input).map(r => List(r -> params.input))
     } else {
       Left(
-        BuildpressError.CloningFailure(s"Don't know how to treat input [${params.input}]", None)
+        BuildpressError.GitImportFailure(s"Don't know how to treat input [${params.input}]", None)
       )
     }
   }
@@ -92,18 +93,30 @@ abstract class Buildpress(
   private def importExistingRepo(path: AbsolutePath): Either[BuildpressError, Repository] = {
     val getOrigin = List("git", "-C", path.syntax, "ls-remote", "--get-url")
 
+    def uri(s: String): Either[GitImportFailure, URI] =
+      Try(URI.create(s)).toEither.left
+        .map(e => GitImportFailure(s"Invalid repository URI at [$path]: [$s]", Some(e)))
+
     for {
       origin <- shell
         .runCommand(getOrigin, cwd.underlying, Some(10L), Some(out))
         .toEither
+        .map(_.trim)
         .left
         .map {
           case (code, msg) =>
-            GitImportFailure(s"${getOrigin.mkString("`", " ", "`")} failed: [$code | $msg]", None)
+            GitImportFailure(
+              s"${getOrigin.mkString("`", " ", "`")} failed: [$code | $msg]",
+              None
+            )
         }
 
-      uri <- Try(URI.create(origin)).toEither.left
-        .map(e => GitImportFailure(s"Invalid URI: $origin", Some(e)))
+      // best-effort to guess uri (FIXME?)
+      uri <- if (origin.matches("[(https?)|(ssh)|(rsync)]://.*")) {
+        uri(origin)
+      } else {
+        uri(s"ssh://$origin")
+      }
     } yield {
       Repository(origin, uri)
     }

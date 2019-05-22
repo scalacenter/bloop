@@ -14,13 +14,10 @@ final case class BuildpressParams(
         |- the path of the directory containing the project that buildpress will export""".stripMargin
     )
     input: AbsolutePath,
-    @ExtraName("v")
     @HelpMessage("The bloop version to export a build with")
     bloopVersion: String,
-    @ExtraName("h")
     @HelpMessage("The buildpress home directory where repositories are cloned and cached")
     buildpressHome: AbsolutePath,
-    @ExtraName("f")
     @HelpMessage("Regenerate bloop configuration files for every repository")
     regenerate: Boolean = false
 )
