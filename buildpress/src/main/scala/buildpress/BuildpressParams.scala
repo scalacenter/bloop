@@ -1,23 +1,26 @@
 package buildpress
 
-import buildpress.io.AbsolutePath
-
-import java.nio.file.Path
-import java.nio.file.Paths
-
+import java.nio.file.{Path, Paths}
 import scala.util.Try
-
+import buildpress.io.AbsolutePath
 import caseapp.core.{ArgParser, Parser}
 import caseapp.{ExtraName, HelpMessage}
 
 final case class BuildpressParams(
-    @ExtraName("file")
-    @HelpMessage("The file containing a list of '(id, uri)' that buildpress will export")
-    buildpressFile: AbsolutePath,
+    @ExtraName("i")
+    @HelpMessage(
+      """One of:
+        |- the path of the file containing a list of '(id, uri)' that buildpress will export
+        |- the path of the directory containing the project that buildpress will export""".stripMargin
+    )
+    input: AbsolutePath,
+    @ExtraName("v")
     @HelpMessage("The bloop version to export a build with")
     bloopVersion: String,
+    @ExtraName("h")
     @HelpMessage("The buildpress home directory where repositories are cloned and cached")
     buildpressHome: AbsolutePath,
+    @ExtraName("f")
     @HelpMessage("Regenerate bloop configuration files for every repository")
     regenerate: Boolean = false
 )

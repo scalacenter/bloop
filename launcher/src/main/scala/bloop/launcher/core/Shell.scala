@@ -33,6 +33,14 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 
   case class StatusCommand(code: Int, output: String) {
     def isOk: Boolean = code == 0
+
+    // assuming if it's ok, we don't need exit code
+    def toEither: Either[(Int, String), String] =
+      if (isOk) {
+        Right(output)
+      } else {
+        Left(code -> output)
+      }
   }
 
   def runCommand(
