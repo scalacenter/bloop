@@ -138,8 +138,7 @@ object ResultsCache {
                         CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty)
                       ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false),
-                        Some(LastSuccessfulResult(inputs, products, Task.now(()))),
-                        CancelableFuture.successful(())
+                        Some(LastSuccessfulResult(inputs, products, Task.now(())))
                       )
                     case None =>
                       logger.debug(

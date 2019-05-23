@@ -331,8 +331,7 @@ object CompileGraph {
                   enrichResultDag(resultDag) { (p: PartialCompileResult) =>
                     p match {
                       case s: PartialSuccess =>
-                        val failedBundle =
-                          ResultBundle(failedDeduplicationResult, None, CancelableFuture.unit)
+                        val failedBundle = ResultBundle(failedDeduplicationResult, None)
                         s.copy(result = s.result.map(_ => failedBundle))
                       case result => result
                     }
@@ -621,7 +620,7 @@ object CompileGraph {
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
     def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure = {
-      val results = Task.now(ResultBundle(res, None, CancelableFuture.unit))
+      val results = Task.now(ResultBundle(res, None))
       PartialFailure(bundle.project, CompileExceptions.FailPromise, results)
     }
 
@@ -655,7 +654,7 @@ object CompileGraph {
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None, CancelableFuture.unit))
+                  val blocked = Task.now(ResultBundle(blockedResult, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {
@@ -669,7 +668,7 @@ object CompileGraph {
                     var dependentProducts = new mutable.ListBuffer[(Project, CompileProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
-                      case (p, ResultBundle(s: Compiler.Result.Success, _, _)) =>
+                      case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
                         val newProducts = s.products
                         dependentProducts.+=(p -> newProducts)
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
@@ -767,7 +766,7 @@ object CompileGraph {
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None, CancelableFuture.unit))
+                  val blocked = Task.now(ResultBundle(blockedResult, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {

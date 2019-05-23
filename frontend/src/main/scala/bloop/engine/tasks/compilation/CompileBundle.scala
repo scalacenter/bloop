@@ -81,10 +81,10 @@ final case class CompileBundle(
   def prepareSourcesAndInstance: Either[ResultBundle, CompileSourcesAndInstance] = {
     import monix.execution.CancelableFuture
     def earlyError(msg: String): ResultBundle =
-      ResultBundle(Compiler.Result.GlobalError(msg), None, CancelableFuture.unit)
+      ResultBundle(Compiler.Result.GlobalError(msg), None)
     def empty: ResultBundle = {
       val last = Some(LastSuccessfulResult.empty(project))
-      ResultBundle(Compiler.Result.Empty, last, CancelableFuture.unit)
+      ResultBundle(Compiler.Result.Empty, last)
     }
 
     val uniqueSources = javaSources ++ scalaSources

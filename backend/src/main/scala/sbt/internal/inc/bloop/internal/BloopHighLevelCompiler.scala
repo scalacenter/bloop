@@ -20,6 +20,7 @@ import xsbti.compile._
 
 import scala.util.control.NonFatal
 import sbt.internal.inc.JarUtils
+import scala.concurrent.Promise
 
 /**
  *
@@ -45,11 +46,7 @@ final class BloopHighLevelCompiler(
   private[this] final val setup = config.currentSetup
   private[this] final val classpath = config.classpath.map(_.getAbsoluteFile)
 
-  private[this] val JavaCompleted: CompletableFuture[Unit] = {
-    val cf = new CompletableFuture[Unit]()
-    cf.complete(())
-    cf
-  }
+  private[this] val JavaCompleted: Promise[Unit] = Promise.successful(())
 
   /**
    * Compile
@@ -94,7 +91,7 @@ final class BloopHighLevelCompiler(
     }
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (pipeline: Boolean, batches: Option[Int], completeJava: CompletableFuture[Unit], fireJavaCompilation: Task[JavaSignal], transitiveJavaSources: List[File], separateJavaAndScala: Boolean) = {
+    val (pipeline: Boolean, batches: Option[Int], completeJava: Promise[Unit], fireJavaCompilation: Task[JavaSignal], transitiveJavaSources: List[File], separateJavaAndScala: Boolean) = {
       compileMode match {
         case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
         case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
@@ -106,8 +103,8 @@ final class BloopHighLevelCompiler(
     }
 
     // Complete empty java promise if there are no java sources
-    if (javaSources.isEmpty && !completeJava.isDone)
-      completeJava.complete(())
+    if (javaSources.isEmpty && !completeJava.isCompleted)
+      completeJava.trySuccess(())
 
     val compileScala: Task[Unit] = {
       if (scalaSources.isEmpty) Task.now(())
@@ -134,8 +131,7 @@ final class BloopHighLevelCompiler(
           } catch {
             case NonFatal(t) =>
               // If scala compilation happens, complete the java promise so that it doesn't block
-              if (!completeJava.isDone)
-                completeJava.completeExceptionally(t)
+              completeJava.tryFailure(t)
               throw t
           }
         }
@@ -164,14 +160,13 @@ final class BloopHighLevelCompiler(
         val javaOptions = setup.options.javacOptions.toArray[String]
         try {
           javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
-          if (!completeJava.isDone)
-            completeJava.complete(())
+          completeJava.trySuccess(())
           ()
         } catch {
           case f: CompileFailed =>
             // Intercept and report manually because https://github.com/sbt/zinc/issues/520
             config.reporter.printSummary()
-            completeJava.completeExceptionally(f)
+            completeJava.tryFailure(f)
             throw f
         }
       }

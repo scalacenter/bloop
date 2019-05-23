@@ -58,7 +58,7 @@ object PartialCompileResult {
 
 case object PartialEmpty extends PartialCompileResult {
   override final val result: Task[ResultBundle] =
-    Task.now(ResultBundle(Compiler.Result.Empty, None, CancelableFuture.unit))
+    Task.now(ResultBundle(Compiler.Result.Empty, None))
 }
 
 case class PartialFailure(

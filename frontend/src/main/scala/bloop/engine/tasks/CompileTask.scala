@@ -38,6 +38,7 @@ import sbt.internal.inc.AnalyzingCompiler
 import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
 
 import scala.concurrent.Promise
+import bloop.io.Paths
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -187,6 +188,9 @@ object CompileTask {
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }
 
+              val deletePickleDirTask =
+                Task.fork(Task.eval(Paths.delete(compileOut.internalNewPickleDir)))
+
               // Populate the last successful result if result was success
               result match {
                 case s: Compiler.Result.Success =>
@@ -208,12 +212,15 @@ object CompileTask {
 
                   // Memoize so that no matter how many times it's run, only once it's executed
                   val last = LastSuccessfulResult(bundle.oracleInputs, s.products, populatingTask)
-                  ResultBundle(s, Some(last), runningTasks)
+                  ResultBundle(s, Some(last), runningTasks, deletePickleDirTask)
                 case f: Compiler.Result.Failed =>
-                  ResultBundle(result, None, runPostCompilationTasks(f.backgroundTasks))
+                  val runningTasks = runPostCompilationTasks(f.backgroundTasks)
+                  ResultBundle(result, None, runningTasks, deletePickleDirTask)
                 case c: Compiler.Result.Cancelled =>
-                  ResultBundle(result, None, runPostCompilationTasks(c.backgroundTasks))
-                case result => ResultBundle(result, None, CancelableFuture.successful(()))
+                  val runningTasks = runPostCompilationTasks(c.backgroundTasks)
+                  ResultBundle(result, None, runningTasks, deletePickleDirTask)
+                case result =>
+                  ResultBundle(result, None, CancelableFuture.unit, deletePickleDirTask)
               }
             }
           }
@@ -310,22 +317,24 @@ object CompileTask {
           }
         }
 
-        val backgroundTasks = Task
-          .gatherUnordered {
-            results.flatMap {
-              case FinalNormalCompileResult(_, results: ResultBundle) =>
-                List(
-                  Task
-                    .fromFuture(results.runningBackgroundTasks)
-                    .executeOn(ExecutionContext.ioScheduler)
-                )
-              case _ => Nil
-            }
+        val backgroundTasks = Task.gatherUnordered {
+          results.flatMap {
+            case FinalNormalCompileResult(_, results) =>
+              val tasksAtEndOfBuildCompilation = results.deletePickleDirTask.flatMap { _ =>
+                Task
+                  .fromFuture(results.runningBackgroundTasks)
+                  .executeOn(ExecutionContext.ioScheduler)
+              }
+              List(tasksAtEndOfBuildCompilation)
+            case _ => Nil
           }
-          .executeOn(ExecutionContext.ioScheduler)
+        }
 
         // Block on all background task operations to fully populate classes directories
-        backgroundTasks.map(_ => newState).doOnFinish(_ => Task(rootTracer.terminate()))
+        backgroundTasks
+          .executeOn(ExecutionContext.ioScheduler)
+          .map(_ => newState)
+          .doOnFinish(_ => Task(rootTracer.terminate()))
       }
     }
   }

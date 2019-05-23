@@ -1,4 +1,5 @@
 package sbt.internal.inc.bloop.internal
+
 import java.io.File
 import xsbti.api.AnalyzedClass
 import xsbti.compile.analysis.ReadStamps
