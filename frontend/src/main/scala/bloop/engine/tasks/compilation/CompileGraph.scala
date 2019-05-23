@@ -3,20 +3,19 @@ package bloop.engine.tasks.compilation
 
 import java.io.File
 import java.nio.file.Path
-import java.util.concurrent.{CompletableFuture, ConcurrentHashMap}
+import java.util.concurrent.ConcurrentHashMap
 
 import ch.epfl.scala.bsp.StatusCode
 import bloop.io.{ParallelOps, AbsolutePath, Paths => BloopPaths}
 import bloop.io.ParallelOps.CopyMode
 import bloop.data.{Project, ClientInfo}
 import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
-import bloop.util.Java8Compat.JavaCompletableFutureUtils
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
 import bloop.engine.{Dag, Leaf, Parent, Aggregate, ExecutionContext}
 import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
-import bloop.{Compiler, CompilerOracle, JavaSignal, SimpleIRStore, CompileProducts}
+import bloop.{Compiler, CompilerOracle, JavaSignal, CompileProducts}
 import bloop.engine.caches.LastSuccessfulResult
 
 import monix.eval.Task
@@ -24,7 +23,7 @@ import monix.execution.atomic.AtomicInt
 import monix.execution.CancelableFuture
 import monix.execution.atomic.AtomicBoolean
 import monix.reactive.{Observable, MulticastStrategy}
-import xsbti.compile.{EmptyIRStore, IR, IRStore, PreviousResult}
+import xsbti.compile.PreviousResult
 
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
@@ -39,12 +38,10 @@ object CompileGraph {
       dependentProducts: Map[Project, CompileProducts]
   )
 
-  type IRs = Array[IR]
   case class Inputs(
       bundle: CompileBundle,
-      store: IRStore,
-      irPromise: CompletableFuture[IRs],
-      completeJava: CompletableFuture[Unit],
+      irPromise: Promise[Unit],
+      completeJava: Promise[Unit],
       transitiveJavaSignal: Task[JavaSignal],
       oracle: CompilerOracle,
       separateJavaAndScala: Boolean,
@@ -54,13 +51,12 @@ object CompileGraph {
   object Inputs {
     def normal(
         b: CompileBundle,
-        s: IRStore,
-        p: CompletableFuture[IRs],
+        p: Promise[Unit],
         oracle: CompilerOracle,
         separateJavaAndScala: Boolean,
         dependentResults: Map[File, PreviousResult] = Map.empty
     ): Inputs = {
-      Inputs(b, s, p, JavaCompleted, JavaContinue, oracle, separateJavaAndScala, dependentResults)
+      Inputs(b, p, JavaCompleted, JavaContinue, oracle, separateJavaAndScala, dependentResults)
     }
   }
 
@@ -86,8 +82,10 @@ object CompileGraph {
     else normalTraversal(dag, client, setup, compile)
   }
 
+  private final val JavaCompleted = Promise.successful(())
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
-  private final val JavaCompleted = CompletableFuture.completedFuture(())
+  private def partialSuccess(bundle: CompileBundle, result: Task[ResultBundle]): PartialSuccess =
+    PartialSuccess(bundle, JavaCompleted, JavaContinue, result)
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
@@ -281,7 +279,7 @@ object CompileGraph {
          */
         val obtainResultFromDeduplication = ongoingCompilationTask.map { resultDag =>
           enrichResultDag(resultDag) {
-            case s @ PartialSuccess(bundle, _, _, _, compilerResult) =>
+            case s @ PartialSuccess(bundle, _, _, compilerResult) =>
               val newCompilerResult = compilerResult.flatMap { results =>
                 results.fromCompiler match {
                   case s: Compiler.Result.Success =>
@@ -627,7 +625,6 @@ object CompileGraph {
       PartialFailure(bundle.project, CompileExceptions.FailPromise, results)
     }
 
-    val es = EmptyIRStore.getStore
     def loop(dag: Dag[Project]): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
@@ -636,12 +633,10 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                val cf = new CompletableFuture[IRs]()
-                compile(Inputs.normal(bundle, es, cf, emptyOracle, false)).map { results =>
+                val p = Promise[Unit]()
+                compile(Inputs.normal(bundle, p, emptyOracle, false)).map { results =>
                   results.fromCompiler match {
-                    case Compiler.Result.Ok(_) =>
-                      val resultsNow = Task.now(results)
-                      Leaf(PartialSuccess(bundle, es, JavaCompleted, JavaContinue, resultsNow))
+                    case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, Task.now(results)))
                     case res => Leaf(toPartialFailure(bundle, res))
                   }
                 }
@@ -684,19 +679,15 @@ object CompileGraph {
                       case _ => ()
                     }
 
-                    val cf = new CompletableFuture[IRs]()
+                    val p = Promise[Unit]()
                     val resultsMap = dependentResults.toMap
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { b =>
-                      val inputs = Inputs.normal(b, es, cf, emptyOracle, false, resultsMap)
+                      val inputs = Inputs.normal(b, p, emptyOracle, false, resultsMap)
                       compile(inputs).map { results =>
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) =>
-                            val resultsNow = Task.now(results)
-                            Parent(
-                              PartialSuccess(b, es, JavaCompleted, JavaContinue, resultsNow),
-                              dagResults
-                            )
+                            Parent(partialSuccess(b, Task.now(results)), dagResults)
                           case res => Parent(toPartialFailure(b, res), dagResults)
                         }
                       }
@@ -732,22 +723,21 @@ object CompileGraph {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
 
-    val es = EmptyIRStore.getStore
     def loop(dag: Dag[Project]): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>
           val task = dag match {
             case Leaf(project) =>
-              Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
+              Task.now(Promise[Unit]()).flatMap { cf =>
                 val bundleInputs = BundleInputs(project, dag, Map.empty)
                 setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                  val jcf = new CompletableFuture[Unit]()
-                  val t = compile(Inputs(bundle, es, cf, jcf, JavaContinue, emptyOracle, true))
+                  val jcf = Promise[Unit]()
+                  val t = compile(Inputs(bundle, cf, jcf, JavaContinue, emptyOracle, true))
                   val running =
                     Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                   val completeJavaTask = Task
-                    .deferFutureAction(jcf.asScala(_))
+                    .deferFuture(jcf.future)
                     .materialize
                     .map {
                       case Success(_) => JavaSignal.ContinueCompilation
@@ -756,11 +746,10 @@ object CompileGraph {
                     .memoize
 
                   Task
-                    .deferFutureAction(c => cf.asScala(c))
+                    .deferFuture(cf.future)
                     .materialize
-                    .map { irs =>
-                      val store = irs.map(irs => SimpleIRStore(Array(irs)))
-                      Leaf(PartialCompileResult(bundle, store, jcf, completeJavaTask, running))
+                    .map { upstream =>
+                      Leaf(PartialCompileResult(bundle, upstream, jcf, completeJavaTask, running))
                     }
                 }
               }
@@ -781,9 +770,6 @@ object CompileGraph {
                   val blocked = Task.now(ResultBundle(blockedResult, None, CancelableFuture.unit))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
-                  val directResults =
-                    Dag.directDependencies(dagResults).collect { case s: PartialSuccess => s }
-
                   val results: List[PartialSuccess] = {
                     val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
                     transitive.collect { case s: PartialSuccess => s }
@@ -792,30 +778,17 @@ object CompileGraph {
                   // Passing empty map for dependent classes dirs because we load sigs from memory
                   val bundleInputs = BundleInputs(project, dag, Map.empty)
                   setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                    // Place IRs stores in same order as classes dirs show up in the raw classpath!
-                    val dependencyStore = {
-                      val indexDirs =
-                        bundle.project.rawClasspath.filter(_.isDirectory).zipWithIndex.toMap
-                      val transitive = results.flatMap { r =>
-                        val classesDir = r.bundle.project.genericClassesDir
-                        indexDirs.get(classesDir).iterator.map(i => i -> r.store)
-                      }
-                      SimpleIRStore(
-                        transitive.sortBy(_._1).iterator.flatMap(_._2.getDependentsIRs).toArray
-                      )
-                    }
-
                     // Signals whether java compilation can proceed or not
                     val sig = aggregateJavaSignals(results.map(_.javaTrigger))
                     val oracle = new ImmutableCompilerOracle(results)
-                    Task.now(new CompletableFuture[IRs]()).flatMap { cf =>
-                      val jf = new CompletableFuture[Unit]()
-                      val t = compile(Inputs(bundle, dependencyStore, cf, jf, sig, oracle, true))
+                    Task.now(Promise[Unit]()).flatMap { cf =>
+                      val jf = Promise[Unit]()
+                      val t = compile(Inputs(bundle, cf, jf, sig, oracle, true))
                       val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                       val ongoing = Task.fromFuture(running)
                       val completedJava = {
                         Task
-                          .deferFutureAction(jf.asScala(_))
+                          .deferFuture(jf.future)
                           .materialize
                           .map {
                             case Success(_) => JavaSignal.ContinueCompilation
@@ -824,15 +797,11 @@ object CompileGraph {
                       }.memoize // Important to memoize this task for performance reasons
 
                       Task
-                        .deferFutureAction(c => cf.asScala(c))
+                        .deferFuture(cf.future)
                         .materialize
-                        .map { irs =>
-                          val store = irs.map { irs =>
-                            dependencyStore.merge(SimpleIRStore(Array(irs)))
-                          }
-
+                        .map { upstream =>
                           Parent(
-                            PartialCompileResult(bundle, store, jf, completedJava, ongoing),
+                            PartialCompileResult(bundle, upstream, jf, completedJava, ongoing),
                             dagResults
                           )
                         }

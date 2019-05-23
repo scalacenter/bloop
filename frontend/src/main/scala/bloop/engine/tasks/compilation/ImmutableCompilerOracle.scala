@@ -27,7 +27,7 @@ final class ImmutableCompilerOracle(
   override def askForJavaSourcesOfIncompleteCompilations: List[File] = {
     scheduledCompilations.flatMap { r =>
       val runningPromise = r.completeJava
-      if (runningPromise.isDone) Nil
+      if (runningPromise.isCompleted) Nil
       else r.bundle.javaSources.map(_.toFile)
     }
   }

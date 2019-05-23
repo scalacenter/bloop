@@ -37,7 +37,7 @@ case class CompileInputs(
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
     oracleInputs: CompilerOracle.Inputs,
-    store: IRStore,
+    //store: IRStore,
     out: CompileOutPaths,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
@@ -63,14 +63,31 @@ case class CompileOutPaths(
     externalClassesDir: AbsolutePath,
     internalReadOnlyClassesDir: AbsolutePath
 ) {
-  lazy val internalNewClassesDir: AbsolutePath = {
+  private def createNewDir(generateDirName: String => String): AbsolutePath = {
     val classesDir = internalReadOnlyClassesDir.underlying
     val parentDir = classesDir.getParent()
     val classesName = externalClassesDir.underlying.getFileName()
-    val newClassesName = s"${classesName}-${UUIDUtil.randomUUID}"
-    AbsolutePath(
-      Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
-    )
+    val newClassesName = generateDirName(classesName.toString)
+    AbsolutePath(Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath())
+  }
+
+  lazy val internalNewClassesDir: AbsolutePath = {
+    createNewDir(classesName => s"${classesName}-${UUIDUtil.randomUUID}")
+  }
+
+  /**
+   * Creates an internal directory where symbol pickles are stored when build
+   * pipelining is enabled. This directory is removed whenever compilation
+   * process has finished because pickles are useless when class files are
+   * present. This might change when we expose pipelining to clients.
+   */
+  lazy val internalNewPickleDir: AbsolutePath = {
+    createNewDir { classesName =>
+      val newName = s"${classesName.replace("classes", "pickles")}-${UUIDUtil.randomUUID}"
+      // If original classes name didn't contain `classes`, add pickles at the beginning
+      if (newName.contains("pickles")) newName
+      else "pickles-" + newName
+    }
   }
 }
 
@@ -325,7 +342,7 @@ object Compiler {
         .withClassesDirectory(newClassesDir.toFile)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
-        .withStore(inputs.store)
+        //.withStore(inputs.store)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
@@ -351,14 +368,7 @@ object Compiler {
       }
 
       val progress = Optional.of[CompileProgress](new BloopProgress(reporter, cancelPromise))
-      val setup =
-        Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
-      // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
-      compileInputs.mode match {
-        case p: CompileMode.Pipelined => setup.withIrPromise(p.irs)
-        case pp: CompileMode.ParallelAndPipelined => setup.withIrPromise(pp.irs)
-        case _ => setup
-      }
+      Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
     def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {

@@ -84,7 +84,7 @@ final case class ResultsCache private (
 
   def addFinalResults(ps: List[FinalCompileResult]): ResultsCache = {
     ps.foldLeft(this) {
-      case (rs, FinalNormalCompileResult(p, r, _)) => rs.addResult(p, r)
+      case (rs, FinalNormalCompileResult(p, r)) => rs.addResult(p, r)
       case (rs, FinalEmptyResult) => rs
     }
   }

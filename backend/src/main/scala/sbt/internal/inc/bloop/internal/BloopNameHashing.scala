@@ -10,6 +10,7 @@ import monix.eval.Task
 import sbt.util.Logger
 import sbt.internal.inc._
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
+import xsbti.compile.Output
 
 /**
  * Defines Bloop's version of `IncrementalNameHashing` that extends Zinc's original
@@ -140,7 +141,8 @@ private final class BloopNameHashing(
       sources: Set[File],
       previousAnalysis: Analysis,
       stamps: ReadStamps,
-      lookup: Lookup
+      lookup: Lookup,
+      output: Output
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
     tracer.trace("detecting initial changes") { tracer =>
       // Copy pasting from IncrementalCommon to optimize/remove IO work

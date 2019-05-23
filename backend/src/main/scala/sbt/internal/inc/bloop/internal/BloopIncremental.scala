@@ -9,7 +9,7 @@ import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
-import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps, AnalysisCallback => AnalysisCallbackImpl}
+import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps}
 import sbt.util.Logger
 import xsbti.AnalysisCallback
 import xsbti.api.AnalyzedClass
@@ -29,7 +29,7 @@ object BloopIncremental {
       log: Logger,
       reporter: ZincReporter,
       options: IncOptions,
-      irPromise: CompletableFuture[Array[IR]],
+      //irPromise: CompletableFuture[Array[IR]],
       manager: ClassFileManager,
       tracer: BraveTracer
   ): Task[(Boolean, Analysis)] = {
@@ -49,9 +49,9 @@ object BloopIncremental {
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
     val internalSourceToClassNamesMap: File => Set[String] = (f: File) => previousRelations.classNames(f)
 
-    val builder = new AnalysisCallbackImpl.Builder(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, irPromise)
+    val builder = () => new BloopAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, oracleInputs, lookup, previous, current, compile, builder, reporter, log, options, manager, tracer)
+    compileIncremental(sources, oracleInputs, lookup, previous, current, compile, builder, reporter, log, output, options, manager, tracer)
   }
 
   def compileIncremental(
@@ -61,9 +61,10 @@ object BloopIncremental {
       previous: Analysis,
       current: ReadStamps,
       compile: CompileFunction,
-      callbackBuilder: AnalysisCallbackImpl.Builder,
+      callbackBuilder: () => BloopAnalysisCallback,
       reporter: ZincReporter,
       log: sbt.util.Logger,
+      output: Output,
       options: IncOptions,
       manager: ClassFileManager,
       tracer: BraveTracer,
@@ -72,7 +73,7 @@ object BloopIncremental {
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
     val incremental = new BloopNameHashing(log, reporter, oracleInputs, options, profiler.profileRun, tracer)
-    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup)
+    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, output)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray
       val modifiedClasses = initialChanges.external.allModified.toArray
@@ -96,7 +97,7 @@ object BloopIncremental {
     val analysisTask = {
       val doCompile = (srcs: Set[File], changes: DependencyChanges) => {
         for {
-          callback <- Task.now(callbackBuilder.build())
+          callback <- Task.now(callbackBuilder())
           _ <- compile(srcs, changes, callback, manager)
         } yield callback.get
       }

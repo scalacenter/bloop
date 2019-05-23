@@ -17,6 +17,7 @@ import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
 import sbt.internal.inc.bloop.internal.{BloopHighLevelCompiler, BloopIncremental}
 import sbt.util.InterfaceUtil
 import xsbti.compile._
+import sbt.internal.inc.JarUtils
 
 object BloopZincCompiler {
   import bloop.logging.DebugFilter
@@ -64,7 +65,6 @@ object BloopZincCompiler {
         sources,
         classpath,
         oracleInputs,
-        store,
         CompileOutput(classesDirectory),
         cache,
         progress().toOption,
@@ -79,7 +79,6 @@ object BloopZincCompiler {
         skip,
         incrementalCompilerOptions,
         extraOptions,
-        irPromise,
         compileMode,
         manager,
         tracer
@@ -93,7 +92,6 @@ object BloopZincCompiler {
       sources: Array[File],
       classpath: Seq[File],
       oracleInputs: CompilerOracle.Inputs,
-      store: IRStore,
       output: Output,
       cache: GlobalsCache,
       progress: Option[CompileProgress] = None,
@@ -108,7 +106,6 @@ object BloopZincCompiler {
       skip: Boolean = false,
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
-      irPromise: CompletableFuture[Array[IR]],
       compileMode: CompileMode,
       manager: ClassFileManager,
       tracer: BraveTracer
@@ -119,7 +116,7 @@ object BloopZincCompiler {
     }
 
     // format: off
-    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, oracleInputs.classpath, store, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra, tracer)
+    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, oracleInputs.classpath, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra, tracer)
     // format: on
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
@@ -131,7 +128,7 @@ object BloopZincCompiler {
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
-        BloopIncremental.compile(setOfSources, oracleInputs, lookup, compile, analysis, output, logger, reporter, config.incOptions, irPromise, manager, tracer).map {
+        BloopIncremental.compile(setOfSources, oracleInputs, lookup, compile, analysis, output, logger, reporter, config.incOptions, manager, tracer).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }
       }
@@ -212,7 +209,6 @@ object BloopZincCompiler {
       sources: Seq[File],
       classpath: Seq[File],
       classpathHashes: Seq[FileHash],
-      store: IRStore,
       output: Output,
       cache: GlobalsCache,
       progress: Option[CompileProgress] = None,
@@ -244,11 +240,11 @@ object BloopZincCompiler {
       (extra map InterfaceUtil.t2).toArray
     )
 
+    val outputJar = JarUtils.createOutputJarContent(output)
     MixedAnalyzingCompiler.config(
       sources,
       classpath,
       classpathOptions,
-      store,
       compileSetup,
       progress,
       previousAnalysis,
@@ -259,7 +255,8 @@ object BloopZincCompiler {
       reporter,
       skip,
       cache,
-      incrementalCompilerOptions
+      incrementalCompilerOptions,
+      outputJar
     )
   }
 }
