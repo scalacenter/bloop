@@ -30,6 +30,7 @@ import monix.execution.atomic.AtomicInt
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
+import java.nio.file.FileSystems
 
 final class BloopBspServices(
     callSiteState: State,
@@ -590,15 +591,24 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.SourcesResult] = {
+
       val response = bsp.SourcesResult(
         projects.iterator.map {
           case (target, project) =>
-            val sources = project.sources.map { s =>
-              val kind =
-                if (s.isFile(checkNonExistent = true)) bsp.SourceItemKind.File
-                else bsp.SourceItemKind.Directory
-              // TODO(jvican): Don't default on false for generated, add this info to JSON fields
-              bsp.SourceItem(bsp.Uri(s.toBspSourceUri), kind, false)
+            val sources = project.sources.map {
+              s =>
+                import bsp.SourceItemKind._
+                val uri = s.underlying.toUri()
+                val (bspUri, kind) = if (s.exists) {
+                  (uri, if (s.isFile) File else Directory)
+                } else {
+                  val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
+                  if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
+                  // If path doesn't exist and its name doesn't look like a file, assume it's a dir
+                  else (new java.net.URI(uri.toString + "/"), Directory)
+                }
+                // TODO(jvican): Don't default on false for generated, add this info to JSON fields
+                bsp.SourceItem(bsp.Uri(bspUri), kind, false)
             }
             bsp.SourcesItem(target, sources)
         }.toList
