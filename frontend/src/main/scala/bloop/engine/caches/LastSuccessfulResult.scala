@@ -12,9 +12,10 @@ import java.util.Optional
 import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup, FileHash}
 
 import monix.eval.Task
+import bloop.UniqueCompileInputs
 
 case class LastSuccessfulResult(
-    sources: Vector[CompilerOracle.HashedSource],
+    sources: Vector[UniqueCompileInputs.HashedSource],
     classpath: Vector[FileHash],
     previous: PreviousResult,
     classesDir: AbsolutePath,
@@ -51,7 +52,7 @@ object LastSuccessfulResult {
   }
 
   def apply(
-      inputs: CompilerOracle.Inputs,
+      inputs: UniqueCompileInputs,
       products: CompileProducts,
       backgroundIO: Task[Unit]
   ): LastSuccessfulResult = {

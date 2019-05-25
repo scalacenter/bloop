@@ -144,6 +144,12 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(compileTask, state))
     }
 
+    def compileWithPipelining(projects: TestProject*): TestState = {
+      val projectNames = projects.map(_.config.name).toList
+      val compileTask = Run(Commands.Compile(projectNames, pipeline = true))
+      new TestState(TestUtil.blockingExecute(compileTask, state))
+    }
+
     def console(projects: TestProject*): TestState = {
       val compileTask = Run(Commands.Console(projects.map(_.config.name).toList))
       new TestState(TestUtil.blockingExecute(compileTask, state))

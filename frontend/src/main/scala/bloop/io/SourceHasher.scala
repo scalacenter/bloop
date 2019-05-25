@@ -17,6 +17,7 @@ import java.nio.file.{
 
 import bloop.data.Project
 import bloop.CompilerOracle
+import bloop.UniqueCompileInputs
 import bloop.engine.ExecutionContext
 
 import monix.reactive.{MulticastStrategy, Consumer, Observable}
@@ -27,7 +28,7 @@ object SourceHasher {
   def findAndHashSourcesInProject(
       project: Project,
       parallelUnits: Int
-  ): Task[List[CompilerOracle.HashedSource]] = {
+  ): Task[List[UniqueCompileInputs.HashedSource]] = {
     val sourceFilesAndDirectories = project.sources.distinct
     import scala.collection.mutable
     val visitedDirs = new mutable.HashSet[Path]()
@@ -76,7 +77,7 @@ object SourceHasher {
       .mapAsync(parallelUnits) { source =>
         Task.eval {
           val hash = ByteHasher.hashFileContents(source.toFile)
-          CompilerOracle.HashedSource(AbsolutePath(source), hash)
+          UniqueCompileInputs.HashedSource(AbsolutePath(source), hash)
         }
       }
       .toListL

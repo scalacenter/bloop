@@ -1,36 +1,42 @@
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
+import java.{util => ju}
+
 import xsbti.api.AnalyzedClass
 import xsbti.compile.analysis.ReadStamps
 import xsbti.compile.Output
 import xsbti.compile.IncOptions
 import xsbt.JarUtils
-import java.{util => ju}
-import sbt.internal.inc.Analysis
 import xsbti.api.SafeLazyProxy
-import sbt.internal.inc.Compilation
 import xsbt.api.HashAPI
 import xsbti.api.ClassLike
 import xsbti.api.NameHash
-import sbt.internal.inc.UsedName
 import xsbti.Problem
 import xsbti.api.InternalDependency
 import xsbti.api.ExternalDependency
 import xsbti.api.DependencyContext
-import sbt.util.InterfaceUtil
 import xsbti.Position
 import xsbti.Severity
-import sbt.internal.inc.Incremental
 import xsbti.api.DefinitionType
 import xsbti.UseScope
 import xsbti.api.Companions
 import xsbt.api.APIUtil
 import xsbt.api.NameHashing
-import sbt.internal.inc.SourceInfos
 import xsbti.compile.ClassFileManager
 
+import sbt.internal.inc.Incremental
+import sbt.util.InterfaceUtil
+import sbt.internal.inc.UsedName
+import sbt.internal.inc.Analysis
+import sbt.internal.inc.Compilation
+import sbt.internal.inc.SourceInfos
+
+import bloop.CompileMode
+import bloop.ScalaSig
+
 final class BloopAnalysisCallback(
+    compileMode: CompileMode,
     internalBinaryToSourceClassName: String => Option[String],
     internalSourceToClassNamesMap: File => Set[String],
     externalAPI: (File, String) => Option[AnalyzedClass],
@@ -349,29 +355,19 @@ final class BloopAnalysisCallback(
   override def dependencyPhaseCompleted(): Unit = ()
   override def classesInOutputJar(): java.util.Set[String] = ju.Collections.emptySet()
 
-  // Register defined macro in the oracle
-  override def definedMacro(symbolName: String): Unit = ()
+  override def definedMacro(symbolName: String): Unit = {
+    compileMode.oracle.registerDefinedMacro(symbolName)
+  }
 
-  /**
-   * Informs the callback of any invoked macro in a given project.
-   *
-   * If build pipelining is disabled, then we only register the invocation.
-   * Otherwise, we block until all dependent projects have compiled (and their
-   * classes directories populated). This is only required for the first
-   * macro invocation and can be skipped afterwards because the macro
-   * classloader will be cached for the whole classpath after the first
-   * invocaiton.
-   */
-  override def invokedMacro(invokedMacroSymbol: String): Unit = ()
+  override def invokedMacro(invokedMacroSymbol: String): Unit = {
+    compileMode.oracle.blockUntilMacroClasspathIsReady(invokedMacroSymbol)
+  }
 
-  /**
-   * Informs Bloop of pickles from a compilation run.
-   *
-   * We use this information to tell the oracle which projects define which
-   * pickles. The compiler oracle will make sure the pickles are persisted in
-   * dummy class files in an independent compilation classes directory.
-   */
-  override def definedPickles(pickles: Array[xsbti.T2[String, Array[Byte]]]): Unit = ()
+  override def definedPickles(pickles: Array[xsbti.T2[String, Array[Byte]]]): Unit = {
+    val picklesDir = compileMode.picklesDir
+    val scalaPickles = pickles.iterator.map(t => ScalaSig(t.get1(), t.get2())).toList
+    compileMode.oracle.startDownstreamCompilations(picklesDir, scalaPickles)
+  }
 
   override def invalidatedClassFiles(): Array[File] = {
     manager.invalidatedClassFiles()

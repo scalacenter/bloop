@@ -4,26 +4,26 @@ import java.io.File
 
 import bloop.data.Project
 import bloop.{Compiler, CompilerOracle}
+import bloop.engine.ExecutionContext
+import bloop.io.AbsolutePath
+import bloop.ScalaSig
 
-/**
- * An immutable compiler oracle knows all information concerning compilations
- * in a given run and by other clients. The oracle is an entity capable of
- * synchronizing and answering questions critical for deduplicating and running
- * compilations concurrently.
- *
- * The compiler oracle is created every time a project compilation is scheduled.
- * Together with global information such as all the ongoing compilations happening
- * in the build server, it receives local data from the compiler scheduler.
- */
+import scala.concurrent.Promise
+
+import monix.eval.Task
+import bloop.logging.Logger
+import bloop.tracing.BraveTracer
+
+/** @inheritdoc */
 final class ImmutableCompilerOracle(
-    scheduledCompilations: List[PartialSuccess]
+    project: Project,
+    startDownstreamCompilation: Promise[Unit],
+    scheduledCompilations: List[PartialSuccess],
+    tracer: BraveTracer,
+    logger: Logger
 ) extends CompilerOracle {
 
-  /**
-   * A question to the oracle about what are the java sources of those
-   * projects that are still under compilation. This is necessary when
-   * build pipelining is enabled and it's used in `BloopHighLevelCompiler`.
-   */
+  /** @inheritdoc */
   override def askForJavaSourcesOfIncompleteCompilations: List[File] = {
     scheduledCompilations.flatMap { r =>
       val runningPromise = r.completeJava
@@ -31,10 +31,31 @@ final class ImmutableCompilerOracle(
       else r.bundle.javaSources.map(_.toFile)
     }
   }
-}
 
-object ImmutableCompilerOracle {
-  def empty(): ImmutableCompilerOracle = {
-    new ImmutableCompilerOracle(Nil)
+  /** @inheritdoc */
+  def registerDefinedMacro(definedMacroSymbol: String): Unit = ()
+
+  /** @inheritdoc */
+  def blockUntilMacroClasspathIsReady(usedMacroSymbol: String): Unit = ()
+
+  /** @inheritdoc */
+  def startDownstreamCompilations(
+      picklesDir: AbsolutePath,
+      pickles: List[ScalaSig]
+  ): Unit = {
+    val writePickles = pickles.map(ScalaSig.write(picklesDir, _, logger))
+    val groupTasks = writePickles.grouped(4).map(group => Task.gatherUnordered(group)).toList
+    val persistPicklesInParallel = {
+      tracer.traceTask("writing pickles") { _ =>
+        Task.sequence(groupTasks).doOnFinish {
+          case None => Task.now { startDownstreamCompilation.trySuccess(()); () }
+          case Some(t) => Task.now { startDownstreamCompilation.tryFailure(t); () }
+        }
+      }
+    }
+
+    // Think strategies to get a hold of this future or cancel it if compilation is cancelled
+    persistPicklesInParallel.runAsync(ExecutionContext.ioScheduler)
+    ()
   }
 }

@@ -25,6 +25,7 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import bloop.UniqueCompileInputs
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -130,7 +131,7 @@ object ResultsCache {
                       val classesDir = classesDirFile.toPath
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
-                      val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath)
+                      val inputs = UniqueCompileInputs.emptyFor(originPath)
                       val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)

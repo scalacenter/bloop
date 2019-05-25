@@ -3,6 +3,7 @@ package sbt.internal.inc.bloop.internal
 import java.io.File
 
 import _root_.bloop.CompilerOracle
+import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.reporter.ZincReporter
 import _root_.bloop.tracing.BraveTracer
 
@@ -30,7 +31,7 @@ import xsbti.compile.Output
 private final class BloopNameHashing(
     log: Logger,
     reporter: ZincReporter,
-    oracleInputs: CompilerOracle.Inputs,
+    uniqueInputs: UniqueCompileInputs,
     options: IncOptions,
     profiler: RunProfiler,
     tracer: BraveTracer
@@ -150,7 +151,7 @@ private final class BloopNameHashing(
       val previous = previousAnalysis.stamps
       val previousRelations = previousAnalysis.relations
 
-      val hashesMap = oracleInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
+      val hashesMap = uniqueInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
       val sourceChanges = tracer.trace("source changes") { _ =>
         lookup.changedSources(previousAnalysis).getOrElse {
           val previousSources = previous.allSources.toSet

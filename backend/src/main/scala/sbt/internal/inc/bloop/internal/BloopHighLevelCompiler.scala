@@ -91,14 +91,11 @@ final class BloopHighLevelCompiler(
     }
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (pipeline: Boolean, batches: Option[Int], completeJava: Promise[Unit], fireJavaCompilation: Task[JavaSignal], transitiveJavaSources: List[File], separateJavaAndScala: Boolean) = {
+    val (pipeline: Boolean, batches: Option[Int], completeJava: Promise[Unit], fireJavaCompilation: Task[JavaSignal], separateJavaAndScala: Boolean) = {
       compileMode match {
-        case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
-        case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
-        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
-          (true, None, completeJava, fireJavaCompilation, oracle.askForJavaSourcesOfIncompleteCompilations, separateJavaAndScala)
-        case CompileMode.ParallelAndPipelined(batches, _, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
-          (true, Some(batches), completeJava, fireJavaCompilation, oracle.askForJavaSourcesOfIncompleteCompilations, separateJavaAndScala)
+        case _: CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), false)
+        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation, _, _, separateJavaAndScala) =>
+          (true, None, completeJava, fireJavaCompilation, separateJavaAndScala)
       }
     }
 
@@ -113,6 +110,7 @@ final class BloopHighLevelCompiler(
         val sources = {
           if (separateJavaAndScala) {
             // No matter if it's scala->java or mixed, we populate java symbols from sources
+            val transitiveJavaSources = compileMode.oracle.askForJavaSourcesOfIncompleteCompilations
             includedSources ++ transitiveJavaSources.filterNot(_.getName == "routes.java")
           } else {
             if (setup.order == CompileOrder.Mixed) includedSources

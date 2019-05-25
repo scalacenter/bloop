@@ -46,7 +46,6 @@ object CompileTask {
       state: State,
       dag: Dag[Project],
       createReporter: ReporterInputs[UseSiteLogger] => Reporter,
-      userCompileMode: CompileMode.ConfigurableMode,
       pipeline: Boolean,
       excludeRoot: Boolean,
       cancelCompilation: Promise[Unit],
@@ -86,6 +85,7 @@ object CompileTask {
       val logger = bundle.logger
       val reporter = bundle.reporter
       val previousResult = bundle.latestResult
+      val compileOut = bundle.out
       val lastSuccessful = bundle.lastSuccessful
       val compileProjectTracer = rootTracer.startNewChildTracer(
         s"compile ${project.name}",
@@ -99,16 +99,10 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
+          val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
-          val externalUserClassesDir = state.client.getUniqueClassesDirFor(project)
-          val compileOut = CompileOutPaths(
-            project.analysisOut,
-            externalUserClassesDir,
-            readOnlyClassesDir
-          )
-
           val newClassesDir = compileOut.internalNewClassesDir
-          val newPickleDir = compileOut.internalNewPickleDir
+          val newPickleDir = compileOut.internalNewPicklesDir
           val classpath = bundle.dependenciesData.buildFullCompileClasspathFor(
             project,
             readOnlyClassesDir,
@@ -123,7 +117,7 @@ object CompileTask {
               .foreach(msg => logger.warn(msg))
           }
 
-          val configuration = configureCompilation(project, pipeline, graphInputs, userCompileMode)
+          val configuration = configureCompilation(project, pipeline, graphInputs, compileOut)
           val newScalacOptions = {
             CompilerPluginWhitelist
               .enableCachingInScalacOptions(
@@ -141,7 +135,7 @@ object CompileTask {
               state.compilerCache,
               sources.toArray,
               classpath,
-              bundle.oracleInputs,
+              bundle.uniqueInputs,
               compileOut,
               project.out,
               newScalacOptions.toArray,
@@ -188,8 +182,9 @@ object CompileTask {
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }
 
-              val deletePickleDirTask =
-                Task.fork(Task.eval(Paths.delete(compileOut.internalNewPickleDir)))
+              val deletePickleDirTask = Task.fork(Task.eval(()))
+              //val deletePickleDirTask =
+              //  Task.fork(Task.eval(Paths.delete(compileOut.internalNewPickleDir)))
 
               // Populate the last successful result if result was success
               result match {
@@ -211,7 +206,7 @@ object CompileTask {
                   }.memoize
 
                   // Memoize so that no matter how many times it's run, only once it's executed
-                  val last = LastSuccessfulResult(bundle.oracleInputs, s.products, populatingTask)
+                  val last = LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask)
                   ResultBundle(s, Some(last), runningTasks, deletePickleDirTask)
                 case f: Compiler.Result.Failed =>
                   val runningTasks = runPostCompilationTasks(f.backgroundTasks)
@@ -236,8 +231,8 @@ object CompileTask {
       }
 
       // Compute the previous and last successful results from the results cache
+      import inputs.project
       val (prev, last) = {
-        import inputs.project
         if (pipeline) {
           val emptySuccessful = LastSuccessfulResult.empty(project)
           // Disable incremental compilation if pipelining is enabled
@@ -251,11 +246,13 @@ object CompileTask {
         }
       }
 
+      val t = rootTracer
       val cancel = cancelCompilation
       val logger = ObservedLogger(rawLogger, observer)
+      val dir = state.client.getUniqueClassesDirFor(inputs.project)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(inputs, reporter, last, prev, cancel, logger, obs, rootTracer)
+      CompileBundle.computeFrom(inputs, dir, reporter, last, prev, cancel, logger, obs, t)
     }
 
     val client = state.client
@@ -345,30 +342,21 @@ object CompileTask {
       project: Project,
       pipeline: Boolean,
       graphInputs: CompileGraph.Inputs,
-      configurableMode: CompileMode.ConfigurableMode
+      out: CompileOutPaths
   ): ConfiguredCompilation = {
-    if (!pipeline) ConfiguredCompilation(configurableMode, project.scalacOptions)
-    else {
+    if (!pipeline) {
+      val newMode = CompileMode.Sequential(out.internalNewPicklesDir, graphInputs.oracle)
+      ConfiguredCompilation(newMode, project.scalacOptions)
+    } else {
       val scalacOptions = project.scalacOptions //(GeneratePicklesFlag :: project.scalacOptions)
-      val newMode = configurableMode match {
-        case CompileMode.Sequential =>
-          CompileMode.Pipelined(
-            graphInputs.irPromise,
-            graphInputs.completeJava,
-            graphInputs.transitiveJavaSignal,
-            graphInputs.oracle,
-            graphInputs.separateJavaAndScala
-          )
-        case CompileMode.Parallel(batches) =>
-          CompileMode.ParallelAndPipelined(
-            batches,
-            graphInputs.irPromise,
-            graphInputs.completeJava,
-            graphInputs.transitiveJavaSignal,
-            graphInputs.oracle,
-            graphInputs.separateJavaAndScala
-          )
-      }
+      val newMode = CompileMode.Pipelined(
+        graphInputs.irPromise,
+        graphInputs.completeJava,
+        graphInputs.transitiveJavaSignal,
+        out.internalNewPicklesDir,
+        graphInputs.oracle,
+        graphInputs.separateJavaAndScala
+      )
       ConfiguredCompilation(newMode, scalacOptions)
     }
   }

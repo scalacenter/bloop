@@ -1,55 +1,51 @@
 package bloop
 
 import java.io.File
-
 import bloop.io.AbsolutePath
-import bloop.util.CacheHashCode
-import xsbti.compile.FileHash
 
 /**
- * A compiler oracle is an entity that provides routines to answer
- * questions that come up during the scheduling of compilation tasks.
+ * A compiler oracle is an entity that provides answers to questions that come
+ * up during the compilation of build targets. The oracle is an entity capable
+ * of synchronizing and answering questions critical for deduplicating and
+ * running compilations concurrently.
+ *
+ * For example, if a project wants to know something about the compilation of
+ * its dependencies, the oracle would be the right place to create a method
+ * that provides answers.
+ *
+ * The compiler oracle is created every time a project compilation is
+ * scheduled. Depending on the implementation, it can know both global
+ * information such as all the ongoing compilations happening in the build
+ * server, local data such as how a target is being compiled or both.
  */
 abstract class CompilerOracle {
+
+  /**
+   * Returns java sources of all those dependent projects whose compilations
+   * are not yet finished when build pipelining is enabled. If build pipelining
+   * is disabled, returns always an empty list since the class files of Java
+   * sources are already present in the compilation classpath.
+   */
   def askForJavaSourcesOfIncompleteCompilations: List[File]
-}
 
-object CompilerOracle {
-  case class HashedSource(source: AbsolutePath, hash: Int)
-  case class Inputs(
-      sources: Vector[HashedSource],
-      classpath: Vector[FileHash],
-      options: Vector[String],
-      scalaJars: Vector[String],
-      originProjectPath: String
-  ) extends CacheHashCode {
+  /**
+   * Registers a macro defined during this compilation run. It takes a full
+   * symbol name and associates it with the project under compilation.
+   */
+  def registerDefinedMacro(definedMacroSymbol: String): Unit
 
-    /**
-     * Custom hash code that does not take into account ordering of `sources`
-     * and `classpath` hashes that can change from run to run since they are
-     * computed in parallel. This hash code is cached in a val so that we don't
-     * need to recompute it every time we use it in a map/set.
-     */
-    override lazy val hashCode: Int = {
-      import scala.util.hashing.MurmurHash3
-      val sourcesHashCode = MurmurHash3.unorderedHash(sources, 0)
-      val classpathHashCode = MurmurHash3.unorderedHash(classpath, sourcesHashCode)
-      val optionsHashCode = MurmurHash3.unorderedHash(options, classpathHashCode)
-      val scalaJarsHashCode = MurmurHash3.unorderedHash(scalaJars, optionsHashCode)
-      MurmurHash3.stringHash(originProjectPath, scalaJarsHashCode)
-    }
+  /**
+   * Blocks until the macro classpath for this macro is ready. If the macro has
+   * not been defined, we ignore it (it comes from a third-party library),
+   * otherwise we will wait until all dependent projects defining macros have
+   * finished compilation.
+   */
+  def blockUntilMacroClasspathIsReady(usedMacroSymbol: String): Unit
 
-    override def equals(other: Any): Boolean = {
-      other match {
-        case other: Inputs => this.hashCode == other.hashCode
-        case _ => false
-      }
-    }
-  }
-
-  object Inputs {
-    def emptyFor(originPath: String): Inputs = {
-      Inputs(Vector.empty, Vector.empty, Vector.empty, Vector.empty, originPath)
-    }
-  }
+  /**
+   * Starts downstream compilations with the compile pickle data generated
+   * during the compilation of a project. This method needs to take care of
+   * making the pickles accessible to downstream compilations.
+   */
+  def startDownstreamCompilations(picklesDir: AbsolutePath, pickles: List[ScalaSig]): Unit
 }

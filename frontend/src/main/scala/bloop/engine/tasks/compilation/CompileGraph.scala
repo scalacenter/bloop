@@ -17,6 +17,8 @@ import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
 import bloop.{Compiler, CompilerOracle, JavaSignal, CompileProducts}
 import bloop.engine.caches.LastSuccessfulResult
+import bloop.UniqueCompileInputs
+import bloop.PartialCompileProducts
 
 import monix.eval.Task
 import monix.execution.atomic.AtomicInt
@@ -32,10 +34,11 @@ object CompileGraph {
   type CompileTraversal = Task[Dag[PartialCompileResult]]
   private implicit val filter: DebugFilter = DebugFilter.Compilation
 
+  type BundleProducts = Either[PartialCompileProducts, CompileProducts]
   case class BundleInputs(
       project: Project,
       dag: Dag[Project],
-      dependentProducts: Map[Project, CompileProducts]
+      dependentProducts: Map[Project, BundleProducts]
   )
 
   case class Inputs(
@@ -131,10 +134,10 @@ object CompileGraph {
   )
 
   type RunningCompilationsInAllClients =
-    ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]
+    ConcurrentHashMap[UniqueCompileInputs, RunningCompilation]
 
   private val runningCompilations: RunningCompilationsInAllClients =
-    new ConcurrentHashMap[CompilerOracle.Inputs, RunningCompilation]()
+    new ConcurrentHashMap[UniqueCompileInputs, RunningCompilation]()
 
   type ProjectId = String
   private val lastSuccessfulResults = new ConcurrentHashMap[ProjectId, LastSuccessfulResult]()
@@ -148,7 +151,7 @@ object CompileGraph {
 
   private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
 
-  private val emptyOracle = ImmutableCompilerOracle.empty()
+  private val noOracle = EmptyCompilerOracle
 
   private sealed trait DeduplicationResult
   private object DeduplicationResult {
@@ -187,8 +190,8 @@ object CompileGraph {
       val logger = bundle.logger
       var deduplicate: Boolean = true
       val ongoingCompilation = runningCompilations.computeIfAbsent(
-        bundle.oracleInputs,
-        (_: CompilerOracle.Inputs) => {
+        bundle.uniqueInputs,
+        (_: UniqueCompileInputs) => {
           deduplicate = false
           scheduleCompilation(inputs, bundle, client, compile)
         }
@@ -359,7 +362,7 @@ object CompileGraph {
                  *    new compilation was scheduled.
                  */
                 ongoingCompilation.isUnsubscribed.compareAndSet(false, true)
-                runningCompilations.remove(bundle.oracleInputs, ongoingCompilation)
+                runningCompilations.remove(bundle.uniqueInputs, ongoingCompilation)
                 compilationFuture.cancel()
                 reporter.reportEndCompilation(Nil, StatusCode.Cancelled)
                 logger.displayWarningToUser(
@@ -429,12 +432,11 @@ object CompileGraph {
       compile(newBundle)
         .doOnFinish(_ => Task(logger.observer.onComplete()))
         .map { result =>
-          val oinputs = bundle.oracleInputs
           // Unregister deduplication atomically and register last successful if any
           processResultAtomically(
             result,
             project,
-            oinputs,
+            bundle.uniqueInputs,
             mostRecentSuccessful,
             isUnsubscribed,
             logger
@@ -471,7 +473,7 @@ object CompileGraph {
   private def processResultAtomically(
       resultDag: Dag[PartialCompileResult],
       project: Project,
-      oinputs: CompilerOracle.Inputs,
+      oinputs: UniqueCompileInputs,
       previous: LastSuccessfulResult,
       isAlreadyUnsubscribed: AtomicBoolean,
       logger: Logger
@@ -557,13 +559,13 @@ object CompileGraph {
    */
   private def unregisterDeduplicationAndRegisterSuccessful(
       project: Project,
-      oracleInputs: CompilerOracle.Inputs,
+      oracleInputs: UniqueCompileInputs,
       successful: LastSuccessfulResult
   ): Option[LastSuccessfulResult] = {
     var resultToDelete: Option[LastSuccessfulResult] = None
     runningCompilations.compute(
       oracleInputs,
-      (_: CompilerOracle.Inputs, _: RunningCompilation) => {
+      (_: UniqueCompileInputs, _: RunningCompilation) => {
         lastSuccessfulResults.compute(
           project.uniqueId,
           (_: String, previous: LastSuccessfulResult) => {
@@ -633,7 +635,7 @@ object CompileGraph {
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                 val p = Promise[Unit]()
-                compile(Inputs.normal(bundle, p, emptyOracle, false)).map { results =>
+                compile(Inputs.normal(bundle, p, noOracle, false)).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, Task.now(results)))
                     case res => Leaf(toPartialFailure(bundle, res))
@@ -665,12 +667,12 @@ object CompileGraph {
                   val projectResults =
                     results.map(ps => ps.result.map(r => ps.bundle.project -> r))
                   Task.gatherUnordered(projectResults).flatMap { results =>
-                    var dependentProducts = new mutable.ListBuffer[(Project, CompileProducts)]()
+                    var dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
                       case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
                         val newProducts = s.products
-                        dependentProducts.+=(p -> newProducts)
+                        dependentProducts.+=(p -> Right(newProducts))
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
                         dependentResults
                           .+=(newProducts.newClassesDir.toFile -> newResult)
@@ -682,7 +684,7 @@ object CompileGraph {
                     val resultsMap = dependentResults.toMap
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { b =>
-                      val inputs = Inputs.normal(b, p, emptyOracle, false, resultsMap)
+                      val inputs = Inputs.normal(b, p, noOracle, false, resultsMap)
                       compile(inputs).map { results =>
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) =>
@@ -732,7 +734,9 @@ object CompileGraph {
                 val bundleInputs = BundleInputs(project, dag, Map.empty)
                 setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                   val jcf = Promise[Unit]()
-                  val t = compile(Inputs(bundle, cf, jcf, JavaContinue, emptyOracle, true))
+                  val oracle =
+                    new ImmutableCompilerOracle(project, cf, Nil, bundle.tracer, bundle.logger)
+                  val t = compile(Inputs(bundle, cf, jcf, JavaContinue, oracle, true))
                   val running =
                     Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                   val completeJavaTask = Task
@@ -774,14 +778,27 @@ object CompileGraph {
                     transitive.collect { case s: PartialSuccess => s }
                   }
 
+                  val transitivePartialProducts = results.map { r =>
+                    val out = r.bundle.out
+                    r.bundle.project -> Left(
+                      PartialCompileProducts(out.internalNewClassesDir, out.internalNewPicklesDir)
+                    )
+                  }
+
                   // Passing empty map for dependent classes dirs because we load sigs from memory
-                  val bundleInputs = BundleInputs(project, dag, Map.empty)
+                  val bundleInputs = BundleInputs(project, dag, transitivePartialProducts.toMap)
                   setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                     // Signals whether java compilation can proceed or not
                     val sig = aggregateJavaSignals(results.map(_.javaTrigger))
-                    val oracle = new ImmutableCompilerOracle(results)
                     Task.now(Promise[Unit]()).flatMap { cf =>
                       val jf = Promise[Unit]()
+                      val oracle = new ImmutableCompilerOracle(
+                        project,
+                        cf,
+                        results,
+                        bundle.tracer,
+                        bundle.logger
+                      )
                       val t = compile(Inputs(bundle, cf, jf, sig, oracle, true))
                       val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
                       val ongoing = Task.fromFuture(running)

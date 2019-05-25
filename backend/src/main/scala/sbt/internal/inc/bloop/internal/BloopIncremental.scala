@@ -5,8 +5,10 @@ import java.io.File
 import java.util.concurrent.CompletableFuture
 
 import bloop.CompilerOracle
+import bloop.UniqueCompileInputs
 import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
+import bloop.CompileMode
 
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps}
@@ -21,7 +23,7 @@ object BloopIncremental {
     (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
   def compile(
       sources: Iterable[File],
-      oracleInputs: CompilerOracle.Inputs,
+      uniqueInputs: UniqueCompileInputs,
       lookup: Lookup,
       compile: CompileFunction,
       previous0: CompileAnalysis,
@@ -29,7 +31,7 @@ object BloopIncremental {
       log: Logger,
       reporter: ZincReporter,
       options: IncOptions,
-      //irPromise: CompletableFuture[Array[IR]],
+      mode: CompileMode,
       manager: ClassFileManager,
       tracer: BraveTracer
   ): Task[(Boolean, Analysis)] = {
@@ -49,14 +51,14 @@ object BloopIncremental {
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
     val internalSourceToClassNamesMap: File => Set[String] = (f: File) => previousRelations.classNames(f)
 
-    val builder = () => new BloopAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
+    val builder = () => new BloopAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, oracleInputs, lookup, previous, current, compile, builder, reporter, log, output, options, manager, tracer)
+    compileIncremental(sources, uniqueInputs, lookup, previous, current, compile, builder, reporter, log, output, options, manager, tracer)
   }
 
   def compileIncremental(
       sources: Iterable[File],
-      oracleInputs: CompilerOracle.Inputs,
+      uniqueInputs: UniqueCompileInputs,
       lookup: Lookup,
       previous: Analysis,
       current: ReadStamps,
@@ -72,7 +74,7 @@ object BloopIncremental {
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, reporter, oracleInputs, options, profiler.profileRun, tracer)
+    val incremental = new BloopNameHashing(log, reporter, uniqueInputs, options, profiler.profileRun, tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, output)
     val binaryChanges = new DependencyChanges {
       val modifiedBinaries = initialChanges.binaryDeps.toArray

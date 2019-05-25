@@ -36,7 +36,7 @@ case class CompileInputs(
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
-    oracleInputs: CompilerOracle.Inputs,
+    uniqueInputs: UniqueCompileInputs,
     //store: IRStore,
     out: CompileOutPaths,
     baseDirectory: AbsolutePath,
@@ -81,7 +81,7 @@ case class CompileOutPaths(
    * process has finished because pickles are useless when class files are
    * present. This might change when we expose pipelining to clients.
    */
-  lazy val internalNewPickleDir: AbsolutePath = {
+  lazy val internalNewPicklesDir: AbsolutePath = {
     createNewDir { classesName =>
       val newName = s"${classesName.replace("classes", "pickles")}-${UUIDUtil.randomUUID}"
       // If original classes name didn't contain `classes`, add pickles at the beginning
@@ -129,7 +129,7 @@ object Compiler {
     final case class GlobalError(problem: String) extends Result with CacheHashCode
 
     final case class Success(
-        inputs: CompilerOracle.Inputs,
+        inputs: UniqueCompileInputs,
         reporter: ZincReporter,
         products: CompileProducts,
         elapsed: Long,
@@ -421,10 +421,10 @@ object Compiler {
 
     val mode = compileInputs.mode
     val manager = getClassFileManager()
-    val oracleInputs = compileInputs.oracleInputs
+    val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, mode, reporter, logger, oracleInputs, manager, tracer)
+      .compile(inputs, mode, reporter, logger, uniqueInputs, manager, tracer)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
@@ -490,7 +490,7 @@ object Compiler {
             }
 
             Result.Success(
-              compileInputs.oracleInputs,
+              compileInputs.uniqueInputs,
               compileInputs.reporter,
               products,
               elapsed,
@@ -551,7 +551,7 @@ object Compiler {
             )
 
             Result.Success(
-              compileInputs.oracleInputs,
+              compileInputs.uniqueInputs,
               compileInputs.reporter,
               products,
               elapsed,
