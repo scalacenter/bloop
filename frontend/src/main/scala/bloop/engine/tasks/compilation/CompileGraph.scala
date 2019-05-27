@@ -734,6 +734,7 @@ object CompileGraph {
                     Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                   val completeJavaTask = Task
                     .deferFuture(jcf.future)
+                    .executeOn(ExecutionContext.ioScheduler)
                     .materialize
                     .map {
                       case Success(_) => JavaSignal.ContinueCompilation
@@ -743,6 +744,7 @@ object CompileGraph {
 
                   Task
                     .deferFuture(cf.future)
+                    .executeOn(ExecutionContext.ioScheduler)
                     .materialize
                     .map { upstream =>
                       Leaf(
@@ -876,6 +878,7 @@ object CompileGraph {
                           val cj = {
                             Task
                               .deferFuture(jf.future)
+                              .executeOn(ExecutionContext.ioScheduler)
                               .materialize
                               .map {
                                 case Success(_) => JavaSignal.ContinueCompilation
@@ -885,6 +888,7 @@ object CompileGraph {
 
                           Task
                             .deferFuture(cf.future)
+                            .executeOn(ExecutionContext.ioScheduler)
                             .materialize
                             .map { upstream =>
                               Parent(
