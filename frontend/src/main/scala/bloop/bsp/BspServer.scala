@@ -250,6 +250,13 @@ object BspServer {
       else Task.eval(Paths.delete(externalClientClassesDir)).executeWithFork
     }
 
+    // Close any socket communication asap and swallow exceptions
+    try socket.close()
+    catch { case NonFatal(t) => () } finally {
+      try serverSocket.close()
+      catch { case NonFatal(t) => () }
+    }
+
     // Run deletion of client external classes directories in IO pool
     val groups = deleteExternalDirsTask.grouped(4).map(group => Task.gatherUnordered(group))
     Task
@@ -259,9 +266,7 @@ object BspServer {
       .map(_ => ())
       .runAsync(ExecutionContext.ioScheduler)
 
-    // Close any socket communication asap
-    try socket.close()
-    finally serverSocket.close()
+    ()
   }
 
   final class PumpOperator[A](pumpTarget: Observer.Sync[A], runningFuture: Cancelable)
