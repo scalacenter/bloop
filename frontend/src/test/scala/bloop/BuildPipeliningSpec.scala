@@ -56,7 +56,6 @@ object BuildPipeliningSpec extends bloop.testing.BaseSuite {
       val compiledState = state.compileWithPipelining(`D`)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
-      logger.dump()
     }
   }
 

@@ -1,10 +1,11 @@
-package bloop.engine.tasks.compilation
+package bloop
 
 import scala.util.control.NoStackTrace
 
-private[tasks] object CompileExceptions {
+private[bloop] object CompileExceptions {
   abstract class CompileException(msg: String) extends RuntimeException(msg) with NoStackTrace
-  object FailPromise extends CompileException("Promise completed after compilation error")
+  object FailedOrCancelledPromise
+      extends CompileException("Promise completed after compilation error")
   object BlockURI extends CompileException("URI cannot complete: compilation is blocked")
   final case object CompletePromise extends CompileException("Promise completed after compilation")
 

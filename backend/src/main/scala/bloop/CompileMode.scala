@@ -21,6 +21,7 @@ object CompileMode {
 
   final case class Pipelined(
       completeJavaCompilation: Promise[Unit],
+      finishedCompilation: Promise[Option[CompileProducts]],
       fireJavaCompilation: Task[JavaSignal],
       picklesDir: AbsolutePath,
       oracle: CompilerOracle,

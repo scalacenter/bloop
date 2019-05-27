@@ -9,7 +9,7 @@ import ch.epfl.scala.bsp.StatusCode
 import bloop.io.{ParallelOps, AbsolutePath, Paths => BloopPaths}
 import bloop.io.ParallelOps.CopyMode
 import bloop.data.{Project, ClientInfo}
-import bloop.engine.tasks.compilation.CompileExceptions.BlockURI
+import bloop.CompileExceptions.{BlockURI, FailedOrCancelledPromise}
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
 import bloop.engine.{Dag, Leaf, Parent, Aggregate, ExecutionContext}
@@ -616,7 +616,7 @@ object CompileGraph {
      */
     def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure = {
       val results = Task.now(ResultBundle(res, None))
-      PartialFailure(bundle.project, CompileExceptions.FailPromise, results)
+      PartialFailure(bundle.project, FailedOrCancelledPromise, results)
     }
 
     def loop(dag: Dag[Project]): CompileTraversal = {
@@ -627,7 +627,8 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                compile(Inputs(bundle, EmptyOracle, None, Map.empty)).map { results =>
+                val oracle = new SimpleOracle
+                compile(Inputs(bundle, oracle, None, Map.empty)).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
                     case res => Leaf(toPartialFailure(bundle, res))
@@ -675,7 +676,8 @@ object CompileGraph {
                     val resultsMap = dependentResults.toMap
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                      val inputs = Inputs(bundle, EmptyOracle, None, resultsMap)
+                      val oracle = new SimpleOracle
+                      val inputs = Inputs(bundle, oracle, None, resultsMap)
                       compile(inputs).map { results =>
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) =>
@@ -727,12 +729,13 @@ object CompileGraph {
                   val jcf = Promise[Unit]()
                   val fc = Promise[Option[CompileProducts]]()
                   val noSigs = new Array[Signature](0)
-                  val oracle = new PipeliningOracle(bundle, noSigs, cf, Nil)
+                  val noDefinedMacros = Map.empty[Project, Array[String]]
+                  val oracle = new PipeliningOracle(bundle, noSigs, noDefinedMacros, cf, Nil)
                   val pipelineInputs = PipelineInputs(cf, fc, jcf, JavaContinue, true)
                   val t = compile(Inputs(bundle, oracle, Some(pipelineInputs), Map.empty))
                   val running =
                     Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
-                  val completeJavaTask = Task
+                  val completeJava = Task
                     .deferFuture(jcf.future)
                     .executeOn(ExecutionContext.ioScheduler)
                     .materialize
@@ -747,8 +750,9 @@ object CompileGraph {
                     .executeOn(ExecutionContext.ioScheduler)
                     .materialize
                     .map { upstream =>
+                      val ms = oracle.collectDefinedMacroSymbols
                       Leaf(
-                        PartialCompileResult(bundle, upstream, fc, jcf, completeJavaTask, running)
+                        PartialCompileResult(bundle, upstream, fc, jcf, completeJava, ms, running)
                       )
                     }
                 }
@@ -776,6 +780,7 @@ object CompileGraph {
                   }
 
                   val failedPipelineProjects = new mutable.ListBuffer[Project]()
+                  val pipelinedJavaSignals = new mutable.ListBuffer[Task[JavaSignal]]()
                   val transitiveSignatures = new ju.LinkedHashMap[String, Signature]()
                   val resultsToBlockOn = new mutable.ListBuffer[Task[(Project, ResultBundle)]]()
                   val pipelinedDependentProducts =
@@ -786,6 +791,7 @@ object CompileGraph {
                     ps.pipeliningResults match {
                       case None => resultsToBlockOn.+=(ps.result.map(r => project -> r))
                       case Some(results) =>
+                        pipelinedJavaSignals.+=(results.shouldAttemptJavaCompilation)
                         val signatures = results.signatures
                         signatures.foreach { signature =>
                           // Don't register if sig for name exists, signature lookup order is DFS
@@ -812,7 +818,8 @@ object CompileGraph {
                               PartialCompileProducts(
                                 out.internalReadOnlyClassesDir,
                                 out.internalNewClassesDir,
-                                out.internalNewPicklesDir
+                                out.internalNewPicklesDir,
+                                results.definedMacros
                               )
                             )
                             pipelinedDependentProducts.+=(project -> pipeliningResult)
@@ -844,25 +851,26 @@ object CompileGraph {
                         case _ => ()
                       }
 
+                      val projectResultsMap =
+                        (pipelinedDependentProducts.iterator ++ nonPipelinedDependentProducts.iterator).toMap
+                      val allMacros = projectResultsMap
+                        .mapValues(_.fold(_.definedMacroSymbols, _.definedMacroSymbols))
                       val allSignatures = {
-                        // Keep in mind that order of signatures matters (e.g. simulates classpath lookup)
                         import scala.collection.JavaConverters._
+                        // Order of signatures matters (e.g. simulates classpath lookup)
                         transitiveSignatures.values().iterator().asScala.toArray
                       }
 
-                      val projectResultsMap =
-                        (pipelinedDependentProducts.iterator ++ nonPipelinedDependentProducts.iterator).toMap
                       val bundleInputs = BundleInputs(project, dag, projectResultsMap)
                       setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                         // Signals whether java compilation can proceed or not
-                        val startJava = aggregateJavaSignals(
-                          results.flatMap(_.pipeliningResults.map(_.shouldAttemptJavaCompilation))
-                        )
+                        val javaSignals = aggregateJavaSignals(pipelinedJavaSignals.toList)
                         Task.now(Promise[Array[Signature]]()).flatMap { cf =>
                           val jf = Promise[Unit]()
                           val fc = Promise[Option[CompileProducts]]()
-                          val oracle = new PipeliningOracle(bundle, allSignatures, cf, results)
-                          val pipelineInputs = PipelineInputs(cf, fc, jf, startJava, true)
+                          val oracle =
+                            new PipeliningOracle(bundle, allSignatures, allMacros, cf, results)
+                          val pipelineInputs = PipelineInputs(cf, fc, jf, javaSignals, true)
                           val t = compile(
                             Inputs(
                               bundle,
@@ -891,8 +899,9 @@ object CompileGraph {
                             .executeOn(ExecutionContext.ioScheduler)
                             .materialize
                             .map { upstream =>
+                              val ms = oracle.collectDefinedMacroSymbols
                               Parent(
-                                PartialCompileResult(bundle, upstream, fc, jf, cj, ongoing),
+                                PartialCompileResult(bundle, upstream, fc, jf, cj, ms, ongoing),
                                 dagResults
                               )
                             }

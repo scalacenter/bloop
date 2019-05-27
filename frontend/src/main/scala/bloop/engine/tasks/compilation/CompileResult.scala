@@ -1,6 +1,6 @@
 package bloop.engine.tasks.compilation
 
-import bloop.{Compiler, JavaSignal, CompileProducts}
+import bloop.{Compiler, JavaSignal, CompileProducts, CompileExceptions}
 import bloop.data.Project
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
@@ -24,15 +24,21 @@ object PartialCompileResult {
   def apply(
       bundle: CompileBundle,
       pipelineAttempt: Try[Array[Signature]],
-      futureCompilationProducts: Promise[Option[CompileProducts]],
+      futureProducts: Promise[Option[CompileProducts]],
       hasJavacCompleted: Promise[Unit],
       shouldCompileJava: Task[JavaSignal],
+      definedMacroSymbols: Array[String],
       result: Task[ResultBundle]
   ): PartialCompileResult = {
     pipelineAttempt match {
       case scala.util.Success(sigs) =>
-        val pipeline =
-          PipelineResults(sigs, futureCompilationProducts, hasJavacCompleted, shouldCompileJava)
+        val pipeline = PipelineResults(
+          sigs,
+          definedMacroSymbols,
+          futureProducts,
+          hasJavacCompleted,
+          shouldCompileJava
+        )
         PartialSuccess(bundle, Some(pipeline), result)
       case scala.util.Failure(CompileExceptions.CompletePromise) =>
         PartialSuccess(bundle, None, result)
@@ -87,6 +93,7 @@ case class PartialSuccess(
 
 case class PipelineResults(
     signatures: Array[Signature],
+    definedMacros: Array[String],
     productsWhenCompilationIsFinished: Promise[Option[CompileProducts]],
     isJavaCompilationFinished: Promise[Unit],
     shouldAttemptJavaCompilation: Task[JavaSignal]

@@ -36,6 +36,11 @@ abstract class CompilerOracle {
   def registerDefinedMacro(definedMacroSymbol: String): Unit
 
   /**
+   * Collects all macro symbols that have been defined by this compilation.
+   */
+  def collectDefinedMacroSymbols: Array[String]
+
+  /**
    * Blocks until the macro classpath for this macro is ready. If the macro has
    * not been defined, we ignore it (it comes from a third-party library),
    * otherwise we will wait until all dependent projects defining macros have

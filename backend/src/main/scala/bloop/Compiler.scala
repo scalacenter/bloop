@@ -30,6 +30,8 @@ import scala.collection.mutable
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.CancelableFuture
+import bloop.CompileMode.Pipelined
+import bloop.CompileMode.Sequential
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -392,20 +394,19 @@ object Compiler {
 
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
+    val mode = compileInputs.mode
     val reporter = compileInputs.reporter
 
     def cancel(): Unit = {
-      // Synchronize because for some weird reason Monix seems to be running this twice
-      cancelPromise.synchronized {
-        // Avoid illegal state exception if client cancellation promise is completed
-        if (!cancelPromise.isCompleted) {
-          logger.debug(
-            s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}"
-          )
-          compileInputs.cancelPromise.success(())
-        }
+      // Complete all pending promises when compilation is cancelled
+      logger.debug(s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}")
+      compileInputs.cancelPromise.trySuccess(())
+      mode match {
+        case _: Sequential => ()
+        case Pipelined(completeJava, finishedCompilation, _, _, _, _) =>
+          completeJava.trySuccess(())
+          finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
       }
-
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
     }
@@ -422,7 +423,6 @@ object Compiler {
       Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
     }
 
-    val mode = compileInputs.mode
     val manager = getClassFileManager()
     val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
@@ -471,6 +471,7 @@ object Compiler {
             }
           }
 
+          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.exists(_ == result.analysis())
           if (isNoOp) {
             // If no-op, return previous result
@@ -480,7 +481,8 @@ object Compiler {
               compileInputs.previousResult,
               compileInputs.previousResult,
               Set(),
-              Map.empty
+              Map.empty,
+              definedMacroSymbols
             )
 
             val backgroundTasks = new CompileBackgroundTasks {
@@ -550,7 +552,8 @@ object Compiler {
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
-              allGeneratedRelativeClassFilePaths.toMap
+              allGeneratedRelativeClassFilePaths.toMap,
+              definedMacroSymbols
             )
 
             Result.Success(

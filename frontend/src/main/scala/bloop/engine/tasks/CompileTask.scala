@@ -6,7 +6,8 @@ import bloop.{
   Compiler,
   CompileOutPaths,
   CompileProducts,
-  CompileBackgroundTasks
+  CompileBackgroundTasks,
+  CompileExceptions
 }
 import bloop.cli.ExitStatus
 import bloop.data.Project
@@ -352,6 +353,7 @@ object CompileTask {
         val scalacOptions = project.scalacOptions
         val newMode = CompileMode.Pipelined(
           inputs.completeJava,
+          inputs.finishedCompilation,
           inputs.transitiveJavaSignal,
           out.internalNewPicklesDir,
           graphInputs.oracle,
@@ -378,7 +380,7 @@ object CompileTask {
         result match {
           case Compiler.Result.NotOk(_) =>
             // If error, try to set failure in IR promise; if already completed ignore
-            pipelineInputs.irPromise.tryFailure(CompileExceptions.FailPromise); ()
+            pipelineInputs.irPromise.tryFailure(CompileExceptions.FailedOrCancelledPromise); ()
           case result =>
             // Complete finished compilation promise with products if success or empty
             result match {
@@ -386,7 +388,8 @@ object CompileTask {
                 pipelineInputs.finishedCompilation.success(Some(s.products))
               case Compiler.Result.Empty =>
                 pipelineInputs.finishedCompilation.trySuccess(None)
-              case _ => ()
+              case _ =>
+                pipelineInputs.finishedCompilation.tryFailure(CompileExceptions.CompletePromise)
             }
 
             val completed = pipelineInputs.irPromise.tryFailure(CompileExceptions.CompletePromise)

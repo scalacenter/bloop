@@ -7,18 +7,24 @@ import bloop.{Compiler, CompilerOracle}
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.ScalaSig
-
-import scala.concurrent.Promise
-
-import monix.eval.Task
 import bloop.logging.Logger
 import bloop.tracing.BraveTracer
+
+import scala.concurrent.Promise
+import scala.collection.mutable
+
+import monix.eval.Task
 import xsbti.compile.Signature
+import monix.execution.atomic.AtomicBoolean
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import monix.execution.misc.NonFatal
 
 /** @inheritdoc */
 final class PipeliningOracle(
     bundle: CompileBundle,
     signaturesFromRunningCompilations: Array[Signature],
+    definedMacrosFromRunningCompilations: Map[Project, Array[String]],
     startDownstreamCompilation: Promise[Array[Signature]],
     scheduledCompilations: List[PartialSuccess]
 ) extends CompilerOracle {
@@ -35,11 +41,67 @@ final class PipeliningOracle(
     }
   }
 
-  /** @inheritdoc */
-  def registerDefinedMacro(definedMacroSymbol: String): Unit = ()
+  private val definedMacros = new mutable.HashSet[String]()
 
   /** @inheritdoc */
-  def blockUntilMacroClasspathIsReady(usedMacroSymbol: String): Unit = ()
+  def registerDefinedMacro(definedMacroSymbol: String): Unit = definedMacros.+=(definedMacroSymbol)
+
+  /** @inheritdoc */
+  def collectDefinedMacroSymbols: Array[String] = definedMacros.toArray
+
+  /** @inheritdoc */
+  @volatile private var requiresMacroInitialization: Boolean = false
+  def blockUntilMacroClasspathIsReady(usedMacroSymbol: String): Unit = {
+    if (requiresMacroInitialization) ()
+    else {
+      val noMacrosDefinedInDependentProjects = {
+        definedMacrosFromRunningCompilations.isEmpty ||
+        definedMacrosFromRunningCompilations.forall(_._2.isEmpty)
+      }
+
+      if (noMacrosDefinedInDependentProjects) {
+        requiresMacroInitialization = true
+      } else {
+        // Only return promises for those projects that define any macros
+        val dependentProjectPromises = scheduledCompilations.flatMap { r =>
+          r.pipeliningResults match {
+            case None => Nil
+            case Some(results) =>
+              val hasNoMacros = {
+                val macros = definedMacrosFromRunningCompilations.get(r.bundle.project)
+                macros.isEmpty || macros.exists(_.isEmpty)
+              }
+              if (hasNoMacros) Nil
+              else List(Task.deferFuture(results.productsWhenCompilationIsFinished.future))
+          }
+        }
+
+        val waitDownstreamFullCompilations = {
+          Task
+            .sequence(dependentProjectPromises)
+            .map(_ => ())
+            .runAsync(ExecutionContext.ioScheduler)
+        }
+
+        /**
+         * Block until all the downstream compilations have completed.
+         *
+         * We have a guarantee from bloop that these promises will be always
+         * completed even if their associated compilations fail or are
+         * cancelled. In any of this scenario, and even if we throw on this
+         * wait, we catch it and let the compiler logic handle it. If the user
+         * has cancelled this compilation as well, the compiler logic will
+         * exit. If the compilation downstream failed, this compilation will
+         * fail too because supposedly it accesses macros defined downstream.
+         * Failing here it's fine.
+         */
+        try Await.result(waitDownstreamFullCompilations, Duration.Inf)
+        catch { case NonFatal(e) => () } finally {
+          requiresMacroInitialization = true
+        }
+      }
+    }
+  }
 
   /** @inheritdoc */
   def isPipeliningEnabled: Boolean = !startDownstreamCompilation.isCompleted

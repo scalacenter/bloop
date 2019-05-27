@@ -9,5 +9,6 @@ import bloop.io.AbsolutePath
 case class PartialCompileProducts(
     readOnlyClassesDir: AbsolutePath,
     newClassesDir: AbsolutePath,
-    newPicklesDir: AbsolutePath
+    newPicklesDir: AbsolutePath,
+    definedMacroSymbols: Array[String]
 )
