@@ -5,7 +5,7 @@ import bloop.engine.Feedback
 import bloop.engine.{Dag, ExecutionContext}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.ByteHasher
-import bloop.{Compiler, CompilerOracle, ScalaInstance, CompileProducts}
+import bloop.{Compiler, CompilerOracle, ScalaInstance}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
 import bloop.tracing.BraveTracer

@@ -29,6 +29,9 @@ import xsbti.compile.PreviousResult
 
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
+import xsbti.compile.Signature
+import scala.collection.mutable
+import java.{util => ju}
 
 object CompileGraph {
   type CompileTraversal = Task[Dag[PartialCompileResult]]
@@ -43,25 +46,18 @@ object CompileGraph {
 
   case class Inputs(
       bundle: CompileBundle,
-      irPromise: Promise[Unit],
-      completeJava: Promise[Unit],
-      transitiveJavaSignal: Task[JavaSignal],
       oracle: CompilerOracle,
-      separateJavaAndScala: Boolean,
-      dependentResults: Map[File, PreviousResult] = Map.empty
+      pipelineInputs: Option[PipelineInputs],
+      dependentResults: Map[File, PreviousResult]
   )
 
-  object Inputs {
-    def normal(
-        b: CompileBundle,
-        p: Promise[Unit],
-        oracle: CompilerOracle,
-        separateJavaAndScala: Boolean,
-        dependentResults: Map[File, PreviousResult] = Map.empty
-    ): Inputs = {
-      Inputs(b, p, JavaCompleted, JavaContinue, oracle, separateJavaAndScala, dependentResults)
-    }
-  }
+  case class PipelineInputs(
+      irPromise: Promise[Array[Signature]],
+      finishedCompilation: Promise[Option[CompileProducts]],
+      completeJava: Promise[Unit],
+      transitiveJavaSignal: Task[JavaSignal],
+      separateJavaAndScala: Boolean
+  )
 
   /**
    * Turns a dag of projects into a task that returns a dag of compilation results
@@ -85,10 +81,9 @@ object CompileGraph {
     else normalTraversal(dag, client, setup, compile)
   }
 
-  private final val JavaCompleted = Promise.successful(())
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
-  private def partialSuccess(bundle: CompileBundle, result: Task[ResultBundle]): PartialSuccess =
-    PartialSuccess(bundle, JavaCompleted, JavaContinue, result)
+  private def partialSuccess(bundle: CompileBundle, result: ResultBundle): PartialSuccess =
+    PartialSuccess(bundle, None, Task.now(result))
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
@@ -150,8 +145,6 @@ object CompileGraph {
   }
 
   private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
-
-  private val noOracle = EmptyCompilerOracle
 
   private sealed trait DeduplicationResult
   private object DeduplicationResult {
@@ -282,7 +275,7 @@ object CompileGraph {
          */
         val obtainResultFromDeduplication = ongoingCompilationTask.map { resultDag =>
           enrichResultDag(resultDag) {
-            case s @ PartialSuccess(bundle, _, _, compilerResult) =>
+            case s @ PartialSuccess(bundle, _, compilerResult) =>
               val newCompilerResult = compilerResult.flatMap { results =>
                 results.fromCompiler match {
                   case s: Compiler.Result.Success =>
@@ -634,10 +627,9 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                val p = Promise[Unit]()
-                compile(Inputs.normal(bundle, p, noOracle, false)).map { results =>
+                compile(Inputs(bundle, EmptyOracle, None, Map.empty)).map { results =>
                   results.fromCompiler match {
-                    case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, Task.now(results)))
+                    case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
                     case res => Leaf(toPartialFailure(bundle, res))
                   }
                 }
@@ -680,16 +672,15 @@ object CompileGraph {
                       case _ => ()
                     }
 
-                    val p = Promise[Unit]()
                     val resultsMap = dependentResults.toMap
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
-                    setupAndDeduplicate(client, bundleInputs, computeBundle) { b =>
-                      val inputs = Inputs.normal(b, p, noOracle, false, resultsMap)
+                    setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
+                      val inputs = Inputs(bundle, EmptyOracle, None, resultsMap)
                       compile(inputs).map { results =>
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) =>
-                            Parent(partialSuccess(b, Task.now(results)), dagResults)
-                          case res => Parent(toPartialFailure(b, res), dagResults)
+                            Parent(partialSuccess(bundle, results), dagResults)
+                          case res => Parent(toPartialFailure(bundle, res), dagResults)
                         }
                       }
                     }
@@ -730,13 +721,15 @@ object CompileGraph {
         case None =>
           val task = dag match {
             case Leaf(project) =>
-              Task.now(Promise[Unit]()).flatMap { cf =>
+              Task.now(Promise[Array[Signature]]()).flatMap { cf =>
                 val bundleInputs = BundleInputs(project, dag, Map.empty)
                 setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                   val jcf = Promise[Unit]()
-                  val oracle =
-                    new ImmutableCompilerOracle(project, cf, Nil, bundle.tracer, bundle.logger)
-                  val t = compile(Inputs(bundle, cf, jcf, JavaContinue, oracle, true))
+                  val fc = Promise[Option[CompileProducts]]()
+                  val noSigs = new Array[Signature](0)
+                  val oracle = new PipeliningOracle(bundle, noSigs, cf, Nil)
+                  val pipelineInputs = PipelineInputs(cf, fc, jcf, JavaContinue, true)
+                  val t = compile(Inputs(bundle, oracle, Some(pipelineInputs), Map.empty))
                   val running =
                     Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                   val completeJavaTask = Task
@@ -752,7 +745,9 @@ object CompileGraph {
                     .deferFuture(cf.future)
                     .materialize
                     .map { upstream =>
-                      Leaf(PartialCompileResult(bundle, upstream, jcf, completeJavaTask, running))
+                      Leaf(
+                        PartialCompileResult(bundle, upstream, fc, jcf, completeJavaTask, running)
+                      )
                     }
                 }
               }
@@ -778,49 +773,127 @@ object CompileGraph {
                     transitive.collect { case s: PartialSuccess => s }
                   }
 
-                  val transitivePartialProducts = results.map { r =>
-                    val out = r.bundle.out
-                    r.bundle.project -> Left(
-                      PartialCompileProducts(out.internalNewClassesDir, out.internalNewPicklesDir)
-                    )
+                  val failedPipelineProjects = new mutable.ListBuffer[Project]()
+                  val transitiveSignatures = new ju.LinkedHashMap[String, Signature]()
+                  val resultsToBlockOn = new mutable.ListBuffer[Task[(Project, ResultBundle)]]()
+                  val pipelinedDependentProducts =
+                    new mutable.ListBuffer[(Project, BundleProducts)]()
+
+                  results.foreach { ps =>
+                    val project = ps.bundle.project
+                    ps.pipeliningResults match {
+                      case None => resultsToBlockOn.+=(ps.result.map(r => project -> r))
+                      case Some(results) =>
+                        val signatures = results.signatures
+                        signatures.foreach { signature =>
+                          // Don't register if sig for name exists, signature lookup order is DFS
+                          if (!transitiveSignatures.containsKey(signature.name()))
+                            transitiveSignatures.put(signature.name(), signature)
+                        }
+
+                        val products = results.productsWhenCompilationIsFinished
+                        val result = products.future.value match {
+                          case Some(Success(products)) =>
+                            products match {
+                              case Some(products) =>
+                                // Add finished compile products when compilation is finished
+                                pipelinedDependentProducts.+=(project -> Right(products))
+                              case None => ()
+                            }
+                          case Some(Failure(t)) =>
+                            // Log if error when computing pipelining results and add to failure
+                            ps.bundle.logger.trace(t)
+                            failedPipelineProjects.+=(project)
+                          case None =>
+                            val out = ps.bundle.out
+                            val pipeliningResult = Left(
+                              PartialCompileProducts(
+                                out.internalReadOnlyClassesDir,
+                                out.internalNewClassesDir,
+                                out.internalNewPicklesDir
+                              )
+                            )
+                            pipelinedDependentProducts.+=(project -> pipeliningResult)
+                        }
+                    }
                   }
 
-                  // Passing empty map for dependent classes dirs because we load sigs from memory
-                  val bundleInputs = BundleInputs(project, dag, transitivePartialProducts.toMap)
-                  setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                    // Signals whether java compilation can proceed or not
-                    val sig = aggregateJavaSignals(results.map(_.javaTrigger))
-                    Task.now(Promise[Unit]()).flatMap { cf =>
-                      val jf = Promise[Unit]()
-                      val oracle = new ImmutableCompilerOracle(
-                        project,
-                        cf,
-                        results,
-                        bundle.tracer,
-                        bundle.logger
-                      )
-                      val t = compile(Inputs(bundle, cf, jf, sig, oracle, true))
-                      val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
-                      val ongoing = Task.fromFuture(running)
-                      val completedJava = {
-                        Task
-                          .deferFuture(jf.future)
-                          .materialize
-                          .map {
-                            case Success(_) => JavaSignal.ContinueCompilation
-                            case Failure(_) => JavaSignal.FailFastCompilation(project.name)
-                          }
-                      }.memoize // Important to memoize this task for performance reasons
+                  if (failedPipelineProjects.nonEmpty) {
+                    // If any project failed to pipeline, abort compilation with blocked result
+                    val failed = failedPipelineProjects.toList
+                    val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
+                    val blocked = Task.now(ResultBundle(blockedResult, None))
+                    Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
+                  } else {
+                    // Get the compilation result of those projects which were not pipelined
+                    Task.gatherUnordered(resultsToBlockOn.toList).flatMap { nonPipelineResults =>
+                      var nonPipelinedDependentProducts =
+                        new mutable.ListBuffer[(Project, BundleProducts)]()
+                      var nonPipelinedDependentResults =
+                        new mutable.ListBuffer[(File, PreviousResult)]()
+                      nonPipelineResults.foreach {
+                        case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
+                          val newProducts = s.products
+                          nonPipelinedDependentProducts.+=(p -> Right(newProducts))
+                          val newResult = newProducts.resultForDependentCompilationsInSameRun
+                          nonPipelinedDependentResults
+                            .+=(newProducts.newClassesDir.toFile -> newResult)
+                            .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
+                        case _ => ()
+                      }
 
-                      Task
-                        .deferFuture(cf.future)
-                        .materialize
-                        .map { upstream =>
-                          Parent(
-                            PartialCompileResult(bundle, upstream, jf, completedJava, ongoing),
-                            dagResults
+                      val allSignatures = {
+                        // Keep in mind that order of signatures matters (e.g. simulates classpath lookup)
+                        import scala.collection.JavaConverters._
+                        transitiveSignatures.values().iterator().asScala.toArray
+                      }
+
+                      val projectResultsMap =
+                        (pipelinedDependentProducts.iterator ++ nonPipelinedDependentProducts.iterator).toMap
+                      val bundleInputs = BundleInputs(project, dag, projectResultsMap)
+                      setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
+                        // Signals whether java compilation can proceed or not
+                        val startJava = aggregateJavaSignals(
+                          results.flatMap(_.pipeliningResults.map(_.shouldAttemptJavaCompilation))
+                        )
+                        Task.now(Promise[Array[Signature]]()).flatMap { cf =>
+                          val jf = Promise[Unit]()
+                          val fc = Promise[Option[CompileProducts]]()
+                          val oracle = new PipeliningOracle(bundle, allSignatures, cf, results)
+                          val pipelineInputs = PipelineInputs(cf, fc, jf, startJava, true)
+                          val t = compile(
+                            Inputs(
+                              bundle,
+                              oracle,
+                              Some(pipelineInputs),
+                              // Pass incremental results for only those projects that were not pipelined
+                              nonPipelinedDependentResults.toMap
+                            )
                           )
+
+                          val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                          val ongoing = Task.fromFuture(running)
+                          val cj = {
+                            Task
+                              .deferFuture(jf.future)
+                              .materialize
+                              .map {
+                                case Success(_) => JavaSignal.ContinueCompilation
+                                case Failure(_) => JavaSignal.FailFastCompilation(project.name)
+                              }
+                          }.memoize // Important to memoize this task for performance reasons
+
+                          Task
+                            .deferFuture(cf.future)
+                            .materialize
+                            .map { upstream =>
+                              Parent(
+                                PartialCompileResult(bundle, upstream, fc, jf, cj, ongoing),
+                                dagResults
+                              )
+                            }
                         }
+                      }
                     }
                   }
                 }

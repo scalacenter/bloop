@@ -3,6 +3,7 @@ package bloop
 import _root_.monix.eval.Task
 import scala.concurrent.Promise
 import bloop.io.AbsolutePath
+import xsbti.compile.Signature
 
 /**
  * Defines the mode in which compilation should run.
@@ -19,7 +20,6 @@ object CompileMode {
   ) extends CompileMode
 
   final case class Pipelined(
-      irs: Promise[Unit],
       completeJavaCompilation: Promise[Unit],
       fireJavaCompilation: Task[JavaSignal],
       picklesDir: AbsolutePath,

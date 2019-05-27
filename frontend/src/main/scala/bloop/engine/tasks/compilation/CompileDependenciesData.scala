@@ -21,10 +21,10 @@ case class CompileDependenciesData(
       project: Project,
       readOnlyClassesDir: AbsolutePath,
       newClassesDir: AbsolutePath,
-      newPickleDir: AbsolutePath
+      newPicklesDir: AbsolutePath
   ): Array[AbsolutePath] = {
     // Important: always place new classes dir before read-only classes dir
-    val classesDirs = Array(newPickleDir, newClassesDir, readOnlyClassesDir)
+    val classesDirs = Array(newClassesDir, readOnlyClassesDir)
     val resources = project.pickValidResources
     resources ++ classesDirs ++ dependencyClasspath
   }
@@ -42,9 +42,16 @@ object CompileDependenciesData {
     val dependentGeneratedClassFilePaths = new mutable.HashMap[String, File]()
     dependentProducts.foreach {
       case (project, Left(products)) =>
+        val newClassesDir = products.newClassesDir
         val genericClassesDir = project.genericClassesDir
-        // Don't add read only classes dir; pipelining doesn't support incremental compilation yet
-        val classesDirs = Array(products.internalNewPicklesDir, products.internalNewClassesDir)
+        val readOnlyClassesDir = products.readOnlyClassesDir
+        // Don't add pickle classes dir as we load signatures from memory
+        val classesDirs = {
+          // New classes dir must be first because it has priority over old classes dir
+          if (newClassesDir == readOnlyClassesDir) Array(newClassesDir)
+          else Array(newClassesDir, readOnlyClassesDir)
+        }
+
         dependentClassesDir.put(genericClassesDir, classesDirs)
       case (project, Right(products)) =>
         val genericClassesDir = project.genericClassesDir

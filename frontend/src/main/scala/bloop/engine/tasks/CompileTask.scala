@@ -94,8 +94,13 @@ object CompileTask {
 
       bundle.prepareSourcesAndInstance match {
         case Left(earlyResultBundle) =>
-          graphInputs.irPromise.trySuccess(())
-          graphInputs.completeJava.trySuccess(())
+          graphInputs.pipelineInputs match {
+            case None => ()
+            case Some(inputs) =>
+              inputs.irPromise.trySuccess(new Array(0))
+              inputs.finishedCompilation.trySuccess(None)
+              inputs.completeJava.trySuccess(())
+          }
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
@@ -117,7 +122,7 @@ object CompileTask {
               .foreach(msg => logger.warn(msg))
           }
 
-          val configuration = configureCompilation(project, pipeline, graphInputs, compileOut)
+          val configuration = configureCompilation(project, graphInputs, compileOut)
           val newScalacOptions = {
             CompilerPluginWhitelist
               .enableCachingInScalacOptions(
@@ -168,8 +173,8 @@ object CompileTask {
           setUpEnvironment.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
             inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
-              // Finish incomplete promises (out of safety) and run similar book-keeping
-              runPipeliningBookkeeping(graphInputs, result, pipeline, javaOnly, logger)
+              // Post-compilation hook to complete/validate pipelining state
+              runPipeliningBookkeeping(graphInputs, result, javaOnly, logger)
 
               def runPostCompilationTasks(
                   backgroundTasks: CompileBackgroundTasks
@@ -182,9 +187,8 @@ object CompileTask {
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }
 
-              val deletePickleDirTask = Task.fork(Task.eval(()))
-              //val deletePickleDirTask =
-              //  Task.fork(Task.eval(Paths.delete(compileOut.internalNewPickleDir)))
+              val deletePickleDirTask =
+                Task.fork(Task.eval(Paths.delete(compileOut.internalNewPicklesDir)))
 
               // Populate the last successful result if result was success
               result match {
@@ -340,44 +344,55 @@ object CompileTask {
   case class ConfiguredCompilation(mode: CompileMode, scalacOptions: List[String])
   private def configureCompilation(
       project: Project,
-      pipeline: Boolean,
       graphInputs: CompileGraph.Inputs,
       out: CompileOutPaths
   ): ConfiguredCompilation = {
-    if (!pipeline) {
-      val newMode = CompileMode.Sequential(out.internalNewPicklesDir, graphInputs.oracle)
-      ConfiguredCompilation(newMode, project.scalacOptions)
-    } else {
-      val scalacOptions = project.scalacOptions //(GeneratePicklesFlag :: project.scalacOptions)
-      val newMode = CompileMode.Pipelined(
-        graphInputs.irPromise,
-        graphInputs.completeJava,
-        graphInputs.transitiveJavaSignal,
-        out.internalNewPicklesDir,
-        graphInputs.oracle,
-        graphInputs.separateJavaAndScala
-      )
-      ConfiguredCompilation(newMode, scalacOptions)
+    graphInputs.pipelineInputs match {
+      case Some(inputs) =>
+        val scalacOptions = project.scalacOptions
+        val newMode = CompileMode.Pipelined(
+          inputs.completeJava,
+          inputs.transitiveJavaSignal,
+          out.internalNewPicklesDir,
+          graphInputs.oracle,
+          inputs.separateJavaAndScala
+        )
+        ConfiguredCompilation(newMode, scalacOptions)
+      case None =>
+        val newMode = CompileMode.Sequential(out.internalNewPicklesDir, graphInputs.oracle)
+        ConfiguredCompilation(newMode, project.scalacOptions)
     }
   }
 
   private def runPipeliningBookkeeping(
       inputs: CompileGraph.Inputs,
       result: Compiler.Result,
-      pipeline: Boolean,
       javaOnly: Boolean,
       logger: Logger
   ): Unit = {
     val projectName = inputs.bundle.project.name
     // Avoid deadlocks in case pipelining is disabled in the Zinc bridge
-    result match {
-      case Compiler.Result.NotOk(_) =>
-        inputs.irPromise.tryFailure(CompileExceptions.FailPromise)
-        ()
-      case result =>
-        val completed = inputs.irPromise.tryFailure(CompileExceptions.CompletePromise)
-        if (completed && pipeline && !javaOnly) {
-          logger.warn(s"The project $projectName didn't use pipelined compilation.")
+    inputs.pipelineInputs match {
+      case None => ()
+      case Some(pipelineInputs) =>
+        result match {
+          case Compiler.Result.NotOk(_) =>
+            // If error, try to set failure in IR promise; if already completed ignore
+            pipelineInputs.irPromise.tryFailure(CompileExceptions.FailPromise); ()
+          case result =>
+            // Complete finished compilation promise with products if success or empty
+            result match {
+              case s: Compiler.Result.Success =>
+                pipelineInputs.finishedCompilation.success(Some(s.products))
+              case Compiler.Result.Empty =>
+                pipelineInputs.finishedCompilation.trySuccess(None)
+              case _ => ()
+            }
+
+            val completed = pipelineInputs.irPromise.tryFailure(CompileExceptions.CompletePromise)
+            if (completed && !javaOnly) {
+              logger.warn(s"The project $projectName didn't use pipelined compilation.")
+            }
         }
     }
   }

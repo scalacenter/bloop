@@ -80,6 +80,9 @@ case class CompileOutPaths(
    * pipelining is enabled. This directory is removed whenever compilation
    * process has finished because pickles are useless when class files are
    * present. This might change when we expose pipelining to clients.
+   *
+   * Watch out: for the moment this pickles dir is not populated because we
+   * are populating signatures from an in-memory cache.
    */
   lazy val internalNewPicklesDir: AbsolutePath = {
     createNewDir { classesName =>

@@ -9,14 +9,23 @@ import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 import bloop.logging.Logger
 import bloop.logging.DebugFilter
+import xsbti.compile.Signature
 
-final case class ScalaSig(path: String, bytes: Array[Byte])
 object ScalaSig {
-  def write(picklesDir: AbsolutePath, sig: ScalaSig, logger: Logger): Task[Unit] = {
+  def write(picklesDir: AbsolutePath, sig: Signature, logger: Logger): Task[Unit] = {
     Task {
-      val targetPicklePath = picklesDir.resolve(sig.path)
+      val targetPicklePath = picklesDir.resolve(sig.name)
+      val targetPickleParentPath = targetPicklePath.getParent
       val rawClassFileName = targetPicklePath.underlying.getFileName().toString
-      val dummyClassPath = targetPicklePath.getParent.resolve(s"${rawClassFileName}.class")
+      val dummyClassPath = targetPickleParentPath.resolve(s"${rawClassFileName}.class")
+      val classFileName = {
+        if (rawClassFileName.endsWith("package") || rawClassFileName.endsWith("package$")) {
+          s"${targetPickleParentPath.toString}.$rawClassFileName"
+        } else {
+          rawClassFileName
+        }
+      }
+
       val bytes = toBinary(rawClassFileName, sig)
       logger.debug(s"Writing pickle to $dummyClassPath")(DebugFilter.Compilation)
       Files.write(dummyClassPath.underlying, bytes)
@@ -24,12 +33,11 @@ object ScalaSig {
     }
   }
 
-  def toBinary(className: String, sig: ScalaSig): Array[Byte] = {
+  def toBinary(className: String, sig: Signature): Array[Byte] = {
     import org.objectweb.asm._
     import org.objectweb.asm.Opcodes._
     import org.objectweb.asm.tree._
     val classWriter = new ClassWriter(0)
-    // TODO: Check that class name is correctly encoded if it has invalid symbols
     classWriter.visit(
       V1_8,
       ACC_PUBLIC + ACC_SUPER,
@@ -41,7 +49,7 @@ object ScalaSig {
     /*if (classfile.source.nonEmpty) {
       classWriter.visitSource(classfile.source, null)
     }*/
-    val packedScalasig = ScalaSigWriter.packScalasig(sig.bytes)
+    val packedScalasig = ScalaSigWriter.packScalasig(sig.content)
     packedScalasig match {
       case Array(packedScalasig) =>
         val desc = "Lscala/reflect/ScalaSignature;"

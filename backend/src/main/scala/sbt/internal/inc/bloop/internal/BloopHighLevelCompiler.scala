@@ -94,7 +94,7 @@ final class BloopHighLevelCompiler(
     val (pipeline: Boolean, batches: Option[Int], completeJava: Promise[Unit], fireJavaCompilation: Task[JavaSignal], separateJavaAndScala: Boolean) = {
       compileMode match {
         case _: CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), false)
-        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation, _, _, separateJavaAndScala) =>
+        case CompileMode.Pipelined(completeJava, fireJavaCompilation, _, _, separateJavaAndScala) =>
           (true, None, completeJava, fireJavaCompilation, separateJavaAndScala)
       }
     }

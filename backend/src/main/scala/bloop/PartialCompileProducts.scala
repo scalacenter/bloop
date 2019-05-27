@@ -1,4 +1,5 @@
 package bloop
+
 import bloop.io.AbsolutePath
 
 /**
@@ -6,6 +7,7 @@ import bloop.io.AbsolutePath
  * before the end of compilation of a project.
  */
 case class PartialCompileProducts(
-    internalNewClassesDir: AbsolutePath,
-    internalNewPicklesDir: AbsolutePath
+    readOnlyClassesDir: AbsolutePath,
+    newClassesDir: AbsolutePath,
+    newPicklesDir: AbsolutePath
 )

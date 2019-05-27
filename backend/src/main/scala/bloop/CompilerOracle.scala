@@ -2,6 +2,7 @@ package bloop
 
 import java.io.File
 import bloop.io.AbsolutePath
+import xsbti.compile.Signature
 
 /**
  * A compiler oracle is an entity that provides answers to questions that come
@@ -43,9 +44,22 @@ abstract class CompilerOracle {
   def blockUntilMacroClasspathIsReady(usedMacroSymbol: String): Unit
 
   /**
+   * Answers if build pipelining is enabled in the whole compilation run.
+   */
+  def isPipeliningEnabled: Boolean
+
+  /**
    * Starts downstream compilations with the compile pickle data generated
    * during the compilation of a project. This method needs to take care of
    * making the pickles accessible to downstream compilations.
    */
-  def startDownstreamCompilations(picklesDir: AbsolutePath, pickles: List[ScalaSig]): Unit
+  def startDownstreamCompilations(picklesDir: AbsolutePath, signatures: Array[Signature]): Unit
+
+  /**
+   * Collects all downstream signatures of transitive dependencies that have
+   * not yet finished compilation. Those dependenciess that finished
+   * compilation don't need to provide their signatures because they will be
+   * loaded from the classes directory.
+   */
+  def collectDownstreamSignatures(): Array[Signature]
 }

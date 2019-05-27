@@ -34,6 +34,7 @@ import sbt.internal.inc.SourceInfos
 
 import bloop.CompileMode
 import bloop.ScalaSig
+import xsbti.compile.Signature
 
 final class BloopAnalysisCallback(
     compileMode: CompileMode,
@@ -363,10 +364,12 @@ final class BloopAnalysisCallback(
     compileMode.oracle.blockUntilMacroClasspathIsReady(invokedMacroSymbol)
   }
 
-  override def definedPickles(pickles: Array[xsbti.T2[String, Array[Byte]]]): Unit = {
+  override def isPipeliningEnabled(): Boolean = compileMode.oracle.isPipeliningEnabled
+  override def downstreamSignatures(): Array[Signature] =
+    compileMode.oracle.collectDownstreamSignatures()
+  override def definedSignatures(signatures: Array[Signature]): Unit = {
     val picklesDir = compileMode.picklesDir
-    val scalaPickles = pickles.iterator.map(t => ScalaSig(t.get1(), t.get2())).toList
-    compileMode.oracle.startDownstreamCompilations(picklesDir, scalaPickles)
+    compileMode.oracle.startDownstreamCompilations(picklesDir, signatures)
   }
 
   override def invalidatedClassFiles(): Array[File] = {
