@@ -18,13 +18,7 @@ import bloop.testing.{BspLoggingEventHandler, TestInternals}
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{
-  BuildTargetIdentifier,
-  MessageType,
-  ShowMessageParams,
-  WorkspaceBuildTargets,
-  endpoints
-}
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 
@@ -36,6 +30,7 @@ import monix.execution.atomic.AtomicInt
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
+import java.nio.file.FileSystems
 
 final class BloopBspServices(
     callSiteState: State,
@@ -317,11 +312,11 @@ final class BloopBspServices(
 
       val response: Either[ProtocolError, bsp.CompileResult] = {
         if (cancelCompilation.isCompleted)
-          Right(bsp.CompileResult(None, bsp.StatusCode.Cancelled, None))
+          Right(bsp.CompileResult(None, bsp.StatusCode.Cancelled, None, None))
         else {
           errorMsgs match {
-            case Nil => Right(bsp.CompileResult(None, bsp.StatusCode.Ok, None))
-            case xs => Right(bsp.CompileResult(None, bsp.StatusCode.Error, None))
+            case Nil => Right(bsp.CompileResult(None, bsp.StatusCode.Ok, None, None))
+            case xs => Right(bsp.CompileResult(None, bsp.StatusCode.Error, None, None))
           }
         }
       }
@@ -336,7 +331,7 @@ final class BloopBspServices(
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           bspLogger.error(error)
-          Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None))))
+          Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None, None))))
         case Right(mappings) =>
           val compileArgs = params.arguments.getOrElse(Nil)
           compileProjects(mappings, state, compileArgs)
@@ -384,7 +379,7 @@ final class BloopBspServices(
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           bspLogger.error(error)
-          Task.now((state, Right(bsp.TestResult(None, bsp.StatusCode.Error, None))))
+          Task.now((state, Right(bsp.TestResult(None, bsp.StatusCode.Error, None, None))))
         case Right(mappings) =>
           val args = params.arguments.getOrElse(Nil)
           compileProjects(mappings, state, args).flatMap {
@@ -397,7 +392,7 @@ final class BloopBspServices(
 
                   sequentialTestExecution.materialize.map(_.toEither).map {
                     case Right(newState) =>
-                      (newState, Right(bsp.TestResult(None, bsp.StatusCode.Ok, None)))
+                      (newState, Right(bsp.TestResult(None, bsp.StatusCode.Ok, None, None)))
                     case Left(e) =>
                       //(newState, Right(bsp.TestResult(None, bsp.StatusCode.Error, None)))
                       val errorMessage =
@@ -539,7 +534,7 @@ final class BloopBspServices(
 
   def buildTargets(
       request: bsp.WorkspaceBuildTargetsRequest
-  ): BspEndpointResponse[bsp.WorkspaceBuildTargets] = {
+  ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
     ifInitialized { (state: State) =>
       def reportBuildError(msg: String): Unit = {
         endpoints.Build.showMessage.notify(
@@ -550,10 +545,10 @@ final class BloopBspServices(
 
       Validate.validateBuildForCLICommands(state, reportBuildError(_)).flatMap { state =>
         if (state.status == ExitStatus.BuildDefinitionError)
-          Task.now((state, Right(WorkspaceBuildTargets(Nil))))
+          Task.now((state, Right(bsp.WorkspaceBuildTargetsResult(Nil))))
         else {
           val build = state.build
-          val targets = bsp.WorkspaceBuildTargets(
+          val targets = bsp.WorkspaceBuildTargetsResult(
             build.projects.map { p =>
               val id = toBuildTargetId(p)
               val tag = {
@@ -576,6 +571,7 @@ final class BloopBspServices(
                 languageIds = BloopBspServices.DefaultLanguages,
                 dependencies = deps.map(toBuildTargetId).toList,
                 capabilities = capabilities,
+                dataKind = Some(bsp.BuildTargetDataKind.Scala),
                 data = extra
               )
             }
@@ -594,12 +590,24 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.SourcesResult] = {
+
       val response = bsp.SourcesResult(
         projects.iterator.map {
           case (target, project) =>
-            val sources = project.sources.map { s =>
-              // TODO(jvican): Don't default on false for generated, add this info to JSON fields
-              bsp.SourceItem(bsp.Uri(s.toBspSourceUri), false)
+            val sources = project.sources.map {
+              s =>
+                import bsp.SourceItemKind._
+                val uri = s.underlying.toUri()
+                val (bspUri, kind) = if (s.exists) {
+                  (uri, if (s.isFile) File else Directory)
+                } else {
+                  val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
+                  if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
+                  // If path doesn't exist and its name doesn't look like a file, assume it's a dir
+                  else (new java.net.URI(uri.toString + "/"), Directory)
+                }
+                // TODO(jvican): Don't default on false for generated, add this info to JSON fields
+                bsp.SourceItem(bsp.Uri(bspUri), kind, false)
             }
             bsp.SourcesItem(target, sources)
         }.toList
