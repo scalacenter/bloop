@@ -59,7 +59,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     val `2.12` = compileProjectFor("2.12.8")
     val `2.13` = compileProjectFor("2.13.0-RC2")
     val all = List(`2.10`, `2.11`, `2.12`, `2.13`)
-    TestUtil.await(FiniteDuration(60, "s")) {
+    TestUtil.await(FiniteDuration(60, "s"), ExecutionContext.ioScheduler) {
       Task.gatherUnordered(all).map(_ => ())
     }
   }
