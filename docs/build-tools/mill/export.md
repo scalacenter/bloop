@@ -3,32 +3,32 @@
 Install bloop in `build.sc`:
 
 ```scala
-import $ivy.`ch.epfl.scala::mill-bloop:@VERSION@`
+import $ivy.`com.lihaoyi::mill-contrib-bloop:$millVersion`
 ```
 
 ### Requirements
 
-* `mill` >= 0.3.6.
+* `mill` >= `0.4.0-2-4dbbce`.
 
-> bloop makes a best effort to support always the latest mill version. The current plugin may not
-work for older and newer versions due to breaking binary changes in mill's public API.
+The bloop integration has been merged into [mill's codebase](http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop) as a contrib module.  This means that the lifecyle of that integration follows mill's, but is not packaged with it and needs to be manually depended on via `import`.
 
 ## Generate configuration files
 
-The mill command `bloopInstall` exports your mill build to bloop.
+The mill command `mill mill.contrib.Bloop/install` exports your mill build to bloop.
 
 The mill plugin generates a configuration file per every compile and test sources in your build
 definition. For example, a build with a single Scala project `foo` generates two configuration files
 by default:
 
 ```bash
-$ mill bloop.integrations.mill.Bloop/install
+$ mill mill.contrib.Bloop/install
 (...)
 info Generated '/disk/foo/.bloop/foo.json'.
 info Generated '/disk/foo/.bloop/foo-test.json'.
 ```
 
 where:
+  
 1. `foo` comes from the compile source set; and,
 1. `foo-test` comes from the test source set and depends on `foo`
 

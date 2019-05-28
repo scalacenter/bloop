@@ -6,7 +6,7 @@ import _root_.mill.scalalib._
 import _root_.mill.eval.Evaluator
 import ammonite.ops._
 import bloop.config.util.ConfigUtil
-
+@deprecated("See http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop")
 object Bloop extends ExternalModule {
 
   def install(ev: Evaluator) = T.command {
