@@ -67,7 +67,7 @@ object DependencyResolution {
         .gather(resolution.artifacts().map { artifact =>
           Cache.default.file(artifact).run.map(artifact.optional -> _)
         })
-        .unsafeRun()
+        .unsafeRun()(ec)
     }
 
     val fileErrors = localArtifacts.collect {
