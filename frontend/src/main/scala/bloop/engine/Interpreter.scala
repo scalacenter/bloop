@@ -149,7 +149,6 @@ object Interpreter {
       else Tasks.clean(state0, state0.build.projects, true)
     }
 
-    val compilerMode: CompileMode.ConfigurableMode = CompileMode.Sequential
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       val dag = getProjectsDag(projects, state)
@@ -159,7 +158,6 @@ object Interpreter {
         state,
         dag,
         createReporter,
-        compilerMode,
         cmd.pipeline,
         excludeRoot,
         Promise[Unit](),

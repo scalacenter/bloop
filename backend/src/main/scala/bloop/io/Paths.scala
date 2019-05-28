@@ -31,7 +31,7 @@ object Paths {
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
     val dirPath = dir.underlying
-    if (!Files.exists(dirPath)) Files.createDirectory(dirPath)
+    if (!Files.exists(dirPath)) Files.createDirectories(dirPath)
     else require(Files.isDirectory(dirPath), s"File '${dir.syntax}' is not a directory.")
     dir
   }

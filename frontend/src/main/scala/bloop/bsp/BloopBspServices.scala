@@ -279,7 +279,6 @@ final class BloopBspServices(
         state,
         dag,
         createReporter,
-        CompileMode.Sequential,
         pipeline,
         false,
         cancelCompilation,

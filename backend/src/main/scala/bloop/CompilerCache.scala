@@ -28,7 +28,7 @@ import xsbti.compile.ClassFileManager
 import xsbti.{Logger => XLogger, Reporter => XReporter}
 
 import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
+import sbt.internal.inc.{AnalyzingCompiler, ZincLmUtil, ZincUtil}
 import sbt.internal.inc.javac.JavaTools
 import sbt.internal.inc.javac.{JavaCompiler, Javadoc, ForkedJava}
 import sbt.internal.util.LoggerWriter
@@ -78,7 +78,7 @@ final class CompilerCache(
     componentProvider.component(bridgeId) match {
       case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar)
       case _ =>
-        ZincUtil.scalaCompiler(
+        ZincLmUtil.scalaCompiler(
           scalaInstance,
           BloopComponentsLock,
           componentProvider,

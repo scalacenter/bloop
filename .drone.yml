@@ -17,6 +17,7 @@ matrix:
           "show schemaVersion" \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
+          "frontend/testOnly bloop.ScalaVersionsSpec" \
           "backend/test" \
           "jsBridge06/test" \
           "jsBridge10/test" \
@@ -24,7 +25,7 @@ matrix:
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
-          "frontend/test" \
+          "frontend/testOnly -bloop.ScalaVersionsSpec" \
           "exportCommunityBuild" \
           "frontend/it:run" \
           "gradleBloop212/test" \

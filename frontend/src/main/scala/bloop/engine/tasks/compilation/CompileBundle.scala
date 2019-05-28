@@ -5,10 +5,11 @@ import bloop.engine.Feedback
 import bloop.engine.{Dag, ExecutionContext}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.ByteHasher
-import bloop.{Compiler, CompilerOracle, ScalaInstance, CompileProducts}
+import bloop.{Compiler, CompilerOracle, ScalaInstance}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
 import bloop.tracing.BraveTracer
+import bloop.UniqueCompileInputs
 import bloop.engine.caches.LastSuccessfulResult
 
 import java.io.File
@@ -22,6 +23,7 @@ import monix.reactive.Observable
 
 import xsbti.compile.PreviousResult
 import scala.concurrent.ExecutionContext
+import bloop.CompileOutPaths
 
 /**
  * Define a bundle of high-level information about a project that is going to be
@@ -43,6 +45,7 @@ import scala.concurrent.ExecutionContext
  * project.
  *
  * @param project The project to compile.
+ * @param clientClassesDir The external client-owned classes directory.
  * @param dependenciesData An entity that abstract over all the data of
  * dependent projects, which is required to create a full classpath.
  * @param javaSources A list of Java sources in the project.
@@ -64,10 +67,11 @@ import scala.concurrent.ExecutionContext
  */
 final case class CompileBundle(
     project: Project,
+    clientClassesDir: AbsolutePath,
     dependenciesData: CompileDependenciesData,
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
-    oracleInputs: CompilerOracle.Inputs,
+    uniqueInputs: UniqueCompileInputs,
     cancelCompilation: Promise[Unit],
     reporter: ObservedReporter,
     logger: ObservedLogger[Logger],
@@ -77,14 +81,22 @@ final case class CompileBundle(
     tracer: BraveTracer
 ) {
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
+  val out: CompileOutPaths = {
+    val readOnlyClassesDir = lastSuccessful.classesDir
+    CompileOutPaths(
+      project.analysisOut,
+      clientClassesDir,
+      readOnlyClassesDir
+    )
+  }
 
   def prepareSourcesAndInstance: Either[ResultBundle, CompileSourcesAndInstance] = {
     import monix.execution.CancelableFuture
     def earlyError(msg: String): ResultBundle =
-      ResultBundle(Compiler.Result.GlobalError(msg), None, CancelableFuture.unit)
+      ResultBundle(Compiler.Result.GlobalError(msg), None)
     def empty: ResultBundle = {
       val last = Some(LastSuccessfulResult.empty(project))
-      ResultBundle(Compiler.Result.Empty, last, CancelableFuture.unit)
+      ResultBundle(Compiler.Result.Empty, last)
     }
 
     val uniqueSources = javaSources ++ scalaSources
@@ -127,6 +139,7 @@ object CompileBundle {
   implicit val filter = bloop.logging.DebugFilter.Compilation
   def computeFrom(
       inputs: CompileGraph.BundleInputs,
+      clientExternalClassesDir: AbsolutePath,
       reporter: ObservedReporter,
       lastSuccessful: LastSuccessfulResult,
       lastResult: Compiler.Result,
@@ -180,7 +193,7 @@ object CompileBundle {
         }
         val scalacOptions = project.scalacOptions.toVector
         val scalaJars = project.scalaInstance.toVector.flatMap(_.allJars.map(_.getAbsolutePath()))
-        val inputs = CompilerOracle.Inputs(
+        val inputs = UniqueCompileInputs(
           sourceHashes.toVector,
           classpathHashes.toVector,
           scalacOptions,
@@ -190,6 +203,7 @@ object CompileBundle {
 
         new CompileBundle(
           project,
+          clientExternalClassesDir,
           compileDependenciesData,
           javaSources,
           scalaSources,

@@ -25,45 +25,6 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 
 object CompileSpec extends bloop.testing.BaseSuite {
-  // TODO: Enable this before next stable release
-  ignore("compile project for latest supported Scala versions") {
-    def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
-      TestUtil.withinWorkspace { workspace =>
-        val sources = List(
-          """/main/scala/Foo.scala
-            |class Foo
-          """.stripMargin
-        )
-        def jarsForScalaVersion(version: String, logger: RecordingLogger) = {
-          ScalaInstance
-            .resolve("org.scala-lang", "scala-compiler", version, logger)(
-              ExecutionContext.ioScheduler
-            )
-            .allJars
-            .map(AbsolutePath(_))
-        }
-
-        val logger = new RecordingLogger(ansiCodesSupported = false)
-        val jars = jarsForScalaVersion(scalaVersion, logger)
-        val `A` =
-          TestProject(workspace, "a", sources, scalaVersion = Some(scalaVersion), jars = jars)
-        val projects = List(`A`)
-        val state = loadState(workspace, projects, logger)
-        val compiledState = state.compile(`A`)
-        assert(compiledState.status == ExitStatus.Ok)
-        assertValidCompilationState(compiledState, projects)
-      }
-    }
-
-    val `2.10.7` = compileProjectFor("2.10.6")
-    val `2.11.11` = compileProjectFor("2.11.11")
-    val `2.12.8` = compileProjectFor("2.12.8")
-    val all = List(`2.10.7`, `2.11.11`, `2.12.8`)
-    TestUtil.await(FiniteDuration(60, "s")) {
-      Task.gatherUnordered(all).map(_ => ())
-    }
-  }
-
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
@@ -308,7 +269,9 @@ object CompileSpec extends bloop.testing.BaseSuite {
       // Check that initial classes directory doesn't exist either
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
       // There should only be 2 dirs: current classes dir and external (no empty classes dir)
-      assert(list(workspace.resolve("target").resolve("a")).size == 2)
+      val targetA = workspace.resolve("target").resolve("a")
+      val classesDirInA = list(targetA).map(ap => ap.toRelative(targetA).syntax)
+      assert(classesDirInA.size == 2)
     }
   }
 
