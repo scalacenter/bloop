@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture
 
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
-import bloop.{CompileMode, JavaSignal, SimpleIRStore}
+import bloop.{CompileMode, JavaSignal}
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
@@ -19,6 +19,8 @@ import xsbti.{AnalysisCallback, CompileFailed}
 import xsbti.compile._
 
 import scala.util.control.NonFatal
+import sbt.internal.inc.JarUtils
+import scala.concurrent.Promise
 
 /**
  *
@@ -44,11 +46,7 @@ final class BloopHighLevelCompiler(
   private[this] final val setup = config.currentSetup
   private[this] final val classpath = config.classpath.map(_.getAbsoluteFile)
 
-  private[this] val JavaCompleted: CompletableFuture[Unit] = {
-    val cf = new CompletableFuture[Unit]()
-    cf.complete(())
-    cf
-  }
+  private[this] val JavaCompleted: Promise[Unit] = Promise.successful(())
 
   /**
    * Compile
@@ -93,28 +91,25 @@ final class BloopHighLevelCompiler(
     }
 
     // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (pipeline: Boolean, batches: Option[Int], completeJava: CompletableFuture[Unit], fireJavaCompilation: Task[JavaSignal], transitiveJavaSources: List[File], separateJavaAndScala: Boolean) = {
+    val (pipeline: Boolean, batches: Option[Int], completeJava: Promise[Unit], fireJavaCompilation: Task[JavaSignal], separateJavaAndScala: Boolean) = {
       compileMode match {
-        case CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
-        case CompileMode.Parallel(batches) => (false, Some(batches), JavaCompleted, Task.now(JavaSignal.ContinueCompilation), Nil, false)
-        case CompileMode.Pipelined(_, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
-          (true, None, completeJava, fireJavaCompilation, oracle.askForJavaSourcesOfIncompleteCompilations, separateJavaAndScala)
-        case CompileMode.ParallelAndPipelined(batches, _, completeJava, fireJavaCompilation, oracle, separateJavaAndScala) =>
-          (true, Some(batches), completeJava, fireJavaCompilation, oracle.askForJavaSourcesOfIncompleteCompilations, separateJavaAndScala)
+        case _: CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), false)
+        case CompileMode.Pipelined(completeJava, _, fireJavaCompilation, _, _, separateJavaAndScala) =>
+          (true, None, completeJava, fireJavaCompilation, separateJavaAndScala)
       }
     }
 
     // Complete empty java promise if there are no java sources
-    if (javaSources.isEmpty && !completeJava.isDone)
-      completeJava.complete(())
+    if (javaSources.isEmpty && !completeJava.isCompleted)
+      completeJava.trySuccess(())
 
     val compileScala: Task[Unit] = {
       if (scalaSources.isEmpty) Task.now(())
       else {
-        val isDotty = ScalaInstance.isDotty(scalac.scalaInstance.actualVersion())
         val sources = {
           if (separateJavaAndScala) {
             // No matter if it's scala->java or mixed, we populate java symbols from sources
+            val transitiveJavaSources = compileMode.oracle.askForJavaSourcesOfIncompleteCompilations
             includedSources ++ transitiveJavaSources.filterNot(_.getName == "routes.java")
           } else {
             if (setup.order == CompileOrder.Mixed) includedSources
@@ -125,77 +120,29 @@ final class BloopHighLevelCompiler(
         def compileSources(
             sources: Seq[File],
             scalacOptions: Array[String],
-            callback: AnalysisCallback,
-            store: IRStore
+            callback: AnalysisCallback
         ): Unit = {
           try {
-            val invalidatedClassFiles = classfileManager.invalidatedClassFiles
             val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
-            scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional, store, invalidatedClassFiles)
+            scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
           } catch {
             case NonFatal(t) =>
               // If scala compilation happens, complete the java promise so that it doesn't block
-              if (!completeJava.isDone)
-                completeJava.completeExceptionally(t)
+              completeJava.tryFailure(t)
               throw t
           }
-        }
-
-        def compileInParallel(batches: Int): Task[Unit] = {
-          val outlinePromise = new CompletableFuture[Array[IR]]()
-          val firstCompilation = Task {
-            // Use an independent callback for outlining because the promise doesn't leak to the build tool
-            val outlineCallback = BloopHighLevelCompiler.buildCallbackFor(setup.output, config.incOptions, outlinePromise)
-            val scalacOptionsFirstPass = BloopHighLevelCompiler.prepareOptsForOutlining(setup.options.scalacOptions)
-            val args = cargs.apply(Nil, classpath, None, scalacOptionsFirstPass).toArray
-            timed("scalac (outlining)") {
-              compileSources(sources, scalacOptionsFirstPass, outlineCallback, config.store)
-            }
-          }
-
-          import bloop.util.Java8Compat.JavaCompletableFutureUtils
-          val scalacOptions = setup.options.scalacOptions
-          firstCompilation
-            .flatMap(_ => Task.deferFutureAction(s => outlinePromise.asScala(s)))
-            .flatMap {
-              case Array() =>
-                sys.error("Fatal error: parallel compilation failed because outlining didn't extract pickle information.")
-              case irs: Array[IR] =>
-                val groups: List[Seq[File]] = {
-                  val groupSize = scalaSources.size / batches
-                  if (groupSize == 0) List(scalaSources)
-                  else scalaSources.grouped(groupSize).toList
-                }
-
-                Task.gatherUnordered(
-                  groups.map { scalaSourceGroup =>
-                    Task {
-                      timed("scalac") {
-                        val sourceGroup = {
-                          // Pass in the java sources to every group if order is mixed
-                          if (setup.order != CompileOrder.Mixed) scalaSourceGroup
-                          else scalaSourceGroup ++ javaSources
-                        }
-                        val store = SimpleIRStore(Array(irs))
-                        compileSources(sourceGroup, scalacOptions, callback, store)
-                      }
-                    }
-                  }
-                )
-            }
-            .map(_ => ()) // Just drop the list of units
         }
 
         def compileSequentially: Task[Unit] = Task {
           val scalacOptions = setup.options.scalacOptions
           val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
           timed("scalac") {
-            compileSources(sources, scalacOptions, callback, config.store)
+            compileSources(sources, scalacOptions, callback)
           }
         }
 
         batches match {
-          case Some(batches) => compileInParallel(batches)
+          case Some(batches) => sys.error("Parallel compilation is not yet supported!")
           case None => compileSequentially
         }
       }
@@ -210,14 +157,13 @@ final class BloopHighLevelCompiler(
         val javaOptions = setup.options.javacOptions.toArray[String]
         try {
           javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
-          if (!completeJava.isDone)
-            completeJava.complete(())
+          completeJava.trySuccess(())
           ()
         } catch {
           case f: CompileFailed =>
             // Intercept and report manually because https://github.com/sbt/zinc/issues/520
             config.reporter.printSummary()
-            completeJava.completeExceptionally(f)
+            completeJava.tryFailure(f)
             throw f
         }
       }
@@ -271,26 +217,6 @@ final class BloopHighLevelCompiler(
 }
 
 object BloopHighLevelCompiler {
-  private val OutlineCompileOptions: Array[String] =
-    Array("-Ygenerate-pickles", "-Youtline", "-Ystop-after:picklergen")
-  private val NonFriendlyCompileOptions: Array[String] =
-    Array("-Ywarn-dead-code", "-Ywarn-numeric-widen", "-Ywarn-value-discard", "-Ywarn-unused-import")
-
-  def prepareOptsForOutlining(opts: Array[String]): Array[String] = {
-    val newOpts = opts.filterNot(o => NonFriendlyCompileOptions.contains(o) || o.startsWith("-Xlint"))
-    newOpts ++ OutlineCompileOptions
-  }
-
-  def buildCallbackFor(
-      output: Output,
-      options: IncOptions,
-      promise: CompletableFuture[Array[IR]]
-  ): AnalysisCallback = {
-    val stamps = BloopStamps.initial
-    import sbt.internal.inc.AnalysisCallback.{Builder => CallbackBuilder}
-    new CallbackBuilder(_ => None, _ => Set.empty, (_, _) => None, stamps, output, options, promise).build()
-  }
-
   def apply(config: CompileConfiguration, reporter: ZincReporter, logger: ObservedLogger[_], tracer: BraveTracer): BloopHighLevelCompiler = {
     val (searchClasspath, entry) = MixedAnalyzingCompiler.searchClasspathAndLookup(config)
     val scalaCompiler = config.compiler.asInstanceOf[AnalyzingCompiler]

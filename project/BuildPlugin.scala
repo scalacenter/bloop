@@ -659,7 +659,7 @@ object BuildImplementation {
         // We regenerate again if something in the plugin sources has changed
         val regenerateArgs = if (regenerate) List("--regenerate") else Nil
         val buildpressArgs = List(
-          "--buildpress-file",
+          "--input",
           file.toString,
           "--buildpress-home",
           buildpressHomePath,

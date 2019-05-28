@@ -1,8 +1,6 @@
 package bloop.engine.tasks.compilation
 
-import java.util.concurrent.CompletableFuture
-
-import bloop.{Compiler, JavaSignal, CompileProducts}
+import bloop.{Compiler, JavaSignal, CompileProducts, CompileExceptions}
 import bloop.data.Project
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
@@ -10,9 +8,9 @@ import bloop.util.CacheHashCode
 import monix.eval.Task
 import monix.execution.CancelableFuture
 
-import xsbti.compile.{EmptyIRStore, IRStore}
-
 import scala.util.Try
+import scala.concurrent.Promise
+import xsbti.compile.Signature
 
 sealed trait CompileResult[+R] {
   def result: R
@@ -20,22 +18,30 @@ sealed trait CompileResult[+R] {
 
 sealed trait PartialCompileResult extends CompileResult[Task[ResultBundle]] {
   def result: Task[ResultBundle]
-  def store: IRStore
 }
 
 object PartialCompileResult {
   def apply(
       bundle: CompileBundle,
-      store: Try[IRStore],
-      completeJava: CompletableFuture[Unit],
-      javaTrigger: Task[JavaSignal],
+      pipelineAttempt: Try[Array[Signature]],
+      futureProducts: Promise[Option[CompileProducts]],
+      hasJavacCompleted: Promise[Unit],
+      shouldCompileJava: Task[JavaSignal],
+      definedMacroSymbols: Array[String],
       result: Task[ResultBundle]
   ): PartialCompileResult = {
-    store match {
-      case scala.util.Success(store) =>
-        PartialSuccess(bundle, store, completeJava, javaTrigger, result)
-      case scala.util.Failure(CompileExceptions.CompletePromise(store)) =>
-        PartialSuccess(bundle, store, completeJava, javaTrigger, result)
+    pipelineAttempt match {
+      case scala.util.Success(sigs) =>
+        val pipeline = PipelineResults(
+          sigs,
+          definedMacroSymbols,
+          futureProducts,
+          hasJavacCompleted,
+          shouldCompileJava
+        )
+        PartialSuccess(bundle, Some(pipeline), result)
+      case scala.util.Failure(CompileExceptions.CompletePromise) =>
+        PartialSuccess(bundle, None, result)
       case scala.util.Failure(t) =>
         PartialFailure(bundle.project, t, result)
     }
@@ -51,19 +57,18 @@ object PartialCompileResult {
     result match {
       case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
       case f @ PartialFailure(project, _, bundle) =>
-        bundle.map(b => FinalNormalCompileResult(project, b, f.store) :: Nil)
+        bundle.map(b => FinalNormalCompileResult(project, b) :: Nil)
       case PartialFailures(failures, _) =>
         Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
-      case PartialSuccess(bundle, store, _, _, result) =>
-        result.map(res => FinalNormalCompileResult(bundle.project, res, store) :: Nil)
+      case PartialSuccess(bundle, _, result) =>
+        result.map(res => FinalNormalCompileResult(bundle.project, res) :: Nil)
     }
   }
 }
 
 case object PartialEmpty extends PartialCompileResult {
   override final val result: Task[ResultBundle] =
-    Task.now(ResultBundle(Compiler.Result.Empty, None, CancelableFuture.unit))
-  override def store: IRStore = EmptyIRStore.getStore()
+    Task.now(ResultBundle(Compiler.Result.Empty, None))
 }
 
 case class PartialFailure(
@@ -71,41 +76,40 @@ case class PartialFailure(
     exception: Throwable,
     result: Task[ResultBundle]
 ) extends PartialCompileResult
-    with CacheHashCode {
-  def store: IRStore = EmptyIRStore.getStore()
-}
+    with CacheHashCode {}
 
 case class PartialFailures(
     failures: List[PartialCompileResult],
     result: Task[ResultBundle]
 ) extends PartialCompileResult
-    with CacheHashCode {
-  override def store: IRStore = EmptyIRStore.getStore()
-}
+    with CacheHashCode {}
 
 case class PartialSuccess(
     bundle: CompileBundle,
-    store: IRStore,
-    completeJava: CompletableFuture[Unit],
-    javaTrigger: Task[JavaSignal],
+    pipeliningResults: Option[PipelineResults],
     result: Task[ResultBundle]
 ) extends PartialCompileResult
     with CacheHashCode
 
+case class PipelineResults(
+    signatures: Array[Signature],
+    definedMacros: Array[String],
+    productsWhenCompilationIsFinished: Promise[Option[CompileProducts]],
+    isJavaCompilationFinished: Promise[Unit],
+    shouldAttemptJavaCompilation: Task[JavaSignal]
+)
+
 sealed trait FinalCompileResult extends CompileResult[ResultBundle] {
-  def store: IRStore
   def result: ResultBundle
 }
 
 case object FinalEmptyResult extends FinalCompileResult {
-  override final val store: IRStore = EmptyIRStore.getStore()
   override final val result: ResultBundle = ResultBundle.empty
 }
 
 case class FinalNormalCompileResult private (
     project: Project,
-    result: ResultBundle,
-    store: IRStore
+    result: ResultBundle
 ) extends FinalCompileResult
     with CacheHashCode
 
@@ -128,7 +132,7 @@ object FinalCompileResult {
     override def shows(r: FinalCompileResult): String = {
       r match {
         case FinalEmptyResult => s"<empty> (product of dag aggregation)"
-        case FinalNormalCompileResult(project, result, _) =>
+        case FinalNormalCompileResult(project, result) =>
           val projectName = project.name
           result.fromCompiler match {
             case Compiler.Result.Empty => s"${projectName} (empty)"

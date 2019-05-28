@@ -1,30 +1,14 @@
 package buildpress
 
-import buildpress.io.AbsolutePath
-import buildpress.io.BuildpressPaths
-
-import bloop.launcher.core.Shell
-import bloop.launcher.util.Environment
-
-import java.nio.file.Files
-import java.io.InputStream
-import java.io.PrintStream
+import java.io.{IOException, InputStream, PrintStream}
+import java.net.{URI, URISyntaxException}
 import java.nio.charset.StandardCharsets
-import java.io.IOException
-import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit
-import java.net.URISyntaxException
-import java.net.URI
-import java.nio.file.Paths
-import java.nio.file.InvalidPathException
-
-import scala.util.control.NonFatal
-import scala.util.Try
+import java.nio.file.Files
 import scala.collection.mutable
-
-import caseapp.CaseApp
-import caseapp.core.WithHelp
-import caseapp.core.Messages
+import scala.util.control.NonFatal
+import bloop.launcher.core.Shell
+import buildpress.io.{AbsolutePath, BuildpressPaths}
+import caseapp.core.{Messages, WithHelp}
 
 abstract class Buildpress(
     in: InputStream,
@@ -53,14 +37,15 @@ abstract class Buildpress(
         result match {
           case Left(parserError) => errorAndExit(error(parserError))
           case Right(params) =>
-            if (!params.buildpressFile.exists) {
-              errorAndExit(s"Input file '${params.buildpressFile}' doesn't exist")
+            if (!params.input.exists) {
+              errorAndExit(s"Input path '${params.input}' doesn't exist")
             } else {
               press(params) match {
                 case Right(_) => ()
                 // Verbose, but we will enrich failure handling in the future, so required
                 case Left(f: BuildpressError.CloningFailure) => errorAndExit(f.msg)
-                case Left(f: BuildpressError.ImportFailure) => errorAndExit(f.msg)
+                case Left(f: BuildpressError.GitImportFailure) => errorAndExit(f.msg)
+                case Left(f: BuildpressError.BuildImportFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.InvalidBuildpressHome) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.ParseFailure) => errorAndExit(f.msg)
                 case Left(f: BuildpressError.PersistFailure) => errorAndExit(f.msg)
@@ -74,7 +59,7 @@ abstract class Buildpress(
     for {
       home <- validateBuildpressHome(params.buildpressHome)
       cache <- parseRepositoryCache(home)
-      clonedRepositories <- parseAndCloneRepositories(params, home, cache)
+      clonedRepositories <- getRepositories(params, home, cache)
       newCacheAfterCloning = cache.merge(clonedRepositories.map(_._1))
       _ <- RepositoryCache.persist(newCacheAfterCloning)
       bloopConfigDirs <- exportRepositories(params, clonedRepositories.map(_._2))
@@ -84,6 +69,27 @@ abstract class Buildpress(
         out.println(success(s"Generated $configDir"))
       }
       out.println(s"😎  Buildpress finished successfully")
+    }
+  }
+
+  private def getRepositories(
+      params: BuildpressParams,
+      home: AbsolutePath,
+      cache: RepositoryCache
+  ): EitherErrorOr[List[(Repository, AbsolutePath)]] = {
+    val input: AbsolutePath = params.input
+
+    if (input.isFile) {
+      parseAndCloneRepositories(input, home, cache)
+    } else if (input.isDirectory) {
+      val repoName: String = input.underlying.getFileName.toString
+      // treat externally cloned repos as local
+      val localRepoUri: URI = URI.create(s"file://${input.syntax}")
+      Right(List(Repository(repoName, localRepoUri) -> input))
+    } else {
+      Left(
+        BuildpressError.GitImportFailure(s"Don't know how to treat input [$input]", None)
+      )
     }
   }
 
@@ -113,13 +119,13 @@ abstract class Buildpress(
   }
 
   def parseAndCloneRepositories(
-      params: BuildpressParams,
+      buildpressFile: AbsolutePath,
       buildpressHome: AbsolutePath,
       cachedRepos: RepositoryCache
   ): EitherErrorOr[List[(Repository, AbsolutePath)]] = {
     val buildpressCacheDir = buildpressHome.resolve("cache")
     Files.createDirectories(buildpressCacheDir.underlying)
-    val bytes = Files.readAllBytes(params.buildpressFile.underlying)
+    val bytes = Files.readAllBytes(buildpressFile.underlying)
     val contents = new String(bytes, StandardCharsets.UTF_8)
     parseUris(buildpressCacheDir.syntax, contents).flatMap { uris =>
       val init: EitherErrorOr[List[(Repository, AbsolutePath)]] = Right(Nil)
@@ -153,15 +159,15 @@ abstract class Buildpress(
                   else if (!generated) Right(previousBloopDirs)
                   else {
                     val msg = s"Missing $bloopDir after build import!"
-                    Left(BuildpressError.ImportFailure(error(msg), None))
+                    Left(BuildpressError.BuildImportFailure(error(msg), None))
                   }
               }
             case Some(unsupportedBuildTool) =>
               val msg = s"Unsupported build tool $unsupportedBuildTool"
-              Left(BuildpressError.ImportFailure(error(msg), None))
+              Left(BuildpressError.BuildImportFailure(error(msg), None))
             case None =>
               val msg = s"No detected build tool in $buildPath"
-              Left(BuildpressError.ImportFailure(error(msg), None))
+              Left(BuildpressError.BuildImportFailure(error(msg), None))
           }
         }
         // Reverse because we have aggregated config dirs backwards
@@ -363,7 +369,7 @@ abstract class Buildpress(
       } catch {
         case NonFatal(t) =>
           val msg = s"Unexpected exception when writing to to $buildpressSbtFile"
-          Left(BuildpressError.ImportFailure(error(msg), Some(t)))
+          Left(BuildpressError.BuildImportFailure(error(msg), Some(t)))
       }
     }
 
@@ -383,7 +389,7 @@ abstract class Buildpress(
         case status if status.isOk => Right(())
         case failed =>
           val msg = s"Unexpected failure when running `${cmd.mkString(" ")}` in $baseDir"
-          Left(BuildpressError.ImportFailure(error(msg), None))
+          Left(BuildpressError.BuildImportFailure(error(msg), None))
       }
     }
 

@@ -15,11 +15,15 @@ object BuildpressError {
       extends BuildpressError
       with OverrideCause
 
+  final case class GitImportFailure(msg: String, cause: Option[Throwable])
+      extends BuildpressError
+      with OverrideCause
+
   final case class PersistFailure(msg: String, cause: Option[Throwable])
       extends BuildpressError
       with OverrideCause
 
-  final case class ImportFailure(msg: String, cause: Option[Throwable])
+  final case class BuildImportFailure(msg: String, cause: Option[Throwable])
       extends BuildpressError
       with OverrideCause
 

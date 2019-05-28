@@ -113,7 +113,7 @@ object Project {
   }
 
   def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
-    import bloop.engine.ExecutionContext.ioScheduler
+    val ec = bloop.engine.ExecutionContext.ioScheduler
     val project = file.project
     val scala = project.`scala`
 
@@ -123,10 +123,12 @@ object Project {
         if (scala.jars.isEmpty) None
         else {
           val scalaJars = scala.jars.map(AbsolutePath.apply)
-          Some(ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger))
+          Some(
+            ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)(ec)
+          )
         }
       }
-      .orElse(ScalaInstance.scalaInstanceFromBloop(logger))
+      .orElse(ScalaInstance.scalaInstanceFromBloop(logger)(ec))
 
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val platform = project.platform match {

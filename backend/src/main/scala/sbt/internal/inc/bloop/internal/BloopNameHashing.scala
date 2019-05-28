@@ -3,6 +3,7 @@ package sbt.internal.inc.bloop.internal
 import java.io.File
 
 import _root_.bloop.CompilerOracle
+import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.reporter.ZincReporter
 import _root_.bloop.tracing.BraveTracer
 
@@ -10,6 +11,7 @@ import monix.eval.Task
 import sbt.util.Logger
 import sbt.internal.inc._
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
+import xsbti.compile.Output
 
 /**
  * Defines Bloop's version of `IncrementalNameHashing` that extends Zinc's original
@@ -29,7 +31,7 @@ import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
 private final class BloopNameHashing(
     log: Logger,
     reporter: ZincReporter,
-    oracleInputs: CompilerOracle.Inputs,
+    uniqueInputs: UniqueCompileInputs,
     options: IncOptions,
     profiler: RunProfiler,
     tracer: BraveTracer
@@ -140,7 +142,8 @@ private final class BloopNameHashing(
       sources: Set[File],
       previousAnalysis: Analysis,
       stamps: ReadStamps,
-      lookup: Lookup
+      lookup: Lookup,
+      output: Output
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
     tracer.trace("detecting initial changes") { tracer =>
       // Copy pasting from IncrementalCommon to optimize/remove IO work
@@ -148,7 +151,7 @@ private final class BloopNameHashing(
       val previous = previousAnalysis.stamps
       val previousRelations = previousAnalysis.relations
 
-      val hashesMap = oracleInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
+      val hashesMap = uniqueInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
       val sourceChanges = tracer.trace("source changes") { _ =>
         lookup.changedSources(previousAnalysis).getOrElse {
           val previousSources = previous.allSources.toSet

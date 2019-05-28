@@ -25,6 +25,7 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import bloop.UniqueCompileInputs
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -84,7 +85,7 @@ final case class ResultsCache private (
 
   def addFinalResults(ps: List[FinalCompileResult]): ResultsCache = {
     ps.foldLeft(this) {
-      case (rs, FinalNormalCompileResult(p, r, _)) => rs.addResult(p, r)
+      case (rs, FinalNormalCompileResult(p, r)) => rs.addResult(p, r)
       case (rs, FinalEmptyResult) => rs
     }
   }
@@ -130,16 +131,17 @@ object ResultsCache {
                       val classesDir = classesDirFile.toPath
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
-                      val inputs = bloop.CompilerOracle.Inputs.emptyFor(originPath)
+                      val inputs = UniqueCompileInputs.emptyFor(originPath)
                       val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
+                      // TODO: Figure out a way to populate from the macros in the previous run
+                      val ms = new Array[String](0)
                       val products =
-                        CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty)
+                        CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty, ms)
                       ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false),
-                        Some(LastSuccessfulResult(inputs, products, Task.now(()))),
-                        CancelableFuture.successful(())
+                        Some(LastSuccessfulResult(inputs, products, Task.now(())))
                       )
                     case None =>
                       logger.debug(
