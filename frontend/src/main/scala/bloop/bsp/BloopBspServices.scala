@@ -269,14 +269,13 @@ final class BloopBspServices(
       targets: Seq[bsp.BuildTargetIdentifier],
       state: State
   ): Either[String, Seq[ProjectMapping]] = {
-    targets.headOption match {
-      case Some(head) =>
-        val init = mapToProject(head, state).map(m => m :: Nil)
-        targets.tail.foldLeft(init) {
-          case (acc, t) => acc.flatMap(ms => mapToProject(t, state).map(m => m :: ms))
-        }
-      case None =>
-        Left("Empty build targets. Expected at least one build target identifier.")
+    if (targets.isEmpty) {
+      Left("Empty build targets. Expected at least one build target identifier.")
+    } else {
+      val zero: Either[String, List[ProjectMapping]] = Right(Nil)
+      targets.foldLeft(zero) { (acc, t) =>
+        acc.flatMap(ms => mapToProject(t, state).map(m => m :: ms))
+      }
     }
   }
 
