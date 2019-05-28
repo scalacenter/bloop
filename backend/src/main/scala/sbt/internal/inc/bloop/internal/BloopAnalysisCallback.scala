@@ -155,13 +155,19 @@ final class BloopAnalysisCallback(
       fromSourceFile: File,
       context: DependencyContext
   ) = {
-    classToSource.get(classFile) match {
-      case Some(dependsOn) =>
-        // dependency is a product of a source in this compilation step,
-        //  but not in the same compiler run (as in javac v. scalac)
+    internalBinaryToSourceClassName(onBinaryClassName) match {
+      case Some(dependsOn) => // dependsOn is a source class name
+        // dependency is a product of a source not included in this compilation
         classDependency(dependsOn, fromClassName, context)
       case None =>
-        externalDependency(classFile, onBinaryClassName, fromClassName, fromSourceFile, context)
+        classToSource.get(classFile) match {
+          case Some(dependsOn) =>
+            // dependency is a product of a source in this compilation step,
+            //  but not in the same compiler run (as in javac v. scalac)
+            classDependency(dependsOn, fromClassName, context)
+          case None =>
+            externalDependency(classFile, onBinaryClassName, fromClassName, fromSourceFile, context)
+        }
     }
   }
 
