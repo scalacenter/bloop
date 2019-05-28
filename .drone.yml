@@ -17,15 +17,15 @@ matrix:
           "show schemaVersion" \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
+          "frontend/testOnly bloop.ScalaVersionsSpec" \
           "backend/test" \
-          "frontend/testOnly bloop.CompileSpec -- \"bloop.CompileSpec.cross-compile build to latest Scala versions\"" \
           "jsBridge06/test" \
           "jsBridge10/test" \
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
-          "frontend/testOnly -bloop.CompileSpec" \
+          "frontend/testOnly -bloop.ScalaVersionsSpec" \
           "exportCommunityBuild" \
           "frontend/it:run" \
           "gradleBloop212/test" \
