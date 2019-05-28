@@ -30,6 +30,7 @@ import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import monix.execution.cancelables.AssignableCancelable
+import java.nio.file.NoSuchFileException
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
