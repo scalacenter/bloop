@@ -18,13 +18,14 @@ matrix:
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
           "backend/test" \
+          "frontend/testOnly bloop.CompileSpec -- \"bloop.CompileSpec.cross-compile build to latest Scala versions\"" \
           "jsBridge06/test" \
           "jsBridge10/test" \
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
-          "frontend/test" \
+          "frontend/testOnly -bloop.CompileSpec" \
           "exportCommunityBuild" \
           "frontend/it:run" \
           "gradleBloop212/test" \

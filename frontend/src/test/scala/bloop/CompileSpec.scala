@@ -25,7 +25,7 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 
 object CompileSpec extends bloop.testing.BaseSuite {
-  test("compile project for latest supported Scala versions") {
+  test("cross-compile build to latest Scala versions") {
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>
         val sources = List(
