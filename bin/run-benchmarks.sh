@@ -95,6 +95,8 @@ main() {
       "-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
       "-wi 20 -i 10 -f1 -t1 -p project=atlas -p projectName=root-test"
       "-wi 20 -i 10 -f1 -t1 -p project=grid -p projectName=grid-test"
+      "-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
+      "-wi 7 -i 5 -f1 -t1 -p project=spark -p projectName=spark-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=linkerd -p projectName=all-test"
       #"-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
@@ -105,8 +107,6 @@ main() {
       #"-wi 15 -i 10 -f1 -t1 -p project=prisma -p projectName=root-test"
       #"-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
       #"-wi 7 -i 5 -f1 -t1 -p project=scio -p projectName=scio+test"
-      #"-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
-      #"-wi 7 -i 5 -f1 -t1 -p project=spark -p projectName=spark-test"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
@@ -125,7 +125,7 @@ main() {
       #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
 
       for java_home in "${JAVA_HOMES[@]}"; do
-        SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home")
+        SBT_COMMANDS+=("$JMH_CMD .*HotPipelinedBloopBenchmark.* $benchmark -jvm $java_home")
       done
     done
 
