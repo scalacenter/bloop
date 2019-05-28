@@ -106,7 +106,6 @@ final class BloopHighLevelCompiler(
     val compileScala: Task[Unit] = {
       if (scalaSources.isEmpty) Task.now(())
       else {
-        val isDotty = ScalaInstance.isDotty(scalac.scalaInstance.actualVersion())
         val sources = {
           if (separateJavaAndScala) {
             // No matter if it's scala->java or mixed, we populate java symbols from sources
@@ -218,16 +217,6 @@ final class BloopHighLevelCompiler(
 }
 
 object BloopHighLevelCompiler {
-  private val OutlineCompileOptions: Array[String] =
-    Array("-Ygenerate-pickles", "-Youtline", "-Ystop-after:picklergen")
-  private val NonFriendlyCompileOptions: Array[String] =
-    Array("-Ywarn-dead-code", "-Ywarn-numeric-widen", "-Ywarn-value-discard", "-Ywarn-unused-import")
-
-  def prepareOptsForOutlining(opts: Array[String]): Array[String] = {
-    val newOpts = opts.filterNot(o => NonFriendlyCompileOptions.contains(o) || o.startsWith("-Xlint"))
-    newOpts ++ OutlineCompileOptions
-  }
-
   def apply(config: CompileConfiguration, reporter: ZincReporter, logger: ObservedLogger[_], tracer: BraveTracer): BloopHighLevelCompiler = {
     val (searchClasspath, entry) = MixedAnalyzingCompiler.searchClasspathAndLookup(config)
     val scalaCompiler = config.compiler.asInstanceOf[AnalyzingCompiler]
