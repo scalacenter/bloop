@@ -75,7 +75,7 @@ object Commands {
       includeDependencies: Boolean = false,
       @HelpMessage("Clean a project and all projects depending on it. By default, false.")
       cascade: Boolean = false,
-      @Recurse cliOptions: CliOptions = CliOptions.default,
+      @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 
   @CommandName("bsp")
@@ -89,7 +89,8 @@ object Commands {
       @HelpMessage("A path to a socket file to communicate through Unix sockets (local only).")
       socket: Option[Path] = None,
       @HelpMessage(
-        "A path to a new existing socket file to communicate through Unix sockets (local only).")
+        "A path to a new existing socket file to communicate through Unix sockets (local only)."
+      )
       pipeName: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
@@ -111,7 +112,7 @@ object Commands {
       watch: Boolean = false,
       @HelpMessage("Compile a project and all projects depending on it. By default, false.")
       cascade: Boolean = false,
-      @Recurse cliOptions: CliOptions = CliOptions.default,
+      @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
   case class Test(
@@ -154,6 +155,12 @@ object Commands {
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
+      @HelpMessage(s"Pick REPL to run console. The default is Ammonite, available REPLs are: ${ReplKind.repls.map(_.name).mkString(", ")}")
+      repl: ReplKind = AmmoniteRepl,
+      @HelpMessage("The Ammonite version to use, it defaults to latest release. Ammonite REPL only.")
+      ammoniteVersion: Option[String] = None,
+      @HelpMessage("The output file where the Ammonite command is written. Ammonite REPL only.")
+      outFile: Option[Path] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
@@ -180,7 +187,8 @@ object Commands {
       skipJargs: Boolean = false,
       @ExtraName("O")
       @HelpMessage(
-        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`.")
+        "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`."
+      )
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends LinkingCommand
@@ -204,7 +212,8 @@ object Commands {
       watch: Boolean = false,
       @ExtraName("O")
       @HelpMessage(
-        "Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`.")
+        "Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`."
+      )
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends LinkingCommand

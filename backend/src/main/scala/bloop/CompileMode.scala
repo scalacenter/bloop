@@ -1,40 +1,29 @@
 package bloop
 
 import _root_.monix.eval.Task
-import java.util.concurrent.CompletableFuture
-
-import xsbti.compile.IR
+import scala.concurrent.Promise
+import bloop.io.AbsolutePath
+import xsbti.compile.Signature
 
 /**
  * Defines the mode in which compilation should run.
- *
- * There are currently four modes:
- * 1. Sequential (no inputs are required).
- * 2. Parallel (requires the number of batches of source files to parallelize).
- * 3. Pipelined (requires the pickle URI to trigger the dependent compilations and a task to signal
- *    the compilation of Java).
- * 4. Parallel + Pipelined.
  */
-sealed trait CompileMode
+sealed trait CompileMode {
+  def oracle: CompilerOracle
+  def picklesDir: AbsolutePath
+}
 
 object CompileMode {
-  sealed trait ConfigurableMode extends CompileMode
-  case object Sequential extends ConfigurableMode
-  final case class Parallel(batches: Int) extends ConfigurableMode
-
-  final case class Pipelined(
-      irs: CompletableFuture[Array[IR]],
-      completeJavaCompilation: CompletableFuture[Unit],
-      fireJavaCompilation: Task[JavaSignal],
-      oracle: CompilerOracle,
-      separateJavaAndScala: Boolean
+  case class Sequential(
+      picklesDir: AbsolutePath,
+      oracle: CompilerOracle
   ) extends CompileMode
 
-  final case class ParallelAndPipelined(
-      batches: Int,
-      irs: CompletableFuture[Array[IR]],
-      completeJavaCompilation: CompletableFuture[Unit],
+  final case class Pipelined(
+      completeJavaCompilation: Promise[Unit],
+      finishedCompilation: Promise[Option[CompileProducts]],
       fireJavaCompilation: Task[JavaSignal],
+      picklesDir: AbsolutePath,
       oracle: CompilerOracle,
       separateJavaAndScala: Boolean
   ) extends CompileMode

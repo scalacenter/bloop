@@ -6,146 +6,99 @@
   "files": [
     "README.md"
   ],
-  "imageSize": 100,
+  "imageSize": 50,
   "commit": false,
   "contributors": [
     {
       "login": "Duhemm",
-      "name": "Martin Duhem",
+      "name": "@Duhemm",
       "avatar_url": "https://avatars0.githubusercontent.com/u/1765926?v=4",
       "profile": "https://github.com/Duhemm",
-      "contributions": [
-        "code",
-        "bug",
-        "doc",
-        "ideas",
-        "review"
-      ]
+      "contributions": []
     },
     {
       "login": "jvican",
-      "name": "Jorge",
+      "name": "@jvican",
       "avatar_url": "https://avatars0.githubusercontent.com/u/2462974?v=4",
       "profile": "http://jvican.github.com",
-      "contributions": [
-        "code",
-        "bug",
-        "doc",
-        "ideas",
-        "review",
-        "question"
-      ]
+      "contributions": []
     },
     {
       "login": "tues",
-      "name": "Paweł Bartkiewicz",
+      "name": "@tues",
       "avatar_url": "https://avatars3.githubusercontent.com/u/1550710?v=4",
       "profile": "https://github.com/tues",
-      "contributions": [
-        "code",
-        "bug",
-        "doc",
-        "test",
-        "review",
-        "question"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "tindzk",
-      "name": "Tim Nieradzik",
+      "name": "@tindzk",
       "avatar_url": "https://avatars2.githubusercontent.com/u/196819?v=4",
       "profile": "http://nieradzik.me/",
-      "contributions": [
-        "code",
-        "bug",
-        "doc",
-        "review"
-      ]
+      "contributions": [ ]
+    },
+    {
+      "login": "tgodzik",
+      "name": "@tgodzik",
+      "avatar_url": "https://avatars2.githubusercontent.com/tgodzik?v=4",
+      "profile": "https://github.com/tgodzik",
+      "contributions": [ ]
     },
     {
       "login": "rberenguel",
-      "name": "Ruben Berenguel",
+      "name": "@rberenguel",
       "avatar_url": "https://avatars3.githubusercontent.com/u/2410938?v=4",
       "profile": "http://www.mostlymaths.net",
-      "contributions": [
-        "code",
-        "bug",
-        "review"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "dsilvasc",
-      "name": "Daniel Silva",
+      "name": "@dsilvasc",
       "avatar_url": "https://avatars3.githubusercontent.com/u/24484414?v=4",
       "profile": "https://github.com/dsilvasc",
-      "contributions": [
-        "code",
-        "plugin",
-        "test"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "vigoo",
-      "name": "Daniel Vigovszky",
+      "name": "@vigoo",
       "avatar_url": "https://avatars2.githubusercontent.com/u/2292489?v=4",
       "profile": "https://github.com/vigoo",
-      "contributions": [
-        "code",
-        "plugin"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "propensive",
-      "name": "Jon Pretty",
+      "name": "@propensive",
       "avatar_url": "https://avatars0.githubusercontent.com/u/1024588?v=4",
       "profile": "http://propensive.com/",
-      "contributions": [
-        "code",
-        "bug",
-        "doc"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "Baccata",
-      "name": "Olivier Mélois",
+      "name": "@Baccata",
       "avatar_url": "https://avatars2.githubusercontent.com/u/4439335?v=4",
       "profile": "https://github.com/Baccata",
-      "contributions": [
-        "code",
-        "bug",
-        "doc"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "valencik",
-      "name": "Andrew Valencik",
+      "name": "@valencik",
       "avatar_url": "https://avatars2.githubusercontent.com/u/5440389?v=4",
       "profile": "https://github.com/valencik",
-      "contributions": [
-        "code",
-        "doc"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "msvaljek",
-      "name": "msvaljek",
+      "name": "@msvaljek",
       "avatar_url": "https://avatars3.githubusercontent.com/u/36041566?v=4",
       "profile": "https://github.com/msvaljek",
-      "contributions": [
-        "code",
-        "bug"
-      ]
+      "contributions": [ ]
     },
     {
       "login": "lefou",
-      "name": "Tobias Roeser",
+      "name": "@lefou",
       "avatar_url": "https://avatars1.githubusercontent.com/u/1321393?v=4",
       "profile": "https://twitter.com/TobiasRoeser",
-      "contributions": [
-        "question",
-        "code",
-        "plugin"
-      ]
+      "contributions": [ ]
     }
   ]
 }

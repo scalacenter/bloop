@@ -7,6 +7,8 @@ import sbt.io.syntax.fileToRichFile
 import sbt.io.IO
 import sbt.util.FileFunction
 
+import GitUtils.GitAuth
+
 /** Utilities that are useful for releasing Bloop */
 object ReleaseUtils {
 
@@ -91,7 +93,7 @@ object ReleaseUtils {
     }
 
     s"""class Bloop < Formula
-       |  desc "Bloop gives you fast edit/compile/test workflows for Scala."
+       |  desc "Bloop is a build server to compile, test and run Scala fast"
        |  homepage "https://github.com/scalacenter/bloop"
        |  version "$version"
        |  $url
@@ -166,10 +168,11 @@ object ReleaseUtils {
     val buildBase = BuildKeys.buildBase.value
     val installSha = sha256(versionedInstallScript.value)
     val version = Keys.version.value
-    cloneAndPushTag(repository, buildBase, version) { inputs =>
+    val token = GitUtils.authToken()
+    cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.rb"
       val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), installSha, false)
-      FormulaArtifact(inputs.base / formulaFileName, contents)
+      FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
   }
 
@@ -221,11 +224,131 @@ object ReleaseUtils {
     val version = Keys.version.value
     val installScript = versionedInstallScript.value
     val installSha = sha256(installScript)
-    cloneAndPushTag(repository, buildBase, version) { inputs =>
+    val token = GitUtils.authToken()
+    cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.json"
       val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
       val contents = generateScoopFormulaContents(version, installSha, Right(inputs.tag))
-      FormulaArtifact(inputs.base / formulaFileName, contents)
+      FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
+    }
+  }
+
+  def archPackageSource(origin: FormulaOrigin): String = origin match {
+    case Left(f) => s"file://${f.getAbsolutePath}"
+    case Right(tag) => s"https://github.com/scalacenter/bloop/releases/download/$tag/install.py"
+  }
+
+  def generateArchBuildContents(
+      version: String,
+      origin: FormulaOrigin,
+      installSha: String
+  ): String = {
+    val source = archPackageSource(origin)
+    // Note: pkgver must only contain letters, numbers and periods to be valid
+    s"""# Maintainer: Guillaume Raffin <theelectronwill@gmail.com>
+       |# Generator: Bloop release utilities <https://github.com/scalacenter/bloop>
+       |pkgname=bloop
+       |pkgver=${version.replace('-', '.').replace('+', '.')}
+       |pkgrel=1
+       |pkgdesc="Bloop gives you fast edit/compile/test workflows for Scala."
+       |arch=(any)
+       |url="https://scalacenter.github.io/bloop/"
+       |license=('Apache')
+       |depends=('scala' 'python')
+       |source=("$source")
+       |sha256sums=('$installSha')
+       |
+       |build() {
+       |  python ./install.py --dest "$$srcdir/bloop"
+       |  # fix paths
+       |  sed -i "s|$$srcdir/bloop|/usr/bin|g" bloop/systemd/bloop.service
+       |  sed -i "s|$$srcdir/bloop/xdg|/usr/share/pixmaps|g" bloop/xdg/bloop.desktop
+       |  sed -i "s|$$srcdir/bloop|/usr/lib/bloop|g" bloop/xdg/bloop.desktop
+       |}
+       |
+       |package() {
+       |  cd "$$srcdir/bloop"
+       |
+       |  ## binaries
+       |  # we use /usr/lib/bloop so that we can add a .jvmopts file in it
+       |  install -Dm755 blp-server "$$pkgdir"/usr/lib/bloop/blp-server
+       |  install -Dm755 blp-coursier "$$pkgdir"/usr/lib/bloop/blp-coursier
+       |  install -Dm755 bloop "$$pkgdir"/usr/lib/bloop/bloop
+       |
+       |  # links in /usr/bin
+       |  mkdir -p "$$pkgdir/usr/bin"
+       |  ln -s /usr/lib/bloop/blp-server "$$pkgdir"/usr/bin/blp-server
+       |  ln -s /usr/lib/bloop/blp-coursier "$$pkgdir"/usr/bin/blp-coursier
+       |  ln -s /usr/lib/bloop/bloop "$$pkgdir"/usr/bin/bloop
+       |
+       |  # desktop file
+       |  install -Dm644 xdg/bloop.png "$$pkgdir"/usr/share/pixmaps/bloop.png
+       |  install -Dm755 xdg/bloop.desktop "$$pkgdir"/usr/share/applications/bloop.desktop
+       |
+       |  # shell completion
+       |  install -Dm644 bash/bloop "$$pkgdir"/etc/bash_completion.d/bloop
+       |  install -Dm644 zsh/_bloop "$$pkgdir"/usr/share/zsh/site-functions/_bloop
+       |  install -Dm644 fish/bloop.fish "$$pkgdir"/usr/share/fish/vendor_completions.d/bloop.fish
+       |
+       |  # systemd service
+       |  install -Dm644 systemd/bloop.service "$$pkgdir"/usr/lib/systemd/user/bloop.service
+       |}
+       |""".stripMargin
+  }
+
+  def generateArchInfoContents(
+      version: String,
+      origin: FormulaOrigin,
+      installSha: String
+  ): String = {
+    val source = archPackageSource(origin)
+    s"""pkgbase = bloop
+       |pkgdesc = Bloop gives you fast edit/compile/test workflows for Scala.
+       |pkgver = ${version.replace('-', '.').replace('+', '.')}
+       |pkgrel = 1
+       |url = https://scalacenter.github.io/bloop/
+       |arch = any
+       |license = Apache
+       |depends = scala
+       |depends = python
+       |source = $source
+       |sha256sums = $installSha
+       |pkgname = bloop
+       |""".stripMargin
+  }
+
+  /**
+   * Creates two files: PKGBUILD and .SRCINFO, which can be used to locally build a bloop package
+   * for ArchLinux with the makepkg command.
+   */
+  val createLocalArchPackage = Def.task {
+    val logger = Keys.streams.value.log
+    val version = Keys.version.value
+    val versionDir = Keys.target.value / version
+    val targetBuild = versionDir / "PKGBUILD"
+    val targetInfo = versionDir / ".SRCINFO"
+    val installScript = versionedInstallScript.value
+    val installSha = sha256(installScript)
+    val pkgbuild = generateArchBuildContents(version, Left(installScript), installSha)
+    val srcinfo = generateArchInfoContents(version, Left(installScript), installSha)
+    if (!versionDir.exists()) IO.createDirectory(versionDir)
+    IO.write(targetBuild, pkgbuild)
+    IO.write(targetInfo, srcinfo)
+    logger.info(s"Local ArchLinux package build files created in ${versionDir.getAbsolutePath}")
+  }
+
+  val updateArchPackage = Def.task {
+    val repository = "ssh://aur@aur.archlinux.org/bloop.git"
+    val buildBase = BuildKeys.buildBase.value
+    val installSha = sha256(versionedInstallScript.value)
+    val version = Keys.version.value
+    val sshKey = GitUtils.authSshKey()
+    cloneAndPush(repository, buildBase, version, sshKey, false) { inputs =>
+      val buildFile = inputs.base / "PKGBUILD"
+      val infoFile = inputs.base / ".SRCINFO"
+      val buildContents = generateArchBuildContents(version, Right(inputs.tag), installSha)
+      val infoContents = generateArchInfoContents(version, Right(inputs.tag), installSha)
+      FormulaArtifact(buildFile, buildContents) :: FormulaArtifact(infoFile, infoContents) :: Nil
     }
   }
 
@@ -234,31 +357,40 @@ object ReleaseUtils {
 
   private final val bloopoidName = "Bloopoid"
   private final val bloopoidEmail = "bloop@trashmail.ws"
-  def cloneAndPushTag(repository: String, buildBase: File, version: String)(
-      generateFormula: FormulaInputs => FormulaArtifact
+
+  /** Clones a git repository, generates a formula/package and pushes the result.*/
+  def cloneAndPush(
+      repository: String,
+      buildBase: File,
+      version: String,
+      auth: GitAuth,
+      pushTag: Boolean
+  )(
+      generateFormula: FormulaInputs => Seq[FormulaArtifact]
   ): Unit = {
-    val token = sys.env.get("BLOOPOID_GITHUB_TOKEN").getOrElse {
-      throw new MessageOnlyException("Couldn't find Github oauth token in `BLOOPOID_GITHUB_TOKEN`")
-    }
     val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {
       throw new MessageOnlyException("No tag found in this repository.")
     }
-
-    IO.withTemporaryDirectory { homebrewBase =>
-      GitUtils.clone(repository, homebrewBase, token) { homebrewRepo =>
+    IO.withTemporaryDirectory { tmpDir =>
+      GitUtils.clone(repository, tmpDir, auth) { gitRepo =>
         val commitMessage = s"Updating to Bloop $tagName"
-        val artifact = generateFormula(FormulaInputs(tagName, homebrewBase))
-        IO.write(artifact.target, artifact.contents)
-        val changed = artifact.target.getName :: Nil
+        val artifacts = generateFormula(FormulaInputs(tagName, tmpDir))
+        artifacts.foreach(a => IO.write(a.target, a.contents))
+        val changes = artifacts.map(a => a.target.getName)
         GitUtils.commitChangesIn(
-          homebrewRepo,
-          changed,
+          gitRepo,
+          changes,
           commitMessage,
           bloopoidName,
           bloopoidEmail
         )
-        GitUtils.tag(homebrewRepo, tagName, commitMessage)
-        GitUtils.push(homebrewRepo, "origin", Seq("master", tagName), token)
+        if (pushTag) {
+          GitUtils.tag(gitRepo, tagName, commitMessage)
+          GitUtils.push(gitRepo, "origin", Seq("master", tagName), auth)
+        } else {
+          // The AUR hooks block git tags: don't try to use them (set pushTag=false)
+          GitUtils.push(gitRepo, "origin", Seq("master"), auth)
+        }
       }
     }
   }

@@ -20,6 +20,10 @@ import _root_.monix.eval.Task
 
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
+import caseapp.core.CommandsMessages
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
+import scala.util.Try
 
 class Cli
 object Cli {
@@ -302,7 +306,14 @@ object Cli {
   private final val FalseCancellation =
     CompletableFuture.completedFuture[java.lang.Boolean](false)
 
-  private val activeCliSessions = new ConcurrentHashMap[AbsolutePath, Promise[Unit]]()
+  // If completed and true, client exited, otherwise client disconnected/cancelled
+  private val activeCliSessions = new ConcurrentHashMap[Path, Promise[Unit]]()
+
+  private final val CliTimeoutProperty = "bloop.cli-lock.seconds-to-timeout"
+  private final val secondsTimeout: Long = {
+    val default = java.lang.Integer.getInteger(CliTimeoutProperty)
+    if (default == null) 60L else default.toLong
+  }
 
   def acquireBuildCliLock(
       configDir: AbsolutePath,
@@ -310,20 +321,37 @@ object Cli {
       syncPromise: Promise[Unit],
       taskToRun: Task[State],
       logger: Logger
-  ): Task[State] = {
+  ): Task[ExitStatus] = {
+    val timeoutTask = Task {
+      logger.error(s"Timed out waiting on CLI lock after ${secondsTimeout}s")
+      logger.info(s"  -> Tweak the default value by changing `-D$CliTimeoutProperty` in the server")
+      ExitStatus.UnexpectedError
+    }
+
     action match {
-      case Exit(exitStatus) => taskToRun
-      // Don't synchronize BSP commands, BSP sessions can run concurrently on the same build
-      case Run(_: Commands.Bsp, next) => taskToRun
-      case Run(_: Commands.ValidatedBsp, next) => taskToRun
+      case Exit(_) => taskToRun.map(_.status)
+      // Don't synchronize on lock commands that can run concurrently on the same build for the same client
+      case Run(_: Commands.About, next) => taskToRun.map(_.status)
+      case Run(_: Commands.Projects, next) => taskToRun.map(_.status)
+      case Run(_: Commands.Autocomplete, next) => taskToRun.map(_.status)
+      case Run(_: Commands.Bsp, next) => taskToRun.map(_.status)
+      case Run(_: Commands.ValidatedBsp, next) => taskToRun.map(_.status)
       case _ =>
-        val currentPromise = activeCliSessions.putIfAbsent(configDir, syncPromise)
-        if (currentPromise == null) taskToRun
+        val currentPromise = activeCliSessions.putIfAbsent(configDir.underlying, syncPromise)
+        if (currentPromise == null) taskToRun.map(_.status)
         else {
           logger.info("Waiting on external CLI client to release lock on this build...")
           Task
             .fromFuture(currentPromise.future)
-            .flatMap(_ => acquireBuildCliLock(configDir, action, syncPromise, taskToRun, logger))
+            .timeoutTo(FiniteDuration(secondsTimeout, TimeUnit.SECONDS), timeoutTask)
+            .flatMap { _ =>
+              // Don't try to acquire lock if client waiting for it already disconnected
+              if (syncPromise.isCompleted) {
+                Task.now(ExitStatus.Ok)
+              } else {
+                acquireBuildCliLock(configDir, action, syncPromise, taskToRun, logger)
+              }
+            }
         }
     }
   }
@@ -336,9 +364,9 @@ object Cli {
       pool: ClientPool,
       configDirectory: Path,
       logger: Logger,
-      exitPromise: Promise[Unit],
+      exitOrCancelPromise: Promise[Unit],
       cancel: CompletableFuture[java.lang.Boolean] = FalseCancellation
-  )(taskState: Task[State]): ExitStatus = {
+  )(task: Task[ExitStatus]): ExitStatus = {
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
       val elapsed = (System.nanoTime() - since).toDouble / 1e6
@@ -346,8 +374,8 @@ object Cli {
     }
 
     def releaseBuildCliLock(): Unit = {
-      activeCliSessions.remove(AbsolutePath(configDirectory), exitPromise)
-      exitPromise.trySuccess(())
+      activeCliSessions.remove(configDirectory, exitOrCancelPromise)
+      exitOrCancelPromise.trySuccess(())
       ()
     }
 
@@ -355,7 +383,7 @@ object Cli {
     val handle =
       Task
         .now(System.nanoTime())
-        .flatMap(start => taskState.materialize.map(s => (s, start)))
+        .flatMap(start => task.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
         .doOnFinish(_ => Task(releaseBuildCliLock()))
         .doOnCancel(Task(releaseBuildCliLock()))
@@ -372,8 +400,9 @@ object Cli {
             cliOptions.common.out.println(
               s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
             )
+            exitOrCancelPromise.trySuccess(())
             handle.cancel()
-          } else ()
+          }
         }
         .runAsync(ExecutionContext.ioScheduler)
     }
@@ -397,13 +426,14 @@ object Cli {
               s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
             )
             handle.cancel()
+            exitOrCancelPromise.trySuccess(())
             if (!cancel.isDone)
               cancel.complete(false)
             ()
           }
       }
 
-      Await.result(handle, Duration.Inf).status
+      Await.result(handle, Duration.Inf)
     } catch {
       case i: InterruptedException => handleException(i)
       case NonFatal(t) => handleException(t)

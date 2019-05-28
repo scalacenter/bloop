@@ -2,7 +2,8 @@ package bloop.integrations.gradle.model
 
 import java.io.File
 import java.nio.file.Path
-
+import java.nio.file.Paths
+import java.nio.file.Files
 import bloop.config.Config
 import bloop.config.Config.{JvmConfig, Platform}
 import bloop.integrations.gradle.BloopParameters
@@ -578,7 +579,7 @@ final class BloopConverter(parameters: BloopParameters) {
       .includeClasspath(false)
       .includeSourceFiles(false)
       .includeLauncherOptions(false)
-
+    
     var args = builder.build().asScala.toList.filter(_.nonEmpty)
 
     if (!args.contains("-source")) {
@@ -588,6 +589,13 @@ final class BloopConverter(parameters: BloopParameters) {
         Option(DefaultInstalledJdk.current())
           .foreach(jvm => args = "-source" :: jvm.getJavaVersion.toString :: args)
       }
+    }
+
+    // if annotation processor is not configured to run we remove the source
+    if (args.contains("-proc:none") && args.contains("-s")){
+      args = args.takeWhile(_ != "-s") ++ args.dropWhile(_ != "-s").drop(2)
+    } else if (args.contains("-s")){
+      Files.createDirectories(Paths.get(args(args.indexOf("-s") + 1)))
     }
 
     if (!args.contains("-target")) {

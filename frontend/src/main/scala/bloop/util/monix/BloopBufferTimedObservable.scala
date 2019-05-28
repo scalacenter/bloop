@@ -76,11 +76,15 @@ final class BloopBufferTimedObservable[+A](
         buffer = ListBuffer.empty[A]
         // Setting the time of the next scheduled tick
         expiresAt = now + timespanMillis
-        ack = ack.syncTryFlatten.syncFlatMap {
-          case Continue => out.onNext(oldBuffer)
-          case Stop => Stop
+        // Don't do `onNext` on empty buffer
+        if (oldBuffer.isEmpty) ack
+        else {
+          ack = ack.syncTryFlatten.syncFlatMap {
+            case Continue => out.onNext(oldBuffer)
+            case Stop => Stop
+          }
+          ack
         }
-        ack
       }
 
       def onNext(elem: A): Future[Ack] = self.synchronized {

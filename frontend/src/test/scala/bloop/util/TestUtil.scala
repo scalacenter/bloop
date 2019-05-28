@@ -154,51 +154,15 @@ object TestUtil {
     }
   }
 
-  private final val integrationsIndexPath = BuildInfo.buildIntegrationsIndex.toPath
-  private final val benchmarksIndexPath = BuildInfo.localBenchmarksIndex.toPath
-
-  private[bloop] lazy val testProjectsIndex = indexFromPath(integrationsIndexPath, false)
-  private[bloop] lazy val localBenchmarksIndex = indexFromPath(benchmarksIndexPath, true)
-  private[bloop] def indexFromPath(
-      target: Path,
-      allowMissing: Boolean
-  ): Map[String, Path] = {
-    if (Files.exists(target)) {
-      import scala.collection.JavaConverters._
-      val lines = Files.readAllLines(target).asScala
-      val entries = lines.map(line => line.split(",").toList)
-      entries.map {
-        case List(key, value) => key -> Paths.get(value)
-        case _ => sys.error(s"Malformed index file: ${lines.mkString(System.lineSeparator)}")
-      }.toMap
-    } else if (!allowMissing) sys.error(s"Missing integration index at ${target}!")
-    else Map.empty
-  }
-
-  def getConfigDirForBenchmark(name: String): Path = {
-    testProjectsIndex
-      .get(name)
-      .orElse(localBenchmarksIndex.get(name))
-      .getOrElse(sys.error(s"Project ${name} does not exist at ${integrationsIndexPath}"))
-  }
-
   def getBloopConfigDir(buildName: String): Path = {
-    def fallbackToIntegrationBaseDir(buildName: String): Path = {
-      testProjectsIndex
-        .get(buildName)
-        .getOrElse(sys.error(s"Project ${buildName} does not exist at ${integrationsIndexPath}"))
-    }
-
     val baseDirURL = ThisClassLoader.getResource(buildName)
     if (baseDirURL == null) {
-      // The project is not in `test/resources`, let's load it from the integrations directory
-      fallbackToIntegrationBaseDir(buildName)
+      sys.error(s"Project ${buildName} does not exist in test resources")
     } else {
       val baseDir = java.nio.file.Paths.get(baseDirURL.toURI)
       val bloopConfigDir = baseDir.resolve("bloop-config")
       if (Files.exists(bloopConfigDir)) bloopConfigDir
-      // The project is not an integration test, let's load it from the integrations directory
-      else fallbackToIntegrationBaseDir(buildName)
+      else sys.error(s"Project ${buildName} does not exist in test resources")
     }
   }
 

@@ -33,3 +33,4 @@ node_modules/
 package-lock.json
 .metals/
 *.lock
+benchmark-bridge/corpus/

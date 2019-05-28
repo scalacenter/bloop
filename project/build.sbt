@@ -1,5 +1,5 @@
-val mvnVersion = "3.5.2"
-val mvnPluginToolsVersion = "3.5"
+val mvnVersion = "3.6.1"
+val mvnPluginToolsVersion = "3.6.0"
 val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 
 val `bloop-build` = project
@@ -16,7 +16,7 @@ val `bloop-build` = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
-    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.3"),
+    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M13-2"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),
     libraryDependencies += { "org.scala-sbt" %% "scripted-plugin" % sbtVersion.value },
     // Let's add our sbt plugin to the sbt too ;)

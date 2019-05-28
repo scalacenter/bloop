@@ -45,6 +45,10 @@
         "title": "JSON Configuration Reference",
         "sidebar_label": "JSON Configuration"
       },
+      "contributing-guide": {
+        "title": "Contributing to bloop",
+        "sidebar_label": "Contributing Guide"
+      },
       "ides/intellij": {
         "title": "IntelliJ",
         "sidebar_label": "IntelliJ"
@@ -68,10 +72,6 @@
       "performance-reference": {
         "title": "Performance reference",
         "sidebar_label": "Performance reference"
-      },
-      "project-goals": {
-        "title": "Project Goals",
-        "sidebar_label": "Project Goals"
       },
       "release-table": {
         "title": "release-table"
@@ -118,61 +118,69 @@
         "title": "What is Bloop",
         "sidebar_label": "What is Bloop"
       },
-      "version-1.2.0-gradle": {
+      "version-1.2.0/build-tools/version-1.2.0-gradle": {
         "title": "Gradle",
         "sidebar_label": "Gradle"
       },
-      "version-1.2.0-maven": {
+      "version-1.2.0/build-tools/version-1.2.0-maven": {
         "title": "Maven",
         "sidebar_label": "Maven"
       },
-      "version-1.2.0-mill": {
+      "version-1.2.0/build-tools/version-1.2.0-mill": {
         "title": "Mill",
         "sidebar_label": "Mill"
       },
-      "version-1.2.0-overview": {
+      "version-1.2.0/build-tools/version-1.2.0-overview": {
         "title": "Overview",
         "sidebar_label": "Overview"
       },
-      "version-1.2.0-sbt": {
+      "version-1.2.0/build-tools/version-1.2.0-sbt": {
         "title": "sbt",
         "sidebar_label": "sbt"
       },
-      "version-1.2.0-cli-reference": {
+      "version-1.2.0/version-1.2.0-cli-reference": {
         "title": "CLI --help",
         "sidebar_label": "CLI --help"
       },
-      "version-1.2.0-configuration-format": {
+      "version-1.2.0/version-1.2.0-configuration-format": {
         "title": "JSON Configuration Reference",
         "sidebar_label": "JSON Configuration"
       },
-      "version-1.2.0-intellij": {
+      "version-1.2.0/ides/version-1.2.0-intellij": {
         "title": "IntelliJ",
         "sidebar_label": "IntelliJ"
       },
-      "version-1.2.0-metals": {
+      "version-1.2.0/ides/version-1.2.0-metals": {
         "title": "Metals",
         "sidebar_label": "Metals"
       },
-      "version-1.2.0-integration": {
+      "version-1.2.0/ides/version-1.2.0-overview": {
+        "title": "Overview",
+        "sidebar_label": "Overview"
+      },
+      "version-1.2.0/version-1.2.0-integration": {
         "title": "Integrate with the Build Server",
         "sidebar_label": "Integration Guide"
       },
-      "version-1.2.0-launcher-reference": {
+      "version-1.2.0/version-1.2.0-launcher-reference": {
         "title": "Launcher Reference",
         "sidebar_label": "Built-in Launcher"
       },
-      "version-1.2.0-server-reference": {
+      "version-1.2.0/version-1.2.0-server-reference": {
         "title": "Build Server Reference",
         "sidebar_label": "Build Server"
       },
-      "version-1.2.0-usage": {
+      "version-1.2.0/version-1.2.0-usage": {
         "title": "Quickstart",
         "sidebar_label": "Quickstart"
       },
-      "version-1.2.0-what-is-bloop": {
+      "version-1.2.0/version-1.2.0-what-is-bloop": {
         "title": "What is Bloop",
         "sidebar_label": "What is Bloop"
+      },
+      "version-1.2.5/version-1.2.5-contributing-guide": {
+        "title": "Contributing to bloop",
+        "sidebar_label": "Contributing Guide"
       }
     },
     "links": {

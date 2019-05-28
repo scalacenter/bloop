@@ -30,14 +30,16 @@ import scala.collection.mutable
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.CancelableFuture
+import bloop.CompileMode.Pipelined
+import bloop.CompileMode.Sequential
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
-    oracleInputs: CompilerOracle.Inputs,
-    store: IRStore,
+    uniqueInputs: UniqueCompileInputs,
+    //store: IRStore,
     out: CompileOutPaths,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
@@ -54,7 +56,8 @@ case class CompileInputs(
     tracer: BraveTracer,
     ioScheduler: Scheduler,
     ioExecutor: Executor,
-    invalidatedClassFilesInDependentProjects: Set[File]
+    invalidatedClassFilesInDependentProjects: Set[File],
+    generatedClassFilePathsInDependentProjects: Map[String, File]
 )
 
 case class CompileOutPaths(
@@ -62,14 +65,34 @@ case class CompileOutPaths(
     externalClassesDir: AbsolutePath,
     internalReadOnlyClassesDir: AbsolutePath
 ) {
-  lazy val internalNewClassesDir: AbsolutePath = {
+  private def createNewDir(generateDirName: String => String): AbsolutePath = {
     val classesDir = internalReadOnlyClassesDir.underlying
     val parentDir = classesDir.getParent()
     val classesName = externalClassesDir.underlying.getFileName()
-    val newClassesName = s"${classesName}-${UUIDUtil.randomUUID}"
-    AbsolutePath(
-      Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath()
-    )
+    val newClassesName = generateDirName(classesName.toString)
+    AbsolutePath(Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath())
+  }
+
+  lazy val internalNewClassesDir: AbsolutePath = {
+    createNewDir(classesName => s"${classesName}-${UUIDUtil.randomUUID}")
+  }
+
+  /**
+   * Creates an internal directory where symbol pickles are stored when build
+   * pipelining is enabled. This directory is removed whenever compilation
+   * process has finished because pickles are useless when class files are
+   * present. This might change when we expose pipelining to clients.
+   *
+   * Watch out: for the moment this pickles dir is not populated because we
+   * are populating signatures from an in-memory cache.
+   */
+  lazy val internalNewPicklesDir: AbsolutePath = {
+    createNewDir { classesName =>
+      val newName = s"${classesName.replace("classes", "pickles")}-${UUIDUtil.randomUUID}"
+      // If original classes name didn't contain `classes`, add pickles at the beginning
+      if (newName.contains("pickles")) newName
+      else "pickles-" + newName
+    }
   }
 }
 
@@ -111,7 +134,7 @@ object Compiler {
     final case class GlobalError(problem: String) extends Result with CacheHashCode
 
     final case class Success(
-        inputs: CompilerOracle.Inputs,
+        inputs: UniqueCompileInputs,
         reporter: ZincReporter,
         products: CompileProducts,
         elapsed: Long,
@@ -166,6 +189,7 @@ object Compiler {
     logger.debug(s"Read-only classes directory ${readOnlyClassesDirPath}")
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
 
+    val allGeneratedRelativeClassFilePaths = new mutable.HashMap[String, File]()
     val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
@@ -192,7 +216,14 @@ object Compiler {
           allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
         }
 
-        import compileInputs.invalidatedClassFilesInDependentProjects
+        /*
+         * Filter out the dependent generated class files in the dependent
+         * invalidations. This is key to avoid "not found type" or not found
+         * symbols during incremental compilation.
+         */
+        val dependentClassFilesThatShouldNotBeLoaded =
+          compileInputs.invalidatedClassFilesInDependentProjects -- compileInputs.generatedClassFilePathsInDependentProjects.valuesIterator
+
         def invalidatedClassFiles(): Array[File] = {
           // Invalidate class files from dependent projects + those invalidated in last incremental run
           val invalidatedClassFilesForRun = allInvalidatedClassFilesForProject.iterator.filter {
@@ -201,18 +232,30 @@ object Compiler {
               val filePath = f.getAbsolutePath
               if (!filePath.startsWith(readOnlyClassesDirPath)) true
               else {
-                // Filter out invalidated files in read-only directories that exist in new classes directory
-                val newFile = new File(filePath.replace(readOnlyClassesDirPath, newClassesDirPath))
-                !newFile.exists
+                import compileInputs.generatedClassFilePathsInDependentProjects
+                val relativeFilePath = filePath.replace(readOnlyClassesDirPath, "")
+                if (generatedClassFilePathsInDependentProjects.contains(relativeFilePath)) {
+                  // Filter out and revalidate class file if it has been generated by a
+                  // dependent project, which can when users move sources around projects
+                  false
+                } else {
+                  val newFile =
+                    new File(filePath.replace(readOnlyClassesDirPath, newClassesDirPath))
+                  // If file exists in new classes dir, it means a new compiler run generated it
+                  // so we remove it from the list of invalidated class files as it's now valid
+                  !newFile.exists
+                }
               }
           }
 
-          (invalidatedClassFilesInDependentProjects ++ invalidatedClassFilesForRun).toArray
+          (dependentClassFilesThatShouldNotBeLoaded ++ invalidatedClassFilesForRun).toArray
         }
 
         def generated(generatedClassFiles: Array[File]): Unit = {
           generatedClassFiles.foreach { generatedClassFile =>
             val newClassFile = generatedClassFile.getAbsolutePath
+            val relativeClassFilePath = newClassFile.replace(newClassesDirPath, "")
+            allGeneratedRelativeClassFilePaths.put(relativeClassFilePath, generatedClassFile)
             val rebasedClassFile =
               new File(newClassFile.replace(newClassesDirPath, readOnlyClassesDirPath))
             allInvalidatedClassFilesForProject.-=(rebasedClassFile)
@@ -304,7 +347,7 @@ object Compiler {
         .withClassesDirectory(newClassesDir.toFile)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
-        .withStore(inputs.store)
+        //.withStore(inputs.store)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
@@ -330,14 +373,7 @@ object Compiler {
       }
 
       val progress = Optional.of[CompileProgress](new BloopProgress(reporter, cancelPromise))
-      val setup =
-        Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
-      // We only set the pickle promise here, but the java signal is set in `BloopHighLevelCompiler`
-      compileInputs.mode match {
-        case p: CompileMode.Pipelined => setup.withIrPromise(p.irs)
-        case pp: CompileMode.ParallelAndPipelined => setup.withIrPromise(pp.irs)
-        case _ => setup
-      }
+      Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
     def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
@@ -358,20 +394,19 @@ object Compiler {
 
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
+    val mode = compileInputs.mode
     val reporter = compileInputs.reporter
 
     def cancel(): Unit = {
-      // Synchronize because for some weird reason Monix seems to be running this twice
-      cancelPromise.synchronized {
-        // Avoid illegal state exception if client cancellation promise is completed
-        if (!cancelPromise.isCompleted) {
-          logger.debug(
-            s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}"
-          )
-          compileInputs.cancelPromise.success(())
-        }
+      // Complete all pending promises when compilation is cancelled
+      logger.debug(s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}")
+      compileInputs.cancelPromise.trySuccess(())
+      mode match {
+        case _: Sequential => ()
+        case Pipelined(completeJava, finishedCompilation, _, _, _, _) =>
+          completeJava.trySuccess(())
+          finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
       }
-
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
     }
@@ -388,12 +423,11 @@ object Compiler {
       Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
     }
 
-    val mode = compileInputs.mode
     val manager = getClassFileManager()
-    val oracleInputs = compileInputs.oracleInputs
+    val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, mode, reporter, logger, oracleInputs, manager, tracer)
+      .compile(inputs, mode, reporter, logger, uniqueInputs, manager, tracer)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
@@ -437,6 +471,7 @@ object Compiler {
             }
           }
 
+          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.exists(_ == result.analysis())
           if (isNoOp) {
             // If no-op, return previous result
@@ -445,7 +480,9 @@ object Compiler {
               readOnlyClassesDir,
               compileInputs.previousResult,
               compileInputs.previousResult,
-              Set()
+              Set(),
+              Map.empty,
+              definedMacroSymbols
             )
 
             val backgroundTasks = new CompileBackgroundTasks {
@@ -458,7 +495,7 @@ object Compiler {
             }
 
             Result.Success(
-              compileInputs.oracleInputs,
+              compileInputs.uniqueInputs,
               compileInputs.reporter,
               products,
               elapsed,
@@ -514,11 +551,13 @@ object Compiler {
               newClassesDir,
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
-              allInvalidated.toSet
+              allInvalidated.toSet,
+              allGeneratedRelativeClassFilePaths.toMap,
+              definedMacroSymbols
             )
 
             Result.Success(
-              compileInputs.oracleInputs,
+              compileInputs.uniqueInputs,
               compileInputs.reporter,
               products,
               elapsed,

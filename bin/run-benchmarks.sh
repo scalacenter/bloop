@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------
 # Disclaimer: this script is only meant to be run by our benchmarking
-# infrastructure and running it in our machine can be fatal. Use with
+# infrastructure and running it in your machine can be fatal. Use with
 # care and don't be afraid of forking it, removing most of the code
 # and only running those benchmarks that you care the most about.
 #
@@ -14,7 +14,7 @@ set -o pipefail
 BLOOP_DEFAULT_REFERENCE="master"
 BLOOP_SMALL_JMH_OPTIONS="-wi 15 -i 10 -f1 -t1"
 BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
-BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
+BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 5 -f1 -t1"
 BLOOP_GIGANTIC_JMH_OPTIONS="-wi 7 -i 5 -f1 -t1"
 
 BLOOP_REFERENCE="$BLOOP_DEFAULT_REFERENCE"
@@ -74,7 +74,7 @@ main() {
     echo "Setting up the machine before benchmarks..."
     /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns -nf -nl -ni || exit 1
 
-    SBT_COMMANDS+=("integrationSetUpBloop")
+    SBT_COMMANDS+=("exportCommunityBuild")
 
     SCALAC_SBT_BLOOP_BENCHMARKS=(
       #"$BLOOP_LARGE_JMH_OPTIONS -p project=scala -p projectName=library"
@@ -86,37 +86,47 @@ main() {
     done
 
     SBT_BLOOP_BENCHMARKS=(
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=lichess -p projectName=lila-test"
-      "$BLOOP_MEDIUM_JMH_OPTIONS -p project=sbt -p projectName=sbtRoot"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=frontend -p projectName=root-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=finagle -p projectName=finagle-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=scalding -p projectName=scalding-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=algebird -p projectName=algebird-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=scalatra -p projectName=scalatra-project-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=atlas -p projectName=root-test"
-      "$BLOOP_LARGE_JMH_OPTIONS -p project=grid -p projectName=grid-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=akka -p projectName=akka-test"
-      "$BLOOP_GIGANTIC_JMH_OPTIONS -p project=spark -p projectName=examples"
+      "-wi 4 -i 4 -f1 -t1 -p project=lichess -p projectName=lila-test"
+      "-wi 15 -i 10 -f1 -t1 -p project=sbt -p projectName=sbtRoot"
+      "-wi 8 -i 5 -f1 -t1 -p project=frontend -p projectName=root-test"
+      "-wi 8 -i 5 -f1 -t1 -p project=finagle -p projectName=finagle-test"
+      "-wi 5 -i 5 -f1 -t1 -p project=scalding -p projectName=scalding-test"
+      "-wi 10 -i 10 -f1 -t1 -p project=algebird -p projectName=algebird-test"
+      "-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
+      "-wi 20 -i 10 -f1 -t1 -p project=atlas -p projectName=root-test"
+      "-wi 20 -i 10 -f1 -t1 -p project=grid -p projectName=grid-test"
+      "-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
+      "-wi 7 -i 5 -f1 -t1 -p project=spark -p projectName=spark-test"
+      #"-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
+      #"-wi 10 -i 5 -f1 -t1 -p project=linkerd -p projectName=all-test"
+      #"-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
+      #"-wi 10 -i 5 -f1 -t1 -p project=http4s -p projectName=root-test"
+      #"-wi 20 -i 10 -f1 -t1 -p project=gatling -p projectName=gatling-parent-test"
+      #"-wi 5 -i 5 -f1 -t1 -p project=marathon -p projectName=marathon-test"
+      #"-wi 10 -i 5 -f1 -t1 -p project=coursier -p projectName=coursier-repo-test"
+      #"-wi 15 -i 10 -f1 -t1 -p project=prisma -p projectName=root-test"
+      #"-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
+      #"-wi 7 -i 5 -f1 -t1 -p project=scio -p projectName=scio+test"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
     )
 
     JAVA_HOMES=(
-      "/usr/lib/jvm/java-10-oracle/bin/java"
-      "/usr/lib/jvm/java-8-shenandoah/bin/java"
+      #"/usr/lib/jvm/java-10-oracle/bin/java"
+      #"/usr/lib/jvm/java-8-shenandoah/bin/java"
       "/usr/lib/jvm/java-8-oracle/bin/java"
-      "/usr/lib/jvm/java-8-graal-ee/bin/java"
+      #"/usr/lib/jvm/java-8-graal-ee/bin/java"
     )
 
     pidFile=$(mktemp /tmp/pid.XXXXXX)
     ASYNC_PROF_OPTS="-p pidFile=$pidFile -prof pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;threads=true;framebuf=16777216;jfr=true;pidFile=$pidFile;"
     for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop|PipelinedBloop)Benchmark.* $benchmark")
+      #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
 
-      #for java_home in "${JAVA_HOMES[@]}"; do
-      #  SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home")
-      #done
+      for java_home in "${JAVA_HOMES[@]}"; do
+        SBT_COMMANDS+=("$JMH_CMD .*HotPipelinedBloopBenchmark.* $benchmark -jvm $java_home")
+      done
     done
 
     #BLOOP_BENCHMARKS=("$BLOOP_SMALL_JMH_OPTIONS bloop.ProjectBenchmark")

@@ -69,23 +69,18 @@ object BuildKeys {
 
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
-  val integrationStagingBase =
-    Def.taskKey[File]("The base directory for sbt staging in all versions.")
-  val integrationSetUpBloop =
-    Def.taskKey[Unit]("Generate the bloop config for integration tests.")
-  val buildIntegrationsIndex =
-    Def.taskKey[File]("A csv index with complete information about our integrations.")
-  val localBenchmarksIndex =
-    Def.taskKey[File]("A csv index with complete information about our benchmarks (for local use).")
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
+  val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
+  val updateArchPackage = Def.taskKey[Unit]("Update AUR package")
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
   val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
+  val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
   val versionedInstallScript = Def.taskKey[File]("Generate a versioned install script")
   val generateInstallationWitness =
     Def.taskKey[File]("Generate a witness file to know which version is installed locally")
@@ -113,19 +108,9 @@ object BuildKeys {
     nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
   )
 
-  val integrationTestSettings: Seq[Def.Setting[_]] = List(
-    integrationStagingBase :=
-      BuildImplementation.BuildDefaults.getStagingDirectory(Keys.state.value),
-    buildIntegrationsIndex := {
-      val staging = integrationStagingBase.value
-      staging / s"bloop-integrations-${BuildKeys.schemaVersion.in(sbt.Global).value}.csv"
-    },
-    localBenchmarksIndex := {
-      new File(System.getProperty("user.dir"), ".local-benchmarks")
-    },
-    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
-    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
-    integrationSetUpBloop := BuildImplementation.integrationSetUpBloop.value
+  import sbt.Compile
+  val buildpressSettings: Seq[Def.Setting[_]] = List(
+    Keys.fork in Keys.run := true
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
@@ -138,9 +123,11 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
+    createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
     generateInstallationWitness := ReleaseUtils.generateInstallationWitness.value,
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
-    updateScoopFormula := ReleaseUtils.updateScoopFormula.value
+    updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
+    updateArchPackage := ReleaseUtils.updateArchPackage.value
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
@@ -179,8 +166,6 @@ object BuildKeys {
       Keys.version,
       Keys.scalaVersion,
       Keys.sbtVersion,
-      buildIntegrationsIndex,
-      localBenchmarksIndex,
       nailgunClientLocation
     )
     commonKeys ++ extra
@@ -270,7 +255,7 @@ object BuildImplementation {
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
-    BuildKeys.schemaVersion := "4.2-refresh2",
+    BuildKeys.schemaVersion := "4.2-refresh-3",
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
@@ -366,7 +351,7 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
-  final val jvmOptions = "-Xmx8g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
+  final val jvmOptions = "-Xmx5g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
     private final val kafka =
@@ -470,6 +455,7 @@ object BuildImplementation {
         Dependencies.mavenCore,
         Dependencies.mavenPluginApi,
         Dependencies.mavenPluginAnnotations,
+        Dependencies.mavenInvoker,
         // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
         Dependencies.mavenScalaPlugin
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
@@ -590,108 +576,141 @@ object BuildImplementation {
     }
   }
 
+  import java.util.Locale
+  import sbt.MessageOnlyException
+  import sbt.{Reference, Compile}
   import scala.sys.process.Process
-  val integrationSetUpBloop = Def.task {
-    import sbt.MessageOnlyException
-    import java.util.Locale
+  import java.nio.file.Files
+  val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
+  def exportCommunityBuild(
+      buildpress: Reference,
+      circeConfig210: Reference,
+      circeConfig212: Reference,
+      sbtBloop013: Reference,
+      sbtBloop10: Reference
+  ) = Def.taskDyn {
+    val isWindows: Boolean =
+      System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+    if (isWindows) Def.task(println("Skipping export community build in Windows."))
+    else {
+      val baseDir = Keys.baseDirectory.in(ThisBuild).value
+      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
 
-    val buildIntegrationsBase = BuildKeys.buildIntegrationsBase.value
-    val buildIndexFile = BuildKeys.buildIntegrationsIndex.value
-    val schemaVersion = BuildKeys.schemaVersion.value
-    val stagingBase = BuildKeys.integrationStagingBase.value.getCanonicalFile.getAbsolutePath
-    val cacheDirectory = file(stagingBase) / "integrations-cache"
-    val targetSchemaVersion = Keys.target.value / "schema-version.json"
-    IO.write(targetSchemaVersion, schemaVersion)
+      // Only sbt sources are added, add new plugin sources when other build tools are supported
+      val allPluginSourceDirs = Set(
+        baseDir / "config" / "src" / "main" / "scala",
+        baseDir / "config" / "src" / "main" / "scala-2.10",
+        baseDir / "config" / "src" / "main" / "scala-2.11",
+        baseDir / "config" / "src" / "main" / "scala-2.12",
+        baseDir / "config" / "src" / "main" / "scala-2.11-12",
+        pluginMainDir / "scala",
+        pluginMainDir / "scala-2.10",
+        pluginMainDir / "scala-2.12",
+        pluginMainDir / s"scala-sbt-0.13",
+        pluginMainDir / s"scala-sbt-1.0"
+      )
 
-    val buildFiles = Set(
-      targetSchemaVersion,
-      buildIntegrationsBase / "sbt-0.13" / "build.sbt",
-      buildIntegrationsBase / "sbt-0.13" / "project" / "Integrations.scala",
-      buildIntegrationsBase / "sbt-0.13-2" / "build.sbt",
-      buildIntegrationsBase / "sbt-0.13-2" / "project" / "Integrations.scala",
-      buildIntegrationsBase / "sbt-0.13-3" / "build.sbt",
-      buildIntegrationsBase / "sbt-0.13-3" / "project" / "Integrations.scala",
-      buildIntegrationsBase / "sbt-1.0" / "build.sbt",
-      buildIntegrationsBase / "sbt-1.0" / "project" / "Integrations.scala",
-      buildIntegrationsBase / "sbt-1.0-2" / "build.sbt",
-      buildIntegrationsBase / "sbt-1.0-2" / "project" / "Integrations.scala",
-      buildIntegrationsBase / "global" / "src" / "main" / "scala" / "bloop" / "build" / "integrations" / "IntegrationPlugin.scala"
-    )
+      val allPluginSourceFiles = allPluginSourceDirs.flatMap { sourceDir =>
+        val sourcePath = sourceDir.toPath
+        if (!Files.exists(sourcePath)) Nil
+        else pathFilesUnder(sourcePath, "glob:**.{scala,java}").map(_.toFile)
+      }.toSet
 
-    val cachedGenerate =
-      FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { builds =>
-        val isWindows: Boolean =
-          System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
+      var regenerate: Boolean = false
+      val state = Keys.state.value
+      val globalBase = sbt.BuildPaths.getGlobalBase(state)
+      val stagingDir = sbt.BuildPaths.getStagingDirectory(state, globalBase)
+      java.nio.file.Files.createDirectories(stagingDir.toPath)
+      val cacheDirectory = stagingDir./("community-build-cache")
+      val regenerationFile = stagingDir./("regeneration-file.txt")
+      val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
+        // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
+        val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+        val dodoSetUp = Process(cmd, baseDir).!
+        if (dodoSetUp != 0)
+          throw new MessageOnlyException(
+            "Failed to publish local snapshots for twitter projects."
+          )
 
-        if (!isWindows) {
-          // Twitter projects are not added to the community build under Windows
-          val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
-          val dodoSetUp = Process(cmd, buildIntegrationsBase).!
-          if (dodoSetUp != 0)
-            throw new MessageOnlyException(
-              "Failed to publish locally dodo snapshots for twitter projects."
-            )
-        }
-
-        val sbtVersion013Property = "-Dsbt.version=0.13.17"
-        val globalPluginsBase = buildIntegrationsBase / "global"
-        val globalSettingsBase = globalPluginsBase / "settings"
-        val stagingProperty = s"-D${BuildPaths.StagingProperty}=${stagingBase}"
-        val settingsProperty = s"-D${BuildPaths.GlobalSettingsProperty}=${globalSettingsBase}"
-        val pluginsProperty = s"-D${BuildPaths.GlobalPluginsProperty}=${globalPluginsBase}"
-        val indexProperty = s"-Dbloop.integrations.index=${buildIndexFile.getAbsolutePath}"
-        val schemaProperty = s"-Dbloop.integrations.schemaVersion=$schemaVersion"
-        val properties = stagingProperty :: indexProperty :: pluginsProperty :: settingsProperty :: schemaProperty :: Nil
-        val toRun = "cleanAllBuilds" :: "bloopInstall" :: "buildIndex" :: Nil
-
-        val cmd = {
-          if (isWindows) {
-            // We'll override system properties in .jvmopts
-            val exe = "cmd.exe" :: "/C" :: "sbt.bat" :: Nil
-            exe ::: toRun
-          } else {
-            // Use system properties in Linux
-            "sbt" :: properties ::: toRun
-          }
-        }
-
-        IO.delete(buildIndexFile)
-
-        def generateSbt(cmd: List[String], base: File): Unit = {
-          val jvmoptsFile = base / ".jvmopts"
-          val existing = if (jvmoptsFile.exists()) IO.read(jvmoptsFile) else ""
-          try {
-            // In Windows, system properties don't work (!?), so add them to the .jvmopts
-            if (isWindows) {
-              val version = if (base.getName.contains("0.13")) List(sbtVersion013Property) else Nil
-              IO.write(
-                jvmoptsFile,
-                ((existing.stripLineEnd :: version) ::: properties).mkString("\n")
-              )
-            }
-
-            val exit = Process(cmd, base).!
-            if (exit != 0)
-              throw new MessageOnlyException(s"Failed to generate bloop configs for: ${base}.")
-          } finally {
-            if (isWindows) {
-              // Restore always the previous contents
-              IO.write(jvmoptsFile, existing)
-            }
-          }
-        }
-
-        generateSbt(cmd, buildIntegrationsBase / "sbt-0.13")
-        generateSbt(cmd, buildIntegrationsBase / "sbt-0.13-2")
-        generateSbt(cmd, buildIntegrationsBase / "sbt-0.13-3")
-
-        generateSbt(cmd, buildIntegrationsBase / "sbt-1.0")
-        generateSbt(cmd, buildIntegrationsBase / "sbt-1.0-2")
-        generateSbt(cmd, buildIntegrationsBase / "sbt-1.0-3")
-
-        Set(buildIndexFile)
+        // Write a dummy regeneration file for the caching to work
+        regenerate = true
+        IO.write(regenerationFile, "true")
+        Set(regenerationFile)
       }
-    cachedGenerate(buildFiles)
+
+      val s = Keys.streams.value
+      val mainClass = "buildpress.Main"
+      val bloopVersion = Keys.version.value
+
+      cachedGenerate(allPluginSourceFiles)
+      Def.task {
+        // Publish the projects before we invoke buildpress
+        Keys.publishLocal.in(circeConfig210).value
+        Keys.publishLocal.in(circeConfig212).value
+        Keys.publishLocal.in(sbtBloop013).value
+        Keys.publishLocal.in(sbtBloop10).value
+
+        val file = Keys.resourceDirectory
+          .in(Compile)
+          .in(buildpress)
+          .value
+          ./("bloop-community-build.buildpress")
+
+        // We regenerate again if something in the plugin sources has changed
+        val regenerateArgs = if (regenerate) List("--regenerate") else Nil
+        val buildpressArgs = List(
+          "--input",
+          file.toString,
+          "--buildpress-home",
+          buildpressHomePath,
+          "--bloop-version",
+          bloopVersion
+        ) ++ regenerateArgs
+
+        import sbt.internal.util.Attributed.data
+        val classpath = (Keys.fullClasspath in Compile in buildpress).value
+        val runner = (Keys.runner in (Compile, Keys.run) in buildpress).value
+        runner.run(mainClass, data(classpath), buildpressArgs, s.log).get
+      }
+    }
+  }
+
+  import java.io.IOException
+  import java.nio.file.attribute.BasicFileAttributes
+  import java.nio.file.{FileSystems, FileVisitOption, FileVisitResult, FileVisitor, Files, Path}
+  def pathFilesUnder(
+      base: Path,
+      pattern: String,
+      maxDepth: Int = Int.MaxValue
+  ): List[Path] = {
+    val out = collection.mutable.ListBuffer.empty[Path]
+    val matcher = FileSystems.getDefault.getPathMatcher(pattern)
+
+    val visitor = new FileVisitor[Path] {
+      def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
+        if (matcher.matches(file)) out += file
+        FileVisitResult.CONTINUE
+      }
+
+      def visitFileFailed(
+          t: Path,
+          e: IOException
+      ): FileVisitResult = FileVisitResult.CONTINUE
+
+      def preVisitDirectory(
+          directory: Path,
+          attributes: BasicFileAttributes
+      ): FileVisitResult = FileVisitResult.CONTINUE
+
+      def postVisitDirectory(
+          directory: Path,
+          exception: IOException
+      ): FileVisitResult = FileVisitResult.CONTINUE
+    }
+
+    val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
+    Files.walkFileTree(base, opts, maxDepth, visitor)
+    out.toList
   }
 }
 

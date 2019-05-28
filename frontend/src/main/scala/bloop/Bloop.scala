@@ -49,7 +49,7 @@ object Bloop extends CaseApp[CliOptions] {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
       val p = Promise[Unit]().success(())
       Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, p) {
-        t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s })
+        t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s.status })
       }
 
       // Recover the state if the previous task has been successful.

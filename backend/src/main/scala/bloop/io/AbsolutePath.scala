@@ -24,15 +24,6 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def readAllBytes: Array[Byte] = Files.readAllBytes(underlying)
   def toFile: File = underlying.toFile
   def toBspUri: URI = underlying.toUri
-  def toBspSourceUri: URI = {
-    val uri = toBspUri
-    if (exists) uri
-    else {
-      if (AbsolutePath.sourceFileNameMatcher.matches(underlying.getFileName)) uri
-      // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-      else new java.net.URI(uri.toString + "/")
-    }
-  }
 }
 
 object AbsolutePath {
@@ -47,7 +38,4 @@ object AbsolutePath {
   // Necessary to test wrong paths in tests...
   private[bloop] def completelyUnsafe(path: String): AbsolutePath =
     new AbsolutePath(NioPaths.get(path))
-
-  private[io] val sourceFileNameMatcher: PathMatcher =
-    FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
 }

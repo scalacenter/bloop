@@ -7,6 +7,7 @@ import java.nio.file.Paths
 import bloop.launcher.{printError, printQuoted, println}
 
 import scala.util.control.NonFatal
+import bloop.launcher.util.Environment
 
 object Installer {
   import java.net.URL
@@ -65,7 +66,7 @@ object Installer {
           }
 
           val installCmd = "python" :: targetPath :: installArgs
-          val installStatus = shell.runCommand(installCmd, None)
+          val installStatus = shell.runCommand(installCmd, Environment.cwd, None)
           if (installStatus.isOk) {
             // We've just installed bloop in `$HOME/.bloop`, let's now detect the installation
             if (!installStatus.output.isEmpty)
@@ -91,6 +92,7 @@ object Installer {
 
   import coursier._
   import coursier.util.{Gather, Task}
+  import coursier.cache.{Cache, ArtifactError}
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -106,25 +108,25 @@ object Installer {
     val bloopDependency = Dependency(Module(org"ch.epfl.scala", moduleName), bloopVersion)
     val stringBloopDep = fromDependencyToString(bloopDependency)
     println(Feedback.resolvingDependency(stringBloopDep), out)
-    val start = Resolution(Set(bloopDependency))
+    val start = Resolution(List(bloopDependency))
 
     val repositories = Seq(
-      Cache.ivy2Local,
+      LocalRepositories.ivy2Local,
       MavenRepository("https://repo1.maven.org/maven2"),
       MavenRepository("https://oss.sonatype.org/content/repositories/staging/"),
       MavenRepository("https://dl.bintray.com/scalacenter/releases/"),
       MavenRepository("https://dl.bintray.com/scalameta/maven/")
     )
 
-    val fetch = Fetch.from(repositories, Cache.fetch[Task]())
+    val fetch = ResolutionProcess.fetch(repositories, Cache.default.fetch)
     (bloopDependency, start.process.run(fetch).unsafeRun())
   }
 
   def fetchJars(r: Resolution, out: PrintStream): Seq[Path] = {
-    val localArtifacts: Seq[(Boolean, Either[FileError, File])] = {
+    val localArtifacts: Seq[(Boolean, Either[ArtifactError, File])] = {
       Gather[Task]
         .gather(r.artifacts().map { artifact =>
-          Cache.file[Task](artifact).run.map(artifact.optional -> _)
+          Cache.default.file(artifact).run.map(artifact.optional -> _)
         })
         .unsafeRun()
     }

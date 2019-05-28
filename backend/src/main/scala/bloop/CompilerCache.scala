@@ -28,11 +28,12 @@ import xsbti.compile.ClassFileManager
 import xsbti.{Logger => XLogger, Reporter => XReporter}
 
 import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.{AnalyzingCompiler, ZincUtil}
+import sbt.internal.inc.{AnalyzingCompiler, ZincLmUtil, ZincUtil}
 import sbt.internal.inc.javac.JavaTools
 import sbt.internal.inc.javac.{JavaCompiler, Javadoc, ForkedJava}
 import sbt.internal.util.LoggerWriter
 import sbt.internal.inc.javac.DiagnosticsReporter
+import java.io.IOException
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
@@ -77,7 +78,7 @@ final class CompilerCache(
     componentProvider.component(bridgeId) match {
       case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar)
       case _ =>
-        ZincUtil.scalaCompiler(
+        ZincLmUtil.scalaCompiler(
           scalaInstance,
           BloopComponentsLock,
           componentProvider,
@@ -223,8 +224,29 @@ final class CompilerCache(
       import sbt.internal.inc.javac.WriteReportingFileManager
       val zincFileManager = incToolOptions.classFileManager().get()
       val fileManager = new BloopInvalidatingFileManager(fileManager0, zincFileManager)
+
       val jfiles = fileManager0.getJavaFileObjectsFromFiles(sources.toList.asJava)
       try {
+        // Create directories of java args that trigger error if they don't exist
+        def processJavaDirArgument(idx: Int): Unit = {
+          if (idx == -1) ()
+          else {
+            try {
+              val dir = AbsolutePath(cleanedOptions(idx + 1))
+              if (dir.exists) ()
+              else java.nio.file.Files.createDirectories(dir.underlying)
+              ()
+            } catch {
+              case _: IOException => () // Ignore any error parsing path
+            }
+          }
+
+        }
+
+        processJavaDirArgument(cleanedOptions.indexOf("-d"))
+        processJavaDirArgument(cleanedOptions.indexOf("-s"))
+        processJavaDirArgument(cleanedOptions.indexOf("-h"))
+
         val newJavacOptions = cleanedOptions.toList.asJava
         val success = compiler
           .getTask(logWriter, fileManager, diagnostics, newJavacOptions, null, jfiles)

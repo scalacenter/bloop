@@ -25,45 +25,6 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 
 object CompileSpec extends bloop.testing.BaseSuite {
-  // TODO: Enable this before next stable release
-  ignore("compile project for latest supported Scala versions") {
-    def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
-      TestUtil.withinWorkspace { workspace =>
-        val sources = List(
-          """/main/scala/Foo.scala
-            |class Foo
-          """.stripMargin
-        )
-        def jarsForScalaVersion(version: String, logger: RecordingLogger) = {
-          ScalaInstance
-            .resolve("org.scala-lang", "scala-compiler", version, logger)(
-              ExecutionContext.ioScheduler
-            )
-            .allJars
-            .map(AbsolutePath(_))
-        }
-
-        val logger = new RecordingLogger(ansiCodesSupported = false)
-        val jars = jarsForScalaVersion(scalaVersion, logger)
-        val `A` =
-          TestProject(workspace, "a", sources, scalaVersion = Some(scalaVersion), jars = jars)
-        val projects = List(`A`)
-        val state = loadState(workspace, projects, logger)
-        val compiledState = state.compile(`A`)
-        assert(compiledState.status == ExitStatus.Ok)
-        assertValidCompilationState(compiledState, projects)
-      }
-    }
-
-    val `2.10.7` = compileProjectFor("2.10.6")
-    val `2.11.11` = compileProjectFor("2.11.11")
-    val `2.12.8` = compileProjectFor("2.12.8")
-    val all = List(`2.10.7`, `2.11.11`, `2.12.8`)
-    TestUtil.await(FiniteDuration(60, "s")) {
-      Task.gatherUnordered(all).map(_ => ())
-    }
-  }
-
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
@@ -308,7 +269,9 @@ object CompileSpec extends bloop.testing.BaseSuite {
       // Check that initial classes directory doesn't exist either
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
       // There should only be 2 dirs: current classes dir and external (no empty classes dir)
-      assert(list(workspace.resolve("target").resolve("a")).size == 2)
+      val targetA = workspace.resolve("target").resolve("a")
+      val classesDirInA = list(targetA).map(ap => ap.toRelative(targetA).syntax)
+      assert(classesDirInA.size == 2)
     }
   }
 
@@ -429,6 +392,95 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val compiledState = state.compile(`B`)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
+    }
+  }
+
+  test("compile after moving a class across project + invalidating symbol in a dependent project") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Foo.scala` =
+          """/Foo.scala
+            |import Enrichments._
+            |class Foo
+          """.stripMargin
+
+        // A dummy file to avoid surpassing the 50% changed sources and trigger a full compile
+        val `Dummy.scala` =
+          """/Dummy.scala
+            |class Dummy
+          """.stripMargin
+
+        // A second dummy file
+        val `Dummy2.scala` =
+          """/Dummy2.scala
+            |class Dummy2
+          """.stripMargin
+
+        val `Enrichments.scala` =
+          """/Enrichments.scala
+            |object Enrichments {}
+          """.stripMargin
+
+        val `Enrichments2.scala` =
+          """/Enrichments.scala
+            |object Enrichments {
+            |  implicit class XtensionString(str: String) {
+            |    def isGreeting: Boolean = str == "Hello world"
+            |  }
+            |}
+          """.stripMargin
+
+        val `Bar.scala` =
+          """/Bar.scala
+            |import Enrichments._
+            |class Bar {
+            |  val foo: Foo = new Foo
+            |  def hello: String = "hello"
+            |  println(hello)
+            |}
+          """.stripMargin
+
+        val `Baz.scala` =
+          """/Baz.scala
+            |import Enrichments._
+            |class Baz extends Bar
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`, Sources.`Enrichments.scala`))
+      val sourcesB = List(
+        Sources.`Bar.scala`,
+        Sources.`Baz.scala`,
+        Sources.`Dummy.scala`,
+        Sources.`Dummy2.scala`
+      )
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`B`)
+      val compiledStateBackup = compiledState.backup
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      // Move `Bar.scala` from `B` to `A`; code still compiles
+      Files.move(
+        `B`.srcFor("Bar.scala").underlying,
+        `A`.srcFor("Bar.scala", exists = false).underlying
+      )
+
+      val secondCompiledState = compiledState.compile(`B`)
+      assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
+      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(secondCompiledState, projects)
+      assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, projects)
+
+      writeFile(`A`.srcFor("Enrichments.scala"), Sources.`Enrichments2.scala`)
+      val thirdCompiledState = secondCompiledState.compile(`B`)
+      assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
+      assert(thirdCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(thirdCompiledState, projects)
+      assertDifferentExternalClassesDirs(thirdCompiledState, secondCompiledState, projects)
     }
   }
 

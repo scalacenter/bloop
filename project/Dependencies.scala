@@ -7,12 +7,12 @@ object Dependencies {
 
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
-  val nailgunCommit = "8d42b9b6"
+  val nailgunCommit = "774bc6e3"
 
-  val zincVersion = "1.2.1+110-85b9a03c"
-  val bspVersion = "2.0.0-M1"
+  val zincVersion = "1.3.0-M4+22-4704d479"
+  val bspVersion = "2.0.0-M4"
   val scalazVersion = "7.2.20"
-  val coursierVersion = "1.1.0-M8"
+  val coursierVersion = "1.1.0-M14-4"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
   val caseAppVersion = "1.2.0-faster-compile-time"
@@ -23,7 +23,7 @@ object Dependencies {
   val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val mavenApiVersion = "3.5.2"
+  val mavenApiVersion = "3.6.1"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
   val gradleVersion = "3.0"
@@ -43,6 +43,7 @@ object Dependencies {
   val braveVersion = "5.6.1"
   val zipkinSenderVersion = "2.7.15"
   val jnaVersion = "4.5.0"
+  val asmVersion = "6.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -75,6 +76,7 @@ object Dependencies {
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
+  val mavenInvoker = "org.apache.maven.shared" % "maven-invoker" % "3.0.1"
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 
@@ -114,4 +116,6 @@ object Dependencies {
 
   val jna = "net.java.dev.jna" % "jna" % jnaVersion
   val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
+  val asm = "org.ow2.asm" % "asm" % asmVersion
+  val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 }

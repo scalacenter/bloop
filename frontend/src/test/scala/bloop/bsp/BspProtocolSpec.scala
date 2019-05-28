@@ -3,8 +3,8 @@ package bloop.bsp
 import bloop.engine.State
 import bloop.config.Config
 import bloop.io.AbsolutePath
-import bloop.cli.{ExitStatus, BspProtocol}
-import bloop.util.{TestUtil, TestProject}
+import bloop.cli.{BspProtocol, ExitStatus}
+import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 
@@ -83,6 +83,78 @@ class BspProtocolSpec(
         assert(stateB.status == ExitStatus.Ok)
         val classesDirB = stateB.toTestState.getClientExternalDir(`B`).underlying
         testOptions(resultB, ScalacOptions.B, classesDirB, `B`.bspId, List(classesDirB))
+      }
+    }
+  }
+
+  test("find main classes") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Main.scala` =
+          """/main/scala/foo/Main.scala
+            |package foo
+            |object Main {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `ClassWithMainFunc.scala` =
+          """/main/scala/foo/NotMain.scala
+            |package foo
+            |class ClassWithMainFunc {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `InheritedMain.scala` =
+          """/main/scala/foo/InheritedMain.scala
+            |package foo
+            |object InheritedMain extends ClassWithMainFunc
+          """.stripMargin
+
+        val all = List(`Main.scala`, `ClassWithMainFunc.scala`, `InheritedMain.scala`)
+      }
+      val expectedClasses = Set("foo.Main", "foo.InheritedMain")
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "p", Sources.all)
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val compilation = state.compile(project)
+        assert(compilation.status == ExitStatus.Ok)
+
+        val mainClasses = state.mainClasses(project)
+        val items = mainClasses.items
+        assert(items.size == 1)
+
+        val classes = items.head.classes.map(_.`class`).toSet
+        assert(classes == expectedClasses)
+      }
+    }
+  }
+
+  test("find test classes") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+        val project = build.projectFor("test-project-test")
+        val expectedClasses = Set(
+          "JUnitTest",
+          "ScalaTestTest",
+          "ScalaCheckTest",
+          "WritingTest",
+          "Specs2Test",
+          "EternalUTest",
+          "UTestTest",
+          "ResourcesTest"
+        ).map("hello." + _)
+
+        val testClasses = build.state.testClasses(project)
+        val items = testClasses.items
+        assert(items.size == 1)
+
+        val classes = items.head.classes.toSet
+        assertEquals(classes, expectedClasses)
       }
     }
   }

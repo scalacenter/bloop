@@ -106,7 +106,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(workspaceTargetTask)
     }
 
-    def workspaceTargets: bsp.WorkspaceBuildTargets = {
+    def workspaceTargets: bsp.WorkspaceBuildTargetsResult = {
       val workspaceTargetsTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
           case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
@@ -206,6 +206,30 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         case ExitStatus.Ok => bsp.StatusCode.Ok
         case _ => bsp.StatusCode.Error
       }
+    }
+
+    def mainClasses(project: TestProject): bsp.ScalaMainClassesResult = {
+      val task = runAfterTargets(project) { target =>
+        val params = bsp.ScalaMainClassesParams(List(target), None)
+        endpoints.BuildTarget.scalaMainClasses.request(params).map {
+          case Left(error) => fail(s"Received error $error")
+          case Right(result) => result
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(task)
+    }
+
+    def testClasses(project: TestProject): bsp.ScalaTestClassesResult = {
+      val task = runAfterTargets(project) { target =>
+        val params = bsp.ScalaTestClassesParams(List(target), None)
+        endpoints.BuildTarget.scalaTestClasses.request(params).map {
+          case Left(error) => fail(s"Received error $error")
+          case Right(result) => result
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(task)
     }
 
     def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {

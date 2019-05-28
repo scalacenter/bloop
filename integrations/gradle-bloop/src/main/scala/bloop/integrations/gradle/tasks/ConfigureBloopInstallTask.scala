@@ -6,6 +6,7 @@ import org.gradle.api.tasks.{SourceSet, TaskAction}
 import org.gradle.api.{DefaultTask, GradleException, Project, Task}
 
 import scala.collection.JavaConverters._
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 
 /**
  * Task to set the bloopInstall tasks's inputs
@@ -37,7 +38,8 @@ class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLo
         }
       case None =>
         throw new GradleException(
-          "installTask property must be specified on configureBloopInstall task")
+          "installTask property must be specified on configureBloopInstall task"
+        )
     }
 
     ()
@@ -49,15 +51,19 @@ class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLo
    */
   private def addSourceSetAsInputs(task: Task, sourceSet: SourceSet): Unit = {
     val configuration = project.getConfiguration(sourceSet.getCompileConfigurationName)
-
     val artifacts = configuration.getResolvedConfiguration.getResolvedArtifacts.asScala
     for (artifact <- artifacts) {
-      debug(s"Artifact added as input: ${artifact.getFile.getAbsolutePath}")
-      task.getInputs.file(artifact.getFile)
+      // we don't want project artifacts, since they might not exist during bloopInstall
+      val isNotProjectArtifact =
+        !artifact.getId().getComponentIdentifier().isInstanceOf[ProjectComponentIdentifier]
+      if (isNotProjectArtifact) {
+        debug(s"[Bloop] Artifact added as input: ${artifact.getFile.getAbsolutePath}")
+        task.getInputs.file(artifact.getFile)
+      }
     }
 
     for (source <- sourceSet.getAllSource.asScala) {
-      debug(s"Source added as input: ${source.getAbsolutePath}")
+      debug(s"[Bloop] Source added as input: ${source.getAbsolutePath}")
       task.getInputs.file(source)
     }
   }
