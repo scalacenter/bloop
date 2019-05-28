@@ -25,8 +25,7 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 
 object CompileSpec extends bloop.testing.BaseSuite {
-  // TODO: Enable this before next stable release
-  ignore("compile project for latest supported Scala versions") {
+  test("compile project for latest supported Scala versions") {
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>
         val sources = List(
@@ -55,10 +54,11 @@ object CompileSpec extends bloop.testing.BaseSuite {
       }
     }
 
-    val `2.10.7` = compileProjectFor("2.10.6")
-    val `2.11.11` = compileProjectFor("2.11.11")
-    val `2.12.8` = compileProjectFor("2.12.8")
-    val all = List(`2.10.7`, `2.11.11`, `2.12.8`)
+    val `2.10` = compileProjectFor("2.10.7")
+    val `2.11` = compileProjectFor("2.11.11")
+    val `2.12` = compileProjectFor("2.12.8")
+    val `2.13` = compileProjectFor("2.13.0-RC2")
+    val all = List(`2.10`, `2.11`, `2.12`, `2.13`)
     TestUtil.await(FiniteDuration(60, "s")) {
       Task.gatherUnordered(all).map(_ => ())
     }
