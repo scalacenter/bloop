@@ -106,7 +106,7 @@ main() {
       "-wi 10 -i 5 -f1 -t1 -p project=coursier -p projectName=coursier-repo-test"
       "-wi 15 -i 10 -f1 -t1 -p project=prisma -p projectName=root-test"
       "-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
-      "-wi 7 -i 5 -f1 -t1 -p project=scio -p projectName=scio+test"
+      #"-wi 2 -i 3 -f1 -t1 -p project=scio -p projectName=scio+test"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
       #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
@@ -125,7 +125,7 @@ main() {
       #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
 
       for java_home in "${JAVA_HOMES[@]}"; do
-        SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark -jvm $java_home")
+        SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home")
       done
     done
 
