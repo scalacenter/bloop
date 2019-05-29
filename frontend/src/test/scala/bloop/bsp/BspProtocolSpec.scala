@@ -1,6 +1,6 @@
 package bloop.bsp
 
-import java.net.URI
+import java.net.{Socket, URI}
 
 import bloop.engine.State
 import bloop.config.Config
@@ -31,8 +31,9 @@ class BspProtocolSpec(
         val project = build.projectFor("test-project-test")
         val address = build.state.startDebugSession(project, "Foo")
 
-        val port = URI.create(address.uri).getPort
-        assert(port == 48761)
+        val uri = URI.create(address.uri)
+        val socket = new Socket(uri.getHost, uri.getPort)
+        socket.close()
       }
     }
   }
@@ -248,59 +249,6 @@ class BspProtocolSpec(
             case Left(e) => fail(s"Couldn't decode scala build target for ${bspTarget}")
           }
         }
-
-        checkTarget(mainProject)
-        checkTarget(testProject)
-        checkTarget(mainJsProject)
-        checkTarget(testJsProject)
-        checkTarget(rootMain)
-        checkTarget(rootTest)
-      }
-    }
-  }
-
-  test("build targets should be empty in build with recursive dependencies") {
-    import bloop.io.RelativePath
-    import bloop.logging.BspClientLogger
-    val logger = new RecordingLogger(ansiCodesSupported = false)
-    val bspLogger = new BspClientLogger(logger)
-    val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath("bloop-config"))
-    val state = TestUtil.loadTestProject(configDir.underlying, logger)
-    val bspCommand = createBspCommand(configDir)
-    openBspConnection(state, bspCommand, configDir, bspLogger).withinSession { state =>
-      val workspaceTargets = state.workspaceTargets
-      assert(workspaceTargets.targets.isEmpty)
-    }
-  }
-
-  test("sources request works") {
-    TestUtil.withinWorkspace { workspace =>
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
-        val mainProject = build.projectFor("test-project")
-        val testProject = build.projectFor("test-project-test")
-        val mainJsProject = build.projectFor("test-projectJS")
-        val testJsProject = build.projectFor("test-projectJS-test")
-        val rootMain = build.projectFor("cross-test-build-0-6")
-        val rootTest = build.projectFor("cross-test-build-0-6-test")
-
-        def checkSources(project: TestProject): Unit = {
-          val sourcesResult = build.state.requestSources(project)
-          assert(sourcesResult.items.size == 1)
-          val sources = sourcesResult.items.head
-          val sourcePaths = sources.sources.map(_.uri.toPath).toSet
-          val expectedSources = project.config.sources.toSet
-          assert(sourcePaths == expectedSources)
-          val generateSources = sources.sources.filter(_.generated)
-          assert(generateSources.isEmpty)
-        }
-
-        checkSources(mainProject)
-        checkSources(testProject)
-        checkSources(mainJsProject)
-        checkSources(testJsProject)
-        checkSources(rootMain)
-        checkSources(rootTest)
       }
     }
   }

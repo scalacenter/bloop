@@ -11,7 +11,8 @@ import java.util.stream.Collectors
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.data.{Platform, Project, ClientInfo}
+import bloop.dap.DebugAdapterServer
+import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.engine._
@@ -440,9 +441,9 @@ final class BloopBspServices(
             case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
               Task.now((state, Left(JsonRpcResponse.internalError("Compilation not successful"))))
             case (state, Right(_)) =>
-              val uri = URI.create("https://localhost:48761")
-              val response = DebugSessionAddress(uri.toString)
-              Task.now((state, Right(response)))
+              val uri = DebugAdapterServer.createAdapter()(ioScheduler)
+              val address = bsp.DebugSessionAddress(uri.toString)
+              Task.now((state, Right(address)))
           }
       }
     }
