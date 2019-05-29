@@ -246,6 +246,25 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(task)
     }
 
+    def startDebugSession(project: TestProject, mainClass: String): bsp.DebugSessionAddress = {
+      val task = runAfterTargets(project) { target =>
+        val params = {
+          val targets = List(target)
+          val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
+          val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
+          bsp.DebugSessionParams(targets, json)
+        }
+
+        endpoints.DebugSession.start.request(params).map {
+          case Left(error) =>
+            fail(s"Received error $error") // todo it is repeated everywhere! extract
+          case Right(result) => result
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(task)
+    }
+
     def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
       val scalacOptionsTask = runAfterTargets(project) { target =>
         endpoints.BuildTarget.scalacOptions.request(bsp.ScalacOptionsParams(List(target))).map {

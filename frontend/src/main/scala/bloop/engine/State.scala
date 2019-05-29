@@ -11,7 +11,7 @@ import monix.eval.Task
 /**
  * Represents the state for a given build.
  *
- * An state is aggressively cached by bloop so that operations that target a build can reuse
+ * It is aggressively cached by bloop so that operations that target a build can reuse
  * the state that has already been created before. The state is immutable and allows different
  * builds to change common values utilized by all the bloop operations.
  *

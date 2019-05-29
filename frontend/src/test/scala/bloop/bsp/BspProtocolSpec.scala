@@ -1,5 +1,7 @@
 package bloop.bsp
 
+import java.net.URI
+
 import bloop.engine.State
 import bloop.config.Config
 import bloop.io.AbsolutePath
@@ -21,6 +23,20 @@ class BspProtocolSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   import ch.epfl.scala.bsp
+
+  test("starts a debug session") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+        val project = build.projectFor("test-project-test")
+        val address = build.state.startDebugSession(project, "Foo")
+
+        val port = URI.create(address.uri).getPort
+        assert(port == 48761)
+      }
+    }
+  }
+
   test("check the correct contents of scalac options") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {

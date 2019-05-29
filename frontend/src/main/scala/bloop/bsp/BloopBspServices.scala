@@ -1,6 +1,7 @@
 package bloop.bsp
 
 import java.io.InputStream
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.{Files, FileSystems, Path}
@@ -22,7 +23,14 @@ import bloop.testing.{BspLoggingEventHandler, TestInternals}
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
+import ch.epfl.scala.bsp.{
+  BuildTargetIdentifier,
+  DebugSessionAddress,
+  MessageType,
+  ShowMessageParams,
+  WorkspaceBuildTargets,
+  endpoints
+}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 
@@ -93,6 +101,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
+    .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -173,7 +182,7 @@ final class BloopBspServices(
   def initialize(
       params: bsp.InitializeBuildParams
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
-    val uri = new java.net.URI(params.rootUri.value)
+    val uri = new URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
     val clientClassesRootDir = parseClientClassesRootDir(params.data)
     val client = ClientInfo.BspClientInfo(
@@ -411,6 +420,30 @@ final class BloopBspServices(
             items <- Task.sequence(subTasks)
             result = new bsp.ScalaTestClassesResult(items)
           } yield (state, Right(result))
+      }
+    }
+  }
+
+  def startDebugSession(
+      params: bsp.DebugSessionParams
+  ): BspEndpointResponse[bsp.DebugSessionAddress] = {
+    ifInitialized { state =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          bspLogger.error(error)
+          Task.now((state, Left(JsonRpcResponse.invalidRequest(error)))) // TODO do fail
+        case Right(mappings) =>
+          compileProjects(mappings, state, Nil).flatMap {
+            case (state, Left(error)) =>
+              Task.now((state, Left(error)))
+            case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
+              Task.now((state, Left(JsonRpcResponse.internalError("Compilation not successful"))))
+            case (state, Right(_)) =>
+              val uri = URI.create("https://localhost:48761")
+              val response = DebugSessionAddress(uri.toString)
+              Task.now((state, Right(response)))
+          }
       }
     }
   }
@@ -656,7 +689,7 @@ final class BloopBspServices(
                   val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
                   if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
                   // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-                  else (new java.net.URI(uri.toString + "/"), Directory)
+                  else (new URI(uri.toString + "/"), Directory)
                 }
                 // TODO(jvican): Don't default on false for generated, add this info to JSON fields
                 bsp.SourceItem(bsp.Uri(bspUri), kind, false)
