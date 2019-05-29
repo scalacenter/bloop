@@ -15,6 +15,13 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   val simpleBuild = loadBuildFromResources("simple-build", workspace, new RecordingLogger)
   val configDir = simpleBuild.state.build.origin.underlying
 
+  val javaVersion = Option(System.getProperty("java.version"))
+  val javaHome = Option(System.getProperty("java.home"))
+  val jvmLine = (javaVersion, javaHome) match {
+    case (Some(v), Some(h)) => s"Running on JVM version $v at home $h"
+    case _ => ""
+  }
+
   def withServerInProject[T](op: (RecordingLogger, Client) => T): T =
     withServer(configDir, false, new RecordingLogger(ansiCodesSupported = false))(op)
 
@@ -86,6 +93,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop v${BuildInfo.version}
             |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
+            |$jvmLine
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
       )
@@ -142,6 +150,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop v${BuildInfo.version}
             |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
+            |$jvmLine
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
       )
