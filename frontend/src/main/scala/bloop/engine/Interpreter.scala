@@ -98,10 +98,16 @@ object Interpreter {
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
+    val javaVersion = Option(System.getProperty("java.version"))
+    val javaHome = Option(System.getProperty("java.home"))
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
     logger.info(s"Running on Scala v$scalaVersion and Zinc v$zincVersion")
+    (javaVersion, javaHome) match {
+      case (Some(v), Some(h)) => logger.info(s"Running on JVM version $v at home $h")
+      case _ =>
+    }
     logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)
