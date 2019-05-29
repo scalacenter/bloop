@@ -50,7 +50,7 @@ abstract class HotBloopBenchmarkBase {
         sys.props("java.home") + "/bin/java",
         "-Xms2G",
         findMaxHeap(project),
-        "-XX:ReservedCodeCacheSize=128m"
+        "-XX:ReservedCodeCacheSize=256m"
       )
       if (noIncremental) defaultJvmArgs ::: List("-Dbloop.zinc.disabled=true")
       else defaultJvmArgs

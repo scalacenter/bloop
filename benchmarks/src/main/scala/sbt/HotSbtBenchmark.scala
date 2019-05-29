@@ -85,7 +85,7 @@ class HotSbtBenchmark {
       sys.props("java.home") + "/bin/java",
       "-Xms2G",
       maxHeap,
-      "-XX:ReservedCodeCacheSize=128m",
+      "-XX:ReservedCodeCacheSize=256m",
       "-Dsbt.log.format=false",
       "-jar",
       sbtLaucherPath
