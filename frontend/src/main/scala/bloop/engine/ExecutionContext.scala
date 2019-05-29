@@ -14,7 +14,8 @@ import monix.execution.schedulers.ExecutorScheduler
 
 object ExecutionContext {
   private[bloop] val DefaultTravisCores = 2
-  private[bloop] val nCPUs = {
+  // Initialize some System properties before we initialize the execution context
+  locally {
     import java.lang.{Boolean => JBoolean}
     val default = Runtime.getRuntime.availableProcessors()
     def parseIntOrDefault(value: String): Int = {
@@ -22,7 +23,7 @@ object ExecutionContext {
       catch { case scala.util.control.NonFatal(_) => default }
     }
 
-    Option(System.getProperty("bloop.computation.cores")) match {
+    val nCPUs = Option(System.getProperty("bloop.computation.cores")) match {
       case Some(value) => parseIntOrDefault(value)
       case None =>
         Option(System.getenv("BLOOP_COMPUTATION_CORES")) match {
@@ -36,16 +37,15 @@ object ExecutionContext {
             }
         }
     }
+
+    if (nCPUs != default) {
+      System.setProperty("scala.concurrent.context.numThreads", nCPUs.toString)
+    }
   }
 
   import monix.execution.Scheduler
   implicit lazy val scheduler: Scheduler = {
-    Scheduler.forkJoin(
-      nCPUs,
-      nCPUs,
-      name = "bloop-computation",
-      executionModel = ExecutionModel.Default
-    )
+    Scheduler.Implicits.global
   }
 
   val ioReporter = UncaughtExceptionReporter.LogExceptionsToStandardErr
