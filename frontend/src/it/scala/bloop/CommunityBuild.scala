@@ -39,7 +39,7 @@ object CommunityBuild
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      val buildsToCompile = builds.filter(_._1 == "frontend")
+      val buildsToCompile = builds //.filter(_._1 == "prisma")
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
