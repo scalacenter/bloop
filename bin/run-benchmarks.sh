@@ -119,8 +119,8 @@ main() {
     pidFile=$(mktemp /tmp/pid.XXXXXX)
     ASYNC_PROF_OPTS="-p pidFile=$pidFile -prof pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;threads=true;framebuf=16777216;jfr=true;pidFile=$pidFile;"
 
-    for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      for java_home in "${JAVA_HOMES[@]}"; do
+    for java_home in "${JAVA_HOMES[@]}"; do
+      for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
         SBT_COMMANDS+=("$JMH_CMD .*Hot(Bloop|PipelinedBloop|Sbt)Benchmark.* $benchmark -jvm $java_home")
       done
     done
