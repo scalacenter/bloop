@@ -3,9 +3,8 @@ import bloop.bsp.BspBaseSuite
 import bloop.cli.BspProtocol
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
-import monix.eval.Task
 
-object DapProtocolSpec extends BspBaseSuite {
+object DebugProtocolSpec extends BspBaseSuite {
   override val protocol: BspProtocol = BspProtocol.Local
 
   test("starts a debug session") {
@@ -35,19 +34,18 @@ object DapProtocolSpec extends BspBaseSuite {
           } yield output
         }
 
-        assertNoDiff(output, "Hello, World!")
+        assertNoDiff(output, "Hello, World!\n")
       }
     }
   }
 
-  test("restarts a debug session") {
+  test("restarted session does not contain additional output") {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
            |object Main {
            |  def main(args: Array[String]): Unit = {
            |    println("Hello, World!")
-           |    Thread.sleep(1000)
            |  }
            |}
            |""".stripMargin
@@ -61,17 +59,22 @@ object DapProtocolSpec extends BspBaseSuite {
             _ <- client.initialize()
             _ <- client.launch()
             _ <- client.configurationDone()
-            _ <- client.output("Hello, World!\n")
-            _ <- client.restart()
-            _ <- client.exited
+
+            previousSession <- client.restart()
+
+            _ <- client.launch()
+            _ <- client.configurationDone()
             _ <- client.terminated
             _ <- client.disconnect()
-            output <- client.output
-          } yield output
+
+            previousSessionOutput <- previousSession.output
+
+          } yield previousSessionOutput
         }
 
-        assertNoDiff(output, "Hello, World!\nHello, World!\n")
+        assertNoDiff(output, "Hello, World!\n")
       }
     }
   }
+
 }

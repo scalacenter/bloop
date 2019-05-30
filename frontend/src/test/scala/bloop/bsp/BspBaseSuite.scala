@@ -26,9 +26,15 @@ import sbt.internal.util.MessageOnlyException
 import java.nio.file.Files
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException, ThreadFactory}
 
+import bloop.TestSchedulers
+import monix.execution.atomic.AtomicInt
+import monix.execution.{CancelableFuture, Scheduler}
+import monix.reactive.Observable
+import monix.reactive.subjects.ConcurrentSubject
+
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
+import scala.meta.jsonrpc.BaseProtocolMessage
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -65,7 +71,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         )
       )
       finally {
-        TestUtil.await(FiniteDuration(10, "s"))(closeServer)
+        TestUtil.await(FiniteDuration(1, "s"))(closeServer)
       }
     }
 
@@ -85,7 +91,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     val status = state.status
     val results = state.results
 
-    import endpoints.{Workspace, BuildTarget}
+    import endpoints.{BuildTarget, Workspace}
     def findBuildTarget(project: TestProject): bsp.BuildTarget = {
       val workspaceTargetTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
@@ -236,7 +242,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
             val targets = List(target)
             val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
             val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-            val parameters = bsp.LaunchParameters(classOf[bsp.ScalaMainClass].getSimpleName, json)
+            val parameters = bsp.LaunchParameters("scala-main-class", json)
             bsp.DebugSessionParams(targets, parameters)
           }
 
@@ -252,7 +258,6 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         uri = URI.create(address.uri)
         client = DebugTestClient(uri)(defaultScheduler)
         result <- f(client)
-//        _ = println("result: " + result)
       } yield result
 
       TestUtil.await(FiniteDuration(20, "s"))(session)
@@ -315,16 +320,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
-  // We limit the scheduler on purpose so that we don't have any thread leak.
-  private val bspDefaultScheduler: Scheduler = {
-    val i = Atomic(0)
-    val factory: ThreadFactory = new Thread(_, s"bsp-default-pool-${i.getAndIncrement()}")
-
-    Scheduler(
-      java.util.concurrent.Executors.newFixedThreadPool(4, factory),
-      ExecutionModel.AlwaysAsyncExecution
-    )
-  }
+  private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 4)
 
   /** The protocol to use for the inheriting test suite. */
   def protocol: BspProtocol
@@ -433,7 +429,6 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val addDiagnosticsHandler =
         addServicesTest(configDirectory, () => compileIteration.get, addToStringReport)
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
-      import bloop.bsp.BloopLanguageServer
 
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(ioScheduler)

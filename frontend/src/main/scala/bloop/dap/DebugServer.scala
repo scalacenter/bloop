@@ -53,10 +53,11 @@ final class MainClassDebugServer(
 
 object MainClassDebugServer {
   def apply(
-      project: Project,
+      projects: Seq[Project],
       mainClass: ScalaMainClass,
       state: State
   ): Either[String, MainClassDebugServer] = {
+    val project = projects.head
     project.platform match {
       case jvm: Platform.Jvm => Right(new MainClassDebugServer(project, mainClass, jvm.env, state))
       case platform => Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")

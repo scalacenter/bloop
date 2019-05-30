@@ -408,7 +408,7 @@ final class BloopBspServices(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
     def inferDebugServer(
-        project: Project,
+        projects: Seq[Project],
         state: State
     ): BspResponse[DebugServer] = {
       val dataKind = params.parameters.dataKind
@@ -417,7 +417,7 @@ final class BloopBspServices(
           case Left(error) =>
             Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(mainClass) =>
-            MainClassDebugServer(project, mainClass, state) match {
+            MainClassDebugServer(projects, mainClass, state) match {
               case Right(server) => Right(server)
               case Left(error) =>
                 Left(JsonRpcResponse.invalidRequest(error))
@@ -444,8 +444,7 @@ final class BloopBspServices(
               )
             case (state, Right(_)) =>
               val projects = mappings.map(_._2)
-              // TODO: Why `projects.head`?
-              inferDebugServer(projects.head, state) match {
+              inferDebugServer(projects, state) match {
                 case Right(server) =>
                   // The port number is ad-hoc, leaving it empty to 0.0.0.0:0 makes vscode fail
                   // TODO: Find one free port number randomly

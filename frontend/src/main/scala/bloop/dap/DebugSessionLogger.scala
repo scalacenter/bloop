@@ -2,8 +2,10 @@ package bloop.dap
 
 import java.net.InetSocketAddress
 
+import bloop.dap.DebugSessionLogger.initMessagePrefix
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.protocol.Events.OutputEvent
+
 import scala.concurrent.Promise
 
 /**
@@ -15,18 +17,21 @@ final class DebugSessionLogger(
     debugSession: DebugSession,
     addressPromise: Promise[InetSocketAddress]
 ) extends Logger {
-  override def name: String = "DebugSessionLogger"
+  private var initialized = false
+  override val name: String = "DebugSessionLogger"
 
   override def ansiCodesSupported(): Boolean = false
   override def error(msg: String): Unit = send(msg, OutputEvent.Category.stdout)
   override def info(msg: String): Unit = {
     // since the debuggee a) waits until the debug adapter connects to it and b) is not run in quiet=y mode
     // we can expect the JDI to produce the very first log.
-    val expectedMessage = s"Listening for transport dt_socket at address: "
-    if (msg.startsWith(expectedMessage)) {
-      val port = Integer.parseInt(msg.drop(expectedMessage.length))
-      val address = new InetSocketAddress(port)
-      addressPromise.success(address)
+    if (msg.startsWith(initMessagePrefix)) {
+      if (!initialized) {
+        val port = Integer.parseInt(msg.drop(initMessagePrefix.length))
+        val address = new InetSocketAddress(port)
+        addressPromise.success(address)
+        initialized = true
+      }
     } else {
       send(msg, OutputEvent.Category.stderr)
     }
@@ -51,4 +56,8 @@ final class DebugSessionLogger(
     val message = s"$name only supports logging error and info level messages"
     new UnsupportedOperationException(message)
   }
+}
+
+object DebugSessionLogger {
+  val initMessagePrefix = "Listening for transport dt_socket at address: "
 }

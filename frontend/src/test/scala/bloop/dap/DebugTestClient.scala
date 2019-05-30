@@ -9,75 +9,59 @@ import com.microsoft.java.debug.core.protocol.Types.Capabilities
 import monix.eval.Task
 import monix.execution.Scheduler
 
-final class DebugTestClient(socket: Socket)(implicit proxy: DebugSessionProxy) {
-  def initialize(): Task[Capabilities] = {
-    val arguments = new InitializeArguments()
-    Initialize(arguments)
-  }
+/**
+ * Handles the debug session by:
+ *  1) forwarding the communication
+ * 2) restarting the session (by terminating old session and opening a new one)
+ */
+final class DebugTestClient(connect: () => DebugAdapterConnection) {
+  private var session = connect()
+  def initialize(): Task[Capabilities] =
+    session.initialize()
 
-  def configurationDone(): Task[Unit] = {
-    ConfigurationDone(())
-  }
+  def configurationDone(): Task[Unit] =
+    session.configurationDone()
 
-  def launch(): Task[Unit] = {
-    Launch(new LaunchArguments)
-  }
-
-  def restart(): Task[Unit] = {
-    val arguments = new DisconnectArguments
-    arguments.restart = true
-    Disconnect(arguments)
-  }
-
-  def disconnect(): Task[Unit] = {
-    val arguments = new DisconnectArguments
-    Disconnect(arguments).map(_ => socket.close())
-  }
-
-  def initialized: Task[Events.InitializedEvent] = {
-    Initialized.first
-  }
+  def launch(): Task[Unit] =
+    session.launch()
 
   def exited: Task[Events.ExitedEvent] =
-    Exited.first
+    session.exited
 
   def terminated: Task[Events.TerminatedEvent] = {
-    Terminated.first
-  }
-
-  def lines(n: Int): Task[String] = {
-    OutputEvent.all
-      .take(n)
-      .foldLeftL(new StringBuilder)((acc, e) => acc.append(e.output))
-      .map(_.toString())
+    session.terminated
   }
 
   def output(expected: String): Task[String] = {
-    OutputEvent.all
-      .foldWhileL(new StringBuilder)((acc, e) => {
-        acc.append(e.output)
-        (acc.toString() != expected, acc)
-      })
-      .map(_.toString())
+    session.output(expected)
   }
 
-  /**
-   * Must be executed **after** the [[disconnect]] to ensure the stream of events is finite
-   */
-  def output(): Task[String] = {
-    OutputEvent.all
-      .foldLeftL(new StringBuilder)((acc, e) => acc.append(e.output))
-      .map(_.toString())
+  def output: Task[String] = {
+    session.output
+  }
+
+  def disconnect(): Task[Unit] = {
+    session.disconnect(restart = false)
+  }
+
+  def restart(): Task[DebugAdapterConnection] = {
+    for {
+      _ <- session.disconnect(restart = true)
+      previousSession <- reconnect()
+    } yield previousSession
+  }
+
+  private def reconnect(): Task[DebugAdapterConnection] = {
+    Task {
+      val previousSession = session
+      session = connect()
+      previousSession
+    }
   }
 }
 
 object DebugTestClient {
   def apply(uri: URI)(scheduler: Scheduler): DebugTestClient = {
-    val socket = new Socket(uri.getHost, uri.getPort)
-
-    val proxy = DebugSessionProxy(socket)
-    proxy.listen(scheduler)
-
-    new DebugTestClient(socket)(proxy)
+    new DebugTestClient(() => DebugAdapterConnection.connectTo(uri)(scheduler))
   }
 }

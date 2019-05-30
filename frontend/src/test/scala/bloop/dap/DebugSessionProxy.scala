@@ -10,7 +10,6 @@ import monix.eval.Task
 import monix.execution.{Ack, Scheduler}
 import monix.reactive.observables.ObservableLike.Operator
 import monix.reactive.observers.Subscriber
-import monix.reactive.subjects.ReplaySubject
 import monix.reactive.{Observable, Observer}
 
 import scala.collection.mutable
@@ -22,7 +21,7 @@ private[dap] final class DebugSessionProxy(
     output: Observer[Messages.ProtocolMessage]
 ) {
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
-  val events: ReplaySubject[Messages.Event] = ReplaySubject[Messages.Event]()
+  val events = new DebugEvents()
 
   def request(request: Messages.Request): Task[Messages.Response] = {
     println(s"Requesting: ${request.command}")
@@ -49,7 +48,7 @@ private[dap] final class DebugSessionProxy(
         case Some(promise) => promise.success(response)
       }
     case event: Messages.Event =>
-      events.onNext(event) // assuming always Continue
+      events.onNext(event)
   }
 }
 

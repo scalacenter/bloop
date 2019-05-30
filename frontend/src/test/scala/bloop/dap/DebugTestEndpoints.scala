@@ -7,7 +7,6 @@ import com.microsoft.java.debug.core.protocol.{Events, Types}
 private[dap] object DebugTestEndpoints {
   val Initialize = new Request[InitializeArguments, Types.Capabilities]("initialize")
   val Launch = new Request[LaunchArguments, Unit]("launch")
-  val Restart = new Request[RestartArguments, Unit]("restart")
   val Disconnect = new Request[DisconnectArguments, Unit]("disconnect")
   val ConfigurationDone = new Request[Unit, Unit]("configurationDone")
 

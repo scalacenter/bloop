@@ -5,13 +5,9 @@ import com.microsoft.java.debug.core.protocol.JsonUtils.{fromJson, toJson, toJso
 import com.microsoft.java.debug.core.protocol.Messages
 import monix.eval.Task
 import monix.execution.atomic.Atomic
-import monix.execution.{Ack, Scheduler}
-import monix.reactive.Observable
-import monix.reactive.observers.Subscriber
 
-import scala.concurrent.Future
 import scala.reflect.{ClassTag, classTag}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Try}
 
 private[dap] object DebugTestProtocol {
   private val id = Atomic(1)
@@ -50,33 +46,21 @@ private[dap] object DebugTestProtocol {
   }
 
   final class Event[A <: DebugEvent: ClassTag](val name: String) {
-    def first(implicit proxy: DebugSessionProxy): Task[A] =
-      all.firstL
+    def first(implicit proxy: DebugSessionProxy): Task[A] = {
+      proxy.events.channel(name).first.flatMap(parse)
+    }
 
-    def before(event: Event[_])(implicit proxy: DebugSessionProxy): Observable[A] =
-      all.takeWhile(e => e.`type` != event.name)
+    def all(implicit proxy: DebugSessionProxy): Task[Seq[A]] = {
+      proxy.events.channel(name).all.flatMap(parse)
+    }
 
-    def all(implicit proxy: DebugSessionProxy): Observable[A] = {
-      proxy.events
-        .filter(e => e.event == name)
-        .liftByOperator(
-          (subscriber: Subscriber[A]) =>
-            new Subscriber[Messages.Event] {
-              override def onNext(elem: Messages.Event): Future[Ack] = {
-                parse[A](elem.body) match {
-                  case Failure(ex) =>
-                    subscriber.onError(ex)
-                    Ack.Stop
-                  case Success(event) =>
-                    println(s"Event: ${event.`type`}")
-                    subscriber.onNext(event)
-                }
-              }
-              override implicit def scheduler: Scheduler = subscriber.scheduler
-              override def onError(ex: Throwable): Unit = subscriber.onError(ex)
-              override def onComplete(): Unit = subscriber.onComplete()
-            }
-        )
+    private def parse(event: Messages.Event): Task[A] = {
+      val parsed = DebugTestProtocol.parse[A](event.body)
+      Task.fromTry(parsed)
+    }
+
+    private def parse(events: Seq[Messages.Event]): Task[Seq[A]] = {
+      Task.sequence(events.map(parse))
     }
   }
 

@@ -143,13 +143,13 @@ object Tasks {
   /**
    * Runs the fully qualified class `className` in `project`.
    *
-   * @param mode      The run mode.
    * @param state     The current state of Bloop.
    * @param project   The project to run.
    * @param cwd       The directory in which to start the forked JVM.
    * @param fqn       The fully qualified name of the main class.
    * @param args      The arguments to pass to the main class.
    * @param skipJargs Skip the interpretation of `-J` options in `args`.
+   * @param mode      The run mode.
    */
   def runJVM(
       state: State,
