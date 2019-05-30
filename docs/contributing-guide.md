@@ -139,7 +139,7 @@ local Python script to override your installation in `$HOME/.bloop`:
 1. Give executable permission to the install script: `chmod +x $BLOOP_REPO/frontend/target/install.py`.
 1. Run script with `./$BLOOP_REPO/frontend/target/install.py`.
 
-You will something like this:
+You will see something like this:
 ```
 Downloading Bloop's coursier version, this may take some seconds...
 Installed bloop server in '/home/user/.bloop/blp-server'
