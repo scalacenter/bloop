@@ -18,7 +18,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   val javaVersion = Option(System.getProperty("java.version"))
   val javaHome = Option(System.getProperty("java.home"))
   val jvmLine = (javaVersion, javaHome) match {
-    case (Some(v), Some(h)) => s"Running on JVM version $v at home $h"
+    case (Some(v), Some(h)) => s"Running on Java v$v ($h)"
     case _ => ""
   }
 
@@ -92,7 +92,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       assertNoDiff(
         logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop v${BuildInfo.version}
-            |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
+            |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
@@ -149,7 +149,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       assertNoDiff(
         logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
         s"""|bloop v${BuildInfo.version}
-            |Running on Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
+            |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin

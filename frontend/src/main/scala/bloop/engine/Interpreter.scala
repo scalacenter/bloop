@@ -103,9 +103,9 @@ object Interpreter {
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
-    logger.info(s"Running on Scala v$scalaVersion and Zinc v$zincVersion")
+    logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
     (javaVersion, javaHome) match {
-      case (Some(v), Some(h)) => logger.info(s"Running on JVM version $v at home $h")
+      case (Some(v), Some(h)) => logger.info(s"Running on Java v$v ($h)")
       case _ =>
     }
     logger.info(s"Maintained by the Scala Center ($developers)")
