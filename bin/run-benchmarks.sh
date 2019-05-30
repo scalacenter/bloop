@@ -125,7 +125,7 @@ main() {
       #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
 
       for java_home in "${JAVA_HOMES[@]}"; do
-        SBT_COMMANDS+=("$JMH_CMD .*HotBloopBenchmark.* $benchmark -jvm $java_home")
+        SBT_COMMANDS+=("$JMH_CMD .*Hot(Bloop|Sbt)Benchmark.* $benchmark -jvm $java_home")
       done
     done
 
