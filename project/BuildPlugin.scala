@@ -211,7 +211,7 @@ object BuildKeys {
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
     BuildInfoKeys.buildInfoKeys := {
-      val fullClasspathFiles = BuildInfoKey.map(Keys.fullClasspathAsJars.in(sbt.Compile).in(dep)) {
+      val fullClasspathFiles = BuildInfoKey.map(Keys.fullClasspath.in(sbt.Compile).in(dep)) {
         case (key, value) => ("fullCompilationClasspath", value.toList.map(_.data))
       }
       Seq[BuildInfoKey](
