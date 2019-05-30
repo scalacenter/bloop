@@ -1,6 +1,6 @@
 package bloop.testing
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
-import bloop.exec.Forker
+import bloop.exec.{JvmProcessForker}
 import sbt.testing.Framework
 
 sealed trait DiscoveredTestFrameworks {
@@ -15,7 +15,7 @@ object DiscoveredTestFrameworks {
 
   final case class Jvm(
       frameworks: List[Framework],
-      forker: Forker,
+      forker: JvmProcessForker,
       testLoader: ClassLoader
   ) extends DiscoveredTestFrameworks
 }

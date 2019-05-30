@@ -5,7 +5,7 @@ import bloop.config.Config
 import bloop.data.{Platform, Project}
 import bloop.engine.{Dag, Feedback, State}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
-import bloop.exec.Forker
+import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals}
@@ -158,7 +158,7 @@ object TestTask {
       case Platform.Jvm(env, _, _) =>
         val dag = state.build.getDagFor(project)
         val classpath = project.fullClasspath(dag, state.client)
-        val forker = Forker(env, classpath)
+        val forker = JvmProcessForker(env, classpath)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
         val frameworks = project.testFrameworks.flatMap(
           f => TestInternals.loadFramework(testLoader, f.names, logger)

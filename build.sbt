@@ -38,6 +38,7 @@ val backend = project
     libraryDependencies ++= List(
       Dependencies.bsp,
       Dependencies.zinc,
+      Dependencies.javaDebug,
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,

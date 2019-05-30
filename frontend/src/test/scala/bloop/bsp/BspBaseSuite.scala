@@ -1,39 +1,34 @@
 package bloop.bsp
 
-import bloop.engine.{State, ExecutionContext}
-import bloop.cli.{Commands}
-import bloop.testing.BaseSuite
+import java.net.URI
 
-import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
-import bloop.data.{Project, ClientInfo}
-import bloop.engine.{State, Run}
+import bloop.engine.{ExecutionContext, State}
+import bloop.cli.Commands
+import bloop.testing.BaseSuite
+import bloop.dap.DebugTestClient
+import bloop.cli.{BspProtocol, CliOptions, Commands, CommonOptions, Validate}
+import bloop.data.{ClientInfo, Project}
+import bloop.engine.{Run, State}
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter, Logger}
-import bloop.util.{TestUtil, TestProject, CrossPlatform}
-
+import bloop.logging.{BspClientLogger, DebugFilter, Logger, RecordingLogger, Slf4jAdapter}
+import bloop.util.{CrossPlatform, TestProject, TestUtil}
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.endpoints
-
+import ch.epfl.scala.bsp.{DebugSessionAddress, endpoints}
 import monix.eval.Task
 import monix.reactive.observers.BufferedSubscriber
 import monix.reactive.subjects.ConcurrentSubject
-import monix.reactive.{Observable, MulticastStrategy, Observer}
-import monix.execution.{ExecutionModel, Scheduler, CancelableFuture}
-import monix.execution.atomic.AtomicInt
-
+import monix.reactive.{MulticastStrategy, Observable, Observer}
+import monix.execution.{CancelableFuture, ExecutionModel, Scheduler}
+import monix.execution.atomic.{Atomic, AtomicInt}
 import sbt.internal.util.MessageOnlyException
-
 import java.nio.file.Files
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutionException
+import java.util.concurrent.{ConcurrentHashMap, ExecutionException, ThreadFactory}
 
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
-
-import monix.execution.Scheduler
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -70,7 +65,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         )
       )
       finally {
-        TestUtil.await(FiniteDuration(1, "s"))(closeServer)
+        TestUtil.await(FiniteDuration(10, "s"))(closeServer)
       }
     }
 
@@ -232,23 +227,35 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(task)
     }
 
-    def startDebugSession(project: TestProject, mainClass: String): bsp.DebugSessionAddress = {
-      val task = runAfterTargets(project) { target =>
-        val params = {
-          val targets = List(target)
-          val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
-          val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-          bsp.DebugSessionParams(targets, json)
+    def withDebugSession[A](project: TestProject, mainClass: String)(
+        f: DebugTestClient => Task[A]
+    ): A = {
+      def sessionAddress: Task[DebugSessionAddress] =
+        runAfterTargets(project) { target =>
+          val params = {
+            val targets = List(target)
+            val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
+            val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
+            val parameters = bsp.LaunchParameters(classOf[bsp.ScalaMainClass].getSimpleName, json)
+            bsp.DebugSessionParams(targets, parameters)
+          }
+
+          endpoints.DebugSession.start.request(params).map {
+            case Left(error) =>
+              fail(s"Received error $error") // todo it is repeated everywhere! extract
+            case Right(result) => result
+          }
         }
 
-        endpoints.DebugSession.start.request(params).map {
-          case Left(error) =>
-            fail(s"Received error $error") // todo it is repeated everywhere! extract
-          case Right(result) => result
-        }
-      }
+      val session = for {
+        address <- sessionAddress
+        uri = URI.create(address.uri)
+        client = DebugTestClient(uri)(defaultScheduler)
+        result <- f(client)
+//        _ = println("result: " + result)
+      } yield result
 
-      TestUtil.await(FiniteDuration(5, "s"))(task)
+      TestUtil.await(FiniteDuration(20, "s"))(session)
     }
 
     def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
@@ -309,10 +316,15 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   }
 
   // We limit the scheduler on purpose so that we don't have any thread leak.
-  private val bspDefaultScheduler: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(4),
-    ExecutionModel.AlwaysAsyncExecution
-  )
+  private val bspDefaultScheduler: Scheduler = {
+    val i = Atomic(0)
+    val factory: ThreadFactory = new Thread(_, s"bsp-default-pool-${i.getAndIncrement()}")
+
+    Scheduler(
+      java.util.concurrent.Executors.newFixedThreadPool(4, factory),
+      ExecutionModel.AlwaysAsyncExecution
+    )
+  }
 
   /** The protocol to use for the inheriting test suite. */
   def protocol: BspProtocol
