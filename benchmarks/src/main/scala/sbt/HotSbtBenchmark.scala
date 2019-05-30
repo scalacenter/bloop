@@ -64,11 +64,6 @@ class HotSbtBenchmark {
        |  )
        |}""".stripMargin
 
-  def findMaxHeap(project: String): String = project match {
-    case "spark" | "lichess" | "akka" | "scio" | "http4s" | "summingbird" | "gatling" => "-Xmx4G"
-    case _ => "-Xmx3G"
-  }
-
   @Setup(Level.Trial) def spawn(): Unit = {
     sbtCommand = {
       if (projectName.endsWith("-test")) s"${projectName.stripSuffix("-test")}/test:compile"
@@ -80,11 +75,10 @@ class HotSbtBenchmark {
     Files.write(cleanClassesPath, cleanClassesPlugin.getBytes("UTF-8"))
     val sbtLaucherPath = System.getProperty("sbt.launcher")
     if (sbtLaucherPath == null) sys.error("System property -Dsbt.launcher absent")
-    val maxHeap = findMaxHeap(project)
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
       "-Xms2G",
-      maxHeap,
+      "-Xmx4G",
       "-XX:ReservedCodeCacheSize=256m",
       "-Dsbt.log.format=false",
       "-jar",
