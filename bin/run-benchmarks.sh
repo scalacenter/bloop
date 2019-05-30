@@ -86,7 +86,7 @@ main() {
     done
 
     SBT_BLOOP_BENCHMARKS=(
-      "-wi 7 -i 5 -f1 -t1 -p project=spark -p projectName=spark-test"
+      "-wi 2 -i 2 -f1 -t1 -p project=spark -p projectName=spark-test"
       "-wi 4 -i 4 -f1 -t1 -p project=lichess -p projectName=lila-test"
       "-wi 15 -i 10 -f1 -t1 -p project=sbt -p projectName=sbtRoot"
       "-wi 8 -i 5 -f1 -t1 -p project=frontend -p projectName=root-test"
