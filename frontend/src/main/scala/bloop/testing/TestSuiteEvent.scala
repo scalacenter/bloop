@@ -6,9 +6,11 @@ import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
 import sbt.testing.{Event, Status}
+import cats.syntax.option._
 
 import scala.collection.mutable
 import scala.meta.jsonrpc.JsonRpcClient
+import scala.util.Try
 
 sealed trait TestSuiteEvent
 object TestSuiteEvent {
@@ -25,16 +27,16 @@ object TestSuiteEvent {
 
 trait TestSuiteEventHandler {
   def handle(testSuiteEvent: TestSuiteEvent): Unit
-  /*  def startTest(): Unit
-  def finishTest(): Unit*/
   def report(): Unit
 }
 
 class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
+  private type SuiteName = String
+  private type TestName = String
   protected var suitesDuration = 0L
   protected var suitesPassed = 0
   protected var suitesAborted = 0
-  protected val suitesFailed = mutable.ArrayBuffer.empty[String]
+  protected val testsFailedBySuite = mutable.Map.empty[SuiteName, Map[TestName, Option[Throwable]]]
   protected var suitesTotal = 0
 
   protected def formatMetrics(metrics: List[(Int, String)]): String = {
@@ -80,7 +82,16 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       val testMetrics = formatMetrics(regularMetrics ++ failureMetrics)
       if (!testMetrics.isEmpty) logger.info(testMetrics)
 
-      if (failureCount > 0) suitesFailed.append(testSuite)
+      val failedStatuses = Set(Status.Error, Status.Canceled, Status.Failure)
+      if (failureCount > 0) {
+        logger.info(s"failures ${events.map(_.status())}")
+        val thisSuiteFailedTests =
+          events.filter(e => failedStatuses.contains(e.status()))
+          .map(e => e.selector().toString -> Try(e.throwable().get()).toOption)
+          .toMap
+        logger.info(thisSuiteFailedTests.toString())
+        testsFailedBySuite += testSuite -> thisSuiteFailedTests
+      }
       else if (testsTotal <= 0) logger.info("No test suite was run")
       else {
         suitesPassed += 1
@@ -105,13 +116,18 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       logger.info(s"All $suitesPassed test suites passed.")
     } else {
       val metrics =
-        List(suitesPassed -> "passed", suitesFailed.length -> "failed", suitesAborted -> "aborted")
+        List(suitesPassed -> "passed", testsFailedBySuite.size -> "failed", suitesAborted -> "aborted")
       logger.info(formatMetrics(metrics))
 
-      if (suitesFailed.nonEmpty) {
+      if (testsFailedBySuite.nonEmpty) {
         logger.info("")
         logger.info("Failed:")
-        suitesFailed.foreach(suite => logger.info(s"- $suite"))
+        testsFailedBySuite.foreach{case(suiteName, tests) =>
+          logger.info(s"- $suiteName")
+          tests.foreach{ case(testName, failure) =>
+            logger.info(s"$testName - ${failure.map(_.getMessage)}")
+          }
+        }
       }
     }
 
