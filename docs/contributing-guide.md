@@ -139,7 +139,8 @@ local Python script to override your installation in `$HOME/.bloop`:
 1. Give executable permission to the install script: `chmod +x $BLOOP_REPO/frontend/target/install.py`.
 1. Run script with `./$BLOOP_REPO/frontend/target/install.py`.
 
-You will see something like this:
+You will roughly see something like this:
+  
 ```
 Downloading Bloop's coursier version, this may take some seconds...
 Installed bloop server in '/home/user/.bloop/blp-server'
@@ -147,11 +148,9 @@ Installed bloop client in '/home/user/.bloop/bloop'
 HTTP Error 404: Not Found
 Couldn't download https://raw.githubusercontent.com/scalacenter/bloop/v1.2.5+464-0159c1c3+20190529-1423/etc/zsh/_bloop, please try again.
 ```
-
-Don't worry about the HTTP error, it cannot download files for
-not released yet bloop version. It will work correctly. 
-
-Then, **restart the bloop server** to pick up the new installed version.
+  
+You can safely ignore the HTTP error and **restart the bloop server** to
+pick up the new installed version.
 
 The command to run depends on how you have run the bloop server, the [Build
 Server reference](server.md) explains the available startup mechanisms. For
