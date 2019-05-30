@@ -146,7 +146,14 @@ lazy val frontend: Project = project
     Defaults.itSettings,
     BuildDefaults.frontendTestBuildSettings,
     // Can be removed when metals upgrades to 1.3.0
-    inConfig(IntegrationTest)(BloopDefaults.configSettings)
+    inConfig(IntegrationTest)(BloopDefaults.configSettings),
+    inConfig(Compile)(
+      build.BuildKeys.lazyFullClasspath := {
+        val ownProductDirectories = Keys.productDirectories.value
+        val dependencyClasspath = build.BuildImplementation.lazyDependencyClasspath.value
+        ownProductDirectories ++ dependencyClasspath
+      }
+    )
   )
   .settings(
     name := "bloop-frontend",
