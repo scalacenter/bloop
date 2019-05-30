@@ -11,7 +11,7 @@ import java.util.stream.Collectors
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.DebugAdapterServer
+import bloop.dap.{DebugServer, DebugSession, MainClassDebuggeeProvider}
 import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
@@ -21,7 +21,6 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
 import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
-
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{
@@ -29,12 +28,10 @@ import ch.epfl.scala.bsp.{
   DebugSessionAddress,
   MessageType,
   ShowMessageParams,
-  WorkspaceBuildTargets,
   endpoints
 }
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-
 import monix.eval.Task
 import monix.reactive.Observer
 import monix.execution.Scheduler
@@ -428,23 +425,48 @@ final class BloopBspServices(
   def startDebugSession(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
+    // TODO should be done better (how?)
+    def createRunner(): BspResponse[MainClassDebuggeeProvider] = {
+      val dataKind = params.parameters.dataKind
+      if (dataKind == classOf[bsp.ScalaMainClass].getSimpleName) {
+        params.parameters.data.as[bsp.ScalaMainClass] match {
+          case Left(error) =>
+            Left(JsonRpcResponse.invalidRequest(error.getMessage()))
+          case Right(mainClass) =>
+            Right(new MainClassDebuggeeProvider(mainClass))
+        }
+      } else {
+        Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
+      }
+    }
+
     ifInitialized { state =>
-      mapToProjects(params.targets, state) match {
-        case Left(error) =>
-          // Log the mapping error to the user via a log event + an error status code
-          bspLogger.error(error)
-          Task.now((state, Left(JsonRpcResponse.invalidRequest(error)))) // TODO do fail
-        case Right(mappings) =>
-          compileProjects(mappings, state, Nil).flatMap {
-            case (state, Left(error)) =>
-              Task.now((state, Left(error)))
-            case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
-              Task.now((state, Left(JsonRpcResponse.internalError("Compilation not successful"))))
-            case (state, Right(_)) =>
-              val uri = DebugAdapterServer.createAdapter()(ioScheduler)
-              val address = bsp.DebugSessionAddress(uri.toString)
-              Task.now((state, Right(address)))
+      createRunner() match {
+        case Right(runner) =>
+          mapToProjects(params.targets, state) match {
+            case Left(error) =>
+              // Log the mapping error to the user via a log event + an error status code
+              bspLogger.error(error)
+              Task.now((state, Left(JsonRpcResponse.invalidRequest(error)))) // TODO do fail
+            case Right(mappings) =>
+              compileProjects(mappings, state, Nil).flatMap {
+                case (state, Left(error)) =>
+                  Task.now((state, Left(error)))
+                case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
+                  Task.now(
+                    (state, Left(JsonRpcResponse.internalError("Compilation not successful")))
+                  )
+                case (state, Right(_)) =>
+                  val projects = mappings.map(_._2)
+                  val debuggeFactory = runner.create(state, projects)(computationScheduler)
+                  val server = DebugServer.run(debuggeFactory)(ioScheduler)
+
+                  val response = Right(new bsp.DebugSessionAddress(server.uri.toString))
+                  Task.now((state, response))
+              }
           }
+        case Left(error) =>
+          Task.now((state, Left(error)))
       }
     }
   }

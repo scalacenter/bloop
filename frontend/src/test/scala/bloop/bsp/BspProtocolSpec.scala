@@ -1,7 +1,5 @@
 package bloop.bsp
 
-import java.net.{Socket, URI}
-
 import bloop.engine.State
 import bloop.config.Config
 import bloop.io.AbsolutePath
@@ -23,17 +21,118 @@ class BspProtocolSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   import ch.epfl.scala.bsp
-
-  test("starts a debug session") {
+  test("check the correct contents of scalac options") {
     TestUtil.withinWorkspace { workspace =>
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
-        val project = build.projectFor("test-project-test")
-        val address = build.state.startDebugSession(project, "Foo")
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A
+          """.stripMargin
+        val `B.scala` =
+          """/B.scala
+            |object B
+          """.stripMargin
+      }
 
-        val uri = URI.create(address.uri)
-        val socket = new Socket(uri.getHost, uri.getPort)
-        socket.close()
+      object ScalacOptions {
+        val A = List("-Ywarn-unused-import")
+        val B = List("-Yprint-typer")
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`A.scala`),
+        scalacOptions = ScalacOptions.`A`
+      )
+
+      val `B` = TestProject(
+        workspace,
+        "b",
+        List(Sources.`B.scala`),
+        List(`A`),
+        enableTests = true,
+        scalacOptions = ScalacOptions.`B`
+      )
+
+      val projects = List(`A`, `B`)
+      loadBspState(workspace, projects, logger) { state =>
+        def testOptions(
+            result: bsp.ScalacOptionsResult,
+            expectedOptions: List[String],
+            expectedClassesDir: Path,
+            expectedId: bsp.BuildTargetIdentifier,
+            expectedProjectEntries: List[Path]
+        ): Unit = {
+          assert(result.items.size == 1)
+          val optionsItem = result.items.head
+          assert(optionsItem.options == expectedOptions)
+          assert(optionsItem.classDirectory.toPath == expectedClassesDir)
+          assert(optionsItem.target == expectedId)
+          val pathClasspath = optionsItem.classpath.map(_.toPath)
+          expectedProjectEntries.foreach { expectedProjectEntry =>
+            // Ensure there is only one match per every entry
+            val matches = pathClasspath.filter(_ == expectedProjectEntry)
+            assert(matches == List(expectedProjectEntry))
+          }
+        }
+
+        val (stateA, resultA) = state.scalaOptions(`A`)
+        assert(stateA.status == ExitStatus.Ok)
+        val classesDirA = stateA.toTestState.getClientExternalDir(`A`).underlying
+        testOptions(resultA, ScalacOptions.A, classesDirA, `A`.bspId, List(classesDirA))
+
+        val (stateB, resultB) = state.scalaOptions(`B`)
+        assert(stateB.status == ExitStatus.Ok)
+        val classesDirB = stateB.toTestState.getClientExternalDir(`B`).underlying
+        testOptions(resultB, ScalacOptions.B, classesDirB, `B`.bspId, List(classesDirB))
+      }
+    }
+  }
+
+  test("find main classes") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Main.scala` =
+          """/main/scala/foo/Main.scala
+            |package foo
+            |object Main {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `ClassWithMainFunc.scala` =
+          """/main/scala/foo/NotMain.scala
+            |package foo
+            |class ClassWithMainFunc {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `InheritedMain.scala` =
+          """/main/scala/foo/InheritedMain.scala
+            |package foo
+            |object InheritedMain extends ClassWithMainFunc
+          """.stripMargin
+
+        val all = List(`Main.scala`, `ClassWithMainFunc.scala`, `InheritedMain.scala`)
+      }
+      val expectedClasses = Set("foo.Main", "foo.InheritedMain")
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "p", Sources.all)
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val compilation = state.compile(project)
+        assert(compilation.status == ExitStatus.Ok)
+
+        val mainClasses = state.mainClasses(project)
+        val items = mainClasses.items
+        assert(items.size == 1)
+
+        val classes = items.head.classes.map(_.`class`).toSet
+        assert(classes == expectedClasses)
       }
     }
   }
@@ -249,6 +348,59 @@ class BspProtocolSpec(
             case Left(e) => fail(s"Couldn't decode scala build target for ${bspTarget}")
           }
         }
+
+        checkTarget(mainProject)
+        checkTarget(testProject)
+        checkTarget(mainJsProject)
+        checkTarget(testJsProject)
+        checkTarget(rootMain)
+        checkTarget(rootTest)
+      }
+    }
+  }
+
+  test("build targets should be empty in build with recursive dependencies") {
+    import bloop.io.RelativePath
+    import bloop.logging.BspClientLogger
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val bspLogger = new BspClientLogger(logger)
+    val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath("bloop-config"))
+    val state = TestUtil.loadTestProject(configDir.underlying, logger)
+    val bspCommand = createBspCommand(configDir)
+    openBspConnection(state, bspCommand, configDir, bspLogger).withinSession { state =>
+      val workspaceTargets = state.workspaceTargets
+      assert(workspaceTargets.targets.isEmpty)
+    }
+  }
+
+  test("sources request works") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+        val mainProject = build.projectFor("test-project")
+        val testProject = build.projectFor("test-project-test")
+        val mainJsProject = build.projectFor("test-projectJS")
+        val testJsProject = build.projectFor("test-projectJS-test")
+        val rootMain = build.projectFor("cross-test-build-0-6")
+        val rootTest = build.projectFor("cross-test-build-0-6-test")
+
+        def checkSources(project: TestProject): Unit = {
+          val sourcesResult = build.state.requestSources(project)
+          assert(sourcesResult.items.size == 1)
+          val sources = sourcesResult.items.head
+          val sourcePaths = sources.sources.map(_.uri.toPath).toSet
+          val expectedSources = project.config.sources.toSet
+          assert(sourcePaths == expectedSources)
+          val generateSources = sources.sources.filter(_.generated)
+          assert(generateSources.isEmpty)
+        }
+
+        checkSources(mainProject)
+        checkSources(testProject)
+        checkSources(mainJsProject)
+        checkSources(testJsProject)
+        checkSources(rootMain)
+        checkSources(rootTest)
       }
     }
   }

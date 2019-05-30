@@ -69,19 +69,17 @@ object ExecutionContext {
       name: String,
       reporter: UncaughtExceptionReporter,
       daemonic: Boolean
-  ): ThreadFactory = {
-    new ThreadFactory {
-      def newThread(r: Runnable) = {
-        val thread = new Thread(r)
-        thread.setName(name + "-" + thread.getId)
-        thread.setDaemon(daemonic)
-        thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler {
-          override def uncaughtException(t: Thread, e: Throwable): Unit =
-            reporter.reportFailure(e)
-        })
+  ): ThreadFactory = { (r: Runnable) =>
+    {
+      val thread = new Thread(r)
+      thread.setName(name + "-" + thread.getId)
+      thread.setDaemon(daemonic)
+      thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler {
+        override def uncaughtException(t: Thread, e: Throwable): Unit =
+          reporter.reportFailure(e)
+      })
 
-        thread
-      }
+      thread
     }
   }
 }

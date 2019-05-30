@@ -49,6 +49,7 @@ lazy val backend = project
     buildInfoKeys := BloopBackendInfoKeys,
     buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
+      Dependencies.javaDebug,
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,
@@ -148,7 +149,14 @@ lazy val sockets: Project = project
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
-  .dependsOn(sockets, bloopShared, backend, backend % "test->test", jsonConfig212, buildpressConfig % "it->compile")
+  .dependsOn(
+    sockets,
+    bloopShared,
+    backend,
+    backend % "test->test",
+    jsonConfig212,
+    buildpressConfig % "it->compile"
+  )
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)

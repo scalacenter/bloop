@@ -3,11 +3,12 @@ package bloop.engine.tasks
 import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
+import bloop.dap.DebugSession
 import bloop.engine.caches.ResultsCache
 import bloop.logging.DebugFilter
 import bloop.data.Project
 import bloop.engine.{Dag, State}
-import bloop.exec.{Forker, JavaEnv}
+import bloop.exec.{Forker, JavaEnv, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.testing.{LoggingEventHandler, TestSuiteEvent, TestSuiteEventHandler}
@@ -157,11 +158,12 @@ object Tasks {
       cwd: AbsolutePath,
       fqn: String,
       args: Array[String],
-      skipJargs: Boolean
+      skipJargs: Boolean,
+      debugSession: Option[DebugSession] = None
   ): Task[State] = {
     val dag = state.build.getDagFor(project)
     val classpath = project.fullClasspath(dag, state.client)
-    val processConfig = Forker(javaEnv, classpath)
+    val processConfig = JvmProcessForker(javaEnv, classpath, debugSession)
     val runTask =
       processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
     runTask.map { exitCode =>

@@ -286,7 +286,8 @@ object Config {
             List(),
             Some(outAnalysisFile),
             Some(CompileSetup.empty)
-          )),
+          )
+        ),
         Some(Java(List("-version"))),
         Some(Sbt("1.1.0", Nil)),
         Some(Test(List(), TestOptions(Nil, Nil))),
