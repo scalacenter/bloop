@@ -6,16 +6,15 @@ import bloop.cli._
 import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
-import bloop.logging.{DebugFilter, Logger}
+import bloop.logging.{DebugFilter, Logger, NoopLogger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
-import bloop.data.{Platform, Project, ClientInfo}
+import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.reporter.{ReporterInputs, LogReporter}
-
+import bloop.reporter.{LogReporter, ReporterInputs}
 import caseapp.core.CommandMessages
 import monix.eval.Task
 
@@ -111,7 +110,7 @@ object Interpreter {
     Aggregate(projects.map(p => state.build.getDagFor(p)))
 
   private def runBsp(cmd: Commands.ValidatedBsp, state: State): Task[State] = {
-    import ExecutionContext.{scheduler, ioScheduler}
+    import ExecutionContext.{ioScheduler, scheduler}
     BspServer
       .run(cmd, state, RelativePath(".bloop"), None, None, scheduler, ioScheduler)
       .executeOn(ioScheduler)
@@ -417,8 +416,9 @@ object Interpreter {
         Task {
           for {
             projectName <- cmd.project
+            stateWithNoopLogger = state.copy(logger = NoopLogger)
             project <- state.build.getProjectFor(projectName)
-            main <- Tasks.findMainClasses(state, project)
+            main <- Tasks.findMainClasses(stateWithNoopLogger, project)
             completion <- cmd.format.showMainName(main)
           } state.logger.info(completion)
           state
@@ -426,9 +426,10 @@ object Interpreter {
       case Mode.TestsFQCN =>
         val printTestTask = for {
           projectName <- cmd.project
-          project <- Tasks.pickTestProject(projectName, state)
+          stateWithNoopLogger = state.copy(logger = NoopLogger)
+          project <- Tasks.pickTestProject(projectName, stateWithNoopLogger)
         } yield {
-          TestTask.findFullyQualifiedTestNames(project, state).map { testsFqcn =>
+          TestTask.findFullyQualifiedTestNames(project, stateWithNoopLogger).map { testsFqcn =>
             for {
               testFqcn <- testsFqcn
               completion <- cmd.format.showTestName(testFqcn)
