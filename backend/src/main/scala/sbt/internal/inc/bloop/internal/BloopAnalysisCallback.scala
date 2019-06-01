@@ -368,8 +368,7 @@ final class BloopAnalysisCallback(
   override def downstreamSignatures(): Array[Signature] =
     compileMode.oracle.collectDownstreamSignatures()
   override def definedSignatures(signatures: Array[Signature]): Unit = {
-    val picklesDir = compileMode.picklesDir
-    compileMode.oracle.startDownstreamCompilations(picklesDir, signatures)
+    compileMode.oracle.startDownstreamCompilations(signatures)
   }
 
   override def invalidatedClassFiles(): Array[File] = {

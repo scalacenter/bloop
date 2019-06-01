@@ -107,7 +107,7 @@ final class PipeliningOracle(
   def isPipeliningEnabled: Boolean = !startDownstreamCompilation.isCompleted
 
   /** @inheritdoc */
-  def startDownstreamCompilations(picklesDir: AbsolutePath, signatures: Array[Signature]): Unit = {
+  def startDownstreamCompilations(signatures: Array[Signature]): Unit = {
     startDownstreamCompilation.success(signatures)
   }
 

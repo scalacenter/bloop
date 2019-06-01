@@ -663,7 +663,7 @@ object CompileGraph {
                     var dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
-                      case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
+                      case (p, ResultBundle(s: Compiler.Result.Success, _, _)) =>
                         val newProducts = s.products
                         dependentProducts.+=(p -> Right(newProducts))
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
@@ -818,7 +818,6 @@ object CompileGraph {
                               PartialCompileProducts(
                                 out.internalReadOnlyClassesDir,
                                 out.internalNewClassesDir,
-                                out.internalNewPicklesDir,
                                 results.definedMacros
                               )
                             )
@@ -841,7 +840,7 @@ object CompileGraph {
                       var nonPipelinedDependentResults =
                         new mutable.ListBuffer[(File, PreviousResult)]()
                       nonPipelineResults.foreach {
-                        case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
+                        case (p, ResultBundle(s: Compiler.Result.Success, _, _)) =>
                           val newProducts = s.products
                           nonPipelinedDependentProducts.+=(p -> Right(newProducts))
                           val newResult = newProducts.resultForDependentCompilationsInSameRun

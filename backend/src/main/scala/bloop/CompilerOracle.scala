@@ -58,7 +58,7 @@ abstract class CompilerOracle {
    * during the compilation of a project. This method needs to take care of
    * making the pickles accessible to downstream compilations.
    */
-  def startDownstreamCompilations(picklesDir: AbsolutePath, signatures: Array[Signature]): Unit
+  def startDownstreamCompilations(signatures: Array[Signature]): Unit
 
   /**
    * Collects all downstream signatures of transitive dependencies that have

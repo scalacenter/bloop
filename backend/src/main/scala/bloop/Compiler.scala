@@ -403,7 +403,7 @@ object Compiler {
       compileInputs.cancelPromise.trySuccess(())
       mode match {
         case _: Sequential => ()
-        case Pipelined(completeJava, finishedCompilation, _, _, _, _) =>
+        case Pipelined(completeJava, finishedCompilation, _, _, _) =>
           completeJava.trySuccess(())
           finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
       }
