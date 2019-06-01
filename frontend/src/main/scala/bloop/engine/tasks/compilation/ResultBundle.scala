@@ -14,7 +14,7 @@ case class ResultBundle(
 
 object ResultBundle {
   val empty: ResultBundle =
-    ResultBundle(Compiler.Result.Empty, None, CancelableFuture.successful(()))
+    ResultBundle(Compiler.Result.Empty, None, CancelableFuture.unit)
 
   def apply(
       fromCompiler: Compiler.Result,

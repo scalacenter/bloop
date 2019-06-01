@@ -193,7 +193,6 @@ object CompileTask {
                   val blockingOnRunningTasks = Task
                     .fromFuture(runningTasks)
                     .executeOn(ExecutionContext.ioScheduler)
-                  import monix.execution.misc.NonFatal
                   val populatingTask = {
                     if (s.isNoOp) blockingOnRunningTasks
                     else {
@@ -313,13 +312,11 @@ object CompileTask {
           }
         }
 
-        val backgroundTasks = Task.gatherUnordered {
+        val backgroundTasks = Task.sequence {
           results.flatMap {
             case FinalNormalCompileResult(_, results) =>
               val tasksAtEndOfBuildCompilation =
-                Task
-                  .fromFuture(results.runningBackgroundTasks)
-                  .executeOn(ExecutionContext.ioScheduler)
+                Task.fromFuture(results.runningBackgroundTasks)
               List(tasksAtEndOfBuildCompilation)
             case _ => Nil
           }

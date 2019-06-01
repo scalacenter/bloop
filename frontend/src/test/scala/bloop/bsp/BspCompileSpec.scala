@@ -6,6 +6,9 @@ import bloop.cli.{ExitStatus, BspProtocol}
 import bloop.util.{TestUtil, TestProject}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
+import java.nio.file.attribute.FileTime
+import bloop.io.AbsolutePath
+import bloop.io.{Paths => BloopPaths}
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -258,7 +261,15 @@ class BspCompileSpec(
     }
   }
 
-  test("populate bsp external classes directory if project doesn't compile but class files exist") {
+  /**
+   * Checks several variants regarding the previous execution of post
+   * compilation tasks when the compile result is a success and when it is a
+   * failure. The most important check carried out by this test is to guarantee
+   * that external client classes directories are always populated with the
+   * compile products of the previous successful results, even if a new BSP
+   * session is established. We use semanticdb to emulate a real-world scenario.
+   */
+  test("successful and failed compiles always populate external classes directories") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -269,21 +280,75 @@ class BspCompileSpec(
             |abject A""".stripMargin
       }
 
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
-      val projects = List(`A`)
-      val state = loadState(workspace, projects, logger)
-      val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      // Change the semanticdb jar every time we upgrade Scala version
+      assert(BuildInfo.scalaVersion == "2.12.8")
+      val sourceDir = workspace.resolve("a").resolve("src")
+      val semanticdbJar = unsafeGetResource("semanticdb_2.12.8-4.1.11.jar")
+      val semanticdbOpts = List(
+        s"-Xplugin:$semanticdbJar",
+        "-Yrangepos",
+        s"-P:semanticdb:sourceroot:${sourceDir}"
+      )
 
-      writeFile(`A`.srcFor("/A.scala"), Sources.`A2.scala`)
-      loadBspState(workspace, projects, logger) { bspState =>
-        val bspCompiledState = bspState.compile(`A`)
-        assert(bspCompiledState.status == ExitStatus.CompilationError)
-        val buildProject = compiledState.getProjectFor(`A`)
-        val externalClassesDirA = bspCompiledState.client.getUniqueClassesDirFor(buildProject)
-        val classFiles = list(externalClassesDirA)
-        assert(classFiles.size > 0)
+      def semanticdbFilesFrom(classesDir: AbsolutePath): List[BloopPaths.AttributedPath] = {
+        val semanticdbTarget = classesDir.resolve("META-INF").resolve("semanticdb")
+        takeDirectorySnapshot(semanticdbTarget)
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`), scalacOptions = semanticdbOpts)
+      val projects = List(`A`)
+
+      var classFilesPreviousIteration: List[BloopPaths.AttributedPath] = Nil
+      var semanticdbFilesPreviousIteration: List[BloopPaths.AttributedPath] = Nil
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`)
+        assert(compiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        val buildProject = compiledState.toTestState.getProjectFor(`A`)
+        val externalClassesDirA = compiledState.client.getUniqueClassesDirFor(buildProject)
+
+        // There must be three top-level paths in this dir: A.class, A$.class and META-INF
+        val classFilesAfterSuccess = takeDirectorySnapshot(externalClassesDirA)
+        val semanticdbFilesAfterSuccess = semanticdbFilesFrom(externalClassesDirA)
+        assert(classFilesAfterSuccess.size == 3)
+        assert(semanticdbFilesAfterSuccess.size == 1)
+
+        writeFile(`A`.srcFor("/A.scala"), Sources.`A2.scala`)
+        val secondCompiledState = compiledState.compile(`A`)
+        assert(secondCompiledState.status == ExitStatus.CompilationError)
+
+        // There must be three top-level paths in this dir: A.class, A$.class and META-INF
+        val classFilesAfterFailure = takeDirectorySnapshot(externalClassesDirA)
+        assert(classFilesAfterFailure.size == 3)
+        val semanticdbFilesAfterFailure = semanticdbFilesFrom(externalClassesDirA)
+        assertNoDiff(
+          pprint.apply(semanticdbFilesAfterSuccess, height = Int.MaxValue).render,
+          pprint.apply(semanticdbFilesAfterFailure, height = Int.MaxValue).render
+        )
+
+        // Set class and semanticdb files to check them in new independent bsp connection
+        classFilesPreviousIteration = classFilesAfterFailure
+        semanticdbFilesPreviousIteration = semanticdbFilesAfterFailure
+      }
+
+      loadBspState(workspace, projects, logger) { newStateAfterFailure =>
+        val freshCompiledState = newStateAfterFailure.compile(`A`)
+        val buildProject = freshCompiledState.toTestState.getProjectFor(`A`)
+        val externalClassesDirA = freshCompiledState.client.getUniqueClassesDirFor(buildProject)
+
+        val classFilesAfterFreshFailure = takeDirectorySnapshot(externalClassesDirA)
+        assertNoDiff(
+          pprint.apply(classFilesAfterFreshFailure, height = Int.MaxValue).render,
+          pprint.apply(classFilesPreviousIteration, height = Int.MaxValue).render
+        )
+
+        val semanticdbFilesAfterFreshFailure = semanticdbFilesFrom(externalClassesDirA)
+        assertNoDiff(
+          pprint.apply(semanticdbFilesAfterFreshFailure, height = Int.MaxValue).render,
+          pprint.apply(semanticdbFilesPreviousIteration, height = Int.MaxValue).render
+        )
       }
     }
   }

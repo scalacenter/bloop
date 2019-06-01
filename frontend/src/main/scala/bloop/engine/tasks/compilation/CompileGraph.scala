@@ -614,9 +614,8 @@ object CompileGraph {
      * turn an actual compiler failure into a partial failure with a dummy
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
-    def toPartialFailure(bundle: CompileBundle, res: Compiler.Result): PartialFailure = {
-      val results = Task.now(ResultBundle(res, None))
-      PartialFailure(bundle.project, FailedOrCancelledPromise, results)
+    def toPartialFailure(bundle: CompileBundle, results: ResultBundle): PartialFailure = {
+      PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
     }
 
     def loop(dag: Dag[Project]): CompileTraversal = {
@@ -631,7 +630,7 @@ object CompileGraph {
                 compile(Inputs(bundle, oracle, None, Map.empty)).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
-                    case res => Leaf(toPartialFailure(bundle, res))
+                    case _ => Leaf(toPartialFailure(bundle, results))
                   }
                 }
               }
@@ -682,7 +681,7 @@ object CompileGraph {
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) =>
                             Parent(partialSuccess(bundle, results), dagResults)
-                          case res => Parent(toPartialFailure(bundle, res), dagResults)
+                          case res => Parent(toPartialFailure(bundle, results), dagResults)
                         }
                       }
                     }
