@@ -242,31 +242,32 @@ object BspServer {
       socket: Socket,
       serverSocket: ServerSocket
   ): Unit = {
-    val deleteExternalDirsTask = latestState.build.projects.map { project =>
-      import bloop.io.Paths
-      import java.io.IOException
-      val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
-      if (externalClientClassesDir == project.genericClassesDir) Task.now(())
-      else Task.eval(Paths.delete(externalClientClassesDir)).executeWithFork
-    }
-
     // Close any socket communication asap and swallow exceptions
-    try socket.close()
-    catch { case NonFatal(t) => () } finally {
-      try serverSocket.close()
-      catch { case NonFatal(t) => () }
+    try {
+      try socket.close()
+      catch { case NonFatal(t) => () } finally {
+        try serverSocket.close()
+        catch { case NonFatal(t) => () }
+      }
+    } finally {
+      // Guarantee that we always schedule the external classes directories deletion
+      val deleteExternalDirsTasks = latestState.build.projects.map { project =>
+        import bloop.io.Paths
+        import java.io.IOException
+        val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+        if (externalClientClassesDir == project.genericClassesDir) Task.now(())
+        else Task.fork(Task.eval(Paths.delete(externalClientClassesDir))).materialize
+      }
+
+      val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.gatherUnordered(group))
+      Task
+        .sequence(groups)
+        .map(_.flatten)
+        .map(_ => ())
+        .runAsync(ExecutionContext.ioScheduler)
+
+      ()
     }
-
-    // Run deletion of client external classes directories in IO pool
-    val groups = deleteExternalDirsTask.grouped(4).map(group => Task.gatherUnordered(group))
-    Task
-      .sequence(groups)
-      .map(_.flatten)
-      .materialize
-      .map(_ => ())
-      .runAsync(ExecutionContext.ioScheduler)
-
-    ()
   }
 
   final class PumpOperator[A](pumpTarget: Observer.Sync[A], runningFuture: Cancelable)
