@@ -8,6 +8,12 @@ import java.nio.file.Files
 sealed trait ClientInfo {
 
   /**
+   * Returns the connection timestamp that was registered the first time the
+   * client established a connection with the build server.
+   */
+  def getConnectionTimestamp: Long
+
+  /**
    * Provides the classes directory that should be used to compile
    * a given project to. This information is client-specific because
    * clients are assigned unique, different classes directory to
@@ -21,13 +27,17 @@ object ClientInfo {
   final case class CliClientInfo(
       id: String
   ) extends ClientInfo {
+    private val connectionTimestamp = System.currentTimeMillis()
+    def getConnectionTimestamp: Long = connectionTimestamp
+
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {
       // CLI clients use the classes directory from the project, that's why
       // we don't support concurrent CLI client executions for the same build
       AbsolutePath(Files.createDirectories(project.genericClassesDir.underlying).toRealPath())
     }
 
-    override def toString(): String = s"cli client '$id'"
+    override def toString(): String =
+      s"cli client '$id' (since ${activeSinceMillis(connectionTimestamp)})"
   }
 
   final case class BspClientInfo(
@@ -35,6 +45,9 @@ object ClientInfo {
       version: String,
       bspVersion: String
   ) extends ClientInfo {
+    private val connectionTimestamp = System.currentTimeMillis()
+    def getConnectionTimestamp: Long = connectionTimestamp
+
     val uniqueId: String = s"${this.name}-${UUIDUtil.randomUUID}"
     import java.util.concurrent.ConcurrentHashMap
     private val uniqueDirs = new ConcurrentHashMap[Project, AbsolutePath]()
@@ -53,6 +66,16 @@ object ClientInfo {
       )
     }
 
-    override def toString(): String = s"bsp client '$name $version'"
+    override def toString(): String =
+      s"bsp client '$name $version' (since ${activeSinceMillis(connectionTimestamp)})"
+  }
+
+  def activeSinceMillis(startMs: Long) = {
+    import java.time.{Instant, Duration}
+    val start = Instant.ofEpochMilli(startMs)
+    val now = Instant.ofEpochMilli(System.currentTimeMillis())
+    val duration = Duration.between(start, now)
+    // https://stackoverflow.com/questions/3471397/how-can-i-pretty-print-a-duration-in-java
+    duration.toString().substring(2).replaceAll("(\\d[HMS])(?!$)", "$1 ").toLowerCase
   }
 }
