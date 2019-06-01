@@ -347,7 +347,6 @@ object Compiler {
         .withClassesDirectory(newClassesDir.toFile)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
-        //.withStore(inputs.store)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
