@@ -6,7 +6,7 @@ import _root_.mill.scalalib._
 import _root_.mill.eval.Evaluator
 import ammonite.ops._
 import bloop.config.util.ConfigUtil
-@deprecated("See http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop")
+@deprecated("1.3.0", "See http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop")
 object Bloop extends ExternalModule {
 
   def install(ev: Evaluator) = T.command {
@@ -33,7 +33,8 @@ object Bloop extends ExternalModule {
     val scalaConfig = module match {
       case s: ScalaModule =>
         T.task {
-          val pluginOptions = s.scalacPluginClasspath().map { pathRef => s"-Xplugin:${pathRef.path}"
+          val pluginOptions = s.scalacPluginClasspath().map { pathRef =>
+            s"-Xplugin:${pathRef.path}"
           }
 
           Some(
