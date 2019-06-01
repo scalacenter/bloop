@@ -244,18 +244,8 @@ final class BloopConverter(parameters: BloopParameters) {
     }
   }
 
-  // Gradle has removed the getConfiguration method and replaced it with getTargetConfiguration around version 4.0
   private def getTargetConfiguration(projectDependency: ProjectDependency): String = {
-    try {
-      val getTargetConfiguration = classOf[ProjectDependency].getMethod("getTargetConfiguration")
-      val targetConfigName = getTargetConfiguration.invoke(projectDependency)
-      if (targetConfigName == null)
-        Dependency.DEFAULT_CONFIGURATION
-      else
-        targetConfigName.asInstanceOf[String]
-    } catch {
-      case _: NoSuchMethodException => projectDependency.getConfiguration;
-    }
+    Option(projectDependency.getTargetConfiguration).getOrElse(Dependency.DEFAULT_CONFIGURATION)
   }
 
   // find the source of the data going into an archive
@@ -291,18 +281,10 @@ final class BloopConverter(parameters: BloopParameters) {
     project.getConvention.findPlugin(classOf[JavaPluginConvention]) != null
   }
 
-  // Gradle has removed getClassesDir and replaced with getClassesDirs - version 4.0
   private def matchesOutputDir(sourceSetOutput: SourceSetOutput, outputDir: File): Boolean = {
-    try {
-      val getClassesDirs = classOf[SourceSetOutput].getMethod("getClassesDirs")
-      val classesDirs = getClassesDirs.invoke(sourceSetOutput)
-      if (classesDirs == null)
-        false
-      else
-        classesDirs.asInstanceOf[FileCollection].getFiles.asScala.contains(outputDir)
-    } catch {
-      case _: NoSuchMethodException => sourceSetOutput.getClassesDir == outputDir;
-    }
+    Option(sourceSetOutput.getClassesDirs).map {
+      _.getFiles.asScala.contains(outputDir)
+    }.getOrElse(false)
   }
 
   private def isProjectSourceSet(

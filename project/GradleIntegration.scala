@@ -31,7 +31,7 @@ object GradleIntegration {
           logger.info("Extracting the api path from gradle...")
           val cmdBase =
             if (isWindows) "cmd.exe" :: "/C" :: s"${gradlePath}.bat" :: Nil else gradlePath :: Nil
-          val gradleCmd = cmdBase ++ Seq("--stacktrace", "--no-daemon", "printClassPath")
+          val gradleCmd = cmdBase ++ Seq("--stacktrace", "--quiet", "--no-daemon", "printClassPath")
           val result: String = Process(gradleCmd, dummyProjectDir).!!
 
           copyGeneratedArtifact(logger, libDir, targetApi, result, "gradle-api", version)
@@ -53,7 +53,7 @@ object GradleIntegration {
       version: String
   ): Unit = {
     val splitCharacter = if (isWindows) ';' else ':'
-    classpath.split(splitCharacter).find(_.endsWith(s"$name-$version.jar")) match {
+    classpath.split(splitCharacter).map{ _.trim }.find(_.endsWith(s"$name-$version.jar")) match {
       case Some(gradleApi) =>
         // Copy the api to the lib jar so that it's accessible for the compiler
         val gradleApiJar = new File(gradleApi)
@@ -73,7 +73,7 @@ object GradleIntegration {
       |  testCompile gradleTestKit()
       |}
       |
-      |task("printClassPath") << {
+      |task("printClassPath") {
       |  println project.sourceSets.test.runtimeClasspath.asPath
       |}
     """.stripMargin
