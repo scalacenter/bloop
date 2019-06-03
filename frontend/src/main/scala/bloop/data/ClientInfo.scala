@@ -142,22 +142,22 @@ object ClientInfo {
   }
 
   def deleteOrphanClientBspDirectories(
-      bspConnectedClients: ConcurrentHashMap[BspClientInfo, AbsolutePath],
+      currentBspClients: () => Traversable[BspClientInfo],
       logger: Logger,
       currentAttempts: Int = 0
   ): Unit = {
+    println("deleteOrphanClientBspDirectories")
     if (currentAttempts >= 5) {
       // Give up cleanup temporarily if clients map is constantly changing and cannot be done safely
       ()
     } else {
       import scala.collection.JavaConverters._
-      def obtainCurrentClients = bspConnectedClients.keySet.asScala.toSet
-      val initialBspConnectedClients = obtainCurrentClients
-      val bspClientIds = new mutable.ListBuffer[String]()
+      val initialBspConnectedClients = currentBspClients()
+      val connectedBspClientIds = new mutable.ListBuffer[String]()
       val projectsToVisit = new mutable.HashSet[Project]()
-      // Filter out those that may still be in the map but don't have an active connection
-      initialBspConnectedClients.iterator.filter(_.hasAnActiveConnection).foreach { client =>
-        bspClientIds.+=(client.uniqueId)
+      initialBspConnectedClients.foreach { client =>
+        if (client.hasAnActiveConnection)
+          connectedBspClientIds.+=(client.uniqueId)
         client.uniqueDirs.keySet.asScala.iterator.foreach { project =>
           projectsToVisit.+=(project)
         }
@@ -195,10 +195,10 @@ object ClientInfo {
         try {
           val allExistingClientClassesDirs =
             Files.list(bspClientClasses.underlying).iterator().asScala
-          val currentBspConnectedClients = obtainCurrentClients
+          val currentBspConnectedClients = currentBspClients()
           if (currentBspConnectedClients != initialBspConnectedClients) {
             deleteOrphanClientBspDirectories(
-              bspConnectedClients,
+              currentBspClients,
               logger,
               currentAttempts = currentAttempts + 1
             )
@@ -207,11 +207,15 @@ object ClientInfo {
             Files.list(bspClientClasses.underlying).iterator().asScala.foreach { existingDir =>
               val dirName = existingDir.getFileName().toString
               // Whitelist those that are owned by clients that are active in the server
-              val isWhitelisted = bspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
+              val isWhitelisted =
+                connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
               if (isWhitelisted) ()
               else {
-                try bloop.io.Paths.delete(AbsolutePath(existingDir))
-                catch {
+                try {
+                  val toDeleteDir = AbsolutePath(existingDir)
+                  logger.debug(s"Deleting orphan directory ${toDeleteDir}")(DebugFilter.All)
+                  bloop.io.Paths.delete(toDeleteDir)
+                } catch {
                   case _: NoSuchFileException => ()
                   case NonFatal(t) =>
                     logger.debug(

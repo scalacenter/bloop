@@ -9,6 +9,11 @@ import bloop.internal.build.BuildInfo
 import java.nio.file.attribute.FileTime
 import bloop.io.AbsolutePath
 import bloop.io.{Paths => BloopPaths}
+import java.nio.file.Files
+import monix.eval.Task
+import bloop.engine.ExecutionContext
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -133,7 +138,65 @@ class BspCompileSpec(
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin,
-          compiledState.lastDiagnostics(`A`)
+          secondCompiledState.lastDiagnostics(`A`)
+        )
+      }
+    }
+  }
+
+  test("compile a simple build and ensure orphan client classes dirs are removed") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      val cliState = loadState(workspace, projects, logger)
+      val compiledState = cliState.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      // Add extra client classes directory
+      val projectA = compiledState.getProjectFor(`A`)
+      val bspClientsRootDir = projectA.bspClientClassesDirectories
+      val orphanClientClassesDirName = projectA.genericClassesDir.underlying.getFileName().toString
+      val orphanClientClassesDir =
+        bspClientsRootDir.resolve(s"$orphanClientClassesDirName-test-123123123")
+      Files.createDirectories(orphanClientClassesDir.underlying)
+
+      loadBspState(workspace, projects, logger) { bspState =>
+        val secondCompiledState = bspState.compile(`A`)
+        assert(secondCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+        assertSameExternalClassesDirs(compiledState, secondCompiledState.toTestState, projects)
+        assertNoDiff(
+          """#1: task start 1
+            |  -> Msg: Start no-op compilation for a
+            |  -> Data kind: compile-task
+            |#1: task finish 1
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin,
+          secondCompiledState.lastDiagnostics(`A`)
+        )
+      }
+
+      // Wait until the extra directory is finally deleted at the end of the bsp session
+      TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
+        Task {
+          var check: Boolean = true
+          while (check) {
+            // The task cleaning up client classes directories should have removed the extra dir
+            check = orphanClientClassesDir.exists
+            Thread.sleep(100)
+          }
+        }.timeoutTo(
+          FiniteDuration(10, TimeUnit.SECONDS),
+          Task(sys.error(s"Expected deletion of $orphanClientClassesDir"))
         )
       }
     }

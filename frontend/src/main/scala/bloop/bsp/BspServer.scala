@@ -86,21 +86,6 @@ object BspServer {
       val isCommunicationActive = Atomic(true)
       val connectionURI = uri(handle)
 
-      // Spawn deletion of orphan client directories every time we start a new connection
-      ioScheduler.scheduleOnce(
-        0,
-        TimeUnit.MILLISECONDS,
-        new Runnable {
-          override def run(): Unit = {
-            import scala.collection.JavaConverters._
-            ClientInfo.deleteOrphanClientBspDirectories(
-              connectedBspClients,
-              logger
-            )
-          }
-        }
-      )
-
       // Do NOT change this log, it's used by clients to know when to start a connection
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
       promiseWhenStarted.foreach(_.success(()))
@@ -158,17 +143,43 @@ object BspServer {
       def onFinishOrCancel[T](cancelled: Boolean, result: Option[Throwable]) = Task {
         if (isCommunicationActive.getAndSet(false)) {
           val latestState = provider.stateAfterExecution
+          val initializedClientInfo = provider.unregisterClient
+
+          def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
+            import scala.collection.JavaConverters._
+            val clients0 = connectedBspClients.keySet().asScala.toSet
+            // Add to current clients the client we're about to remove to make sure we clean its projects
+            initializedClientInfo match {
+              case Some(bspInfo) => clients0.+(bspInfo)
+              case None => clients0
+            }
+          }
+
           try {
-            provider.unregisterClient()
             if (cancelled) error(s"BSP server cancelled, closing socket...")
             else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
             cancelable.cancel()
             server.cancelAllRequests()
           } finally {
+
+            // Spawn deletion of orphan client directories every time we start a new connection
+            ioScheduler.scheduleOnce(
+              0,
+              TimeUnit.MILLISECONDS,
+              new Runnable {
+                override def run(): Unit = {
+                  ClientInfo.deleteOrphanClientBspDirectories(
+                    () => askCurrentBspClients,
+                    logger
+                  )
+                }
+              }
+            )
+
             // The code above should not throw, but move this code to a finalizer to be 100% sure
             closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
+            ()
           }
-          ()
         }
       }
 

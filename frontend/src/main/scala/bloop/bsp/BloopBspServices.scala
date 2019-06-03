@@ -136,7 +136,7 @@ final class BloopBspServices(
   }
 
   // Completed whenever the initialization happens, used in `initialized`
-  val clientInfo = Promise[ClientInfo]()
+  val clientInfo = Promise[ClientInfo.BspClientInfo]()
   val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
 
   /**
@@ -145,16 +145,16 @@ final class BloopBspServices(
    * This method is typically called from `BspServer` when a client is
    * disconnected for any reason.
    */
-  def unregisterClient(): Unit = {
+  def unregisterClient: Option[ClientInfo.BspClientInfo] = {
     clientInfo.future.value match {
-      case None => ()
+      case None => None
       case Some(client) =>
         client match {
           case Success(client) =>
             val configDir = currentState.build.origin
             connectedBspClients.remove(client, configDir)
-            ()
-          case Failure(_) => ()
+            Some(client)
+          case Failure(_) => None
         }
     }
   }
