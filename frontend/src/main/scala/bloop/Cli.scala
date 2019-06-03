@@ -281,8 +281,8 @@ object Cli {
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
 
-    val isClientConnected = AtomicBoolean(false)
-    pool.addListener(_ => isClientConnected.set(true))
+    val isClientConnected = AtomicBoolean(true)
+    pool.addListener(_ => isClientConnected.set(false))
     val client = ClientInfo.CliClientInfo("bloop-cli", () => isClientConnected.get)
     val currentState =
       State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
