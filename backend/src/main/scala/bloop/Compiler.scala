@@ -68,9 +68,8 @@ case class CompileOutPaths(
 ) {
   // Don't change the internals of this method without updating how they are cleaned up
   private def createInternalNewDir(generateDirName: String => String): AbsolutePath = {
-    // Create internal directories under a grouped internal dir to ease cleanup
     val parentInternalDir =
-      genericClassesDir.underlying.getParent().resolve("bloop-internal-classes")
+      CompileOutPaths.createInternalClassesRootDir(genericClassesDir).underlying
 
     /*
      * Use external classes dir as the beginning of the new internal directory name.
@@ -105,6 +104,21 @@ case class CompileOutPaths(
       if (newName.contains("pickles")) newName
       else "pickles-" + newName
     }
+  }
+}
+
+object CompileOutPaths {
+
+  /**
+   * Defines a project-specific root directory where all the internal classes
+   * directories used for compilation are created.
+   */
+  def createInternalClassesRootDir(projectGenericClassesDir: AbsolutePath): AbsolutePath = {
+    AbsolutePath(
+      Files.createDirectories(
+        projectGenericClassesDir.underlying.getParent().resolve("bloop-internal-classes")
+      )
+    )
   }
 }
 

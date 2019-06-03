@@ -4,7 +4,7 @@ import java.util.Optional
 import java.nio.file.Files
 
 import bloop.{Compiler, CompileProducts}
-import bloop.data.Project
+import bloop.data.{Project, ClientInfo}
 import bloop.Compiler.Result
 import bloop.engine.tasks.compilation.{
   FinalCompileResult,
@@ -26,6 +26,14 @@ import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import bloop.UniqueCompileInputs
+import bloop.CompileOutPaths
+import scala.collection.mutable
+import java.nio.file.Path
+import bloop.io.Paths
+import java.nio.file.NoSuchFileException
+import monix.execution.misc.NonFatal
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -106,15 +114,79 @@ object ResultsCache {
   private[bloop] val emptyForTests: ResultsCache =
     new ResultsCache(Map.empty, Map.empty)
 
-  def load(build: Build, cwd: AbsolutePath, logger: Logger): ResultsCache = {
-    val handle = loadAsync(build, cwd, logger).runAsync(ExecutionContext.ioScheduler)
-    Await.result(handle, Duration.Inf)
+  private final val cleanedOrphanDirsInBuild = new ConcurrentHashMap[AbsolutePath, Boolean]()
+
+  def load(
+      build: Build,
+      cwd: AbsolutePath,
+      cleanOrphanedInternalDirs: Boolean,
+      logger: Logger
+  ): ResultsCache = {
+    val handle = loadAsync(build, cwd, cleanOrphanedInternalDirs, logger)
+    Await.result(handle.runAsync(ExecutionContext.ioScheduler), Duration.Inf)
   }
 
-  def loadAsync(build: Build, cwd: AbsolutePath, logger: Logger): Task[ResultsCache] = {
+  def loadAsync(
+      build: Build,
+      cwd: AbsolutePath,
+      cleanOrphanedInternalDirs: Boolean,
+      logger: Logger
+  ): Task[ResultsCache] = {
     import bloop.util.JavaCompat.EnrichOptional
 
-    def fetchPreviousResult(p: Project): Task[ResultBundle] = {
+    def cleanUpOrphanedInternalDirs(
+        project: Project,
+        analysisClassesDir: AbsolutePath
+    ): Task[Unit] = {
+      if (cleanOrphanedInternalDirs) Task.unit
+      else {
+        val internalClassesDir =
+          CompileOutPaths.createInternalClassesRootDir(project.genericClassesDir)
+        // This is a surprise, skip any cleanup if internal analysis dir doesn't
+        // live under the internal classes dir root assigned to the project
+        if (internalClassesDir != analysisClassesDir.getParent) Task.unit
+        else {
+          ClientInfo.toGenericClassesDir(analysisClassesDir) match {
+            case Some(genericClassesName) =>
+              val deleteOrphans = Task {
+                import scala.collection.JavaConverters._
+                val orphanInternalDirs = new mutable.ListBuffer[Path]()
+                Files.list(internalClassesDir.underlying).iterator.asScala.foreach { path =>
+                  val fileName = path.getFileName().toString
+                  /*
+                   * An internal classes directory is orphan if it's mapped to
+                   * the same project and it's not the analysis classes
+                   * directory from which we're loading the compile analysis.
+                   */
+                  val isOrphan =
+                    fileName.startsWith(genericClassesName) &&
+                      path != analysisClassesDir.underlying
+                  if (isOrphan) {
+                    orphanInternalDirs.+=(path)
+                  }
+                }
+
+                orphanInternalDirs.foreach { orphanDir =>
+                  try {
+                    Paths.delete(AbsolutePath(orphanDir))
+                  } catch {
+                    case _: NoSuchFileException => ()
+                    case NonFatal(t) =>
+                      logger.debug(
+                        s"Unexpected error when pruning internal classes dir $orphanDir"
+                      )(DebugFilter.All)
+                      logger.trace(t)
+                  }
+                }
+              }
+              deleteOrphans.materialize.map(_ => ())
+            case None => Task.unit
+          }
+        }
+      }
+    }
+
+    def fetchPreviousResult(p: Project): Task[(ResultBundle, Option[Task[Unit]])] = {
       val analysisFile = p.analysisOut
       if (analysisFile.exists) {
         Task {
@@ -135,36 +207,51 @@ object ResultsCache {
                       val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
-                      // TODO: Figure out a way to populate from the macros in the previous run
+
+                      // TODO: Figure out a way to populate macros from previous run after restart
                       val ms = new Array[String](0)
                       val products =
                         CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty, ms)
-                      ResultBundle(
+                      val bundle = ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false),
                         Some(LastSuccessfulResult(inputs, products, Task.now(())))
                       )
+
+                      // Compute a cleanup task if this is the first time loading this project
+                      // It's fine to rerun this task whenever the classes directory changes
+                      val cleanupTask = {
+                        var cleanupTask0: Task[Unit] = Task.unit
+                        val cleanupKey = AbsolutePath(classesDir)
+                        cleanedOrphanDirsInBuild.computeIfAbsent(cleanupKey, (_: AbsolutePath) => {
+                          cleanupTask0 = cleanUpOrphanedInternalDirs(p, cleanupKey)
+                          true
+                        })
+                        cleanupTask0
+                      }
+
+                      bundle -> Some(cleanupTask)
                     case None =>
                       logger.debug(
                         s"Analysis '$analysisFile' last compilation for '${p.name}' didn't contain classes dir."
                       )
-                      ResultBundle.empty
+                      ResultBundle.empty -> None
                   }
                 case None =>
                   logger.debug(
                     s"Analysis '$analysisFile' for '${p.name}' didn't contain last compilation."
                   )
-                  ResultBundle.empty
+                  ResultBundle.empty -> None
               }
             case None =>
               logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
-              ResultBundle.empty
+              ResultBundle.empty -> None
           }
 
         }
       } else {
         Task.now {
           logger.debug(s"Missing analysis file for project '${p.name}'")
-          ResultBundle.empty
+          ResultBundle.empty -> None
         }
       }
     }
@@ -172,9 +259,18 @@ object ResultsCache {
     val all = build.projects.map(p => fetchPreviousResult(p).map(r => p -> r))
     Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
       val newCache = new ResultsCache(Map.empty, Map.empty)
-      projectResults.foldLeft(newCache) {
-        case (rs, (p, r)) => rs.addResult(p, r)
+      val cleanupTasks = new mutable.ListBuffer[Task[Unit]]()
+      val results = projectResults.foldLeft(newCache) {
+        case (rs, (p, (result, cleanupTask))) =>
+          cleanupTask.foreach(t => cleanupTasks.+=(t))
+          rs.addResult(p, result)
       }
+
+      // Spawn the cleanup tasks sequentially in the background and forget about it
+      Task.sequence(cleanupTasks).materialize.runAsync(ExecutionContext.ioScheduler)
+
+      // Return the collected results per project
+      results
     }
   }
 }

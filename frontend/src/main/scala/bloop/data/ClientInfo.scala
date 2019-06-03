@@ -67,6 +67,7 @@ object ClientInfo {
       bspVersion: String,
       private val isConnected: () => Boolean
   ) extends ClientInfo {
+    // The format of this unique id is used in `toGenericClassesDir`
     val uniqueId: String = s"${this.name}-${UUIDUtil.randomUUID}"
 
     def hasAnActiveConnection: Boolean = isConnected()
@@ -100,6 +101,35 @@ object ClientInfo {
 
     override def toString(): String =
       s"bsp client '$name $version' (since ${activeSinceMillis(connectionTimestamp)})"
+  }
+
+  val internalClassesNameFormat = "(.*)-[^-]*-[^-]*-[^-]*$".r
+
+  /**
+   * Returns the path from which we derived an internal compile classes directory.
+   *
+   * This method relies on two key invariants:
+   *
+   *   1. Internal compile classes directories reuse the external client classes
+   *      directories name as a prefix. This logic is implemented in
+   *      [[bloop.CompileOutPaths]].
+   *   2. External client classes directories use the generic classes directory
+   *      name (which we are trying to obtain here) as the suffix of their name and
+   *      then they append a well-specified format of `$clientName-$randomId` (see
+   *      `uniqueId` in `BspClientInfo`).
+   *
+   * So, in short, this function turns
+   * `$genericClassesDirName-$clientName-$randomId-$internalId` into
+   * `$genericClassesDirName`.
+   *
+   * @return The generic classes name of the project associated with the internal classes dir.
+   */
+  def toGenericClassesDir(internalClassesDir: AbsolutePath): Option[String] = {
+    val internalDirName = internalClassesDir.underlying.getFileName().toString
+    internalDirName match {
+      case internalClassesNameFormat(genericClassesName) => Some(genericClassesName)
+      case _ => None
+    }
   }
 
   def activeSinceMillis(startMs: Long) = {
