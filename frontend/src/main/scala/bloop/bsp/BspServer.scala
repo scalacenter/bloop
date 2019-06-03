@@ -62,7 +62,7 @@ object BspServer {
   }
 
   private final val connectedBspClients =
-    new ConcurrentHashMap[AbsolutePath, ClientInfo.BspClientInfo]()
+    new ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath]()
 
   def run(
       cmd: ValidatedBsp,

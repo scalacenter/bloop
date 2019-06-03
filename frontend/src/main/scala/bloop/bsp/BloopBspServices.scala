@@ -44,7 +44,7 @@ final class BloopBspServices(
     exitStatus: AtomicInt,
     observer: Option[Observer.Sync[State]],
     isClientConnected: AtomicBoolean,
-    connectedBspClients: ConcurrentHashMap[AbsolutePath, ClientInfo.BspClientInfo],
+    connectedBspClients: ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath],
     computationScheduler: Scheduler,
     ioScheduler: Scheduler
 ) {
@@ -152,7 +152,7 @@ final class BloopBspServices(
         client match {
           case Success(client) =>
             val configDir = currentState.build.origin
-            connectedBspClients.remove(configDir, client)
+            connectedBspClients.remove(client, configDir)
             ()
           case Failure(_) => ()
         }
@@ -180,7 +180,7 @@ final class BloopBspServices(
     reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       clientInfo.success(client)
-      connectedBspClients.put(configDir, client)
+      connectedBspClients.put(client, configDir)
       observer.foreach(_.onNext(state.copy(client = client)))
       Right(
         bsp.InitializeBuildResult(

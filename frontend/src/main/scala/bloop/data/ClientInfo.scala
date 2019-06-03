@@ -142,7 +142,7 @@ object ClientInfo {
   }
 
   def deleteOrphanClientBspDirectories(
-      bspConnectedClients: ConcurrentHashMap[AbsolutePath, BspClientInfo],
+      bspConnectedClients: ConcurrentHashMap[BspClientInfo, AbsolutePath],
       logger: Logger,
       currentAttempts: Int = 0
   ): Unit = {
@@ -151,7 +151,7 @@ object ClientInfo {
       ()
     } else {
       import scala.collection.JavaConverters._
-      def obtainCurrentClients = bspConnectedClients.values.asScala.toSet
+      def obtainCurrentClients = bspConnectedClients.keySet.asScala.toSet
       val initialBspConnectedClients = obtainCurrentClients
       val bspClientIds = new mutable.ListBuffer[String]()
       val projectsToVisit = new mutable.HashSet[Project]()
