@@ -146,7 +146,6 @@ object ClientInfo {
       logger: Logger,
       currentAttempts: Int = 0
   ): Unit = {
-    println("deleteOrphanClientBspDirectories")
     if (currentAttempts >= 5) {
       // Give up cleanup temporarily if clients map is constantly changing and cannot be done safely
       ()

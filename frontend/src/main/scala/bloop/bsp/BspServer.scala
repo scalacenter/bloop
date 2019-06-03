@@ -29,6 +29,7 @@ import scala.concurrent.Promise
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import monix.execution.cancelables.AssignableCancelable
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
@@ -93,7 +94,6 @@ object BspServer {
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
-      val status = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
 
@@ -101,7 +101,8 @@ object BspServer {
       val bspLogger = new BspClientLogger(logger)
       val client = new BloopLanguageClient(out, bspLogger)
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
-      val provider = new BloopBspServices(state, client, config, in, status, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
+      val stopBspConnection = AssignableCancelable.single()
+      val provider = new BloopBspServices(state, client, config, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
       val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
@@ -148,7 +149,8 @@ object BspServer {
           def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
             import scala.collection.JavaConverters._
             val clients0 = connectedBspClients.keySet().asScala.toSet
-            // Add to current clients the client we're about to remove to make sure we clean its projects
+            // Add client that will be removed from map always so that its
+            // project directories are visited and orphan dirs pruned
             initializedClientInfo match {
               case Some(bspInfo) => clients0.+(bspInfo)
               case None => clients0
@@ -184,7 +186,7 @@ object BspServer {
       }
 
       import monix.reactive.Consumer
-      val singleThreadedConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
+      val singleMessageConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
         import scala.meta.jsonrpc.Response.Empty
         import scala.meta.jsonrpc.Response.Success
         val taskToRun = {
@@ -209,7 +211,7 @@ object BspServer {
        * no way to call the cancelable produced by the consumer.
        */
       val consumingWithBalancedForeach = Task.create[List[Unit]] { (scheduler, cb) =>
-        val parallelConsumer = Consumer.loadBalance(4, singleThreadedConsumer)
+        val parallelConsumer = Consumer.loadBalance(4, singleMessageConsumer)
         val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
         val cancelOut = Cancelable(() => out.onComplete())
         completeSubscribers = CompositeCancelable(cancelOut)
@@ -222,20 +224,28 @@ object BspServer {
         .doOnCancel(onFinishOrCancel(true, None))
         .doOnFinish(result => onFinishOrCancel(false, result))
         .flatMap(_ => server.awaitRunningTasks.map(_ => provider.stateAfterExecution))
+
+      // Start consumer in the background and assign cancelable
       val consumerFuture = consumingTask.runAsync(ioScheduler)
+      stopBspConnection.:=(Cancelable(() => consumerFuture.cancel()))
 
       /*
-       * Cancel any ongoing tasks if the socket `InputStream` completed but the
-       * provider did not receive the appropriate shutdown mechanism.
+       * Defines a task that gets called whenever the socket `InputStream` is
+       * closed. This can happen for several reasons:
        *
-       * This can happen when clients suddently crash or exit with the Unix
-       * domain and Windows named pipe implementation, because in these
-       * implementations there are no special protocol messages to signal
-       * closing, unlike TCP that has `FIN` and `RST`. Unfortunately with
-       * Domain Socket and Windows named pipes, `socket.isClosed()` will always
-       * be false from the server side because of this reason.
+       *   1. Clients quickly sent an exit request and closed its socket input
+       *      stream.
+       *   2. Clients suddently crash/exit (especially when using Unix domain
+       *      sockets and Windows named pipes as their implementation doesn't signal
+       *      a forceful client close explicitly unlike TCP with `FIN` and `RST`,
+       *      which means checking `isClosed` from the server side will always be
+       *      false.)
+       *
+       * This task makes sure we stop any processing for this BSP client if we
+       * haven't yet done that in the handling of exit within
+       * `BloopBspServices`.
        */
-      val cancelIfAwaitingExit: Task[Unit] = Task {
+      val cancelWhenStreamIsClosed: Task[Unit] = Task {
         if (!provider.exited.get) {
           consumerFuture.cancel()
         }
@@ -244,7 +254,7 @@ object BspServer {
       val startListeningToMessages = messages
         .liftByOperator(new PumpOperator(bufferedObserver, consumerFuture))
         .completedL
-        .doOnFinish(_ => cancelIfAwaitingExit)
+        .doOnFinish(_ => cancelWhenStreamIsClosed)
         .flatMap { _ =>
           Task.fromFuture(consumerFuture).map { latestState =>
             // Complete the states observable to signal exit on consumers

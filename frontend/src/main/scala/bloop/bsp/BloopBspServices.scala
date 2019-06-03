@@ -35,13 +35,13 @@ import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.Failure
+import monix.execution.Cancelable
 
 final class BloopBspServices(
     callSiteState: State,
     client: JsonRpcClient,
     relativeConfigPath: RelativePath,
-    socketInput: InputStream,
-    exitStatus: AtomicInt,
+    stopBspServer: Cancelable,
     observer: Option[Observer.Sync[State]],
     isClientConnected: AtomicBoolean,
     connectedBspClients: ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath],
@@ -744,24 +744,20 @@ final class BloopBspServices(
   import monix.execution.atomic.Atomic
   val exited = Atomic(false)
   def exit(shutdown: bsp.Exit): Task[Unit] = {
-    def closeServices(code: Int): Unit = {
-      if (exited.getAndSet(true)) {
-        exitStatus.set(code)
-        // Closing the input stream is our way to stopping these services
-        try socketInput.close()
-        catch { case t: Throwable => () }
-        ()
+    def closeServices(): Unit = {
+      if (!exited.getAndSet(true)) {
+        stopBspServer.cancel()
       }
     }
 
     isShutdownTask
       .timeoutTo(
-        FiniteDuration(1, TimeUnit.SECONDS),
+        FiniteDuration(100, TimeUnit.MILLISECONDS),
         Task.now(Left(()))
       )
       .map {
-        case Left(_) => closeServices(1)
-        case Right(_) => closeServices(0)
+        case Left(_) => closeServices
+        case Right(_) => closeServices
       }
   }
 }

@@ -144,7 +144,7 @@ class BspCompileSpec(
     }
   }
 
-  test("compile a simple build and ensure orphan client classes dirs are removed") {
+  test("create orphan client classes directory and make sure loading a BSP session cleans it up") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -165,28 +165,19 @@ class BspCompileSpec(
       val bspClientsRootDir = projectA.bspClientClassesDirectories
       val orphanClientClassesDirName = projectA.genericClassesDir.underlying.getFileName().toString
       val orphanClientClassesDir =
-        bspClientsRootDir.resolve(s"$orphanClientClassesDirName-test-123123123")
+        bspClientsRootDir.resolve(s"$orphanClientClassesDirName-test-123aAfd12i23")
       Files.createDirectories(orphanClientClassesDir.underlying)
 
       loadBspState(workspace, projects, logger) { bspState =>
-        val secondCompiledState = bspState.compile(`A`)
-        assert(secondCompiledState.status == ExitStatus.Ok)
-        assertValidCompilationState(secondCompiledState, projects)
-        assertSameExternalClassesDirs(compiledState, secondCompiledState.toTestState, projects)
-        assertNoDiff(
-          """#1: task start 1
-            |  -> Msg: Start no-op compilation for a
-            |  -> Data kind: compile-task
-            |#1: task finish 1
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report""".stripMargin,
-          secondCompiledState.lastDiagnostics(`A`)
-        )
+        // Ask for scala options to force client to create a client classes dir for `A`
+        val _ = bspState.scalaOptions(`A`)
       }
 
       // Wait until the extra directory is finally deleted at the end of the bsp session
-      TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
+      TestUtil.await(
+        FiniteDuration(2, TimeUnit.SECONDS),
+        bloop.engine.ExecutionContext.ioScheduler
+      ) {
         Task {
           var check: Boolean = true
           while (check) {
@@ -195,7 +186,7 @@ class BspCompileSpec(
             Thread.sleep(100)
           }
         }.timeoutTo(
-          FiniteDuration(10, TimeUnit.SECONDS),
+          FiniteDuration(2, TimeUnit.SECONDS),
           Task(sys.error(s"Expected deletion of $orphanClientClassesDir"))
         )
       }
