@@ -108,7 +108,7 @@ final case class Project(
    */
   def bspClientClassesDirectories: AbsolutePath = {
     import java.nio.file.Files
-    val target = genericClassesDir.getParent.resolve("bsp-clients-classes")
+    val target = genericClassesDir.getParent.resolve("bloop-bsp-clients-classes")
     Files.createDirectories(target.underlying)
     target
   }
