@@ -3,6 +3,8 @@ package bloop.bsp
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.nio.file.FileSystems
+import java.util.concurrent.ConcurrentHashMap
 
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
@@ -26,11 +28,13 @@ import monix.eval.Task
 import monix.reactive.Observer
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
+import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import java.nio.file.FileSystems
+import scala.util.Success
+import scala.util.Failure
 
 final class BloopBspServices(
     callSiteState: State,
@@ -39,6 +43,8 @@ final class BloopBspServices(
     socketInput: InputStream,
     exitStatus: AtomicInt,
     observer: Option[Observer.Sync[State]],
+    isClientConnected: AtomicBoolean,
+    connectedBspClients: ConcurrentHashMap[AbsolutePath, ClientInfo.BspClientInfo],
     computationScheduler: Scheduler,
     ioScheduler: Scheduler
 ) {
@@ -134,6 +140,26 @@ final class BloopBspServices(
   val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
 
   /**
+   * Unregisters this client if the BSP services registered one.
+   *
+   * This method is typically called from `BspServer` when a client is
+   * disconnected for any reason.
+   */
+  def unregisterClient(): Unit = {
+    clientInfo.future.value match {
+      case None => ()
+      case Some(client) =>
+        client match {
+          case Success(client) =>
+            val configDir = currentState.build.origin
+            connectedBspClients.remove(configDir, client)
+            ()
+          case Failure(_) => ()
+        }
+    }
+  }
+
+  /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
    *
    * @param params The params request that we get from the client.
@@ -144,11 +170,17 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    val client = ClientInfo.BspClientInfo(params.displayName, params.version, params.bspVersion)
+    val client = ClientInfo.BspClientInfo(
+      params.displayName,
+      params.version,
+      params.bspVersion,
+      () => isClientConnected.get
+    )
 
     reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       clientInfo.success(client)
+      connectedBspClients.put(configDir, client)
       observer.foreach(_.onNext(state.copy(client = client)))
       Right(
         bsp.InitializeBuildResult(

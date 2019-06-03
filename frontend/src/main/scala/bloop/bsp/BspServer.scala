@@ -27,6 +27,8 @@ import monix.execution.cancelables.CompositeCancelable
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
@@ -59,6 +61,9 @@ object BspServer {
     }
   }
 
+  private final val connectedBspClients =
+    new ConcurrentHashMap[AbsolutePath, ClientInfo.BspClientInfo]()
+
   def run(
       cmd: ValidatedBsp,
       state: State,
@@ -78,7 +83,23 @@ object BspServer {
     }
 
     def startServer(handle: ConnectionHandle): Task[State] = {
+      val isCommunicationActive = Atomic(true)
       val connectionURI = uri(handle)
+
+      // Spawn deletion of orphan client directories every time we start a new connection
+      ioScheduler.scheduleOnce(
+        0,
+        TimeUnit.MILLISECONDS,
+        new Runnable {
+          override def run(): Unit = {
+            import scala.collection.JavaConverters._
+            ClientInfo.deleteOrphanClientBspDirectories(
+              connectedBspClients,
+              logger
+            )
+          }
+        }
+      )
 
       // Do NOT change this log, it's used by clients to know when to start a connection
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
@@ -95,7 +116,7 @@ object BspServer {
       val bspLogger = new BspClientLogger(logger)
       val client = new BloopLanguageClient(out, bspLogger)
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
-      val provider = new BloopBspServices(state, client, config, in, status, externalObserver, scheduler, ioScheduler)
+      val provider = new BloopBspServices(state, client, config, in, status, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
       val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
@@ -134,15 +155,20 @@ object BspServer {
         Cancelable.cancelAll(completeSubscribers :: tasksToCancel)
       }
 
-      val isCommunicationActive = Atomic(true)
       def onFinishOrCancel[T](cancelled: Boolean, result: Option[Throwable]) = Task {
         if (isCommunicationActive.getAndSet(false)) {
-          if (cancelled) error(s"BSP server cancelled, closing socket...")
-          else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
-          cancelable.cancel()
-          server.cancelAllRequests()
           val latestState = provider.stateAfterExecution
-          closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
+          try {
+            provider.unregisterClient()
+            if (cancelled) error(s"BSP server cancelled, closing socket...")
+            else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
+            cancelable.cancel()
+            server.cancelAllRequests()
+          } finally {
+            // The code above should not throw, but move this code to a finalizer to be 100% sure
+            closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
+          }
+          ()
         }
       }
 

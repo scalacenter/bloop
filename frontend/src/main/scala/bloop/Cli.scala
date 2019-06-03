@@ -24,6 +24,7 @@ import caseapp.core.CommandsMessages
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import scala.util.Try
+import monix.execution.atomic.AtomicBoolean
 
 class Cli
 object Cli {
@@ -279,7 +280,10 @@ object Cli {
 
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
-    val client = ClientInfo.CliClientInfo("bloop-cli")
+
+    val isClientConnected = AtomicBoolean(false)
+    pool.addListener(_ => isClientConnected.set(true))
+    val client = ClientInfo.CliClientInfo("bloop-cli", () => isClientConnected.get)
     val currentState =
       State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
 

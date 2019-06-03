@@ -34,7 +34,7 @@ object Bloop extends CaseApp[CliOptions] {
       "The Bloop shell provides less features, is not supported and can be removed without notice."
     )
     logger.warn("Please refer to our documentation for more information.")
-    val client = ClientInfo.CliClientInfo("bloop-single-app")
+    val client = ClientInfo.CliClientInfo("bloop-single-app", () => true)
     val projects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, projects)
     val state = State(build, client, NoPool, options.common, logger)

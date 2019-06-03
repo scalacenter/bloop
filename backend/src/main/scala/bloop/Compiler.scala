@@ -62,19 +62,32 @@ case class CompileInputs(
 
 case class CompileOutPaths(
     analysisOut: AbsolutePath,
+    genericClassesDir: AbsolutePath,
     externalClassesDir: AbsolutePath,
     internalReadOnlyClassesDir: AbsolutePath
 ) {
-  private def createNewDir(generateDirName: String => String): AbsolutePath = {
-    val classesDir = internalReadOnlyClassesDir.underlying
-    val parentDir = classesDir.getParent()
+  // Don't change the internals of this method without updating how they are cleaned up
+  private def createInternalNewDir(generateDirName: String => String): AbsolutePath = {
+    // Create internal directories under a grouped internal dir to ease cleanup
+    val parentInternalDir =
+      genericClassesDir.underlying.getParent().resolve("bloop-internal-classes")
+
+    /*
+     * Use external classes dir as the beginning of the new internal directory name.
+     * This is done for two main reasons:
+     *   1. To easily know which internal directory was triggered by a
+     *      compilation of another client.
+     *   2. To ease cleanup of orphan directories (those directories that were
+     *      not removed by the server because, for example, an unexpected SIGKILL)
+     *      in the middle of compilation.
+     */
     val classesName = externalClassesDir.underlying.getFileName()
     val newClassesName = generateDirName(classesName.toString)
-    AbsolutePath(Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath())
+    AbsolutePath(Files.createDirectories(parentInternalDir.resolve(newClassesName)).toRealPath())
   }
 
   lazy val internalNewClassesDir: AbsolutePath = {
-    createNewDir(classesName => s"${classesName}-${UUIDUtil.randomUUID}")
+    createInternalNewDir(classesName => s"${classesName}-${UUIDUtil.randomUUID}")
   }
 
   /**
@@ -83,11 +96,10 @@ case class CompileOutPaths(
    * process has finished because pickles are useless when class files are
    * present. This might change when we expose pipelining to clients.
    *
-   * Watch out: for the moment this pickles dir is not populated because we
-   * are populating signatures from an in-memory cache.
+   * Watch out: for the moment this pickles dir is not used anywhere.
    */
   lazy val internalNewPicklesDir: AbsolutePath = {
-    createNewDir { classesName =>
+    createInternalNewDir { classesName =>
       val newName = s"${classesName.replace("classes", "pickles")}-${UUIDUtil.randomUUID}"
       // If original classes name didn't contain `classes`, add pickles at the beginning
       if (newName.contains("pickles")) newName
