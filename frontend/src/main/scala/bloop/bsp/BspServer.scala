@@ -166,7 +166,7 @@ object BspServer {
 
             // Spawn deletion of orphan client directories every time we start a new connection
             ioScheduler.scheduleOnce(
-              0,
+              100,
               TimeUnit.MILLISECONDS,
               new Runnable {
                 override def run(): Unit = {
