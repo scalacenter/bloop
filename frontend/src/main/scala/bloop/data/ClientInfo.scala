@@ -173,8 +173,9 @@ object ClientInfo {
        *     can happen in the following scenarios:
        *       * New client directories for a project are created in the file system
        *         but they are not yet added to `client.uniqueDirs`. We fix this
-       *         condition by filtering based on the unique id of the client info
-       *         rather than the paths contained in `uniqueDirs`.
+       *         condition by filtering the existing paths based on the unique id of
+       *         the client info rather than using the in-memory paths contained in
+       *         `uniqueDirs`.
        *       * A new client connects right after we obtain current clients and
        *         starts creating new client directories in projects, which would be
        *         incorrectly removed by our logic if we didn't check the clients we
