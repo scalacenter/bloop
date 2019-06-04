@@ -6,13 +6,13 @@
 </thead>
 <tbody>
 <tr>
-<td>1.2.5</td>
-<td>22 Jan 2019 23:45</td>
+<td>1.3.0-RC1</td>
+<td>04 Jun 2019 15:30</td>
 <td><code>-r sonatype:releases</code></td>
 </tr>
 <tr>
-<td>1.2.5+523-3d43e62d</td>
-<td>04 Jun 2019 12:35</td>
+<td>1.3.0-RC1</td>
+<td>04 Jun 2019 15:30</td>
 <td><code>-r bintray:scalacenter/releases</code></td>
 </tr>
 </tbody>
@@ -63,7 +63,7 @@ scoop search bloop
 <p>You must ensure that Java 8 is installed manually (as well as ensuring that you run bloop with
 Java 8). The python dependency is automatically installed by scoop.</p>
 </blockquote>
-</span></div></div><div class="items" data-title="universal"><div><span><pre><code class="hljs css language-sh">curl -L https://github.com/scalacenter/bloop/releases/download/v1.2.5/install.py | python
+</span></div></div><div class="items" data-title="universal"><div><span><pre><code class="hljs css language-sh">curl -L https://github.com/scalacenter/bloop/releases/download/v1.3.0-RC1/install.py | python
 </code></pre>
 <p>Bloop installs under the standard <code>$HOME/.bloop</code> directory.</p>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
@@ -113,7 +113,7 @@ The build server <strong>must be started</strong> before the command-line applic
 </code></pre>
 <p>Then, verify your installation by running the command-line application:</p>
 <pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">2</span>.<span class="hljs-number">5</span>
+<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">3</span>.<span class="hljs-number">0</span>-RC1
 
 Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">0</span>
 Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
@@ -175,7 +175,7 @@ location to the `--server-location` flag.
 </blockquote>
 <p>Then, verify your installation by running the command-line application:</p>
 <pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">2</span>.<span class="hljs-number">5</span>
+<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">3</span>.<span class="hljs-number">0</span>-RC1
 
 Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">0</span>
 Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
@@ -235,7 +235,7 @@ difference in Gradle builds.</p>
   }
 
   dependencies {
-    classpath <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.11:1.2.5'</span>
+    classpath <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.11:1.3.0-RC1'</span>
   }
 }
 </code></pre>
@@ -321,10 +321,10 @@ integration for Maven.</p>
 <p><code>maven-bloop</code> generates two configuration files per Maven project. One project for the main sources
 and another one for the tests. Bloop will skip config file generation for those projects that are
 not either Java or Scala.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.2.5:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.3.0-RC1:bloopInstall
 </code></pre>
 <p>For example, a build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.2.5:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.3.0-RC1:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
@@ -434,7 +434,7 @@ IDEs</a>.</p>
 <a href="docs/build-tools/mill">Mill documentation page</a>.</p>
 </span></div></div><div class="build-items" data-title="sbt"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
 <p>Install bloop in <code>project/plugins.sbt</code>:</p>
-<pre><code class="hljs css language-scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.2.5"</span>)
+<pre><code class="hljs css language-scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.3.0-RC1"</span>)
 </code></pre>
 <p>And start up or reload your sbt shell to add the plugin to your working build.</p>
 <h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
@@ -488,7 +488,7 @@ foo-test
 IDEs</a>.</p>
 <p>If you want to configure the installation step or learn more about the integration, visit the
 <a href="docs/build-tools/sbt">sbt documentation page</a>.</p>
-</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1559651826287"></script><script src="/bloop/scripts/build-tools.js?t=1559651826287"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1559662315569"></script><script src="/bloop/scripts/build-tools.js?t=1559662315569"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
