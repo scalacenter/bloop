@@ -212,13 +212,19 @@ object BspServer {
        * no way to call the cancelable produced by the consumer.
        */
       val consumingWithBalancedForeach = Task.create[List[Unit]] { (scheduler, cb) =>
-        val parallelConsumer = Consumer.loadBalance(4, singleMessageConsumer)
-        val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
-        val cancelOut = Cancelable(() => out.onComplete())
-        completeSubscribers = CompositeCancelable(cancelOut)
-        val sourceSubscription = endObservable.subscribe(out)
-        startedSubscription.success(())
-        CompositeCancelable(sourceSubscription, consumerSubscription)
+        if (!isCommunicationActive.get) {
+          cb.onSuccess(Nil)
+          startedSubscription.success(())
+          Cancelable.empty
+        } else {
+          val parallelConsumer = Consumer.loadBalance(4, singleMessageConsumer)
+          val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
+          val cancelOut = Cancelable(() => out.onComplete())
+          completeSubscribers = CompositeCancelable(cancelOut)
+          val sourceSubscription = endObservable.subscribe(out)
+          startedSubscription.success(())
+          CompositeCancelable(sourceSubscription, consumerSubscription)
+        }
       }
 
       val consumingTask = consumingWithBalancedForeach
