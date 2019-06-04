@@ -192,8 +192,10 @@ object ClientInfo {
       projectsToVisit.foreach { project =>
         val bspClientClasses = project.bspClientClassesDirectories
         try {
-          val allExistingClientClassesDirs =
-            Files.list(bspClientClasses.underlying).iterator().asScala
+          val allExistingClientClassesDirs = {
+            try Files.list(bspClientClasses.underlying).iterator().asScala
+            catch { case _: NoSuchFileException => Nil }
+          }
           val currentBspConnectedClients = currentBspClients()
           if (currentBspConnectedClients != initialBspConnectedClients) {
             deleteOrphanClientBspDirectories(
