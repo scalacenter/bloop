@@ -407,7 +407,8 @@ object CompileTask {
           products.readOnlyClassesDir,
           products.newClassesDir,
           ExecutionContext.ioScheduler,
-          logger
+          logger,
+          enableCancellation = false
         )
       }
 

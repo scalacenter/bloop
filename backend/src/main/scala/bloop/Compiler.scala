@@ -32,6 +32,7 @@ import monix.execution.Scheduler
 import monix.execution.CancelableFuture
 import bloop.CompileMode.Pipelined
 import bloop.CompileMode.Sequential
+import monix.execution.ExecutionModel
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -225,7 +226,6 @@ object Compiler {
       new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
-        import sbt.io.IO
         private[this] val invalidatedClassFilesInLastRun = new mutable.HashSet[File]
         def delete(classes: Array[File]): Unit = {
           // Add to the blacklist so that we never copy them
@@ -310,7 +310,8 @@ object Compiler {
                       newClassesDir,
                       clientExternalClassesDir.underlying,
                       compileInputs.ioScheduler,
-                      compileInputs.logger
+                      compileInputs.logger,
+                      enableCancellation = false
                     )
                     .map { walked =>
                       copiedPathsFromNewClassesDir.++=(walked.target)
@@ -344,7 +345,8 @@ object Compiler {
                             readOnlyClassesDir,
                             clientExternalClassesDir.underlying,
                             compileInputs.ioScheduler,
-                            compileInputs.logger
+                            compileInputs.logger,
+                            enableCancellation = false
                           )
                           .map(_ => ())
                       }
@@ -444,7 +446,7 @@ object Compiler {
     def handleCancellation: Compiler.Result = {
       reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
       val backgroundTasks =
-        triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+        toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
       Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
     }
 
@@ -489,7 +491,8 @@ object Compiler {
                   readOnlyClassesDir,
                   externalClassesDir,
                   compileInputs.ioScheduler,
-                  compileInputs.logger
+                  compileInputs.logger,
+                  enableCancellation = false
                 )
                 lastCopy.map(fs => ())
               }.flatten
@@ -606,18 +609,18 @@ object Compiler {
               }
               val failedProblems = reportedProblems ++ newProblems.toList
               val backgroundTasks =
-                triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+                toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               Result.Failed(failedProblems, None, elapsed, backgroundTasks)
             case t: Throwable =>
               t.printStackTrace()
               val backgroundTasks =
-                triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+                toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               Result.Failed(Nil, Some(t), elapsed, backgroundTasks)
           }
       }
   }
 
-  def triggerTaskForBackground(
+  def toBackgroundTasks(
       tasks: List[(AbsolutePath, BraveTracer) => Task[Unit]]
   ): CompileBackgroundTasks = {
     new CompileBackgroundTasks {
