@@ -5,8 +5,7 @@ import bloop.util.TimeFormat
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
-import sbt.testing.{Event, Status}
-import cats.syntax.option._
+import sbt.testing.{Event, Selector, Status}
 
 import scala.collection.mutable
 import scala.meta.jsonrpc.JsonRpcClient
@@ -31,12 +30,14 @@ trait TestSuiteEventHandler {
 }
 
 class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
+  import bloop.testing.TestPrinter._
   private type SuiteName = String
   private type TestName = String
+  private type FailureMessage = String
   protected var suitesDuration = 0L
   protected var suitesPassed = 0
   protected var suitesAborted = 0
-  protected val testsFailedBySuite = mutable.Map.empty[SuiteName, Map[TestName, Option[Throwable]]]
+  protected val testsFailedBySuite = mutable.Map.empty[SuiteName, Map[TestName, FailureMessage]]
   protected var suitesTotal = 0
 
   protected def formatMetrics(metrics: List[(Int, String)]): String = {
@@ -84,13 +85,11 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
 
       val failedStatuses = Set(Status.Error, Status.Canceled, Status.Failure)
       if (failureCount > 0) {
-        logger.info(s"failures ${events.map(_.status())}")
         val thisSuiteFailedTests =
           events.filter(e => failedStatuses.contains(e.status()))
-          .map(e => e.selector().toString -> Try(e.throwable().get()).toOption)
+          .map(e => testSelectorToString(e.selector()) -> optionalThrowableToString(e.throwable()))
           .toMap
-        logger.info(thisSuiteFailedTests.toString())
-        testsFailedBySuite += testSuite -> thisSuiteFailedTests
+        testsFailedBySuite += testSuite -> (testsFailedBySuite.getOrElse(testSuite, Map.empty) ++ thisSuiteFailedTests)
       }
       else if (testsTotal <= 0) logger.info("No test suite was run")
       else {
@@ -123,9 +122,9 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
         logger.info("")
         logger.info("Failed:")
         testsFailedBySuite.foreach{case(suiteName, tests) =>
-          logger.info(s"- $suiteName")
-          tests.foreach{ case(testName, failure) =>
-            logger.info(s"$testName - ${failure.map(_.getMessage)}")
+          logger.info(s"- $suiteName:")
+          tests.foreach{ case(testName, failureMessage) =>
+            logger.info(s"  * $testName - $failureMessage")
           }
         }
       }
