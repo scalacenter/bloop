@@ -179,7 +179,20 @@ object CompileGraph {
       compile: CompileBundle => CompileTraversal
   ): CompileTraversal = {
     implicit val filter = DebugFilter.Compilation
-    setup(inputs).flatMap { bundle =>
+    def withBundle(f: CompileBundle => CompileTraversal): CompileTraversal = {
+      setup(inputs).materialize.flatMap {
+        case Success(bundle) => f(bundle)
+        case Failure(t) =>
+          // Register the name of the projects we're blocked on (intransitively)
+          val failedResult = Compiler.Result.GlobalError(
+            s"Unexpected exception when computing compile inputs ${t.getMessage()}"
+          )
+          val failed = Task.now(ResultBundle(failedResult, None))
+          Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
+      }
+    }
+
+    withBundle { bundle =>
       val logger = bundle.logger
       var deduplicate: Boolean = true
       val ongoingCompilation = runningCompilations.computeIfAbsent(
