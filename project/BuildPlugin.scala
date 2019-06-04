@@ -345,9 +345,7 @@ object BuildImplementation {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
-    },
-    Keys.publishConfiguration := Keys.publishConfiguration.value.withOverwrite(true),
-    Keys.publishLocalConfiguration := Keys.publishLocalConfiguration.value.withOverwrite(true),
+    }
   ) // ++ metalsSettings
 
   final val reasonableCompileOptions = (
