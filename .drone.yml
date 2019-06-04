@@ -200,7 +200,7 @@ pipeline:
 
   release:
     image: scalacenter/scala-docs:1.4
-    secrets: [ bloopoid_github_token ]
+    secrets: [ bloopoid_github_token, bloopoid_private_key ]
     volumes:
       - /scalacenter:/keys
     when:
@@ -213,6 +213,7 @@ pipeline:
     commands:
       - export DRONE_DIR="/drone"
       - . bin/set-up-community-build-infra.sh # Source it because it exports variables
+      - . bin/ci-setup-bloopoid-keys.sh
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github
       - ${UPDATE_GITHUB_AND_INSTALLERS}
 
