@@ -301,10 +301,13 @@ object BspServer {
       // Guarantee that we always schedule the external classes directories deletion
       val deleteExternalDirsTasks = latestState.build.projects.map { project =>
         import bloop.io.Paths
-        import java.io.IOException
-        val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
-        if (externalClientClassesDir == project.genericClassesDir) Task.now(())
-        else Task.fork(Task.eval(Paths.delete(externalClientClassesDir))).materialize
+        try {
+          val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+          if (externalClientClassesDir == project.genericClassesDir) Task.now(())
+          else Task.fork(Task.eval(Paths.delete(externalClientClassesDir))).materialize
+        } catch {
+          case _: NoSuchFileException => Task.now(())
+        }
       }
 
       val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.gatherUnordered(group))
