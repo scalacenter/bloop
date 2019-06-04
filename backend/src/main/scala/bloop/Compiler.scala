@@ -32,6 +32,7 @@ import monix.execution.Scheduler
 import monix.execution.CancelableFuture
 import bloop.CompileMode.Pipelined
 import bloop.CompileMode.Sequential
+import monix.execution.ExecutionModel
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -62,19 +63,31 @@ case class CompileInputs(
 
 case class CompileOutPaths(
     analysisOut: AbsolutePath,
+    genericClassesDir: AbsolutePath,
     externalClassesDir: AbsolutePath,
     internalReadOnlyClassesDir: AbsolutePath
 ) {
-  private def createNewDir(generateDirName: String => String): AbsolutePath = {
-    val classesDir = internalReadOnlyClassesDir.underlying
-    val parentDir = classesDir.getParent()
+  // Don't change the internals of this method without updating how they are cleaned up
+  private def createInternalNewDir(generateDirName: String => String): AbsolutePath = {
+    val parentInternalDir =
+      CompileOutPaths.createInternalClassesRootDir(genericClassesDir).underlying
+
+    /*
+     * Use external classes dir as the beginning of the new internal directory name.
+     * This is done for two main reasons:
+     *   1. To easily know which internal directory was triggered by a
+     *      compilation of another client.
+     *   2. To ease cleanup of orphan directories (those directories that were
+     *      not removed by the server because, for example, an unexpected SIGKILL)
+     *      in the middle of compilation.
+     */
     val classesName = externalClassesDir.underlying.getFileName()
     val newClassesName = generateDirName(classesName.toString)
-    AbsolutePath(Files.createDirectories(parentDir.resolve(newClassesName)).toRealPath())
+    AbsolutePath(Files.createDirectories(parentInternalDir.resolve(newClassesName)).toRealPath())
   }
 
   lazy val internalNewClassesDir: AbsolutePath = {
-    createNewDir(classesName => s"${classesName}-${UUIDUtil.randomUUID}")
+    createInternalNewDir(classesName => s"${classesName}-${UUIDUtil.randomUUID}")
   }
 
   /**
@@ -83,16 +96,30 @@ case class CompileOutPaths(
    * process has finished because pickles are useless when class files are
    * present. This might change when we expose pipelining to clients.
    *
-   * Watch out: for the moment this pickles dir is not populated because we
-   * are populating signatures from an in-memory cache.
+   * Watch out: for the moment this pickles dir is not used anywhere.
    */
   lazy val internalNewPicklesDir: AbsolutePath = {
-    createNewDir { classesName =>
+    createInternalNewDir { classesName =>
       val newName = s"${classesName.replace("classes", "pickles")}-${UUIDUtil.randomUUID}"
       // If original classes name didn't contain `classes`, add pickles at the beginning
       if (newName.contains("pickles")) newName
       else "pickles-" + newName
     }
+  }
+}
+
+object CompileOutPaths {
+
+  /**
+   * Defines a project-specific root directory where all the internal classes
+   * directories used for compilation are created.
+   */
+  def createInternalClassesRootDir(projectGenericClassesDir: AbsolutePath): AbsolutePath = {
+    AbsolutePath(
+      Files.createDirectories(
+        projectGenericClassesDir.underlying.getParent().resolve("bloop-internal-classes")
+      )
+    )
   }
 }
 
@@ -199,7 +226,6 @@ object Compiler {
       new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
-        import sbt.io.IO
         private[this] val invalidatedClassFilesInLastRun = new mutable.HashSet[File]
         def delete(classes: Array[File]): Unit = {
           // Add to the blacklist so that we never copy them
@@ -284,7 +310,8 @@ object Compiler {
                       newClassesDir,
                       clientExternalClassesDir.underlying,
                       compileInputs.ioScheduler,
-                      compileInputs.logger
+                      compileInputs.logger,
+                      enableCancellation = false
                     )
                     .map { walked =>
                       copiedPathsFromNewClassesDir.++=(walked.target)
@@ -318,7 +345,8 @@ object Compiler {
                             readOnlyClassesDir,
                             clientExternalClassesDir.underlying,
                             compileInputs.ioScheduler,
-                            compileInputs.logger
+                            compileInputs.logger,
+                            enableCancellation = false
                           )
                           .map(_ => ())
                       }
@@ -347,7 +375,6 @@ object Compiler {
         .withClassesDirectory(newClassesDir.toFile)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
-        //.withStore(inputs.store)
         .withScalacOptions(inputs.scalacOptions)
         .withJavacOptions(inputs.javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
@@ -403,7 +430,7 @@ object Compiler {
       compileInputs.cancelPromise.trySuccess(())
       mode match {
         case _: Sequential => ()
-        case Pipelined(completeJava, finishedCompilation, _, _, _, _) =>
+        case Pipelined(completeJava, finishedCompilation, _, _, _) =>
           completeJava.trySuccess(())
           finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
       }
@@ -419,7 +446,7 @@ object Compiler {
     def handleCancellation: Compiler.Result = {
       reporter.reportEndCompilation(previousSuccessfulProblems, bsp.StatusCode.Cancelled)
       val backgroundTasks =
-        triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+        toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
       Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
     }
 
@@ -464,7 +491,8 @@ object Compiler {
                   readOnlyClassesDir,
                   externalClassesDir,
                   compileInputs.ioScheduler,
-                  compileInputs.logger
+                  compileInputs.logger,
+                  enableCancellation = false
                 )
                 lastCopy.map(fs => ())
               }.flatten
@@ -581,18 +609,18 @@ object Compiler {
               }
               val failedProblems = reportedProblems ++ newProblems.toList
               val backgroundTasks =
-                triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+                toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               Result.Failed(failedProblems, None, elapsed, backgroundTasks)
             case t: Throwable =>
               t.printStackTrace()
               val backgroundTasks =
-                triggerTaskForBackground(backgroundTasksForFailedCompilation.toList)
+                toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               Result.Failed(Nil, Some(t), elapsed, backgroundTasks)
           }
       }
   }
 
-  def triggerTaskForBackground(
+  def toBackgroundTasks(
       tasks: List[(AbsolutePath, BraveTracer) => Task[Unit]]
   ): CompileBackgroundTasks = {
     new CompileBackgroundTasks {

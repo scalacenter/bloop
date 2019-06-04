@@ -10,12 +10,10 @@ import xsbti.compile.Signature
  */
 sealed trait CompileMode {
   def oracle: CompilerOracle
-  def picklesDir: AbsolutePath
 }
 
 object CompileMode {
   case class Sequential(
-      picklesDir: AbsolutePath,
       oracle: CompilerOracle
   ) extends CompileMode
 
@@ -23,7 +21,6 @@ object CompileMode {
       completeJavaCompilation: Promise[Unit],
       finishedCompilation: Promise[Option[CompileProducts]],
       fireJavaCompilation: Task[JavaSignal],
-      picklesDir: AbsolutePath,
       oracle: CompilerOracle,
       separateJavaAndScala: Boolean
   ) extends CompileMode

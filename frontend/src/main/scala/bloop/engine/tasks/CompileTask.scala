@@ -108,12 +108,10 @@ object CompileTask {
           val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
           val newClassesDir = compileOut.internalNewClassesDir
-          val newPickleDir = compileOut.internalNewPicklesDir
           val classpath = bundle.dependenciesData.buildFullCompileClasspathFor(
             project,
             readOnlyClassesDir,
-            newClassesDir,
-            newPickleDir
+            newClassesDir
           )
 
           // Warn user if detected missing dep, see https://github.com/scalacenter/bloop/issues/708
@@ -188,9 +186,6 @@ object CompileTask {
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }
 
-              val deletePickleDirTask =
-                Task.fork(Task.eval(Paths.delete(compileOut.internalNewPicklesDir)))
-
               // Populate the last successful result if result was success
               result match {
                 case s: Compiler.Result.Success =>
@@ -198,7 +193,6 @@ object CompileTask {
                   val blockingOnRunningTasks = Task
                     .fromFuture(runningTasks)
                     .executeOn(ExecutionContext.ioScheduler)
-                  import monix.execution.misc.NonFatal
                   val populatingTask = {
                     if (s.isNoOp) blockingOnRunningTasks
                     else {
@@ -212,15 +206,15 @@ object CompileTask {
 
                   // Memoize so that no matter how many times it's run, only once it's executed
                   val last = LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask)
-                  ResultBundle(s, Some(last), runningTasks, deletePickleDirTask)
+                  ResultBundle(s, Some(last), runningTasks)
                 case f: Compiler.Result.Failed =>
                   val runningTasks = runPostCompilationTasks(f.backgroundTasks)
-                  ResultBundle(result, None, runningTasks, deletePickleDirTask)
+                  ResultBundle(result, None, runningTasks)
                 case c: Compiler.Result.Cancelled =>
                   val runningTasks = runPostCompilationTasks(c.backgroundTasks)
-                  ResultBundle(result, None, runningTasks, deletePickleDirTask)
+                  ResultBundle(result, None, runningTasks)
                 case result =>
-                  ResultBundle(result, None, CancelableFuture.unit, deletePickleDirTask)
+                  ResultBundle(result, None, CancelableFuture.unit)
               }
             }
           }
@@ -281,7 +275,6 @@ object CompileTask {
             .foreach(l => l.populatingProducts.runAsync(ExecutionContext.ioScheduler))
         }
 
-        //cleanStatePerBuildRun(dag, results, state)
         val stateWithResults = state.copy(results = state.results.addFinalResults(results))
         val failures = results.flatMap {
           case FinalNormalCompileResult(p, results) =>
@@ -319,14 +312,11 @@ object CompileTask {
           }
         }
 
-        val backgroundTasks = Task.gatherUnordered {
+        val backgroundTasks = Task.sequence {
           results.flatMap {
             case FinalNormalCompileResult(_, results) =>
-              val tasksAtEndOfBuildCompilation = results.deletePickleDirTask.flatMap { _ =>
-                Task
-                  .fromFuture(results.runningBackgroundTasks)
-                  .executeOn(ExecutionContext.ioScheduler)
-              }
+              val tasksAtEndOfBuildCompilation =
+                Task.fromFuture(results.runningBackgroundTasks)
               List(tasksAtEndOfBuildCompilation)
             case _ => Nil
           }
@@ -355,13 +345,12 @@ object CompileTask {
           inputs.completeJava,
           inputs.finishedCompilation,
           inputs.transitiveJavaSignal,
-          out.internalNewPicklesDir,
           graphInputs.oracle,
           inputs.separateJavaAndScala
         )
         ConfiguredCompilation(newMode, scalacOptions)
       case None =>
-        val newMode = CompileMode.Sequential(out.internalNewPicklesDir, graphInputs.oracle)
+        val newMode = CompileMode.Sequential(graphInputs.oracle)
         ConfiguredCompilation(newMode, project.scalacOptions)
     }
   }
@@ -418,7 +407,8 @@ object CompileTask {
           products.readOnlyClassesDir,
           products.newClassesDir,
           ExecutionContext.ioScheduler,
-          logger
+          logger,
+          enableCancellation = false
         )
       }
 

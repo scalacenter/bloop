@@ -99,6 +99,17 @@ final case class Project(
     }
     cp.toArray
   }
+
+  /**
+   * Defines a path under which Bloop will create all bsp client-owned classes
+   * directories. These directories host compilation products and their
+   * contents are self-managed. The only management bloop does is to create
+   * them upon a connection start and delete them upon a client disconnection.
+   */
+  def bspClientClassesDirectories: AbsolutePath = {
+    import java.nio.file.Files
+    genericClassesDir.getParent.resolve("bloop-bsp-clients-classes")
+  }
 }
 
 object Project {

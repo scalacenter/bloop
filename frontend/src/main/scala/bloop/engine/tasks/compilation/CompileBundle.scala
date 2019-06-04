@@ -85,6 +85,7 @@ final case class CompileBundle(
     val readOnlyClassesDir = lastSuccessful.classesDir
     CompileOutPaths(
       project.analysisOut,
+      project.genericClassesDir,
       clientClassesDir,
       readOnlyClassesDir
     )

@@ -20,8 +20,7 @@ case class CompileDependenciesData(
   def buildFullCompileClasspathFor(
       project: Project,
       readOnlyClassesDir: AbsolutePath,
-      newClassesDir: AbsolutePath,
-      newPicklesDir: AbsolutePath
+      newClassesDir: AbsolutePath
   ): Array[AbsolutePath] = {
     // Important: always place new classes dir before read-only classes dir
     val classesDirs = Array(newClassesDir, readOnlyClassesDir)

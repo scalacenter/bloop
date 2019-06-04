@@ -71,7 +71,8 @@ trait BloopHelpers {
       baseDir,
       workspace.underlying,
       ExecutionContext.ioScheduler,
-      logger
+      logger,
+      enableCancellation = false
     )
 
     val loadFromNewWorkspace = copyToNewWorkspace.flatMap { _ =>
@@ -275,7 +276,13 @@ trait BloopHelpers {
 
             val backupDir = ParallelOps.copyDirectories(
               ParallelOps.CopyConfiguration(2, ParallelOps.CopyMode.ReplaceExisting, Set.empty)
-            )(classesDir, newClassesDir, ExecutionContext.ioScheduler, logger)
+            )(
+              classesDir,
+              newClassesDir,
+              ExecutionContext.ioScheduler,
+              logger,
+              enableCancellation = false
+            )
 
             backupDir.map { _ =>
               val newResult = result.copy(classesDir = AbsolutePath(newClassesDir))

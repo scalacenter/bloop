@@ -27,6 +27,9 @@ import monix.execution.cancelables.CompositeCancelable
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import monix.execution.cancelables.AssignableCancelable
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
@@ -59,6 +62,9 @@ object BspServer {
     }
   }
 
+  private final val connectedBspClients =
+    new ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath]()
+
   def run(
       cmd: ValidatedBsp,
       state: State,
@@ -78,6 +84,7 @@ object BspServer {
     }
 
     def startServer(handle: ConnectionHandle): Task[State] = {
+      val isCommunicationActive = Atomic(true)
       val connectionURI = uri(handle)
 
       // Do NOT change this log, it's used by clients to know when to start a connection
@@ -87,7 +94,6 @@ object BspServer {
       val socket = handle.serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
-      val status = Atomic(0)
       val in = socket.getInputStream
       val out = socket.getOutputStream
 
@@ -95,7 +101,8 @@ object BspServer {
       val bspLogger = new BspClientLogger(logger)
       val client = new BloopLanguageClient(out, bspLogger)
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
-      val provider = new BloopBspServices(state, client, config, in, status, externalObserver, scheduler, ioScheduler)
+      val stopBspConnection = AssignableCancelable.single()
+      val provider = new BloopBspServices(state, client, config, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
       val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
@@ -134,20 +141,52 @@ object BspServer {
         Cancelable.cancelAll(completeSubscribers :: tasksToCancel)
       }
 
-      val isCommunicationActive = Atomic(true)
       def onFinishOrCancel[T](cancelled: Boolean, result: Option[Throwable]) = Task {
         if (isCommunicationActive.getAndSet(false)) {
-          if (cancelled) error(s"BSP server cancelled, closing socket...")
-          else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
-          cancelable.cancel()
-          server.cancelAllRequests()
           val latestState = provider.stateAfterExecution
-          closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
+          val initializedClientInfo = provider.unregisterClient
+
+          def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
+            import scala.collection.JavaConverters._
+            val clients0 = connectedBspClients.keySet().asScala.toSet
+            // Add client that will be removed from map always so that its
+            // project directories are visited and orphan dirs pruned
+            initializedClientInfo match {
+              case Some(bspInfo) => clients0.+(bspInfo)
+              case None => clients0
+            }
+          }
+
+          try {
+            if (cancelled) error(s"BSP server cancelled, closing socket...")
+            else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
+            cancelable.cancel()
+            server.cancelAllRequests()
+          } finally {
+
+            // Spawn deletion of orphan client directories every time we start a new connection
+            ioScheduler.scheduleOnce(
+              100,
+              TimeUnit.MILLISECONDS,
+              new Runnable {
+                override def run(): Unit = {
+                  ClientInfo.deleteOrphanClientBspDirectories(
+                    () => askCurrentBspClients,
+                    logger
+                  )
+                }
+              }
+            )
+
+            // The code above should not throw, but move this code to a finalizer to be 100% sure
+            closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
+            ()
+          }
         }
       }
 
       import monix.reactive.Consumer
-      val singleThreadedConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
+      val singleMessageConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
         import scala.meta.jsonrpc.Response.Empty
         import scala.meta.jsonrpc.Response.Success
         val taskToRun = {
@@ -172,7 +211,7 @@ object BspServer {
        * no way to call the cancelable produced by the consumer.
        */
       val consumingWithBalancedForeach = Task.create[List[Unit]] { (scheduler, cb) =>
-        val parallelConsumer = Consumer.loadBalance(4, singleThreadedConsumer)
+        val parallelConsumer = Consumer.loadBalance(4, singleMessageConsumer)
         val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
         val cancelOut = Cancelable(() => out.onComplete())
         completeSubscribers = CompositeCancelable(cancelOut)
@@ -185,20 +224,28 @@ object BspServer {
         .doOnCancel(onFinishOrCancel(true, None))
         .doOnFinish(result => onFinishOrCancel(false, result))
         .flatMap(_ => server.awaitRunningTasks.map(_ => provider.stateAfterExecution))
+
+      // Start consumer in the background and assign cancelable
       val consumerFuture = consumingTask.runAsync(ioScheduler)
+      stopBspConnection.:=(Cancelable(() => consumerFuture.cancel()))
 
       /*
-       * Cancel any ongoing tasks if the socket `InputStream` completed but the
-       * provider did not receive the appropriate shutdown mechanism.
+       * Defines a task that gets called whenever the socket `InputStream` is
+       * closed. This can happen for several reasons:
        *
-       * This can happen when clients suddently crash or exit with the Unix
-       * domain and Windows named pipe implementation, because in these
-       * implementations there are no special protocol messages to signal
-       * closing, unlike TCP that has `FIN` and `RST`. Unfortunately with
-       * Domain Socket and Windows named pipes, `socket.isClosed()` will always
-       * be false from the server side because of this reason.
+       *   1. Clients quickly sent an exit request and closed its socket input
+       *      stream.
+       *   2. Clients suddently crash/exit (especially when using Unix domain
+       *      sockets and Windows named pipes as their implementation doesn't signal
+       *      a forceful client close explicitly unlike TCP with `FIN` and `RST`,
+       *      which means checking `isClosed` from the server side will always be
+       *      false.)
+       *
+       * This task makes sure we stop any processing for this BSP client if we
+       * haven't yet done that in the handling of exit within
+       * `BloopBspServices`.
        */
-      val cancelIfAwaitingExit: Task[Unit] = Task {
+      val cancelWhenStreamIsClosed: Task[Unit] = Task {
         if (!provider.exited.get) {
           consumerFuture.cancel()
         }
@@ -207,7 +254,7 @@ object BspServer {
       val startListeningToMessages = messages
         .liftByOperator(new PumpOperator(bufferedObserver, consumerFuture))
         .completedL
-        .doOnFinish(_ => cancelIfAwaitingExit)
+        .doOnFinish(_ => cancelWhenStreamIsClosed)
         .flatMap { _ =>
           Task.fromFuture(consumerFuture).map { latestState =>
             // Complete the states observable to signal exit on consumers
@@ -242,31 +289,32 @@ object BspServer {
       socket: Socket,
       serverSocket: ServerSocket
   ): Unit = {
-    val deleteExternalDirsTask = latestState.build.projects.map { project =>
-      import bloop.io.Paths
-      import java.io.IOException
-      val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
-      if (externalClientClassesDir == project.genericClassesDir) Task.now(())
-      else Task.eval(Paths.delete(externalClientClassesDir)).executeWithFork
-    }
-
     // Close any socket communication asap and swallow exceptions
-    try socket.close()
-    catch { case NonFatal(t) => () } finally {
-      try serverSocket.close()
-      catch { case NonFatal(t) => () }
+    try {
+      try socket.close()
+      catch { case NonFatal(t) => () } finally {
+        try serverSocket.close()
+        catch { case NonFatal(t) => () }
+      }
+    } finally {
+      // Guarantee that we always schedule the external classes directories deletion
+      val deleteExternalDirsTasks = latestState.build.projects.map { project =>
+        import bloop.io.Paths
+        import java.io.IOException
+        val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+        if (externalClientClassesDir == project.genericClassesDir) Task.now(())
+        else Task.fork(Task.eval(Paths.delete(externalClientClassesDir))).materialize
+      }
+
+      val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.gatherUnordered(group))
+      Task
+        .sequence(groups)
+        .map(_.flatten)
+        .map(_ => ())
+        .runAsync(ExecutionContext.ioScheduler)
+
+      ()
     }
-
-    // Run deletion of client external classes directories in IO pool
-    val groups = deleteExternalDirsTask.grouped(4).map(group => Task.gatherUnordered(group))
-    Task
-      .sequence(groups)
-      .map(_.flatten)
-      .materialize
-      .map(_ => ())
-      .runAsync(ExecutionContext.ioScheduler)
-
-    ()
   }
 
   final class PumpOperator[A](pumpTarget: Observer.Sync[A], runningFuture: Cancelable)

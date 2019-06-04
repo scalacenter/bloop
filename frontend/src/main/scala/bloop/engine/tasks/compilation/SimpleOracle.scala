@@ -12,7 +12,7 @@ final class SimpleOracle extends CompilerOracle {
   def askForJavaSourcesOfIncompleteCompilations: List[File] = Nil
   def isPipeliningEnabled: Boolean = false
   def collectDownstreamSignatures: Array[Signature] = new Array[Signature](0)
-  def startDownstreamCompilations(pickleDir: AbsolutePath, sigs: Array[Signature]): Unit = ()
+  def startDownstreamCompilations(sigs: Array[Signature]): Unit = ()
 
   private val definedMacros = new mutable.HashSet[String]()
   def registerDefinedMacro(definedMacroSymbol: String): Unit = definedMacros.+=(definedMacroSymbol)

@@ -125,6 +125,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
           ap.copy(path = AbsolutePath("/" + newPath))
         }
       }
+      .sortBy(_.path.toString)
   }
 
   def list(
@@ -517,6 +518,12 @@ class BaseSuite extends TestSuite with BloopHelpers {
 
   def waitInMillis[T](future: CancelableFuture[T], ms: Int)(ifError: => Unit): T = {
     waitForDuration(future, FiniteDuration(ms.toLong, TimeUnit.MILLISECONDS))(ifError)
+  }
+
+  def unsafeGetResource(resourceId: String): AbsolutePath = {
+    val resource = this.getClass.getClassLoader().getResource(resourceId)
+    if (resource == null) sys.error(s"Missing resource $resourceId")
+    else AbsolutePath(resource.toURI())
   }
 
   override def utestAfterAll(): Unit = afterAll()

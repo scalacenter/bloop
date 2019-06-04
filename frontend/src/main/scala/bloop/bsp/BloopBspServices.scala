@@ -3,6 +3,8 @@ package bloop.bsp
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.nio.file.FileSystems
+import java.util.concurrent.ConcurrentHashMap
 
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
@@ -26,19 +28,23 @@ import monix.eval.Task
 import monix.reactive.Observer
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
+import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import java.nio.file.FileSystems
+import scala.util.Success
+import scala.util.Failure
+import monix.execution.Cancelable
 
 final class BloopBspServices(
     callSiteState: State,
     client: JsonRpcClient,
     relativeConfigPath: RelativePath,
-    socketInput: InputStream,
-    exitStatus: AtomicInt,
+    stopBspServer: Cancelable,
     observer: Option[Observer.Sync[State]],
+    isClientConnected: AtomicBoolean,
+    connectedBspClients: ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath],
     computationScheduler: Scheduler,
     ioScheduler: Scheduler
 ) {
@@ -130,8 +136,28 @@ final class BloopBspServices(
   }
 
   // Completed whenever the initialization happens, used in `initialized`
-  val clientInfo = Promise[ClientInfo]()
+  val clientInfo = Promise[ClientInfo.BspClientInfo]()
   val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
+
+  /**
+   * Unregisters this client if the BSP services registered one.
+   *
+   * This method is typically called from `BspServer` when a client is
+   * disconnected for any reason.
+   */
+  def unregisterClient: Option[ClientInfo.BspClientInfo] = {
+    clientInfo.future.value match {
+      case None => None
+      case Some(client) =>
+        client match {
+          case Success(client) =>
+            val configDir = currentState.build.origin
+            connectedBspClients.remove(client, configDir)
+            Some(client)
+          case Failure(_) => None
+        }
+    }
+  }
 
   /**
    * Implements the initialize method that is the first pass of the Client-Server handshake.
@@ -144,11 +170,17 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    val client = ClientInfo.BspClientInfo(params.displayName, params.version, params.bspVersion)
+    val client = ClientInfo.BspClientInfo(
+      params.displayName,
+      params.version,
+      params.bspVersion,
+      () => isClientConnected.get
+    )
 
     reloadState(configDir, client).map { state =>
       callSiteState.logger.info("request received: build/initialize")
       clientInfo.success(client)
+      connectedBspClients.put(client, configDir)
       observer.foreach(_.onNext(state.copy(client = client)))
       Right(
         bsp.InitializeBuildResult(
@@ -712,24 +744,20 @@ final class BloopBspServices(
   import monix.execution.atomic.Atomic
   val exited = Atomic(false)
   def exit(shutdown: bsp.Exit): Task[Unit] = {
-    def closeServices(code: Int): Unit = {
-      if (exited.getAndSet(true)) {
-        exitStatus.set(code)
-        // Closing the input stream is our way to stopping these services
-        try socketInput.close()
-        catch { case t: Throwable => () }
-        ()
+    def closeServices(): Unit = {
+      if (!exited.getAndSet(true)) {
+        stopBspServer.cancel()
       }
     }
 
     isShutdownTask
       .timeoutTo(
-        FiniteDuration(1, TimeUnit.SECONDS),
+        FiniteDuration(100, TimeUnit.MILLISECONDS),
         Task.now(Left(()))
       )
       .map {
-        case Left(_) => closeServices(1)
-        case Right(_) => closeServices(0)
+        case Left(_) => closeServices
+        case Right(_) => closeServices
       }
   }
 }

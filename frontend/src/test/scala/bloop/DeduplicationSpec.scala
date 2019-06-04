@@ -934,7 +934,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
                |Compiled a ???
                |Compiling b (1 Scala source)
                |Compiled b ???
-               |Deduplicating compilation of b from bsp client 'test-bloop-client 1.0.0'
+               |Deduplicating compilation of b from bsp client 'test-bloop-client 1.0.0' (since ???
                |Compiling b (1 Scala source)
                |Compiling b (1 Scala source)
                |Compiled b ???
