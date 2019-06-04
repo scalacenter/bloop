@@ -93,7 +93,12 @@ object ClientInfo {
           val bspClientsDir = project.bspClientClassesDirectories
           // We rely on ending with the unique id to delete orphan directories
           val newClassesName = s"${project.genericClassesDir.underlying.getFileName()}-${uniqueId}"
-          val newClientDir = bspClientsDir.resolve(newClassesName).underlying
+          val newClientDir = {
+            val clientDir0 = bspClientsDir.resolve(newClassesName).underlying
+            // Only create directories if there is an active connection
+            if (!hasAnActiveConnection) clientDir0
+            else Files.createDirectories(clientDir0)
+          }
           AbsolutePath(Files.createDirectories(newClientDir).toRealPath())
         }
       )

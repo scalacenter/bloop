@@ -86,17 +86,16 @@ main() {
     done
 
     SBT_BLOOP_BENCHMARKS=(
+      "-wi 2 -i 2 -f1 -t1 -p project=spark -p projectName=spark-test"
       "-wi 4 -i 4 -f1 -t1 -p project=lichess -p projectName=lila-test"
       "-wi 15 -i 10 -f1 -t1 -p project=sbt -p projectName=sbtRoot"
       "-wi 8 -i 5 -f1 -t1 -p project=frontend -p projectName=root-test"
       "-wi 8 -i 5 -f1 -t1 -p project=finagle -p projectName=finagle-test"
-      "-wi 5 -i 5 -f1 -t1 -p project=scalding -p projectName=scalding-test"
       "-wi 10 -i 10 -f1 -t1 -p project=algebird -p projectName=algebird-test"
       "-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
       "-wi 20 -i 10 -f1 -t1 -p project=atlas -p projectName=root-test"
       "-wi 20 -i 10 -f1 -t1 -p project=grid -p projectName=grid-test"
       "-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
-      "-wi 7 -i 5 -f1 -t1 -p project=spark -p projectName=spark-test"
       "-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
       "-wi 10 -i 5 -f1 -t1 -p project=linkerd -p projectName=all-test"
       "-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
@@ -106,26 +105,23 @@ main() {
       "-wi 10 -i 5 -f1 -t1 -p project=coursier -p projectName=coursier-repo-test"
       "-wi 15 -i 10 -f1 -t1 -p project=prisma -p projectName=root-test"
       "-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
-      "-wi 7 -i 5 -f1 -t1 -p project=scio -p projectName=scio+test"
-      #"$BLOOP_SMALL_JMH_OPTIONS -p project=utest -p projectName=root"
-      #"$BLOOP_SMALL_JMH_OPTIONS -p project=versions -p projectName=versions"
-      #"$BLOOP_SMALL_JMH_OPTIONS -p project=with-tests -p projectName=with-tests"
+      "-wi 2 -i 3 -f1 -t1 -p project=scalding -p projectName=scalding-test"
+      "-wi 2 -i 3 -f1 -t1 -p project=scio -p projectName=scio+test"
     )
 
     JAVA_HOMES=(
       #"/usr/lib/jvm/java-10-oracle/bin/java"
       #"/usr/lib/jvm/java-8-shenandoah/bin/java"
       "/usr/lib/jvm/java-8-oracle/bin/java"
-      #"/usr/lib/jvm/java-8-graal-ee/bin/java"
+      "/usr/lib/jvm/java-8-graal-ee/bin/java"
     )
 
     pidFile=$(mktemp /tmp/pid.XXXXXX)
     ASYNC_PROF_OPTS="-p pidFile=$pidFile -prof pl.project13.scala.jmh.extras.profiler.ForkedAsyncProfiler:asyncProfilerDir=/repos/async-profiler;flameGraphDir=/repos/FlameGraph;threads=true;framebuf=16777216;jfr=true;pidFile=$pidFile;"
-    for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-      #SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark")
 
-      for java_home in "${JAVA_HOMES[@]}"; do
-        SBT_COMMANDS+=("$JMH_CMD .*Hot(Sbt|Bloop)Benchmark.* $benchmark -jvm $java_home")
+    for java_home in "${JAVA_HOMES[@]}"; do
+      for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
+        SBT_COMMANDS+=("$JMH_CMD .*Hot(Bloop|PipelinedBloop|Sbt)Benchmark.* $benchmark -jvm $java_home")
       done
     done
 

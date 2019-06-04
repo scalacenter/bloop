@@ -72,6 +72,8 @@ object BuildKeys {
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
   val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
+  val lazyFullClasspath =
+    Def.taskKey[Seq[File]]("Return full classpath without forcing compilation")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -211,9 +213,10 @@ object BuildKeys {
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     Keys.skip in Keys.publish := true,
     BuildInfoKeys.buildInfoKeys := {
-      val fullClasspathFiles = BuildInfoKey.map(Keys.fullClasspathAsJars.in(sbt.Compile).in(dep)) {
-        case (key, value) => ("fullCompilationClasspath", value.toList.map(_.data))
-      }
+      val fullClasspathFiles =
+        BuildInfoKey.map(BuildKeys.lazyFullClasspath.in(sbt.Compile).in(dep)) {
+          case (key, value) => ("fullCompilationClasspath", value.toList)
+        }
       Seq[BuildInfoKey](
         Keys.resourceDirectory in sbt.Test in dep,
         fullClasspathFiles
@@ -711,6 +714,35 @@ object BuildImplementation {
     val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
     Files.walkFileTree(base, opts, maxDepth, visitor)
     out.toList
+  }
+
+  final lazy val lazyInternalDependencyClasspath: Def.Initialize[Task[Seq[File]]] = {
+    Def.taskDyn {
+      val currentProject = Keys.thisProjectRef.value
+      val data = Keys.settingsData.value
+      val deps = Keys.buildDependencies.value
+      val conf = Keys.classpathConfiguration.value
+      val self = Keys.configuration.value
+
+      import scala.collection.JavaConverters._
+      val visited = sbt.Classpaths.interSort(currentProject, conf, data, deps)
+      val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
+      for ((dep, c) <- visited) {
+        if ((dep != currentProject) || (conf.name != c && self.name != c)) {
+          val classpathKey = Keys.productDirectories in (dep, sbt.ConfigKey(c))
+          productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+        }
+      }
+
+      val generatedTask = productDirs.toList.join.map(_.flatten.distinct)
+      Def.task(generatedTask.value)
+    }
+  }
+
+  final lazy val lazyDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
+    val internalClasspath = lazyInternalDependencyClasspath.value
+    val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
+    internalClasspath ++ externalClasspath
   }
 }
 

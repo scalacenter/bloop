@@ -34,11 +34,6 @@ abstract class HotBloopBenchmarkBase {
   var processInputReader: BufferedWriter = _
   var output = new java.lang.StringBuilder()
 
-  def findMaxHeap(project: String): String = project match {
-    case "lichess" | "akka" | "scio" | "http4s" | "summingbird" | "gatling" => "-Xmx4G"
-    case _ => "-Xmx3G"
-  }
-
   import bloop.benchmarks.BuildInfo
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = CommunityBuild.getConfigDirForBenchmark(project)
@@ -49,8 +44,8 @@ abstract class HotBloopBenchmarkBase {
       val defaultJvmArgs = List(
         sys.props("java.home") + "/bin/java",
         "-Xms2G",
-        findMaxHeap(project),
-        "-XX:ReservedCodeCacheSize=128m"
+        "-Xmx4G",
+        "-XX:ReservedCodeCacheSize=256m"
       )
       if (noIncremental) defaultJvmArgs ::: List("-Dbloop.zinc.disabled=true")
       else defaultJvmArgs
