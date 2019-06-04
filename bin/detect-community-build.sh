@@ -28,7 +28,7 @@ if [[ "$PR" ]]; then
     echo "The community build will not run for pull request $PR."
   fi
 elif [[ "$DRONE_TAG" ]]; then
-  export RUN_COMMUNITY_BUILD=true
+  #export RUN_COMMUNITY_BUILD=true
   echo "The community build will run for the $DRONE_TAG release."
 else
   echo "The DRONE_PULL_REQUEST environment variable was not set."
