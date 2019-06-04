@@ -18,13 +18,14 @@ import sbt.librarymanagement.MavenRepository
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
+  import sbt.plugins.IvyPlugin
   import com.typesafe.sbt.SbtPgp
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
   import com.lucidchart.sbt.scalafmt.ScalafmtCorePlugin
 
   override def trigger: PluginTrigger = allRequirements
   override def requires: Plugins =
-    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin && SbtPgp
+    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin && SbtPgp && IvyPlugin
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -346,8 +347,8 @@ object BuildImplementation {
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-    Keys.publishConfiguration := Keys.publishConfiguration.value.withOverwrite(true),
-    Keys.publishLocalConfiguration := Keys.publishLocalConfiguration.value.withOverwrite(true),
+    Keys.publishLocalConfiguration in Compile :=
+      Keys.publishLocalConfiguration.value.withOverwrite(true)
   ) // ++ metalsSettings
 
   final val reasonableCompileOptions = (

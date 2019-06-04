@@ -69,6 +69,8 @@ val jsonConfig210 = project
     name := "bloop-config",
     target := (file("config") / "target" / "json-config-2.10").getAbsoluteFile,
     scalaVersion := Scala210Version,
+    publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
+    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
     // We compile in both so that the maven integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
@@ -92,6 +94,8 @@ val jsonConfig211 = project
     scalaVersion := Scala211Version,
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
+    publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
+    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
     // We compile in both so that the gradle integration can be tested locally
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
@@ -114,6 +118,8 @@ val jsonConfig212 = project
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
     target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
     scalaVersion := Keys.scalaVersion.in(backend).value,
+    publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
+    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
     publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(
