@@ -96,6 +96,7 @@ object MojoImplementation {
         // Run source dependencies download
         val request = new DefaultInvocationRequest()
         request.setPomFile(project.getBasedir)
+        request.setBatchMode(true)
         request.setGoals(ju.Collections.singletonList("dependency:sources"))
         val invoker = new DefaultInvoker()
         val result: InvocationResult = invoker.execute(request)
