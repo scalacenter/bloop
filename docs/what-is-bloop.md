@@ -31,10 +31,12 @@ them and handles requests in parallel—, bloop runs in the background of your
 machine for long periods of time to respond to any compile, test or run
 client request.
 
-Before using bloop, let's get familiar with the essentials and
-responsibilities of a build server.
+### Terminology: clients and users
 
-### Usage of the build server
+You can use Bloop's build server directly via the command-line application or
+indirectly, via any of the tools that rely on Bloop to build your software.
+In this document, we refer to these tools as the clients and the developers
+manning them are the users.
 
 Clients can *concurrently* ask for build requests in two ways:
 
@@ -45,15 +47,28 @@ Clients can *concurrently* ask for build requests in two ways:
    [Metals](https://github.com/scalameta/metals) or
    [IntelliJ](https://www.jetbrains.com/idea/)
 
-### Guarantees to build clients
+When these clients run build actions, they have an effect on you, the end
+user building software. They mutate the file system, they update the build
+state and they produce a result back to you. Clients might even be running
+these actions concurrently, unknowingly sharing global state and falling prey
+of race conditions.
 
-At the same time, these clients have the guarantee that their actions will not
-conflict with those of other concurrent clients being served by the same
-server in the same build.
+How can these actions be run in a build server without disruption? What are
+the properties of these connections? Giving answers to these questions is
+fundamental to solve real-world tooling needs.
+
+### The goal of a build server
+
+A build server such as Bloop is in a privileged position to solve the above
+tooling challenges.
+
+As the the hub serving build requests for any Scala build, Bloop guarantees
+clients that their actions will not conflict with those of other concurrent
+clients being served by the same server in the same build.
 
 For example, if [Metals](https://github.com/scalameta/metals) is compiling
-your project via Bloop and you spawn a CLI command such as test at the same
-time, Bloop guarantees that:
+your project via Bloop and you spawn a bloop CLI command such as `bloop test
+foo --watch` at the same time, Bloop guarantees that:
 
 1. The server heavily caches compilations for the same inputs (aka *compile deduplication*)
    > If inputs haven't changed between the requests, only the first client
@@ -73,7 +88,8 @@ time, Bloop guarantees that:
 
 These properties are **key to understand Bloop's goal as a build server**.
 Bloop is trying to model these actions as *pure functions*, just like your
-web server does, managing any internal state as best as possible.
+web server does, managing any internal state as best as possible and
+providing the best developer experience to end users.
 
 ### Use or integrate with bloop
 
@@ -84,21 +100,23 @@ That's it, this is all you need to know to get started using Bloop!
   * Read the [Quickstart](docs/usage) page to get you acquainted with Bloop.
 * To **integrate** with bloop, follow the [Integration Guide](integration.md).
 
-## Design Principles
+## Principles for a better tooling paradigm
 
-The lack of clear design principles in previous Scala tools has hindered
-progress in the tooling community, complicated maintenance and worsened the
-Scala user experience with, for example, slower compiles.
+Bloop improves the way we build tools in the Scala community with three
+well-defined design principles.
 
-Bloop addresses such problems with three philosophical principles that shape
-its design and improve on the status quo by building the foundations of a
-flexible and reusable Scala toolchain for everyone.
+These principles propose an alternative to the status quo where clients
+largely reimplement bloop to support Scala. This system is the natural way
+our tooling community has grown but has irremediably hindered progress in the
+tooling community, complicated maintenance and worsened the overall Scala
+user experience with, for example, slower compiles or half-baked build tool
+integrations.
 
-### Implement Once, Optimize Once, Use Everywhere
+### Implement once, Optimize once, Use everywhere
 
 Every developer tool supporting Scala needs to compile, test and run Scala
 code. These are basic features that both old and new tools alike require,
-from build tools to IDEs/editors, in-house tooling and custom scripts.
+from build tools to IDEs/editors, in-house tooling and scripts.
 
 Implementing custom client integrations is a tedious task for the close-knit
 community of Scala tooling contributors. In practice, contributors repeat the
@@ -112,7 +130,11 @@ Scala features, provides the best developer experience to Scala users,
 simplifies future Scala integrations and lets maintainers focus on one single
 implementation to track performance, reliability and success metrics.
 
-### Outlive Build Clients, Ease Integration
+On the plus side, tooling developers that would otherwise try to reimplement
+bits of Bloop to support Scala or scratch a tooling itch can focus on
+creating tools and innovating.
+
+### Outlive build clients, Ease integrations
 
 There are all kinds of build clients: short-lived and long-lived, JVM-based
 and native, local and remote. Yet, regardless of the nature of the clients,
@@ -125,7 +147,7 @@ A client-server architecture enables different clients to share optimized
 compilers and build instances, minimizing developer latency and deduplicating
 the work to warm up hot compilers in every client session.
 
-### Optimize for the Most Common Scenarios
+### Optimize for the most common scenarios
 
 Edit, compile and test workflows are the bread and butter of software
 development. When our build or editor are slow to respond, our productivity

@@ -95,7 +95,7 @@ surprising behaviours in your build. This is a great way to start asking
 questions and spot build invariants slowing down compilation times.
 
 The Zipkin UI is rich and featureful with lots of filtering and inspection
-capabilities. It's recommended you play around with Zipkin UI to know how to
+capabilities. It's recommended you play around with the UI to know how to
 effectively use the build traces to step up your profiling game.
 
 ## Prepare to run the benchmarks
@@ -166,9 +166,9 @@ you to do much more.
 
 Put your numbers into perspective when comparing, for example, the
 performance of no-op compilations, the time to warm up a hot compiler or the
-time to compile your whole build. If you mostly use your build tool for
-compiling, testing and running and Bloop is faster than the competition, then
-consider using it!
+time to compile your whole build. Bloop can be faster at compiling, testing
+or running but if your developer workflow doesn't require any of those often,
+then maybe it's not a good fit for you.
 
 Remember, be aware you benchmark the same thing and check that build
 definitions are unchanged!
@@ -245,14 +245,39 @@ which uses a class called `UploadingRunner` to save benchmark data points.
 
 Once you're done benchmarking, you might have no idea where to start
 optimizing your build, even after looking at Zipkin build traces for a few
-minutes.
+minutes. "Sure, typechecking takes a long time, but what can I do to fix
+that?" or "Can I even optimize that expensive IO task" might be questions
+popping up in your mind.
 
-That's normal, it takes time and experience to know which patterns you should
-be looking for. Don't feel daunted by the task; after all, practice makes
-perfect.
+That's normal, it takes time and experience to know which patterns
+you should be looking for. Don't feel daunted by the task; after all,
+practice makes perfect.
 
 In this section, I want to elaborate on a few of actionable items I've used
 in the past to speed up large, complicated builds using lots of advanced
-Scala features.
+Scala features. Hopefully, these actions will speed up your build too or
+inspire you to get you started optimizing it.
+
+### Use the latest Scala version
+
+I cannot stress this enough, keeping up with the latest Scala version is
+critical to have a speedy build.
+
+Many of the optimizing features we add in the compiler or in Bloop are only
+enabled in the latest releases and need each other, so the best way to ensure
+your build is as fast as it can be is by upgrading to the latest Scala
+version. For example, if you are using 2.11.11 while compiler developments
+happens in 2.13.0, you're most likely missing out on a lot of life-quality
+performance improvements.
+
+### Use appropiate Java options
+
+### Tweak or change VM options
+
+### Reorganize your build graph
+
+### Watch out for long typechecking times
+
+### Define all macros in a single, independent project
 
 ###
