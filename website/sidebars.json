@@ -18,6 +18,7 @@
       "ides/metals"
     ],
     "References": [
+      "performance-guide",
       "cli-reference",
       "server-reference",
       "launcher-reference",

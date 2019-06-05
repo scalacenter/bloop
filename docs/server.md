@@ -14,7 +14,7 @@ lifecycle and minimizing the amount of times it's restarted.
 ## Start the build server
 
 At the end of the day, the build server is an artifact in Maven Central. However,
-the recommended way of starting the server is via `bloop server`.
+the recommended way of starting the server is via the `bloop server` invocation.
 
 `bloop server` is an OS-independent way of starting the server that abstracts over
 some of the messy details of running a JVM application with the right configuration.
