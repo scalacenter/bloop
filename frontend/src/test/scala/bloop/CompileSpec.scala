@@ -8,7 +8,7 @@ import bloop.engine.{Feedback, Run, State, ExecutionContext}
 import bloop.engine.caches.ResultsCache
 import bloop.util.{TestProject, TestUtil, BuildUtil}
 
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
@@ -1278,6 +1278,32 @@ object CompileSpec extends bloop.testing.BaseSuite {
            |Compiling a (1 Scala source)
            |""".stripMargin
       )
+    }
+  }
+
+  test("compile a project that redundantly lists an exact file as well as parent directory") {
+    TestUtil.withinWorkspace { workspace =>
+      val filename = "/main/scala/Foo.scala"
+      val sources = List(
+        s"""$filename
+           |class Foo
+           """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = {
+        val base = TestProject(workspace, "a", sources)
+        val srcs = base.config.sources match {
+          case dir :: Nil => dir :: Paths.get(dir.toString, filename) :: Nil
+          case other => fail(s"Expected exactly one source directory, got $other")
+        }
+        base.copy(config = base.config.copy(sources = srcs))
+      }
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
     }
   }
 }
