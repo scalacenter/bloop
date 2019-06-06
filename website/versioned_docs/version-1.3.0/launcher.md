@@ -40,7 +40,7 @@ The high-level logic steps of the launcher can be summarized as follows:
 1. If bloop is not detected in the `$PATH` or `$HOME/.bloop/`, install it.
    * If the universal installation (that requires `curl` and `python`) fails,
      then we attempt to resolve bloop and launch an embedded server with
-     a concrete bsp command. This operation is only atempted if and only if
+     a concrete bsp command. This operation is only atempted iff
      `--skip-bsp-connection` is not used.
 2. Run a server in the background if it's absent.
 3. When a server is running:
@@ -83,13 +83,13 @@ CLI](cli-reference.md).
 </thead>
 <tbody>
 <tr>
-<td>1.3.0-RC1</td>
-<td>04 Jun 2019 17:30</td>
+<td>1.3.0</td>
+<td>06 Jun 2019 21:34</td>
 <td><code>-r sonatype:releases</code></td>
 </tr>
 <tr>
-<td>1.3.0-RC1+3-ce6da385</td>
-<td>06 Jun 2019 01:04</td>
+<td>1.3.0+1-8d14a3c3</td>
+<td>06 Jun 2019 22:23</td>
 <td><code>-r bintray:scalacenter/releases</code></td>
 </tr>
 </tbody>

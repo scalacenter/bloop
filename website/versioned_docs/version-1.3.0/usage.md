@@ -398,7 +398,7 @@ You've just learned the most basic bloop commands. Learn more commands with `blo
 
 ```bash
 → bloop --help
-bloop 1.3.0-RC1
+bloop 1.3.0
 Usage: bloop [options] [command] [command-options]
 
 

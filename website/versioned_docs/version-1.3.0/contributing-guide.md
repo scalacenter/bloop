@@ -180,7 +180,7 @@ The workflow to update the documentation is the following:
 
 1. Run the docs generation via `bloop run docs -w` or `~docs/run` if you're using the sbt shell.
 2. Run `yarn start` inside the `website/` directory. Yarn will start a local web server with the current state of the docs.
-3. Locate the Markdown file you want to edit
+3. Locate the Markdown file you want to editd
 4. Make a change in the Markdown file. The first command will automatically rebuild the docs and the second one will show it in the browser.
 
 If the previous procedure doesn't show a change because, for example, you
