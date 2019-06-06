@@ -11,7 +11,6 @@ sidebar_label: Quickstart
     * The build server is running in the background.
     * The `bloop` CLI tool is installed in your machine.
     * You have exported your build to Bloop.
-    
 
 ## Compile
 
@@ -159,6 +158,7 @@ All 1 test suites passed.
 ```
 
 However, given:
+
 1. two new projects `bar` and `bar-test`
 1. two dependencies;
       * one between `foo-test` and `bar-test`
@@ -204,7 +204,14 @@ All 1 test suites passed.
 ===============================================
 ```
 
-## Pass arguments to test
+Note that:
+
+1. You can repeat the `-o` test arguments as many times you want to run
+   different test suite at once.
+1. You can use `*` as part of the test suite name to match more than one
+   suite directly.
+
+## Pass test arguments to test
 
 Pass arguments to the test framework after `--`:
 
@@ -226,12 +233,24 @@ Test framework arguments are unique per test frameworks and parsed independently
 specific to one test framework will work only if:
 
 1. Your test argument is a system property (`-Dkey=value`)
-1. Your test project uses only one test framework
-1. You have a project with tests of different test frameworks (e.g. Scalacheck and Scalatest) but
+2. Your test project uses only one test framework
+3. You have a project with tests of different test frameworks (e.g. Scalacheck and Scalatest) but
 you're filtering out tests that are part of only one framework (for example, via `--only`)
 
 To specify test arguments per test framework, you can add the arguments in your build definition or
 in the test field of the bloop configuration files.
+
+## Test only a specific test case
+
+The mechanism to test only one single case in a suite/specification depends
+largely on the test framework. A few examples:
+
+1. JUnit: `bloop test foo -o CubeCalculatorTest -- "*a single test case*"`
+1. ScalaTest: `bloop test foo -o CubeCalculatorTest -- -z "a single test case"`
+1. utest: `bloop test foo -o CubeCalculatorTest -- "CubeCalculatorTest.a single test case"`
+
+Consult the documentation of your test framework to know how to run an exact
+or fuzzy match for a test.
 
 ## Pass JVM arguments to test
 
@@ -333,6 +352,29 @@ pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>.
 > It's not recommended to run `-w` at the same time you use [Bloop via a text editor](ides/overview)
 > given that concurrent actions may collide. Such actions will be handled gracefully in future bloop
 > releases.
+
+## Run an Ammonite shell on a project
+
+The `console` commands runs an Ammonite shell with a project's classpath.
+
+```bash
+→ bloop console foo
+Compiling foo (1 Scala source)
+Compiled foo (290ms)
+https://repo1.maven.org/maven2/com/lihaoyi/ammonite_2.12.8/maven-metadata.xml
+  No new update since 2019-05-19 04:07:48
+Loading...
+Compiling (synthetic)/ammonite/predef/interpBridge.sc
+Compiling (synthetic)/ammonite/predef/replBridge.sc
+Compiling (synthetic)/ammonite/predef/DefaultPredef.sc
+Welcome to the Ammonite Repl 1.6.7-1-a44339b
+(Scala 2.12.8 Java 1.8.0_202-ea)
+If you like Ammonite, please support our development at www.patreon.com/lihaoyi
+@  
+```
+
+Use `--ammonite-version` to use a particular version of Ammonite. By default,
+the latest released version is used.
 
 ## Compile, test and run several projects
 

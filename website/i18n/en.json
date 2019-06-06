@@ -73,6 +73,10 @@
         "title": "Performance guide",
         "sidebar_label": "Performance guide"
       },
+      "performance-reference": {
+        "title": "Performance reference",
+        "sidebar_label": "Performance reference"
+      },
       "release-table": {
         "title": "release-table"
       },
