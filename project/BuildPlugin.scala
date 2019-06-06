@@ -118,6 +118,9 @@ object BuildKeys {
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
+    GHReleaseKeys.ghreleaseTitle := { tagName =>
+      tagName.toString
+    },
     GHReleaseKeys.ghreleaseNotes := { tagName =>
       IO.read(buildBase.value / "notes" / s"$tagName.md")
     },
