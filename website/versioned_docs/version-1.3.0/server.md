@@ -1,7 +1,8 @@
 ---
-id: server-reference
+id: version-1.3.0-server-reference
 title: Build Server Reference
 sidebar_label: Build Server
+original_id: server-reference
 ---
 
 The build server is at the core of bloop. It runs in the background and is
@@ -22,12 +23,12 @@ For example, `bloop server`:
 
 1. Finds the location of a bootstrapped jar automatically in the bloop installation
    directory
-1. Runs the server with the jvm options in the `.jvmopts` file in the bloop installation
+2. Runs the server with the jvm options in the `.jvmopts` file in the bloop installation
    directory. The `.jvmopts` file can contain the flags separated by either a new line or
    a whitespace.
-1. Provides a way to evolve the way the server is run and managed in the future, which
+3. Provides a way to evolve the way the server is run and managed in the future, which
    makes it especially compatibility-friendly.
-   
+
 The bloop installation directory is the directory where `bloop` is located. In Unix-based
 systems, the bloop installation directory can be found by running `which bloop`.
 
@@ -47,25 +48,25 @@ If you are integrating your tool with bloop and want to install and start the se
 * `JVM_OPTS` must be valid JVM arguments prefixed with `-J`, used to pass in
   temporary jvm options to the server. For a permanent solution, add the options in
   `.jvmopts` file.
-  
+
 #### Flags
 
 <dl>
-  <dt><code>--server-location</code> (type: <code>path</code>)</dt>
-  <dd><p>Use the server jar or script in the given path</p></dd>
+<dt><code>--server-location</code> (type: <code>path</code>)</dt>
+<dd><p>Use the server jar or script in the given path</p></dd>
 </dl>
 
 ## Automatic management of the server
 
-It is generally a good practice to have a way to manage the lifecycle of the server. 
+It is generally a good practice to have a way to manage the lifecycle of the server.
 Depending on your operating system, there exist several solutions that allow you to
 start, stop, restart and inspect the status of the build server at any time.
 
 Bloop supports the following mechanisms out-of-the-box:
 
 1. `brew services` in OSX systems
-1. `systemd` in Linux systems
-1. Desktop Entries in systems that follow the [XDG Desktop Entry Specification](https://standards.freedesktop.org/desktop-entry-spec/latest/)
+2. `systemd` in Linux systems
+3. Desktop Entries in systems that follow the [XDG Desktop Entry Specification](https://standards.freedesktop.org/desktop-entry-spec/latest/)
 
 > Windows users do not have a way of starting the server via Windows Services, so the
 > lifecycle management has to be manual. Do you want to help improve the situation?
@@ -80,10 +81,10 @@ start the Bloop server and under which conditions. The property list is installe
 Command examples:
 
 1. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.out.log`: check the build server logs via stdout.
-1. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.err.log`: check the build server logs via stderr.
-1. `brew services start bloop`: starts up the bloop server.
-1. `brew services stop bloop`: stops the bloop server.
-1. `brew services restart bloop`: restarts the bloop server.
+2. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.err.log`: check the build server logs via stderr.
+3. `brew services start bloop`: starts up the bloop server.
+4. `brew services stop bloop`: stops the bloop server.
+5. `brew services restart bloop`: restarts the bloop server.
 
 ### via `systemd`
 
@@ -108,10 +109,10 @@ services</a> for advanced configuration.
 Command examples:
 
 1. `journalctl --user-unit bloop`: check the build server logs.
-1. `systemctl --user status bloop`: checks the status of the build server.
-1. `systemctl --user start bloop`: starts up the bloop server.
-1. `systemctl --user stop bloop`: stops the bloop server.
-1. `systemctl --user restart bloop`: restarts the build server.
+2. `systemctl --user status bloop`: checks the status of the build server.
+3. `systemctl --user start bloop`: starts up the bloop server.
+4. `systemctl --user stop bloop`: stops the bloop server.
+5. `systemctl --user restart bloop`: restarts the build server.
 
 ### via Desktop Entries
 
@@ -133,3 +134,4 @@ If you want to start the server automatically, add the desktop entry to `autosta
 $ mkdir -p $HOME/.config/autostart
 $ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
 ```
+

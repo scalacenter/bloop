@@ -182,8 +182,15 @@ object ScalaInstance {
 
             val fromResourceStream =
               clazz.getResourceAsStream("/" + expectedPath.getSchemeSpecificPart)
-            if (fromResourceStream == null) None
-            else {
+            if (fromResourceStream == null) {
+              val scalaJarResourceError =
+                """Unexpected error when creating Bloop's default Scala instance!
+                  |  -> The resources where Bloop Scala jars are hosted cannot be accessed
+                  |This error can happen when making an standalone bootstrap of bloop via coursier which is currently not supported
+                """.stripMargin
+              logger.error(scalaJarResourceError)
+              None
+            } else {
               val outPath = tempDirectory.resolve(jarName)
               logger.debug(s"${clazz} detected in resource, dumping to ${outPath}...")
               Files.copy(fromResourceStream, outPath)

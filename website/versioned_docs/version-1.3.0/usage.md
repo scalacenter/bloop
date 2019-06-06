@@ -1,16 +1,17 @@
 ---
-id: usage
+id: version-1.3.0-usage
 title: Quickstart
 sidebar_label: Quickstart
+original_id: usage
 ---
 
 ## Requirements
 
 1. A build with some projects in it (the guide assumes `foo` and `foo-test`)
-1. You have followed the [Installation Guide](/bloop/setup), which means:
-    * The build server is running in the background.
-    * The `bloop` CLI tool is installed in your machine.
-    * You have exported your build to Bloop.
+2. You have followed the [Installation Guide](/bloop/setup), which means:
+   * The build server is running in the background.
+   * The `bloop` CLI tool is installed in your machine.
+   * You have exported your build to Bloop.
 
 ## Compile
 
@@ -38,7 +39,7 @@ dependencies).
 The previous logs show Bloop has compiled both `foo-test` and `foo`. This is expected given that
 `foo` is a dependency of `foo-test` and `foo` wasn't already compiled.
 
-## Compile upstream projects 
+## Compile upstream projects
 
 The `--cascade` flag allows you to change the public signature of a project (say, `foo`) and have
 bloop compile all the transitive projects depending on `foo` to detect compilation errors.
@@ -70,7 +71,7 @@ Clean the compilation caches in your build with:
 This operation is uncommon but might be useful if the incremental compiler state is causing spurious
 errors. `clean` does not remove class files, it only cleans the incremental compilation state. If
 you want to remove the class files, do it manually.
- 
+
 By default, `bloop clean` only cleans the cache of a given project. Run `clean` with `--propagate`
 to clean the cache of downstream projects.
 
@@ -138,7 +139,7 @@ test sources.
 Like [`compile foo --cascade`](#compile-upstream-projects), `test foo --cascade`:
 
 1. triggers the compilation of `foo` and all projects depending on `foo` (with their dependencies)
-1. runs tests of `foo` and all projects depending on `foo` (without their dependencies)
+2. runs tests of `foo` and all projects depending on `foo` (without their dependencies)
 
 In our case, testing `foo` with or without `--cascade` will compile and test the same number of
 projects because our build graph is simple enough and only `foo-test` defines tests.
@@ -160,14 +161,14 @@ All 1 test suites passed.
 However, given:
 
 1. two new projects `bar` and `bar-test`
-1. two dependencies;
-      * one between `foo-test` and `bar-test`
-      * another one between `bar-test` and `bar`
+2. two dependencies;
+   * one between `foo-test` and `bar-test`
+   * another one between `bar-test` and `bar`
 
 `test foo --cascade` will:
- 
+
 1. compile `foo`, `foo-test`, `bar` and `bar-test`
-1. test `foo` (skipping it, as it has no tests) and `foo-test`
+2. test `foo` (skipping it, as it has no tests) and `foo-test`
 
 ```bash
 → bloop test foo --cascade
@@ -208,7 +209,7 @@ Note that:
 
 1. You can repeat the `-o` test arguments as many times you want to run
    different test suite at once.
-1. You can use `*` as part of the test suite name to match more than one
+2. You can use `*` as part of the test suite name to match more than one
    suite directly.
 
 ## Pass test arguments to test
@@ -235,7 +236,7 @@ specific to one test framework will work only if:
 1. Your test argument is a system property (`-Dkey=value`)
 2. Your test project uses only one test framework
 3. You have a project with tests of different test frameworks (e.g. Scalacheck and Scalatest) but
-you're filtering out tests that are part of only one framework (for example, via `--only`)
+   you're filtering out tests that are part of only one framework (for example, via `--only`)
 
 To specify test arguments per test framework, you can add the arguments in your build definition or
 in the test field of the bloop configuration files.
@@ -246,8 +247,8 @@ The mechanism to test only one single case in a suite/specification depends
 largely on the test framework. A few examples:
 
 1. JUnit: `bloop test foo -o CubeCalculatorTest -- "*a single test case*"`
-1. ScalaTest: `bloop test foo -o CubeCalculatorTest -- -z "a single test case"`
-1. utest: `bloop test foo -o CubeCalculatorTest -- "CubeCalculatorTest.a single test case"`
+2. ScalaTest: `bloop test foo -o CubeCalculatorTest -- -z "a single test case"`
+3. utest: `bloop test foo -o CubeCalculatorTest -- "CubeCalculatorTest.a single test case"`
 
 Consult the documentation of your test framework to know how to run an exact
 or fuzzy match for a test.
@@ -397,7 +398,7 @@ You've just learned the most basic bloop commands. Learn more commands with `blo
 
 ```bash
 → bloop --help
-bloop @VERSION@
+bloop 1.3.0-RC1
 Usage: bloop [options] [command] [command-options]
 
 

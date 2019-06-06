@@ -69,6 +69,10 @@
         "title": "Launcher Reference",
         "sidebar_label": "Built-in Launcher"
       },
+      "performance-guide": {
+        "title": "Performance guide",
+        "sidebar_label": "Performance guide"
+      },
       "performance-reference": {
         "title": "Performance reference",
         "sidebar_label": "Performance reference"
@@ -79,12 +83,6 @@
       "server-reference": {
         "title": "Build Server Reference",
         "sidebar_label": "Build Server"
-      },
-      "target/scala-2.12/classes/LICENSE": {
-        "title": "target/scala-2.12/classes/LICENSE"
-      },
-      "target/scala-2.12/classes/NOTICE": {
-        "title": "target/scala-2.12/classes/NOTICE"
       },
       "tools/homebrew/install": {
         "title": "tools/homebrew/install"

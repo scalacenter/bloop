@@ -1,7 +1,8 @@
 ---
-id: sbt
+id: version-1.3.0-sbt
 title: sbt
 sidebar_label: sbt
+original_id: sbt
 ---
 
 ## Export the build
@@ -79,7 +80,7 @@ sbt> bloopInstall
 [success] Generated '/disk/foo/.bloop/foo-custom-config.json'.
 ```
 
-## Enable sbt project references 
+## Enable sbt project references
 
 Source dependencies are not well supported in sbt. Nonetheless, if you use them in your build and
 you want to generate bloop configuration files for them too, add the following to your `build.sbt`:
@@ -161,7 +162,7 @@ configured to skip project compilations to make the export process fast. If comp
 triggered, then it means your build adds certain runtime dependencies in your build graph.
 
 > For example, your build may be forcing the `publishLocal` of a project `a` whenever the classpath of
-`b` is computed. Identify this kind of dependencies and prune them.
+> `b` is computed. Identify this kind of dependencies and prune them.
 
 Another rule of thumb is to make sure that source and resource generators added to your build by
 either you or sbt plugin are incremental and complete as soon as possible.
@@ -171,3 +172,4 @@ a second time in the sbt session is *really* fast.
 
 [sbt-configuration]: https://www.scala-sbt.org/1.x/docs/Multi-Project.html
 [integration-test-conf]: https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Integration+Tests
+
