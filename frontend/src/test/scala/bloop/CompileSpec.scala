@@ -1299,6 +1299,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
         }
         base.copy(config = base.config.copy(sources = srcs))
       }
+
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
