@@ -83,7 +83,7 @@ object SourceHasher {
       .toListL
 
     Task.mapBoth(discoverFileTree, copyFilesInParallel) {
-      case (_, sources) => sources
+      case (_, sources) => sources.distinct
     }
   }
 }
