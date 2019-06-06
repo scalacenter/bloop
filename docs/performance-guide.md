@@ -38,7 +38,7 @@ Zipkin is a distributed tracing system that gathers timing data and it's
 often used to troubleshoot problems in microservice architectures. Bloop
 integrates with Zipkin because it:
 
-1. [Installs quickly](http://zipkin.apache.org/pages/quickstart.html) in any system
+1. Installs quickly in any system
 1. Displays build traces nicely in a hierarchical web user interface
 1. Allows persisting build traces to databases such as Cassandra
 1. Has an extensible design to:
@@ -239,7 +239,7 @@ compilation in your favorite build tool.
 Our benchmark suite can send benchmark data points to Grafana. Look at the
 source code of our benchmarks and [our benchmark
 script](https://github.com/scalacenter/bloop/blob/master/bin/run-benchmarks.sh)
-which uses a class called `UploadingRunner` to save benchmark data points.
+which an `UploadingRunner` to persist data points.
 
 ## Speed up complicated builds
 
@@ -266,18 +266,116 @@ critical to have a speedy build.
 Many of the optimizing features we add in the compiler or in Bloop are only
 enabled in the latest releases and need each other, so the best way to ensure
 your build is as fast as it can be is by upgrading to the latest Scala
-version. For example, if you are using 2.11.11 while compiler developments
-happens in 2.13.0, you're most likely missing out on a lot of life-quality
-performance improvements.
+version. For example, if you are using 2.11.11 while the latest compiler
+developments are in 2.13.0, you're most likely missing out on a lot of
+life-quality performance improvements.
 
-### Use appropiate Java options
+### Pick appropiate JVM and GC options
 
-### Tweak or change VM options
+The best JVM options are those striking a balance between making an
+efficient use of your system's available resources and allowing the build
+server to operate at peak performance.
+
+Learn how to tweak your options in the [Build Server](docs/server.md) guide.
+
+Here's a [list of the most important JVM options](https://www.baeldung.com/jvm-parameters).
+Below I elaborate only on the most critical for compilation.
+
+#### Max heap size
+
+The `-Xmx<heap size>[unit]` option sets the max heap size of the build
+server. Most of the times it's better to leave it at the default value, but
+you can configure it if you suspect the JVM is not allocating enough heap for
+a process or if it's using too much.
+
+Here are some recommended values:
+
+* Use `-Xmx2g` for small to medium-sized builds.
+* Use up to `-Xmx4g` for large builds.
+
+#### Use parallel gc unless you have evidence of a better one
+
+Scala's developer toolchain is faster on Java 8 than on Java 9 or Java 11
+because the garbage collectors in these different Java runtimes have changed
+considerably.
+
+If you are using Java 9 or Java 11, I recommend defaulting on
+`-XX:+UseParallelGC` which optimizes for throughput instead of latency.
+
+As better garbage collectors are developed in future Java versions, I
+recommend benchmarking the fastest as well as tweaking GC-specific options.
+The Scala compiler is heavy on object allocations and is particularly
+sensitive to different optimizations in GC configurations.
+
+### Tweak the Java JIT
+
+Using the stock JVM is a safe default. However, tools written in Scala such
+as Bloop or `scalac` can be sped up significantly if you're willing to
+experiment with configurations of the JIT compiler or alternative compilers
+to the stock C2 compiler.
+
+For example, GraalVM is better at optimizing Scala code than the stock C2
+compiler. Users have reported speedups within the range of 10%-50%. There are
+two GraalVMs available you can install:
+
+1. The Community edition (GraalVM CE), completely free.
+1. The Enterprise edition (GraalVM EE), only free for local development.
+   It implements specific code heuristics on top of the Community edition to
+   run code faster.
+
+If you're stuck with the stock JVM, improve compilation performance in C2 by
+using `-XX:MaxInlineLevel=20`, which tweaks the inline level from 9 (default)
+to 20. Users have reported around 10%-20% faster compilation times.
 
 ### Reorganize your build graph
 
-### Watch out for long typechecking times
+The natural way we structure our projects and builds is rarely the
+friendliest to build times. Giving our builds a more fine-grained structure
+helps address many build time issues.
 
-### Define all macros in a single, independent project
+For example, let's say we look at a build graph like this. The Zipkin trace
+shows that the compilation of `c` depends on that of `b` and the compilation
+of `b` on that of `a`.
 
-###
+![Original example of build graph](assets/build-optimization-example-1.svg)
+
+Then, when looking at the code of `c`, you realize `c` should not depend on
+`b` or that you can move a little bit of code around to remote the dependency
+of `b`. After removing the dependency, the build graph should look like this:
+
+![Optimized example of build graph](assets/build-optimization-example-2.svg)
+
+Such a graph shape is better than the initial one because it increases the
+amount of projects that can be compiled in parallel (`b` can be built
+concurrently to `c`) and improve incremental compilation's heuristics.
+
+The less depth your build graph has, the more efficient to compile it will be.
+In the absence of low-hanging fruits such as the one above, the most common
+way to flatten out your build graph is to split up big projects into smaller
+units and trim down the amount of dependencies each of them has.
+
+### Identify long typechecking times
+
+Average typechecking time can take between 40% and 70% of the whole
+compilation of a project. The more typechecking dominates your compilation
+times, the more likely is that there are compilation anomalies in your
+project.
+
+If typechecking time is suspiciously high in your Zipkin build traces, put on
+your profiling hat and have a closer look at what uses of Scala features are
+more prominent.
+
+For example, it's very likely you depend on a library that either directly or
+transitively uses Scala macros (such as Circe). Or maybe you define/use lots
+of implicits in your code.
+
+If you use either macros and implicits, consider reading [Speeding Up
+Compilation Time with
+`scalac-profiling`](https://www.scala-lang.org/blog/2018/06/04/scalac-profiling.html)
+to get more familiar with the techniques you can use to profile and optimize
+builds making a heave use of them.
+
+If you don't see anything weird but still consider your project takes too
+long to compile, please reach out to an expert in the [`scala/contributors`
+Gitter channel](https://gitter.im/scala/contributors). There are friendly
+people that might be able to help you fix the compilation anomalies.
