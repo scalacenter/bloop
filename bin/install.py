@@ -238,14 +238,14 @@ def coursier_bootstrap(target, main):
                 check_call(["java"] + http + https + ["-Divy.home=" + args.ivy_home, "-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
                     "-r", "bintray:scalameta/maven",
                     "-r", "bintray:scalacenter/releases",
-                    "-o", target, "-f", "--standalone", "--main", main
+                    "-o", target, "-f", "--main", main
                 ])
             else:
                 check_call(["java"] + http + https + ["-jar", BLOOP_COURSIER_TARGET, "bootstrap", BLOOP_ARTIFACT,
                     "-r", "bintray:scalameta/maven",
                     "-r", "bintray:scalacenter/releases",
                     "-r", "https://oss.sonatype.org/content/repositories/staging",
-                    "-o", target, "-f", "--standalone", "--main", main
+                    "-o", target, "-f", "--main", main
                 ])
     except CalledProcessError as e:
         print("Coursier couldn't create %s. Please report an issue." % target)
