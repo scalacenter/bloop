@@ -33,10 +33,9 @@ client request.
 
 ### Terminology: clients and users
 
-You can use Bloop's build server directly via the command-line application or
-indirectly, via any of the tools that rely on Bloop to build your software.
-In this document, we refer to these tools as the clients and the developers
-manning them are the users.
+Any script, tool or application becomes a client when it makes requests to
+build your code. The developers manning these clients, either directly (e.g.
+CLI) or indirectly (e.g. Metals), are the users.
 
 Clients can *concurrently* ask for build requests in two ways:
 
@@ -48,22 +47,23 @@ Clients can *concurrently* ask for build requests in two ways:
    [IntelliJ](https://www.jetbrains.com/idea/)
 
 When these clients run build actions, they have an effect on you, the end
-user building software. They mutate the file system, they update the build
-state and they produce a result back to you. Clients might even be running
-these actions concurrently, unknowingly sharing global state and falling prey
-of race conditions.
+user building software. They receive a request, do some work and then mutate
+the file system to produce a result back to you. Clients might even be
+running these actions concurrently, unknowingly sharing caches and global
+state and falling prey of race conditions.
 
-How can these actions be run in a build server without disruption? What are
-the properties of these connections? Giving answers to these questions is
-fundamental to solve real-world tooling needs.
+These build-related side-effects are part of any developer workflow and their
+management requires a robust framework that relieve developers from thinking
+about all their complex interactions.
 
 ### The goal of a build server
 
-A build server such as Bloop is in a privileged position to solve the above
-tooling challenges.
+A build server such as Bloop is the hub serving build requests for a specific
+workspace and, as such, is in a privileged position to give strong semantics
+and guarantees to every client connection.
 
-As the the hub serving build requests for any Scala build, Bloop guarantees
-clients that their actions will not conflict with those of other concurrent
+Bloop guarantees clients that their actions will have the smallest usage
+footprint possible and will not conflict with those of other concurrent
 clients being served by the same server in the same build.
 
 For example, if [Metals](https://github.com/scalameta/metals) is compiling
@@ -75,12 +75,12 @@ foo --watch` at the same time, Bloop guarantees that:
    > request will trigger a compilation. The compilation of the second client
    > will be deduplicated based on the compilation side effects recorded by the
    >build server, so only one compilation will happen.
-1. Different compilation requests in the same build can run concurrently (aka
+2. Different compilation requests in the same build can run concurrently (aka
    *compile isolation*)
    > If inputs have changed between requests, Bloop will compile the changed
    > projects concurrently, avoiding shared state and conflicts with ongoing
    > compilations.
-1. The outputs produced by both requests are independent in the file system.
+3. The outputs produced by both requests are independent in the file system.
    > The compilation products will be stored in independent target
    > directories only owned by the client. This independence is essential to
    > allow clients to independently run any build action without altering task
@@ -88,8 +88,8 @@ foo --watch` at the same time, Bloop guarantees that:
 
 These properties are **key to understand Bloop's goal as a build server**.
 Bloop is trying to model these actions as *pure functions*, just like your
-web server does, managing any internal state as best as possible and
-providing the best developer experience to end users.
+web server does, managing any internal state as best as possible to provide
+the best developer experience to end users.
 
 ### Use or integrate with bloop
 
@@ -100,6 +100,8 @@ That's it, this is all you need to know to get started using Bloop!
   * Read the [Quickstart](docs/usage) page to get you acquainted with Bloop.
 * To **integrate** with bloop, follow the [Integration Guide](integration.md).
 
+Keep on reading to get familiar with Bloop's design principles.
+
 ## Principles for a better tooling paradigm
 
 Bloop improves the way we build tools in the Scala community with three
@@ -109,7 +111,7 @@ These principles propose an alternative to the status quo where clients
 largely reimplement bloop to support Scala. This system is the natural way
 our tooling community has grown but has irremediably hindered progress in the
 tooling community, complicated maintenance and worsened the overall Scala
-user experience with, for example, slower compiles or half-baked build tool
+user experience with, for example, slower compiles or half-baked Scala
 integrations.
 
 ### Implement once, Optimize once, Use everywhere
