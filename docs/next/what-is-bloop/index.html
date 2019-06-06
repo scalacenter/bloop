@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>What is Bloop · Bloop</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="&lt;p&gt;Bloop is a Scala build server developed by [the Scala Center][scalacenter]. It has three main goals:&lt;/p&gt;
-"/><meta name="docsearch:version" content="next"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="What is Bloop · Bloop"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="&lt;p&gt;Bloop is a Scala build server developed by [the Scala Center][scalacenter]. It has three main goals:&lt;/p&gt;
-"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>next</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class="siteNavGroupActive siteNavItemActive"><a href="/bloop/docs/next/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>General</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">General</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/bloop/docs/next/what-is-bloop">What is Bloop</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/usage">Quickstart</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/integration">Integration Guide</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Build Tools</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/sbt">sbt</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/maven">Maven</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/gradle">Gradle</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/mill">Mill</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">IDEs</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/next/ides/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/ides/intellij">IntelliJ</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/ides/metals">Metals</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">References</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/next/cli-reference">CLI --help</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/server-reference">Build Server</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/launcher-reference">Built-in Launcher</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/configuration-format">JSON Configuration</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/contributing-guide">Contributing Guide</a></li></ul></div></div></section></div><script>
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>What is Bloop · Bloop</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="&lt;p&gt;Bloop is a build server and CLI tool for the &lt;a href=&quot;https://scala-lang.org/&quot;&gt;Scala programming language&lt;/a&gt; developed by [the Scala Center][scalacenter]. Bloop has &lt;strong&gt;three main goals&lt;/strong&gt;:&lt;/p&gt;
+"/><meta name="docsearch:version" content="next"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="What is Bloop · Bloop"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="&lt;p&gt;Bloop is a build server and CLI tool for the &lt;a href=&quot;https://scala-lang.org/&quot;&gt;Scala programming language&lt;/a&gt; developed by [the Scala Center][scalacenter]. Bloop has &lt;strong&gt;three main goals&lt;/strong&gt;:&lt;/p&gt;
+"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>next</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class="siteNavGroupActive siteNavItemActive"><a href="/bloop/docs/next/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>General</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">General</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/bloop/docs/next/what-is-bloop">What is Bloop</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/usage">Quickstart</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/integration">Integration Guide</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Build Tools</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/sbt">sbt</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/maven">Maven</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/gradle">Gradle</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/build-tools/mill">Mill</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">IDEs</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/next/ides/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/ides/intellij">IntelliJ</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/ides/metals">Metals</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">References</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/next/performance-guide">Performance guide</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/cli-reference">CLI --help</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/server-reference">Build Server</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/launcher-reference">Built-in Launcher</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/configuration-format">JSON Configuration</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/next/contributing-guide">Contributing Guide</a></li></ul></div></div></section></div><script>
             var coll = document.getElementsByClassName('collapsible');
             var checkActiveCategory = true;
             for (var i = 0; i < coll.length; i++) {
@@ -56,65 +56,144 @@
                 };
               }
             });
-        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/master/docs/what-is-bloop.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 class="postHeaderTitle">What is Bloop</h1></header><article><div><span><p>Bloop is a Scala build server developed by <a href="https://scala.epfl.ch">the Scala Center</a>. It has three main goals:</p>
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/master/docs/what-is-bloop.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 class="postHeaderTitle">What is Bloop</h1></header><article><div><span><p>Bloop is a build server and CLI tool for the <a href="https://scala-lang.org/">Scala programming language</a> developed by <a href="https://scala.epfl.ch">the Scala Center</a>. Bloop has <strong>three main goals</strong>:</p>
 <ol>
 <li>Compiles, tests and runs Scala code as fast as possible</li>
-<li>Is an independent and long-lived process reusable by multiple clients</li>
+<li>Encapsulates these capabilities in an independent, long-lived process reusable by multiple clients</li>
 <li>Integrates easily with build tools, command-line applications, editors and custom tooling</li>
 </ol>
 <h2><a class="anchor" aria-hidden="true" id="features"></a><a href="#features" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Features</h2>
 <ol>
 <li>Compiles a vast array of Java and Scala (2.10.x, 2.11.x, 2.12.x and 3.x) versions</li>
 <li>Runs and tests on the Java, <a href="https://www.scala-js.org/">Scala.js</a> and <a href="https://github.com/scala-native/scala-native">Scala Native</a> runtimes</li>
-<li>Integrates with common build tools in the Scala ecosystem (sbt, Gradle, etc)</li>
+<li>Integrates with common build tools in the Scala ecosystem (sbt, Gradle, mill, Maven, etc)</li>
+<li>Implements server-like capabilities such as concurrent build execution,
+caching compilations across clients and build client isolation to avoid conflicts in a shared, stateful file system</li>
 </ol>
-<h2><a class="anchor" aria-hidden="true" id="how-does-it-work"></a><a href="#how-does-it-work" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>How does it work</h2>
-<p>The core component of bloop is the build server. The build server is responsible of implementing the
-logic to compile, test and run Scala and Java projects. It is designed to run on the background for
-long periods of time (as long as your machine is running) and assist all client's requests.</p>
-<p>Clients can connect to the build server in two ways:</p>
+<h2><a class="anchor" aria-hidden="true" id="limitations"></a><a href="#limitations" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Limitations</h2>
 <ol>
-<li>via the <a href="https://github.com/facebook/nailgun">Nailgun server protocol</a>, used by the built-in command-line application</li>
-<li>via the <a href="https://github.com/scalacenter/bsp">Build Server Protocol (BSP)</a>, used by clients such as <a href="https://github.com/scalameta/metals">Metals</a> or <a href="https://www.jetbrains.com/idea/">IntelliJ</a></li>
+<li>There can only be one bloop server instance running per machine</li>
+<li>There is currently no support for remote compilation, see <a href="https://github.com/scalacenter/bloop/issues/673">this ticket</a></li>
 </ol>
+<h2><a class="anchor" aria-hidden="true" id="getting-started"></a><a href="#getting-started" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Getting started</h2>
+<p>Just as the web server powering this website responds to your request to load
+it—which in turn delivers static resources, generates html pages, caches
+them and handles requests in parallel—, bloop runs in the background of your
+machine for long periods of time to respond to any compile, test or run
+client request.</p>
+<h3><a class="anchor" aria-hidden="true" id="terminology-clients-and-users"></a><a href="#terminology-clients-and-users" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Terminology: clients and users</h3>
+<p>Any script, tool or application becomes a client when it makes requests to
+build your code. The developers manning these clients, either directly (e.g.
+CLI) or indirectly (e.g. Metals), are the users.</p>
+<p>Clients can <em>concurrently</em> ask for build requests in two ways:</p>
+<ol>
+<li>via the <a href="https://github.com/facebook/nailgun">Nailgun server protocol</a>,
+used by the built-in bloop command-line application</li>
+<li>via the <a href="https://github.com/scalacenter/bsp">Build Server Protocol (BSP)</a>
+(<strong>recommended</strong>), used by clients such as
+<a href="https://github.com/scalameta/metals">Metals</a> or
+<a href="https://www.jetbrains.com/idea/">IntelliJ</a></li>
+</ol>
+<p>When these clients run build actions, they have an effect on you, the end
+user building software. They receive a request, do some work and then mutate
+the file system to produce a result back to you. Clients might even be
+running these actions concurrently, unknowingly sharing caches and global
+state and falling prey to race conditions.</p>
+<p>These build-related side-effects are part of any developer workflow and their
+management requires a robust framework that relieves developers from thinking
+about all their complex interactions.</p>
+<h3><a class="anchor" aria-hidden="true" id="the-goal-of-a-build-server"></a><a href="#the-goal-of-a-build-server" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>The goal of a build server</h3>
+<p>A build server such as Bloop is the hub serving build requests for a specific
+workspace and, as such, is in a privileged position to give strong semantics
+and guarantees to every client connection.</p>
+<p>Bloop guarantees clients that their actions will have the smallest usage
+footprint possible and will not conflict with those of other concurrent
+clients being served by the same server in the same build.</p>
+<p>For example, if <a href="https://github.com/scalameta/metals">Metals</a> is compiling
+your project via Bloop and you spawn a bloop CLI command such as <code>bloop test foo --watch</code> at the same time, Bloop guarantees that:</p>
+<ol>
+<li><p>The server heavily caches compilations for the same inputs (aka <em>compile deduplication</em>)</p>
 <blockquote>
-<p>Do you want to integrate with bloop? The <a href="/bloop/docs/next/integration">Integration Guide</a> explains all
-you need to know to connect to Bloop via these two different protocols.</p>
-</blockquote>
-<h2><a class="anchor" aria-hidden="true" id="the-principles"></a><a href="#the-principles" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>The Principles</h2>
-<p>The lack of clear design principles in previous Scala tools has hindered progress in the tooling
-community, complicated maintenance and worsened the Scala user experience with, for example, slower
-compiles. Bloop addresses such problems with three design principles that shape its design and
-improve on the status quo.</p>
-<h3><a class="anchor" aria-hidden="true" id="implement-once-optimize-once-use-everywhere"></a><a href="#implement-once-optimize-once-use-everywhere" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Implement Once, Optimize Once, Use Everywhere</h3>
-<p>Every developer tool supporting Scala needs to compile, test and run Scala code. These are basic
-features that both old and new tools alike require, from build tools to IDEs/editors, in-house
-tooling and custom scripts.</p>
-<p>Implementing custom client integrations is a tedious task for the close-knit community of Scala
-tooling contributors. In practice, contributors repeat the same learning process, duplicate the
-integration logic and its optimizations, have trouble benchmarking compilation performance
-consistently across all clients and lack ways to assess the quality of the Scala user experience
-they provide.</p>
-<p>A build server such as bloop centralizes the implementation of these basic Scala features, provides
-the best developer experience to Scala users, simplifies future Scala integrations and lets
-maintainers focus on one single implementation to track performance, reliability and success
-metrics.</p>
-<h3><a class="anchor" aria-hidden="true" id="outlive-build-clients-ease-integration"></a><a href="#outlive-build-clients-ease-integration" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Outlive Build Clients, Ease Integration</h3>
-<p>There are all kinds of build clients: short-lived and long-lived, JVM-based and native, local and
-remote. Yet, regardless of the nature of the clients, the Scala toolchain runs on the JVM and needs
-to favor single long-lived sessions to  minimize cpu/memory consumption and run at peak performance
-(for example, compilation performance in a long-lived process can be up to 20x faster than a
-short-lived compiler).</p>
-<p>A client-server architecture enables different clients to share optimized compilers and build
-instances, minimizing developer latency and deduplicating the work to warm up hot compilers in every
-client session.</p>
-<h3><a class="anchor" aria-hidden="true" id="optimize-for-the-most-common-scenarios"></a><a href="#optimize-for-the-most-common-scenarios" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Optimize for the Most Common Scenarios</h3>
-<p>Edit, compile and test workflows are the bread and butter of software development. When our build or
-editor are slow to respond, our productivity drops.</p>
-<p>Bloop lays stress on optimizing local development workflows to make the Scala developer feedback
-cycle as short as possible. It achieves this by optimizing compilations based on the user actions
-and minimizing the amount of work run in every operation.</p>
-</span></div></article></div><div class="docs-prevnext"><a class="docs-next button" href="/bloop/docs/next/usage"><span>Quickstart</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#features">Features</a></li><li><a href="#how-does-it-work">How does it work</a></li><li><a href="#the-principles">The Principles</a><ul class="toc-headings"><li><a href="#implement-once-optimize-once-use-everywhere">Implement Once, Optimize Once, Use Everywhere</a></li><li><a href="#outlive-build-clients-ease-integration">Outlive Build Clients, Ease Integration</a></li><li><a href="#optimize-for-the-most-common-scenarios">Optimize for the Most Common Scenarios</a></li></ul></li></ul></nav></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+<p>If inputs haven't changed between the requests, only the first client
+request will trigger a compilation. The compilation of the second client
+will be deduplicated based on the compilation side effects recorded by the
+build server, so only one compilation will happen.</p>
+</blockquote></li>
+<li><p>Different compilation requests in the same build can run concurrently (aka
+<em>compile isolation</em>)</p>
+<blockquote>
+<p>If inputs have changed between requests, Bloop will compile the changed
+projects concurrently, avoiding shared state and conflicts with ongoing
+compilations.</p>
+</blockquote></li>
+<li><p>The outputs produced by both requests are independent in the file system.</p>
+<blockquote>
+<p>The compilation products will be stored in independent target
+directories only owned by the client. This independence is essential to
+allow clients to independently run any build action without altering task
+executions.</p>
+</blockquote></li>
+</ol>
+<p>These properties are <strong>key to understand Bloop's goal as a build server</strong>.
+Bloop is trying to model these actions as <em>pure functions</em>, just like your
+web server does, managing any internal state as best as possible to provide
+the best developer experience to end users.</p>
+<h3><a class="anchor" aria-hidden="true" id="use-or-integrate-with-bloop"></a><a href="#use-or-integrate-with-bloop" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Use or integrate with bloop</h3>
+<p>That's it, this is all you need to know to get started using Bloop!</p>
+<ul>
+<li>To <strong>use</strong> bloop with your current build tool:
+<ul>
+<li>Follow the <a href="/setup">Installation guide</a> to install and integrate with your build.</li>
+<li>Read the <a href="docs/usage">Quickstart</a> page to get you acquainted with Bloop.</li>
+</ul></li>
+<li>To <strong>integrate</strong> with bloop, follow the <a href="/bloop/docs/next/integration">Integration Guide</a>.</li>
+</ul>
+<p>Keep on reading to get familiar with Bloop's design principles.</p>
+<h2><a class="anchor" aria-hidden="true" id="principles-for-a-better-tooling-paradigm"></a><a href="#principles-for-a-better-tooling-paradigm" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Principles for a better tooling paradigm</h2>
+<p>Bloop improves the way we build tools in the Scala community with three
+well-defined design principles.</p>
+<p>These principles propose an alternative to the status quo where clients
+largely reimplement bloop to support Scala. This system is the natural way
+our tooling community has grown but has irremediably hindered progress in the
+tooling community, complicated maintenance and worsened the overall Scala
+user experience with, for example, slower compiles or half-baked Scala
+integrations.</p>
+<h3><a class="anchor" aria-hidden="true" id="implement-once-optimize-once-use-everywhere"></a><a href="#implement-once-optimize-once-use-everywhere" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Implement once, Optimize once, Use everywhere</h3>
+<p>Every developer tool supporting Scala needs to compile, test and run Scala
+code. These are basic features that both old and new tools alike require,
+from build tools to IDEs/editors, in-house tooling and scripts.</p>
+<p>Implementing custom client integrations is a tedious task for the close-knit
+community of Scala tooling contributors. In practice, contributors repeat the
+same learning process, duplicate the integration logic and its optimizations,
+have trouble benchmarking compilation performance consistently across all
+clients and lack ways to assess the quality of the Scala user experience they
+provide.</p>
+<p>A build server such as bloop centralizes the implementation of these basic
+Scala features, provides the best developer experience to Scala users,
+simplifies future Scala integrations and lets maintainers focus on one single
+implementation to track performance, reliability and success metrics.</p>
+<p>On the plus side, tooling developers that would otherwise try to reimplement
+bits of Bloop to support Scala or scratch a tooling itch can focus on
+creating tools and innovating.</p>
+<h3><a class="anchor" aria-hidden="true" id="outlive-build-clients-ease-integrations"></a><a href="#outlive-build-clients-ease-integrations" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Outlive build clients, Ease integrations</h3>
+<p>There are all kinds of build clients: short-lived and long-lived, JVM-based
+and native, local and remote. Yet, regardless of the nature of the clients,
+the Scala toolchain runs on the JVM and needs to favor single long-lived
+sessions to minimize cpu/memory consumption and run at peak performance
+—otherwise, end users pay a price; compilation performance in a long-lived
+process can be up to 20x faster than a short-lived compiler).</p>
+<p>A client-server architecture enables different clients to share optimized
+compilers and build instances, minimizing developer latency and deduplicating
+the work to warm up hot compilers in every client session.</p>
+<h3><a class="anchor" aria-hidden="true" id="optimize-for-the-most-common-scenarios"></a><a href="#optimize-for-the-most-common-scenarios" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Optimize for the most common scenarios</h3>
+<p>Edit, compile and test workflows are the bread and butter of software
+development. When our build or editor are slow to respond, our productivity
+drops.</p>
+<p>Bloop lays stress on optimizing local development workflows to make the Scala
+developer feedback cycle as short as possible. It achieves this by optimizing
+compilations based on the user actions and minimizing the amount of work run
+in every operation.</p>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-next button" href="/bloop/docs/next/usage"><span>Quickstart</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#features">Features</a></li><li><a href="#limitations">Limitations</a></li><li><a href="#getting-started">Getting started</a><ul class="toc-headings"><li><a href="#terminology-clients-and-users">Terminology: clients and users</a></li><li><a href="#the-goal-of-a-build-server">The goal of a build server</a></li><li><a href="#use-or-integrate-with-bloop">Use or integrate with bloop</a></li></ul></li><li><a href="#principles-for-a-better-tooling-paradigm">Principles for a better tooling paradigm</a><ul class="toc-headings"><li><a href="#implement-once-optimize-once-use-everywhere">Implement once, Optimize once, Use everywhere</a></li><li><a href="#outlive-build-clients-ease-integrations">Outlive build clients, Ease integrations</a></li><li><a href="#optimize-for-the-most-common-scenarios">Optimize for the most common scenarios</a></li></ul></li></ul></nav></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
