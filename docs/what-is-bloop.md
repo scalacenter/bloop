@@ -50,10 +50,10 @@ When these clients run build actions, they have an effect on you, the end
 user building software. They receive a request, do some work and then mutate
 the file system to produce a result back to you. Clients might even be
 running these actions concurrently, unknowingly sharing caches and global
-state and falling prey of race conditions.
+state and falling prey to race conditions.
 
 These build-related side-effects are part of any developer workflow and their
-management requires a robust framework that relieve developers from thinking
+management requires a robust framework that relieves developers from thinking
 about all their complex interactions.
 
 ### The goal of a build server
