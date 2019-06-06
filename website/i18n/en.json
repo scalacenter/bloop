@@ -179,6 +179,46 @@
       "version-1.2.5/version-1.2.5-contributing-guide": {
         "title": "Contributing to bloop",
         "sidebar_label": "Contributing Guide"
+      },
+      "version-1.3.0/build-tools/version-1.3.0-sbt": {
+        "title": "sbt",
+        "sidebar_label": "sbt"
+      },
+      "version-1.3.0/version-1.3.0-cli-reference": {
+        "title": "CLI --help",
+        "sidebar_label": "CLI --help"
+      },
+      "version-1.3.0/version-1.3.0-contributing-guide": {
+        "title": "Contributing to bloop",
+        "sidebar_label": "Contributing Guide"
+      },
+      "version-1.3.0/version-1.3.0-integration": {
+        "title": "Integrate with the Build Server",
+        "sidebar_label": "Integration Guide"
+      },
+      "version-1.3.0/version-1.3.0-launcher-reference": {
+        "title": "Launcher Reference",
+        "sidebar_label": "Built-in Launcher"
+      },
+      "version-1.3.0/version-1.3.0-performance-guide": {
+        "title": "Performance guide",
+        "sidebar_label": "Performance guide"
+      },
+      "version-1.3.0/version-1.3.0-performance-reference": {
+        "title": "Performance reference",
+        "sidebar_label": "Performance reference"
+      },
+      "version-1.3.0/version-1.3.0-server-reference": {
+        "title": "Build Server Reference",
+        "sidebar_label": "Build Server"
+      },
+      "version-1.3.0/version-1.3.0-usage": {
+        "title": "Quickstart",
+        "sidebar_label": "Quickstart"
+      },
+      "version-1.3.0/version-1.3.0-what-is-bloop": {
+        "title": "What is Bloop",
+        "sidebar_label": "What is Bloop"
       }
     },
     "links": {
