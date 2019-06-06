@@ -353,9 +353,9 @@ pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>.
 > given that concurrent actions may collide. Such actions will be handled gracefully in future bloop
 > releases.
 
-## Run an Ammonite shell on a project
+## Run an Ammonite REPL on a project
 
-The `console` commands runs an Ammonite shell with a project's classpath.
+The `console` commands runs an Ammonite REPL with a project's classpath.
 
 ```bash
 → bloop console foo

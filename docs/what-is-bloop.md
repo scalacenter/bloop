@@ -16,11 +16,11 @@ Bloop is a build server and CLI tool for the [Scala programming language](https:
 1. Runs and tests on the Java, [Scala.js](https://www.scala-js.org/) and [Scala Native](https://github.com/scala-native/scala-native) runtimes
 1. Integrates with common build tools in the Scala ecosystem (sbt, Gradle, mill, Maven, etc)
 1. Implements server-like capabilities such as concurrent build execution,
-   caching compilations across clients and build client isolation to avoid conflicts in a shared, stateful file system.
+   caching compilations across clients and build client isolation to avoid conflicts in a shared, stateful file system
 
 ## Limitations
 
-1. There can only be one bloop server instance running per machine.
+1. There can only be one bloop server instance running per machine
 1. There is currently no support for remote compilation, see [this ticket](https://github.com/scalacenter/bloop/issues/673)
 
 ## Getting started
