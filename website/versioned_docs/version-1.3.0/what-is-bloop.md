@@ -5,11 +5,10 @@ sidebar_label: What is Bloop
 original_id: what-is-bloop
 ---
 
-Bloop is a build server and CLI tool for the [Scala programming language](https://scala-lang.org/) developed by [the Scala Center][scalacenter]. Bloop has **three main goals**:
+Bloop is a build server and CLI tool for the [Scala programming language](https://scala-lang.org/) developed by [the Scala Center][scalacenter]. Bloop has **two main goals**:
 
 1. Compiles, tests and runs Scala code as fast as possible
-2. Encapsulates these capabilities in an independent, long-lived process reusable by multiple clients
-3. Integrates easily with build tools, command-line applications, editors and custom tooling
+2. Integrates easily with build tools, command-line applications, editors and custom tooling
 
 ## Features
 
