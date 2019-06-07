@@ -80,8 +80,17 @@
         "title": "Build Server Reference",
         "sidebar_label": "Build Server"
       },
+      "tools/aur/install": {
+        "title": "tools/aur/install"
+      },
+      "tools/aur/usage": {
+        "title": "tools/aur/usage"
+      },
       "tools/homebrew/install": {
         "title": "tools/homebrew/install"
+      },
+      "tools/homebrew/usage.1": {
+        "title": "tools/homebrew/usage.1"
       },
       "tools/homebrew/usage": {
         "title": "tools/homebrew/usage"
