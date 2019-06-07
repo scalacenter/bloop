@@ -11,18 +11,29 @@
 <td><code>-r sonatype:releases</code></td>
 </tr>
 <tr>
-<td>1.3.0+2-1e110373</td>
-<td>06 Jun 2019 20:34</td>
+<td>1.3.0+6-dda61cd5</td>
+<td>07 Jun 2019 08:45</td>
 <td><code>-r bintray:scalacenter/releases</code></td>
 </tr>
 </tbody>
 </table>
-</span></div></div></div><div class="container paddingBottom"><div class="wrapper"><div class="step"><div class="step-setup"><h2><span class="step-no">1</span>Pick your preferred method</h2><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">curl (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="nix" class="tools-button">Nix</button></div></div><div class="step-hidden step-setup"><h2 id="installation"><span class="step-no">2</span>Installation</h2><div class="items" data-title="homebrew"><div><span><pre><code class="hljs css language-bash">brew install scalacenter/bloop/bloop
+</span></div></div></div><div class="container paddingBottom"><div class="wrapper"><div class="step"><div class="step-setup"><h2><span class="step-no">1</span>Pick your preferred method</h2><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">curl (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="nix" class="tools-button">Nix</button><button data-title="aur" class="tools-button">AUR (Arch Linux)</button></div></div><div class="step-hidden step-setup"><h2 id="installation"><span class="step-no">2</span>Installation</h2><div class="items" data-title="aur"><div><span><p>With <code>yaourt</code>:</p>
+<pre><code class="hljs css language-bash">yaourt -S bloop
+</code></pre>
+<p>With <code>pacaur</code>:</p>
+<pre><code class="hljs css language-bash">pacaur -S bloop
 </code></pre>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
-<li><strong>Python 2 or 3</strong>. The installation script is written in Python.</li>
-<li><strong>Java 8</strong>. The incremental compiler does not yet support Java 11.</li>
+<li><strong>Java 8 or higher</strong></li>
+<li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
+</ol>
+</span></div></div><div class="items" data-title="homebrew"><div><span><pre><code class="hljs css language-bash">brew install scalacenter/bloop/bloop
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
+<ol>
+<li><strong>Java 8 or higher</strong></li>
+<li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
 </ol>
 </span></div></div><div class="items" data-title="nix"><div><span><p>Bloop is available on the unstable channel of nixos. Install it via:</p>
 <pre><code class="hljs css language-bash">nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -40,8 +51,8 @@ Bloop v1.1.1 will incorporate an official way to install bloop.
 </blockquote>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
-<li><strong>Python 2 or 3</strong>. The installation script is written in Python.</li>
-<li><strong>Java 8</strong>. The incremental compiler does not yet support Java 11.</li>
+<li><strong>Java 8 or higher</strong></li>
+<li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
 </ol>
 </span></div></div><div class="items" data-title="scoop"><div><span><p>Add the bloop bundle to <a href="https://github.com/lukesampson/scoop">scoop</a>:</p>
 <pre><code class="hljs css language-bash">scoop bucket add bloop-stable https://github.com/scalacenter/scoop-bloop.git
@@ -56,20 +67,16 @@ scoop search bloop
 </code></pre>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
-<li><strong>Python 2 or 3</strong>. The installation script is written in Python.</li>
-<li><strong>Java 8</strong>. The incremental compiler does not yet support Java 11.</li>
+<li><strong>Java 8 or higher</strong></li>
+<li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
 </ol>
-<blockquote>
-<p>You must ensure that Java 8 is installed manually (as well as ensuring that you run bloop with
-Java 8). The python dependency is automatically installed by scoop.</p>
-</blockquote>
 </span></div></div><div class="items" data-title="universal"><div><span><pre><code class="hljs css language-sh">curl -L https://github.com/scalacenter/bloop/releases/download/v1.3.0/install.py | python
 </code></pre>
 <p>Bloop installs under the standard <code>$HOME/.bloop</code> directory.</p>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
-<li><strong>Python 2 or 3</strong>. The installation script is written in Python.</li>
-<li><strong>Java 8</strong>. The incremental compiler does not yet support Java 11.</li>
+<li><strong>Java 8 or higher</strong></li>
+<li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
 </ol>
 <h3><a class="anchor" aria-hidden="true" id="installation-options"></a><a href="#installation-options" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Installation options</h3>
 <blockquote>
@@ -86,7 +93,28 @@ If you want to change the location to, say, <code>/opt/bloop</code>, then:</p>
 <li>Use <code>--dest /opt/bloop</code>; and,</li>
 <li>Add <code>/opt/bloop</code> to your <code>$PATH</code> in all your live terminals.</li>
 </ol>
-</span></div></div></div><div class="step-hidden step-setup"><h2 id=""><span class="step-no">3</span>Usage</h2><div class="items" data-title="homebrew"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
+</span></div></div></div><div class="step-hidden step-setup"><h2 id=""><span class="step-no">3</span>Usage</h2><div class="items" data-title="aur"><div><span><p>The installation script installs the build server and the bloop command-line
+application (CLI). The build server <strong>must be started</strong> before the
+command-line application is used.</p>
+<h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
+<p>The AUR formula installs a Systemd service in <em>your user configuration</em> to
+start up the Bloop server automatically when you log into your machine. This
+service spares you from the cumbersome process of starting the build server
+before using any build client, enable it with:</p>
+<pre><code class="hljs">systemctl --<span class="hljs-keyword">user</span> <span class="hljs-title">enable</span> bloop
+</code></pre>
+<p>Command examples to manager the server:</p>
+<ol>
+<li><code>systemctl --user start bloop</code>: starts up the bloop server.</li>
+<li><code>systemctl --user stop bloop</code>: stops the bloop server.</li>
+<li><code>systemctl --user restart bloop</code>: restarts the bloop server, required after every upgrade.</li>
+</ol>
+<p>To learn more about <code>bloop server</code> and managing the server lifecycle
+automatically, head to the <a href="docs/server-reference">Build Server Reference</a>.</p>
+<h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
+<p>The installation script automatically installs completions for bash, zsh and
+fish; reload your shell to get it working.</p>
+</span></div></div><div class="items" data-title="homebrew"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
 The build server <strong>must be started</strong> before the command-line application is used.</p>
 <h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
 <p>The Homebrew formula installs a Mac OS property list (<code>plist</code>) to start up the Bloop server
@@ -488,7 +516,7 @@ foo-test
 IDEs</a>.</p>
 <p>If you want to configure the installation step or learn more about the integration, visit the
 <a href="docs/build-tools/sbt">sbt documentation page</a>.</p>
-</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1559853370591"></script><script src="/bloop/scripts/build-tools.js?t=1559853370591"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1559897218779"></script><script src="/bloop/scripts/build-tools.js?t=1559897218779"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
