@@ -135,3 +135,19 @@ $ mkdir -p $HOME/.config/autostart
 $ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
 ```
 
+## Ignore exceptions in server logs
+
+Bloop uses Nailgun, which sometimes prints exceptions in your server logs
+such as:
+
+```
+Unable to load nailgun-version.properties.
+NGServer [UNKNOWN] started on address localhost/127.0.0.1 port 8212.
+[W] Internal error in session
+java.io.EOFException
+	at java.base/java.io.DataInputStream.readInt(DataInputStream.java:397)
+	at com.martiansoftware.nailgun.NGCommunicator.readCommandContext(NGCommunicator.java:140)
+	at com.martiansoftware.nailgun.NGSession.run(NGSession.java:197)
+```
+
+You can safely ignore these warnings and exceptions.
