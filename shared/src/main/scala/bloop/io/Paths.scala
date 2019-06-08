@@ -14,7 +14,6 @@ import java.nio.file.{
   Paths => NioPaths
 }
 import java.util
-
 import bloop.logging.{DebugFilter, Logger}
 import io.github.soc.directories.ProjectDirectories
 import scala.collection.mutable

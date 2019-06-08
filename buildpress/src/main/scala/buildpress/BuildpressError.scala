@@ -1,7 +1,5 @@
 package buildpress
 
-import bloop.io.AbsolutePath
-
 sealed trait BuildpressError extends Throwable
 object BuildpressError {
   private[buildpress] trait OverrideCause {
@@ -29,6 +27,10 @@ object BuildpressError {
       with OverrideCause
 
   final case class ParseFailure(msg: String, cause: Option[Throwable])
+      extends BuildpressError
+      with OverrideCause
+
+  final case class CleanupFailure(msg: String, cause: Option[Throwable])
       extends BuildpressError
       with OverrideCause
 }
