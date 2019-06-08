@@ -197,10 +197,6 @@ object ClientInfo {
       projectsToVisit.foreach { project =>
         val bspClientClasses = project.bspClientClassesDirectories
         try {
-          val allExistingClientClassesDirs = {
-            try Files.list(bspClientClasses.underlying).iterator().asScala
-            catch { case _: NoSuchFileException => Nil }
-          }
           val currentBspConnectedClients = currentBspClients()
           if (currentBspConnectedClients != initialBspConnectedClients) {
             deleteOrphanClientBspDirectories(
@@ -209,18 +205,16 @@ object ClientInfo {
               currentAttempts = currentAttempts + 1
             )
           } else {
-            // List all files in the bsp client classes
-            Files.list(bspClientClasses.underlying).iterator().asScala.foreach { existingDir =>
-              val dirName = existingDir.getFileName().toString
+            Paths.list(bspClientClasses).foreach { existingDir =>
+              val dirName = existingDir.underlying.getFileName().toString
               // Whitelist those that are owned by clients that are active in the server
               val isWhitelisted =
                 connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
               if (isWhitelisted) ()
               else {
                 try {
-                  val toDeleteDir = AbsolutePath(existingDir)
-                  logger.debug(s"Deleting orphan directory ${toDeleteDir}")(DebugFilter.All)
-                  bloop.io.Paths.delete(toDeleteDir)
+                  logger.debug(s"Deleting orphan directory ${existingDir}")(DebugFilter.All)
+                  bloop.io.Paths.delete(existingDir)
                 } catch {
                   case _: NoSuchFileException => ()
                   case NonFatal(t) =>

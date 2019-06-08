@@ -17,6 +17,8 @@ import java.util
 
 import bloop.logging.{DebugFilter, Logger}
 import io.github.soc.directories.ProjectDirectories
+import scala.collection.mutable
+import java.nio.file.NoSuchFileException
 
 object Paths {
   private val projectDirectories = ProjectDirectories.from("", "", "bloop")
@@ -196,5 +198,28 @@ object Paths {
       case _: NoSuchFileException => isEmpty = true
     }
     isEmpty
+  }
+
+  /**
+   * Lists all top-level children of a path, none if the path doesn't exist.
+   *
+   * Use this function always instead of using `Files.list` directly and
+   * wrapping it with collection converters. `Files.list` returns a stream that
+   * it is never closed otherwise, creating a lot of open file handles to
+   * directories that can make bloop crash.
+   */
+  def list(path: AbsolutePath): List[AbsolutePath] = {
+    val topLevelChildren = new mutable.ListBuffer[AbsolutePath]
+    val pathStream = Files.list(path.underlying)
+    try {
+      pathStream.forEach { path =>
+        topLevelChildren.+=(AbsolutePath(path))
+      }
+    } catch {
+      case _: NoSuchFileException => ()
+    } finally {
+      pathStream.close()
+    }
+    topLevelChildren.toList
   }
 }

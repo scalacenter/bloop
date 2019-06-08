@@ -29,6 +29,7 @@ import utest.ufansi.Str
 import utest.ufansi.Color
 
 import monix.eval.Task
+import bloop.io.Paths
 
 class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
@@ -126,14 +127,6 @@ class BaseSuite extends TestSuite with BloopHelpers {
         }
       }
       .sortBy(_.path.toString)
-  }
-
-  def list(
-      dir: AbsolutePath
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): List[AbsolutePath] = {
-    import java.nio.file.Files
-    import scala.collection.JavaConverters._
-    Files.list(dir.underlying).iterator.asScala.map(AbsolutePath(_)).toList
   }
 
   def assertDifferentExternalClassesDirs(

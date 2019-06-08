@@ -92,7 +92,7 @@ object ClasspathHasher {
             ()
           }
 
-          /* 
+          /*
            * As a protective measure, set up a task that will be run after 15s
            * of hashing and will complete the downstream promise to unlock
            * downstream clients on the assumption that the hashing of this
@@ -138,7 +138,9 @@ object ClasspathHasher {
           acquiredByOtherTasks.+=(
             Task.fromFuture(promise.future).flatMap { hash =>
               if (hash == BloopStamps.cancelledHash) {
-                logger.warn(s"Disabling sharing of hash for $entry, upstream hashing took more than ${timeoutSeconds}s!")
+                logger.warn(
+                  s"Disabling sharing of hash for $entry, upstream hashing took more than ${timeoutSeconds}s!"
+                )
                 // If the process that acquired it cancels the computation, try acquiring it again
                 Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
               } else {
