@@ -51,7 +51,7 @@ trait NailgunTestUtils {
     val currentOut = System.out
     val currentErr = System.err
 
-    val in = IOUtils.toInputStream("", StandardCharsets.UTF_8)
+    val in = IOUtils.toInputStream("")
     val out = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
     val err = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
     val localIn = new BloopThreadLocalInputStream(in)
