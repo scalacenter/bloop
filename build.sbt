@@ -23,7 +23,12 @@ val benchmarkBridge = project
 lazy val bloopShared = (project in file("shared"))
   .settings(
     libraryDependencies ++= Seq(
-      Dependencies.xxHashLibrary
+      Dependencies.bsp,
+      Dependencies.zinc,
+      Dependencies.xxHashLibrary,
+      Dependencies.configDirectories,
+      Dependencies.sbtTestInterface,
+      Dependencies.sbtTestAgent
     )
   )
 
@@ -44,18 +49,13 @@ lazy val backend = project
     buildInfoKeys := BloopBackendInfoKeys,
     buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
-      Dependencies.bsp,
-      Dependencies.zinc,
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,
       Dependencies.coursier,
       Dependencies.coursierCache,
       Dependencies.libraryManagement,
-      Dependencies.configDirectories,
       Dependencies.sourcecode,
-      Dependencies.sbtTestInterface,
-      Dependencies.sbtTestAgent,
       Dependencies.monix,
       Dependencies.directoryWatcher,
       Dependencies.zt,

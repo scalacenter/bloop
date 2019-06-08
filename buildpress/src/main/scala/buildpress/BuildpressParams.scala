@@ -19,7 +19,9 @@ final case class BuildpressParams(
     @HelpMessage("The buildpress home directory where repositories are cloned and cached")
     buildpressHome: AbsolutePath,
     @HelpMessage("Regenerate bloop configuration files for every repository")
-    regenerate: Boolean = false
+    regenerate: Boolean = false,
+    @HelpMessage("Clear buildpress cache")
+    clearRepoCache: Boolean = false
 )
 
 object BuildpressParams {
