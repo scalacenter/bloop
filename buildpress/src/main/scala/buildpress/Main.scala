@@ -1,6 +1,6 @@
 package buildpress
 
-import buildpress.io.AbsolutePath
+import bloop.io.AbsolutePath
 import bloop.launcher.core.Shell
 
 object Main

@@ -1,7 +1,7 @@
 package buildpress
 
+import bloop.io.AbsolutePath
 import buildpress.config.Config.BuildSettingsHashes
-import buildpress.io.AbsolutePath
 
 final case class ClonedRepository(
     metadata: Repository,

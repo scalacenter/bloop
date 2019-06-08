@@ -3,7 +3,7 @@ package buildpress.io
 import java.io.IOException
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
-import bloop.io.ByteHasher
+import bloop.io.{AbsolutePath, ByteHasher}
 import buildpress.config.Config.{BuildSettingsHashes, HashedPath}
 
 object SbtProjectHasher {

@@ -2,7 +2,7 @@ package buildpress
 
 import java.nio.file.{Path, Paths}
 import scala.util.Try
-import buildpress.io.AbsolutePath
+import bloop.io.AbsolutePath
 import caseapp.core.{ArgParser, Parser}
 import caseapp.{ExtraName, HelpMessage}
 
