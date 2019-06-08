@@ -47,9 +47,44 @@ object Compat {
     Keys.compile := Def.taskDyn {
       val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
       if (isMetaBuild) Defaults.compileTask
-      else bloopCompile
+      else {
+        Def.taskDyn {
+          val tryBloopConnection = shouldTryToConnectToServer.value
+          val hasConnection: Boolean = ???
+          if (hasConnection) bloopCompile
+          else Defaults.compileTask
+        }
+      }
     }.value
   )
+
+  private final var lastExecutedCommands: Seq[Exec] = Vector.empty
+
+  /**
+   * Returns yes if the caller should attempt a bloop connection, no otherwise.
+   *
+   * We don't want to try to connect to the server on every compile invocation
+   * in the build graph, so this task is responsible for finding a way minimize
+   * the amount of such system process calls.
+   *
+   * Following the implementation details below, we will only try to attempt a
+   * build connection once per command that is executed. That is, whenever the
+   * history is no longer the same (using referential equality).
+   */
+  final lazy val shouldTryToConnectToServer: Def.Initialize[Task[Boolean]] = {
+    Def.task {
+      val state = Keys.state.value
+      val executedCommands = state.history.executed
+      lastExecutedCommands.synchronized {
+        val tryConnection = lastExecutedCommands == executedCommands
+        // Whenever we try the connection, we update the reference
+        if (tryConnection) lastExecutedCommands = executedCommands
+        tryConnection
+      }
+    }
+  }
+
+  //final lazy val shouldTryToConnectToServer: Def.Initialize[Task[Boolean]] = {
 
   final lazy val bloopInstallInternalClasspath: Def.Initialize[Task[Seq[Attributed[File]]]] = {
     Def.taskDyn {
@@ -86,6 +121,16 @@ object Compat {
   }
 
   private final val StableDef = Def // Needed to circumvent buggy dynamic reference detection in sbt
+
+  /**
+   * The instrumented bloop compile is responsible of off-loading compilation to bloop.
+   *
+   * The task calls transitively `bloopGenerate` to guarantee all dependencies of
+   * this project have a bloop project configuration file and then goes on
+   * invoking `bloopGenerate` on its own and asking bloop to compile via BSP.
+   *
+   * We can only run this code if there is a
+   */
   lazy val bloopCompile: Def.Initialize[Task[CompileAnalysis]] = Def.taskDyn {
     val targetName = BloopKeys.bloopTargetName.value
     import sbt.internal.util.AttributeKey

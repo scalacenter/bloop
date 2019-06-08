@@ -11,6 +11,7 @@ import java.util.concurrent.{
 
 import monix.execution.{ExecutionModel, UncaughtExceptionReporter}
 import monix.execution.schedulers.ExecutorScheduler
+import java.util.concurrent.ExecutorService
 
 object ExecutionContext {
   private[bloop] val DefaultTravisCores = 2

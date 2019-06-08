@@ -211,13 +211,20 @@ val benchmarks = project
 
 val integrations = file("integrations")
 
+lazy val bsp4jClient = project
+  .in(integrations / "bsp4j-client")
+  .settings(
+    name := "bloop-bsp4j-client",
+    scalaVersion := Scala212Version,
+    libraryDependencies += Dependencies.bsp4j
+  )
+
 lazy val sbtBloop10 = project
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
   .settings(sbtPluginSettings("1.1.4", jsonConfig212))
-  .dependsOn(jsonConfig212)
-  .settings(libraryDependencies += Dependencies.bsp4j)
+  .dependsOn(jsonConfig212, bsp4jClient)
 
 /*
 // Let's remove scripted for 0.13, we only test 1.0
@@ -400,7 +407,8 @@ val bloop = project
           buildpress,
           jsonConfig210,
           jsonConfig212,
-          sbtBloop013,
+          //sbtBloop013,
+          sbtBloop10,
           sbtBloop10
         )
         .value
@@ -448,7 +456,7 @@ addCommandAlias(
   Seq(
     s"${jsonConfig210.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${sbtBloop013.id}/$publishLocalCmd",
+    //s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )

@@ -167,7 +167,7 @@ object BloopDefaults {
       BloopKeys.bloopMainClass := None,
       BloopKeys.bloopTargetName := bloopTargetName.value,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
-    ) ++ Compat.compileSettings ++ discoveredSbtPluginsSettings
+    ) ++ discoveredSbtPluginsSettings //++ Compat.compileSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
     sbt.inConfig(Compile)(configSettings) ++
