@@ -21,32 +21,6 @@ val benchmarkBridge = project
   )
 
 lazy val bloopShared = (project in file("shared"))
-  .settings(
-    libraryDependencies ++= List(
-      Dependencies.bsp,
-      Dependencies.zinc,
-      Dependencies.nailgun,
-      Dependencies.scalazCore,
-      Dependencies.scalazConcurrent,
-      Dependencies.coursier,
-      Dependencies.coursierCache,
-      Dependencies.libraryManagement,
-      Dependencies.configDirectories,
-      Dependencies.sourcecode,
-      Dependencies.sbtTestInterface,
-      Dependencies.sbtTestAgent,
-      Dependencies.monix,
-      Dependencies.directoryWatcher,
-      Dependencies.xxHashLibrary,
-      Dependencies.zt,
-      Dependencies.brave,
-      Dependencies.zipkinSender,
-      Dependencies.pprint,
-      Dependencies.difflib,
-      Dependencies.asm,
-      Dependencies.asmUtil
-    )
-  )
 
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
