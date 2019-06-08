@@ -50,11 +50,10 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
           sys.error(s"Failed to load buildpress cache file: $e")
         case Right(f) =>
           f.cache.repos.flatMap { r =>
-            val buildBaseDir: AbsolutePath = buildpressCacheDir.resolve(r.id)
-            if (buildBaseDir.exists) {
-              List(r.id -> buildBaseDir)
+            if (Files.exists(r.localPath)) {
+              List(r.id -> AbsolutePath(r.localPath))
             } else {
-              sys.error(s"Missing $buildBaseDir")
+              sys.error(s"Missing ${r.localPath}")
             }
           }
       }
