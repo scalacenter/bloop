@@ -141,7 +141,7 @@ lazy val sockets: Project = project
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
-  .dependsOn(sockets, backend, backend % "test->test", jsonConfig212)
+  .dependsOn(sockets, backend, backend % "test->test", jsonConfig212, buildpress % "it->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -276,14 +276,17 @@ val millBloop = project
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
 
-val buildpress = project
+lazy val buildpress = project
   .dependsOn(launcher)
   .settings(buildpressSettings)
   .settings(
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
       Dependencies.caseApp,
-      Dependencies.nuprocess
+      Dependencies.nuprocess,
+      Dependencies.circeParser,
+      Dependencies.circeCore,
+      Dependencies.circeGeneric
     )
   )
 
