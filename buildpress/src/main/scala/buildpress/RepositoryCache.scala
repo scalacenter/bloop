@@ -1,9 +1,9 @@
 package buildpress
 
 import java.io.IOException
+import bloop.io.AbsolutePath
 import buildpress.RepositoryCache.RepoCacheDiff
 import buildpress.config.Config.{RepoCacheEntries, RepoCacheEntry, RepoCacheFile}
-import buildpress.io.AbsolutePath
 
 final case class RepositoryCache(source: AbsolutePath, repositories: List[ClonedRepository]) {
   private lazy val lookupById: Map[String, ClonedRepository] =
@@ -72,7 +72,7 @@ object RepositoryCache {
   }
 
   def repoCacheMetadataFile(home: AbsolutePath): AbsolutePath = {
-    home.resolve("buildpress-repo-cache.json")
+    home.resolve(buildpress.config.Config.BuildpressCacheFileName)
   }
 
   def repoCacheDirectory(home: AbsolutePath): AbsolutePath = {

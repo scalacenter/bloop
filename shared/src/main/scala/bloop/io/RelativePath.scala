@@ -1,4 +1,4 @@
-package buildpress.io
+package bloop.io
 
 import java.io.File
 import java.nio.file.{Path, Paths => NioPaths}

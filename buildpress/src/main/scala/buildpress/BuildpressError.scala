@@ -1,5 +1,6 @@
 package buildpress
-import buildpress.io.AbsolutePath
+
+import bloop.io.AbsolutePath
 
 sealed trait BuildpressError extends Throwable
 object BuildpressError {

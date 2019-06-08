@@ -20,6 +20,34 @@ val benchmarkBridge = project
     bloopGenerate in Test := None
   )
 
+lazy val bloopShared = (project in file("shared"))
+  .settings(
+    libraryDependencies ++= List(
+      Dependencies.bsp,
+      Dependencies.zinc,
+      Dependencies.nailgun,
+      Dependencies.scalazCore,
+      Dependencies.scalazConcurrent,
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.libraryManagement,
+      Dependencies.configDirectories,
+      Dependencies.sourcecode,
+      Dependencies.sbtTestInterface,
+      Dependencies.sbtTestAgent,
+      Dependencies.monix,
+      Dependencies.directoryWatcher,
+      Dependencies.xxHashLibrary,
+      Dependencies.zt,
+      Dependencies.brave,
+      Dependencies.zipkinSender,
+      Dependencies.pprint,
+      Dependencies.difflib,
+      Dependencies.asm,
+      Dependencies.asmUtil
+    )
+  )
+
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
@@ -30,6 +58,7 @@ val backend = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings ++ testSuiteSettings)
+  .dependsOn(bloopShared)
   .settings(
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
@@ -141,7 +170,7 @@ lazy val sockets: Project = project
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
-  .dependsOn(sockets, backend, backend % "test->test", jsonConfig212, buildpress % "it->compile")
+  .dependsOn(sockets, bloopShared, backend, backend % "test->test", jsonConfig212, buildpressConfig % "it->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -276,17 +305,27 @@ val millBloop = project
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
 
+lazy val buildpressConfig = (project in file("buildpress-config"))
+  .settings(
+    scalaVersion := Scala212Version,
+    libraryDependencies ++= List(
+      Dependencies.circeParser,
+      Dependencies.circeCore,
+      Dependencies.circeGeneric
+    ),
+    addCompilerPlugin(
+      "org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full
+    )
+  )
+
 lazy val buildpress = project
-  .dependsOn(launcher)
+  .dependsOn(launcher, bloopShared, buildpressConfig)
   .settings(buildpressSettings)
   .settings(
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
       Dependencies.caseApp,
-      Dependencies.nuprocess,
-      Dependencies.circeParser,
-      Dependencies.circeCore,
-      Dependencies.circeGeneric
+      Dependencies.nuprocess
     )
   )
 
