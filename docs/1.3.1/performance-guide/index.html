@@ -1,0 +1,382 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Performance guide · Bloop</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="&lt;p&gt;A major goal of Bloop as a build server for the [Scala programming&lt;/p&gt;
+"/><meta name="docsearch:version" content="1.3.1"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Performance guide · Bloop"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="&lt;p&gt;A major goal of Bloop as a build server for the [Scala programming&lt;/p&gt;
+"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>1.3.1</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class="siteNavGroupActive"><a href="/bloop/docs/1.3.1/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>References</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">General</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/what-is-bloop">What is Bloop</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/usage">Quickstart</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/integration">Integration Guide</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Build Tools</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/build-tools/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/build-tools/sbt">sbt</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/build-tools/maven">Maven</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/build-tools/gradle">Gradle</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/build-tools/mill">Mill</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">IDEs</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/ides/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/ides/intellij">IntelliJ</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/ides/metals">Metals</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">References</h3><ul class=""><li class="navListItem navListItemActive"><a class="navItem" href="/bloop/docs/1.3.1/performance-guide">Performance guide</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/cli-reference">CLI --help</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/server-reference">Build Server</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/launcher-reference">Built-in Launcher</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/configuration-format">JSON Configuration</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.1/contributing-guide">Contributing Guide</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/master/docs/performance-guide.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 class="postHeaderTitle">Performance guide</h1></header><article><div><span><p>A major goal of Bloop as a build server for the <a href="https://scala-lang.org/">Scala programming
+language</a> is to be as fast as possible, by default,
+with no sacrifices in correctness or compromises in user experience. In spite
+of these constraints, Bloop is in fact as fast as or faster than the most
+popular build tools in the Scala ecosystem.</p>
+<p>However, it is easy to go astray without an appropiate set of tools that
+identify regressions and measure build performance objectively. Builds stress
+their use of a toolchain uniquely, so it is necessary these tools are not
+only used during development but by users wishing to keep their build
+performance in check.</p>
+<p>This guide explains the tools Bloop provides users to:</p>
+<ol>
+<li>Get familiar with the performance characteristics of project builds</li>
+<li>Compare the performance of Bloop with that of other tools compiling Scala code</li>
+<li>Modify a complicated build to optimize build times</li>
+</ol>
+<blockquote>
+<p>For the moment, this guide focuses mostly on compilation performance. In the
+future, it will be expanded to cover testing and running.</p>
+</blockquote>
+<h2><a class="anchor" aria-hidden="true" id="analyze-build-performance-characteristics"></a><a href="#analyze-build-performance-characteristics" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Analyze build performance characteristics</h2>
+<p>Before analyzing performance numbers analytically, let's build a precise
+model of the structure of your build, its characteristics and the
+consequences of those in the overall build performance. A quick way to build
+such model is to use our <a href="https://zipkin.apache.org">Zipkin</a> integration.</p>
+<h3><a class="anchor" aria-hidden="true" id="analyze-build-traces-in-zipkin"></a><a href="#analyze-build-traces-in-zipkin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Analyze build traces in Zipkin</h3>
+<p>Zipkin is a distributed tracing system that gathers timing data and it's
+often used to troubleshoot problems in microservice architectures. Bloop
+integrates with Zipkin because it:</p>
+<ol>
+<li>Installs quickly in any system</li>
+<li>Displays build traces nicely in a hierarchical web user interface</li>
+<li>Allows persisting build traces to databases such as Cassandra</li>
+<li>Has an extensible design to:
+<ol>
+<li>Launch and connect to remote server instances</li>
+<li>Allow third-parties to build in-house tooling (such as analytics tools)</li>
+</ol></li>
+</ol>
+<h4><a class="anchor" aria-hidden="true" id="install-and-run-zipkin"></a><a href="#install-and-run-zipkin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install and run zipkin</h4>
+<p>To install Zipkin, follow the installation steps in the <a href="http://zipkin.apache.org/pages/quickstart.html">Zipkin Quickstart
+guide</a>. After following the
+guide, you should have a live Zipkin instance running at
+<code>http://localhost:9411/zipkin/</code>.</p>
+<h3><a class="anchor" aria-hidden="true" id="use-case-akka-akka-https-githubcom-akka-akka"></a><a href="#use-case-akka-akka-https-githubcom-akka-akka" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Use case: <a href="https://github.com/akka/akka">akka/akka</a></h3>
+<p>We can obtain some compilation traces for the <code>akka</code> project by:</p>
+<ol>
+<li>Installing and running Zipkin as described above</li>
+<li>Compiling the <code>akka/akka</code> build with Bloop right away</li>
+</ol>
+<p>A Bloop server restart is <strong>not</strong> required because Bloop will detect Zipkin
+running in the default localhost address automatically and enable tracing.
+You can point to another local or remote Zipkin server by setting the url to
+the <code>zipkin.server.url</code> system property. This last operation does require
+restarting the server.</p>
+<p><img src="/bloop/docs/assets/zipkin-akka-traces-1.png" alt="A Zipkin instance with build traces from the akka/akka project"></p>
+<p>The image above shows the Zipkin UI after tracing some full compilations of
+<code>akka</code> in commodity hardware. Note that we have sorted by &quot;Newest First&quot;, so
+the higher a trace is the more recent it is. We clearly see the JIT inside
+the Bloop server getting hotter and hotter with every iteration.</p>
+<p>However, how can Zipkin help us create a precise model of our build? Let's
+click on a trace to find out.</p>
+<p><img src="/bloop/docs/assets/zipkin-akka-traces-2.png" alt="A Zipkin instance showing a detaild profile of a build trace from the akka/akka project"></p>
+<p>The hierarchical UI of the traces help us visualize, among others:</p>
+<ol>
+<li>What the completion time of every task is</li>
+<li>What are the dependencies among all Bloop tasks</li>
+<li>What are the number of tasks running in parallel at any given point</li>
+<li>What is the dependency graph of your build</li>
+<li>Which projects are blocked by others</li>
+</ol>
+<p>Having visual help to answer these questions is invaluable to get a feeling
+of what we're optimizing and what can be optimized. For many of us,
+visualizing is the path to understanding!</p>
+<p>If you don't know where to start, browse all the running tasks and look for
+surprising behaviours in your build. This is a great way to start asking
+questions and spot build invariants slowing down compilation times.</p>
+<p>The Zipkin UI is rich and featureful with lots of filtering and inspection
+capabilities. It's recommended you play around with the UI to know how to
+effectively use the build traces to step up your profiling game.</p>
+<h2><a class="anchor" aria-hidden="true" id="prepare-to-run-the-benchmarks"></a><a href="#prepare-to-run-the-benchmarks" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Prepare to run the benchmarks</h2>
+<p>Build traces are a great way to visualize build timings and spot expensive
+tasks. However, we sometimes want a more precise and granular way of
+reasoning about our build performance.</p>
+<p>This precision is often required when we're making changes to our builds for
+the sake of performance and we want to show our team how good the change
+we've implemented is. For that, we need a reliable numerical analysis where
+we control for variables such as error in our measurements or a mechanism to
+compute statistical data such as average time and percentiles.</p>
+<p>To benchmark Bloop in your build, Bloop provides a
+<a href="https://openjdk.java.net/projects/code-tools/jmh/">JMH</a> battery of
+benchmarks you can run in your build as well as several other benchmarks for
+other build tools such as sbt.</p>
+<p>If you're going to go the extra mile to collect reliable benchmark data,
+let's remember a few best practices to keep in mind before jumping to running
+the benchmarks.</p>
+<h3><a class="anchor" aria-hidden="true" id="control-the-benchmark-environment"></a><a href="#control-the-benchmark-environment" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Control the benchmark environment</h3>
+<p>Benchmark data is as good as your system setup to minimize noise is.</p>
+<p>If the machine where you run the benchmarks is used by other process, is not
+correctly configured to reduce noise or doesn't compile your project with
+certain degree of reproducibility, invest time to stabilize it.</p>
+<ol>
+<li>Disable NUMA.</li>
+<li>Disable Turbo Boost and set CPU frequency manually.</li>
+<li>Disable the cron scheduler or similar applications.</li>
+<li>Keep the running background process to a bare minimum.</li>
+<li>Tweak operating system details to avoid virtual memory issues, avoid lazy IO, etc</li>
+</ol>
+<blockquote>
+<p>Take some inspiration from <a href="https://github.com/scalacenter/compiler-benchmark/blob/bloop/scripts/benv">this Bash script we use for our Linux
+benchmarking machine</a>.</p>
+</blockquote>
+<p>It's legit to ignore any of these steps if, for example, the impact of your
+changes would be higher by enabling NUMA/Turbo Boost or you want to collect
+more &quot;realistic&quot; benchmark data that ressembles better the noisy machines
+developers compile in.</p>
+<p>Remember, performance is not composable!</p>
+<h3><a class="anchor" aria-hidden="true" id="compare-apples-to-apples"></a><a href="#compare-apples-to-apples" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Compare apples-to-apples</h3>
+<p>It's <em>really</em> important that you know what you're comparing and how.</p>
+<p>Please think carefully about it before running any benchmarks, especially if
+you intend to compare the benchmark numbers with those from another tool.</p>
+<p>For example, a common mistake is to benchmark Bloop after importing the build
+with Metals and then compare the results with compilation numbers from say,
+gradle or sbt.</p>
+<p>When Metals imports a build or connects to Bloop, it changes scalac options
+and adds compiler plugins that can slow down compilation considerably. So, if
+you are comparing numbers in this scenario, you <strong>are not</strong> comparing
+apples-to-apples.</p>
+<p>Even when comparing Bloop with other build tools, it's important to realize
+that Bloop has a head advantage with regards to other tools as it's a highly
+optimized server for only three build tasks whereas other build tools enable
+you to do much more.</p>
+<p>Put your numbers into perspective when comparing, for example, the
+performance of no-op compilations, the time to warm up a hot compiler or the
+time to compile your whole build. Bloop can be faster at compiling, testing
+or running but if your developer workflow doesn't require any of those often,
+then maybe it's not a good fit for you.</p>
+<p>Remember, be aware you benchmark the same thing and check that build
+definitions are unchanged!</p>
+<h2><a class="anchor" aria-hidden="true" id="benchmark-compile-times-in-your-build"></a><a href="#benchmark-compile-times-in-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Benchmark compile times in your build</h2>
+<h3><a class="anchor" aria-hidden="true" id="set-up-the-benchmark-suite"></a><a href="#set-up-the-benchmark-suite" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Set up the benchmark suite</h3>
+<p>Bloop JMH benchmarks are not yet published in Maven Central. You first need
+to follow the <a href="docs/contributing-guide.md">CONTRIBUTING guide</a> to set up the
+Bloop repository.</p>
+<p>Then, checkout the version of Bloop you want to benchmark with <code>git checkout v$BLOOP_VERSION</code>. Unless you manage your own Bloop version internally, you
+should always default to the latest release version.</p>
+<p>The benchmarks are located in the <code>benchmarks/</code> directory and can be run via
+the <code>sbt-jmh</code> setup in Bloop's build. You can navigate to <code>HotBloopBenchmark</code>
+to have a look at the source code of the benchmark. By default, the JMH
+benchmark launches a new JVM to benchmark compilations with a specific set of
+standard JVM options.</p>
+<h3><a class="anchor" aria-hidden="true" id="use-case-akka-akka-https-githubcom-akka-akka-1"></a><a href="#use-case-akka-akka-https-githubcom-akka-akka-1" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Use case: <a href="https://github.com/akka/akka">akka/akka</a></h3>
+<h4><a class="anchor" aria-hidden="true" id="run-benchmarks-for-bloop"></a><a href="#run-benchmarks-for-bloop" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Run benchmarks for bloop</h4>
+<p>Here's a list of the steps to benchmark <code>akka/akka</code>:</p>
+<ol>
+<li><p>Remove all projects in <code>bloop-community-build.buildpress</code> and add your
+project coordinates.</p>
+<ul>
+<li>For example, we add akka with a line like <code>akka,https://github.com/akka/akka.git#74ad005219770552d0a7c72c61394f88ebae3b13</code>.</li>
+</ul></li>
+<li><p>Run <code>sbt exportCommunityBuild</code> in Bloop's sbt build.</p>
+<ul>
+<li><code>exportCommunityBuild</code> invokes <code>buildpress</code>, a tool that given a URI in
+your file system it attempts to export the project. It currently only
+supports sbt.</li>
+</ul>
+   <p>
+<blockquote>
+<p>If you cannot use buildpress because your build tool is not sbt, the
+process to extract your build to sbt requires manual intervention or
+your project is not available in a git URI, then modify
+<code>HotBloopBenchmark</code> and configure <code>configDir</code> to point to the <code>.bloop</code>
+directory of your build.</p>
+</blockquote>
+<ul>
+<li>When buildpress is done, it will have cloned and exported your project
+under <code>$HOME/.buildpress/cache</code>.</li>
+</ul></li>
+<li><p><code>benchmarks/jmh:run .*HotBloopBenchmark.* -wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test</code></p>
+<ul>
+<li>It runs the bloop benchmark on the akka/akka build.</li>
+<li>It runs 7 warmup iterations and 5 benchmark iterations.</li>
+<li>It only runs the benchmarks once (one fork).</li>
+</ul></li>
+</ol>
+<p>Wait for JMH to finish the benchmark and analyze its results!</p>
+<p>If you have any questions regarding the benchmark infrastructure, come ask us
+in <a href="https://gitter.im/scalacenter/bloop">our Gitter channel</a>.</p>
+<h4><a class="anchor" aria-hidden="true" id="compare-performance-numbers-with-sbt"></a><a href="#compare-performance-numbers-with-sbt" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Compare performance numbers with sbt</h4>
+<p>You can use the <code>HotSbtBenchmark</code> to compare performance numbers between
+bloop and sbt.</p>
+<h4><a class="anchor" aria-hidden="true" id="compare-performance-numbers-with-other-tools"></a><a href="#compare-performance-numbers-with-other-tools" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Compare performance numbers with other tools</h4>
+<p>You can copy-paste and modify an existing benchmark to benchmark
+compilation in your favorite build tool.</p>
+<h4><a class="anchor" aria-hidden="true" id="grafana-support"></a><a href="#grafana-support" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Grafana support</h4>
+<p>Our benchmark suite can send benchmark data points to Grafana. Look at the
+source code of our benchmarks and <a href="https://github.com/scalacenter/bloop/blob/master/bin/run-benchmarks.sh">our benchmark
+script</a>
+which an <code>UploadingRunner</code> to persist data points.</p>
+<h2><a class="anchor" aria-hidden="true" id="speed-up-complicated-builds"></a><a href="#speed-up-complicated-builds" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Speed up complicated builds</h2>
+<p>Once you're done benchmarking, you might have no idea where to start
+optimizing your build, even after looking at Zipkin build traces for a few
+minutes. &quot;Sure, typechecking takes a long time, but what can I do to fix
+that?&quot; or &quot;Can I even optimize that expensive IO task&quot; might be questions
+popping up in your mind.</p>
+<p>That's normal, it takes time and experience to know which patterns
+you should be looking for. Don't feel daunted by the task; after all,
+practice makes perfect.</p>
+<p>In this section, I want to elaborate on a few of actionable items I've used
+in the past to speed up large, complicated builds using lots of advanced
+Scala features. Hopefully, these actions will speed up your build too or
+inspire you to get you started optimizing it.</p>
+<h3><a class="anchor" aria-hidden="true" id="use-the-latest-scala-version"></a><a href="#use-the-latest-scala-version" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Use the latest Scala version</h3>
+<p>I cannot stress this enough, keeping up with the latest Scala version is
+critical to have a speedy build.</p>
+<p>Many of the optimizing features we add in the compiler or in Bloop are only
+enabled in the latest releases and need each other, so the best way to ensure
+your build is as fast as it can be is by upgrading to the latest Scala
+version. For example, if you are using 2.11.11 while the latest compiler
+developments are in 2.13.0, you're most likely missing out on a lot of
+life-quality performance improvements.</p>
+<h3><a class="anchor" aria-hidden="true" id="pick-appropiate-jvm-and-gc-options"></a><a href="#pick-appropiate-jvm-and-gc-options" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Pick appropiate JVM and GC options</h3>
+<p>The best JVM options are those striking a balance between making an
+efficient use of your system's available resources and allowing the build
+server to operate at peak performance.</p>
+<p>Learn how to tweak your options in the <a href="docs/server.md">Build Server</a> guide.</p>
+<p>Here's a <a href="https://www.baeldung.com/jvm-parameters">list of the most important JVM options</a>.
+Below I elaborate only on the most critical for compilation.</p>
+<h4><a class="anchor" aria-hidden="true" id="max-heap-size"></a><a href="#max-heap-size" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Max heap size</h4>
+<p>The <code>-Xmx&lt;heap size&gt;[unit]</code> option sets the max heap size of the build
+server. Most of the times it's better to leave it at the default value, but
+you can configure it if you suspect the JVM is not allocating enough heap for
+a process or if it's using too much.</p>
+<p>Here are some recommended values:</p>
+<ul>
+<li>Use <code>-Xmx2g</code> for small to medium-sized builds.</li>
+<li>Use up to <code>-Xmx4g</code> for large builds.</li>
+</ul>
+<h4><a class="anchor" aria-hidden="true" id="use-parallel-gc-unless-you-have-evidence-of-a-better-one"></a><a href="#use-parallel-gc-unless-you-have-evidence-of-a-better-one" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Use parallel gc unless you have evidence of a better one</h4>
+<p>Scala's developer toolchain is faster on Java 8 than on Java 9 or Java 11
+because the garbage collectors in these different Java runtimes have changed
+considerably.</p>
+<p>If you are using Java 9 or Java 11, I recommend defaulting on
+<code>-XX:+UseParallelGC</code> which optimizes for throughput instead of latency.</p>
+<p>As better garbage collectors are developed in future Java versions, I
+recommend benchmarking the fastest as well as tweaking GC-specific options.
+The Scala compiler is heavy on object allocations and is particularly
+sensitive to different optimizations in GC configurations.</p>
+<h3><a class="anchor" aria-hidden="true" id="tweak-the-java-jit"></a><a href="#tweak-the-java-jit" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Tweak the Java JIT</h3>
+<p>Using the stock JVM is a safe default. However, tools written in Scala such
+as Bloop or <code>scalac</code> can be sped up significantly if you're willing to
+experiment with configurations of the JIT compiler or alternative compilers
+to the stock C2 compiler.</p>
+<p>For example, GraalVM is better at optimizing Scala code than the stock C2
+compiler. Users have reported speedups within the range of 10%-50%. There are
+two GraalVMs available you can install:</p>
+<ol>
+<li>The Community edition (GraalVM CE), completely free.</li>
+<li>The Enterprise edition (GraalVM EE), only free for local development.
+It implements specific code heuristics on top of the Community edition to
+run code faster.</li>
+</ol>
+<p>If you're stuck with the stock JVM, improve compilation performance in C2 by
+using <code>-XX:MaxInlineLevel=20</code>, which tweaks the inline level from 9 (default)
+to 20. Users have reported around 10%-20% faster compilation times.</p>
+<h3><a class="anchor" aria-hidden="true" id="reorganize-your-build-graph"></a><a href="#reorganize-your-build-graph" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Reorganize your build graph</h3>
+<p>The natural way we structure our projects and builds is rarely the
+friendliest to build times. Giving our builds a more fine-grained structure
+helps address many build time issues.</p>
+<p>For example, let's say we look at a build graph like this. The Zipkin trace
+shows that the compilation of <code>c</code> depends on that of <code>b</code> and the compilation
+of <code>b</code> on that of <code>a</code>.</p>
+<p><img src="/bloop/docs/assets/build-optimization-example-1.svg" alt="Original example of build graph"></p>
+<p>Then, when looking at the code of <code>c</code>, you realize <code>c</code> should not depend on
+<code>b</code> or that you can move a little bit of code around to remote the dependency
+of <code>b</code>. After removing the dependency, the build graph should look like this:</p>
+<p><img src="/bloop/docs/assets/build-optimization-example-2.svg" alt="Optimized example of build graph"></p>
+<p>Such a graph shape is better than the initial one because it increases the
+amount of projects that can be compiled in parallel (<code>b</code> can be built
+concurrently to <code>c</code>) and improve incremental compilation's heuristics.</p>
+<p>The less depth your build graph has, the more efficient to compile it will be.
+In the absence of low-hanging fruits such as the one above, the most common
+way to flatten out your build graph is to split up big projects into smaller
+units and trim down the amount of dependencies each of them has.</p>
+<h3><a class="anchor" aria-hidden="true" id="identify-long-typechecking-times"></a><a href="#identify-long-typechecking-times" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Identify long typechecking times</h3>
+<p>Average typechecking time can take between 40% and 70% of the whole
+compilation of a project. The more typechecking dominates your compilation
+times, the more likely is that there are compilation anomalies in your
+project.</p>
+<p>If typechecking time is suspiciously high in your Zipkin build traces, put on
+your profiling hat and have a closer look at what uses of Scala features are
+more prominent.</p>
+<p>For example, it's very likely you depend on a library that either directly or
+transitively uses Scala macros (such as Circe). Or maybe you define/use lots
+of implicits in your code.</p>
+<p>If you use either macros and implicits, consider reading <a href="https://www.scala-lang.org/blog/2018/06/04/scalac-profiling.html">Speeding Up
+Compilation Time with
+<code>scalac-profiling</code></a>
+to get more familiar with the techniques you can use to profile and optimize
+builds making a heave use of them.</p>
+<p>If you don't see anything weird but still consider your project takes too
+long to compile, please reach out to an expert in the <a href="https://gitter.im/scala/contributors"><code>scala/contributors</code>
+Gitter channel</a>. There are friendly
+people that might be able to help you fix the compilation anomalies.</p>
+</span></div></article></div><div class="docLastUpdate"><em>Last updated on 2019-6-6</em></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/1.3.1/ides/metals"><span class="arrow-prev">← </span><span>Metals</span></a><a class="docs-next button" href="/bloop/docs/1.3.1/cli-reference"><span>CLI --help</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#analyze-build-performance-characteristics">Analyze build performance characteristics</a><ul class="toc-headings"><li><a href="#analyze-build-traces-in-zipkin">Analyze build traces in Zipkin</a></li><li><a href="#use-case-akka-akka-https-githubcom-akka-akka">Use case: <a href="https://github.com/akka/akka">akka/akka</a></a></li></ul></li><li><a href="#prepare-to-run-the-benchmarks">Prepare to run the benchmarks</a><ul class="toc-headings"><li><a href="#control-the-benchmark-environment">Control the benchmark environment</a></li><li><a href="#compare-apples-to-apples">Compare apples-to-apples</a></li></ul></li><li><a href="#benchmark-compile-times-in-your-build">Benchmark compile times in your build</a><ul class="toc-headings"><li><a href="#set-up-the-benchmark-suite">Set up the benchmark suite</a></li><li><a href="#use-case-akka-akka-https-githubcom-akka-akka-1">Use case: <a href="https://github.com/akka/akka">akka/akka</a></a></li></ul></li><li><a href="#speed-up-complicated-builds">Speed up complicated builds</a><ul class="toc-headings"><li><a href="#use-the-latest-scala-version">Use the latest Scala version</a></li><li><a href="#pick-appropiate-jvm-and-gc-options">Pick appropiate JVM and GC options</a></li><li><a href="#tweak-the-java-jit">Tweak the Java JIT</a></li><li><a href="#reorganize-your-build-graph">Reorganize your build graph</a></li><li><a href="#identify-long-typechecking-times">Identify long typechecking times</a></li></ul></li></ul></nav></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+                document.addEventListener('keyup', function(e) {
+                  if (e.target !== document.body) {
+                    return;
+                  }
+                  // keyCode for '/' (slash)
+                  if (e.keyCode === 191) {
+                    const search = document.getElementById('search_input_react');
+                    search && search.focus();
+                  }
+                });
+              </script><script>
+              var search = docsearch({
+                
+                apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
+                indexName: 'bloop_scala',
+                inputSelector: '#search_input_react',
+                algoliaOptions: {"facetFilters":["version:1.3.1"]}
+              });
+            </script></body></html>
