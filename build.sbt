@@ -21,6 +21,11 @@ val benchmarkBridge = project
   )
 
 lazy val bloopShared = (project in file("shared"))
+  .settings(
+    libraryDependencies ++= Seq(
+      Dependencies.xxHashLibrary
+    )
+  )
 
 /***************************************************************************************************/
 /*                            This is the build definition of the wrapper                          */
@@ -28,7 +33,7 @@ lazy val bloopShared = (project in file("shared"))
 import build.Dependencies
 import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version}
 
-val backend = project
+lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings ++ testSuiteSettings)
@@ -53,7 +58,6 @@ val backend = project
       Dependencies.sbtTestAgent,
       Dependencies.monix,
       Dependencies.directoryWatcher,
-      Dependencies.xxHashLibrary,
       Dependencies.zt,
       Dependencies.brave,
       Dependencies.zipkinSender,
@@ -64,7 +68,7 @@ val backend = project
     )
   )
 
-val jsonConfig210 = project
+lazy val jsonConfig210 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
@@ -87,7 +91,7 @@ val jsonConfig210 = project
     }
   )
 
-val jsonConfig211 = project
+lazy val jsonConfig211 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
@@ -111,7 +115,7 @@ val jsonConfig211 = project
   )
 
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-val jsonConfig212 = project
+lazy val jsonConfig212 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
@@ -203,7 +207,7 @@ lazy val launcher: Project = project
     )
   )
 
-val benchmarks = project
+lazy val benchmarks = project
   .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
@@ -229,14 +233,14 @@ lazy val sbtBloop013 = project
   .settings(sbtPluginSettings("0.13.18", jsonConfig210))
   .dependsOn(jsonConfig210)
 
-val mavenBloop = project
+lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig210)
   .settings(name := "maven-bloop", scalaVersion := Scala210Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
-val gradleBloop211 = project
+lazy val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
@@ -272,7 +276,7 @@ lazy val gradleBloop212 = project
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value
   )
 
-val millBloop = project
+lazy val millBloop = project
   .in(integrations / "mill-bloop")
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212)
@@ -376,6 +380,7 @@ lazy val twitterIntegrationProjects = project
   )
 
 val allProjects = Seq(
+  bloopShared,
   backend,
   benchmarks,
   frontend,
@@ -430,6 +435,7 @@ val publishLocalCmd = Keys.publishLocal.key.label
 addCommandAlias(
   "install",
   Seq(
+    s"${bloopShared.id}/$publishLocalCmd",
     s"${jsonConfig210.id}/$publishLocalCmd",
     s"${jsonConfig211.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
@@ -446,6 +452,7 @@ addCommandAlias(
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${sockets.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    s"${buildpressConfig.id}/$publishLocalCmd",
     s"${buildpress.id}/$publishLocalCmd",
     // Force build info generators in frontend-test
     s"${frontend.id}/test:compile",
@@ -469,6 +476,7 @@ addCommandAlias(
 val releaseEarlyCmd = releaseEarly.key.label
 
 val allBloopReleases = List(
+  s"${bloopShared.id}/$releaseEarlyCmd",
   s"${backend.id}/$releaseEarlyCmd",
   s"${frontend.id}/$releaseEarlyCmd",
   s"${jsonConfig210.id}/$releaseEarlyCmd",
@@ -485,6 +493,7 @@ val allBloopReleases = List(
   s"${jsBridge10.id}/$releaseEarlyCmd",
   s"${sockets.id}/$releaseEarlyCmd",
   s"${launcher.id}/$releaseEarlyCmd",
+  s"${buildpressConfig.id}/$releaseEarlyCmd",
   s"${buildpress.id}/$releaseEarlyCmd"
 )
 
