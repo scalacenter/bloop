@@ -21,6 +21,7 @@ import org.apache.commons.io.IOUtils
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
+import java.nio.charset.StandardCharsets
 
 /**
  * Base class for writing test for the nailgun integration.
@@ -50,7 +51,7 @@ trait NailgunTestUtils {
     val currentOut = System.out
     val currentErr = System.err
 
-    val in = IOUtils.toInputStream("")
+    val in = IOUtils.toInputStream("", StandardCharsets.UTF_8)
     val out = new PrintStream(ProcessLogger.toOutputStream(log.serverInfo))
     val err = new PrintStream(ProcessLogger.toOutputStream(log.serverError))
     val localIn = new BloopThreadLocalInputStream(in)
