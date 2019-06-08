@@ -30,8 +30,9 @@ object CommunityBuild
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
-          System.out.println(s"✅  Compiled all projects in $buildBaseDir")
+          System.out.println(s"✅  Compiled $buildName in $buildBaseDir")
       }
+      System.out.println(s"✅  Compiled all projects in $buildpressHomeDir")
     }
   }
 }
