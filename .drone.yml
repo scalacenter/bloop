@@ -212,6 +212,7 @@ pipeline:
         OPS: basic
     commands:
       - export DRONE_DIR="/drone"
+      - git status
       - . bin/set-up-community-build-infra.sh # Source it because it exports variables
       - . bin/ci-setup-bloopoid-keys.sh
       - echo "oauth = $BLOOPOID_GITHUB_TOKEN" > ~/.github

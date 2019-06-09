@@ -21,6 +21,7 @@ import org.apache.commons.io.IOUtils
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
+import java.nio.charset.StandardCharsets
 
 /**
  * Base class for writing test for the nailgun integration.

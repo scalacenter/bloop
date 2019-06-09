@@ -151,7 +151,8 @@ object ResultsCache {
               val deleteOrphans = Task {
                 import scala.collection.JavaConverters._
                 val orphanInternalDirs = new mutable.ListBuffer[Path]()
-                Files.list(internalClassesDir.underlying).iterator.asScala.foreach { path =>
+                Paths.list(internalClassesDir).foreach { absPath =>
+                  val path = absPath.underlying
                   val fileName = path.getFileName().toString
                   /*
                    * An internal classes directory is orphan if it's mapped to

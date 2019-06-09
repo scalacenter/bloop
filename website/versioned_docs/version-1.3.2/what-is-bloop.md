@@ -1,26 +1,27 @@
 ---
-id: what-is-bloop
+id: version-1.3.2-what-is-bloop
 title: What is Bloop
 sidebar_label: What is Bloop
+original_id: what-is-bloop
 ---
 
 Bloop is a build server and CLI tool for the [Scala programming language](https://scala-lang.org/) developed by [the Scala Center][scalacenter]. Bloop has **two main goals**:
 
 1. Compiles, tests and runs Scala code as fast as possible
-1. Integrates easily with build tools, command-line applications, editors and custom tooling
+2. Integrates easily with build tools, command-line applications, editors and custom tooling
 
 ## Features
 
 1. Compiles a vast array of Java and Scala (2.10.x, 2.11.x, 2.12.x and 3.x) versions
-1. Runs and tests on the Java, [Scala.js](https://www.scala-js.org/) and [Scala Native](https://github.com/scala-native/scala-native) runtimes
-1. Integrates with common build tools in the Scala ecosystem (sbt, Gradle, mill, Maven, etc)
-1. Implements server-like capabilities such as concurrent build execution,
+2. Runs and tests on the Java, [Scala.js](https://www.scala-js.org/) and [Scala Native](https://github.com/scala-native/scala-native) runtimes
+3. Integrates with common build tools in the Scala ecosystem (sbt, Gradle, mill, Maven, etc)
+4. Implements server-like capabilities such as concurrent build execution,
    caching compilations across clients and build client isolation to avoid conflicts in a shared, stateful file system
 
 ## Limitations
 
 1. There can only be one bloop server instance running per machine
-1. There is currently no support for remote compilation, see [this ticket](https://github.com/scalacenter/bloop/issues/673)
+2. There is currently no support for remote compilation, see [this ticket](https://github.com/scalacenter/bloop/issues/673)
 
 ## Getting started
 
@@ -39,8 +40,8 @@ CLI) or indirectly (e.g. Metals), are the users.
 Clients can *concurrently* ask for build requests in two ways:
 
 1. via the [Nailgun server protocol](https://github.com/facebook/nailgun),
-    used by the built-in bloop command-line application
-1. via the [Build Server Protocol (BSP)](https://github.com/scalacenter/bsp)
+   used by the built-in bloop command-line application
+2. via the [Build Server Protocol (BSP)](https://github.com/scalacenter/bsp)
    (**recommended**), used by clients such as
    [Metals](https://github.com/scalameta/metals) or
    [IntelliJ](https://www.jetbrains.com/idea/)
@@ -70,16 +71,21 @@ your project via Bloop and you spawn a bloop CLI command such as `bloop test
 foo --watch` at the same time, Bloop guarantees that:
 
 1. The server heavily caches compilations for the same inputs (aka *compile deduplication*)
+
    > If inputs haven't changed between the requests, only the first client
    > request will trigger a compilation. The compilation of the second client
    > will be deduplicated based on the compilation side effects recorded by the
-   >build server, so only one compilation will happen.
+   > build server, so only one compilation will happen.
+
 2. Different compilation requests in the same build can run concurrently (aka
    *compile isolation*)
+
    > If inputs have changed between requests, Bloop will compile the changed
    > projects concurrently, avoiding shared state and conflicts with ongoing
    > compilations.
+
 3. The outputs produced by both requests are independent in the file system.
+
    > The compilation products will be stored in independent target
    > directories only owned by the client. This independence is essential to
    > allow clients to independently run any build action without altering task
@@ -161,3 +167,4 @@ in every operation.
 
 
 [scalacenter]: https://scala.epfl.ch
+
