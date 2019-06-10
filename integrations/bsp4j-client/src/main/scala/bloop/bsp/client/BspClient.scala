@@ -1,48 +1,51 @@
 package bloop.bsp.client
 
-import ch.epfl.scala.bsp4j
-import ch.epfl.scala.bsp4j.BuildServer
-import com.google.gson.Gson
 import java.io.InputStream
 import java.io.PrintStream
-import org.eclipse.lsp4j.jsonrpc.Launcher
-import ch.epfl.scala.bsp4j.ScalaBuildServer
+import java.nio.file.Path
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.{Future => JFuture}
 
-class BspClient extends bsp4j.BuildClient {
-  private final val gson = new Gson()
+import org.eclipse.lsp4j.jsonrpc.Launcher
+import ch.epfl.scala.bsp4j.ScalaBuildServer
+import ch.epfl.scala.bsp4j.BuildClient
+import ch.epfl.scala.bsp4j.LogMessageParams
+import ch.epfl.scala.bsp4j.PublishDiagnosticsParams
+import ch.epfl.scala.bsp4j.ShowMessageParams
+import ch.epfl.scala.bsp4j.DidChangeBuildTarget
+import ch.epfl.scala.bsp4j.TaskFinishParams
+import ch.epfl.scala.bsp4j.TaskProgressParams
+import ch.epfl.scala.bsp4j.TaskStartParams
 
-  def onConnectWithServer(server: BuildServer, listening: JFuture[_]): Unit = ???
-  def onBuildLogMessage(params: bsp4j.LogMessageParams): Unit = ???
-  def onBuildPublishDiagnostics(params: bsp4j.PublishDiagnosticsParams): Unit = ???
-  def onBuildShowMessage(params: bsp4j.ShowMessageParams): Unit = ???
-  def onBuildTargetDidChange(params: bsp4j.DidChangeBuildTarget): Unit = ???
-  def onBuildTaskFinish(params: bsp4j.TaskFinishParams): Unit = ???
-  def onBuildTaskProgress(params: bsp4j.TaskProgressParams): Unit = ???
-  def onBuildTaskStart(params: bsp4j.TaskStartParams): Unit = ???
+class BspClientHandler extends BuildClient {
+  def onBuildLogMessage(params: LogMessageParams): Unit = ???
+  def onBuildPublishDiagnostics(params: PublishDiagnosticsParams): Unit = ???
+  def onBuildShowMessage(params: ShowMessageParams): Unit = ???
+  def onBuildTargetDidChange(params: DidChangeBuildTarget): Unit = ???
+  def onBuildTaskFinish(params: TaskFinishParams): Unit = ???
+  def onBuildTaskProgress(params: TaskProgressParams): Unit = ???
+  def onBuildTaskStart(params: TaskStartParams): Unit = ???
 }
 
 object BspClient {
-  trait BloopBuildServer extends BuildServer with ScalaBuildServer
   def connectToServer(
-      client: BspClient,
+      clientHandler: BspClientHandler,
       clientIn: InputStream,
       clientOut: PrintStream,
-      executor: ExecutorService
+      executor: ExecutorService,
+      workspaceDir: Path
   ) = {
-    val launcher = new Launcher.Builder[BloopBuildServer]()
-    //.traceMessages(new PrintWriter(System.out))
-      .setRemoteInterface(classOf[BloopBuildServer])
+    val launcher = new Launcher.Builder[BloopBspServer]()
+      .setRemoteInterface(classOf[BloopBspServer])
+      //.traceMessages(new PrintWriter(System.out))
       .setInput(clientIn)
       .setOutput(clientOut)
-      .setLocalService(client)
+      .setLocalService(clientHandler)
       .setExecutorService(executor)
       .create()
 
     val listening = launcher.startListening()
     val remoteServer = launcher.getRemoteProxy()
-    client.onConnectWithServer(remoteServer, listening)
-    ???
+    new BspClientConnection(workspaceDir, listening, remoteServer)
   }
 }
