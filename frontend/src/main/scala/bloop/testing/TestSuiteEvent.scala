@@ -87,7 +87,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
       if (failureCount > 0) {
         val thisSuiteFailedTests =
           events.filter(e => failedStatuses.contains(e.status()))
-          .map(e => testSelectorToString(e.selector()) -> optionalThrowableToString(e.throwable()))
+          .map(e => testSelectorToString(e.selector()) -> optionalThrowableToTestResult(e.throwable()))
           .toMap
         testsFailedBySuite += testSuite -> (testsFailedBySuite.getOrElse(testSuite, Map.empty) ++ thisSuiteFailedTests)
       }

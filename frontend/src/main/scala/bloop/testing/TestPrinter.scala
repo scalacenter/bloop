@@ -12,8 +12,18 @@ private [testing] object TestPrinter {
     case _ => ??? //TODO: think what to do if sbt adds new subclass
   }
 
-  def optionalThrowableToString(opt: OptionalThrowable): String = {
-    if(opt.isDefined) opt.get().getMessage
+  def optionalThrowableToTestResult(opt: OptionalThrowable): String = {
+    if(opt.isDefined) stripTestFrameworkSpecificInformation(opt.get().getMessage)
     else "" //TODO: Think if this is the best approach
   }
+
+  private val scalaTestPrefix = "org.scalatest.exceptions.TestFailedException: "
+  private val specs2Prefix = "java.lang.Exception: "
+  private val utestPrefix = "utest.AssertionError: "
+
+  def stripTestFrameworkSpecificInformation(message: String): String =
+    if(message.startsWith(scalaTestPrefix)) message.drop(scalaTestPrefix.length)
+    else if(message.startsWith(specs2Prefix)) message.drop(specs2Prefix.length)
+    else if(message.startsWith(utestPrefix)) message.drop(utestPrefix.length)
+    else message
 }
