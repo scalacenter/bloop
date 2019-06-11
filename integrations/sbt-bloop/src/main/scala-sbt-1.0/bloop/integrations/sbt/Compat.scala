@@ -11,6 +11,8 @@ import sbt.internal.util.Attributed
 import sbt.{Artifact, Exec, Keys, SettingKey}
 import sbt.librarymanagement.ScalaModuleInfo
 import xsbti.compile.CompileAnalysis
+import bloop.bsp.client.BspClientConnection
+import sbt.ThisProject
 
 object Compat {
   type PluginData = sbt.PluginData
@@ -41,8 +43,10 @@ object Compat {
   def toAnyRefSettingKey(id: String, m: Manifest[AnyRef]): SettingKey[AnyRef] =
     SettingKey(id)(m, anyWriter)
 
+  @volatile private final var lastExecutedCommands: Seq[Exec] = Vector.empty
+  @volatile private final var clientConnection: Option[BspClientConnection] = None
+
   lazy val compileSettings: Seq[Def.Setting[_]] = List(
-    BloopKeys.bloopCompile := bloopCompile.value,
     Keys.internalDependencyClasspath := bloopInstallInternalClasspath.value,
     Keys.compile := Def.taskDyn {
       val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
@@ -50,15 +54,17 @@ object Compat {
       else {
         Def.taskDyn {
           val tryBloopConnection = shouldTryToConnectToServer.value
-          val hasConnection: Boolean = ???
-          if (hasConnection) bloopCompile
-          else Defaults.compileTask
+          clientConnection.synchronized {
+            clientConnection match {
+              case Some(connection) => bloopCompile(connection)
+              case None if tryBloopConnection => ???
+              case None => Defaults.compileTask
+            }
+          }
         }
       }
     }.value
   )
-
-  private final var lastExecutedCommands: Seq[Exec] = Vector.empty
 
   /**
    * Returns yes if the caller should attempt a bloop connection, no otherwise.
@@ -131,21 +137,27 @@ object Compat {
    *
    * We can only run this code if there is a
    */
-  lazy val bloopCompile: Def.Initialize[Task[CompileAnalysis]] = Def.taskDyn {
-    val targetName = BloopKeys.bloopTargetName.value
+  def bloopCompile(connection: BspClientConnection): Def.Initialize[Task[CompileAnalysis]] = {
     import sbt.internal.util.AttributeKey
-    val configDir = BloopKeys.bloopConfigDir.value.getParentFile
-    val internalClasspath = Keys.internalDependencyClasspath.value
-    val runCompilation = StableDef.task[CompileAnalysis] {
-      println(s"Compiling ${targetName} with bloop")
-      scala.sys.process.Process(List("bloop", "compile", targetName), configDir).!!
-      sbt.internal.inc.Analysis.Empty
+    Def.taskDyn {
+      val logger = Keys.streams.value.log
+      val targetName = BloopKeys.bloopTargetName.value
+      val projectBaseDir = Keys.baseDirectory.value.toPath
+      val configDir = BloopKeys.bloopConfigDir.value.getParentFile
+      val reporter = sbt.InternalKeys.compilerReporter.value
+      val internalClasspath = Keys.internalDependencyClasspath.value
+      val runCompilation = StableDef.task[CompileAnalysis] {
+        logger.info(s"Compiling ${targetName} via BSP")
+        val btid = BspClientConnection.toBloopBuildTargetIdentifier(targetName, projectBaseDir)
+        connection.compile(btid)
+        //sbt.internal.inc.Analysis.
+        sbt.internal.inc.Analysis.Empty
+      }
+
+      StableDef.sequential(
+        BloopKeys.bloopGenerate,
+        runCompilation
+      )
     }
-
-    StableDef.sequential(
-      BloopKeys.bloopGenerate,
-      runCompilation
-    )
   }
-
 }

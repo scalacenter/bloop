@@ -224,7 +224,7 @@ lazy val sbtBloop10 = project
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
   .settings(sbtPluginSettings("1.1.4", jsonConfig212))
-  .dependsOn(jsonConfig212, bsp4jClient)
+  .dependsOn(jsonConfig212, bsp4jClient, launcher)
 
 /*
 // Let's remove scripted for 0.13, we only test 1.0

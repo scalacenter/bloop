@@ -17,14 +17,12 @@ import ch.epfl.scala.bsp4j.TaskFinishParams
 import ch.epfl.scala.bsp4j.TaskProgressParams
 import ch.epfl.scala.bsp4j.TaskStartParams
 
-class BspClientHandler extends BuildClient {
-  def onBuildLogMessage(params: LogMessageParams): Unit = ???
-  def onBuildPublishDiagnostics(params: PublishDiagnosticsParams): Unit = ???
-  def onBuildShowMessage(params: ShowMessageParams): Unit = ???
-  def onBuildTargetDidChange(params: DidChangeBuildTarget): Unit = ???
-  def onBuildTaskFinish(params: TaskFinishParams): Unit = ???
-  def onBuildTaskProgress(params: TaskProgressParams): Unit = ???
-  def onBuildTaskStart(params: TaskStartParams): Unit = ???
+abstract class BspClientHandler extends BuildClient {
+  // Do a no-op in these cases for now
+  def onBuildTargetDidChange(params: DidChangeBuildTarget): Unit = ()
+  def onBuildTaskStart(params: TaskStartParams): Unit = ()
+  def onBuildTaskProgress(params: TaskProgressParams): Unit = ()
+  def onBuildTaskFinish(params: TaskFinishParams): Unit = ()
 }
 
 object BspClient {
