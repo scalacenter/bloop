@@ -17,7 +17,7 @@ written to a configuration directory. The default location of this directory in 
 `.bloop/` (you may want to add `.bloop/` to your `.gitignore` file).
 
 For example, a build with a single project `foo` generates two configuration files by
-default (one per [sbt configuration][sbt-configuration]):
+default (one per [sbt configuration](sbt-configuration)):
 
 ```bash
 $ sbt bloopInstall
