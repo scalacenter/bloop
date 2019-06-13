@@ -85,6 +85,9 @@ Command examples:
 1. `brew services stop bloop`: stops the bloop server.
 1. `brew services restart bloop`: restarts the bloop server.
 
+JVM options in the optional `/usr/local/Cellar/bloop/$version/bin/.jvmopts` are respected.
+If you change the `.jvmopts` file you have to restart the server for the changes to make effect.
+
 ### via `systemd`
 
 To have the Bloop server be automatically managed by systemd, install Bloop's systemd service:
