@@ -139,13 +139,20 @@ def macos_launch_script_contents(is_local):
     echo "Detected java options are '${java_opts[@]}'"
     BASE_BIN_DIR=$(dirname "$0")
     COURSIER_BIN="$BASE_BIN_DIR/%s"
-    /usr/libexec/java_home -v 1.8+ -F -R --exec java \\
+    /usr/libexec/java_home -v 1.9+ -F -R --exec java \\
+      -XX:+UseParallelGC \\
+      %s"${java_opts[@]}" -jar "$COURSIER_BIN" launch %s \\
+      -r bintray:scalameta/maven \\
+      -r bintray:scalacenter/releases \\
+      -r https://oss.sonatype.org/content/repositories/staging \\
+      --main bloop.Server -- "${server_args[@]}" ||
+    /usr/libexec/java_home -v 1.8 -F -R --exec java \\
       %s"${java_opts[@]}" -jar "$COURSIER_BIN" launch %s \\
       -r bintray:scalameta/maven \\
       -r bintray:scalacenter/releases \\
       -r https://oss.sonatype.org/content/repositories/staging \\
       --main bloop.Server -- "${server_args[@]}"
-    """ % (BLOOP_COURSIER_BINARY_NAME, configuration_ivy_home, BLOOP_ARTIFACT)
+    """ % (BLOOP_COURSIER_BINARY_NAME, configuration_ivy_home, BLOOP_ARTIFACT, configuration_ivy_home, BLOOP_ARTIFACT)
 
     return textwrap.dedent(contents)
 
