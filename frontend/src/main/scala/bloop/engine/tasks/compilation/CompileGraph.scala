@@ -739,16 +739,16 @@ object CompileGraph {
                 val bundleInputs = BundleInputs(project, dag, Map.empty)
                 setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                   val jcf = Promise[Unit]()
-                  val fc = Promise[Option[CompileProducts]]()
+                  val end = Promise[Option[CompileProducts]]()
                   val noSigs = new Array[Signature](0)
                   val noDefinedMacros = Map.empty[Project, Array[String]]
                   val oracle = new PipeliningOracle(bundle, noSigs, noDefinedMacros, cf, Nil)
-                  val pipelineInputs = PipelineInputs(cf, fc, jcf, JavaContinue, true)
+                  val pipelineInputs = PipelineInputs(cf, end, jcf, JavaContinue, true)
                   val t = compile(Inputs(bundle, oracle, Some(pipelineInputs), Map.empty))
                   val running =
                     Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
                   val completeJava = Task
-                    .deferFuture(jcf.future)
+                    .deferFuture(end.future)
                     .executeOn(ExecutionContext.ioScheduler)
                     .materialize
                     .map {
@@ -764,7 +764,7 @@ object CompileGraph {
                     .map { upstream =>
                       val ms = oracle.collectDefinedMacroSymbols
                       Leaf(
-                        PartialCompileResult(bundle, upstream, fc, jcf, completeJava, ms, running)
+                        PartialCompileResult(bundle, upstream, end, jcf, completeJava, ms, running)
                       )
                     }
                 }
@@ -878,10 +878,10 @@ object CompileGraph {
                         val javaSignals = aggregateJavaSignals(pipelinedJavaSignals.toList)
                         Task.now(Promise[Array[Signature]]()).flatMap { cf =>
                           val jf = Promise[Unit]()
-                          val fc = Promise[Option[CompileProducts]]()
+                          val end = Promise[Option[CompileProducts]]()
                           val oracle =
                             new PipeliningOracle(bundle, allSignatures, allMacros, cf, results)
-                          val pipelineInputs = PipelineInputs(cf, fc, jf, javaSignals, true)
+                          val pipelineInputs = PipelineInputs(cf, end, jf, javaSignals, true)
                           val t = compile(
                             Inputs(
                               bundle,
@@ -896,7 +896,7 @@ object CompileGraph {
                           val ongoing = Task.fromFuture(running)
                           val cj = {
                             Task
-                              .deferFuture(jf.future)
+                              .deferFuture(end.future)
                               .executeOn(ExecutionContext.ioScheduler)
                               .materialize
                               .map {
@@ -912,7 +912,7 @@ object CompileGraph {
                             .map { upstream =>
                               val ms = oracle.collectDefinedMacroSymbols
                               Parent(
-                                PartialCompileResult(bundle, upstream, fc, jf, cj, ms, ongoing),
+                                PartialCompileResult(bundle, upstream, end, jf, cj, ms, ongoing),
                                 dagResults
                               )
                             }
