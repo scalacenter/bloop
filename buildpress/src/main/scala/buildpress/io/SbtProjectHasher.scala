@@ -1,7 +1,7 @@
 package buildpress.io
 
 import java.io.IOException
-import java.nio.file._
+import java.nio.file.{Path, PathMatcher, FileVisitor, Files, FileVisitResult, FileVisitOption}
 import java.nio.file.attribute.BasicFileAttributes
 import bloop.io.{AbsolutePath, ByteHasher}
 import buildpress.config.Config.{BuildSettingsHashes, HashedPath}
@@ -66,8 +66,12 @@ object SbtProjectHasher {
 
     Files.walkFileTree(
       path,
-      java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
-      Int.MaxValue,
+      java.util.EnumSet.noneOf(classOf[FileVisitOption]),
+      // NOTE: if it turns out users need deeper traversals,
+      // this can be cheaply raised to 2-3 (for project/project nesting)
+      // w/o a heavy hit on performance
+      // thanks to empty paths of the `src/main/scala` kind
+      1,
       discovery
     )
 
