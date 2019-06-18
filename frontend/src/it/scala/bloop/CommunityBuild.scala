@@ -8,7 +8,17 @@ import scala.concurrent.duration.Duration
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
 import bloop.data.{Origin, Project}
-import bloop.engine._
+import bloop.engine.{
+  Action,
+  Build,
+  BuildLoader,
+  Dag,
+  ExecutionContext,
+  Exit,
+  Interpreter,
+  Run,
+  State
+}
 import bloop.engine.caches.ResultsCache
 import bloop.engine.tasks.compilation.CompileGraph
 import bloop.io.AbsolutePath
