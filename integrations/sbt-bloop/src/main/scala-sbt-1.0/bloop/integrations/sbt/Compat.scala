@@ -11,8 +11,14 @@ import sbt.internal.util.Attributed
 import sbt.{Artifact, Exec, Keys, SettingKey}
 import sbt.librarymanagement.ScalaModuleInfo
 import xsbti.compile.CompileAnalysis
-import bloop.bsp.client.BspClientConnection
+import _root_.bloop.bsp.client.BspClientConnection
 import sbt.ThisProject
+import ch.epfl.scala.bsp4j.TaskDataKind
+import com.google.gson.Gson
+import com.google.gson.JsonElement
+import scala.util.control.NonFatal
+import xsbti.Logger
+import ch.epfl.scala.bsp4j.CompileReport
 
 object Compat {
   type PluginData = sbt.PluginData
@@ -146,10 +152,20 @@ object Compat {
       val configDir = BloopKeys.bloopConfigDir.value.getParentFile
       val reporter = sbt.InternalKeys.compilerReporter.value
       val internalClasspath = Keys.internalDependencyClasspath.value
+      val analysisOut = BloopKeys.bloopAnalysisOut.value
       val runCompilation = StableDef.task[CompileAnalysis] {
         logger.info(s"Compiling ${targetName} via BSP")
         val btid = BspClientConnection.toBloopBuildTargetIdentifier(targetName, projectBaseDir)
-        connection.compile(btid)
+        val compileResult = connection.compile(btid).get()
+        compileResult.getDataKind match {
+          case TaskDataKind.COMPILE_REPORT =>
+            decodeJson(compileResult.getData(), classOf[CompileReport], logger) match {
+              case Some(value) => value.
+              case None => ()
+            }
+
+          case _ => ()
+        }
         //sbt.internal.inc.Analysis.
         sbt.internal.inc.Analysis.Empty
       }
@@ -159,5 +175,24 @@ object Compat {
         runCompilation
       )
     }
+  }
+
+  protected def decodeJson[T](obj: AnyRef, cls: java.lang.Class[T], logger: Logger): Option[T] = {
+    for {
+      data <- Option(obj)
+      value <- try {
+        Some(
+          new Gson().fromJson[T](
+            data.asInstanceOf[JsonElement],
+            cls
+          )
+        )
+      } catch {
+        case NonFatal(e) =>
+          logger.error(() => s"decode error: $cls")
+          logger.trace(() => e)
+          None
+      }
+    } yield value
   }
 }

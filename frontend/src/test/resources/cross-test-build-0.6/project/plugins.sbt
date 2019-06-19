@@ -12,9 +12,11 @@ unmanagedSourceDirectories in Compile ++= {
   if (!integrationsMainDir.exists()) Nil
   else {
     val pluginMainDir = integrationsMainDir / "sbt-bloop" / "src" / "main"
+    val clientMainDir = integrationsMainDir / "bsp4j-client" / "src" / "main"
     List(
       baseDir / "config" / "src" / "main" / "scala",
       baseDir / "config" / "src" / "main" / "scala-2.11-12",
+      clientMainDir / "scala",
       pluginMainDir / "scala",
       pluginMainDir / s"scala-sbt-${sbt.Keys.sbtBinaryVersion.value}"
     )
