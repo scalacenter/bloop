@@ -1,6 +1,6 @@
 bloopExportJarClassifiers in Global := Some(Set("sources"))
 bloopConfigDir in Global := baseDirectory.value / "bloop-config"
-import _root_.sbtcrossproject.CrossPlugin.autoImport.{crossProject => crossProjects}
+import sbtcrossproject.CrossPlugin.autoImport.{crossProject => crossProjects}
 
 scalaVersion in ThisBuild := "2.12.8"
 

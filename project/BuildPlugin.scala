@@ -380,8 +380,7 @@ object BuildImplementation {
           }
         }
 
-        //exportProjectsInTestResources(newState, enableCache = true)
-        newState
+        exportProjectsInTestResources(newState, enableCache = true)
       }
     }
 

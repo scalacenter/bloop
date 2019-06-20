@@ -160,7 +160,7 @@ object Compat {
         compileResult.getDataKind match {
           case TaskDataKind.COMPILE_REPORT =>
             decodeJson(compileResult.getData(), classOf[CompileReport], logger) match {
-              case Some(value) => value.
+              case Some(value) => value
               case None => ()
             }
 

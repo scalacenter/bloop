@@ -3,6 +3,7 @@ val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
 val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
 val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % "0.6.0"
 val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
+val bsp4j = "ch.epfl.scala" % "bsp4j" % "2.0.0-M4"
 
 // Let's add our sbt plugin to the sbt too ;)
 unmanagedSourceDirectories in Compile ++= {
@@ -24,6 +25,7 @@ unmanagedSourceDirectories in Compile ++= {
 }
 
 libraryDependencies ++= List(
+  bsp4j,
   typesafeConfig,
   metaconfigCore,
   metaconfigDocs,
