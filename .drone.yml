@@ -26,7 +26,6 @@ matrix:
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
           "frontend/testOnly -bloop.ScalaVersionsSpec" \
-          #"exportCommunityBuild" \
           "frontend/it:run" \
           "gradleBloop212/test" \
           "docs/run"
@@ -35,7 +34,6 @@ matrix:
     - bin/sbt-ci.sh \
           "sbtBloop013/publishLocal" \
           "sbtBloop10/publishLocal" \
-          #"exportCommunityBuild" \
           "frontend/it:run"
 
   RUN_BENCHMARKS_AND_SCRIPTED:
