@@ -88,7 +88,8 @@ object Tasks {
       userTestOptions: List[String],
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler,
-      failIfNoTestFrameworks: Boolean
+      failIfNoTestFrameworks: Boolean,
+      runInParallel: Boolean = false
   ): Task[State] = {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
@@ -122,7 +123,14 @@ object Tasks {
     }
 
     // For now, test execution is only sequential.
-    Task.sequence(testTasks).map { exitCodes =>
+    val runAll: List[Task[Int]] => Task[List[Int]] =
+      if (runInParallel) {
+        Task.gather
+      } else {
+        Task.sequence
+      }
+
+    runAll(testTasks).map { exitCodes =>
       // When the test execution is over report no matter what the result is
       testEventHandler.report()
       logger.debug(s"Test suites failed: $failure")

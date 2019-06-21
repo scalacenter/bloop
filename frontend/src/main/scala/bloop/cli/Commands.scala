@@ -139,7 +139,11 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
-      @Recurse cliOptions: CliOptions = CliOptions.default
+      @Recurse cliOptions: CliOptions = CliOptions.default,
+      @HelpMessage(
+        "Run tests in parallel. Should be chosen at user's discretion. By default, false"
+      )
+      parallel: Boolean = false
   ) extends CompilingCommand
 
   case class Console(
@@ -155,9 +159,13 @@ object Commands {
       reporter: ReporterKind = BloopReporter,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
-      @HelpMessage(s"Pick REPL to run console. The default is Ammonite, available REPLs are: ${ReplKind.repls.map(_.name).mkString(", ")}")
+      @HelpMessage(
+        s"Pick REPL to run console. The default is Ammonite, available REPLs are: ${ReplKind.repls.map(_.name).mkString(", ")}"
+      )
       repl: ReplKind = AmmoniteRepl,
-      @HelpMessage("The Ammonite version to use, it defaults to latest release. Ammonite REPL only.")
+      @HelpMessage(
+        "The Ammonite version to use, it defaults to latest release. Ammonite REPL only."
+      )
       ammoniteVersion: Option[String] = None,
       @HelpMessage("The output file where the Ammonite command is written. Ammonite REPL only.")
       outFile: Option[Path] = None,
