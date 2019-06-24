@@ -138,6 +138,27 @@ lazy val sockets: Project = project
     libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform)
   )
 
+lazy val nailgunClient = project
+  .enablePlugins(GraalVMNativeImagePlugin)
+  .in(file("nailgun-client"))
+  .dependsOn(sockets)
+  .settings(
+    name := "nailgun-client",
+    fork in run in Compile := true,
+    /*javaOptions in run in Compile += {
+      val targetDirectory = (target in GraalVMNativeImage).value
+      val nativeImageDir = targetDirectory./("META-INF")./("native-image")
+      nativeImageDir.mkdirs()
+      s"-agentlib:native-image-agent=config-output-dir=${nativeImageDir.getAbsolutePath}"
+    },*/
+    graalVMNativeImageOptions ++= List(
+      "--no-fallback",
+      "-H:+ReportExceptionStackTraces",
+      "-H:Log=registerResource",
+      "-H:IncludeResources=com/sun/jna/darwin/libjnidispatch.jnilib"
+    )
+  )
+
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
