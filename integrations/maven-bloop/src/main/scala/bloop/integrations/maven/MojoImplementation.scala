@@ -139,6 +139,7 @@ object MojoImplementation {
       val configTarget = new File(mojo.getBloopConfigDir, s"$name.json")
       val finalTarget = relativize(root, configTarget).getOrElse(configTarget.getAbsolutePath)
       log.info(s"Generated $finalTarget")
+      log.debug(s"Configuration to be serialized:\n$config")
       bloop.config.write(config, configTarget.toPath)
     }
 
