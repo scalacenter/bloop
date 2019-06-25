@@ -337,8 +337,18 @@ object Interpreter {
           )(DebugFilter.Test)
 
           val handler = new LoggingEventHandler(state.logger)
-          val failIfNoFrameworks = userDefinedProjects.size == projectsToTest.size
-          Tasks.test(state, projectsToTest, cmd.args, testFilter, handler, failIfNoFrameworks)
+          val failIfNoFrameworks: Boolean =
+            userDefinedProjects.size == projectsToTest.size
+
+          Tasks.test(
+            state,
+            projectsToTest,
+            cmd.args,
+            testFilter,
+            handler,
+            failIfNoFrameworks,
+            cmd.parallel
+          )
         }
       }
 
