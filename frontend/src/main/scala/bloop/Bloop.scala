@@ -35,8 +35,8 @@ object Bloop extends CaseApp[CliOptions] {
     )
     logger.warn("Please refer to our documentation for more information.")
     val client = ClientInfo.CliClientInfo("bloop-single-app", () => true)
-    val projects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, projects)
+    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
+    val build = Build(configDirectory, loadedBuild.workspaceSettings, loadedBuild.projects)
     val state = State(build, client, NoPool, options.common, logger)
     run(state, options)
   }

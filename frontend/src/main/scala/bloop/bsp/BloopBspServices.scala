@@ -40,6 +40,7 @@ import scala.util.Success
 import scala.util.Failure
 import monix.execution.Cancelable
 import io.circe.Json
+import bloop.data.WorkspaceSettings
 
 final class BloopBspServices(
     callSiteState: State,
@@ -108,25 +109,31 @@ final class BloopBspServices(
   }
 
   private val previouslyFailedCompilations = new TrieMap[Project, Compiler.Result.Failed]()
-  private def reloadState(config: AbsolutePath, clientInfo: ClientInfo): Task[State] = {
+  private def reloadState(
+      config: AbsolutePath,
+      clientInfo: ClientInfo,
+      workspaceSettings: Option[WorkspaceSettings] = None
+  ): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
-    State.loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger).map { state0 =>
-      /* Create a new state that has the previously compiled results in this BSP
-       * client as the last compiled result available for a project. This is required
-       * because in diagnostics reporting in BSP is stateful. When compilations
-       * happen in other clients, the previous result does not contain the list of
-       * previous problems (that tracks where we reported diagnostics) that this client
-       * had and therefore we can fail to reset diagnostics. */
-      val newState = {
-        val previous = previouslyFailedCompilations.toMap
-        state0.copy(results = state0.results.replacePreviousResults(previous))
-      }
+    State
+      .loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger, workspaceSettings)
+      .map { state0 =>
+        /* Create a new state that has the previously compiled results in this BSP
+         * client as the last compiled result available for a project. This is required
+         * because in diagnostics reporting in BSP is stateful. When compilations
+         * happen in other clients, the previous result does not contain the list of
+         * previous problems (that tracks where we reported diagnostics) that this client
+         * had and therefore we can fail to reset diagnostics. */
+        val newState = {
+          val previous = previouslyFailedCompilations.toMap
+          state0.copy(results = state0.results.replacePreviousResults(previous))
+        }
 
-      currentState = newState
-      newState
-    }
+        currentState = newState
+        newState
+      }
   }
 
   private def saveState(state: State): Task[Unit] = {
@@ -175,7 +182,10 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    val clientClassesRootDir = parseClientClassesRootDir(params.data)
+    val extraBuildParams = parseClientClassesRootDir(params.data)
+    val clientClassesRootDir = extraBuildParams.flatMap(
+      extra => extra.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
+    )
     val client = ClientInfo.BspClientInfo(
       params.displayName,
       params.version,
@@ -184,8 +194,23 @@ final class BloopBspServices(
       () => isClientConnected.get
     )
 
-    reloadState(configDir, client).map { state =>
-      callSiteState.logger.info("request received: build/initialize")
+    /* Metals specific settings that are used to store the
+     * SemanticDB version that will later be applied to all
+     * projects in the workspace. If the client is Metals but 
+     * the version is not specified we use `latest.release`
+     */
+    val metalsSettings =
+      if (params.displayName.contains("Metals")) {
+        val semanticDBVersion = extraBuildParams
+          .flatMap(extra => extra.semanticDBVersion)
+          .getOrElse(SemanticDBCache.latestRelease)
+        Some(WorkspaceSettings(semanticDBVersion))
+      } else {
+        None
+      }
+
+    reloadState(configDir, client, metalsSettings).map { state =>
+      callSiteState.logger.info(s"request received: build/initialize")
       clientInfo.success(client)
       connectedBspClients.put(client, configDir)
       observer.foreach(_.onNext(state.copy(client = client)))
@@ -209,11 +234,11 @@ final class BloopBspServices(
     }
   }
 
-  private def parseClientClassesRootDir(data: Option[Json]): Option[AbsolutePath] = {
+  private def parseClientClassesRootDir(data: Option[Json]): Option[BloopExtraBuildParams] = {
     data.flatMap { json =>
       BloopExtraBuildParams.decoder.decodeJson(json) match {
         case Right(bloopParams) =>
-          bloopParams.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
+          Some(bloopParams)
         case Left(failure) =>
           callSiteState.logger.warn(
             s"Unexpected error decoding bloop-specific initialize params: ${failure.message}"

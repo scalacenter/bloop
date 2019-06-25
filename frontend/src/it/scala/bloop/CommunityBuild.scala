@@ -88,8 +88,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
 
   def loadStateForBuild(configDirectory: AbsolutePath, logger: Logger): State = {
     assert(configDirectory.exists, "Does not exist: " + configDirectory)
-    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedProjects)
+    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
+    val build = Build(configDirectory, loadedBuild.workspaceSettings, loadedBuild.projects)
     val state = State.forTests(build, compilerCache, logger)
     state.copy(results = ResultsCache.emptyForTests)
   }

@@ -7,9 +7,11 @@ import bloop.logging.Logger
 import bloop.util.CacheHashCode
 import bloop.io.ByteHasher
 import monix.eval.Task
+import bloop.data.WorkspaceSettings
 
 final case class Build private (
     origin: AbsolutePath,
+    settings: Option[WorkspaceSettings],
     projects: List[Project]
 ) extends CacheHashCode {
   private val stringToProjects: Map[String, Project] = projects.map(p => p.name -> p).toMap
@@ -32,8 +34,11 @@ final case class Build private (
     val files = projects.iterator.map(p => p.origin.toAttributedPath).toSet
     val newFiles = BuildLoader.readConfigurationFilesInBase(origin, logger).toSet
 
+    val loadedSettings = WorkspaceSettings.fromFile(origin, logger)
+    val sameSettings = loadedSettings == settings
+
     // This is the fast path to short circuit quickly if they are the same
-    if (newFiles == files) Task.now(Build.ReturnPreviousState)
+    if (newFiles == files && sameSettings) Task.now(Build.ReturnPreviousState)
     else {
       val filesToAttributed = projects.iterator.map(p => p.origin.path -> p).toMap
       // There has been at least either one addition, one removal or one change in a file time
@@ -58,7 +63,7 @@ final case class Build private (
         val deleted = files.toList.collect { case f if !newToAttributed.contains(f.path) => f.path }
         (newOrModified, deleted) match {
           case (Nil, Nil) => Build.ReturnPreviousState
-          case _ => Build.UpdateState(newOrModified, deleted)
+          case _ => Build.UpdateState(newOrModified, deleted, loadedSettings)
         }
       }
     }
@@ -70,7 +75,8 @@ object Build {
   case object ReturnPreviousState extends ReloadAction
   case class UpdateState(
       createdOrModified: List[ReadConfiguration],
-      deleted: List[AbsolutePath]
+      deleted: List[AbsolutePath],
+      settingsChanged: Option[WorkspaceSettings]
   ) extends ReloadAction
 
   /** A configuration file is a combination of an absolute path and a file time. */

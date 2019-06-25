@@ -1096,8 +1096,8 @@ abstract class ConfigGenerationSuite {
     val logger = BloopLogger.default(configDir.toString)
     assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedProjects)
+    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
+    val build = Build(configDirectory, loadedBuild.workspaceSettings, loadedBuild.projects)
     State.forTests(build, TestUtil.getCompilerCache(logger), logger)
   }
 

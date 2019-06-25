@@ -6,7 +6,8 @@ import ch.epfl.scala.bsp.Uri
 
 object BloopBspDefinitions {
   final case class BloopExtraBuildParams(
-      clientClassesRootDir: Option[Uri]
+      clientClassesRootDir: Option[Uri],
+      semanticDBVersion : Option[String]
   )
 
   object BloopExtraBuildParams {

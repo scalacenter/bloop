@@ -37,6 +37,7 @@ import scala.concurrent.{Await, ExecutionException}
 import scala.meta.jsonrpc.Services
 import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
+import bloop.data.WorkspaceSettings
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -72,6 +73,7 @@ object TestUtil {
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
+      buildSettings: Option[WorkspaceSettings] = None,
       rootProjects: List[String] = List(RootProject),
       scalaInstance: ScalaInstance = TestUtil.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default,
@@ -80,7 +82,7 @@ object TestUtil {
       useSiteLogger: Option[Logger] = None,
       order: CompileOrder = Config.Mixed
   )(afterCompile: State => Unit = (_ => ())) = {
-    testState(structures, dependencies, scalaInstance, javaEnv, order) { (state: State) =>
+    testState(structures, dependencies, buildSettings, scalaInstance, javaEnv, order) { (state: State) =>
       def action(state0: State): Unit = {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
         // Check that this is a clean compile!
@@ -197,8 +199,8 @@ object TestUtil {
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedProjects = transformProjects(BuildLoader.loadSynchronously(configDirectory, logger))
-    val build = Build(configDirectory, loadedProjects)
+    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
+    val build = Build(configDirectory, loadedBuild.workspaceSettings, transformProjects(loadedBuild.projects))
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
     val state1 = state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
     if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
@@ -260,6 +262,7 @@ object TestUtil {
   def testState[T](
       projectStructures: Map[String, Map[String, String]],
       dependenciesMap: Map[String, Set[String]],
+      buildSettings: Option[WorkspaceSettings] = None,
       instance: ScalaInstance = TestUtil.scalaInstance,
       env: JavaEnv = JavaEnv.default,
       order: CompileOrder = Config.Mixed,
@@ -273,7 +276,7 @@ object TestUtil {
           val deps = dependenciesMap.getOrElse(name, Set.empty)
           makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
       }
-      val build = Build(temp, projects.toList)
+      val build = Build(temp, buildSettings, projects.toList)
       val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
       try op(state)
       catch {

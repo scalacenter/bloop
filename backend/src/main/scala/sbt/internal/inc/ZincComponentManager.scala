@@ -29,10 +29,8 @@ import xsbti.ArtifactInfo.SbtOrganization
 class ZincComponentManager(
     globalLock: GlobalLock,
     provider: ComponentProvider,
-    secondaryCacheDir: Option[File],
-    log0: Logger,
+    secondaryCacheDir: Option[File]
 ) {
-  val log = new FullLogger(log0)
 
   /** Get all of the files for component 'id', throwing an exception if no files exist for the component. */
   def files(id: String)(ifMissing: IfMissing): Iterable[File] = {

@@ -10,6 +10,7 @@ import bloop.io.AbsolutePath
 import bloop.cli.ExitStatus
 
 import monix.eval.Task
+import bloop.data.LoadedBuild
 
 /** Cache that holds the state associated to each loaded build. */
 final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedState]) {
@@ -89,18 +90,21 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
       case Some(state) =>
         state.build.checkForChange(logger).flatMap {
           case Build.ReturnPreviousState => Task.now(state)
-          case Build.UpdateState(createdOrModified, deleted) =>
-            BuildLoader.loadBuildFromConfigurationFiles(from, createdOrModified, logger).map {
-              newProjects =>
-                val currentProjects = state.build.projects
-                val toRemove = deleted.toSet ++ newProjects.map(_.origin.path)
-                val untouched =
-                  currentProjects.collect { case p if !toRemove.contains(p.origin.path) => p }
-                val newBuild = state.build.copy(projects = untouched ++ newProjects)
-                val newState = state.copy(build = newBuild)
-                cache.put(from, StateCache.CachedState.fromState(newState))
-                newState
-            }
+          case Build.UpdateState(createdOrModified, deleted, settingsChanged) =>
+            BuildLoader
+              .loadBuildFromConfigurationFiles(from, createdOrModified, settingsChanged, logger)
+              .map {
+                case LoadedBuild(newProjects, settings) =>
+                  val currentProjects = state.build.projects
+                  val toRemove = deleted.toSet ++ newProjects.map(_.origin.path)
+                  val untouched =
+                    currentProjects.collect { case p if !toRemove.contains(p.origin.path) => p }
+                  val newBuild =
+                    state.build.copy(projects = untouched ++ newProjects, settings = settings)
+                  val newState = state.copy(build = newBuild)
+                  cache.put(from, StateCache.CachedState.fromState(newState))
+                  newState
+              }
         }
       case None =>
         computeBuild(from).map { state =>

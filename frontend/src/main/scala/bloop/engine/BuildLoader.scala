@@ -6,6 +6,8 @@ import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.io.ByteHasher
 import monix.eval.Task
+import bloop.data.WorkspaceSettings
+import bloop.data.LoadedBuild
 
 object BuildLoader {
 
@@ -22,7 +24,9 @@ object BuildLoader {
    * @return A map associating each tracked file with its last modification time.
    */
   def readConfigurationFilesInBase(base: AbsolutePath, logger: Logger): List[AttributedPath] = {
-    bloop.io.Paths.attributedPathFilesUnder(base, JsonFilePattern, logger, 1)
+    bloop.io.Paths
+      .attributedPathFilesUnder(base, JsonFilePattern, logger, 1)
+      .filterNot(_.path.toFile.getName() == WorkspaceSettings.settingsFileName)
   }
 
   /**
@@ -35,15 +39,19 @@ object BuildLoader {
   def loadBuildFromConfigurationFiles(
       configDir: AbsolutePath,
       configFiles: List[Build.ReadConfiguration],
+      settingsFile: Option[WorkspaceSettings],
       logger: Logger
-  ): Task[List[Project]] = {
+  ): Task[LoadedBuild] = {
+
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
       DebugFilter.Compilation
     )
-
-    val all = configFiles.map(f => Task(Project.fromBytesAndOrigin(f.bytes, f.origin, logger)))
+    val all = configFiles.map(f => Task(loadProject(f.bytes, f.origin, logger, settingsFile)))
     val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
-    Task.sequence(groupTasks).map(_.flatten).executeOn(ExecutionContext.ioScheduler)
+    Task
+      .sequence(groupTasks)
+      .map(fp => LoadedBuild(fp.flatten, settingsFile))
+      .executeOn(ExecutionContext.ioScheduler)
   }
 
   /**
@@ -55,8 +63,10 @@ object BuildLoader {
    */
   def load(
       configDir: AbsolutePath,
+      incomingSettings: Option[WorkspaceSettings],
       logger: Logger
-  ): Task[List[Project]] = {
+  ): Task[LoadedBuild] = {
+    val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, incomingSettings))
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       Task {
         val bytes = ap.path.readAllBytes
@@ -65,9 +75,13 @@ object BuildLoader {
       }
     }
 
-    Task
-      .gatherUnordered(configFiles)
-      .flatMap(fs => loadBuildFromConfigurationFiles(configDir, fs, logger))
+    workspaceSettings.flatMap { settings =>
+      Task
+        .gatherUnordered(configFiles)
+        .flatMap { fs =>
+          loadBuildFromConfigurationFiles(configDir, fs, settings, logger)
+        }
+    }
   }
 
   /**
@@ -80,7 +94,8 @@ object BuildLoader {
   def loadSynchronously(
       configDir: AbsolutePath,
       logger: Logger
-  ): List[Project] = {
+  ): LoadedBuild = {
+    val settings = WorkspaceSettings.fromFile(configDir, logger)
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       val bytes = ap.path.readAllBytes
       val hash = ByteHasher.hashBytes(bytes)
@@ -90,6 +105,88 @@ object BuildLoader {
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
       DebugFilter.Compilation
     )
-    configFiles.map(f => Project.fromBytesAndOrigin(f.bytes, f.origin, logger))
+    LoadedBuild(configFiles.map(f => loadProject(f.bytes, f.origin, logger, settings)), settings)
   }
+
+  private def loadProject(
+      bytes: Array[Byte],
+      origin: Origin,
+      logger: Logger,
+      settings: Option[WorkspaceSettings]
+  ): Project = {
+    val project = Project.fromBytesAndOrigin(bytes, origin, logger)
+    settings.map(applySettings(_, project, logger)).getOrElse(project)
+  }
+
+  private def updateWorkspaceSettings(
+      configDir: AbsolutePath,
+      logger: Logger,
+      incomingSettings: Option[WorkspaceSettings]
+  ): Option[WorkspaceSettings] = {
+    val savedSettings = WorkspaceSettings.fromFile(configDir, logger)
+    incomingSettings match {
+      case Some(incoming) =>
+        if (savedSettings.isEmpty || savedSettings.exists(_ != incoming)) {
+          WorkspaceSettings.write(configDir, incoming)
+          Some(incoming)
+        } else {
+          savedSettings
+        }
+      case None =>
+        savedSettings
+    }
+
+  }
+
+  /**
+   * Applies workspace settings from bloop.settings.json file to a project. This includes:
+   * - SemanticDB plugin version to resolve and include in Scala compiler options
+   */
+  private def applySettings(
+      settings: WorkspaceSettings,
+      project: Project,
+      logger: Logger
+  ): Project = {
+
+    def addSemanticDBOptions(pluginPath: AbsolutePath) = {
+      {
+        val optionsSet = project.scalacOptions.toSet
+        val containsSemanticDB = optionsSet.find(
+          setting => setting.contains("-Xplugin") && setting.contains("semanticdb-scalac")
+        )
+        val containsYrangepos = optionsSet.find(_.contains("-Yrangepos"))
+        val semanticDBAdded = if (containsSemanticDB.isDefined) {
+          logger.info(s"SemanticDB plugin already added: ${containsSemanticDB.get}")
+          optionsSet
+        } else {
+          optionsSet ++ Set(
+            "-P:semanticdb:failures:warning",
+            s"-P:semanticdb:sourceroot:${project.baseDirectory}",
+            "-P:semanticdb:synthetics:on",
+            "-Xplugin-require:semanticdb",
+            s"-Xplugin:$pluginPath"
+          )
+        }
+        if (containsYrangepos.isDefined) {
+          semanticDBAdded
+        } else {
+          semanticDBAdded + "-Yrangepos"
+        }
+      }
+    }
+
+    val mappedProject = for {
+      scalaInstance <- project.scalaInstance
+      pluginPath <- SemanticDBCache.findSemanticDBPlugin(
+        scalaInstance.version,
+        settings.semanticDBVersion,
+        logger
+      )
+    } yield {
+      val scalacOptions = addSemanticDBOptions(pluginPath)
+      project.copy(scalacOptions = scalacOptions.toList)
+    }
+    mappedProject.getOrElse(project)
+  }
+
 }
