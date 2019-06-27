@@ -17,7 +17,7 @@ written to a configuration directory. The default location of this directory in 
 `.bloop/` (you may want to add `.bloop/` to your `.gitignore` file).
 
 For example, a build with a single project `foo` generates two configuration files by
-default (one per [sbt configuration][sbt-configuration]):
+default (one per `Compile` and `Test` configuration):
 
 ```bash
 $ sbt bloopInstall
@@ -30,6 +30,8 @@ $ sbt bloopInstall
 where:
 1. `foo` comes from the `Compile` sbt configuration; and,
 1. `foo-test` comes from the `Test` sbt configuration and depends on `foo`
+
+If a build enables the `IntegrationTest` configuration in a project, Bloop will also export it.
 
 Any change in the build affecting the semantics of a project (such as adding a new library
 dependency, a resource or changing the project name) requires the user to run `bloopInstall`. When a
