@@ -11,7 +11,7 @@
 written to a configuration directory. The default location of this directory in your workspace is
 <code>.bloop/</code> (you may want to add <code>.bloop/</code> to your <code>.gitignore</code> file).</p>
 <p>For example, a build with a single project <code>foo</code> generates two configuration files by
-default (one per [sbt configuration][sbt-configuration]):</p>
+default (one per <code>Compile</code> and <code>Test</code> configuration):</p>
 <pre><code class="hljs css language-bash">$ sbt bloopInstall
 [info] Loading global plugins from /Users/John/.sbt/1.0/plugins
 (...)
@@ -23,6 +23,7 @@ default (one per [sbt configuration][sbt-configuration]):</p>
 <li><code>foo</code> comes from the <code>Compile</code> sbt configuration; and,</li>
 <li><code>foo-test</code> comes from the <code>Test</code> sbt configuration and depends on <code>foo</code></li>
 </ol>
+<p>If a build enables the <code>IntegrationTest</code> configuration in a project, Bloop will also export it.</p>
 <p>Any change in the build affecting the semantics of a project (such as adding a new library
 dependency, a resource or changing the project name) requires the user to run <code>bloopInstall</code>. When a
 project is removed in the build, <code>bloopInstall</code> will automatically remove its old configuration from
