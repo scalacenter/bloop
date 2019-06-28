@@ -406,7 +406,7 @@ final class BloopBspServices(
   def startDebugSession(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
-    def createRunner(
+    def createDebugServer(
         project: Project,
         state: State
     ): BspResponse[DebugServer] = {
@@ -443,7 +443,7 @@ final class BloopBspServices(
               )
             case (state, Right(_)) =>
               val projects = mappings.map(_._2)
-              createRunner(projects.head, state) match {
+              createDebugServer(projects.head, state) match {
                 case Right(server) =>
                   val connection = ConnectionHandle.tcp(backlog = 10)
                   val listenTask = DebugServer.listenTo(connection, server)(ioScheduler)

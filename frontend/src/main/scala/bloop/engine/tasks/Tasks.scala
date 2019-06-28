@@ -3,7 +3,6 @@ package bloop.engine.tasks
 import java.nio.file.{Files, Path}
 
 import bloop.cli.ExitStatus
-import bloop.dap.DebugSession
 import bloop.engine.caches.ResultsCache
 import bloop.logging.DebugFilter
 import bloop.data.Project

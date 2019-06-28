@@ -4,7 +4,6 @@ import java.io.File.pathSeparator
 import java.net.{InetSocketAddress, ServerSocket, URLClassLoader}
 
 import bloop.cli.CommonOptions
-import bloop.dap.{DebugSession, DebugSessionLogger}
 import bloop.io.AbsolutePath
 import bloop.engine.tasks.RunMode
 import bloop.logging.{DebugFilter, Logger}

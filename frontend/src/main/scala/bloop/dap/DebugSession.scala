@@ -28,10 +28,6 @@ final class DebugSession(
   type LaunchId = Int
   private val launches = mutable.Set.empty[LaunchId]
 
-  def bindDebuggeeAddress(address: InetSocketAddress): Unit = {
-    addressPromise.success(address)
-  }
-
   override def dispatchRequest(request: Request): Unit = {
     val id = request.seq
     request.command match {
@@ -52,7 +48,8 @@ final class DebugSession(
 
     response.command match {
       case "attach" if launches(requestSeq) =>
-        response.command = LAUNCH.getName // pretend we are responding to the launch request
+        // Trick dap4j into thinking we're processing a launch instead of attach
+        response.command = LAUNCH.getName
         super.sendResponse(response)
       case "disconnect" =>
         super.sendResponse(response)
