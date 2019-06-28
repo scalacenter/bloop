@@ -8,7 +8,7 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger, NoopLogger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
+import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.data.{ClientInfo, Platform, Project}
@@ -560,7 +560,8 @@ object Interpreter {
                   cwd,
                   mainClass,
                   cmd.args.toArray,
-                  cmd.skipJargs
+                  cmd.skipJargs,
+                  RunMode.Normal
                 )
             }
         }

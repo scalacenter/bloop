@@ -4,13 +4,17 @@ import java.net.InetSocketAddress
 
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.protocol.Events.OutputEvent
+import scala.concurrent.Promise
 
 /**
  * Serves two purposes:
  * - forwards the process output to the debug session.
  * - waits for the jdi log to notify the debug session that it can safely attach to the process
  */
-final class DebugSessionLogger(debugSession: DebugSession) extends Logger {
+final class DebugSessionLogger(
+    debugSession: DebugSession,
+    addressPromise: Promise[InetSocketAddress]
+) extends Logger {
   override def name: String = "DebugSessionLogger"
 
   override def ansiCodesSupported(): Boolean = false
@@ -22,7 +26,7 @@ final class DebugSessionLogger(debugSession: DebugSession) extends Logger {
     if (msg.startsWith(expectedMessage)) {
       val port = Integer.parseInt(msg.drop(expectedMessage.length))
       val address = new InetSocketAddress(port)
-      debugSession.bindDebuggeeAddress(address)
+      addressPromise.success(address)
     } else {
       send(msg, OutputEvent.Category.stderr)
     }

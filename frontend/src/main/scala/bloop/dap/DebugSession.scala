@@ -12,33 +12,38 @@ import monix.eval.Task
 import monix.execution.Scheduler
 
 import scala.collection.mutable
+import scala.concurrent.Promise
 
 /**
  * Instead of relying on a standard handler for the 'launch' request, this class starts a [[debuggee]] in the background
  * and then attaches to it as if it were a remote process. It also kills the [[debuggee]] upon receiving 'disconnect' request
  */
-final class DebugSession(socket: Socket, debuggee: Debuggee, ctx: IProviderContext)(
+final class DebugSession(
+    socket: Socket,
+    addressPromise: Promise[InetSocketAddress],
+    ctx: IProviderContext
+)(
     ioScheduler: Scheduler
 ) extends ProtocolServer(socket.getInputStream, socket.getOutputStream, ctx) {
-  private val launches = mutable.Set.empty[Int]
+  type LaunchId = Int
+  private val launches = mutable.Set.empty[LaunchId]
 
   def bindDebuggeeAddress(address: InetSocketAddress): Unit = {
-    debuggee.bind(address)
+    addressPromise.success(address)
   }
 
   override def dispatchRequest(request: Request): Unit = {
-    val seq = request.seq
-
+    val id = request.seq
     request.command match {
       case "launch" =>
-        launches.add(seq) // so that we can modify the response by changing its command type from 'attach' to 'launch'
-        debuggee
-          .start(this)
-          .map(attachRequest(seq, _))
-          .foreach(super.dispatchRequest)(ioScheduler)
+        launches.add(id)
+        val _ = Task
+          .fromFuture(addressPromise.future)
+          .map(attachRequest(id, _))
+          .foreachL(super.dispatchRequest)
+          .runAsync(ioScheduler)
 
-      case _ =>
-        super.dispatchRequest(request)
+      case _ => super.dispatchRequest(request)
     }
   }
 
@@ -51,7 +56,6 @@ final class DebugSession(socket: Socket, debuggee: Debuggee, ctx: IProviderConte
         super.sendResponse(response)
       case "disconnect" =>
         super.sendResponse(response)
-        debuggee.cancel()
       case _ =>
         super.sendResponse(response)
     }
@@ -59,18 +63,19 @@ final class DebugSession(socket: Socket, debuggee: Debuggee, ctx: IProviderConte
 }
 
 object DebugSession {
-  def open(socket: Socket, debuggee: Debuggee)(ioScheduler: Scheduler): Task[DebugSession] = {
+  def open(socket: Socket, addressPromise: Promise[InetSocketAddress])(
+      ioScheduler: Scheduler
+  ): Task[DebugSession] = {
     for {
       _ <- Task.fromTry(JavaDebugInterface.isAvailable)
       ctx = DebugExtensions.createContext()
-    } yield new DebugSession(socket, debuggee, ctx)(ioScheduler)
+    } yield new DebugSession(socket, addressPromise, ctx)(ioScheduler)
   }
 
-  def attachRequest(seq: Int, address: InetSocketAddress): Request = {
+  private[DebugSession] def attachRequest(seq: Int, address: InetSocketAddress): Request = {
     val arguments = new AttachArguments
     arguments.hostName = address.getHostName
     arguments.port = address.getPort
-
     val json = JsonUtils.toJsonTree(arguments, classOf[AttachArguments])
     new Request(seq, ATTACH.getName, json.getAsJsonObject)
   }

@@ -144,6 +144,7 @@ object Tasks {
   /**
    * Runs the fully qualified class `className` in `project`.
    *
+   * @param mode      The run mode.
    * @param state     The current state of Bloop.
    * @param project   The project to run.
    * @param cwd       The directory in which to start the forked JVM.
@@ -159,11 +160,11 @@ object Tasks {
       fqn: String,
       args: Array[String],
       skipJargs: Boolean,
-      debugSession: Option[DebugSession] = None
+      mode: RunMode
   ): Task[State] = {
     val dag = state.build.getDagFor(project)
     val classpath = project.fullClasspath(dag, state.client)
-    val processConfig = JvmProcessForker(javaEnv, classpath, debugSession)
+    val processConfig = JvmProcessForker(javaEnv, classpath, mode)
     val runTask =
       processConfig.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
     runTask.map { exitCode =>

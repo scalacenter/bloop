@@ -6,6 +6,7 @@ import java.net.{InetSocketAddress, ServerSocket, URLClassLoader}
 import bloop.cli.CommonOptions
 import bloop.dap.{DebugSession, DebugSessionLogger}
 import bloop.io.AbsolutePath
+import bloop.engine.tasks.RunMode
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 
@@ -72,12 +73,12 @@ object JvmProcessForker {
   def apply(
       javaEnv: JavaEnv,
       classpath: Array[AbsolutePath],
-      debugSession: Option[DebugSession]
+      mode: RunMode
   ): JvmProcessForker = {
-    val underlying = JvmProcessForker(javaEnv, classpath)
-    debugSession
-      .map(session => new JvmDebuggingForker(underlying, session))
-      .getOrElse(underlying)
+    mode match {
+      case RunMode.Normal => new JvmForker(javaEnv, classpath)
+      case RunMode.Debug => new JvmDebuggingForker(new JvmForker(javaEnv, classpath))
+    }
   }
 }
 
@@ -127,8 +128,7 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
   }
 }
 
-final class JvmDebuggingForker(underlying: JvmProcessForker, debugSession: DebugSession)
-    extends JvmProcessForker {
+final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessForker {
 
   override def newClassLoader(parent: Option[ClassLoader]): ClassLoader =
     underlying.newClassLoader(parent)
@@ -138,16 +138,13 @@ final class JvmDebuggingForker(underlying: JvmProcessForker, debugSession: Debug
       mainClass: String,
       args: Array[String],
       jArgs: Array[String],
-      ignored: Logger, // we replace it with the DAP logger TODO this logger does not belong to this param list
+      logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
     val address = findFreeSocketAddress
     val jvmOptions = jArgs :+ jdiOpt(address.getHostName, address.getPort)
-    val logger = new DebugSessionLogger(debugSession)
-    val task = underlying.runMain(cwd, mainClass, args, jvmOptions, logger, opts, extraClasspath)
-
-    task
+    underlying.runMain(cwd, mainClass, args, jvmOptions, logger, opts, extraClasspath)
   }
 
   private def findFreeSocketAddress: InetSocketAddress = {
