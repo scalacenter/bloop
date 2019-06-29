@@ -24,13 +24,12 @@ object ServerHandle {
 
   final case class Tcp(address: InetSocketAddress, backlog: Int) extends ServerHandle {
     def uri: URI = URI.create(s"tcp://${address.getHostString}:${address.getPort}")
-    def fireServer: ServerSocket =
-      new java.net.ServerSocket(address.getPort, backlog, address.getAddress)
+    def fireServer: ServerSocket = new ServerSocket(address.getPort, backlog, address.getAddress)
     override def toString: String = s"${address.getHostString}:${address.getPort}"
   }
 
   object Tcp {
-    def apply(backlog: Int): Tcp = Tcp(new InetSocketAddress(0), backlog)
+    def apply(): Tcp = Tcp(new InetSocketAddress(0), 10)
     def apply(address: InetAddress, port: Int, backlog: Int): Tcp = {
       Tcp(new InetSocketAddress(address, port), backlog)
     }

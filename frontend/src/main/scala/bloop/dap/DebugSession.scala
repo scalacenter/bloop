@@ -13,6 +13,9 @@ import monix.execution.Scheduler
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import com.microsoft.java.debug.core.protocol.Requests.Arguments
+import com.microsoft.java.debug.core.protocol.Requests.DisconnectArguments
+import scala.util.Try
 
 /**
  * Instead of relying on a standard handler for the 'launch' request, this class starts a [[debuggee]] in the background
@@ -21,6 +24,7 @@ import scala.concurrent.Promise
 final class DebugSession(
     socket: Socket,
     debugAddress: Promise[InetSocketAddress],
+    restart: Promise[Boolean],
     ioScheduler: Scheduler
 ) extends DapServer(socket.getInputStream, socket.getOutputStream, DebugExtensions.newContext) {
   type LaunchId = Int
@@ -37,6 +41,11 @@ final class DebugSession(
           .foreachL(super.dispatchRequest)
           .runAsync(ioScheduler)
 
+      case "disconnect" =>
+        // If deserializing args throws, let `dispatchRequest` reproduce and handle it again
+        Try(JsonUtils.fromJson(request.arguments, classOf[DisconnectArguments]))
+          .foreach(args => restart.trySuccess(args.restart))
+        super.dispatchRequest(request)
       case _ => super.dispatchRequest(request)
     }
   }
@@ -61,11 +70,12 @@ object DebugSession {
   def open(
       socket: Socket,
       debugAddress: Promise[InetSocketAddress],
+      restart: Promise[Boolean],
       ioScheduler: Scheduler
   ): Task[DebugSession] = {
     for {
       _ <- Task.fromTry(JavaDebugInterface.isAvailable)
-    } yield new DebugSession(socket, debugAddress, ioScheduler)
+    } yield new DebugSession(socket, debugAddress, restart, ioScheduler)
   }
 
   private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {

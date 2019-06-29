@@ -20,8 +20,9 @@ import scala.util.Failure
 import scala.concurrent.Promise
 import scalaz.effect.IoExceptionOr.IoException
 import java.net.ServerSocket
+import scala.collection.mutable
+import monix.execution.Cancelable
 
-// TODO do we need this? task is not cancelled anywhere
 sealed trait DebugServer {
   def run(logger: DebugSessionLogger): Task[Unit]
 }
@@ -30,12 +31,13 @@ final class MainClassDebugServer(
     project: Project,
     mainClass: ScalaMainClass,
     env: JavaEnv,
-    state: State
+    state0: State
 ) extends DebugServer {
   def run(logger: DebugSessionLogger): Task[Unit] = {
-    val workingDir = state.commonOptions.workingPath
+    val stateForDebug = state0.copy(logger = logger)
+    val workingDir = state0.commonOptions.workingPath
     val runState = Tasks.runJVM(
-      state,
+      stateForDebug,
       project,
       env,
       workingDir,
@@ -63,31 +65,60 @@ object MainClassDebugServer {
 }
 
 object DebugServer {
-  def listenTo(handle: ServerHandle, server: DebugServer, ioScheduler: Scheduler): Task[Unit] = {
-    val retryListen = Promise[InetSocketAddress]()
-    Task {
-      // TODO: Implement cancellation of this
-      var open: Boolean = true
-      val serverSocket = handle.fireServer
-      while (open && !Thread.currentThread().isInterrupted) {
-        try {
-          val futureDebugAddress = Promise[InetSocketAddress]()
-          val socket = concurrent.blocking(serverSocket.accept())
-          val session = DebugSession.open(socket, futureDebugAddress, ioScheduler)
-          val handleDebugClient = session.map { session =>
-            val logger = new DebugSessionLogger(session, futureDebugAddress)
-            val task = server.run(logger).runAsync(ioScheduler) // run the proccess
+  def listenTo(
+      handle: ServerHandle,
+      server: DebugServer,
+      ioScheduler: Scheduler,
+      startedListening: Promise[Boolean]
+  ): Task[Unit] = {
+    val servedRequests = mutable.ListBuffer[CancelableFuture[Unit]]()
+    def listen(serverSocket: ServerSocket): Task[Unit] = {
+      val restart = Promise[Boolean]()
+      val listenAndServeClient = Task {
+        val debugAddress = Promise[InetSocketAddress]()
+        startedListening.trySuccess(true)
+        val socket = serverSocket.accept()
+        var runningSession: Option[DebugSession] = None
+        val dispatchTask = DebugSession.open(socket, debugAddress, restart, ioScheduler).map {
+          session =>
+            runningSession = Some(session)
+            val logger = new DebugSessionLogger(session, debugAddress)
+            servedRequests.+=(server.run(logger).runAsync(ioScheduler))
             session.run()
-            task.cancel() // in case we disconnect from running process
-          }
 
-          handleDebugClient.runAsync(ioScheduler)
-        } catch {
-          case _: IoException =>
-            serverSocket.close()
-            open = false
+            // If not set by java-debug when handling `Disconnect`, set it to false
+            restart.trySuccess(false)
+        }
+
+        // TODO: Improve cancellation, think about thrown exceptions
+        dispatchTask.doOnCancel(Task(runningSession.foreach(_.stop())))
+      }.flatten
+
+      listenAndServeClient.flatMap { _ =>
+        Task.fromFuture(restart.future).flatMap { restart =>
+          if (restart) listen(serverSocket)
+          else Task.eval(serverSocket.close())
         }
       }
+    }
+
+    def closeServer(serverSocket: ServerSocket, t: Option[Throwable]): Task[Unit] = {
+      Task {
+        startedListening.trySuccess(false)
+        Cancelable.cancelAll(servedRequests.toList)
+        // TODO: Think how to handle exceptions thrown here
+        serverSocket.close()
+      }
+    }
+
+    val startAndListen = Task.eval(handle.fireServer).flatMap { serverSocket =>
+      listen(serverSocket)
+        .doOnFinish(closeServer(serverSocket, _))
+        .doOnCancel(closeServer(serverSocket, None))
+    }
+
+    startAndListen.doOnFinish {
+      case _ => Task { startedListening.trySuccess(false); () }
     }
   }
 }

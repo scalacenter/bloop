@@ -44,6 +44,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.Failure
 import monix.execution.Cancelable
+import java.net.InetSocketAddress
 
 final class BloopBspServices(
     callSiteState: State,
@@ -446,11 +447,17 @@ final class BloopBspServices(
               // TODO: Why `projects.head`?
               inferDebugServer(projects.head, state) match {
                 case Right(server) =>
-                  val handle = ServerHandle.Tcp(backlog = 10)
-                  val listenTask = DebugServer.listenTo(handle, server, ioScheduler)
+                  // The port number is ad-hoc, leaving it empty to 0.0.0.0:0 makes vscode fail
+                  // TODO: Find one free port number randomly
+                  val handle = ServerHandle.Tcp(new InetSocketAddress(8232), 10)
+                  val startedListen = Promise[Boolean]()
+                  val listenTask = DebugServer.listenTo(handle, server, ioScheduler, startedListen)
+                  // TODO: Handle cancellation here.
                   listenTask.runAsync(ioScheduler)
-                  val response = Right(new bsp.DebugSessionAddress(handle.uri.toString))
-                  Task.now((state, response))
+                  Task.fromFuture(startedListen.future).map { started =>
+                    if (started) (state, Right(new bsp.DebugSessionAddress(handle.uri.toString)))
+                    else (state, Left(JsonRpcResponse.internalError("Failed to start debug serer")))
+                  }
 
                 case Left(error) =>
                   Task.now((state, Left(error)))
