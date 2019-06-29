@@ -3,8 +3,9 @@ package bloop.bsp
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.nio.file.FileSystems
+import java.nio.file.{Files, FileSystems, Path}
 import java.util.concurrent.ConcurrentHashMap
+import java.util.stream.Collectors
 
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
@@ -31,6 +32,7 @@ import monix.execution.atomic.AtomicInt
 import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
+import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
@@ -81,6 +83,7 @@ final class BloopBspServices(
     .notificationAsync(endpoints.Build.exit)(p => exit(p))
     .requestAsync(endpoints.Workspace.buildTargets)(p => schedule(buildTargets(p)))
     .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
+    .requestAsync(endpoints.BuildTarget.resources)(p => schedule(resources(p)))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(p => schedule(scalacOptions(p)))
     .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
     .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
@@ -193,7 +196,7 @@ final class BloopBspServices(
             runProvider = Some(BloopBspServices.DefaultRunProvider),
             inverseSourcesProvider = Some(true),
             dependencySourcesProvider = Some(true),
-            resourcesProvider = Some(false),
+            resourcesProvider = Some(true),
             buildTargetChangedProvider = Some(false)
           ),
           None
@@ -655,6 +658,43 @@ final class BloopBspServices(
           bspLogger.error(error)
           Task.now((state, Right(bsp.SourcesResult(Nil))))
         case Right(mappings) => sources(mappings, state)
+      }
+    }
+  }
+
+  def resources(
+      request: bsp.ResourcesParams
+  ): BspEndpointResponse[bsp.ResourcesResult] = {
+    def resources(
+        projects: Seq[ProjectMapping],
+        state: State
+    ): BspResult[bsp.ResourcesResult] = {
+
+      val response = bsp.ResourcesResult(
+        projects.iterator.map {
+          case (target, project) =>
+            val resources = project.resources.flatMap { s =>
+              if (s.exists) {
+                val resources = Files.walk(s.underlying).collect(Collectors.toList[Path]).asScala
+                resources.map(r => bsp.Uri(r.toUri()))
+              } else {
+                Seq.empty
+              }
+            }
+            bsp.ResourcesItem(target, resources)
+        }.toList
+      )
+
+      Task.now((state, Right(response)))
+    }
+
+    ifInitialized { (state: State) =>
+      mapToProjects(request.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          bspLogger.error(error)
+          Task.now((state, Right(bsp.ResourcesResult(Nil))))
+        case Right(mappings) => resources(mappings, state)
       }
     }
   }

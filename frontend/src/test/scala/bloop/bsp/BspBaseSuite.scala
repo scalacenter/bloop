@@ -187,6 +187,17 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(sourcesTask)
     }
 
+    def requestResources(project: TestProject): bsp.ResourcesResult = {
+      val resourcesTask = {
+        endpoints.BuildTarget.resources.request(bsp.ResourcesParams(List(project.bspId))).map {
+          case Left(error) => fail(s"Received error ${error}")
+          case Right(resources) => resources
+        }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(resourcesTask)
+    }
+
     def requestDependencySources(project: TestProject): bsp.DependencySourcesResult = {
       val dependencySourcesTask = {
         endpoints.BuildTarget.dependencySources

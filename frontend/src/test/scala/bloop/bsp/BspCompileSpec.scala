@@ -60,7 +60,7 @@ class BspCompileSpec(
           |      },
           |      "inverseSourcesProvider" : true,
           |      "dependencySourcesProvider" : true,
-          |      "resourcesProvider" : false,
+          |      "resourcesProvider" : true,
           |      "buildTargetChangedProvider" : false
           |    },
           |    "data" : null
