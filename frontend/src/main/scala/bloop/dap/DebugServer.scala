@@ -3,20 +3,23 @@ package bloop.dap
 import java.net.URI
 import java.net.InetSocketAddress
 
-import bloop.ConnectionHandle
 import monix.eval.Task
 import monix.execution.{CancelableFuture, Scheduler}
-import scalaz.effect.IoExceptionOr.IoException
+
 import ch.epfl.scala.bsp.ScalaMainClass
 
 import bloop.data.Project
-import bloop.data.Platform
 import bloop.engine.State
-import bloop.engine.tasks.Tasks
-import scala.util.Failure
 import bloop.exec.JavaEnv
+import bloop.data.Platform
+import bloop.io.ServerHandle
+import bloop.engine.tasks.Tasks
 import bloop.engine.tasks.RunMode
+
+import scala.util.Failure
 import scala.concurrent.Promise
+import scalaz.effect.IoExceptionOr.IoException
+import java.net.ServerSocket
 
 // TODO do we need this? task is not cancelled anywhere
 sealed trait DebugServer {
@@ -60,20 +63,19 @@ object MainClassDebugServer {
 }
 
 object DebugServer {
-  def listenTo(connection: ConnectionHandle, server: DebugServer)(
-      ioScheduler: Scheduler
-  ): Task[Unit] = {
-    val connection = ConnectionHandle.tcp(backlog = 10)
+  def listenTo(handle: ServerHandle, server: DebugServer, ioScheduler: Scheduler): Task[Unit] = {
+    val retryListen = Promise[InetSocketAddress]()
     Task {
       // TODO: Implement cancellation of this
-      var open = true
+      var open: Boolean = true
+      val serverSocket = handle.fireServer
       while (open && !Thread.currentThread().isInterrupted) {
         try {
-          val socket = concurrent.blocking(connection.serverSocket.accept())
-          val addressPromise = Promise[InetSocketAddress]()
-          val session = DebugSession.open(socket, addressPromise)(ioScheduler)
+          val futureDebugAddress = Promise[InetSocketAddress]()
+          val socket = concurrent.blocking(serverSocket.accept())
+          val session = DebugSession.open(socket, futureDebugAddress, ioScheduler)
           val handleDebugClient = session.map { session =>
-            val logger = new DebugSessionLogger(session, addressPromise)
+            val logger = new DebugSessionLogger(session, futureDebugAddress)
             val task = server.run(logger).runAsync(ioScheduler) // run the proccess
             session.run()
             task.cancel() // in case we disconnect from running process
@@ -82,7 +84,7 @@ object DebugServer {
           handleDebugClient.runAsync(ioScheduler)
         } catch {
           case _: IoException =>
-            connection.close()
+            serverSocket.close()
             open = false
         }
       }

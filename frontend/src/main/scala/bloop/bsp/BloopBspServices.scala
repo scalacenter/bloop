@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.{FileSystems, Files}
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.io.ServerHandle
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServer, DebugSession, MainClassDebugServer}
@@ -43,7 +44,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.Failure
 import monix.execution.Cancelable
-import bloop.ConnectionHandle
 
 final class BloopBspServices(
     callSiteState: State,
@@ -406,7 +406,7 @@ final class BloopBspServices(
   def startDebugSession(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
-    def createDebugServer(
+    def inferDebugServer(
         project: Project,
         state: State
     ): BspResponse[DebugServer] = {
@@ -443,12 +443,13 @@ final class BloopBspServices(
               )
             case (state, Right(_)) =>
               val projects = mappings.map(_._2)
-              createDebugServer(projects.head, state) match {
+              // TODO: Why `projects.head`?
+              inferDebugServer(projects.head, state) match {
                 case Right(server) =>
-                  val connection = ConnectionHandle.tcp(backlog = 10)
-                  val listenTask = DebugServer.listenTo(connection, server)(ioScheduler)
+                  val handle = ServerHandle.Tcp(backlog = 10)
+                  val listenTask = DebugServer.listenTo(handle, server, ioScheduler)
                   listenTask.runAsync(ioScheduler)
-                  val response = Right(new bsp.DebugSessionAddress(connection.uri.toString))
+                  val response = Right(new bsp.DebugSessionAddress(handle.uri.toString))
                   Task.now((state, response))
 
                 case Left(error) =>

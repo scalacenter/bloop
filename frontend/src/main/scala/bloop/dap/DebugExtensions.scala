@@ -12,7 +12,7 @@ import com.sun.jdi.{ObjectReference, StackFrame, ThreadReference, Value}
 import io.reactivex.Observable
 
 object DebugExtensions {
-  def createContext(): IProviderContext = {
+  def newContext: IProviderContext = {
     val context = new ProviderContext
     context.registerProvider(classOf[IHotCodeReplaceProvider], HotCodeReplaceProvider)
     context.registerProvider(classOf[IVirtualMachineManagerProvider], VirtualMachineManagerProvider)

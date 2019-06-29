@@ -2,12 +2,12 @@ package bloop.dap
 
 import java.net.{InetSocketAddress, Socket}
 
-import bloop.dap.DebugSession._
-import com.microsoft.java.debug.core.adapter._
+import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.JsonUtils
-import com.microsoft.java.debug.core.protocol.Messages._
-import com.microsoft.java.debug.core.protocol.Requests.Command._
-import com.microsoft.java.debug.core.protocol.Requests._
+import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
+import com.microsoft.java.debug.core.protocol.Requests.Command
+import com.microsoft.java.debug.core.protocol.Requests.AttachArguments
+
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -20,11 +20,9 @@ import scala.concurrent.Promise
  */
 final class DebugSession(
     socket: Socket,
-    addressPromise: Promise[InetSocketAddress],
-    ctx: IProviderContext
-)(
+    debugAddress: Promise[InetSocketAddress],
     ioScheduler: Scheduler
-) extends ProtocolServer(socket.getInputStream, socket.getOutputStream, ctx) {
+) extends DapServer(socket.getInputStream, socket.getOutputStream, DebugExtensions.newContext) {
   type LaunchId = Int
   private val launches = mutable.Set.empty[LaunchId]
 
@@ -34,8 +32,8 @@ final class DebugSession(
       case "launch" =>
         launches.add(id)
         val _ = Task
-          .fromFuture(addressPromise.future)
-          .map(attachRequest(id, _))
+          .fromFuture(debugAddress.future)
+          .map(DebugSession.toAttachRequest(id, _))
           .foreachL(super.dispatchRequest)
           .runAsync(ioScheduler)
 
@@ -49,7 +47,7 @@ final class DebugSession(
     response.command match {
       case "attach" if launches(requestSeq) =>
         // Trick dap4j into thinking we're processing a launch instead of attach
-        response.command = LAUNCH.getName
+        response.command = Command.LAUNCH.getName
         super.sendResponse(response)
       case "disconnect" =>
         super.sendResponse(response)
@@ -60,20 +58,21 @@ final class DebugSession(
 }
 
 object DebugSession {
-  def open(socket: Socket, addressPromise: Promise[InetSocketAddress])(
+  def open(
+      socket: Socket,
+      debugAddress: Promise[InetSocketAddress],
       ioScheduler: Scheduler
   ): Task[DebugSession] = {
     for {
       _ <- Task.fromTry(JavaDebugInterface.isAvailable)
-      ctx = DebugExtensions.createContext()
-    } yield new DebugSession(socket, addressPromise, ctx)(ioScheduler)
+    } yield new DebugSession(socket, debugAddress, ioScheduler)
   }
 
-  private[DebugSession] def attachRequest(seq: Int, address: InetSocketAddress): Request = {
+  private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {
     val arguments = new AttachArguments
     arguments.hostName = address.getHostName
     arguments.port = address.getPort
     val json = JsonUtils.toJsonTree(arguments, classOf[AttachArguments])
-    new Request(seq, ATTACH.getName, json.getAsJsonObject)
+    new Request(seq, Command.ATTACH.getName, json.getAsJsonObject)
   }
 }

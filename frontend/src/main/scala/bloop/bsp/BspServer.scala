@@ -4,11 +4,10 @@ import java.net.Socket
 import java.net.ServerSocket
 import java.util.Locale
 
-import bloop.ConnectionHandle
 import bloop.cli.Commands
 import bloop.data.ClientInfo
 import bloop.engine.{ExecutionContext, State}
-import bloop.io.{AbsolutePath, RelativePath}
+import bloop.io.{AbsolutePath, RelativePath, ServerHandle}
 import bloop.logging.{BspClientLogger, DebugFilter}
 import bloop.sockets.UnixDomainServerSocket
 import bloop.sockets.Win32NamedPipeServerSocket
@@ -36,17 +35,10 @@ object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
 
   import Commands.ValidatedBsp
-  private def initServer(cmd: ValidatedBsp, state: State): Task[ConnectionHandle] = {
-    val handle = cmd match {
-      case Commands.WindowsLocalBsp(pipeName, _) =>
-        ConnectionHandle.windows(pipeName)
-      case Commands.UnixLocalBsp(socketFile, _) =>
-        ConnectionHandle.unix(socketFile)
-      case Commands.TcpBsp(address, portNumber, _) =>
-        ConnectionHandle.tcp(address, portNumber, backlog = 10)
-    }
+  private def initServer(handle: ServerHandle, state: State): Task[ServerSocket] = {
     state.logger.debug(s"Waiting for a connection at $handle...")
-    Task(handle).doOnCancel(Task(handle.close()))
+    val openSocket = handle.fireServer
+    Task(openSocket).doOnCancel(Task(openSocket.close()))
   }
 
   private final val connectedBspClients =
@@ -63,7 +55,7 @@ object BspServer {
   ): Task[State] = {
     import state.logger
 
-    def startServer(handle: ConnectionHandle): Task[State] = {
+    def listenToConnection(handle: ServerHandle, serverSocket: ServerSocket): Task[State] = {
       val isCommunicationActive = Atomic(true)
       val connectionURI = handle.uri
 
@@ -71,7 +63,7 @@ object BspServer {
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
       promiseWhenStarted.foreach(_.success(()))
 
-      val socket = handle.serverSocket.accept()
+      val socket = serverSocket.accept()
       logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
       val in = socket.getInputStream
@@ -159,7 +151,7 @@ object BspServer {
             )
 
             // The code above should not throw, but move this code to a finalizer to be 100% sure
-            closeCommunication(externalObserver, latestState, socket, handle.serverSocket)
+            closeCommunication(externalObserver, latestState, socket, serverSocket)
             ()
           }
         }
@@ -258,9 +250,18 @@ object BspServer {
       } yield latestState
     }
 
-    initServer(cmd, state).materialize.flatMap {
-      case scala.util.Success(handle: ConnectionHandle) =>
-        startServer(handle).onErrorRecoverWith {
+    val handle = cmd match {
+      case Commands.WindowsLocalBsp(pipeName, _) =>
+        ServerHandle.WindowsLocal(pipeName)
+      case Commands.UnixLocalBsp(socketFile, _) =>
+        ServerHandle.UnixLocal(socketFile)
+      case Commands.TcpBsp(address, portNumber, _) =>
+        ServerHandle.Tcp(address, portNumber, backlog = 10)
+    }
+
+    initServer(handle, state).materialize.flatMap {
+      case scala.util.Success(socket: ServerSocket) =>
+        listenToConnection(handle, socket).onErrorRecoverWith {
           case t => Task.now(state.withError(s"Exiting BSP server with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
