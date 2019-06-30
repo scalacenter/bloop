@@ -34,13 +34,12 @@ object LoggingEventHandlerSpec extends BaseSuite {
         |  * failed.test1 - failure message1
         |  * failed.test2 - failure message2
         |- suite2:
-        |  * failed.test3 - failure message1
-      """.stripMargin.split("\n").toSeq.filter(_.trim.nonEmpty)
+        |  * failed.test3 - failure message1""".stripMargin
 
-    val obtained = logger.infos
+    val obtained = logger.infos.mkString("\n")
 
     assert(
-      expectedOutput.forall(expectedLine => obtained.contains(expectedLine))
+      obtained.contains(expectedOutput)
     )
   }
   def successfulEvent(suite: String, testName: String): Event = new Event {

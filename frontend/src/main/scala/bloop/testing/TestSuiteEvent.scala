@@ -37,7 +37,7 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   protected var suitesDuration = 0L
   protected var suitesPassed = 0
   protected var suitesAborted = 0
-  protected val testsFailedBySuite = mutable.Map.empty[SuiteName, Map[TestName, FailureMessage]]
+  protected val testsFailedBySuite = mutable.SortedMap.empty[SuiteName, Map[TestName, FailureMessage]]
   protected var suitesTotal = 0
 
   protected def formatMetrics(metrics: List[(Int, String)]): String = {
