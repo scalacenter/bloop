@@ -72,7 +72,7 @@ main() {
     git submodule update --init --recursive
 
     echo "Setting up the machine before benchmarks..."
-    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns -nf -nl -ni || exit 1
+    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns || exit 1
 
     SBT_COMMANDS+=("exportCommunityBuild")
 
