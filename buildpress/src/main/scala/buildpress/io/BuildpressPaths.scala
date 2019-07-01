@@ -6,6 +6,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.FileVisitResult
 import java.io.IOException
 import java.nio.file.DirectoryNotEmptyException
+import bloop.io.AbsolutePath
 
 object BuildpressPaths {
   val UserHome: AbsolutePath = {

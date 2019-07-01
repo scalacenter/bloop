@@ -1,34 +1,31 @@
 package bloop
 
-import bloop.io.AbsolutePath
-import java.nio.file.Path
-import java.nio.file.Files
 import java.nio.charset.StandardCharsets
-import bloop.logging.Logger
-import bloop.engine.BuildLoader
-import bloop.engine.Build
-import bloop.engine.State
-import sbt.internal.inc.bloop.ZincInternals
-import bloop.logging.NoopLogger
-import bloop.engine.caches.ResultsCache
-import bloop.logging.BloopLogger
-import bloop.data.Project
-import bloop.config.Config
-import bloop.data.Origin
+import java.nio.file.{Files, Path}
 import java.nio.file.attribute.FileTime
-import bloop.engine.Dag
-import bloop.engine.Exit
-import bloop.cli.ExitStatus
-import bloop.engine.Run
-import bloop.cli.Commands
-import bloop.engine.Action
-import scala.concurrent.duration.Duration
-import bloop.engine.ExecutionContext
-import bloop.engine.Interpreter
-import monix.eval.Task
 import scala.concurrent.Await
-import monix.execution.misc.NonFatal
+import scala.concurrent.duration.Duration
+import bloop.cli.{Commands, ExitStatus}
+import bloop.config.Config
+import bloop.data.{Origin, Project}
+import bloop.engine.{
+  Action,
+  Build,
+  BuildLoader,
+  Dag,
+  ExecutionContext,
+  Exit,
+  Interpreter,
+  Run,
+  State
+}
+import bloop.engine.caches.ResultsCache
 import bloop.engine.tasks.compilation.CompileGraph
+import bloop.io.AbsolutePath
+import bloop.logging.{BloopLogger, Logger, NoopLogger}
+import monix.eval.Task
+import monix.execution.misc.NonFatal
+import sbt.internal.inc.bloop.ZincInternals
 
 object CommunityBuild
     extends CommunityBuild(
@@ -43,45 +40,36 @@ object CommunityBuild
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
-          System.out.println(s"✅  Compiled all projects in $buildBaseDir")
+          System.out.println(s"✅  Compiled $buildName in $buildBaseDir")
       }
+      System.out.println(s"✅  Compiled all projects in $buildpressHomeDir")
     }
   }
 }
 
 abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
   def exit(exitCode: Int): Unit
-  val buildpressCacheDir = buildpressHomeDir.resolve("cache")
-  val buildpressCacheFile = buildpressHomeDir.resolve("buildpress.out")
+  val buildpressCacheDir: AbsolutePath = buildpressHomeDir.resolve("cache")
+  val buildpressCacheFile: AbsolutePath =
+    buildpressHomeDir.resolve(buildpress.config.Config.BuildpressCacheFileName)
 
   // Use a list to preserve ordering, performance is not a big deal
   lazy val builds: List[(String, AbsolutePath)] = {
-    if (!buildpressCacheFile.exists) Nil
-    else {
-      val bytes = Files.readAllBytes(buildpressCacheFile.underlying)
-      val lines = new String(bytes, StandardCharsets.UTF_8).split(System.lineSeparator())
-      lines.toList.zipWithIndex.flatMap {
-        case (line, idx) =>
-          if (line.startsWith("//")) Nil
-          else {
-            val lineNumber = idx + 1
-            def position = s"$buildpressCacheFile:$lineNumber"
-            line.split(",") match {
-              //case Array("") => Nil
-              case Array() | Array(_) =>
-                sys.error(s"Missing comma between repo id and repo URI at $position")
-              case Array(untrimmedRepoId, _) =>
-                val repoId = untrimmedRepoId.trim
-                val buildBaseDir = buildpressCacheDir.resolve(repoId)
-                if (buildBaseDir.exists) List(repoId -> buildBaseDir)
-                else sys.error(s"Missing ${buildBaseDir}")
-              case elements =>
-                sys.error(
-                  s"Expected buildpress line format 'id,uri' at $position, obtained '$line'"
-                )
+    if (buildpressCacheFile.exists) {
+      buildpress.config.Config.readBuildpressConfig(buildpressCacheFile.underlying) match {
+        case Left(e) =>
+          sys.error(s"Failed to load buildpress cache file: $e")
+        case Right(f) =>
+          f.cache.repos.flatMap { r =>
+            if (Files.exists(r.localPath)) {
+              List(r.id -> AbsolutePath(r.localPath))
+            } else {
+              sys.error(s"Missing ${r.localPath}")
             }
           }
       }
+    } else {
+      Nil
     }
   }
 

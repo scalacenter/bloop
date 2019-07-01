@@ -14,8 +14,6 @@ import java.nio.file.{
   Paths => NioPaths
 }
 import java.util
-
-import bloop.logging.{DebugFilter, Logger}
 import io.github.soc.directories.ProjectDirectories
 import scala.collection.mutable
 import java.nio.file.NoSuchFileException
@@ -99,7 +97,7 @@ object Paths {
   def attributedPathFilesUnder(
       base: AbsolutePath,
       pattern: String,
-      logger: Logger,
+      logger: xsbti.Logger,
       maxDepth: Int = Int.MaxValue
   ): List[AttributedPath] = {
     val out = collection.mutable.ListBuffer.empty[AttributedPath]
@@ -118,8 +116,8 @@ object Paths {
       }
 
       def visitFileFailed(t: Path, e: IOException): FileVisitResult = {
-        logger.error(s"Unexpected failure when visiting ${t}: '${e.getMessage}'")
-        logger.trace(e)
+        logger.error(() => s"Unexpected failure when visiting ${t}: '${e.getMessage}'")
+        logger.trace(() => e)
         FileVisitResult.CONTINUE
       }
 

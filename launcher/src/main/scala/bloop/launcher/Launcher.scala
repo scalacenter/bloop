@@ -5,7 +5,6 @@ import java.net.Socket
 import java.net.URL
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
-
 import bloop.launcher.LauncherStatus.{
   FailedLauncherStatus,
   FailedToConnectToServer,
@@ -25,8 +24,8 @@ import bloop.launcher.core.{
   Shell
 }
 import bloop.launcher.util.Environment
-
 import scala.concurrent.Promise
+import bloop.launcher.core.Shell.StatusCommand
 
 object Launcher
     extends LauncherMain(
@@ -346,7 +345,7 @@ class LauncherMain(
   }
 
   // Reused across the two different ways we can run a server
-  private var bloopBackgroundError: Option[(String, shell.StatusCommand)] = None
+  private var bloopBackgroundError: Option[(String, StatusCommand)] = None
 
   /**
    * Start a server in the background by using the python script `bloop server`.
