@@ -356,6 +356,8 @@ sidebar_label: CLI --help
   <dd><p>If set, do not color output. Defaults to false.</p></dd>
   <dt><code>--debug</code> (type: <code>"all" | "file-watching" | "compilation" | "test" | "bsp" | "link"*</code>)</dt>
   <dd><p>Debug the execution of a concrete task.</p></dd>
+  <dt><code>--parallel</code> (type: <code>bool</code>)</dt>
+  <dd><p>Run tests in parallel. Should be chosen at user's discretion. By default, false</p></dd>
 </dl>
 
 #### Examples

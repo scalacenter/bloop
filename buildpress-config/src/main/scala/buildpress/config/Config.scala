@@ -7,7 +7,7 @@ import scala.util.Try
 import io.circe.{Decoder, Encoder, Printer}
 
 object Config {
-  val BuildpressCacheFileName = "buildpress-repo-cache.json"
+  val BuildpressCacheFileName = "repository-cache.json"
 
   implicit val pathEnc: Encoder[Path] =
     Encoder.encodeString.contramap[Path](_.toString)
