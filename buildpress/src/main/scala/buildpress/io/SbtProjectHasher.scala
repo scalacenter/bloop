@@ -60,8 +60,13 @@ object SbtProjectHasher {
       path: Path
   ): List[(AbsolutePath, Int)] = {
     val collected = List.newBuilder[Path]
-    val pm = new SbtFileMatcher(path)
-    val discovery = new FileVisitor[Path] {
+    val pm: PathMatcher = new SbtFileMatcher(path)
+
+    val discovery: FileVisitor[Path] = new FileVisitor[Path] {
+      // emulating stack with list to keep track
+      // of the latest/current visited `project/` directory
+      private var visitedProjectDirs: List[Path] = Nil
+
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (pm.matches(file)) {
           collected += file
@@ -76,24 +81,30 @@ object SbtProjectHasher {
         FileVisitResult.CONTINUE
       }
 
-      var projectDirPaths: List[Path] = Nil
       def preVisitDirectory(
           directory: Path,
           attributes: BasicFileAttributes
       ): FileVisitResult = {
-        val dirName = directory.getFileName().toString()
-        // Don't enter the `target` dir ever
-        if (dirName == "target") FileVisitResult.SKIP_SUBTREE
-        else if (dirName == "project") {
-          projectDirPaths = directory :: projectDirPaths
+        // have to special-case or we will skip
+        // the whole project in the last if branch
+        if (directory == path) {
           FileVisitResult.CONTINUE
         } else {
-          projectDirPaths.headOption match {
-            case Some(closestProjectDir) =>
+          val dirName: String = directory.getFileName.toString
+          // Don't enter the `target` dir ever
+          if (dirName == "target") {
+            FileVisitResult.SKIP_SUBTREE
+          } else if (dirName == "project") {
+            visitedProjectDirs = directory :: visitedProjectDirs
+            FileVisitResult.CONTINUE
+          } else {
+            visitedProjectDirs.headOption match {
               // Only enter the directory if it's a child (recursively) of a project dir
-              if (directory.startsWith(closestProjectDir)) FileVisitResult.CONTINUE
-              else FileVisitResult.SKIP_SUBTREE
-            case None => FileVisitResult.SKIP_SUBTREE
+              case Some(parentProjectDir) if directory.startsWith(parentProjectDir) =>
+                FileVisitResult.CONTINUE
+              case _ =>
+                FileVisitResult.SKIP_SUBTREE
+            }
           }
         }
       }
@@ -102,9 +113,8 @@ object SbtProjectHasher {
           directory: Path,
           exception: IOException
       ): FileVisitResult = {
-        if (directory.getFileName().toString == "project") {
-          projectDirPaths = projectDirPaths.tail
-          FileVisitResult.CONTINUE
+        if (directory.getFileName.toString == "project") {
+          visitedProjectDirs = visitedProjectDirs.tail
         }
         FileVisitResult.CONTINUE
       }
