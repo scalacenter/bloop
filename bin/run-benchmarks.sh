@@ -113,7 +113,7 @@ main() {
       #"/usr/lib/jvm/java-10-oracle/bin/java"
       #"/usr/lib/jvm/java-8-shenandoah/bin/java"
       "/usr/lib/jvm/java-8-oracle/bin/java"
-      "/usr/lib/jvm/java-8-graal-ee/bin/java"
+      #"/usr/lib/jvm/java-8-graal-ee/bin/java"
     )
 
     pidFile=$(mktemp /tmp/pid.XXXXXX)
