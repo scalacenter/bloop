@@ -194,6 +194,7 @@ abstract class Buildpress(
 
     repositoryPaths.eitherFlatTraverse { clonedRepo =>
       if (diff.isChanged(clonedRepo.metadata)) {
+        out.println("Buildpress repository needs an update")
         detectBuildTool(clonedRepo.localPath) match {
           case Some(sbtBuild: BuildTool.Sbt) =>
             out.println(success(s"Detected $sbtBuild"))
