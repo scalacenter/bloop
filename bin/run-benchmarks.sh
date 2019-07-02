@@ -72,7 +72,8 @@ main() {
     git submodule update --init --recursive
 
     echo "Setting up the machine before benchmarks..."
-    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns || exit 1
+    # Only check environment, don't set it, we don't have access to sudo
+    /bin/bash "$BLOOP_HOME/benchmark-bridge/scripts/benv" set -nb -ns -ni -nl -nf || exit 1
 
     SBT_COMMANDS+=("exportCommunityBuild")
 
