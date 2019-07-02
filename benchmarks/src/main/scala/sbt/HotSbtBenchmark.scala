@@ -66,9 +66,7 @@ class HotSbtBenchmark {
 
   @Setup(Level.Trial) def spawn(): Unit = {
     sbtCommand = {
-      if (projectName.endsWith("-test+test"))
-        s"${projectName.stripSuffix("-test+test")}-test/test:compile"
-      else if (projectName.endsWith("+test")) s"${projectName.stripSuffix("+test")}/test:compile"
+      if (projectName.endsWith("+test")) s"${projectName.stripSuffix("+test")}/test:compile"
       else if (projectName.endsWith("-test")) s"${projectName.stripSuffix("-test")}/test:compile"
       else s"${projectName}/compile"
     }

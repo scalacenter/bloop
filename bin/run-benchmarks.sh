@@ -94,7 +94,7 @@ main() {
       #"-wi 8 -i 5 -f1 -t1 -p project=finagle -p projectName=finagle-test"
       "-wi 10 -i 10 -f1 -t1 -p project=algebird -p projectName=algebird-test"
       #"-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
-      "-wi 20 -i 10 -f1 -t1 -p project=atlas -p projectName=root-test"
+      "-wi 15 -i 5 -f1 -t1 -p project=atlas -p projectName=root-test"
       #"-wi 20 -i 10 -f1 -t1 -p project=grid -p projectName=grid-test"
       #"-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
@@ -107,7 +107,7 @@ main() {
       #"-wi 10 -i 5 -f1 -t1 -p project=prisma -p projectName=root-test"
       #"-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
       #"-wi 2 -i 3 -f1 -t1 -p project=scalding -p projectName=scalding-test"
-      #"-wi 2 -i 3 -f1 -t1 -p project=scio -p projectName=scio+test"
+      "-wi 2 -i 3 -f1 -t1 -p project=scio -p projectName=scio+test"
     )
 
     JAVA_HOMES=(
