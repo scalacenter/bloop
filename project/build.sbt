@@ -54,7 +54,7 @@ Keys.onLoad in Global := {
       throw new sbt.internal.util.MessageOnlyException(
         """
           |It looks like you didn't fully set up Bloop after cloning (git submodules are missing).
-          |Read the contributing guide for more information: https://scalacenter.github.io/bloop/docs/developer-documentation/#opening-up-our-sbt-build""".stripMargin
+          |Read the contributing guide for more information: https://scalacenter.github.io/bloop/docs/contributing-guide#set-the-repository-up""".stripMargin
       )
     } else state
   }
