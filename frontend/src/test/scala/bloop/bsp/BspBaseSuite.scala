@@ -24,7 +24,7 @@ import monix.execution.{CancelableFuture, ExecutionModel, Scheduler}
 import monix.execution.atomic.{Atomic, AtomicInt}
 import sbt.internal.util.MessageOnlyException
 import java.nio.file.Files
-import java.util.concurrent.{ConcurrentHashMap, ExecutionException, ThreadFactory}
+import java.util.concurrent.{ConcurrentHashMap, ExecutionException, ThreadFactory, TimeUnit}
 
 import bloop.TestSchedulers
 import monix.execution.atomic.AtomicInt
@@ -260,7 +260,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         result <- f(client)
       } yield result
 
-      TestUtil.await(FiniteDuration(20, "s"))(session)
+      TestUtil.await(10, TimeUnit.SECONDS)(session)
     }
 
     def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
@@ -320,7 +320,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
-  private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 4)
+  private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 8)
 
   /** The protocol to use for the inheriting test suite. */
   def protocol: BspProtocol

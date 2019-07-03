@@ -66,7 +66,7 @@ final class DebugSession(
       if (isStarted.compareAndSet(false, true)) {
         try {
           // start the debuggee
-          val logger = new DebugSessionLogger(this, debugAddress)
+          val logger = new DebugSessionLogger(this, address => debugAddress.success(address))
           runningDebuggee.set(startDebuggee(logger).runAsync(ioScheduler))
 
           super.run()

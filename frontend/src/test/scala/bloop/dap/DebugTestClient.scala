@@ -36,8 +36,12 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
     session.output(expected)
   }
 
-  def output: Task[String] = {
-    session.output
+  def firstOutput: Task[String] = {
+    session.firstOutput
+  }
+
+  def allOutput: Task[String] = {
+    session.allOutput
   }
 
   def disconnect(): Task[Unit] = {

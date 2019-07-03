@@ -15,7 +15,7 @@ import scala.concurrent.Promise
  */
 final class DebugSessionLogger(
     debugSession: DebugSession,
-    addressPromise: Promise[InetSocketAddress]
+    listener: InetSocketAddress => Unit
 ) extends Logger {
   private var initialized = false
   override val name: String = "DebugSessionLogger"
@@ -29,7 +29,7 @@ final class DebugSessionLogger(
       if (!initialized) {
         val port = Integer.parseInt(msg.drop(initMessagePrefix.length))
         val address = new InetSocketAddress(port)
-        addressPromise.success(address)
+        listener(address)
         initialized = true
       }
     } else {

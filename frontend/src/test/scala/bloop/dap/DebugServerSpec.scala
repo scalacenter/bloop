@@ -12,7 +12,6 @@ import monix.eval.Task
 
 import scala.annotation.tailrec
 import scala.concurrent.TimeoutException
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Try}
 
 object DebugServerSpec extends BspBaseSuite {
@@ -38,7 +37,7 @@ object DebugServerSpec extends BspBaseSuite {
       assert(couldNotConnect)
     }
 
-    TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
+    TestUtil.await(5, TimeUnit.SECONDS)(test)
   }
 
   test("closes active sessions when closed") {
@@ -73,7 +72,7 @@ object DebugServerSpec extends BspBaseSuite {
           assert(isClosed)
         }
 
-        TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
+        TestUtil.await(5, TimeUnit.SECONDS)(test)
       }
     }
   }
@@ -102,7 +101,7 @@ object DebugServerSpec extends BspBaseSuite {
           assert(isClosed)
         }
 
-        TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
+        TestUtil.await(5, TimeUnit.SECONDS)(test)
       }
     }
   }
@@ -115,13 +114,9 @@ object DebugServerSpec extends BspBaseSuite {
       uri <- start(server)
       firstClient <- Task(connectToDebugAdapter(uri))
       secondClient <- Task(connectToDebugAdapter(uri))
-      beforeRestart = Try(
-        TestUtil.await(FiniteDuration(1, TimeUnit.SECONDS))(secondClient.initialize())
-      )
+      beforeRestart = Try(TestUtil.await(1, TimeUnit.SECONDS)(secondClient.initialize()))
       _ <- firstClient.disconnect(restart = true)
-      afterRestart = Try(
-        TestUtil.await(FiniteDuration(100, TimeUnit.MILLISECONDS))(secondClient.initialize())
-      )
+      afterRestart = Try(TestUtil.await(100, TimeUnit.MILLISECONDS)(secondClient.initialize()))
       _ <- Task(server.cancel())
     } yield {
       val firstTryFailedToConnect = beforeRestart match {
@@ -131,7 +126,7 @@ object DebugServerSpec extends BspBaseSuite {
       assert(firstTryFailedToConnect, afterRestart.isSuccess)
     }
 
-    TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
+    TestUtil.await(5, TimeUnit.SECONDS)(test)
   }
 
   @tailrec

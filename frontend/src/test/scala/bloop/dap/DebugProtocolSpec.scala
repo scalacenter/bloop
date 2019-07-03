@@ -1,4 +1,7 @@
 package bloop.dap
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
 import bloop.bsp.BspBaseSuite
 import bloop.cli.BspProtocol
 import bloop.logging.RecordingLogger
@@ -30,7 +33,7 @@ object DebugProtocolSpec extends BspBaseSuite {
             _ <- client.exited
             _ <- client.terminated
             _ <- client.disconnect()
-            output <- client.output
+            output <- client.allOutput
           } yield output
         }
 
@@ -39,13 +42,14 @@ object DebugProtocolSpec extends BspBaseSuite {
     }
   }
 
-  test("restarted session does not contain additional output") {
+  // when the session detaches from the JVM, the JDI once again writes to the standard output
+  test("restarted session does not contain JDI output") {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
            |object Main {
            |  def main(args: Array[String]): Unit = {
-           |    println("Hello, World!")
+           |    Thread.sleep(10000)
            |  }
            |}
            |""".stripMargin
@@ -64,17 +68,76 @@ object DebugProtocolSpec extends BspBaseSuite {
 
             _ <- client.launch()
             _ <- client.configurationDone()
-            _ <- client.terminated
             _ <- client.disconnect()
 
-            previousSessionOutput <- previousSession.output
+            previousSessionOutput <- previousSession.allOutput
 
           } yield previousSessionOutput
         }
 
-        assertNoDiff(output, "Hello, World!\n")
+        assertNoDiff(output, "")
       }
     }
   }
 
+  test("picks up source changes across sessions") {
+    val correctMain =
+      """
+        |object Main {
+        |  def main(args: Array[String]): Unit = {
+        |    println("Non-blocking World!")
+        |  }
+        |}
+    """.stripMargin
+
+    TestUtil.withinWorkspace { workspace =>
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println("Blocking Hello!")
+           |    synchronized(wait())
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "p", List(main))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        // start debug session and the immediately disconnect from it
+        val blockingSessionOutput = state.withDebugSession(project, "Main") { client =>
+          for {
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.configurationDone()
+            output <- client.firstOutput
+            _ <- client.disconnect()
+          } yield output
+        }
+
+        assertNoDiff(blockingSessionOutput, "Blocking Hello!")
+
+        // fix the main class
+        val sources = state.toTestState.getProjectFor(project).sources
+        val mainFile = sources.head.resolve("Main.scala")
+        Files.write(mainFile.underlying, correctMain.getBytes(StandardCharsets.UTF_8))
+
+        // start the next debug session
+        val output = state.withDebugSession(project, "Main") { client =>
+          for {
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- client.disconnect()
+            output <- client.allOutput
+          } yield output
+        }
+
+        assertNoDiff(output, "Non-blocking World!")
+      }
+    }
+  }
 }

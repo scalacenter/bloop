@@ -57,7 +57,11 @@ private[dap] final class DebugAdapterConnection(val socket: Socket)(
     }
   }
 
-  def output: Task[String] = {
+  def firstOutput: Task[String] = {
+    OutputEvent.first.map(_.output)
+  }
+
+  def allOutput: Task[String] = {
     OutputEvent.all.map { events =>
       val builder: StringBuilder =
         events.foldLeft(new StringBuilder)((acc, e) => acc.append(e.output))

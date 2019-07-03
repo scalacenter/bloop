@@ -10,7 +10,7 @@ import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
-import bloop.data.{Origin, Project, ClientInfo}
+import bloop.data.{ClientInfo, Origin, Project}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
 import bloop.exec.JavaEnv
 import bloop.engine.caches.ResultsCache
@@ -32,7 +32,7 @@ import _root_.monix.execution.Scheduler
 import org.junit.Assert
 import sbt.internal.inc.bloop.ZincInternals
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration, TimeUnit}
 import scala.concurrent.{Await, ExecutionException}
 import scala.meta.jsonrpc.Services
 import scala.tools.nsc.Properties
@@ -105,6 +105,10 @@ object TestUtil {
       case NonFatal(t) => handle.cancel(); throw t
       case i: InterruptedException => handle.cancel(); throw i
     }
+  }
+
+  def await[T](length: Long, unit: TimeUnit)(t: Task[T]): T = {
+    await(FiniteDuration(length, unit))(t)
   }
 
   def await[T](duration: Duration)(t: Task[T]): T = {
