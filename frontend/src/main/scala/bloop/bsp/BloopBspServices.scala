@@ -418,7 +418,7 @@ final class BloopBspServices(
             Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(mainClass) =>
             DebugAdapter.runMainClass(projects, mainClass, state) match {
-              case Right(server) => Right(server)
+              case Right(adapter) => Right(adapter)
               case Left(error) =>
                 Left(JsonRpcResponse.invalidRequest(error))
             }

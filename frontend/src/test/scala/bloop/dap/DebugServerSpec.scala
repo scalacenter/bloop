@@ -215,5 +215,4 @@ object DebugServerSpec extends BspBaseSuite {
     }
     adapter
   }
-
 }

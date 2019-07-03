@@ -71,7 +71,6 @@ object DebugProtocolSpec extends BspBaseSuite {
             _ <- client.disconnect()
 
             previousSessionOutput <- previousSession.allOutput
-
           } yield previousSessionOutput
         }
 
