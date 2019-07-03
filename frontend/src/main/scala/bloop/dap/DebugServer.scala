@@ -66,18 +66,10 @@ object DebugServer {
     val servedRequests = mutable.Set[DebugSession]()
     def listen(serverSocket: ServerSocket): Task[Unit] = {
       val listenAndServeClient = Task {
-        val debugAddress = Promise[InetSocketAddress]()
         startedListening.trySuccess(true)
         val socket = serverSocket.accept()
-        DebugSession.open(socket, debugAddress, ioScheduler).flatMap { session =>
+        DebugSession.open(socket, server.run, ioScheduler).flatMap { session =>
           servedRequests.add(session)
-
-          // TODO could probably be handled by DebugSession
-          //  started on session::run, canceled on session::cancel
-          val logger = new DebugSessionLogger(session, debugAddress)
-          val debuggee = server
-            .run(logger)
-            .runAsync(ioScheduler)
 
           session.run()
 
@@ -86,7 +78,6 @@ object DebugServer {
             .doOnFinish(_ => Task.eval(servedRequests.remove(session)))
             .doOnCancel(Task {
               servedRequests.remove(session)
-              debuggee.cancel()
               session.cancel()
             })
         }
