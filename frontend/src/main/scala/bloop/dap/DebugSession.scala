@@ -1,6 +1,6 @@
 package bloop.dap
 
-import java.net.{InetSocketAddress, Socket, SocketException}
+import java.net.{InetSocketAddress, Socket}
 
 import bloop.dap.DebugSession._
 import monix.execution.atomic.Atomic
@@ -16,8 +16,11 @@ import scala.concurrent.Promise
 import scala.util.Try
 
 /**
- * Instead of relying on a standard handler for the 'launch' request, this class starts a [[debuggee]] in the background
- * and then attaches to it as if it were a remote process. It also kills the [[debuggee]] upon receiving 'disconnect' request
+ *  This debug adapter maintains the lifecycle of the debuggee in separation from JDI.
+ *  The debuggee is started/closed together with the session.
+ *
+ *  This approach makes it necessary to handle the "launch" requests as the "attach" ones.
+ *  The JDI address of the debuggee is obtained through the [[DebugSessionLogger]]
  */
 final class DebugSession(
     socket: Socket,
@@ -40,7 +43,7 @@ final class DebugSession(
   }
 
   /**
-   * requests the debugge to stop. Once that happen, requests the server to disconnect.
+   * Requests the debuggee to stop. Once that happens, requests the server to disconnect.
    * When handling the response to this request, the server should close the socket
    */
   def cancel(): Unit = {
@@ -85,12 +88,10 @@ final class DebugSession(
           .foreachL(super.dispatchRequest)
           .runAsync(ioScheduler)
 
-      case "disconnect" =>
-        // If deserializing args throws, let `dispatchRequest` reproduce and handle it again
-        Try(JsonUtils.fromJson(request.arguments, classOf[DisconnectArguments]))
-          .filter(_.restart)
-          .foreach(args => exitStatusPromise.trySuccess(Restarted))
+      case _ if requestsRestart(request) =>
+        exitStatusPromise.trySuccess(Restarted)
         super.dispatchRequest(request)
+
       case _ => super.dispatchRequest(request)
     }
   }
@@ -152,5 +153,16 @@ object DebugSession {
 
     val json = JsonUtils.toJsonTree(arguments, classOf[DisconnectArguments])
     new Request(seq, Command.DISCONNECT.getName, json.getAsJsonObject)
+  }
+
+  def requestsRestart(request: Request): Boolean = {
+    request.command match {
+      case "disconnect" =>
+        Try(JsonUtils.fromJson(request.arguments, classOf[DisconnectArguments]))
+          .map(_.restart)
+          .getOrElse(false)
+      case _ =>
+        false
+    }
   }
 }
