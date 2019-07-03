@@ -1,6 +1,6 @@
 package bloop.dap
 
-import java.net.{Socket, URI}
+import java.net.{InetSocketAddress, Socket, URI}
 
 import bloop.dap.DebugTestEndpoints._
 import com.microsoft.java.debug.core.protocol.Events
@@ -68,7 +68,9 @@ private[dap] final class DebugAdapterConnection(val socket: Socket)(
 
 object DebugAdapterConnection {
   def connectTo(uri: URI)(scheduler: Scheduler): DebugAdapterConnection = {
-    val socket = new Socket(uri.getHost, uri.getPort)
+    val socket = new Socket() // create unconnected socket
+    socket.connect(new InetSocketAddress(uri.getHost, uri.getPort), 500)
+
     val proxy = DebugSessionProxy(socket)
     proxy.listen(scheduler)
     new DebugAdapterConnection(socket)(proxy)

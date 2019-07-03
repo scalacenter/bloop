@@ -24,7 +24,6 @@ private[dap] final class DebugSessionProxy(
   val events = new DebugEvents()
 
   def request(request: Messages.Request): Task[Messages.Response] = {
-    println(s"Requesting: ${request.command}")
     val promise = Promise[Messages.Response]()
     requests += (request.seq -> promise)
     output.onNext(request)

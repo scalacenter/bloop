@@ -1,74 +1,55 @@
 package bloop.dap
 
-import java.net.{InetSocketAddress, ServerSocket, Socket}
+import java.net.{ServerSocket, URI}
 
-import bloop.data.{Platform, Project}
-import bloop.engine.State
-import bloop.engine.tasks.{RunMode, Tasks}
-import bloop.exec.JavaEnv
 import bloop.io.ServerHandle
-import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
-import monix.execution.{Cancelable, Scheduler}
+import monix.execution.{Cancelable, CancelableFuture, Scheduler}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
 
-trait DebugServer {
-  def run(logger: DebugSessionLogger): Task[Unit]
-}
+/**
+ * @param address - an URI of this server, available one the server starts listening for clients.
+ *                None, if server failes to start listening
+ */
+final class DebugServer(address: Task[Option[URI]], task: Task[Unit]) extends Cancelable {
+  private var running: CancelableFuture[Unit] = _
 
-final class MainClassDebugServer(
-    project: Project,
-    mainClass: ScalaMainClass,
-    env: JavaEnv,
-    state0: State
-) extends DebugServer {
-  def run(logger: DebugSessionLogger): Task[Unit] = {
-    val stateForDebug = state0.copy(logger = logger)
-    val workingDir = state0.commonOptions.workingPath
-    val runState = Tasks.runJVM(
-      stateForDebug,
-      project,
-      env,
-      workingDir,
-      mainClass.`class`,
-      mainClass.arguments.toArray,
-      skipJargs = false,
-      RunMode.Debug
-    )
-
-    runState.map(_ => ())
-  }
-}
-
-object MainClassDebugServer {
-  def apply(
-      projects: Seq[Project],
-      mainClass: ScalaMainClass,
-      state: State
-  ): Either[String, MainClassDebugServer] = {
-    val project = projects.head
-    project.platform match {
-      case jvm: Platform.Jvm => Right(new MainClassDebugServer(project, mainClass, jvm.env, state))
-      case platform => Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")
+  def run(scheduler: Scheduler): Task[Option[URI]] = synchronized {
+    if (running == null) {
+      running = task.runAsync(scheduler)
     }
+    address
+  }
+
+  override def cancel(): Unit = synchronized {
+    if (running != null) running.cancel()
   }
 }
 
 object DebugServer {
-  def listenTo(
-      handle: ServerHandle,
-      server: DebugServer,
-      ioScheduler: Scheduler,
-      startedListening: Promise[Boolean]
-  ): Task[Unit] = {
+  def create(
+      adapter: DebugAdapter,
+      ioScheduler: Scheduler
+  ): DebugServer = {
+    // backlog == 1 means that only one connection should be waiting to be handled at a time.
+    // "Should", since this parameter is entirely
+    // This will happen when the restart is requested:
+    // 1. Current session will be canceled
+    // 2. The client will attempt to connect without waiting for the other session to finish
+    //
+    // note that the server will start to listen for another connection as soon as we can determine whether the
+    // debug session was terminated or restarted. See [[DebugSession.exitStatus()]]
+    val handle = ServerHandle.Tcp(backlog = 1)
+
+    val listeningPromise = Promise[Option[URI]]()
     val servedRequests = mutable.Set[DebugSession]()
     def listen(serverSocket: ServerSocket): Task[Unit] = {
       val listenAndServeClient = Task {
-        startedListening.trySuccess(true)
+        listeningPromise.trySuccess(Some(handle.uri))
         val socket = serverSocket.accept()
-        DebugSession.open(socket, server.run, ioScheduler).flatMap { session =>
+        DebugSession.open(socket, adapter.run, ioScheduler).flatMap { session =>
           servedRequests.add(session)
 
           session.run()
@@ -89,21 +70,20 @@ object DebugServer {
       }
     }
 
-    def closeServer(serverSocket: ServerSocket, t: Option[Throwable]): Task[Unit] = {
+    def closeServer(t: Option[Throwable]): Task[Unit] = {
       Task {
-        startedListening.trySuccess(false)
+        listeningPromise.trySuccess(None)
         Cancelable.cancelAll(servedRequests)
         // TODO: Think how to handle exceptions thrown here
-        serverSocket.close()
+        handle.server.close()
       }
     }
 
-    val startAndListen = Task.eval(handle.server).flatMap { serverSocket =>
-      listen(serverSocket)
-        .doOnFinish(closeServer(serverSocket, _))
-        .doOnCancel(closeServer(serverSocket, None))
-    }
+    val uri = Task.fromFuture(listeningPromise.future)
+    val startAndListen = listen(handle.server)
+      .doOnFinish(closeServer)
+      .doOnCancel(closeServer(None))
 
-    startAndListen.doOnFinish(_ => Task { startedListening.trySuccess(false); () })
+    new DebugServer(uri, startAndListen)
   }
 }

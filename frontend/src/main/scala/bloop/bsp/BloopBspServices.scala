@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 import bloop.io.ServerHandle
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.{DebugServer, DebugSession, MainClassDebugServer}
+import bloop.dap.{DebugAdapter, DebugServer}
 import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.{State, Aggregate, Dag, Interpreter}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
@@ -407,17 +407,17 @@ final class BloopBspServices(
   def startDebugSession(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
-    def inferDebugServer(
+    def inferDebugAdapter(
         projects: Seq[Project],
         state: State
-    ): BspResponse[DebugServer] = {
+    ): BspResponse[DebugAdapter] = {
       val dataKind = params.parameters.dataKind
       if (dataKind == "scala-main-class") {
         params.parameters.data.as[bsp.ScalaMainClass] match {
           case Left(error) =>
             Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(mainClass) =>
-            MainClassDebugServer(projects, mainClass, state) match {
+            DebugAdapter.runMainClass(projects, mainClass, state) match {
               case Right(server) => Right(server)
               case Left(error) =>
                 Left(JsonRpcResponse.invalidRequest(error))
@@ -444,16 +444,15 @@ final class BloopBspServices(
               )
             case (state, Right(_)) =>
               val projects = mappings.map(_._2)
-              inferDebugServer(projects, state) match {
-                case Right(server) =>
-                  val handle = ServerHandle.Tcp()
-                  val startedListen = Promise[Boolean]()
-                  val listenTask = DebugServer.listenTo(handle, server, ioScheduler, startedListen)
+              inferDebugAdapter(projects, state) match {
+                case Right(adapter) =>
+                  val server = DebugServer.create(adapter, ioScheduler)
                   // TODO: Handle cancellation here.
-                  listenTask.runAsync(ioScheduler)
-                  Task.fromFuture(startedListen.future).map { started =>
-                    if (started) (state, Right(new bsp.DebugSessionAddress(handle.uri.toString)))
-                    else (state, Left(JsonRpcResponse.internalError("Failed to start debug serer")))
+
+                  server.run(ioScheduler).map {
+                    case Some(uri) => (state, Right(new bsp.DebugSessionAddress(uri.toString)))
+                    case None =>
+                      (state, Left(JsonRpcResponse.internalError("Failed to start debug serer")))
                   }
 
                 case Left(error) =>

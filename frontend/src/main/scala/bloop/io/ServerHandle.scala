@@ -30,6 +30,7 @@ object ServerHandle {
 
   object Tcp {
     def apply(): Tcp = Tcp(new InetSocketAddress(0), 10)
+    def apply(backlog: Int): Tcp = Tcp(new InetSocketAddress(0), backlog)
     def apply(address: InetAddress, port: Int, backlog: Int): Tcp = {
       Tcp(new InetSocketAddress(address, port), backlog)
     }
