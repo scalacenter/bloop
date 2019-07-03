@@ -13,7 +13,9 @@ import monix.execution.Scheduler
  * Manages a connection with a debug adapter.
  * It closes the connection after receiving a response to the 'disconnect' request
  */
-private[dap] final class DebugAdapterConnection(socket: Socket)(implicit proxy: DebugSessionProxy) {
+private[dap] final class DebugAdapterConnection(val socket: Socket)(
+    implicit proxy: DebugSessionProxy
+) {
   def initialize(): Task[Capabilities] = {
     val arguments = new InitializeArguments()
     Initialize(arguments)

@@ -446,9 +446,7 @@ final class BloopBspServices(
               val projects = mappings.map(_._2)
               inferDebugServer(projects, state) match {
                 case Right(server) =>
-                  // The port number is ad-hoc, leaving it empty to 0.0.0.0:0 makes vscode fail
-                  // TODO: Find one free port number randomly
-                  val handle = ServerHandle.Tcp(new InetSocketAddress(8232), 10)
+                  val handle = ServerHandle.Tcp()
                   val startedListen = Promise[Boolean]()
                   val listenTask = DebugServer.listenTo(handle, server, ioScheduler, startedListen)
                   // TODO: Handle cancellation here.

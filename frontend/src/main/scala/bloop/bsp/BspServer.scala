@@ -37,7 +37,7 @@ object BspServer {
   import Commands.ValidatedBsp
   private def initServer(handle: ServerHandle, state: State): Task[ServerSocket] = {
     state.logger.debug(s"Waiting for a connection at $handle...")
-    val openSocket = handle.fireServer
+    val openSocket = handle.server
     Task(openSocket).doOnCancel(Task(openSocket.close()))
   }
 

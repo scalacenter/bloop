@@ -1,29 +1,20 @@
 package bloop.dap
 
-import java.net.URI
-import java.net.InetSocketAddress
+import java.net.{InetSocketAddress, ServerSocket, Socket}
 
-import monix.eval.Task
-import monix.execution.{CancelableFuture, Scheduler}
-
-import ch.epfl.scala.bsp.ScalaMainClass
-
-import bloop.data.Project
+import bloop.data.{Platform, Project}
 import bloop.engine.State
+import bloop.engine.tasks.{RunMode, Tasks}
 import bloop.exec.JavaEnv
-import bloop.data.Platform
 import bloop.io.ServerHandle
-import bloop.engine.tasks.Tasks
-import bloop.engine.tasks.RunMode
+import ch.epfl.scala.bsp.ScalaMainClass
+import monix.eval.Task
+import monix.execution.{Cancelable, Scheduler}
 
-import scala.util.Failure
-import scala.concurrent.Promise
-import scalaz.effect.IoExceptionOr.IoException
-import java.net.ServerSocket
 import scala.collection.mutable
-import monix.execution.Cancelable
+import scala.concurrent.Promise
 
-sealed trait DebugServer {
+trait DebugServer {
   def run(logger: DebugSessionLogger): Task[Unit]
 }
 
@@ -72,54 +63,56 @@ object DebugServer {
       ioScheduler: Scheduler,
       startedListening: Promise[Boolean]
   ): Task[Unit] = {
-    val servedRequests = mutable.ListBuffer[CancelableFuture[Unit]]()
+    val servedRequests = mutable.Set[DebugSession]()
     def listen(serverSocket: ServerSocket): Task[Unit] = {
-      val restart = Promise[Boolean]()
       val listenAndServeClient = Task {
         val debugAddress = Promise[InetSocketAddress]()
         startedListening.trySuccess(true)
         val socket = serverSocket.accept()
-        var runningSession: Option[DebugSession] = None
-        val dispatchTask = DebugSession.open(socket, debugAddress, restart, ioScheduler).map {
-          session =>
-            runningSession = Some(session)
-            val logger = new DebugSessionLogger(session, debugAddress)
-            servedRequests.+=(server.run(logger).runAsync(ioScheduler))
-            session.run()
+        DebugSession.open(socket, debugAddress, ioScheduler).flatMap { session =>
+          servedRequests.add(session)
 
-            // If not set by java-debug when handling `Disconnect`, set it to false
-            restart.trySuccess(false)
+          // TODO could probably be handled by DebugSession
+          //  started on session::run, canceled on session::cancel
+          val logger = new DebugSessionLogger(session, debugAddress)
+          val debuggee = server
+            .run(logger)
+            .runAsync(ioScheduler)
+
+          session.run()
+
+          val awaitExit = session.exitStatus()
+          awaitExit
+            .doOnFinish(_ => Task.eval(servedRequests.remove(session)))
+            .doOnCancel(Task {
+              servedRequests.remove(session)
+              debuggee.cancel()
+              session.cancel()
+            })
         }
-
-        // TODO: Improve cancellation, think about thrown exceptions
-        dispatchTask.doOnCancel(Task(runningSession.foreach(_.stop())))
       }.flatten
 
-      listenAndServeClient.flatMap { _ =>
-        Task.fromFuture(restart.future).flatMap { restart =>
-          if (restart) listen(serverSocket)
-          else Task.eval(serverSocket.close())
-        }
+      listenAndServeClient.flatMap {
+        case DebugSession.Restarted => listen(serverSocket)
+        case DebugSession.Terminated => Task.eval(serverSocket.close())
       }
     }
 
     def closeServer(serverSocket: ServerSocket, t: Option[Throwable]): Task[Unit] = {
       Task {
         startedListening.trySuccess(false)
-        Cancelable.cancelAll(servedRequests.toList)
+        Cancelable.cancelAll(servedRequests)
         // TODO: Think how to handle exceptions thrown here
         serverSocket.close()
       }
     }
 
-    val startAndListen = Task.eval(handle.fireServer).flatMap { serverSocket =>
+    val startAndListen = Task.eval(handle.server).flatMap { serverSocket =>
       listen(serverSocket)
         .doOnFinish(closeServer(serverSocket, _))
         .doOnCancel(closeServer(serverSocket, None))
     }
 
-    startAndListen.doOnFinish {
-      case _ => Task { startedListening.trySuccess(false); () }
-    }
+    startAndListen.doOnFinish(_ => Task { startedListening.trySuccess(false); () })
   }
 }

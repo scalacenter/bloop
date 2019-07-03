@@ -6,26 +6,26 @@ import bloop.sockets.{UnixDomainServerSocket, Win32NamedPipeServerSocket}
 
 sealed trait ServerHandle {
   def uri: URI
-  def fireServer: ServerSocket
+  def server: ServerSocket
 }
 
 object ServerHandle {
   final case class WindowsLocal(pipeName: String) extends ServerHandle {
+    val server: ServerSocket = new Win32NamedPipeServerSocket(pipeName)
     def uri: URI = URI.create(s"local:$pipeName")
-    def fireServer: ServerSocket = new Win32NamedPipeServerSocket(pipeName)
     override def toString: String = s"pipe $pipeName"
   }
 
   final case class UnixLocal(socketFile: AbsolutePath) extends ServerHandle {
+    val server: ServerSocket = new UnixDomainServerSocket(socketFile.syntax)
     def uri: URI = URI.create(s"local://${socketFile.syntax}")
-    def fireServer: ServerSocket = new UnixDomainServerSocket(socketFile.syntax)
     override def toString: String = s"local://${socketFile.syntax}"
   }
 
   final case class Tcp(address: InetSocketAddress, backlog: Int) extends ServerHandle {
-    def uri: URI = URI.create(s"tcp://${address.getHostString}:${address.getPort}")
-    def fireServer: ServerSocket = new ServerSocket(address.getPort, backlog, address.getAddress)
-    override def toString: String = s"${address.getHostString}:${address.getPort}"
+    val server: ServerSocket = new ServerSocket(address.getPort, backlog, address.getAddress)
+    def uri: URI = URI.create(s"tcp://${address.getHostString}:${server.getLocalPort}")
+    override def toString: String = s"${address.getHostString}:${server.getLocalPort}"
   }
 
   object Tcp {
