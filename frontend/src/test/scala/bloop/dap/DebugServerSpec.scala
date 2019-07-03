@@ -18,6 +18,24 @@ object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
   private val scheduler = TestSchedulers.async("debug-server", 4)
 
+  test("closes server connection") {
+    val listening = Promise[Boolean]()
+    val handle = ServerHandle.Tcp()
+    val serve: DebugServer = ignored => Task.now(())
+    val server = DebugServer.listenTo(handle, serve, scheduler, listening)
+
+    val test = for {
+      serverTask <- Task(server.runAsync(scheduler))
+      _ <- Task(listening)
+      _ <- Task(serverTask.cancel())
+      isClosed <- Task(await(handle.server.isClosed))
+    } yield {
+      assert(isClosed)
+    }
+
+    TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
+  }
+
   test("closes active sessions when closed") {
     TestUtil.withinWorkspace { workspace =>
       val main =
@@ -33,10 +51,11 @@ object DebugServerSpec extends BspBaseSuite {
       val project = TestProject(workspace, "p", List(main))
 
       loadBspState(workspace, List(project), logger) { state =>
+        val testState = state.toTestState
         val serve: DebugServer = MainClassDebugServer(
-          Seq(state.toTestState.getProjectFor(project)),
+          Seq(testState.getProjectFor(project)),
           new ScalaMainClass("Main", Nil, Nil),
-          state.toTestState.state
+          testState.state
         ) match {
           case Right(value) => value
           case Left(error) => throw new Exception(error)
@@ -47,37 +66,32 @@ object DebugServerSpec extends BspBaseSuite {
 
         val server = DebugServer.listenTo(handle, serve, scheduler, listening)
 
-        val task = for {
+        val test = for {
           serverTask <- Task(server.runAsync(scheduler))
           _ <- Task.fromFuture(listening.future)
           client = debugAdapter(handle)
           _ <- client.initialize()
           _ <- client.launch()
           _ <- client.configurationDone()
-          _ <- Task.eval(serverTask.cancel()) //
-          _ <- Task(println("test:canceled"))
+          _ <- Task.eval(serverTask.cancel())
           _ <- client.exited
-          _ <- Task(println("test:exited"))
           _ <- client.terminated
-          _ <- Task(println("test:terminated"))
-          isClosed <- Task(awaitSocketClosed(client))
-          _ <- Task(println(s"test:$isClosed"))
+          isClosed <- Task(await(client.socket.isClosed))
         } yield {
           assert(isClosed)
         }
 
-        TestUtil.await(FiniteDuration(30, TimeUnit.SECONDS))(task)
+        TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
       }
     }
-
   }
 
   @tailrec
-  private def awaitSocketClosed(client: DebugAdapterConnection): Boolean = {
-    if (client.socket.isClosed) true
+  private def await(condition: => Boolean): Boolean = {
+    if (condition) true
     else {
       Thread.sleep(250)
-      awaitSocketClosed(client)
+      await(condition)
     }
   }
 
