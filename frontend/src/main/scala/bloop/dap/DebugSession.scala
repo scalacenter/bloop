@@ -79,6 +79,11 @@ final class DebugSession(
 
   override def dispatchRequest(request: Request): Unit = {
     val id = request.seq
+
+    if (requestsRestart(request)) {
+      exitStatusPromise.trySuccess(Restarted)
+    }
+
     request.command match {
       case "launch" =>
         launches.add(id)
@@ -88,11 +93,12 @@ final class DebugSession(
           .foreachL(super.dispatchRequest)
           .runAsync(ioScheduler)
 
-      case _ if requestsRestart(request) =>
-        exitStatusPromise.trySuccess(Restarted)
+      case "disconnect" =>
+        runningDebuggee.get.cancel()
         super.dispatchRequest(request)
 
-      case _ => super.dispatchRequest(request)
+      case _ =>
+        super.dispatchRequest(request)
     }
   }
 
