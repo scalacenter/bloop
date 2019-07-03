@@ -86,6 +86,47 @@ object DebugServerSpec extends BspBaseSuite {
     }
   }
 
+  test("sends exit and terminate events when cannot run debuggee") {
+    TestUtil.withinWorkspace { workspace =>
+      // note that there is nothing that can be run (no sources)
+      val project = TestProject(workspace, "p", Nil)
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspState(workspace, List(project), logger) { state =>
+        val testState = state.toTestState
+        val serve: DebugServer = MainClassDebugServer(
+          Seq(testState.getProjectFor(project)),
+          new ScalaMainClass("Main", Nil, Nil),
+          testState.state
+        ) match {
+          case Right(value) => value
+          case Left(error) => throw new Exception(error)
+        }
+
+        val handle = ServerHandle.Tcp()
+        val listening = Promise[Boolean]()
+
+        val server = DebugServer.listenTo(handle, serve, scheduler, listening)
+
+        val test = for {
+          _ <- Task(server.runAsync(scheduler))
+          _ <- Task.fromFuture(listening.future)
+          client = debugAdapter(handle)
+          _ <- client.initialize()
+          _ <- client.launch()
+          _ <- client.configurationDone()
+          _ <- client.exited
+          _ <- client.terminated
+          _ <- client.disconnect(restart = false)
+          isClosed <- Task(await(client.socket.isClosed))
+        } yield {
+          assert(isClosed)
+        }
+
+        TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS))(test)
+      }
+    }
+  }
   @tailrec
   private def await(condition: => Boolean): Boolean = {
     if (condition) true
