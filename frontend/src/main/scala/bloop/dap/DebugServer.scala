@@ -13,20 +13,7 @@ import scala.concurrent.Promise
  * @param address - an URI of this server, available one the server starts listening for clients.
  *                None, if server failes to start listening
  */
-final class DebugServer(address: Task[Option[URI]], task: Task[Unit]) extends Cancelable {
-  private var running: CancelableFuture[Unit] = _
-
-  def run(scheduler: Scheduler): Task[Option[URI]] = synchronized {
-    if (running == null) {
-      running = task.runAsync(scheduler)
-    }
-    address
-  }
-
-  override def cancel(): Unit = synchronized {
-    if (running != null) running.cancel()
-  }
-}
+final class DebugServer(val address: Task[Option[URI]], val listen: Task[Unit])
 
 object DebugServer {
   def create(

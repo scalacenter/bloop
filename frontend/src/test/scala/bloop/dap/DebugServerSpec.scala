@@ -9,8 +9,10 @@ import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
+import monix.execution.Cancelable
 
 import scala.annotation.tailrec
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{Promise, TimeoutException}
 import scala.util.{Failure, Try}
 
@@ -18,13 +20,15 @@ object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
   private val scheduler = TestSchedulers.async("debug-server", 8)
 
+  private val servers = TrieMap.empty[DebugServer, Cancelable]
+
   test("closes server connection") {
-    val adapter: DebugAdapter = ignored => Task.now(())
+    val adapter: DebugAdapter = _ => Task.now(())
     val server = DebugServer.create(adapter, scheduler)
 
     val test = for {
       uri <- start(server)
-      _ <- Task(server.cancel())
+      _ <- stop(server)
       couldNotConnect <- Task(await(connectionRefused(uri)))
     } yield {
       assert(couldNotConnect)
@@ -57,7 +61,7 @@ object DebugServerSpec extends BspBaseSuite {
           _ <- client.initialize()
           _ <- client.launch()
           _ <- client.configurationDone()
-          _ <- Task(server.cancel())
+          _ <- stop(server)
           _ <- client.exited
           _ <- client.terminated
           isClosed <- Task(await(client.socket.isClosed))
@@ -100,7 +104,7 @@ object DebugServerSpec extends BspBaseSuite {
   }
 
   test("does not accept a connection unless the previous session requests a restart") {
-    val adapter: DebugAdapter = ignored => Task.now(())
+    val adapter: DebugAdapter = _ => Task.now(())
     val server = DebugServer.create(adapter, scheduler)
 
     val test = for {
@@ -110,10 +114,10 @@ object DebugServerSpec extends BspBaseSuite {
       beforeRestart = Try(TestUtil.await(1, TimeUnit.SECONDS)(secondClient.initialize()))
       _ <- firstClient.disconnect(restart = true)
       afterRestart = Try(TestUtil.await(100, TimeUnit.MILLISECONDS)(secondClient.initialize()))
-      _ <- Task(server.cancel())
+      _ <- stop(server)
     } yield {
       val firstTryFailedToConnect = beforeRestart match {
-        case Failure(ex: TimeoutException) => true
+        case Failure(_: TimeoutException) => true
         case _ => false
       }
       assert(firstTryFailedToConnect, afterRestart.isSuccess)
@@ -124,7 +128,7 @@ object DebugServerSpec extends BspBaseSuite {
 
   test("restarting closes client and debuggee") {
     val canceled = Promise[Boolean]()
-    val adapter: DebugAdapter = ignored =>
+    val adapter: DebugAdapter = _ =>
       Task
         .fromFuture(canceled.future)
         .map(_ => ())
@@ -151,11 +155,11 @@ object DebugServerSpec extends BspBaseSuite {
 
   test("disconnecting closes server, client and debuggee") {
     val canceled = Promise[Boolean]()
-    val adapter: DebugAdapter = ignored =>
+    val adapter: DebugAdapter = _ =>
       Task
         .fromFuture(canceled.future)
-        .map(_ => ())
         .doOnCancel(Task(canceled.success(true)))
+        .map(_ => ())
 
     val server = DebugServer.create(adapter, scheduler)
 
@@ -190,10 +194,17 @@ object DebugServerSpec extends BspBaseSuite {
     }
 
   private def start(server: DebugServer): Task[URI] = {
-    server.run(scheduler).map {
+    val task = server.listen.runOnComplete(_ => servers -= server)(scheduler)
+    servers += (server -> task)
+
+    server.address.map {
       case None => throw new IllegalStateException("Server is not listening")
       case Some(uri) => uri
     }
+  }
+
+  private def stop(server: DebugServer): Task[Unit] = {
+    Task(servers(server).cancel())
   }
 
   private def connectToDebugAdapter(uri: URI): DebugAdapterConnection = {

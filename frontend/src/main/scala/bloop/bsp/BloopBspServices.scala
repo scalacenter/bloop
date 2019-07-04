@@ -79,6 +79,8 @@ final class BloopBspServices(
     Task.fork(t, computationScheduler).asyncBoundary(ioScheduler)
   }
 
+  private val debugServers = TrieMap.empty[DebugServer, Cancelable]
+
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
   private val bspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
@@ -156,6 +158,7 @@ final class BloopBspServices(
    * disconnected for any reason.
    */
   def unregisterClient: Option[ClientInfo.BspClientInfo] = {
+    Cancelable.cancelAll(debugServers.values)
     clientInfo.future.value match {
       case None => None
       case Some(client) =>
@@ -447,10 +450,15 @@ final class BloopBspServices(
               inferDebugAdapter(projects, state) match {
                 case Right(adapter) =>
                   val server = DebugServer.create(adapter, ioScheduler)
-                  // TODO: Handle cancellation here.
 
-                  server.run(ioScheduler).map {
-                    case Some(uri) => (state, Right(new bsp.DebugSessionAddress(uri.toString)))
+                  val listeningTask = server.listen
+                    .runOnComplete(_ => debugServers -= server)(ioScheduler)
+
+                  debugServers += server -> listeningTask
+
+                  server.address.map {
+                    case Some(uri) =>
+                      (state, Right(new bsp.DebugSessionAddress(uri.toString)))
                     case None =>
                       (state, Left(JsonRpcResponse.internalError("Failed to start debug serer")))
                   }
