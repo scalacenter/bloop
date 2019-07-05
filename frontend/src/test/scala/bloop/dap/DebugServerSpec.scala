@@ -178,6 +178,24 @@ object DebugServerSpec extends BspBaseSuite {
     TestUtil.await(5, TimeUnit.SECONDS)(test)
   }
 
+  test("close the client even though the debuggee cannot close") {
+    val blockedDebuggee = Promise[Nothing]
+    val runner: DebuggeeRunner = _ => Task.fromFuture(blockedDebuggee.future)
+
+    val server = DebugServer.create(runner, scheduler, logger)
+
+    val test = for {
+      uri <- start(server)
+      client = connectToDebugAdapter(uri)
+      _ <- stop(server)
+      clientDisconnected <- Task(await(client.socket.isClosed))
+    } yield {
+      assert(clientDisconnected)
+    }
+
+    TestUtil.await(10, TimeUnit.SECONDS)(test) // higher limit to accommodate the timout
+  }
+
   @tailrec
   private def await(condition: => Boolean): Boolean = {
     if (condition) true

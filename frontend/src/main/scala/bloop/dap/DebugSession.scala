@@ -1,6 +1,7 @@
 package bloop.dap
 
 import java.net.{InetSocketAddress, Socket}
+import java.util.concurrent.TimeUnit
 
 import bloop.dap.DebugSession._
 import monix.execution.atomic.Atomic
@@ -13,6 +14,7 @@ import monix.execution.{Cancelable, CancelableFuture, Scheduler}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
@@ -52,6 +54,7 @@ final class DebugSession(
       .fromFuture(debuggeeExited.future)
       .map(_ => disconnectRequest(InternalRequestId))
       .foreachL(dispatchRequest)
+      .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(socket.close()))
       .runAsync(ioScheduler)
   }
 
