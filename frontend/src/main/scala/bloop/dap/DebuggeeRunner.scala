@@ -7,7 +7,7 @@ import bloop.exec.JavaEnv
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
 
-trait DebugAdapter {
+trait DebuggeeRunner {
   def run(logger: DebugSessionLogger): Task[Unit]
 }
 
@@ -16,7 +16,7 @@ private final class MainClassDebugAdapter(
     mainClass: ScalaMainClass,
     env: JavaEnv,
     state0: State
-) extends DebugAdapter {
+) extends DebuggeeRunner {
   def run(logger: DebugSessionLogger): Task[Unit] = {
     val stateForDebug = state0.copy(logger = logger)
     val workingDir = state0.commonOptions.workingPath
@@ -35,12 +35,12 @@ private final class MainClassDebugAdapter(
   }
 }
 
-object DebugAdapter {
+object DebuggeeRunner {
   def runMainClass(
       projects: Seq[Project],
       mainClass: ScalaMainClass,
       state: State
-  ): Either[String, DebugAdapter] = {
+  ): Either[String, DebuggeeRunner] = {
     val project = projects.head
     project.platform match {
       case jvm: Platform.Jvm =>

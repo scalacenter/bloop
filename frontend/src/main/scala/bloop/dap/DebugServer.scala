@@ -3,25 +3,27 @@ package bloop.dap
 import java.net.{ServerSocket, URI}
 
 import bloop.io.ServerHandle
+import bloop.logging.Logger
 import monix.eval.Task
-import monix.execution.{Cancelable, CancelableFuture, Scheduler}
+import monix.execution.{Cancelable, Scheduler}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
 
 /**
- * @param address - an URI of this server, available one the server starts listening for clients.
- *                None, if server failes to start listening
+ * @param address - an URI of this server, available once the server starts listening for clients.
+ *                None, if server fails to start listening
  */
 final class DebugServer(val address: Task[Option[URI]], val listen: Task[Unit])
 
 object DebugServer {
   def create(
-      adapter: DebugAdapter,
-      ioScheduler: Scheduler
+      runner: DebuggeeRunner,
+      ioScheduler: Scheduler,
+      logger: Logger
   ): DebugServer = {
     // backlog == 1 means that only one connection should be waiting to be handled at a time.
-    // "Should", since this parameter is entirely
+    // "Should", since this parameter can be completely ignored by the OS
     // This will happen when the restart is requested:
     // 1. Current session will be canceled
     // 2. The client will attempt to connect without waiting for the other session to finish
@@ -36,13 +38,14 @@ object DebugServer {
       val listenAndServeClient = Task {
         listeningPromise.trySuccess(Some(handle.uri))
         val socket = serverSocket.accept()
-        DebugSession.open(socket, adapter.run, ioScheduler).flatMap { session =>
+
+        DebugSession.open(socket, runner.run, ioScheduler).flatMap { session =>
           servedRequests.add(session)
 
           session.run()
 
-          val awaitExit = session.exitStatus()
-          awaitExit
+          session
+            .exitStatus()
             .doOnFinish(_ => Task.eval(servedRequests.remove(session)))
             .doOnCancel(Task {
               servedRequests.remove(session)
@@ -61,8 +64,14 @@ object DebugServer {
       Task {
         listeningPromise.trySuccess(None)
         Cancelable.cancelAll(servedRequests)
-        // TODO: Think how to handle exceptions thrown here
-        handle.server.close()
+        try {
+          handle.server.close()
+        } catch {
+          case e: Exception =>
+            logger.error(
+              s"Could not close debug server listening on [${handle.uri} due to: ${e.getMessage}]"
+            )
+        }
       }
     }
 

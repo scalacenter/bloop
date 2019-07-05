@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 import bloop.io.ServerHandle
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.{DebugAdapter, DebugServer}
+import bloop.dap.{DebuggeeRunner, DebugServer}
 import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.{State, Aggregate, Dag, Interpreter}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
@@ -410,17 +410,17 @@ final class BloopBspServices(
   def startDebugSession(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
-    def inferDebugAdapter(
+    def inferDebuggeeRunner(
         projects: Seq[Project],
         state: State
-    ): BspResponse[DebugAdapter] = {
+    ): BspResponse[DebuggeeRunner] = {
       val dataKind = params.parameters.dataKind
       if (dataKind == "scala-main-class") {
         params.parameters.data.as[bsp.ScalaMainClass] match {
           case Left(error) =>
             Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(mainClass) =>
-            DebugAdapter.runMainClass(projects, mainClass, state) match {
+            DebuggeeRunner.runMainClass(projects, mainClass, state) match {
               case Right(adapter) => Right(adapter)
               case Left(error) =>
                 Left(JsonRpcResponse.invalidRequest(error))
@@ -447,9 +447,9 @@ final class BloopBspServices(
               )
             case (state, Right(_)) =>
               val projects = mappings.map(_._2)
-              inferDebugAdapter(projects, state) match {
-                case Right(adapter) =>
-                  val server = DebugServer.create(adapter, ioScheduler)
+              inferDebuggeeRunner(projects, state) match {
+                case Right(runner) =>
+                  val server = DebugServer.create(runner, ioScheduler, bspLogger)
 
                   val listeningTask = server.listen
                     .runOnComplete(_ => debugServers -= server)(ioScheduler)
