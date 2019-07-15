@@ -14,7 +14,6 @@ import monix.eval.Task
 import bloop.engine.ExecutionContext
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
-import ch.epfl.scala.bsp.ScalacOptionsItem
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -190,49 +189,6 @@ class BspCompileSpec(
           FiniteDuration(2, TimeUnit.SECONDS),
           Task(sys.error(s"Expected deletion of $orphanClientClassesDir"))
         )
-      }
-    }
-  }
-
-  test("use client root classes directory and make sure project directories are stable") {
-    TestUtil.withinWorkspace { workspace =>
-      val sources = List(
-        """/main/scala/Foo.scala
-          |class Foo
-          """.stripMargin
-      )
-
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      val `A` = TestProject(workspace, "a", sources)
-      val projects = List(`A`)
-
-      val userClientClassesRootDir = workspace.resolve("root-client-dirs")
-      var firstScalacOptions: List[ScalacOptionsItem] = Nil
-      var secondScalacOptions: List[ScalacOptionsItem] = Nil
-      // Start first client and query for scalac options which creates client classes dirs
-      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
-        val (_, options) = bspState.scalaOptions(`A`)
-        firstScalacOptions = options.items
-        firstScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
-      }
-
-      // Start second client and query for scalac options which should use same dirs as before
-      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
-        val (_, options) = bspState.scalaOptions(`A`)
-        secondScalacOptions = options.items
-        secondScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
-      }
-
-      firstScalacOptions.zip(secondScalacOptions).foreach {
-        case (firstItem, secondItem) =>
-          assertNoDiff(
-            firstItem.classDirectory.value,
-            secondItem.classDirectory.value
-          )
-      }
-
-      firstScalacOptions.foreach { option =>
-        assertIsDirectory(AbsolutePath(option.classDirectory.toPath))
       }
     }
   }
