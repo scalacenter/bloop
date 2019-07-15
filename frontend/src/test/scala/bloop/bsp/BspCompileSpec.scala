@@ -162,7 +162,7 @@ class BspCompileSpec(
 
       // Add extra client classes directory
       val projectA = compiledState.getProjectFor(`A`)
-      val bspClientsRootDir = projectA.bspClientClassesDirectories
+      val bspClientsRootDir = projectA.bspClientClassesRootDirectory
       val orphanClientClassesDirName = projectA.genericClassesDir.underlying.getFileName().toString
       val orphanClientClassesDir =
         bspClientsRootDir.resolve(s"$orphanClientClassesDirName-test-123aAfd12i23")

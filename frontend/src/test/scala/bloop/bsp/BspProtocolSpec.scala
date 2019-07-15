@@ -12,6 +12,7 @@ import java.nio.file.{Files, Path}
 import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
+import ch.epfl.scala.bsp.ScalacOptionsItem
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -86,6 +87,43 @@ class BspProtocolSpec(
         assert(stateB.status == ExitStatus.Ok)
         val classesDirB = stateB.toTestState.getClientExternalDir(`B`).underlying
         testOptions(resultB, ScalacOptions.B, classesDirB, `B`.bspId, List(classesDirB))
+      }
+    }
+  }
+
+  test("use client root classes directory and make sure project directories are stable") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(workspace, "a", Nil)
+      val projects = List(`A`)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val userClientClassesRootDir = workspace.resolve("root-client-dirs")
+
+      var firstScalacOptions: List[ScalacOptionsItem] = Nil
+      var secondScalacOptions: List[ScalacOptionsItem] = Nil
+      // Start first client and query for scalac options which creates client classes dirs
+      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
+        val (_, options) = bspState.scalaOptions(`A`)
+        firstScalacOptions = options.items
+        firstScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
+      }
+
+      // Start second client and query for scalac options which should use same dirs as before
+      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
+        val (_, options) = bspState.scalaOptions(`A`)
+        secondScalacOptions = options.items
+        secondScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
+      }
+
+      firstScalacOptions.zip(secondScalacOptions).foreach {
+        case (firstItem, secondItem) =>
+          assertNoDiff(
+            firstItem.classDirectory.value,
+            secondItem.classDirectory.value
+          )
+      }
+
+      firstScalacOptions.foreach { option =>
+        assertIsDirectory(AbsolutePath(option.classDirectory.toPath))
       }
     }
   }
