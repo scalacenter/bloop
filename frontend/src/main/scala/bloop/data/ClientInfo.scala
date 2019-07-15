@@ -40,6 +40,12 @@ sealed trait ClientInfo {
    * shared global classes directories.
    */
   def getUniqueClassesDirFor(project: Project): AbsolutePath
+
+  /**
+   * Tells the caller whether this client manages its own client classes
+   * directories or whether bloop should take care of any created resources.
+   */
+  def hasManagedClassesDirectories: Boolean
 }
 
 object ClientInfo {
@@ -49,6 +55,7 @@ object ClientInfo {
   ) extends ClientInfo {
     def hasAnActiveConnection: Boolean = isConnected()
     private val connectionTimestamp = System.currentTimeMillis()
+    def hasManagedClassesDirectories: Boolean = false
     def getConnectionTimestamp: Long = connectionTimestamp
 
     def getUniqueClassesDirFor(project: Project): AbsolutePath = {
@@ -65,6 +72,7 @@ object ClientInfo {
       name: String,
       version: String,
       bspVersion: String,
+      bspClientClassesRootDir: Option[AbsolutePath],
       private val isConnected: () => Boolean
   ) extends ClientInfo {
     // The format of this unique id is used in `toGenericClassesDir`
@@ -77,6 +85,41 @@ object ClientInfo {
     import java.util.concurrent.ConcurrentHashMap
     private[ClientInfo] val uniqueDirs = new ConcurrentHashMap[Project, AbsolutePath]()
 
+    def hasManagedClassesDirectories: Boolean = bspClientClassesRootDir.nonEmpty
+
+    /**
+     * Selects the parent root directory where all client classes directories
+     * will be created. The root classes directory can be derived from either
+     * the project or a classes directory specified by the bsp client in its
+     * initialization handshake. The semantics for the management of these
+     * directories change depending on how the root dir for client classes
+     * directories is derived.
+     *
+     * If bloop uses the parent of the generic classes directory as the root of
+     * all client classes directories, then it also manages its contents and
+     * can remove these classes directories as it sees fits (typically after
+     * the client shuts down the connection). A managed directory is always
+     * created inside a project-specific directory so internal directories can
+     * use a format directory that already assumes the project id.
+     *
+     * Else, if the client passes its own root classes directory, then Bloop
+     * only creates new directories but it doesn't remove them at all and
+     * instead leaves the management of the contents of these directories to
+     * the client. Bloop will still write compilation products in the client
+     * directories when a client compile happens, but it's the responsibility
+     * of the client to remove them from disk. An unmanaged directory is global
+     * and it must contain classes directories for every project/build target
+     * in such a way that there's no clash among them.
+     */
+    def parentForClientClassesDirectories(
+        project: Project
+    ): Either[AbsolutePath, AbsolutePath] = {
+      bspClientClassesRootDir match {
+        case None => Right(project.bspClientClassesRootDirectory)
+        case Some(bspClientClassesRootDir) => Left(bspClientClassesRootDir)
+      }
+    }
+
     /**
      * Gets a unique classes directory to store classes and any kind of
      * compilation products. This classes directory can be freely accessed and
@@ -87,19 +130,18 @@ object ClientInfo {
       uniqueDirs.computeIfAbsent(
         project,
         (project: Project) => {
-          // It creates a unique classes dir under $path/bsp-clients-classes/
-          // where $path refers to the parent dir of the project classes dir
-          // This hierarchy helps with cleanup of orphan client directories
-          val bspClientsDir = project.bspClientClassesDirectories
-          // We rely on ending with the unique id to delete orphan directories
-          val newClassesName = s"${project.genericClassesDir.underlying.getFileName()}-${uniqueId}"
-          val newClientDir = {
-            val clientDir0 = bspClientsDir.resolve(newClassesName).underlying
-            // Only create directories if there is an active connection
-            if (!hasAnActiveConnection) clientDir0
-            else Files.createDirectories(clientDir0)
+          val classesDirName = project.genericClassesDir.underlying.getFileName()
+          val newClientDir = parentForClientClassesDirectories(project) match {
+            case Left(unmanagedGlobalRootDir) =>
+              // Use format that avoids clashes between projects when storing in global root
+              val projectDirName = s"${this.name}-${project.name}-$classesDirName"
+              unmanagedGlobalRootDir.resolve(projectDirName)
+            case Right(managedProjectRootDir) =>
+              // We add unique id because we need it to correctly delete orphan dirs
+              val projectDirName = s"$classesDirName-$uniqueId"
+              managedProjectRootDir.resolve(projectDirName)
           }
-          AbsolutePath(Files.createDirectories(newClientDir).toRealPath())
+          AbsolutePath(Files.createDirectories(newClientDir.underlying).toRealPath())
         }
       )
     }
@@ -158,12 +200,12 @@ object ClientInfo {
       import scala.collection.JavaConverters._
       val initialBspConnectedClients = currentBspClients()
       val connectedBspClientIds = new mutable.ListBuffer[String]()
-      val projectsToVisit = new mutable.HashSet[Project]()
+      val projectsToVisit = new mutable.HashMap[Project, BspClientInfo]()
       initialBspConnectedClients.foreach { client =>
         if (client.hasAnActiveConnection)
           connectedBspClientIds.+=(client.uniqueId)
         client.uniqueDirs.keySet.asScala.iterator.foreach { project =>
-          projectsToVisit.+=(project)
+          projectsToVisit.+=(project -> client)
         }
       }
 
@@ -194,45 +236,49 @@ object ClientInfo {
        * directories. This could happen if for example these directories are
        * owned by another user than the one running the bloop server.
        */
-      projectsToVisit.foreach { project =>
-        val bspClientClasses = project.bspClientClassesDirectories
-        try {
-          val currentBspConnectedClients = currentBspClients()
-          if (currentBspConnectedClients != initialBspConnectedClients) {
-            deleteOrphanClientBspDirectories(
-              currentBspClients,
-              logger,
-              currentAttempts = currentAttempts + 1
-            )
-          } else {
-            Paths.list(bspClientClasses).foreach { existingDir =>
-              val dirName = existingDir.underlying.getFileName().toString
-              // Whitelist those that are owned by clients that are active in the server
-              val isWhitelisted =
-                connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
-              if (isWhitelisted) ()
-              else {
-                try {
-                  logger.debug(s"Deleting orphan directory ${existingDir}")(DebugFilter.All)
-                  bloop.io.Paths.delete(existingDir)
-                } catch {
-                  case _: NoSuchFileException => ()
-                  case NonFatal(t) =>
-                    logger.debug(
-                      s"Unexpected error when deleting unused client directory $existingDir"
-                    )(DebugFilter.Bsp)
-                    logger.trace(t)
+      projectsToVisit.foreach { kv =>
+        val (project, client) = kv
+        client.parentForClientClassesDirectories(project) match {
+          case Left(unmanagedDir) => () // If unmanaged, it's managed by BSP client, do nothing
+          case Right(bspClientClassesDir) =>
+            try {
+              val currentBspConnectedClients = currentBspClients()
+              if (currentBspConnectedClients != initialBspConnectedClients) {
+                deleteOrphanClientBspDirectories(
+                  currentBspClients,
+                  logger,
+                  currentAttempts = currentAttempts + 1
+                )
+              } else {
+                Paths.list(bspClientClassesDir).foreach { existingDir =>
+                  val dirName = existingDir.underlying.getFileName().toString
+                  // Whitelist those that are owned by clients that are active in the server
+                  val isWhitelisted =
+                    connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
+                  if (isWhitelisted) ()
+                  else {
+                    try {
+                      logger.debug(s"Deleting orphan directory ${existingDir}")(DebugFilter.All)
+                      bloop.io.Paths.delete(existingDir)
+                    } catch {
+                      case _: NoSuchFileException => ()
+                      case NonFatal(t) =>
+                        logger.debug(
+                          s"Unexpected error when deleting unused client directory $existingDir"
+                        )(DebugFilter.Bsp)
+                        logger.trace(t)
+                    }
+                  }
                 }
               }
+            } catch {
+              // Catch errors so that we process the rest of projects
+              case NonFatal(t) =>
+                logger.debug(
+                  s"Unexpected error when processing unused client directories for ${project.name}"
+                )(DebugFilter.Bsp)
+                logger.trace(t)
             }
-          }
-        } catch {
-          // Catch errors so that we process the rest of projects
-          case NonFatal(t) =>
-            logger.debug(
-              s"Unexpected error when processing unused client directories for ${project.name}"
-            )(DebugFilter.Bsp)
-            logger.trace(t)
         }
       }
     }

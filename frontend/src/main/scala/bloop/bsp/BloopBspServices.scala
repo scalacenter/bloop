@@ -7,6 +7,7 @@ import java.nio.file.{Files, FileSystems, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.data.{Platform, Project, ClientInfo}
@@ -38,6 +39,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.Failure
 import monix.execution.Cancelable
+import io.circe.Json
 
 final class BloopBspServices(
     callSiteState: State,
@@ -173,10 +175,12 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new java.net.URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
+    val clientClassesRootDir = parseClientClassesRootDir(params.data)
     val client = ClientInfo.BspClientInfo(
       params.displayName,
       params.version,
       params.bspVersion,
+      clientClassesRootDir,
       () => isClientConnected.get
     )
 
@@ -202,6 +206,20 @@ final class BloopBspServices(
           None
         )
       )
+    }
+  }
+
+  private def parseClientClassesRootDir(data: Option[Json]): Option[AbsolutePath] = {
+    data.flatMap { json =>
+      BloopExtraBuildParams.decoder.decodeJson(json) match {
+        case Right(bloopParams) =>
+          bloopParams.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
+        case Left(failure) =>
+          callSiteState.logger.warn(
+            s"Unexpected error decoding bloop-specific initialize params: ${failure.message}"
+          )
+          None
+      }
     }
   }
 
