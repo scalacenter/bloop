@@ -36,7 +36,7 @@ private final class MainClassDebugAdapter(
 }
 
 object DebuggeeRunner {
-  def runMainClass(
+  def forMainClass(
       projects: Seq[Project],
       mainClass: ScalaMainClass,
       state: State

@@ -438,13 +438,11 @@ final class BloopBspServices(
       val dataKind = params.parameters.dataKind
       if (dataKind == "scala-main-class") {
         params.parameters.data.as[bsp.ScalaMainClass] match {
-          case Left(error) =>
-            Left(JsonRpcResponse.invalidRequest(error.getMessage()))
+          case Left(error) => Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(mainClass) =>
-            DebuggeeRunner.runMainClass(projects, mainClass, state) match {
+            DebuggeeRunner.forMainClass(projects, mainClass, state) match {
               case Right(adapter) => Right(adapter)
-              case Left(error) =>
-                Left(JsonRpcResponse.invalidRequest(error))
+              case Left(error) => Left(JsonRpcResponse.invalidRequest(error))
             }
         }
       } else {
