@@ -30,24 +30,27 @@ private[dap] final class DebugSessionProxy(
     Task.fromFuture(promise.future)
   }
 
-  def listen(scheduler: Scheduler): Unit = {
+  def startBackgroundListening(scheduler: Scheduler): Unit = {
     input
       .foreachL(handleMessage)
       .map(_ => events.onComplete())
       .runAsync(scheduler)
+    ()
   }
 
-  private def handleMessage(message: ProtocolMessage): Unit = message match {
-    case _: Messages.Request =>
-      throw new IllegalStateException("Reverse requests are not supported")
-    case response: Messages.Response =>
-      val id = response.request_seq
-      requests.get(id) match {
-        case None => throw new IllegalStateException(s"Request[$id] not found")
-        case Some(promise) => promise.success(response)
-      }
-    case event: Messages.Event =>
-      events.onNext(event)
+  private def handleMessage(message: ProtocolMessage): Unit = {
+    message match {
+      case event: Messages.Event => events.onNext(event)
+      case _: Messages.Request =>
+        throw new IllegalStateException("Reverse requests are not supported")
+      case response: Messages.Response =>
+        val id = response.request_seq
+        requests.get(id) match {
+          case None => throw new IllegalStateException(s"Request[$id] not found")
+          case Some(promise) => promise.success(response)
+        }
+    }
+    ()
   }
 }
 

@@ -20,15 +20,15 @@ object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
   private val scheduler = TestSchedulers.async("debug-server", 8)
 
-  private val servers = TrieMap.empty[DebugServer, Cancelable]
+  private val servers = TrieMap.empty[StartedDebugServer, Cancelable]
   private def logger = new RecordingLogger(ansiCodesSupported = false)
 
   test("closes server connection") {
     val runner: DebuggeeRunner = _ => Task.now(())
-    val server = DebugServer.create(runner, scheduler, logger)
+    val server = DebugServer.start(runner, logger, scheduler)
 
     val test = for {
-      uri <- start(server)
+      uri <- listenTo(server)
       _ <- stop(server)
       couldNotConnect <- Task(await(connectionRefused(uri)))
     } yield {
@@ -54,10 +54,10 @@ object DebugServerSpec extends BspBaseSuite {
 
       loadBspState(workspace, List(project), logger) { state =>
         val runner = runMain(project, state)
-        val server = DebugServer.create(runner, scheduler, logger)
+        val server = DebugServer.start(runner, logger, scheduler)
 
         val test = for {
-          uri <- start(server)
+          uri <- listenTo(server)
           client = connectToDebugAdapter(uri)
           _ <- client.initialize()
           _ <- client.launch()
@@ -83,10 +83,10 @@ object DebugServerSpec extends BspBaseSuite {
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, List(project), logger) { state =>
         val runner = runMain(project, state)
-        val server = DebugServer.create(runner, scheduler, logger)
+        val server = DebugServer.start(runner, logger, scheduler)
 
         val test = for {
-          uri <- start(server)
+          uri <- listenTo(server)
           client = connectToDebugAdapter(uri)
           _ <- client.initialize()
           _ <- client.launch()
@@ -106,10 +106,10 @@ object DebugServerSpec extends BspBaseSuite {
 
   test("does not accept a connection unless the previous session requests a restart") {
     val runner: DebuggeeRunner = _ => Task.now(())
-    val server = DebugServer.create(runner, scheduler, logger)
+    val server = DebugServer.start(runner, logger, scheduler)
 
     val test = for {
-      uri <- start(server)
+      uri <- listenTo(server)
       firstClient <- Task(connectToDebugAdapter(uri))
       secondClient <- Task(connectToDebugAdapter(uri))
       beforeRestart = Try(TestUtil.await(1, TimeUnit.SECONDS)(secondClient.initialize()))
@@ -135,10 +135,10 @@ object DebugServerSpec extends BspBaseSuite {
         .map(_ => ())
         .doOnCancel(Task(canceled.success(true)))
 
-    val server = DebugServer.create(runner, scheduler, logger)
+    val server = DebugServer.start(runner, logger, scheduler)
 
     val test = for {
-      uri <- start(server)
+      uri <- listenTo(server)
       firstClient = connectToDebugAdapter(uri)
       _ <- firstClient.disconnect(restart = true)
       secondClient = connectToDebugAdapter(uri)
@@ -162,10 +162,10 @@ object DebugServerSpec extends BspBaseSuite {
         .doOnCancel(Task(canceled.success(true)))
         .map(_ => ())
 
-    val server = DebugServer.create(runner, scheduler, logger)
+    val server = DebugServer.start(runner, logger, scheduler)
 
     val test = for {
-      uri <- start(server)
+      uri <- listenTo(server)
       client = connectToDebugAdapter(uri)
       _ <- client.disconnect(restart = false)
       debuggeeCanceled <- Task.fromFuture(canceled.future)
@@ -182,10 +182,10 @@ object DebugServerSpec extends BspBaseSuite {
     val blockedDebuggee = Promise[Nothing]
     val runner: DebuggeeRunner = _ => Task.fromFuture(blockedDebuggee.future)
 
-    val server = DebugServer.create(runner, scheduler, logger)
+    val server = DebugServer.start(runner, logger, scheduler)
 
     val test = for {
-      uri <- start(server)
+      uri <- listenTo(server)
       client = connectToDebugAdapter(uri)
       _ <- stop(server)
       clientDisconnected <- Task(await(client.socket.isClosed))
@@ -212,7 +212,7 @@ object DebugServerSpec extends BspBaseSuite {
       case _ => false
     }
 
-  private def start(server: DebugServer): Task[URI] = {
+  private def listenTo(server: StartedDebugServer): Task[URI] = {
     val task = server.listen.runOnComplete(_ => servers -= server)(scheduler)
     servers += (server -> task)
 
@@ -222,7 +222,7 @@ object DebugServerSpec extends BspBaseSuite {
     }
   }
 
-  private def stop(server: DebugServer): Task[Unit] = {
+  private def stop(server: StartedDebugServer): Task[Unit] = {
     Task(servers(server).cancel())
   }
 
@@ -235,7 +235,7 @@ object DebugServerSpec extends BspBaseSuite {
       state: DebugServerSpec.ManagedBspTestState
   ): DebuggeeRunner = {
     val testState = state.toTestState
-    DebuggeeRunner.runMainClass(
+    DebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
       new ScalaMainClass("Main", Nil, Nil),
       testState.state

@@ -9,45 +9,40 @@ import monix.execution.{Cancelable, Scheduler}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import monix.execution.cancelables.MultiAssignmentCancelable
+import monix.execution.atomic.AtomicBoolean
 
-/**
- * @param address - an URI of this server, available once the server starts listening for clients.
- *                None, if server fails to start listening
- */
-final class DebugServer(val address: Task[Option[URI]], val listen: Task[Unit])
+final class StartedDebugServer(
+    val address: Task[Option[URI]],
+    val listen: Task[Unit]
+)
 
 object DebugServer {
-  def create(
+  def start(
       runner: DebuggeeRunner,
-      ioScheduler: Scheduler,
-      logger: Logger
-  ): DebugServer = {
-    // backlog == 1 means that only one connection should be waiting to be handled at a time.
-    // "Should", since this parameter can be completely ignored by the OS
-    // This will happen when the restart is requested:
-    // 1. Current session will be canceled
-    // 2. The client will attempt to connect without waiting for the other session to finish
-    //
-    // note that the server will start to listen for another connection as soon as we can determine whether the
-    // debug session was terminated or restarted. See [[DebugSession.exitStatus()]]
+      logger: Logger,
+      ioScheduler: Scheduler
+  ): StartedDebugServer = {
+    /*
+     * Set backlog to 1 to recommend the OS to process one connection at a time,
+     * which can happen when a restart is request and the client immediately
+     * connects without waiting for the other session to finish.
+     */
     val handle = ServerHandle.Tcp(backlog = 1)
 
+    val closedServer = AtomicBoolean(false)
     val listeningPromise = Promise[Option[URI]]()
-    val servedRequests = mutable.Set[DebugSession]()
+    val ongoingSession = MultiAssignmentCancelable()
+
     def listen(serverSocket: ServerSocket): Task[Unit] = {
       val listenAndServeClient = Task {
         listeningPromise.trySuccess(Some(handle.uri))
         val socket = serverSocket.accept()
 
-        DebugSession.open(socket, runner.run, ioScheduler).flatMap { session =>
-          servedRequests.add(session)
+        DebugSession.open(socket, runner.run, logger, ioScheduler).flatMap { session =>
+          ongoingSession.:=(session)
           session.startDebuggeeAndServer()
           session.exitStatus
-            .doOnFinish(_ => Task.eval { servedRequests.remove(session); () })
-            .doOnCancel(Task {
-              servedRequests.remove(session)
-              session.cancel()
-            })
         }
       }.flatten
 
@@ -59,15 +54,17 @@ object DebugServer {
 
     def closeServer(t: Option[Throwable]): Task[Unit] = {
       Task {
-        listeningPromise.trySuccess(None)
-        Cancelable.cancelAll(servedRequests)
-        try {
-          handle.server.close()
-        } catch {
-          case e: Exception =>
-            logger.error(
-              s"Could not close debug server listening on [${handle.uri} due to: ${e.getMessage}]"
-            )
+        if (closedServer.compareAndSet(false, true)) {
+          listeningPromise.trySuccess(None)
+          ongoingSession.cancel()
+          try {
+            handle.server.close()
+          } catch {
+            case e: Exception =>
+              logger.error(
+                s"Could not close debug server listening on [${handle.uri} due to: ${e.getMessage}]"
+              )
+          }
         }
       }
     }
@@ -77,6 +74,6 @@ object DebugServer {
       .doOnFinish(closeServer)
       .doOnCancel(closeServer(None))
 
-    new DebugServer(uri, startAndListen)
+    new StartedDebugServer(uri, startAndListen)
   }
 }

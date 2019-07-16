@@ -12,7 +12,7 @@ import bloop.io.ServerHandle
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.{DebuggeeRunner, DebugServer}
+import bloop.dap.{DebuggeeRunner, StartedDebugServer, DebugServer}
 import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.{State, Aggregate, Dag, Interpreter}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
@@ -49,6 +49,7 @@ import scala.util.Failure
 
 import monix.execution.Cancelable
 import io.circe.Json
+import monix.execution.cancelables.MultiAssignmentCancelable
 
 final class BloopBspServices(
     callSiteState: State,
@@ -83,7 +84,7 @@ final class BloopBspServices(
     Task.fork(t, computationScheduler).asyncBoundary(ioScheduler)
   }
 
-  private val debugServers = TrieMap.empty[DebugServer, Cancelable]
+  private val backgroundDebugServers = TrieMap.empty[StartedDebugServer, Cancelable]
 
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
@@ -163,7 +164,7 @@ final class BloopBspServices(
    * disconnected for any reason.
    */
   def unregisterClient: Option[ClientInfo.BspClientInfo] = {
-    Cancelable.cancelAll(debugServers.values)
+    Cancelable.cancelAll(backgroundDebugServers.values)
     clientInfo.future.value match {
       case None => None
       case Some(client) =>
@@ -468,18 +469,15 @@ final class BloopBspServices(
               val projects = mappings.map(_._2)
               inferDebuggeeRunner(projects, state) match {
                 case Right(runner) =>
-                  val server = DebugServer.create(runner, ioScheduler, bspLogger)
+                  val startedServer = DebugServer.start(runner, bspLogger, ioScheduler)
+                  val listenAndUnsubscribe = startedServer.listen
+                    .runOnComplete(_ => backgroundDebugServers -= startedServer)(ioScheduler)
+                  backgroundDebugServers += startedServer -> listenAndUnsubscribe
 
-                  val listeningTask = server.listen
-                    .runOnComplete(_ => debugServers -= server)(ioScheduler)
-
-                  debugServers += server -> listeningTask
-
-                  server.address.map {
-                    case Some(uri) =>
-                      (state, Right(new bsp.DebugSessionAddress(uri.toString)))
+                  startedServer.address.map {
+                    case Some(uri) => (state, Right(new bsp.DebugSessionAddress(uri.toString)))
                     case None =>
-                      (state, Left(JsonRpcResponse.internalError("Failed to start debug serer")))
+                      (state, Left(JsonRpcResponse.internalError("Failed to start debug server")))
                   }
 
                 case Left(error) =>

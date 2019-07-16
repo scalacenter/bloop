@@ -76,7 +76,7 @@ object DebugAdapterConnection {
     socket.connect(new InetSocketAddress(uri.getHost, uri.getPort), 500)
 
     val proxy = DebugSessionProxy(socket)
-    proxy.listen(scheduler)
+    proxy.startBackgroundListening(scheduler)
     new DebugAdapterConnection(socket)(proxy)
   }
 }

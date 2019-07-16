@@ -15,6 +15,7 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
+import bloop.logging.Logger
 
 /**
  *  This debug adapter maintains the lifecycle of the debuggee in separation from JDI.
@@ -26,6 +27,7 @@ import scala.util.Try
 final class DebugSession(
     socket: Socket,
     startDebuggee: DebugSessionLogger => Task[Unit],
+    initialLogger: Logger,
     ioScheduler: Scheduler
 ) extends DapServer(socket.getInputStream, socket.getOutputStream, DebugExtensions.newContext)
     with Cancelable {
@@ -54,7 +56,8 @@ final class DebugSession(
   def startDebuggeeAndServer(): Unit = {
     ioScheduler.executeAsync(() => {
       if (isStarted.compareAndSet(false, true)) {
-        val logger = new DebugSessionLogger(this, address => debugAddress.success(address))
+        val logger =
+          new DebugSessionLogger(this, address => debugAddress.success(address), initialLogger)
         val debuggeeHandle = startDebuggee(logger).runAsync(ioScheduler)
         isCancelled.getAndTransform { isCancelled =>
           if (isCancelled) debuggeeHandle.cancel()
@@ -146,11 +149,12 @@ object DebugSession {
   def open(
       socket: Socket,
       startDebuggee: DebugSessionLogger => Task[Unit],
+      logger: Logger,
       ioScheduler: Scheduler
   ): Task[DebugSession] = {
     for {
       _ <- Task.fromTry(JavaDebugInterface.isAvailable)
-    } yield new DebugSession(socket, startDebuggee, ioScheduler)
+    } yield new DebugSession(socket, startDebuggee, logger, ioScheduler)
   }
 
   private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {
