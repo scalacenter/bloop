@@ -3,7 +3,6 @@ package bloop.dap
 import java.net.{InetSocketAddress, Socket}
 import java.util.concurrent.TimeUnit
 
-import bloop.dap.DebugSession._
 import monix.execution.atomic.Atomic
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
@@ -30,112 +29,119 @@ final class DebugSession(
     ioScheduler: Scheduler
 ) extends DapServer(socket.getInputStream, socket.getOutputStream, DebugExtensions.newContext)
     with Cancelable {
-  type LaunchId = Int
-  private val launches = mutable.Set.empty[LaunchId]
+  private type LaunchId = Int
 
-  private val debugAddress = Promise[InetSocketAddress]()
-  private val exitStatusPromise = Promise[ExitStatus]()
+  // A set of all processed launched requests by the client
+  private val launchedRequests = mutable.Set.empty[LaunchId]
+
   private val debuggeeExited = Promise[Unit]()
+  private val debugAddress = Promise[InetSocketAddress]()
+  private val exitStatusPromise = Promise[DebugSession.ExitStatus]()
 
-  private val isStarted = Atomic(false) // if true - the server was already started
+  private val isStarted = Atomic(false)
+  private val isCancelled = Atomic(false)
+
+  // Access to this cancelable is always protected behind `isCancelled` to avoid race conditions
   private val runningDebuggee = Atomic(CancelableFuture.unit)
 
-  def exitStatus(): Task[ExitStatus] = {
-    Task.fromFuture(exitStatusPromise.future)
-  }
-
   /**
-   * Requests the debuggee to stop. Once that happens, requests the server to disconnect.
-   * When handling the response to this request, the server should close the socket
+   * Schedules the start of the debugging session.
+   *
+   * For a session to start, two executions must happen independently in a
+   * non-blocking way: the debuggee process is started in the background and
+   * the DAP server starts listening to client requests in an IO thread.
    */
-  def cancel(): Unit = {
-    runningDebuggee.get.cancel()
-    Task
-      .fromFuture(debuggeeExited.future)
-      .map(_ => disconnectRequest(InternalRequestId))
-      .foreachL(dispatchRequest)
-      .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(socket.close()))
-      .runAsync(ioScheduler)
-  }
-
-  /**
-   * Makes the parent [[run()]] method non-blocking.
-   * Schedules a run-only-once task which:
-   * 1. starts the debuggee
-   * 2. begins listening for debug clients
-   */
-  override def run(): Unit = {
+  def startDebuggeeAndServer(): Unit = {
     ioScheduler.executeAsync(() => {
       if (isStarted.compareAndSet(false, true)) {
-        try {
-          // start the debuggee
-          val logger = new DebugSessionLogger(this, address => debugAddress.success(address))
-          runningDebuggee.set(startDebuggee(logger).runAsync(ioScheduler))
+        val logger = new DebugSessionLogger(this, address => debugAddress.success(address))
+        val debuggeeHandle = startDebuggee(logger).runAsync(ioScheduler)
+        isCancelled.getAndTransform { isCancelled =>
+          if (isCancelled) debuggeeHandle.cancel()
+          else runningDebuggee.set(debuggeeHandle)
+          isCancelled
+        }
 
-          super.run()
-        } finally {
-          exitStatusPromise.trySuccess(Terminated)
+        try super.run()
+        finally {
+          exitStatusPromise.trySuccess(DebugSession.Terminated); ()
         }
       }
     })
   }
 
   override def dispatchRequest(request: Request): Unit = {
-    val id = request.seq
-
-    if (requestsRestart(request)) {
-      exitStatusPromise.trySuccess(Restarted)
-    }
-
+    val requestId = request.seq
     request.command match {
       case "launch" =>
-        launches.add(id)
+        launchedRequests.add(requestId)
         val _ = Task
           .fromFuture(debugAddress.future)
-          .map(DebugSession.toAttachRequest(id, _))
+          .map(DebugSession.toAttachRequest(requestId, _))
           .foreachL(super.dispatchRequest)
           .runAsync(ioScheduler)
 
       case "disconnect" =>
+        if (DebugSession.shouldRestart(request))
+          exitStatusPromise.trySuccess(DebugSession.Restarted)
         runningDebuggee.get.cancel()
         super.dispatchRequest(request)
 
-      case _ =>
-        super.dispatchRequest(request)
+      case _ => super.dispatchRequest(request)
     }
   }
 
   override def sendResponse(response: Response): Unit = {
     val requestId = response.request_seq
-
     response.command match {
-      case "attach" if launches(requestId) =>
+      case "attach" if launchedRequests(requestId) =>
         // Trick dap4j into thinking we're processing a launch instead of attach
         response.command = Command.LAUNCH.getName
         super.sendResponse(response)
-      case "disconnect" if requestId == InternalRequestId =>
+      case "disconnect" if requestId == DebugSession.InternalRequestId =>
+        // Request sent by the session itself, don't return to client
         socket.close()
-      // don't send the response to the client
-      case _ =>
-        super.sendResponse(response)
+      case _ => super.sendResponse(response)
     }
   }
 
   override def sendEvent(event: Events.DebugEvent): Unit = {
-    super.sendEvent(event)
-
     if (event.`type` == "exited") {
       debuggeeExited.success(())
     }
+
+    super.sendEvent(event)
   }
+
+  def exitStatus: Task[DebugSession.ExitStatus] = {
+    Task.fromFuture(exitStatusPromise.future)
+  }
+
+  /**
+   * Cancels the background debuggee process, the DAP server and closes the socket.
+   */
+  def cancel(): Unit = {
+    if (isCancelled.compareAndSet(false, true)) {
+      runningDebuggee.get.cancel()
+      Task
+        .fromFuture(debuggeeExited.future)
+        .map(_ => DebugSession.disconnectRequest(DebugSession.InternalRequestId))
+        .foreachL(dispatchRequest)
+        .doOnFinish(_ => Task(socket.close()))
+        .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(socket.close()))
+        .runAsync(ioScheduler)
+      ()
+    }
+  }
+
 }
 
 object DebugSession {
   private[DebugSession] val InternalRequestId = Int.MinValue
 
-  trait ExitStatus
-  case object Restarted extends ExitStatus
-  case object Terminated extends ExitStatus
+  sealed trait ExitStatus
+  final case object Restarted extends ExitStatus
+  final case object Terminated extends ExitStatus
 
   def open(
       socket: Socket,
@@ -164,14 +170,9 @@ object DebugSession {
     new Request(seq, Command.DISCONNECT.getName, json.getAsJsonObject)
   }
 
-  def requestsRestart(request: Request): Boolean = {
-    request.command match {
-      case "disconnect" =>
-        Try(JsonUtils.fromJson(request.arguments, classOf[DisconnectArguments]))
-          .map(_.restart)
-          .getOrElse(false)
-      case _ =>
-        false
-    }
+  def shouldRestart(disconnectRequest: Request): Boolean = {
+    Try(JsonUtils.fromJson(disconnectRequest.arguments, classOf[DisconnectArguments]))
+      .map(_.restart)
+      .getOrElse(false)
   }
 }

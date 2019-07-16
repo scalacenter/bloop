@@ -41,12 +41,9 @@ object DebugServer {
 
         DebugSession.open(socket, runner.run, ioScheduler).flatMap { session =>
           servedRequests.add(session)
-
-          session.run()
-
-          session
-            .exitStatus()
-            .doOnFinish(_ => Task.eval(servedRequests.remove(session)))
+          session.startDebuggeeAndServer()
+          session.exitStatus
+            .doOnFinish(_ => Task.eval { servedRequests.remove(session); () })
             .doOnCancel(Task {
               servedRequests.remove(session)
               session.cancel()
