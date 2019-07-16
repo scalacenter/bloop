@@ -3,23 +3,36 @@ package bloop.dap
 import java.net.{InetSocketAddress, Socket}
 
 import bloop.dap.DebugSession._
+
 import com.microsoft.java.debug.core.adapter._
 import com.microsoft.java.debug.core.protocol.JsonUtils
 import com.microsoft.java.debug.core.protocol.Messages._
 import com.microsoft.java.debug.core.protocol.Requests.Command._
 import com.microsoft.java.debug.core.protocol.Requests._
+
 import monix.eval.Task
 import monix.execution.Scheduler
 
 import scala.collection.mutable
 
 /**
- * Instead of relying on a standard handler for the 'launch' request, this class starts a [[debuggee]] in the background
- * and then attaches to it as if it were a remote process. It also kills the [[debuggee]] upon receiving 'disconnect' request
+ * A debug session sets up a session with the Java debug protocol and acts as a
+ * proxy to the internal Microsoft Java debug implementation.
+ *
+ * The debug session is mapped to a socket and a debuggee and it proxies any
+ * debug-related request and response. Because our internal architecture
+ * doesn't support 'launch' requests, we transform them to attach requests by
+ * first starting a debuggee in the background and then sending an attach
+ * request to the Java debug implementation. Then, we map back responses to
+ * that attach request to the original launch request so that this
+ * under-the-hood transformation is transparent to the client. When the
+ * disconnect request is received, this session is responsible of cancelling
+ * the background debuggee process.
  */
 final class DebugSession(socket: Socket, debuggee: Debuggee, ctx: IProviderContext)(
     ioScheduler: Scheduler
 ) extends ProtocolServer(socket.getInputStream, socket.getOutputStream, ctx) {
+  /* Holds client launch request IDs to map responses from JDI to requests */
   private val launches = mutable.Set.empty[Int]
 
   def bindDebuggeeAddress(address: InetSocketAddress): Unit = {
@@ -27,15 +40,15 @@ final class DebugSession(socket: Socket, debuggee: Debuggee, ctx: IProviderConte
   }
 
   override def dispatchRequest(request: Request): Unit = {
-    val seq = request.seq
-
+    val id = request.seq
     request.command match {
       case "launch" =>
-        launches.add(seq) // so that we can modify the response by changing its command type from 'attach' to 'launch'
+        launches.add(id)
         debuggee
           .start(this)
-          .map(attachRequest(seq, _))
+          .map(attachRequest(id, _))
           .foreach(super.dispatchRequest)(ioScheduler)
+        ()
 
       case _ =>
         super.dispatchRequest(request)
@@ -43,11 +56,10 @@ final class DebugSession(socket: Socket, debuggee: Debuggee, ctx: IProviderConte
   }
 
   override def sendResponse(response: Response): Unit = {
-    val requestSeq = response.request_seq
-
+    val requestId = response.request_seq
     response.command match {
-      case "attach" if launches(requestSeq) =>
-        response.command = LAUNCH.getName // pretend we are responding to the launch request
+      case "attach" if launches(requestId) =>
+        response.command = LAUNCH.getName
         super.sendResponse(response)
       case "disconnect" =>
         super.sendResponse(response)
