@@ -1,5 +1,4 @@
 package buildpress
-import buildpress.io.AbsolutePath
 
 sealed trait BuildpressError extends Throwable
 object BuildpressError {
@@ -28,6 +27,10 @@ object BuildpressError {
       with OverrideCause
 
   final case class ParseFailure(msg: String, cause: Option[Throwable])
+      extends BuildpressError
+      with OverrideCause
+
+  final case class CleanupFailure(msg: String, cause: Option[Throwable])
       extends BuildpressError
       with OverrideCause
 }

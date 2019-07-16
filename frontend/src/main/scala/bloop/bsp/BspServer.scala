@@ -289,7 +289,10 @@ object BspServer {
         import bloop.io.Paths
         try {
           val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
-          if (externalClientClassesDir == project.genericClassesDir) Task.now(())
+          val skipDirectoryManagement =
+            externalClientClassesDir == project.genericClassesDir ||
+              latestState.client.hasManagedClassesDirectories
+          if (skipDirectoryManagement) Task.now(())
           else Task.fork(Task.eval(Paths.delete(externalClientClassesDir))).materialize
         } catch {
           case _: NoSuchFileException => Task.now(())

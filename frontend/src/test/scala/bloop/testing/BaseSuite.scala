@@ -93,6 +93,12 @@ class BaseSuite extends TestSuite with BloopHelpers {
     }
   }
 
+  def assertIsDirectory(path: AbsolutePath): Unit = {
+    if (!path.isDirectory) {
+      fail(s"directory doesn't exist: $path", stackBump = 1)
+    }
+  }
+
   def assertIsNotDirectory(path: AbsolutePath): Unit = {
     if (path.isDirectory) {
       fail(s"directory exists: $path", stackBump = 1)

@@ -8,7 +8,11 @@ import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
+import java.util.stream.Collectors
+
+import scala.collection.JavaConverters._
+import ch.epfl.scala.bsp.ScalacOptionsItem
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -83,6 +87,43 @@ class BspProtocolSpec(
         assert(stateB.status == ExitStatus.Ok)
         val classesDirB = stateB.toTestState.getClientExternalDir(`B`).underlying
         testOptions(resultB, ScalacOptions.B, classesDirB, `B`.bspId, List(classesDirB))
+      }
+    }
+  }
+
+  test("use client root classes directory and make sure project directories are stable") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(workspace, "a", Nil)
+      val projects = List(`A`)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val userClientClassesRootDir = workspace.resolve("root-client-dirs")
+
+      var firstScalacOptions: List[ScalacOptionsItem] = Nil
+      var secondScalacOptions: List[ScalacOptionsItem] = Nil
+      // Start first client and query for scalac options which creates client classes dirs
+      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
+        val (_, options) = bspState.scalaOptions(`A`)
+        firstScalacOptions = options.items
+        firstScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
+      }
+
+      // Start second client and query for scalac options which should use same dirs as before
+      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
+        val (_, options) = bspState.scalaOptions(`A`)
+        secondScalacOptions = options.items
+        secondScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
+      }
+
+      firstScalacOptions.zip(secondScalacOptions).foreach {
+        case (firstItem, secondItem) =>
+          assertNoDiff(
+            firstItem.classDirectory.value,
+            secondItem.classDirectory.value
+          )
+      }
+
+      firstScalacOptions.foreach { option =>
+        assertIsDirectory(AbsolutePath(option.classDirectory.toPath))
       }
     }
   }
@@ -244,6 +285,43 @@ class BspProtocolSpec(
         checkSources(testJsProject)
         checkSources(rootMain)
         checkSources(rootTest)
+      }
+    }
+  }
+
+  test("resources request works") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+        val mainProject = build.projectFor("test-project")
+        val testProject = build.projectFor("test-project-test")
+        val mainJsProject = build.projectFor("test-projectJS")
+        val testJsProject = build.projectFor("test-projectJS-test")
+        val rootMain = build.projectFor("cross-test-build-0-6")
+        val rootTest = build.projectFor("cross-test-build-0-6-test")
+
+        def checkResources(project: TestProject): Unit = {
+          val resourcesResult = build.state.requestResources(project)
+          assert(resourcesResult.items.size == 1)
+          val resources = resourcesResult.items.head
+          val resourcePaths = resources.resources.map(_.toPath).toSet
+          val expectedResources = project.config.resources
+            .getOrElse(Seq.empty)
+            .flatMap(
+              dir =>
+                if (Files.exists(dir)) Files.walk(dir).collect(Collectors.toList[Path]).asScala
+                else Seq.empty
+            )
+            .toSet
+          assert(resourcePaths == expectedResources)
+        }
+
+        checkResources(mainProject)
+        checkResources(testProject)
+        checkResources(mainJsProject)
+        checkResources(testJsProject)
+        checkResources(rootMain)
+        checkResources(rootTest)
       }
     }
   }

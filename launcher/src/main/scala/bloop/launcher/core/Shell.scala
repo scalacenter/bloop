@@ -14,6 +14,7 @@ import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuild
 
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
+import bloop.launcher.core.Shell.StatusCommand
 
 /**
  * Defines shell utilities to run programs via system process.
@@ -30,19 +31,6 @@ import scala.util.Try
  * @param runWithInterpreter Decides whether we add a layer of indirection when running commands.
  *                           Uses `sh -c` in unix systems, `cmd.exe` in Windows systems */
 final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
-
-  case class StatusCommand(code: Int, output: String) {
-    def isOk: Boolean = code == 0
-
-    // assuming if it's ok, we don't need exit code
-    def toEither: Either[(Int, String), String] =
-      if (isOk) {
-        Right(output)
-      } else {
-        Left(code -> output)
-      }
-  }
-
   def runCommand(
       cmd0: List[String],
       cwd: Path,
@@ -225,5 +213,17 @@ object Shell {
     require(from > 24 && to < 65535)
     val r = new scala.util.Random
     from + r.nextInt(to - from)
+  }
+
+  case class StatusCommand(code: Int, output: String) {
+    def isOk: Boolean = code == 0
+
+    // assuming if it's ok, we don't need exit code
+    def toEither: Either[(Int, String), String] =
+      if (isOk) {
+        Right(output)
+      } else {
+        Left(code -> output)
+      }
   }
 }

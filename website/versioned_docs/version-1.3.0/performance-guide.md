@@ -179,7 +179,7 @@ definitions are unchanged!
 ### Set up the benchmark suite
 
 Bloop JMH benchmarks are not yet published in Maven Central. You first need
-to follow the [CONTRIBUTING guide](docs/contributing-guide.md) to set up the
+to follow the [CONTRIBUTING guide](contributing-guide.md) to set up the
 Bloop repository.
 
 Then, checkout the version of Bloop you want to benchmark with `git checkout
@@ -281,7 +281,7 @@ The best JVM options are those striking a balance between making an
 efficient use of your system's available resources and allowing the build
 server to operate at peak performance.
 
-Learn how to tweak your options in the [Build Server](docs/server.md) guide.
+Learn how to tweak your options in the [Build Server](server.md) guide.
 
 Here's a [list of the most important JVM options](https://www.baeldung.com/jvm-parameters).
 Below I elaborate only on the most critical for compilation.
