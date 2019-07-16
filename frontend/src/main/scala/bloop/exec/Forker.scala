@@ -138,8 +138,9 @@ object Forker {
         try process.closeStdin(true)
         finally {
           process.destroy(false)
-          process.waitFor(400, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+          process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
           process.destroy(true)
+          process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
           if (process.isRunning) {
             val msg = s"The cancellation could not destroy process ${process.getPID}"
             opts.ngout.println(msg)
