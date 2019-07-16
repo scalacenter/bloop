@@ -83,4 +83,9 @@ object DebugExtensions {
       sourcePath
     override def getSourceContents(uri: String): String = ""
   }
+
+  object VirtualMachineManagerProvider extends IVirtualMachineManagerProvider {
+    import com.sun.jdi.{Bootstrap, VirtualMachineManager}
+    def getVirtualMachineManager: VirtualMachineManager = Bootstrap.virtualMachineManager
+  }
 }
