@@ -137,17 +137,15 @@ final class JvmDebuggingForker(underlying: JvmProcessForker, debugSession: Debug
       cwd: AbsolutePath,
       mainClass: String,
       args: Array[String],
-      jArgs: Array[String],
-      ignored: Logger, // we replace it with the DAP logger TODO this logger does not belong to this param list
+      jargs: Array[String],
+      logger0: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
     val address = findFreeSocketAddress
-    val jvmOptions = jArgs :+ jdiOpt(address.getHostName, address.getPort)
-    val logger = new DebugSessionLogger(debugSession)
-    val task = underlying.runMain(cwd, mainClass, args, jvmOptions, logger, opts, extraClasspath)
-
-    task
+    val logger = new DebugSessionLogger(debugSession, logger0)
+    val jvmOptions = jargs :+ enableJDICommand(address.getHostName, address.getPort)
+    underlying.runMain(cwd, mainClass, args, jvmOptions, logger, opts, extraClasspath)
   }
 
   private def findFreeSocketAddress: InetSocketAddress = {
@@ -157,7 +155,7 @@ final class JvmDebuggingForker(underlying: JvmProcessForker, debugSession: Debug
     new InetSocketAddress(server.getInetAddress, server.getLocalPort)
   }
 
-  private def jdiOpt(host: String, port: Int): String = {
+  private def enableJDICommand(host: String, port: Int): String = {
     s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,quiet=n,address=$host:$port"
   }
 }
