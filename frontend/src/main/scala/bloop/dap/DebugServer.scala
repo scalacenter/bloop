@@ -39,11 +39,12 @@ object DebugServer {
         listeningPromise.trySuccess(Some(handle.uri))
         val socket = serverSocket.accept()
 
-        DebugSession.open(socket, runner.run, logger, ioScheduler).flatMap { session =>
-          ongoingSession.:=(session)
-          session.startDebuggeeAndServer()
-          session.exitStatus
-        }
+        val session = new DebugSession(socket, runner.run, logger, ioScheduler)
+
+        ongoingSession.:=(session)
+        session.startDebuggeeAndServer()
+
+        session.exitStatus
       }.flatten
 
       listenAndServeClient.flatMap {

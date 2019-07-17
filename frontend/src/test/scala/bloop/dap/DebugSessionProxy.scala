@@ -40,7 +40,8 @@ private[dap] final class DebugSessionProxy(
 
   private def handleMessage(message: ProtocolMessage): Unit = {
     message match {
-      case event: Messages.Event => events.onNext(event)
+      case event: Messages.Event =>
+        events.onNext(event)
       case _: Messages.Request =>
         throw new IllegalStateException("Reverse requests are not supported")
       case response: Messages.Response =>

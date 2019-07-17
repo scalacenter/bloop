@@ -2,6 +2,9 @@ package bloop.exec
 
 import bloop.config.Config
 import bloop.io.AbsolutePath
+import javax.tools.ToolProvider
+
+import scala.util.Try
 
 /**
  * The configuration of the Java environment for a given project.
@@ -22,6 +25,32 @@ object JavaEnv {
 
   def toConfig(env: JavaEnv): Config.JvmConfig = {
     Config.JvmConfig(Some(env.javaHome.underlying), env.javaOptions.toList)
+  }
+
+  def isDebugInterfaceEnabled: Boolean = {
+    def loadTools(): Unit = {
+      import java.net.URL
+      import java.net.URLClassLoader
+
+      Option(ToolProvider.getSystemToolClassLoader)
+        .collect { case classLoader: URLClassLoader => classLoader.getURLs }
+        .filter(_.nonEmpty)
+        .foreach { urls =>
+          val method = classOf[URLClassLoader].getDeclaredMethod("addURL", classOf[URL])
+          method.setAccessible(true)
+          urls.foreach(method.invoke(getClass.getClassLoader, _))
+        }
+    }
+
+    val debugInterfaceResolution = Try(Class.forName("com.sun.jdi.Value")).recoverWith[Class[_]] {
+      case _: ClassNotFoundException =>
+        Try {
+          loadTools()
+          Class.forName("com.sun.jdi.Value")
+        }
+    }
+
+    debugInterfaceResolution.isSuccess
   }
 
   /**

@@ -12,11 +12,12 @@ import bloop.io.ServerHandle
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.{DebuggeeRunner, StartedDebugServer, DebugServer}
+import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
 import bloop.data.{ClientInfo, Platform, Project}
 import bloop.engine.{State, Aggregate, Dag, Interpreter}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.exec.JavaEnv
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter}
@@ -450,40 +451,46 @@ final class BloopBspServices(
       }
     }
 
-    ifInitialized { state =>
-      mapToProjects(params.targets, state) match {
-        case Left(error) =>
-          // Log the mapping error to the user via a log event + an error status code
-          bspLogger.error(error)
-          Task.now((state, Left(JsonRpcResponse.invalidRequest(error)))) // TODO do fail
-        case Right(mappings) =>
-          compileProjects(mappings, state, Nil).flatMap {
-            case (state, Left(error)) =>
-              Task.now((state, Left(error)))
-            case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
-              Task.now(
-                (state, Left(JsonRpcResponse.internalError("Compilation not successful")))
-              )
-            case (state, Right(_)) =>
-              val projects = mappings.map(_._2)
-              inferDebuggeeRunner(projects, state) match {
-                case Right(runner) =>
-                  val startedServer = DebugServer.start(runner, bspLogger, ioScheduler)
-                  val listenAndUnsubscribe = startedServer.listen
-                    .runOnComplete(_ => backgroundDebugServers -= startedServer)(ioScheduler)
-                  backgroundDebugServers += startedServer -> listenAndUnsubscribe
+    ifInitialized {
+      case state if !JavaEnv.isDebugInterfaceEnabled =>
+        val message = "Java Debug Interface is not available. " +
+          "Make sure you are using JDK and your JVM vendor implements the interface. "
 
-                  startedServer.address.map {
-                    case Some(uri) => (state, Right(new bsp.DebugSessionAddress(uri.toString)))
-                    case None =>
-                      (state, Left(JsonRpcResponse.internalError("Failed to start debug server")))
-                  }
+        Task.now((state, Left(JsonRpcResponse.internalError(message))))
+      case state =>
+        mapToProjects(params.targets, state) match {
+          case Left(error) =>
+            // Log the mapping error to the user via a log event + an error status code
+            bspLogger.error(error)
+            Task.now((state, Left(JsonRpcResponse.invalidRequest(error)))) // TODO do fail
+          case Right(mappings) =>
+            compileProjects(mappings, state, Nil).flatMap {
+              case (state, Left(error)) =>
+                Task.now((state, Left(error)))
+              case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
+                Task.now(
+                  (state, Left(JsonRpcResponse.internalError("Compilation not successful")))
+                )
+              case (state, Right(_)) =>
+                val projects = mappings.map(_._2)
+                inferDebuggeeRunner(projects, state) match {
+                  case Right(runner) =>
+                    val startedServer = DebugServer.start(runner, bspLogger, ioScheduler)
+                    val listenAndUnsubscribe = startedServer.listen
+                      .runOnComplete(_ => backgroundDebugServers -= startedServer)(ioScheduler)
+                    backgroundDebugServers += startedServer -> listenAndUnsubscribe
 
-                case Left(error) =>
-                  Task.now((state, Left(error)))
-              }
-          }
-      }
+                    startedServer.address.map {
+                      case Some(uri) => (state, Right(new bsp.DebugSessionAddress(uri.toString)))
+                      case None =>
+                        (state, Left(JsonRpcResponse.internalError("Failed to start debug server")))
+                    }
+
+                  case Left(error) =>
+                    Task.now((state, Left(error)))
+                }
+            }
+        }
     }
   }
 

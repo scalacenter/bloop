@@ -39,7 +39,7 @@ final class DebugSessionLogger(
   override def error(msg: String): Unit = forwardToClient(msg, OutputEvent.Category.stdout)
   override def info(msg: String): Unit = {
     import DebugSessionLogger.ListeningMessagePrefix
-    // Expect following JDI log because JDI option `quiet=n` always holds
+    // Expect the first log to be JDI notification since debuggee is running with `quiet=n` JDI option
     if (msg.startsWith(ListeningMessagePrefix)) {
       if (!initialized) {
         val port = Integer.parseInt(msg.drop(ListeningMessagePrefix.length))

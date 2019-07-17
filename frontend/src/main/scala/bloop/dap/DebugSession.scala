@@ -85,8 +85,10 @@ final class DebugSession(
           .runAsync(ioScheduler)
 
       case "disconnect" =>
-        if (DebugSession.shouldRestart(request))
+        if (DebugSession.shouldRestart(request)) {
           exitStatusPromise.trySuccess(DebugSession.Restarted)
+        }
+
         runningDebuggee.get.cancel()
         super.dispatchRequest(request)
 
@@ -145,17 +147,6 @@ object DebugSession {
   sealed trait ExitStatus
   final case object Restarted extends ExitStatus
   final case object Terminated extends ExitStatus
-
-  def open(
-      socket: Socket,
-      startDebuggee: DebugSessionLogger => Task[Unit],
-      logger: Logger,
-      ioScheduler: Scheduler
-  ): Task[DebugSession] = {
-    for {
-      _ <- Task.fromTry(JavaDebugInterface.isAvailable)
-    } yield new DebugSession(socket, startDebuggee, logger, ioScheduler)
-  }
 
   private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {
     val arguments = new AttachArguments
