@@ -41,11 +41,18 @@ object DebuggeeRunner {
       mainClass: ScalaMainClass,
       state: State
   ): Either[String, DebuggeeRunner] = {
-    val project = projects.head
-    project.platform match {
-      case jvm: Platform.Jvm =>
-        Right(new MainClassDebugAdapter(project, mainClass, jvm.env, state))
-      case platform => Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")
+    projects match {
+      case Seq() =>
+        Left(s"No projects specified for the main class: [$mainClass]")
+      case project :: Seq() =>
+        project.platform match {
+          case jvm: Platform.Jvm =>
+            Right(new MainClassDebugAdapter(project, mainClass, jvm.env, state))
+          case platform =>
+            Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")
+        }
+      case _ =>
+        Left(s"Multiple projects specified for the main class [$mainClass]")
     }
   }
 }

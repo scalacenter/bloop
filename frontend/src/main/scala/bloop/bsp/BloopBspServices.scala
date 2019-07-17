@@ -49,7 +49,6 @@ import scala.util.Failure
 
 import monix.execution.Cancelable
 import io.circe.Json
-import monix.execution.cancelables.MultiAssignmentCancelable
 
 final class BloopBspServices(
     callSiteState: State,
