@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.Files
+
 import bloop.config.Config
 import bloop.config.Config.{JvmConfig, Platform}
 import bloop.integrations.gradle.BloopParameters
@@ -20,7 +21,7 @@ import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompil
 import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
 import org.gradle.api.specs.Specs
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
-import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
 import org.gradle.jvm.JvmLibrary
 import org.gradle.language.base.artifact.SourcesArtifact
@@ -207,24 +208,47 @@ final class BloopConverter(parameters: BloopParameters) {
           java = getJavaConfig(project, sourceSet),
           sbt = None,
           test = getTestConfig(sourceSet),
-          platform = getPlatform(project, isTestSourceSet),
+          platform = getPlatform(project, sourceSet, isTestSourceSet),
           resolution = Some(resolution)
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }
   }
 
-  def getPlatform(project: Project, isTestSourceSet: Boolean): Option[Platform] = {
+  private def getJavaCompileOptions(project: Project, sourceSet: SourceSet): CompileOptions = {
+    val javaCompileTaskName = sourceSet.getCompileTaskName("java")
+    val javaCompileTask = project.getTask[JavaCompile](javaCompileTaskName)
+    javaCompileTask.getOptions
+  }
+
+  def getPlatform(project: Project, sourceSet: SourceSet, isTestSourceSet: Boolean): Option[Platform] = {
+    val forkOptions = Option(getJavaCompileOptions(project, sourceSet).getForkOptions)
+    val projectJdkPath = for {
+      fo <- forkOptions
+      javaHome <- Option(fo.getJavaHome)
+    } yield javaHome.toPath
+
+    val projectJvmOptions = forkOptions.map(fo =>
+      Option(fo.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
+      Option(fo.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
+      fo.getJvmArgs.asScala.toList
+    )
+
     val currentJDK = DefaultInstalledJdk.current()
-    val jdkPath = Option(currentJDK).map(_.getJavaHome.toPath)
-    project.getConvention.findPlugin(classOf[ApplicationPluginConvention]) match {
-      case appPluginConvention: ApplicationPluginConvention if !isTestSourceSet =>
-        val mainClass = Option(appPluginConvention.getMainClassName)
-        val options = appPluginConvention.getApplicationDefaultJvmArgs.asScala.toList
-        Some(Platform.Jvm(JvmConfig(jdkPath, options), mainClass))
-      case _ =>
-        Some(Platform.Jvm(JvmConfig(jdkPath, Nil), None))
-    }
+    val defaultJdkPath = Option(currentJDK).map(_.getJavaHome.toPath)
+    val (defaultJvmOptions, mainClass) =
+      project.getConvention.findPlugin(classOf[ApplicationPluginConvention]) match {
+        case appPluginConvention: ApplicationPluginConvention if !isTestSourceSet =>
+          val mainClass = Option(appPluginConvention.getMainClassName)
+          val options = appPluginConvention.getApplicationDefaultJvmArgs.asScala.toList
+          (options, mainClass)
+        case _ =>
+          (Nil, None)
+      }
+
+    val jdkPath = projectJdkPath.orElse(defaultJdkPath)
+    val jvmOptions = projectJvmOptions.getOrElse(defaultJvmOptions)
+    Some(Platform.Jvm(JvmConfig(jdkPath, jvmOptions), mainClass))
   }
 
   def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {
@@ -567,9 +591,7 @@ final class BloopConverter(parameters: BloopParameters) {
   }
 
   private def getJavaConfig(project: Project, sourceSet: SourceSet): Option[Config.Java] = {
-    val javaCompileTaskName = sourceSet.getCompileTaskName("java")
-    val javaCompileTask = project.getTask[JavaCompile](javaCompileTaskName)
-    val opts = javaCompileTask.getOptions
+    val opts = getJavaCompileOptions(project, sourceSet)
 
     val specs = new DefaultJavaCompileSpec()
     specs.setCompileOptions(opts)
