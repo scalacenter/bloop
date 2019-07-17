@@ -621,12 +621,12 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |tasks.withType(ScalaCompile) {
+         |  scalaCompileOptions.encoding = "utf8"
          |	scalaCompileOptions.additionalParameters = [
          |    "-deprecation",
          |    "-Yjar-compression-level", "0",
          |    "-Ybackend-parallelism", "8",
-         |    "-unchecked",
-         |    "-encoding", "utf8"]
+         |    "-unchecked"]
          |}
          |
       """.stripMargin
