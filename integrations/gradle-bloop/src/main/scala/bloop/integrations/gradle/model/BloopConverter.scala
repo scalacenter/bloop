@@ -622,7 +622,7 @@ final class BloopConverter(parameters: BloopParameters) {
       ifEnabled(options.isOptimize)("-optimize"),
       ifEnabled(options.getDebugLevel == "verbose")("-verbose"),
       ifEnabled(options.getDebugLevel == "debug")("-Ydebug"),
-      Option(options.getEncoding).map(encoding => s"-encoding $encoding"),
+      Option(options.getEncoding).map(encoding => s"-encoding$argumentSpaceSeparator$encoding"),
       Option(options.getDebugLevel).map(level => s"-g:$level")
     ).flatten.toSet
 
