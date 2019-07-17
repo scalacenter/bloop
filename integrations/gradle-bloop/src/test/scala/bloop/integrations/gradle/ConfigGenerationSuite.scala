@@ -3,10 +3,11 @@ package bloop.integrations.gradle
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 import bloop.cli.Commands
 import bloop.config.Config
+import bloop.config.Config.Platform
 import bloop.config.ConfigEncoderDecoders._
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
@@ -913,6 +914,50 @@ abstract class ConfigGenerationSuite {
     assert(!projectConfig.project.`scala`.isDefined)
     assert(projectTestConfig.project.dependencies == List(projectName))
     assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
+  }
+
+  @Test def importsPlatformJavaHomeAndOpts(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |apply plugin: 'java'
+         |apply plugin: 'bloop'
+         |
+         |compileJava {
+         |  options.forkOptions.javaHome = file("/opt/jdk11")
+         |  options.forkOptions.jvmArgs += "-XX:MaxMetaSpaceSize=512m"
+         |  options.forkOptions.memoryInitialSize = "1g"
+         |  options.forkOptions.memoryMaximumSize = "2g"
+         |}
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldJavaSource()
+    createHelloWorldJavaTestSource()
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+    val projectConfig = readValidBloopConfig(projectFile)
+    val platform = projectConfig.project.platform
+    assert(platform.isDefined)
+    assert(platform.get.isInstanceOf[Platform.Jvm])
+    val config = platform.get.asInstanceOf[Platform.Jvm].config
+    assert(config.home.contains(Paths.get("/opt/jdk11")))
+    assert(config.options.toSet == Set("-XX:MaxMetaSpaceSize=512m", "-Xms1g", "-Xmx2g"))
   }
 
   @Test def maintainsClassPathOrder(): Unit = {
