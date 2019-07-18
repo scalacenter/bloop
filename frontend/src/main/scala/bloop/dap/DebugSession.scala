@@ -47,6 +47,14 @@ final class DebugSession(
   private val runningDebuggee = Atomic(CancelableFuture.unit)
 
   /**
+   * Redirects to [[startDebuggeeAndServer()]].
+   * Prevents starting the server directly, without starting the debuggee
+   */
+  override def run(): Unit = {
+    startDebuggeeAndServer()
+  }
+
+  /**
    * Schedules the start of the debugging session.
    *
    * For a session to start, two executions must happen independently in a
