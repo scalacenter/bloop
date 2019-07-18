@@ -1,6 +1,7 @@
 package bloop.dap
 
 import bloop.dap.DebugEvents.Channel
+import com.microsoft.java.debug.core.protocol.Events.DebugEvent
 import com.microsoft.java.debug.core.protocol.Messages
 import monix.eval.Task
 import monix.execution.Ack
@@ -11,6 +12,14 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 
 private[dap] final class DebugEvents extends Observer[Messages.Event] {
+  def first[A <: DebugEvent](event: DebugTestProtocol.Event[A]): Task[A] = {
+    channel(event.name).first.flatMap(event.deserialize)
+  }
+
+  def all[A <: DebugEvent](event: DebugTestProtocol.Event[A]): Task[Seq[A]] = {
+    channel(event.name).all.flatMap(event.deserialize)
+  }
+
   private val channels = TrieMap.empty[String, Channel]
   private var completed = false
 

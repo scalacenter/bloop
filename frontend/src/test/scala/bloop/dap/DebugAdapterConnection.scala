@@ -13,42 +13,41 @@ import monix.execution.Scheduler
  * Manages a connection with a debug adapter.
  * It closes the connection after receiving a response to the 'disconnect' request
  */
-private[dap] final class DebugAdapterConnection(val socket: Socket)(
-    implicit proxy: DebugSessionProxy
-) {
+private[dap] final class DebugAdapterConnection(val socket: Socket, session: DebugSessionProxy) {
   def initialize(): Task[Capabilities] = {
     val arguments = new InitializeArguments()
-    Initialize(arguments)
+    session.request(Initialize, arguments)
   }
 
   def configurationDone(): Task[Unit] = {
-    ConfigurationDone(())
+    session.request(ConfigurationDone, ())
   }
 
   def launch(): Task[Unit] = {
     val arguments = new LaunchArguments
     arguments.noDebug = true
-    Launch(arguments)
+    session.request(Launch, arguments)
   }
 
   def disconnect(restart: Boolean): Task[Unit] = {
     val arguments = new DisconnectArguments
     arguments.restart = restart
     for {
-      _ <- Disconnect(arguments)
+      _ <- session.request(Disconnect, arguments)
       _ <- Task(socket.close())
     } yield ()
   }
 
-  def exited: Task[Events.ExitedEvent] =
-    Exited.first
+  def exited: Task[Events.ExitedEvent] = {
+    session.events.first(Exited)
+  }
 
   def terminated: Task[Events.TerminatedEvent] = {
-    Terminated.first
+    session.events.first(Terminated)
   }
 
   def output(expected: String): Task[String] = {
-    OutputEvent.all.map { events =>
+    session.events.all(OutputEvent).map { events =>
       val builder = new StringBuilder
       events
         .takeWhile(_ => builder.toString() != expected)
@@ -58,11 +57,11 @@ private[dap] final class DebugAdapterConnection(val socket: Socket)(
   }
 
   def firstOutput: Task[String] = {
-    OutputEvent.first.map(_.output)
+    session.events.first(OutputEvent).map(_.output)
   }
 
   def allOutput: Task[String] = {
-    OutputEvent.all.map { events =>
+    session.events.all(OutputEvent).map { events =>
       val builder: StringBuilder =
         events.foldLeft(new StringBuilder)((acc, e) => acc.append(e.output))
       builder.toString()
@@ -77,6 +76,6 @@ object DebugAdapterConnection {
 
     val proxy = DebugSessionProxy(socket)
     proxy.startBackgroundListening(scheduler)
-    new DebugAdapterConnection(socket)(proxy)
+    new DebugAdapterConnection(socket, proxy)
   }
 }

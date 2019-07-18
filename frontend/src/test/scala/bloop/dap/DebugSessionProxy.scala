@@ -23,7 +23,13 @@ private[dap] final class DebugSessionProxy(
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
   val events = new DebugEvents()
 
-  def request(request: Messages.Request): Task[Messages.Response] = {
+  def request[A, B](endpoint: DebugTestProtocol.Request[A, B], parameters: A): Task[B] = {
+    val message = endpoint.serialize(parameters)
+    val response = send(message)
+    response.flatMap(endpoint.deserialize)
+  }
+
+  private def send(request: Messages.Request): Task[Messages.Response] = {
     val promise = Promise[Messages.Response]()
     requests += (request.seq -> promise)
     output.onNext(request)
