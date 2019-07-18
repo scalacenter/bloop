@@ -17,11 +17,10 @@ private final class MainClassDebugAdapter(
     env: JavaEnv,
     state: State
 ) extends DebuggeeRunner {
-  def run(logger: DebugSessionLogger): Task[Unit] = {
-    val stateForDebug = state.copy(logger = logger)
+  def run(debugLogger: DebugSessionLogger): Task[Unit] = {
     val workingDir = state.commonOptions.workingPath
     val runState = Tasks.runJVM(
-      stateForDebug,
+      state.copy(logger = debugLogger),
       project,
       env,
       workingDir,
