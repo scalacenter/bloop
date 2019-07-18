@@ -8,10 +8,10 @@ import com.microsoft.java.debug.core.protocol.Events.OutputEvent
 import scala.concurrent.Promise
 
 /**
- * Defines a logger that forwards some events to a debug session. Operations
- * not forwarded to the session are passed onto the underlying logger.
+ * Defines a logger that forwards some events to a debug session
+ * in addition to sending all of them to the underlying logger.
  *
- * A key responsibility of this logger is to intercept the start JDI log and
+ * A key responsibility of this logger is to intercept the initial JDI log and
  * parse the debugging port of the remote machine. This port is then passed to
  * bind the host and remote machines and run the JDI infrastructure.
  */
@@ -36,8 +36,14 @@ final class DebugSessionLogger(
   override def asDiscrete: Logger =
     new DebugSessionLogger(debugSession, listener, underlying.asDiscrete)
 
-  override def error(msg: String): Unit = forwardToClient(msg, OutputEvent.Category.stdout)
+  override def error(msg: String): Unit = {
+    underlying.error(msg)
+    forwardToDebugClient(msg, OutputEvent.Category.stdout)
+  }
+
   override def info(msg: String): Unit = {
+    underlying.info(msg)
+
     import DebugSessionLogger.ListeningMessagePrefix
     // Expect the first log to be JDI notification since debuggee is running with `quiet=n` JDI option
     if (msg.startsWith(ListeningMessagePrefix)) {
@@ -48,11 +54,11 @@ final class DebugSessionLogger(
         initialized = true
       }
     } else {
-      forwardToClient(msg, OutputEvent.Category.stderr)
+      forwardToDebugClient(msg, OutputEvent.Category.stderr)
     }
   }
 
-  private def forwardToClient(output: String, category: OutputEvent.Category): Unit = {
+  private def forwardToDebugClient(output: String, category: OutputEvent.Category): Unit = {
     val event = new OutputEvent(category, output + System.lineSeparator())
     debugSession.sendEvent(event)
   }
