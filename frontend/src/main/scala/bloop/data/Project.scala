@@ -3,20 +3,17 @@ package bloop.data
 import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
-import bloop.ScalaInstance
+import bloop.{JavaInstance, ScalaInstance}
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.io.ByteHasher
-
 import java.nio.charset.StandardCharsets
 
 import scala.util.Try
 import scala.collection.mutable
-
 import ch.epfl.scala.{bsp => Bsp}
-
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 
 final case class Project(

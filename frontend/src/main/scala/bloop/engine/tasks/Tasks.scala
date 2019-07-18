@@ -2,10 +2,11 @@ package bloop.engine.tasks
 
 import java.nio.file.{Files, Path}
 
+import bloop.JavaInstance
 import bloop.cli.ExitStatus
 import bloop.engine.caches.ResultsCache
 import bloop.logging.DebugFilter
-import bloop.data.Project
+import bloop.data.{Platform, Project}
 import bloop.engine.{Dag, State}
 import bloop.exec.{Forker, JavaEnv}
 import bloop.io.AbsolutePath
@@ -53,15 +54,16 @@ object Tasks {
   ): Task[State] = Task {
     import state.logger
     project.scalaInstance match {
-      case Some(instance) =>
+      case Some(scalaInstance) =>
         val dag = state.build.getDagFor(project)
         val classpath = project.fullClasspath(dag, state.client)
         val entries = classpath.map(_.underlying.toFile).toSeq
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
           DebugFilter.All
         )
-        val loader = ClasspathUtilities.makeLoader(entries, instance)
-        val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
+        val loader = ClasspathUtilities.makeLoader(entries, scalaInstance)
+        val javaInstance = getPlatformJava(project)
+        val compiler = state.compilerCache.get(javaInstance, scalaInstance).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         // We should by all means add better error handling here!
@@ -70,6 +72,13 @@ object Tasks {
     }
 
     state
+  }
+
+  private def getPlatformJava(project: Project): JavaInstance = {
+    project.platform match {
+      case Platform.Jvm(env, _, _) => JavaInstance(env.javaHome, env.javaOptions)
+      case _ => JavaInstance.Default
+    }
   }
 
   /**

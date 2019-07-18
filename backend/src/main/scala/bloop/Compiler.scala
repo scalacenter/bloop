@@ -35,6 +35,7 @@ import bloop.CompileMode.Sequential
 import monix.execution.ExecutionModel
 
 case class CompileInputs(
+    javaInstance: JavaInstance,
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
@@ -411,9 +412,10 @@ object Compiler {
     }
 
     val start = System.nanoTime()
+    val javaInstance = compileInputs.javaInstance
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
-    val compilers = compileInputs.compilerCache.get(scalaInstance)
+    val compilers = compileInputs.compilerCache.get(javaInstance, scalaInstance)
     val inputs = tracer.trace("creating zinc inputs")(_ => getInputs(compilers))
 
     // We don't need nanosecond granularity, we're happy with milliseconds

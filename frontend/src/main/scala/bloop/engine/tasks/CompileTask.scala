@@ -1,42 +1,26 @@
 package bloop.engine.tasks
 
-import bloop.{
-  CompileInputs,
-  CompileMode,
-  Compiler,
-  CompileOutPaths,
-  CompileProducts,
-  CompileBackgroundTasks,
-  CompileExceptions
-}
+import bloop.{CompileBackgroundTasks, CompileExceptions, CompileInputs, CompileMode, CompileOutPaths, CompileProducts, Compiler, JavaInstance}
 import bloop.cli.ExitStatus
-import bloop.data.Project
-import bloop.engine.{State, Dag, ExecutionContext, Feedback}
-import bloop.engine.caches.{ResultsCache, LastSuccessfulResult}
+import bloop.data.{Platform, Project}
+import bloop.engine.{Dag, ExecutionContext, Feedback, State}
+import bloop.engine.caches.{LastSuccessfulResult, ResultsCache}
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.{AbsolutePath, ParallelOps}
 import bloop.io.ParallelOps.CopyMode
 import bloop.tracing.BraveTracer
-import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
-import bloop.reporter.{
-  Reporter,
-  ReporterAction,
-  ReporterConfig,
-  ReporterInputs,
-  LogReporter,
-  ObservedReporter
-}
-
+import bloop.logging.{BspServerLogger, DebugFilter, Logger, LoggerAction, ObservedLogger}
+import bloop.reporter.{LogReporter, ObservedReporter, Reporter, ReporterAction, ReporterConfig, ReporterInputs}
 import java.util.UUID
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.exec.JavaEnv
 import monix.eval.Task
 import monix.execution.CancelableFuture
-import monix.reactive.{Observer, Observable, MulticastStrategy}
-
+import monix.reactive.{MulticastStrategy, Observable, Observer}
 import sbt.internal.inc.AnalyzingCompiler
-import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
+import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
 
 import scala.concurrent.Promise
 import bloop.io.Paths
@@ -104,7 +88,7 @@ object CompileTask {
           }
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
-        case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
+        case Right(CompileSourcesAndInstance(sources, scalaInstance, javaOnly)) =>
           val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
           val newClassesDir = compileOut.internalNewClassesDir
@@ -125,7 +109,7 @@ object CompileTask {
           val newScalacOptions = {
             CompilerPluginWhitelist
               .enableCachingInScalacOptions(
-                instance.version,
+                scalaInstance.version,
                 configuration.scalacOptions,
                 logger,
                 compileProjectTracer,
@@ -133,9 +117,14 @@ object CompileTask {
               )
           }
 
+          val javaInstance = project.platform match {
+            case Platform.Jvm(env, _, _) => JavaInstance(env.javaHome, env.javaOptions)
+            case _ => JavaInstance.Default
+          }
           val inputs = newScalacOptions.map { newScalacOptions =>
             CompileInputs(
-              instance,
+              javaInstance,
+              scalaInstance,
               state.compilerCache,
               sources.toArray,
               classpath,

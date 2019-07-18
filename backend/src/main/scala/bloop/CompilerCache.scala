@@ -42,27 +42,26 @@ final class CompilerCache(
     userResolvers: List[Resolver]
 ) {
 
-  private val cache = new ConcurrentHashMap[ScalaInstance, Compilers]()
+  private case class CacheKey(javaInstance: JavaInstance, scalaInstance: ScalaInstance)
 
-  def get(scalaInstance: ScalaInstance): Compilers =
-    cache.computeIfAbsent(scalaInstance, newCompilers)
+  private val cache = new ConcurrentHashMap[CacheKey, Compilers]()
+
+  def get(javaInstance: JavaInstance, scalaInstance: ScalaInstance): Compilers = {
+    val key = CacheKey(javaInstance, scalaInstance)
+    cache.computeIfAbsent(key, newCompilers)
+  }
 
   private[bloop] def duplicateWith(logger: Logger): CompilerCache =
     new CompilerCache(componentProvider, retrieveDir, logger, userResolvers)
 
-  private val compileJavaHomeKey = "bloop.compilation.java-home"
-  private val compileJavaHome = Option(System.getProperty(compileJavaHomeKey))
-  private def newCompilers(scalaInstance: ScalaInstance): Compilers = {
-    val scalaCompiler = getScalaCompiler(scalaInstance, componentProvider)
-    val javaCompiler = {
-      compileJavaHome
-        .flatMap(javaHome => getForkedJavaCompiler(javaHome))
-        .orElse {
-          Option(javax.tools.ToolProvider.getSystemJavaCompiler)
-            .map(compiler => new BloopJavaCompiler(compiler))
-        }
-        .getOrElse(new BloopForkedJavaCompiler(None))
-    }
+  private def newCompilers(key: CacheKey): Compilers = {
+    val scalaCompiler = getScalaCompiler(key.scalaInstance, componentProvider)
+    val javaCompiler = getForkedJavaCompiler(key.javaInstance.javaHome.toString)
+      .orElse {
+        Option(javax.tools.ToolProvider.getSystemJavaCompiler)
+          .map(compiler => new BloopJavaCompiler(compiler))
+      }
+      .getOrElse(new BloopForkedJavaCompiler(None))
 
     val javaDoc = Javadoc.local.getOrElse(Javadoc.fork())
     val javaTools = JavaTools(javaCompiler, javaDoc)
@@ -98,7 +97,7 @@ final class CompilerCache(
       logger.debug(s"Instantiating a Java compiler from $javaHome")(DebugFilter.Compilation)
       Some(new BloopForkedJavaCompiler(Some(homeFile)))
     } else {
-      logger.warn(s"Ignoring non-existing Java home $compileJavaHome, using default")
+      logger.warn(s"Ignoring non-existing Java home $javaHome, using default")
       None
     }
   }
