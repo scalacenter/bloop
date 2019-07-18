@@ -43,7 +43,7 @@ final class DebugSessionLogger(
     if (msg.startsWith(ListeningMessagePrefix)) {
       if (!initialized) {
         val port = Integer.parseInt(msg.drop(ListeningMessagePrefix.length))
-        val address = new InetSocketAddress(port)
+        val address = new InetSocketAddress("localhost", port)
         listener(address)
         initialized = true
       }

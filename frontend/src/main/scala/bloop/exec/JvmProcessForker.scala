@@ -141,19 +141,11 @@ final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessF
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val address = findFreeSocketAddress
-    val jvmOptions = jargs :+ enableJDICommand(address.getHostName, address.getPort)
+    val jvmOptions = jargs :+ enableDebugInterface
     underlying.runMain(cwd, mainClass, args, jvmOptions, logger, opts, extraClasspath)
   }
 
-  private def findFreeSocketAddress: InetSocketAddress = {
-    val server = new ServerSocket(0)
-    server.close()
-    server.getLocalSocketAddress
-    new InetSocketAddress(server.getInetAddress, server.getLocalPort)
-  }
-
-  private def enableJDICommand(host: String, port: Int): String = {
-    s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,quiet=n,address=$host:$port"
+  private def enableDebugInterface: String = {
+    s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,quiet=n"
   }
 }
