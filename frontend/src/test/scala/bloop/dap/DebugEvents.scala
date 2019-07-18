@@ -11,7 +11,13 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.Promise
 
+/**
+ * Stores all received events grouped by type.
+ */
 private[dap] final class DebugEvents extends Observer[Messages.Event] {
+  private val channels = TrieMap.empty[String, Channel]
+  private var completed = false
+
   def first[A <: DebugEvent](event: DebugTestProtocol.Event[A]): Task[A] = {
     channel(event.name).first.flatMap(event.deserialize)
   }
@@ -20,10 +26,7 @@ private[dap] final class DebugEvents extends Observer[Messages.Event] {
     channel(event.name).all.flatMap(event.deserialize)
   }
 
-  private val channels = TrieMap.empty[String, Channel]
-  private var completed = false
-
-  def channel(name: String): Channel =
+  private def channel(name: String): Channel =
     channels.getOrElseUpdate(name, newChannel)
 
   override def onNext(elem: Messages.Event): Ack = {

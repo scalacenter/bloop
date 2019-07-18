@@ -84,7 +84,7 @@ object DebugProtocolSpec extends BspBaseSuite {
       """
         |object Main {
         |  def main(args: Array[String]): Unit = {
-        |    println("Non-blocking World!")
+        |    println("Non-blocking Hello!")
         |  }
         |}
     """.stripMargin
@@ -135,7 +135,7 @@ object DebugProtocolSpec extends BspBaseSuite {
           } yield output
         }
 
-        assertNoDiff(output, "Non-blocking World!")
+        assertNoDiff(output, "Non-blocking Hello!")
       }
     }
   }

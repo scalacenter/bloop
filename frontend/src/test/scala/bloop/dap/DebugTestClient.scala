@@ -1,64 +1,69 @@
 package bloop.dap
 
-import java.net.{Socket, URI}
+import java.net.URI
 
-import bloop.dap.DebugTestEndpoints._
 import com.microsoft.java.debug.core.protocol.Events
-import com.microsoft.java.debug.core.protocol.Requests._
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
 import monix.eval.Task
 import monix.execution.Scheduler
 
 /**
- * Handles the debug session by:
- *  1) forwarding the communication
- * 2) restarting the session (by terminating old session and opening a new one)
+ * Allows communication with the active debug session as well as transparent restarting of the session (see [[restart()]])
  */
 final class DebugTestClient(connect: () => DebugAdapterConnection) {
-  private var session = connect()
+
+  /**
+   * Active debug session.
+   * Gets replaced whenever test client restarts.
+   */
+  private var activeSession = connect()
+
   def initialize(): Task[Capabilities] =
-    session.initialize()
+    activeSession.initialize()
 
   def configurationDone(): Task[Unit] =
-    session.configurationDone()
+    activeSession.configurationDone()
 
   def launch(): Task[Unit] =
-    session.launch()
+    activeSession.launch()
 
   def exited: Task[Events.ExitedEvent] =
-    session.exited
+    activeSession.exited
 
   def terminated: Task[Events.TerminatedEvent] = {
-    session.terminated
+    activeSession.terminated
   }
 
   def output(expected: String): Task[String] = {
-    session.output(expected)
+    activeSession.output(expected)
   }
 
   def firstOutput: Task[String] = {
-    session.firstOutput
+    activeSession.firstOutput
   }
 
   def allOutput: Task[String] = {
-    session.allOutput
+    activeSession.allOutput
   }
 
   def disconnect(): Task[Unit] = {
-    session.disconnect(restart = false)
+    activeSession.disconnect(restart = false)
   }
 
+  /**
+   * First, disconnects from the active session and then establishes a new connection
+   */
   def restart(): Task[DebugAdapterConnection] = {
     for {
-      _ <- session.disconnect(restart = true)
+      _ <- activeSession.disconnect(restart = true)
       previousSession <- reconnect()
     } yield previousSession
   }
 
   private def reconnect(): Task[DebugAdapterConnection] = {
     Task {
-      val previousSession = session
-      session = connect()
+      val previousSession = activeSession
+      activeSession = connect()
       previousSession
     }
   }

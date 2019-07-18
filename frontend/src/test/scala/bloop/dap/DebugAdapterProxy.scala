@@ -16,10 +16,14 @@ import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 import scala.meta.jsonrpc.{BaseProtocolMessage, MessageWriter}
 
-private[dap] final class DebugSessionProxy(
+/**
+ * Handles communication with the debug adapter.
+ * Stores all events received from the session grouped by their type
+ */
+private[dap] final class DebugAdapterProxy(
     input: Observable[Messages.ProtocolMessage],
     output: Observer[Messages.ProtocolMessage]
-) {
+)(val close: () => Unit) {
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
   val events = new DebugEvents()
 
@@ -61,15 +65,15 @@ private[dap] final class DebugSessionProxy(
   }
 }
 
-private[dap] object DebugSessionProxy {
-  def apply(socket: Socket): DebugSessionProxy = {
+private[dap] object DebugAdapterProxy {
+  def apply(socket: Socket): DebugAdapterProxy = {
     val in = BaseProtocolMessage
       .fromInputStream(socket.getInputStream, null)
       .liftByOperator(Parser)
 
     val out = new Writer(BloopLanguageClient.fromOutputStream(socket.getOutputStream, null))
 
-    new DebugSessionProxy(in, out)
+    new DebugAdapterProxy(in, out)(socket.close)
   }
 
   private object Parser extends Operator[BaseProtocolMessage, Messages.ProtocolMessage] {
