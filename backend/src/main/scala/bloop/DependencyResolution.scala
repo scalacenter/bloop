@@ -45,7 +45,8 @@ object DependencyResolution {
       module: String,
       version: String,
       logger: Logger,
-      additionalRepositories: Seq[Repository] = Nil
+      additionalRepositories: Seq[Repository] = Nil,
+      shouldReportErrors: Boolean = false
   )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
     val org = coursier.Organization(organization)
@@ -62,6 +63,7 @@ object DependencyResolution {
     }
     val fetch = ResolutionProcess.fetch(repositories, Cache.default.fetch)
     val resolution = start.process.run(fetch).unsafeRun()
+    if (shouldReportErrors) reportErrors(resolution, logger)
     val localArtifacts: Seq[(Boolean, Either[ArtifactError, File])] = {
       Gather[Task]
         .gather(resolution.artifacts().map { artifact =>
@@ -81,6 +83,15 @@ object DependencyResolution {
       sys.error(
         s"Resolution of module $moduleInfo failed with:${System.lineSeparator}${prettyFileErrors}"
       )
+    }
+  }
+
+  private def reportErrors(resolution: Resolution, logger: Logger): Unit = {
+    resolution.errorCache.foreach {
+      case ((module, version), errors) =>
+        logger.displayWarningToUser(
+          s"There were issues resolving $module:$version - ${errors.mkString("; ")}." 
+        )
     }
   }
 }

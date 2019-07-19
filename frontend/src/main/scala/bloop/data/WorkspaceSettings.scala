@@ -20,7 +20,7 @@ import java.nio.file.Path
 import scala.util.Failure
 import scala.util.Success
 
-case class WorkspaceSettings(semanticDBVersion: String)
+case class WorkspaceSettings(semanticDBVersion: String, supportedScalaVersions: List[String])
 
 object WorkspaceSettings {
 
@@ -31,7 +31,9 @@ object WorkspaceSettings {
 
   def fromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
     val settingsPath = configPath.resolve(settingsFileName)
-    if (settingsPath.isFile) {
+    if (!settingsPath.isFile) {
+      None
+    } else {
       val bytes = Files.readAllBytes(settingsPath.underlying)
       logger.debug(s"Loading workspace settings from $settingsFileName")(
         DebugFilter.All
@@ -41,8 +43,6 @@ object WorkspaceSettings {
         case Left(failure) => throw failure
         case Right(json) => Option(fromJson(json))
       }
-    } else {
-      None
     }
   }
 
@@ -66,6 +66,5 @@ object WorkspaceSettings {
       case Left(failure) => throw failure
     }
   }
-
 
 }

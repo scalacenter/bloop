@@ -37,6 +37,7 @@ import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, 
 import monix.execution.Scheduler
 import ch.epfl.scala.bsp.Uri
 import io.circe.Json
+import scala.util.Try
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -363,7 +364,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       projects: List[TestProject],
       logger: RecordingLogger,
       bspClientName: String = "test-bloop-client",
-      additionalData: Option[Json] = None
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
   )(runTest: ManagedBspTestState => Unit): Unit = {
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -375,7 +376,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       configDir,
       bspLogger,
       clientName = bspClientName,
-      additionalData = additionalData
+      bloopExtraParams = bloopExtraParams
     ).withinSession(runTest(_))
   }
 
@@ -389,7 +390,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       userComputationScheduler: Option[Scheduler] = None,
       clientClassesRootDir: Option[AbsolutePath] = None,
       clientName: String = "test-bloop-client",
-      additionalData: Option[Json] = None
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
   ): UnmanagedBspTestState = {
     val compileIteration = AtomicInt(0)
     val readyToConnect = Promise[Unit]()
@@ -432,6 +433,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
       val cwd = configDirectory.underlying.getParent
+      val additionalData = Try(BloopExtraBuildParams.encoder(bloopExtraParams)).toOption
       val initializeServer = endpoints.Build.initialize.request(
         bsp.InitializeBuildParams(
           clientName,

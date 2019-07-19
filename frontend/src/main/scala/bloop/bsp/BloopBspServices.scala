@@ -112,13 +112,22 @@ final class BloopBspServices(
   private def reloadState(
       config: AbsolutePath,
       clientInfo: ClientInfo,
-      workspaceSettings: Option[WorkspaceSettings] = None
+      workspaceSettings: Option[WorkspaceSettings] = None,
+      reapplySettings: Boolean = false
   ): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
     State
-      .loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger, workspaceSettings)
+      .loadActiveStateFor(
+        config,
+        clientInfo,
+        pool,
+        defaultOpts,
+        bspLogger,
+        workspaceSettings,
+        reapplySettings
+      )
       .map { state0 =>
         /* Create a new state that has the previously compiled results in this BSP
          * client as the last compiled result available for a project. This is required
@@ -196,20 +205,25 @@ final class BloopBspServices(
 
     /* Metals specific settings that are used to store the
      * SemanticDB version that will later be applied to all
-     * projects in the workspace. If the client is Metals but 
+     * projects in the workspace. If the client is Metals but
      * the version is not specified we use `latest.release`
      */
+    val reapplySettings = extraBuildParams.map(_.reapplySettings).getOrElse(false)
     val metalsSettings =
-      if (params.displayName.contains("Metals")) {
-        val semanticDBVersion = extraBuildParams
-          .flatMap(extra => extra.semanticDBVersion)
-          .getOrElse(SemanticDBCache.latestRelease)
-        Some(WorkspaceSettings(semanticDBVersion))
-      } else {
+      if (!params.displayName.contains("Metals")) {
         None
+      } else {
+        extraBuildParams
+          .flatMap(extra => extra.semanticdbVersion)
+          .map { semanticDBVersion =>
+            WorkspaceSettings(
+              semanticDBVersion,
+              extraBuildParams.toList.flatMap(_.supportedScalaVersions)
+            )
+          }
       }
 
-    reloadState(configDir, client, metalsSettings).map { state =>
+    reloadState(configDir, client, metalsSettings, reapplySettings).map { state =>
       callSiteState.logger.info(s"request received: build/initialize")
       clientInfo.success(client)
       connectedBspClients.put(client, configDir)

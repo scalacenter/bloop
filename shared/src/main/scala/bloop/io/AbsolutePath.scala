@@ -18,11 +18,6 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
     AbsolutePath(underlying.resolve(other.underlying))(this)
   def resolve(other: String): AbsolutePath = AbsolutePath(underlying.resolve(other))(this)
   def getParent: AbsolutePath = AbsolutePath(underlying.getParent)
-
-  def list: List[AbsolutePath] =
-    Files.list(underlying).iterator().asScala.toList.map(AbsolutePath.apply)
-    
-  def name: String = underlying.getFileName().toString()
   def exists: Boolean = Files.exists(underlying)
   def isFile: Boolean = Files.isRegularFile(underlying)
   def isDirectory: Boolean = Files.isDirectory(underlying)

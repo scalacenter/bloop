@@ -73,7 +73,7 @@ object TestUtil {
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
-      buildSettings: Option[WorkspaceSettings] = None,
+      workspaceSettings: Option[WorkspaceSettings] = None,
       rootProjects: List[String] = List(RootProject),
       scalaInstance: ScalaInstance = TestUtil.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default,
@@ -82,7 +82,7 @@ object TestUtil {
       useSiteLogger: Option[Logger] = None,
       order: CompileOrder = Config.Mixed
   )(afterCompile: State => Unit = (_ => ())) = {
-    testState(structures, dependencies, buildSettings, scalaInstance, javaEnv, order) { (state: State) =>
+    testState(structures, dependencies, workspaceSettings, scalaInstance, javaEnv, order) { (state: State) =>
       def action(state0: State): Unit = {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
         // Check that this is a clean compile!
@@ -262,7 +262,7 @@ object TestUtil {
   def testState[T](
       projectStructures: Map[String, Map[String, String]],
       dependenciesMap: Map[String, Set[String]],
-      buildSettings: Option[WorkspaceSettings] = None,
+      workspaceSettings: Option[WorkspaceSettings] = None,
       instance: ScalaInstance = TestUtil.scalaInstance,
       env: JavaEnv = JavaEnv.default,
       order: CompileOrder = Config.Mixed,
@@ -276,7 +276,7 @@ object TestUtil {
           val deps = dependenciesMap.getOrElse(name, Set.empty)
           makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
       }
-      val build = Build(temp, buildSettings, projects.toList)
+      val build = Build(temp, workspaceSettings, projects.toList)
       val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
       try op(state)
       catch {

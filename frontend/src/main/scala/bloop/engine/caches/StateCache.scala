@@ -3,6 +3,7 @@ package bloop.engine.caches
 import java.util.concurrent.ConcurrentHashMap
 
 import bloop.data.ClientInfo
+import bloop.data.WorkspaceSettings
 import bloop.logging.Logger
 import bloop.cli.CommonOptions
 import bloop.engine.{Build, BuildLoader, State, ClientPool}
@@ -84,11 +85,13 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
       pool: ClientPool,
       commonOptions: CommonOptions,
       logger: Logger,
-      computeBuild: AbsolutePath => Task[State]
+      computeBuild: AbsolutePath => Task[State],
+      incomingSettings: Option[WorkspaceSettings],
+      reapplySettings: Boolean
   ): Task[State] = {
     getStateFor(from, client, pool, commonOptions, logger) match {
       case Some(state) =>
-        state.build.checkForChange(logger).flatMap {
+        state.build.checkForChange(logger, incomingSettings, reapplySettings).flatMap {
           case Build.ReturnPreviousState => Task.now(state)
           case Build.UpdateState(createdOrModified, deleted, settingsChanged) =>
             BuildLoader

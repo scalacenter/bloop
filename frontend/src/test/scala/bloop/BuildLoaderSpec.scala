@@ -10,12 +10,68 @@ import bloop.util.TestUtil
 import monix.eval.Task
 
 import bloop.testing.BaseSuite
+import bloop.data.WorkspaceSettings
+import bloop.internal.build.BuildInfo
 object BuildLoaderSpec extends BaseSuite {
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>
     testBuild.state.build.checkForChange(logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState => sys.error(s"Expected return previous state, got ${action}")
     }
+  }
+
+  testLoad("reload if forced") { (testBuild, logger) =>
+    testBuild.state.build.checkForChange(logger, reapplySettings = true).map {
+      case Build.ReturnPreviousState =>
+        sys.error(s"Expected return updated state, got previous state")
+      case action: Build.UpdateState =>
+        assert(action.createdOrModified.size == 4)
+    }
+  }
+
+  testLoad("reload if settings are added") { (testBuild, logger) =>
+    val settings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
+    testBuild.state.build
+      .checkForChange(logger, incomingSettings = Some(settings))
+      .map {
+        case Build.ReturnPreviousState =>
+          sys.error(s"Expected return updated state, got previous state")
+        case action: Build.UpdateState =>
+          assert(action.createdOrModified.size == 4)
+      }
+  }
+
+  val sameSettings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
+  testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
+    testBuild.state.build
+      .checkForChange(logger, incomingSettings = Some(sameSettings))
+      .map {
+        case Build.ReturnPreviousState => ()
+        case action: Build.UpdateState =>
+          sys.error(s"Expected return previous state, got updated state")
+      }
+  }
+
+  testLoad("reload if new settings are added", Some(sameSettings)) { (testBuild, logger) =>
+    val newSettings = WorkspaceSettings("4.1.11", List(BuildInfo.scalaVersion))
+    testBuild.state.build
+      .checkForChange(logger, incomingSettings = Some(newSettings))
+      .map {
+        case Build.ReturnPreviousState =>
+          sys.error(s"Expected return updated state, got previous state")
+        case action: Build.UpdateState =>
+          assert(action.createdOrModified.size == 4)
+      }
+  }
+
+  testLoad("do not reload on empty settings") { (testBuild, logger) =>
+    val configDir = testBuild.configFileFor(testBuild.projects.head).getParent
+    testBuild.state.build
+      .checkForChange(logger, incomingSettings = None)
+      .map {
+        case Build.ReturnPreviousState => ()
+        case action: Build.UpdateState => sys.error(s"Expected return previous state, got $action")
+      }
   }
 
   private def configurationFiles(build: TestBuild): List[AbsolutePath] = {
@@ -122,13 +178,18 @@ object BuildLoaderSpec extends BaseSuite {
     }
   }
 
-  def testLoad[T](name: String)(fun: (TestBuild, RecordingLogger) => Task[T]): Unit = {
+  def testLoad[T](name: String, settings: Option[WorkspaceSettings] = None)(
+      fun: (TestBuild, RecordingLogger) => Task[T]
+  ): Unit = {
     test(name) {
-      loadBuildState(fun)
+      loadBuildState(fun, settings)
     }
   }
 
-  def loadBuildState[T](f: (TestBuild, RecordingLogger) => Task[T]): T = {
+  def loadBuildState[T](
+      f: (TestBuild, RecordingLogger) => Task[T],
+      settings: Option[WorkspaceSettings] = None
+  ): T = {
     TestUtil.withinWorkspace { workspace =>
       import bloop.util.TestProject
       val logger = new RecordingLogger(ansiCodesSupported = false)
@@ -137,7 +198,7 @@ object BuildLoaderSpec extends BaseSuite {
       val c = TestProject(workspace, "c", Nil)
       val d = TestProject(workspace, "d", Nil)
       val projects = List(a, b, c, d)
-      val state = loadState(workspace, projects, logger)
+      val state = loadState(workspace, projects, logger, settings)
       val configDir = state.build.origin
       val build = TestBuild(state, projects)
       TestUtil.blockOnTask(f(build, logger), 5)

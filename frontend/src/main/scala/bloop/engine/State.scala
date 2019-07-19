@@ -89,7 +89,8 @@ object State {
       pool: ClientPool,
       opts: CommonOptions,
       logger: Logger,
-      incomingSettings: Option[WorkspaceSettings] = None
+      incomingSettings: Option[WorkspaceSettings] = None,
+      reapplySettings: Boolean = false
   ): Task[State] = {
     def loadState(path: bloop.io.AbsolutePath): Task[State] = {
       BuildLoader.load(configDir, incomingSettings, logger).map {
@@ -99,7 +100,16 @@ object State {
       }
     }
 
-    val cached = State.stateCache.addIfMissing(configDir, client, pool, opts, logger, loadState(_))
+    val cached = State.stateCache.addIfMissing(
+      configDir,
+      client,
+      pool,
+      opts,
+      logger,
+      loadState(_),
+      incomingSettings,
+      reapplySettings
+    )
     cached.map(_.copy(pool = pool, client = client, commonOptions = opts, logger = logger))
   }
 

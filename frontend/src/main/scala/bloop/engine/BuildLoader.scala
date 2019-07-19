@@ -39,18 +39,21 @@ object BuildLoader {
   def loadBuildFromConfigurationFiles(
       configDir: AbsolutePath,
       configFiles: List[Build.ReadConfiguration],
-      settingsFile: Option[WorkspaceSettings],
+      incomingSettings: Option[WorkspaceSettings],
       logger: Logger
   ): Task[LoadedBuild] = {
-
+    val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, incomingSettings))
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
       DebugFilter.Compilation
     )
-    val all = configFiles.map(f => Task(loadProject(f.bytes, f.origin, logger, settingsFile)))
-    val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
-    Task
-      .sequence(groupTasks)
-      .map(fp => LoadedBuild(fp.flatten, settingsFile))
+    workspaceSettings
+      .flatMap { settings =>
+        val all = configFiles.map(f => Task(loadProject(f.bytes, f.origin, logger, settings)))
+        val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
+        Task
+          .sequence(groupTasks)
+          .map(fp => LoadedBuild(fp.flatten, settings))
+      }
       .executeOn(ExecutionContext.ioScheduler)
   }
 
@@ -66,7 +69,6 @@ object BuildLoader {
       incomingSettings: Option[WorkspaceSettings],
       logger: Logger
   ): Task[LoadedBuild] = {
-    val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, incomingSettings))
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       Task {
         val bytes = ap.path.readAllBytes
@@ -75,13 +77,11 @@ object BuildLoader {
       }
     }
 
-    workspaceSettings.flatMap { settings =>
-      Task
-        .gatherUnordered(configFiles)
-        .flatMap { fs =>
-          loadBuildFromConfigurationFiles(configDir, fs, settings, logger)
-        }
-    }
+    Task
+      .gatherUnordered(configFiles)
+      .flatMap { fs =>
+        loadBuildFromConfigurationFiles(configDir, fs, incomingSettings, logger)
+      }
   }
 
   /**
@@ -147,10 +147,9 @@ object BuildLoader {
       project: Project,
       logger: Logger
   ): Project = {
-
     def addSemanticDBOptions(pluginPath: AbsolutePath) = {
       {
-        val optionsSet = project.scalacOptions.toSet
+        val optionsSet = project.scalacOptions
         val containsSemanticDB = optionsSet.find(
           setting => setting.contains("-Xplugin") && setting.contains("semanticdb-scalac")
         )
@@ -159,9 +158,10 @@ object BuildLoader {
           logger.info(s"SemanticDB plugin already added: ${containsSemanticDB.get}")
           optionsSet
         } else {
+          val workspaceDir = project.origin.path.getParent.getParent
           optionsSet ++ Set(
             "-P:semanticdb:failures:warning",
-            s"-P:semanticdb:sourceroot:${project.baseDirectory}",
+            s"-P:semanticdb:sourceroot:$workspaceDir",
             "-P:semanticdb:synthetics:on",
             "-Xplugin-require:semanticdb",
             s"-Xplugin:$pluginPath"
@@ -170,8 +170,8 @@ object BuildLoader {
         if (containsYrangepos.isDefined) {
           semanticDBAdded
         } else {
-          semanticDBAdded + "-Yrangepos"
-        }
+          semanticDBAdded :+ "-Yrangepos"
+        }.distinct
       }
     }
 
@@ -179,12 +179,13 @@ object BuildLoader {
       scalaInstance <- project.scalaInstance
       pluginPath <- SemanticDBCache.findSemanticDBPlugin(
         scalaInstance.version,
+        settings.supportedScalaVersions,
         settings.semanticDBVersion,
         logger
       )
     } yield {
       val scalacOptions = addSemanticDBOptions(pluginPath)
-      project.copy(scalacOptions = scalacOptions.toList)
+      project.copy(scalacOptions = scalacOptions)
     }
     mappedProject.getOrElse(project)
   }

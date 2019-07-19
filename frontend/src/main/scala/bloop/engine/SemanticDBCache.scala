@@ -16,56 +16,73 @@ import sbt.internal.inc.IfMissing
 import scala.util.Failure
 import scala.util.Success
 import bloop.ComponentLock
+import bloop.SemanticDBCacheLock
 
 object SemanticDBCache {
 
-  val latestRelease = "latest.release"
-
-  private object SemanticDBCacheLock extends ComponentLock
-  private val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
-  private val zincComponentManager =
-    new ZincComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
+  private val latestRelease = "latest.release"
 
   def findSemanticDBPlugin(
       scalaVersion: String,
+      supportedScalaVersion: List[String],
       semanticDBVersion: String,
       logger: Logger
   ): Option[AbsolutePath] = {
-    Try {
-      resolveCache(
-        "org.scalameta",
-        s"semanticdb-scalac_$scalaVersion",
-        semanticDBVersion,
-        logger
-      )(bloop.engine.ExecutionContext.ioScheduler)
-    }.toOption.flatten
+    if (!supportedScalaVersion.contains(scalaVersion)) {
+      logger.displayWarningToUser(
+        s"$scalaVersion is not supported for semanticDB version $semanticDBVersion"
+      )
+      None
+    } else
+      Try {
+        resolveFromCache(
+          "org.scalameta",
+          s"semanticdb-scalac_$scalaVersion",
+          semanticDBVersion,
+          logger
+        )
+      }.toOption.flatten
+
   }
 
-  private def resolveCache(
+  private def resolveFromCache(
       organization: String,
       module: String,
       version: String,
       logger: Logger,
       additionalRepositories: Seq[Repository] = Nil
-  )(implicit ec: scala.concurrent.ExecutionContext): Option[AbsolutePath] = {
-
+  ): Option[AbsolutePath] = {
+    val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
+    val manager =
+      new ZincComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
     def getFromResolution: Option[AbsolutePath] = {
-      DependencyResolution
-        .resolve(organization, module, version, logger, additionalRepositories)
-        .find(_.toString().contains("semanticdb-scalac"))
+      val all = DependencyResolution
+        .resolve(
+          organization,
+          module,
+          version,
+          logger,
+          additionalRepositories,
+          shouldReportErrors = true
+        )(
+          bloop.engine.ExecutionContext.ioScheduler
+        )
+      all.find(_.toString().contains("semanticdb-scalac"))
     }
     if (version == latestRelease) {
       getFromResolution
     } else {
       val semanticDBId = s"$organization.$module.$version"
-      Try(zincComponentManager.file(semanticDBId)(IfMissing.Fail)) match {
+      Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
         case Failure(exception) =>
           val resolved = getFromResolution
           resolved match {
-            case None =>
-              logger.warn("Could not find semanticDB version:\n" + exception.getMessage())
             case Some(value) =>
-              zincComponentManager.define(semanticDBId, Seq(value.toFile))
+              manager.define(semanticDBId, Seq(value.toFile))
+            case None =>
+              logger.warn(
+                s"Could not resolve semanticDB version $version"
+              )
           }
           resolved
         case Success(value) => Some(AbsolutePath(value))

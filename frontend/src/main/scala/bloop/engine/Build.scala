@@ -30,16 +30,26 @@ final case class Build private (
    * @param logger A logger that receives errors, if any.
    * @return The status of the directory from which the build was loaded.
    */
-  def checkForChange(logger: Logger): Task[Build.ReloadAction] = {
+  def checkForChange(
+      logger: Logger,
+      incomingSettings: Option[WorkspaceSettings] = None,
+      reapplySettings: Boolean = false
+  ): Task[Build.ReloadAction] = {
     val files = projects.iterator.map(p => p.origin.toAttributedPath).toSet
     val newFiles = BuildLoader.readConfigurationFilesInBase(origin, logger).toSet
 
-    val loadedSettings = WorkspaceSettings.fromFile(origin, logger)
-    val sameSettings = loadedSettings == settings
-
+    def relevantChange(workspaceSettings: WorkspaceSettings) =
+      (workspaceSettings.semanticDBVersion, workspaceSettings.supportedScalaVersions)
+    val changedSettings = reapplySettings ||
+      (incomingSettings.nonEmpty &&
+        settings.map(relevantChange) != incomingSettings.map(relevantChange))
+    if (reapplySettings) {
+      logger.info(s"Forcing reload of all projects")
+    }
     // This is the fast path to short circuit quickly if they are the same
-    if (newFiles == files && sameSettings) Task.now(Build.ReturnPreviousState)
-    else {
+    if (newFiles == files && !changedSettings) {
+      Task.now(Build.ReturnPreviousState)
+    } else {
       val filesToAttributed = projects.iterator.map(p => p.origin.path -> p).toMap
       // There has been at least either one addition, one removal or one change in a file time
       val newOrModifiedConfigurations = newFiles.map { f =>
@@ -51,6 +61,7 @@ final case class Build private (
           }
 
           filesToAttributed.get(f.path) match {
+            case _ if changedSettings => List(configuration)
             case Some(p) if p.origin.hash == configuration.origin.hash => Nil
             case _ => List(configuration)
           }
@@ -61,9 +72,9 @@ final case class Build private (
       Task.gatherUnordered(newOrModifiedConfigurations).map(_.flatten).map { newOrModified =>
         val newToAttributed = newFiles.iterator.map(ap => ap.path -> ap).toMap
         val deleted = files.toList.collect { case f if !newToAttributed.contains(f.path) => f.path }
-        (newOrModified, deleted) match {
-          case (Nil, Nil) => Build.ReturnPreviousState
-          case _ => Build.UpdateState(newOrModified, deleted, loadedSettings)
+        (newOrModified, deleted, changedSettings) match {
+          case (Nil, Nil, false) => Build.ReturnPreviousState
+          case _ => Build.UpdateState(newOrModified, deleted, incomingSettings)
         }
       }
     }
@@ -76,7 +87,7 @@ object Build {
   case class UpdateState(
       createdOrModified: List[ReadConfiguration],
       deleted: List[AbsolutePath],
-      settingsChanged: Option[WorkspaceSettings]
+      changedSetings: Option[WorkspaceSettings]
   ) extends ReloadAction
 
   /** A configuration file is a combination of an absolute path and a file time. */

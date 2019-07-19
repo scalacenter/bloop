@@ -106,19 +106,20 @@ class BspProtocolSpec(
 
       val extraBloopParams = BloopExtraBuildParams(
         Some(Uri(userClientClassesRootDir.toBspUri)),
-        semanticDBVersion = None
+        semanticdbVersion = None,
+        supportedScalaVersions = Nil,
+        reapplySettings = false
       )
-      val initializeData = BloopExtraBuildParams.encoder(extraBloopParams)
 
       // Start first client and query for scalac options which creates client classes dirs
-      loadBspState(workspace, projects, logger, additionalData = Some(initializeData)) { bspState =>
+      loadBspState(workspace, projects, logger, bloopExtraParams = extraBloopParams) { bspState =>
         val (_, options) = bspState.scalaOptions(`A`)
         firstScalacOptions = options.items
         firstScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
       }
 
       // Start second client and query for scalac options which should use same dirs as before
-      loadBspState(workspace, projects, logger, additionalData = Some(initializeData)) { bspState =>
+      loadBspState(workspace, projects, logger, bloopExtraParams = extraBloopParams) { bspState =>
         val (_, options) = bspState.scalaOptions(`A`)
         secondScalacOptions = options.items
         secondScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
