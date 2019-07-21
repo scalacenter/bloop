@@ -6,7 +6,7 @@ import java.nio.file.Paths
 import java.nio.file.Files
 
 import bloop.config.Config
-import bloop.config.Config.{JvmConfig, Platform}
+import bloop.config.Config.{JvmConfig, Platform, TestArgument, TestOptions}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
@@ -23,6 +23,7 @@ import org.gradle.api.specs.Specs
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
 import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
+import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.JvmLibrary
 import org.gradle.language.base.artifact.SourcesArtifact
 import org.gradle.language.java.artifact.JavadocArtifact
@@ -207,7 +208,7 @@ final class BloopConverter(parameters: BloopParameters) {
           `scala` = scalaConfig,
           java = getJavaConfig(project, sourceSet),
           sbt = None,
-          test = getTestConfig(sourceSet),
+          test = getTestConfig(project, sourceSet),
           platform = getPlatform(project, sourceSet, isTestSourceSet),
           resolution = Some(resolution)
         )
@@ -251,10 +252,10 @@ final class BloopConverter(parameters: BloopParameters) {
     Some(Platform.Jvm(JvmConfig(jdkPath, jvmOptions), mainClass))
   }
 
-  def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {
+  def getTestConfig(project: Project, sourceSet: SourceSet): Option[Config.Test] = {
     if (sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME) {
-      // TODO: make this configurable?
-      Some(Config.Test.defaultConfiguration)
+      val testTask = project.getTask[Test]("test")
+      Some(Config.Test.defaultConfiguration(testTask.getSystemProperties.asScala))
     } else {
       None
     }

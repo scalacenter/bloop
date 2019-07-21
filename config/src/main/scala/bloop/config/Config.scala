@@ -45,9 +45,12 @@ object Config {
 
   case class Test(frameworks: List[TestFramework], options: TestOptions)
   object Test {
-    def defaultConfiguration: Test = {
-      val junit = List(Config.TestArgument(List("-v", "-a"), Some(Config.TestFramework.JUnit)))
-      Config.Test(Config.TestFramework.DefaultFrameworks, Config.TestOptions(Nil, junit))
+    def defaultConfiguration(systemProperties: Iterable[(String, Any)] = Map.empty): Test = {
+      val formattedProperties = for ((k, v) <- systemProperties.toList) yield s"-D$k=$v"
+      val junit = Config.TestArgument(List("-v", "-a") ++ formattedProperties, Some(Config.TestFramework.JUnit))
+      val scalaTest = Config.TestArgument(formattedProperties, Some(Config.TestFramework.ScalaTest))
+      val specs2 = Config.TestArgument(formattedProperties, Some(Config.TestFramework.Specs2))
+      Config.Test(Config.TestFramework.DefaultFrameworks, Config.TestOptions(Nil, List(junit, scalaTest, specs2)))
     }
   }
 
