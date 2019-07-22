@@ -4,8 +4,7 @@ import java.net.InetSocketAddress
 
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.protocol.Events.OutputEvent
-
-import scala.concurrent.Promise
+import monix.execution.atomic.Atomic
 
 /**
  * Defines a logger that forwards some events to a debug session
@@ -20,7 +19,7 @@ final class DebugSessionLogger(
     listener: InetSocketAddress => Unit,
     underlying: Logger
 ) extends Logger {
-  @volatile private var initialized = false
+  private val initialized = Atomic(false)
   override val name: String = s"${underlying.name}-debug"
 
   override def isVerbose: Boolean = underlying.isVerbose
@@ -47,11 +46,10 @@ final class DebugSessionLogger(
     import DebugSessionLogger.ListeningMessagePrefix
     // Expect the first log to be JDI notification since debuggee is running with `quiet=n` JDI option
     if (msg.startsWith(ListeningMessagePrefix)) {
-      if (!initialized) {
+      if (initialized.compareAndSet(false, true)) {
         val port = Integer.parseInt(msg.drop(ListeningMessagePrefix.length))
         val address = new InetSocketAddress("localhost", port)
         listener(address)
-        initialized = true
       }
     } else {
       forwardToDebugClient(msg, OutputEvent.Category.stderr)
