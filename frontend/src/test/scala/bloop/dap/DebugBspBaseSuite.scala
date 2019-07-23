@@ -7,7 +7,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.BspClientLogger
 import monix.execution.Scheduler
 
-class DebugBspBaseSuite extends BspBaseSuite {
+abstract class DebugBspBaseSuite extends BspBaseSuite {
   protected val debugDefaultScheduler: Scheduler =
     TestSchedulers.async("debug-bsp-default", threads = 5)
   override def protocol: BspProtocol = BspProtocol.Local
