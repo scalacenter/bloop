@@ -5,12 +5,11 @@ import java.net.{ServerSocket, URI}
 import bloop.io.ServerHandle
 import bloop.logging.Logger
 import monix.eval.Task
-import monix.execution.{Cancelable, Scheduler}
-
-import scala.collection.mutable
-import scala.concurrent.Promise
-import monix.execution.cancelables.MultiAssignmentCancelable
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
+import monix.execution.cancelables.CompositeCancelable
+
+import scala.concurrent.Promise
 
 final class StartedDebugServer(
     val address: Task[Option[URI]],
@@ -32,32 +31,31 @@ object DebugServer {
 
     val closedServer = AtomicBoolean(false)
     val listeningPromise = Promise[Option[URI]]()
-    val ongoingSession = MultiAssignmentCancelable()
+    val ongoingSessions = CompositeCancelable()
 
     def listen(serverSocket: ServerSocket): Task[Unit] = {
-      val listenAndServeClient = Task {
-        listeningPromise.trySuccess(Some(handle.uri))
-        val socket = serverSocket.accept()
+      val session =
+        Task {
+          listeningPromise.trySuccess(Some(handle.uri))
+          val socket = serverSocket.accept()
 
-        val session = new DebugSession(socket, runner.run, logger, ioScheduler)
+          val session = DebugSession(socket, runner.run, logger, ioScheduler)
+          ongoingSessions += session
 
-        ongoingSession.:=(session)
-        session.startDebuggeeAndServer()
+          session.startDebuggeeAndServer()
+          session.exitStatus
+        }.flatten
 
-        session.exitStatus
-      }.flatten
-
-      listenAndServeClient.flatMap {
-        case DebugSession.Restarted => listen(serverSocket)
-        case DebugSession.Terminated => Task.eval(serverSocket.close())
-      }
+      session
+        .restartUntil(_ == DebugSession.Terminated)
+        .map(_ => ())
     }
 
     def closeServer(t: Option[Throwable]): Task[Unit] = {
       Task {
         if (closedServer.compareAndSet(false, true)) {
           listeningPromise.trySuccess(None)
-          ongoingSession.cancel()
+          ongoingSessions.cancel()
           try {
             handle.server.close()
           } catch {
