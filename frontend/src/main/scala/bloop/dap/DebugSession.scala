@@ -2,20 +2,23 @@ package bloop.dap
 
 import java.net.{InetSocketAddress, Socket}
 import java.util.concurrent.TimeUnit
+import java.util.logging.{Handler, Level, LogRecord, Logger => JLogger}
 
-import monix.execution.atomic.Atomic
+import bloop.dap.DebugSession.LoggerAdapter
+import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
 import com.microsoft.java.debug.core.protocol.Requests._
 import com.microsoft.java.debug.core.protocol.{Events, JsonUtils}
+import com.microsoft.java.debug.core.{Configuration, LoggerFactory}
 import monix.eval.Task
+import monix.execution.atomic.Atomic
 import monix.execution.{Cancelable, CancelableFuture, Scheduler}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
-import bloop.logging.Logger
 
 /**
  *  This debug adapter maintains the lifecycle of the debuggee in separation from JDI.
@@ -28,8 +31,14 @@ final class DebugSession(
     socket: Socket,
     startDebuggee: DebugSessionLogger => Task[Unit],
     initialLogger: Logger,
-    ioScheduler: Scheduler
-) extends DapServer(socket.getInputStream, socket.getOutputStream, DebugExtensions.newContext)
+    ioScheduler: Scheduler,
+    loggerAdapter: LoggerAdapter
+) extends DapServer(
+      socket.getInputStream,
+      socket.getOutputStream,
+      DebugExtensions.newContext,
+      DebugSession.loggerFactory(loggerAdapter)
+    )
     with Cancelable {
   private type LaunchId = Int
 
@@ -179,6 +188,16 @@ object DebugSession {
   final case object Restarted extends ExitStatus
   final case object Terminated extends ExitStatus
 
+  def apply(
+      socket: Socket,
+      startDebuggee: DebugSessionLogger => Task[Unit],
+      initialLogger: Logger,
+      ioScheduler: Scheduler
+  ): DebugSession = {
+    val loggerAdapter = new LoggerAdapter(initialLogger)
+    new DebugSession(socket, startDebuggee, initialLogger, ioScheduler, loggerAdapter)
+  }
+
   private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {
     val arguments = new AttachArguments
     arguments.hostName = address.getHostName
@@ -200,5 +219,61 @@ object DebugSession {
     Try(JsonUtils.fromJson(disconnectRequest.arguments, classOf[DisconnectArguments]))
       .map(_.restart)
       .getOrElse(false)
+  }
+
+  private[DebugSession] def loggerFactory(handler: LoggerAdapter): LoggerFactory = { name =>
+    val logger = JLogger.getLogger(name)
+    logger.getHandlers.foreach(logger.removeHandler)
+    logger.setUseParentHandlers(false)
+
+    if (name == Configuration.LOGGER_NAME) {
+      logger.addHandler(handler)
+    }
+    logger
+  }
+
+  private[DebugSession] final class LoggerAdapter(logger: Logger) extends Handler {
+    private implicit val debugFilter: DebugFilter = DebugFilter.All
+
+    /**
+     * Debuggee tends to send a lot of SocketClosed exceptions when bloop is terminating the socket. This helps us filter those logs
+     */
+    private val cancelled = Atomic(false)
+
+    override def publish(record: LogRecord): Unit = {
+      val message = record.getMessage
+      record.getLevel match {
+        case Level.WARNING =>
+          logger.warn(message)
+        case Level.SEVERE =>
+          if (isExpectedDuringCancellation(message) || isIgnoredError(message)) {
+            logger.debug(message)
+          } else {
+            logger.error(message)
+          }
+        case Level.INFO | Level.CONFIG =>
+          logger.info(message)
+        case _ =>
+          logger.debug(message)
+      }
+    }
+
+    val socketClosed = "java.net.SocketException: Socket closed"
+    private def isExpectedDuringCancellation(message: String): Boolean = {
+      cancelled.get && message.endsWith(socketClosed)
+    }
+
+    val recordingWhenVmDisconnected =
+      "Exception on recording event: com.sun.jdi.VMDisconnectedException"
+    private def isIgnoredError(message: String): Boolean = {
+      message.startsWith(recordingWhenVmDisconnected)
+    }
+
+    def onDebuggeeCancel(): Unit = {
+      cancelled.set(true)
+    }
+
+    override def flush(): Unit = {}
+    override def close(): Unit = {}
   }
 }
