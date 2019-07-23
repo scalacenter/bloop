@@ -213,6 +213,7 @@ object DebugServerSpec extends BspBaseSuite {
       .map {
         case _: SocketTimeoutException => true
         case _: ConnectException => true
+        case ServerNotListening => true
         case e: SocketException =>
           val message = e.getMessage
           message.endsWith("(Connection refused)") || message.endsWith("(connect failed)")
