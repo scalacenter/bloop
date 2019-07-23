@@ -123,7 +123,7 @@ object MojoImplementation {
       // FORMAT: OFF
       val config = {
         val sbt = None
-        val test = Some(Config.Test.defaultConfiguration())
+        val test = Some(Config.Test.defaultConfiguration)
         val java = Some(Config.Java(mojo.getJavacArgs().asScala.toList))
         val `scala` = Some(Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(), mojo.getScalaVersion(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))

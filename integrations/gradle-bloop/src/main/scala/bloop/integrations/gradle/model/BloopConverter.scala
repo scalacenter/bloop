@@ -208,7 +208,7 @@ final class BloopConverter(parameters: BloopParameters) {
           `scala` = scalaConfig,
           java = getJavaConfig(project, sourceSet),
           sbt = None,
-          test = getTestConfig(project, sourceSet),
+          test = getTestConfig(sourceSet),
           platform = getPlatform(project, sourceSet, isTestSourceSet),
           resolution = Some(resolution)
         )
@@ -223,39 +223,47 @@ final class BloopConverter(parameters: BloopParameters) {
   }
 
   def getPlatform(project: Project, sourceSet: SourceSet, isTestSourceSet: Boolean): Option[Platform] = {
-    val forkOptions = Option(getJavaCompileOptions(project, sourceSet).getForkOptions)
-    val projectJdkPath = for {
-      fo <- forkOptions
-      javaHome <- Option(fo.getJavaHome)
-    } yield javaHome.toPath
+    val forkOptions = getJavaCompileOptions(project, sourceSet).getForkOptions
+    val projectJdkPath = Option(forkOptions.getJavaHome).map(_.toPath)
 
-    val projectJvmOptions = forkOptions.map(fo =>
-      Option(fo.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
-      Option(fo.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
-      fo.getJvmArgs.asScala.toList
-    )
+    lazy val compileJvmOptions =
+      Option(forkOptions.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
+      Option(forkOptions.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
+      forkOptions.getJvmArgs.asScala.toList
+
+    lazy val testTask = project.getTask[Test]("test")
+    lazy val testProperties =
+      for ((name, value) <- testTask.getSystemProperties.asScala.toList)
+        yield s"-D$name=$value"
+
+    lazy val testJvmOptions =
+      Option(testTask.getMinHeapSize).map(mem => s"-Xms$mem").toList ++
+      Option(testTask.getMaxHeapSize).map(mem => s"-Xmx$mem").toList ++
+      testTask.getJvmArgs.asScala.toList ++
+      testProperties
+
+    val projectJvmOptions =
+      if (isTestSourceSet) testJvmOptions
+      else compileJvmOptions
 
     val currentJDK = DefaultInstalledJdk.current()
     val defaultJdkPath = Option(currentJDK).map(_.getJavaHome.toPath)
-    val (defaultJvmOptions, mainClass) =
+    val mainClass =
       project.getConvention.findPlugin(classOf[ApplicationPluginConvention]) match {
         case appPluginConvention: ApplicationPluginConvention if !isTestSourceSet =>
-          val mainClass = Option(appPluginConvention.getMainClassName)
-          val options = appPluginConvention.getApplicationDefaultJvmArgs.asScala.toList
-          (options, mainClass)
+          Option(appPluginConvention.getMainClassName)
         case _ =>
-          (Nil, None)
+          None
       }
 
     val jdkPath = projectJdkPath.orElse(defaultJdkPath)
-    val jvmOptions = projectJvmOptions.getOrElse(defaultJvmOptions)
-    Some(Platform.Jvm(JvmConfig(jdkPath, jvmOptions), mainClass))
+    Some(Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass))
   }
 
-  def getTestConfig(project: Project, sourceSet: SourceSet): Option[Config.Test] = {
+  def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {
     if (sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME) {
-      val testTask = project.getTask[Test]("test")
-      Some(Config.Test.defaultConfiguration(testTask.getSystemProperties.asScala))
+      // TODO: make this configurable?
+      Some(Config.Test.defaultConfiguration)
     } else {
       None
     }

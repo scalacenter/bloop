@@ -972,6 +972,9 @@ abstract class ConfigGenerationSuite {
          |apply plugin: 'bloop'
          |
          |test.systemProperty("property", "value")
+         |test.jvmArgs = ["-XX:+UseG1GC", "-verbose:gc"]
+         |test.minHeapSize = "1g"
+         |test.maxHeapSize = "2g"
          |
       """.stripMargin
     )
@@ -992,8 +995,11 @@ abstract class ConfigGenerationSuite {
     val projectFile = new File(bloopDir, s"${projectName}-test.json")
     val projectConfig = readValidBloopConfig(projectFile)
     assert(projectConfig.project.test.isDefined)
-    val test = projectConfig.project.test.get
-    assert(test.options.arguments.exists(_.args.contains("-Dproperty=value")))
+    val platform = projectConfig.project.platform
+    assert(platform.isDefined)
+    assert(platform.get.isInstanceOf[Platform.Jvm])
+    val config = platform.get.asInstanceOf[Platform.Jvm].config
+    assert(config.options.toSet == Set("-XX:+UseG1GC", "-verbose:gc", "-Xms1g", "-Xmx2g", "-Dproperty=value"))
   }
 
 
