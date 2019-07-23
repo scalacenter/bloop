@@ -60,7 +60,7 @@ object DebugServer {
             handle.server.close()
           } catch {
             case e: Exception =>
-              logger.error(
+              logger.warn(
                 s"Could not close debug server listening on [${handle.uri} due to: ${e.getMessage}]"
               )
           }

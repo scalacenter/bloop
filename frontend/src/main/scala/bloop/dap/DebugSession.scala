@@ -169,7 +169,15 @@ final class DebugSession(
         .map(_ => DebugSession.disconnectRequest(DebugSession.InternalRequestId))
         .foreachL(dispatchRequest)
         .doOnFinish(_ => Task(socket.close()))
-        .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(socket.close()))
+        .timeoutTo(
+          FiniteDuration(5, TimeUnit.SECONDS),
+          Task {
+            initialLogger.warn(
+              "Could not close the debug adapter gracefully. It will be terminated forcefully."
+            )
+            socket.close()
+          }
+        )
         .runAsync(ioScheduler)
       ()
     }
