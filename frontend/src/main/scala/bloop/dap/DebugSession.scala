@@ -36,7 +36,7 @@ final class DebugSession(
   // A set of all processed launched requests by the client
   private val launchedRequests = mutable.Set.empty[LaunchId]
 
-  private val debuggeeExited = Promise[Unit]()
+  private val communicationDone = Promise[Unit]()
   private val debugAddress = Promise[InetSocketAddress]()
   private val exitStatusPromise = Promise[DebugSession.ExitStatus]()
 
@@ -73,9 +73,14 @@ final class DebugSession(
           isCancelled
         }
 
-        try super.run()
-        finally {
+        try {
+          super.run()
+        } finally {
           exitStatusPromise.trySuccess(DebugSession.Terminated); ()
+          Task
+            .fromFuture(communicationDone.future)
+            .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(()))
+            .runOnComplete(_ => socket.close())(ioScheduler)
         }
       }
     })
@@ -97,7 +102,7 @@ final class DebugSession(
           exitStatusPromise.trySuccess(DebugSession.Restarted)
         }
 
-        runningDebuggee.get.cancel()
+        cancelDebuggee()
         super.dispatchRequest(request)
 
       case _ => super.dispatchRequest(request)
@@ -112,20 +117,34 @@ final class DebugSession(
         response.command = Command.LAUNCH.getName
         super.sendResponse(response)
       case "disconnect" if requestId == DebugSession.InternalRequestId =>
-        // Request sent by the session itself, don't return to client
-        socket.close()
-      case _ => super.sendResponse(response)
+        // Request sent by the session itself, don't send response to the client
+        // cannot close the socket here - still have some events to send
+        logger.info("Disconnected from the debuggee")
+      case _ =>
+        super.sendResponse(response)
     }
   }
 
   override def sendEvent(event: Events.DebugEvent): Unit = {
-    if (event.`type` == "exited") {
-      debuggeeExited.success(())
+    try {
+      super.sendEvent(event)
+    } finally {
+      if (event.`type` == "exited") {
+        communicationDone.success(())
+        // cannot close the socket here - communication should now terminate on its own
+      }
     }
-
-    super.sendEvent(event)
   }
 
+  /**
+   * Completed, once this session exit status can be determined.
+   * Those are: [[DebugSession.Terminated]] and [[DebugSession.Restarted]].
+   * <p>Session gets the Terminated status when the communication stops without
+   * the client ever requesting a restart.</p>
+   * <p>Session becomes Restarted immediately when the restart request is received.
+   * Note that the debuggee is still running and the communication with the client continues
+   * (i.e. sending terminated and exited events).</p>
+   */
   def exitStatus: Task[DebugSession.ExitStatus] = {
     Task.fromFuture(exitStatusPromise.future)
   }
@@ -135,9 +154,9 @@ final class DebugSession(
    */
   def cancel(): Unit = {
     if (isCancelled.compareAndSet(false, true)) {
-      runningDebuggee.get.cancel()
+      cancelDebuggee()
       Task
-        .fromFuture(debuggeeExited.future)
+        .fromFuture(communicationDone.future)
         .map(_ => DebugSession.disconnectRequest(DebugSession.InternalRequestId))
         .foreachL(dispatchRequest)
         .doOnFinish(_ => Task(socket.close()))
@@ -147,6 +166,10 @@ final class DebugSession(
     }
   }
 
+  private def cancelDebuggee(): Unit = {
+    loggerAdapter.onDebuggeeCancel()
+    runningDebuggee.get.cancel()
+  }
 }
 
 object DebugSession {
@@ -173,7 +196,7 @@ object DebugSession {
     new Request(seq, Command.DISCONNECT.getName, json.getAsJsonObject)
   }
 
-  def shouldRestart(disconnectRequest: Request): Boolean = {
+  private[DebugSession] def shouldRestart(disconnectRequest: Request): Boolean = {
     Try(JsonUtils.fromJson(disconnectRequest.arguments, classOf[DisconnectArguments]))
       .map(_.restart)
       .getOrElse(false)
