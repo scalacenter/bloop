@@ -102,11 +102,7 @@ object DebugServerSpec extends BspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
-            _ <- client.disconnect(restart = false)
-            clientClosed <- awaitClosed(client)
-          } yield {
-            assert(clientClosed)
-          }
+          } yield ()
 
           TestUtil.await(5, SECONDS)(test)
         }
