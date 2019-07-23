@@ -1,35 +1,23 @@
 package bloop.bsp
 
 import java.net.URI
+import java.nio.file.Files
+import java.util.concurrent.{ConcurrentHashMap, ExecutionException, TimeUnit}
 
-import bloop.cli.Commands
 import bloop.TestSchedulers
-import bloop.testing.BaseSuite
-import bloop.dap.DebugTestClient
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import bloop.cli.{Commands, CommonOptions, Validate, CliOptions, BspProtocol}
-import bloop.data.{Project, ClientInfo}
-import bloop.engine.{State, Run, ExecutionContext}
-import bloop.engine.caches.ResultsCache
+import bloop.cli.{BspProtocol, Commands}
+import bloop.dap.DebugTestClient
+import bloop.engine.{ExecutionContext, State}
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspClientLogger, DebugFilter, Logger, RecordingLogger, Slf4jAdapter}
-import bloop.util.{CrossPlatform, TestProject, TestUtil}
-
+import bloop.logging.{BspClientLogger, RecordingLogger}
+import bloop.testing.BaseSuite
+import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.{DebugSessionAddress, endpoints, Uri}
-
+import ch.epfl.scala.bsp.{DebugSessionAddress, Uri, endpoints}
+import io.circe.Json
 import monix.eval.Task
-import monix.reactive.observers.BufferedSubscriber
-import monix.reactive.subjects.ConcurrentSubject
-import monix.reactive.{MulticastStrategy, Observable, Observer}
-import monix.execution.{CancelableFuture, ExecutionModel, Scheduler}
-import monix.execution.atomic.{Atomic, AtomicInt}
-
-import sbt.internal.util.MessageOnlyException
-import java.nio.file.Files
-import java.util.concurrent.{ConcurrentHashMap, ExecutionException, ThreadFactory, TimeUnit}
-
 import monix.execution.atomic.AtomicInt
 import monix.execution.{CancelableFuture, Scheduler}
 import monix.reactive.Observable
@@ -38,8 +26,6 @@ import monix.reactive.subjects.ConcurrentSubject
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.BaseProtocolMessage
-
-import io.circe.Json
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -336,7 +322,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
-  private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 8)
+  private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 4)
 
   /** The protocol to use for the inheriting test suite. */
   def protocol: BspProtocol

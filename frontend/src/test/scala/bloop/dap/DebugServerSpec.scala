@@ -4,7 +4,6 @@ import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
-import bloop.TestSchedulers
 import bloop.bsp.BspBaseSuite
 import bloop.cli.BspProtocol
 import bloop.logging.RecordingLogger
@@ -14,17 +13,13 @@ import monix.eval.Task
 import monix.execution.Cancelable
 
 import scala.annotation.tailrec
-import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
 
 object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
-  private val scheduler = TestSchedulers.async("debug-server", 4)
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
-
-  private val servers = TrieMap.empty[StartedDebugServer, Cancelable]
 
   test("closes server connection") {
     startDebugServer(Task.now(())) { server =>
@@ -252,7 +247,7 @@ object DebugServerSpec extends BspBaseSuite {
 
   def startDebugServer(runner: DebuggeeRunner)(f: TestServer => Any): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
-    val server = DebugServer.start(runner, logger, scheduler)
+    val server = DebugServer.start(runner, logger, defaultScheduler)
 
     val testServer = new TestServer(server)
     val test = Task(f(testServer))
@@ -269,7 +264,7 @@ object DebugServerSpec extends BspBaseSuite {
   private final class TestServer(val server: StartedDebugServer)
       extends Cancelable
       with AutoCloseable {
-    private val task = server.listen.runAsync(scheduler)
+    private val task = server.listen.runAsync(defaultScheduler)
     private val clients = mutable.Set.empty[DebugAdapterConnection]
 
     override def cancel(): Unit = {
@@ -290,7 +285,7 @@ object DebugServerSpec extends BspBaseSuite {
     def connect: Task[DebugAdapterConnection] = {
       server.address.flatMap {
         case Some(uri) =>
-          val connection = DebugAdapterConnection.connectTo(uri)(scheduler)
+          val connection = DebugAdapterConnection.connectTo(uri)(defaultScheduler)
           clients += connection
           Task(connection)
         case None =>

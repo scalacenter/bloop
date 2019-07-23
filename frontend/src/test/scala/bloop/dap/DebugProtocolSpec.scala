@@ -2,12 +2,11 @@ package bloop.dap
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.bsp.BspBaseSuite
 import bloop.cli.BspProtocol
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 
-object DebugProtocolSpec extends BspBaseSuite {
+object DebugProtocolSpec extends DebugBspBaseSuite {
   override val protocol: BspProtocol = BspProtocol.Local
 
   test("starts a debug session") {
