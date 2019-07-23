@@ -1,6 +1,8 @@
 package bloop.dap
-import java.net.{ConnectException, URI}
+import java.net.{ConnectException, SocketException, SocketTimeoutException}
+import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
 import bloop.TestSchedulers
 import bloop.bsp.BspBaseSuite
@@ -13,38 +15,51 @@ import monix.execution.Cancelable
 
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
-import scala.util.{Failure, Try}
 
 object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
-  private val scheduler = TestSchedulers.async("debug-server", 8)
+  private val scheduler = TestSchedulers.async("debug-server", 4)
+  private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
 
   private val servers = TrieMap.empty[StartedDebugServer, Cancelable]
-  private def logger = new RecordingLogger(ansiCodesSupported = false)
 
   test("closes server connection") {
-    val runner: DebuggeeRunner = _ => Task.now(())
-    val server = DebugServer.start(runner, logger, scheduler)
+    startDebugServer(Task.now(())) { server =>
+      val test = for {
+        _ <- Task(server.cancel())
+        serverClosed <- awaitClosed(server)
+      } yield {
+        assert(serverClosed)
+      }
 
-    val test = for {
-      uri <- listenTo(server)
-      _ <- stop(server)
-      couldNotConnect <- Task(await(connectionRefused(uri)))
-    } yield {
-      assert(couldNotConnect)
+      TestUtil.await(5, SECONDS)(test)
     }
-
-    TestUtil.await(5, TimeUnit.SECONDS)(test)
   }
 
-  test("closes active sessions when closed") {
+  test("closes client connection") {
+    startDebugServer(Task.now(())) { server =>
+      val test = for {
+        client <- server.connect
+        _ <- Task(server.cancel())
+        clientClosed <- awaitClosed(client)
+      } yield {
+        assert(clientClosed)
+      }
+
+      TestUtil.await(10, SECONDS)(test)
+    }
+  }
+
+  test("sends exit and terminated events when cancelled") {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
            |object Main {
            |  def main(args: Array[String]): Unit = {
-           |    while(true) sleep(10000) // block for all eternity
+           |    synchronized(wait())  // block for all eternity
            |  }
            |}
            |""".stripMargin
@@ -54,28 +69,28 @@ object DebugServerSpec extends BspBaseSuite {
 
       loadBspState(workspace, List(project), logger) { state =>
         val runner = runMain(project, state)
-        val server = DebugServer.start(runner, logger, scheduler)
 
-        val test = for {
-          uri <- listenTo(server)
-          client = connectToDebugAdapter(uri)
-          _ <- client.initialize()
-          _ <- client.launch()
-          _ <- client.configurationDone()
-          _ <- stop(server)
-          _ <- client.exited
-          _ <- client.terminated
-          isClosed <- Task(await(client.socket.isClosed))
-        } yield {
-          assert(isClosed)
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.connect
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.configurationDone()
+            _ <- Task(server.cancel())
+            _ <- client.terminated
+            _ <- client.exited
+            clientClosed <- awaitClosed(client)
+          } yield {
+            assert(clientClosed)
+          }
+
+          TestUtil.await(10, SECONDS)(test)
         }
-
-        TestUtil.await(5, TimeUnit.SECONDS)(test)
       }
     }
   }
 
-  test("sends exit and terminate events when cannot run debuggee") {
+  test("sends exit and terminated events when cannot run debuggee") {
     TestUtil.withinWorkspace { workspace =>
       // note that there is nothing that can be run (no sources)
       val project = TestProject(workspace, "p", Nil)
@@ -83,151 +98,137 @@ object DebugServerSpec extends BspBaseSuite {
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, List(project), logger) { state =>
         val runner = runMain(project, state)
-        val server = DebugServer.start(runner, logger, scheduler)
 
-        val test = for {
-          uri <- listenTo(server)
-          client = connectToDebugAdapter(uri)
-          _ <- client.initialize()
-          _ <- client.launch()
-          _ <- client.configurationDone()
-          _ <- client.exited
-          _ <- client.terminated
-          _ <- client.disconnect(restart = false)
-          isClosed <- Task(await(client.socket.isClosed))
-        } yield {
-          assert(isClosed)
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.connect
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- client.disconnect(restart = false)
+            clientClosed <- awaitClosed(client)
+          } yield {
+            assert(clientClosed)
+          }
+
+          TestUtil.await(5, SECONDS)(test)
         }
-
-        TestUtil.await(5, TimeUnit.SECONDS)(test)
       }
     }
   }
 
   test("does not accept a connection unless the previous session requests a restart") {
-    val runner: DebuggeeRunner = _ => Task.now(())
-    val server = DebugServer.start(runner, logger, scheduler)
-
-    val test = for {
-      uri <- listenTo(server)
-      firstClient <- Task(connectToDebugAdapter(uri))
-      secondClient <- Task(connectToDebugAdapter(uri))
-      beforeRestart = Try(TestUtil.await(1, TimeUnit.SECONDS)(secondClient.initialize()))
-      _ <- firstClient.disconnect(restart = true)
-      afterRestart = Try(TestUtil.await(100, TimeUnit.MILLISECONDS)(secondClient.initialize()))
-      _ <- stop(server)
-    } yield {
-      val firstTryFailedToConnect = beforeRestart match {
-        case Failure(_: TimeoutException) => true
-        case _ => false
+    startDebugServer(Task.now(())) { server =>
+      val test = for {
+        firstClient <- server.connect
+        secondClient <- server.connect
+        requestBeforeRestart <- secondClient.initialize().timeout(FiniteDuration(1, SECONDS)).failed
+        _ <- firstClient.disconnect(restart = true)
+        _ <- secondClient.initialize().timeout(FiniteDuration(100, MILLISECONDS))
+      } yield {
+        assert(requestBeforeRestart.isInstanceOf[TimeoutException])
       }
-      assert(firstTryFailedToConnect, afterRestart.isSuccess)
-    }
 
-    TestUtil.await(5, TimeUnit.SECONDS)(test)
+      TestUtil.await(5, SECONDS)(test)
+    }
   }
 
-  test("restarting closes client and debuggee") {
-    val canceled = Promise[Boolean]()
-    val runner: DebuggeeRunner = _ =>
-      Task
-        .fromFuture(canceled.future)
-        .map(_ => ())
-        .doOnCancel(Task(canceled.success(true)))
+  test("restarting closes current client and debuggee") {
+    val cancelled = Promise[Boolean]()
+    val awaitCancellation = Task
+      .fromFuture(cancelled.future)
+      .doOnFinish(_ => Task(cancelled.success(false)))
+      .doOnCancel(Task(cancelled.success(true)))
 
-    val server = DebugServer.start(runner, logger, scheduler)
+    startDebugServer(awaitCancellation) { server =>
+      val test = for {
+        firstClient <- server.connect
+        _ <- firstClient.initialize()
+        _ <- firstClient.disconnect(restart = true)
+        secondClient <- server.connect
+        debuggeeCanceled <- Task.fromFuture(cancelled.future)
+        firstClientClosed <- awaitClosed(firstClient)
+        secondClientClosed <- awaitClosed(secondClient)
+          .timeoutTo(FiniteDuration(1, SECONDS), Task(false))
+      } yield {
+        // second client should remain unaffected
+        assert(debuggeeCanceled, firstClientClosed, !secondClientClosed)
+      }
 
-    val test = for {
-      uri <- listenTo(server)
-      firstClient = connectToDebugAdapter(uri)
-      _ <- firstClient.disconnect(restart = true)
-      secondClient = connectToDebugAdapter(uri)
-      debuggeeCanceled <- Task.fromFuture(canceled.future)
-      firstClientClosed <- Task(await(firstClient.socket.isClosed))
-      secondClientStillConnected = Try(
-        TestUtil.await(1, TimeUnit.SECONDS)(Task(await(secondClient.socket.isClosed)))
-      ).isFailure
-    } yield {
-      assert(debuggeeCanceled, firstClientClosed, secondClientStillConnected)
+      TestUtil.await(15, TimeUnit.SECONDS)(test)
     }
-
-    TestUtil.await(5, TimeUnit.SECONDS)(test)
   }
 
   test("disconnecting closes server, client and debuggee") {
-    val canceled = Promise[Boolean]()
-    val runner: DebuggeeRunner = _ =>
-      Task
-        .fromFuture(canceled.future)
-        .doOnCancel(Task(canceled.success(true)))
-        .map(_ => ())
+    val cancelled = Promise[Boolean]()
+    val awaitCancellation = Task
+      .fromFuture(cancelled.future)
+      .doOnFinish(_ => Task(cancelled.success(false)))
+      .doOnCancel(Task(cancelled.success(true)))
 
-    val server = DebugServer.start(runner, logger, scheduler)
+    startDebugServer(awaitCancellation) { server =>
+      val test = for {
+        client <- server.connect
+        _ <- client.disconnect(restart = false)
+        debuggeeCanceled <- Task.fromFuture(cancelled.future)
+        clientClosed <- awaitClosed(client)
+        serverClosed <- awaitClosed(server)
+      } yield {
+        assert(debuggeeCanceled, clientClosed, serverClosed)
+      }
 
-    val test = for {
-      uri <- listenTo(server)
-      client = connectToDebugAdapter(uri)
-      _ <- client.disconnect(restart = false)
-      debuggeeCanceled <- Task.fromFuture(canceled.future)
-      clientClosed <- Task(await(client.socket.isClosed))
-      serverClosed <- Task(await(connectionRefused(uri)))
-    } yield {
-      assert(debuggeeCanceled, clientClosed, serverClosed)
+      TestUtil.await(5, TimeUnit.SECONDS)(test)
     }
-
-    TestUtil.await(5, TimeUnit.SECONDS)(test)
   }
 
-  test("close the client even though the debuggee cannot close") {
+  test("closes the client even though the debuggee cannot close") {
     val blockedDebuggee = Promise[Nothing]
-    val runner: DebuggeeRunner = _ => Task.fromFuture(blockedDebuggee.future)
 
-    val server = DebugServer.start(runner, logger, scheduler)
+    startDebugServer(Task.fromFuture(blockedDebuggee.future)) { server =>
+      val test = for {
+        client <- server.connect
+        _ <- Task(server.cancel())
+        clientDisconnected <- awaitClosed(client)
+      } yield {
+        assert(clientDisconnected)
+      }
 
-    val test = for {
-      uri <- listenTo(server)
-      client = connectToDebugAdapter(uri)
-      _ <- stop(server)
-      clientDisconnected <- Task(await(client.socket.isClosed))
-    } yield {
-      assert(clientDisconnected)
+      TestUtil.await(20, TimeUnit.SECONDS)(test) // higher limit to accommodate the timout
     }
+  }
 
-    TestUtil.await(10, TimeUnit.SECONDS)(test) // higher limit to accommodate the timout
+  private def awaitClosed(client: DebugAdapterConnection): Task[Boolean] = {
+    Task(await(client.socket.isClosed))
   }
 
   @tailrec
   private def await(condition: => Boolean): Boolean = {
     if (condition) true
+    else if (Thread.interrupted()) false
     else {
       Thread.sleep(250)
       await(condition)
     }
   }
 
-  def connectionRefused(uri: URI): Boolean =
-    Try(connectToDebugAdapter(uri)) match {
-      case Failure(e: ConnectException) =>
-        e.getMessage == "Connection refused (Connection refused)"
-      case _ => false
-    }
+  private def awaitClosed(server: TestServer): Task[Boolean] = {
+    server.connect.failed
+      .map {
+        case _: SocketTimeoutException => true
+        case _: ConnectException => true
+        case e: SocketException =>
+          val message = e.getMessage
+          message.endsWith("(Connection refused)") || message.endsWith("(connect failed)")
 
-  private def listenTo(server: StartedDebugServer): Task[URI] = {
-    val task = server.listen.runOnComplete(_ => servers -= server)(scheduler)
-    servers += (server -> task)
-
-    server.address.map {
-      case None => throw new IllegalStateException("Server is not listening")
-      case Some(uri) => uri
-    }
-  }
-
-  private def stop(server: StartedDebugServer): Task[Unit] = {
-    Task(servers(server).cancel())
-  }
-
-  private def connectToDebugAdapter(uri: URI): DebugAdapterConnection = {
-    DebugAdapterConnection.connectTo(uri)(scheduler)
+        case _ =>
+          false
+      }
+      .onErrorRestartIf {
+        case e: NoSuchElementException =>
+          e.getMessage == "failed"
+      }
   }
 
   private def runMain(
@@ -242,6 +243,59 @@ object DebugServerSpec extends BspBaseSuite {
     ) match {
       case Right(value) => value
       case Left(error) => throw new Exception(error)
+    }
+  }
+
+  def startDebugServer(task: Task[_])(f: TestServer => Any): Unit = {
+    startDebugServer(_ => task.map(_ => ()))(f)
+  }
+
+  def startDebugServer(runner: DebuggeeRunner)(f: TestServer => Any): Unit = {
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val server = DebugServer.start(runner, logger, scheduler)
+
+    val testServer = new TestServer(server)
+    val test = Task(f(testServer))
+      .doOnFinish(_ => Task(testServer.close()))
+      .doOnCancel(Task(testServer.close()))
+
+    TestUtil.await(15, SECONDS)(test)
+  }
+
+  override def test(name: String)(fun: => Any): Unit = {
+    super.test(name)(fun)
+  }
+
+  private final class TestServer(val server: StartedDebugServer)
+      extends Cancelable
+      with AutoCloseable {
+    private val task = server.listen.runAsync(scheduler)
+    private val clients = mutable.Set.empty[DebugAdapterConnection]
+
+    override def cancel(): Unit = {
+      task.cancel()
+    }
+
+    // terminates both server and its clients
+    override def close(): Unit = {
+      cancel()
+      val allClientsClosed = clients.map(c => Task(awaitClosed(c)))
+      TestUtil.await(10, SECONDS)(Task.sequence(allClientsClosed))
+
+      clients.foreach { client =>
+        client.socket.close()
+      }
+    }
+
+    def connect: Task[DebugAdapterConnection] = {
+      server.address.flatMap {
+        case Some(uri) =>
+          val connection = DebugAdapterConnection.connectTo(uri)(scheduler)
+          clients += connection
+          Task(connection)
+        case None =>
+          throw ServerNotListening
+      }
     }
   }
 }
