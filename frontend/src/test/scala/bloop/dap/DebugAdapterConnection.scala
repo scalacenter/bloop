@@ -34,7 +34,7 @@ private[dap] final class DebugAdapterConnection(val socket: Socket, adapter: Deb
     arguments.restart = restart
     for {
       _ <- adapter.request(Disconnect, arguments)
-      _ <- Task(adapter.close())
+      _ <- Task(socket.close())
     } yield ()
   }
 

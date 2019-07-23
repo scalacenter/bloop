@@ -9,9 +9,7 @@ import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
-
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
-
 import monix.eval.Task
 import monix.execution.Cancelable
 
@@ -182,7 +180,6 @@ object Forker {
       val builder = new NuProcessBuilder(cmd.asJava, env.asJava)
       builder.setProcessListener(handler)
       builder.setCwd(cwd.underlying)
-      println("Starting process")
       Task(builder.start())
     } else {
       val message = s"Working directory '$cwd' does not exist"

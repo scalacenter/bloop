@@ -87,7 +87,7 @@ object DebugProtocolSpec extends BspBaseSuite {
         |    println("Non-blocking Hello!")
         |  }
         |}
-    """.stripMargin
+     """.stripMargin
 
     TestUtil.withinWorkspace { workspace =>
       val main =

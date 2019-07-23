@@ -23,7 +23,7 @@ import scala.meta.jsonrpc.{BaseProtocolMessage, MessageWriter}
 private[dap] final class DebugAdapterProxy(
     input: Observable[Messages.ProtocolMessage],
     output: Observer[Messages.ProtocolMessage]
-)(val close: () => Unit) {
+) {
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
   val events = new DebugEvents()
 
@@ -73,7 +73,7 @@ private[dap] object DebugAdapterProxy {
 
     val out = new Writer(BloopLanguageClient.fromOutputStream(socket.getOutputStream, null))
 
-    new DebugAdapterProxy(in, out)(socket.close)
+    new DebugAdapterProxy(in, out)
   }
 
   private object Parser extends Operator[BaseProtocolMessage, Messages.ProtocolMessage] {
