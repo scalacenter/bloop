@@ -808,6 +808,8 @@ abstract class ConfigGenerationSuite {
     writeBuildScript(
       buildFileB,
       s"""
+         |import org.gradle.internal.jvm.Jvm
+         |
          |plugins {
          |  id 'bloop'
          |}
@@ -822,6 +824,7 @@ abstract class ConfigGenerationSuite {
          |dependencies {
          |  compile 'org.typelevel:cats-core_2.12:1.2.0'
          |  compile(project(path: ':a',  configuration: 'foo'))
+         |  testRuntime files(Jvm.current().toolsJar)
          |}
       """.stripMargin
     )
@@ -869,6 +872,7 @@ abstract class ConfigGenerationSuite {
     assert(hasClasspathEntryName(configBTest, "scala-library"))
     assert(hasClasspathEntryName(configB, "cats-core"))
     assert(hasClasspathEntryName(configBTest, "cats-core"))
+    assert(hasClasspathEntryName(configBTest, "tools.jar"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
   }
