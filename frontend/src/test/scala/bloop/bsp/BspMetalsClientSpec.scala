@@ -48,18 +48,26 @@ class BspMetalsClientSpec(
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
-        assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
-        val settings = WorkspaceSettings.fromFile(configDir, logger)
-        assert(settings.isDefined && settings.get.semanticDBVersion == semanticdbVersion)
-        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
-        assert(
-          List(
-            "-P:semanticdb:failures:warning",
-            s"-P:semanticdb:sourceroot:$workspace",
-            "-P:semanticdb:synthetics:on",
-            "-Xplugin-require:semanticdb",
-            "semanticdb-scalac"
-          ).forall(opt => scalacOptions.find(_.contains(opt)).isDefined)
+        assertNoDiffInSettingsFile(
+          configDir,
+          """|{
+             |    "semanticDBVersion" : "4.2.0",
+             |    "supportedScalaVersions" : [
+             |        "2.12.8"
+             |    ]
+             |}
+             |""".stripMargin
+        )
+        assertScalacOptions(
+          state,
+          `A`,
+          """|-Xplugin-require:semanticdb
+             |-P:semanticdb:failures:warning
+             |-P:semanticdb:sourceroot:$workspace
+             |-P:semanticdb:synthetics:on
+             |-Xplugin:semanticdb-scalac_2.12.8-4.2.0.jar
+             |-Yrangepos
+             |""".stripMargin
         )
       }
     }
@@ -79,8 +87,18 @@ class BspMetalsClientSpec(
         reapplySettings = false
       )
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
-        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
-        assert(scalacOptions.isEmpty)
+        assertNoDiffInSettingsFile(
+          configDir,
+          """|{
+             |    "semanticDBVersion" : "4.2.0",
+             |    "supportedScalaVersions" : [
+             |        "2.12.8"
+             |    ]
+             |}
+             |""".stripMargin
+        )
+        assertScalacOptions(state, `A`, "")
+        assertNoDiff(logger.warnings.mkString(System.lineSeparator), "")
       }
     }
   }
@@ -330,6 +348,42 @@ class BspMetalsClientSpec(
     val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
     assertIsFile(
       classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")
+    )
+  }
+
+  private def assertNoDiffInSettingsFile(configDir: AbsolutePath, expected: String): Unit = {
+    val settingsFile = configDir.resolve(WorkspaceSettings.settingsFileName)
+    assertIsFile(settingsFile)
+    assertNoDiff(
+      readFile(settingsFile),
+      expected
+    )
+  }
+
+  private def assertScalacOptions(
+      state: ManagedBspTestState,
+      project: TestProject,
+      unorderedExpectedOptions: String
+  ): Unit = {
+    // Not the best way to obtain workspace but valid for tests
+    val workspaceDir = state.underlying.build.origin.getParent.syntax
+    val scalacOptions = state.scalaOptions(project)._2.items.flatMap(_.options).map { opt =>
+      if (!opt.startsWith("-Xplugin:")) opt
+      else {
+        opt.split(":") match {
+          case Array(key, value) => s"$key:${value.split(java.io.File.separator).last}"
+        }
+      }
+    }
+
+    val expectedOptions = unorderedExpectedOptions
+      .replace("$workspace", workspaceDir)
+      .split(System.lineSeparator)
+      .sorted
+      .mkString(System.lineSeparator)
+    assertNoDiff(
+      scalacOptions.sorted.mkString(System.lineSeparator),
+      expectedOptions
     )
   }
 }
