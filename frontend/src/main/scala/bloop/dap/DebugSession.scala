@@ -4,7 +4,7 @@ import java.net.{InetSocketAddress, Socket}
 import java.util.concurrent.TimeUnit
 import java.util.logging.{Handler, Level, LogRecord, Logger => JLogger}
 
-import bloop.dap.DebugSession.LoggerAdapter
+import bloop.dap.DebugSession._
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
@@ -13,7 +13,7 @@ import com.microsoft.java.debug.core.protocol.{Events, JsonUtils}
 import com.microsoft.java.debug.core.{Configuration, LoggerFactory}
 import monix.eval.Task
 import monix.execution.atomic.Atomic
-import monix.execution.{Cancelable, CancelableFuture, Scheduler}
+import monix.execution.{Cancelable, Scheduler}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
@@ -29,7 +29,7 @@ import scala.util.Try
  */
 final class DebugSession(
     socket: Socket,
-    startDebuggee: DebugSessionLogger => Task[Unit],
+    initialState: State,
     initialLogger: Logger,
     ioScheduler: Scheduler,
     loggerAdapter: LoggerAdapter
@@ -49,15 +49,11 @@ final class DebugSession(
   private val debugAddress = Promise[InetSocketAddress]()
   private val exitStatusPromise = Promise[DebugSession.ExitStatus]()
 
-  private val isStarted = Atomic(false)
-  private val isCancelled = Atomic(false)
+  private val state = new Synchronized(initialState)
 
   // contains all [[DebugSession.TerminalEvents]] already sent.
   // Communication is done only when all of them were sent.
   private val terminalEventsSent = mutable.Set.empty[String]
-
-  // Access to this cancelable is always protected behind `isCancelled` to avoid race conditions
-  private val runningDebuggee = Atomic(CancelableFuture.unit)
 
   /**
    * Redirects to [[startDebuggeeAndServer()]].
@@ -75,29 +71,26 @@ final class DebugSession(
    * the DAP server starts listening to client requests in an IO thread.
    */
   def startDebuggeeAndServer(): Unit = {
-    ioScheduler.executeAsync(() => {
-      if (isStarted.compareAndSet(false, true)) {
+    state.transform {
+      case Idle(runner) =>
+        Task(super.run())
+          .runOnComplete(_ => {
+            exitStatusPromise.trySuccess(DebugSession.Terminated); ()
+            Task
+              .fromFuture(communicationDone.future)
+              .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(()))
+              .runOnComplete(_ => socket.close())(ioScheduler)
+            ()
+          })(ioScheduler)
+
         val logger =
           new DebugSessionLogger(this, address => debugAddress.success(address), initialLogger)
-        val debuggeeHandle = startDebuggee(logger).runAsync(ioScheduler)
-        isCancelled.getAndTransform { isCancelled =>
-          if (isCancelled) debuggeeHandle.cancel()
-          else runningDebuggee.set(debuggeeHandle)
-          isCancelled
-        }
+        val debuggee = runner(logger).runAsync(ioScheduler)
+        Started(debuggee)
 
-        try {
-          super.run()
-        } finally {
-          exitStatusPromise.trySuccess(DebugSession.Terminated); ()
-          Task
-            .fromFuture(communicationDone.future)
-            .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(()))
-            .runOnComplete(_ => socket.close())(ioScheduler)
-          ()
-        }
-      }
-    })
+      case otherState =>
+        otherState // don't start if already started or cancelled
+    }
   }
 
   override def dispatchRequest(request: Request): Unit = {
@@ -123,7 +116,13 @@ final class DebugSession(
           exitStatusPromise.trySuccess(DebugSession.Restarted)
         }
 
-        cancelDebuggee()
+        state.transform {
+          case Started(debuggee) =>
+            cancelDebuggee(debuggee)
+            Cancelled
+          case otherState =>
+            otherState
+        }
         super.dispatchRequest(request)
 
       case _ => super.dispatchRequest(request)
@@ -173,28 +172,38 @@ final class DebugSession(
    * Cancels the background debuggee process, the DAP server and closes the socket.
    */
   def cancel(): Unit = {
-    if (isCancelled.compareAndSet(false, true)) {
-      cancelDebuggee()
-      Task
-        .fromFuture(communicationDone.future)
-        .doOnFinish(_ => Task(socket.close()))
-        .timeoutTo(
-          FiniteDuration(5, TimeUnit.SECONDS),
-          Task {
-            initialLogger.warn(
-              "Could not close the debug adapter gracefully. It will be terminated forcefully."
-            )
-            socket.close()
-          }
-        )
-        .runAsync(ioScheduler)
-      ()
+    state.transform {
+      case Idle(_) =>
+        socket.close()
+        Cancelled
+
+      case Started(debuggee) =>
+        cancelDebuggee(debuggee)
+
+        Task
+          .fromFuture(communicationDone.future)
+          .doOnFinish(_ => Task(socket.close()))
+          .timeoutTo(
+            FiniteDuration(5, TimeUnit.SECONDS),
+            Task {
+              initialLogger.warn(
+                "Could not close the debug adapter gracefully. It will be terminated forcefully."
+              )
+              socket.close()
+            }
+          )
+          .runAsync(ioScheduler)
+
+        Cancelled
+
+      case Cancelled =>
+        Cancelled
     }
   }
 
-  private def cancelDebuggee(): Unit = {
+  private def cancelDebuggee(debuggee: Cancelable): Unit = {
     loggerAdapter.onDebuggeeCancel()
-    runningDebuggee.get.cancel()
+    debuggee.cancel()
   }
 }
 
@@ -205,6 +214,11 @@ object DebugSession {
   final case object Restarted extends ExitStatus
   final case object Terminated extends ExitStatus
 
+  sealed trait State
+  final case class Idle(runner: DebugSessionLogger => Task[Unit]) extends State
+  final case class Started(debuggee: Cancelable) extends State
+  final case object Cancelled extends State
+
   def apply(
       socket: Socket,
       startDebuggee: DebugSessionLogger => Task[Unit],
@@ -212,7 +226,8 @@ object DebugSession {
       ioScheduler: Scheduler
   ): DebugSession = {
     val loggerAdapter = new LoggerAdapter(initialLogger)
-    new DebugSession(socket, startDebuggee, initialLogger, ioScheduler, loggerAdapter)
+    val initialState = Idle(startDebuggee)
+    new DebugSession(socket, initialState, initialLogger, ioScheduler, loggerAdapter)
   }
 
   private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {
