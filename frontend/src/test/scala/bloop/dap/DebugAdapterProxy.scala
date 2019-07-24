@@ -4,6 +4,7 @@ import java.net.{Socket, SocketException}
 import java.nio.ByteBuffer
 
 import bloop.bsp.BloopLanguageClient
+import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Messages.ProtocolMessage
 import com.microsoft.java.debug.core.protocol.{JsonUtils, Messages}
 import monix.eval.Task
@@ -27,7 +28,7 @@ private[dap] final class DebugAdapterProxy(
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
   val events = new DebugEvents()
 
-  def request[A, B](endpoint: DebugTestProtocol.Request[A, B], parameters: A): Task[B] = {
+  def request[A, B](endpoint: DebugTestProtocol.Request[A, B], parameters: A): Task[Response[B]] = {
     val message = endpoint.serialize(parameters)
     val response = send(message)
     response.flatMap(endpoint.deserialize)
@@ -43,8 +44,7 @@ private[dap] final class DebugAdapterProxy(
   def startBackgroundListening(scheduler: Scheduler): Unit = {
     input
       .foreachL(handleMessage)
-      .map(_ => events.onComplete())
-      .runAsync(scheduler)
+      .runOnComplete(_ => events.onComplete())(scheduler)
     ()
   }
 

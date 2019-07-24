@@ -10,6 +10,12 @@ import scala.reflect.{ClassTag, classTag}
 import scala.util.{Failure, Try}
 
 private[dap] object DebugTestProtocol {
+  sealed trait Response[+A]
+  object Response {
+    final case class Success[A](result: A) extends Response[A]
+    final case class Failure(message: String) extends Response[Nothing]
+  }
+
   private val id = Atomic(1)
   private def nextId: Int = id.incrementAndGet()
 
@@ -19,15 +25,20 @@ private[dap] object DebugTestProtocol {
       new Messages.Request(nextId, name, json)
     }
 
-    def deserialize(response: Messages.Response): Task[B] = {
+    def deserialize(response: Messages.Response): Task[Response[B]] = {
       val deserialized = if (response.command == name) {
         Try {
-          val targetType = classTag[B].runtimeClass.asInstanceOf[Class[B]]
-          if (targetType == classOf[Unit]) {
-            ().asInstanceOf[B] // ignore body
+          if (response.success) {
+            val targetType = classTag[B].runtimeClass.asInstanceOf[Class[B]]
+            val result = if (targetType == classOf[Unit]) {
+              ().asInstanceOf[B] // ignore body
+            } else {
+              val json = toJson(response.body)
+              fromJson(json, targetType)
+            }
+            Response.Success(result)
           } else {
-            val json = toJson(response.body)
-            fromJson(json, targetType)
+            Response.Failure(response.message)
           }
         }
       } else {

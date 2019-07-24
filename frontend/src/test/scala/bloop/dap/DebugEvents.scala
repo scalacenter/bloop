@@ -27,7 +27,7 @@ private[dap] final class DebugEvents extends Observer[Messages.Event] {
   }
 
   private def channel(name: String): Channel =
-    channels.getOrElseUpdate(name, newChannel)
+    channels.getOrElseUpdate(name, newChannel(name))
 
   override def onNext(elem: Messages.Event): Ack = {
     channel(elem.event).onNext(elem)
@@ -46,16 +46,16 @@ private[dap] final class DebugEvents extends Observer[Messages.Event] {
       completed = true
     }
 
-  private def newChannel: Channel =
+  private def newChannel(name: String): Channel =
     completed.synchronized {
-      val channel = new Channel
+      val channel = new Channel(name)
       if (completed) channel.onComplete()
       channel
     }
 }
 
 object DebugEvents {
-  class Channel {
+  class Channel(name: String) {
     private val buffer = mutable.Buffer.empty[Messages.Event]
     private val firstEvent = Promise[Unit]()
     private val completed = Promise[Unit]()
@@ -83,7 +83,7 @@ object DebugEvents {
     }
 
     private[dap] def onComplete(): Unit = {
-      firstEvent.tryFailure(new NoSuchElementException) // if no events were published
+      firstEvent.tryFailure(new NoSuchElementException(s"Missing event $name")) // if no events were published
       completed.success(())
     }
   }

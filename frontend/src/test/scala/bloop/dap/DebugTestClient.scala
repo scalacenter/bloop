@@ -2,6 +2,7 @@ package bloop.dap
 
 import java.net.URI
 
+import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
 import monix.eval.Task
@@ -18,13 +19,13 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
    */
   private var activeSession = connect()
 
-  def initialize(): Task[Capabilities] =
+  def initialize(): Task[Response[Capabilities]] =
     activeSession.initialize()
 
-  def configurationDone(): Task[Unit] =
+  def configurationDone(): Task[Response[Unit]] =
     activeSession.configurationDone()
 
-  def launch(): Task[Unit] =
+  def launch(): Task[Response[Unit]] =
     activeSession.launch()
 
   def exited: Task[Events.ExitedEvent] =
@@ -46,7 +47,7 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
     activeSession.allOutput
   }
 
-  def disconnect(): Task[Unit] = {
+  def disconnect(): Task[Response[Unit]] = {
     activeSession.disconnect(restart = false)
   }
 

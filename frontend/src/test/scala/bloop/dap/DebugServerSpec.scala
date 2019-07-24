@@ -62,7 +62,7 @@ object DebugServerSpec extends BspBaseSuite {
       val project = TestProject(workspace, "p", List(main))
 
       loadBspState(workspace, List(project), logger) { state =>
-        val runner = runMain(project, state)
+        val runner = mainRunner(project, state)
 
         startDebugServer(runner) { server =>
           val test = for {
@@ -91,7 +91,7 @@ object DebugServerSpec extends BspBaseSuite {
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, List(project), logger) { state =>
-        val runner = runMain(project, state)
+        val runner = mainRunner(project, state)
 
         startDebugServer(runner) { server =>
           val test = for {
@@ -122,6 +122,24 @@ object DebugServerSpec extends BspBaseSuite {
       }
 
       TestUtil.await(5, SECONDS)(test)
+    }
+  }
+
+  test("responds to launch when jvm could not be started") {
+    // note that the runner is not starting the jvm
+    // therefore the debuggee address will never be bound
+    // and correct response to the launch request
+    // will never be sent
+    val runner = Task.now(())
+
+    startDebugServer(runner) { server =>
+      val test = for {
+        client <- server.connect
+        _ <- client.initialize()
+        _ <- client.launch()
+      } yield ()
+
+      TestUtil.await(10, SECONDS)(test)
     }
   }
 
@@ -221,7 +239,7 @@ object DebugServerSpec extends BspBaseSuite {
       }
   }
 
-  private def runMain(
+  private def mainRunner(
       project: TestProject,
       state: DebugServerSpec.ManagedBspTestState
   ): DebuggeeRunner = {

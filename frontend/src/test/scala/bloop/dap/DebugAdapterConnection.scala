@@ -3,6 +3,7 @@ package bloop.dap
 import java.net.{InetSocketAddress, Socket, URI}
 
 import bloop.dap.DebugTesEndpoints._
+import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
@@ -14,28 +15,28 @@ import monix.execution.Scheduler
  * It closes the connection after receiving a response to the 'disconnect' request
  */
 private[dap] final class DebugAdapterConnection(val socket: Socket, adapter: DebugAdapterProxy) {
-  def initialize(): Task[Capabilities] = {
+  def initialize(): Task[Response[Capabilities]] = {
     val arguments = new InitializeArguments()
     adapter.request(Initialize, arguments)
   }
 
-  def configurationDone(): Task[Unit] = {
+  def configurationDone(): Task[Response[Unit]] = {
     adapter.request(ConfigurationDone, ())
   }
 
-  def launch(): Task[Unit] = {
+  def launch(): Task[Response[Unit]] = {
     val arguments = new LaunchArguments
     arguments.noDebug = true
     adapter.request(Launch, arguments)
   }
 
-  def disconnect(restart: Boolean): Task[Unit] = {
+  def disconnect(restart: Boolean): Task[Response[Unit]] = {
     val arguments = new DisconnectArguments
     arguments.restart = restart
     for {
-      _ <- adapter.request(Disconnect, arguments)
+      response <- adapter.request(Disconnect, arguments)
       _ <- Task(socket.close())
-    } yield ()
+    } yield response
   }
 
   def exited: Task[Events.ExitedEvent] = {

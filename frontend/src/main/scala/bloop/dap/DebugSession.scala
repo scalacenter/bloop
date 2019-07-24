@@ -105,6 +105,13 @@ final class DebugSession(
           .fromFuture(debugAddress.future)
           .map(DebugSession.toAttachRequest(requestId, _))
           .foreachL(super.dispatchRequest)
+          .timeoutTo(
+            FiniteDuration(5, TimeUnit.SECONDS),
+            Task {
+              val response = DebugSession.failed(request, "Could not start debuggee")
+              this.sendResponse(response)
+            }
+          )
           .runAsync(ioScheduler)
 
       case "disconnect" =>
@@ -206,6 +213,10 @@ object DebugSession {
 
     val json = JsonUtils.toJsonTree(arguments, classOf[AttachArguments])
     new Request(seq, Command.ATTACH.getName, json.getAsJsonObject)
+  }
+
+  private[DebugSession] def failed(request: Request, message: String): Response = {
+    new Response(request.seq, request.command, false, message)
   }
 
   private[DebugSession] def disconnectRequest(seq: Int): Request = {
