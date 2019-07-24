@@ -179,7 +179,6 @@ object BuildLoader {
       scalaInstance <- project.scalaInstance
       pluginPath <- SemanticDBCache.findSemanticDBPlugin(
         scalaInstance.version,
-        settings.supportedScalaVersions,
         settings.semanticDBVersion,
         logger
       )

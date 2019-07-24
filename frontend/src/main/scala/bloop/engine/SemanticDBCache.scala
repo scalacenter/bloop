@@ -24,25 +24,17 @@ object SemanticDBCache {
 
   def findSemanticDBPlugin(
       scalaVersion: String,
-      supportedScalaVersion: List[String],
       semanticDBVersion: String,
       logger: Logger
   ): Option[AbsolutePath] = {
-    if (!supportedScalaVersion.contains(scalaVersion)) {
-      logger.displayWarningToUser(
-        s"$scalaVersion is not supported for semanticDB version $semanticDBVersion"
+    Try {
+      resolveFromCache(
+        "org.scalameta",
+        s"semanticdb-scalac_$scalaVersion",
+        semanticDBVersion,
+        logger
       )
-      None
-    } else
-      Try {
-        resolveFromCache(
-          "org.scalameta",
-          s"semanticdb-scalac_$scalaVersion",
-          semanticDBVersion,
-          logger
-        )
-      }.toOption.flatten
-
+    }.toOption.flatten
   }
 
   private def resolveFromCache(
@@ -53,8 +45,7 @@ object SemanticDBCache {
       additionalRepositories: Seq[Repository] = Nil
   ): Option[AbsolutePath] = {
     val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
-    val manager =
-      new ZincComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
+    val manager = new ZincComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
     def getFromResolution: Option[AbsolutePath] = {
       val all = DependencyResolution
         .resolve(
@@ -75,16 +66,14 @@ object SemanticDBCache {
       val semanticDBId = s"$organization.$module.$version"
       Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
         case Failure(exception) =>
-          val resolved = getFromResolution
-          resolved match {
-            case Some(value) =>
-              manager.define(semanticDBId, Seq(value.toFile))
+          val resolvedPlugin = getFromResolution
+          resolvedPlugin match {
+            case Some(resolvedPlugin) =>
+              manager.define(semanticDBId, Seq(resolvedPlugin.toFile))
             case None =>
-              logger.warn(
-                s"Could not resolve semanticDB version $version"
-              )
+              logger.warn(s"Could not resolve SemanticDB version $version")
           }
-          resolved
+          resolvedPlugin
         case Success(value) => Some(AbsolutePath(value))
       }
     }
