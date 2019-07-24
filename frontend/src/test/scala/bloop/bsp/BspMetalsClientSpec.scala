@@ -1,22 +1,28 @@
 package bloop.bsp
+
+import bloop.io.AbsolutePath
 import bloop.cli.BspProtocol
 import bloop.util.TestUtil
 import bloop.util.TestProject
 import bloop.logging.RecordingLogger
 import bloop.logging.BspClientLogger
 import bloop.cli.ExitStatus
-import java.nio.file.Files
 import bloop.data.WorkspaceSettings
-import io.circe.JsonObject
-import io.circe.Json
 import bloop.engine.SemanticDBCache
 import bloop.internal.build.BuildInfo
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+
+import java.nio.file.Files
+
+import io.circe.JsonObject
+import io.circe.Json
+
 import monix.execution.Scheduler
 import monix.execution.ExecutionModel
 import monix.eval.Task
+
 import scala.concurrent.duration.FiniteDuration
-import bloop.io.AbsolutePath
+
 import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
@@ -25,15 +31,12 @@ object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
 class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
-
-  val testedScalaVersion = "2.12.8"
-  val projectName = "metals-project"
+  private val testedScalaVersion = "2.12.8"
 
   test("initialize metals client and save settings") {
     TestUtil.withinWorkspace { workspace =>
-      val metalsProject =
-        TestProject(workspace, projectName, Nil, scalaVersion = Some(testedScalaVersion))
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some(testedScalaVersion))
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val semanticdbVersion = "4.2.0"
@@ -43,50 +46,46 @@ class BspMetalsClientSpec(
         supportedScalaVersions = List(testedScalaVersion),
         reapplySettings = false
       )
-      val bspState =
-        loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) {
-          state =>
-            assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
-            val settings = WorkspaceSettings.fromFile(configDir, logger)
-            assert(settings.isDefined && settings.get.semanticDBVersion == semanticdbVersion)
-            val scalacOptions = state.scalaOptions(metalsProject)._2.items.head.options
-            assert(
-              List(
-                "-P:semanticdb:failures:warning",
-                s"-P:semanticdb:sourceroot:$workspace",
-                "-P:semanticdb:synthetics:on",
-                "-Xplugin-require:semanticdb",
-                "semanticdb-scalac"
-              ).forall(opt => scalacOptions.find(_.contains(opt)).isDefined)
-            )
-        }
+
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
+        val settings = WorkspaceSettings.fromFile(configDir, logger)
+        assert(settings.isDefined && settings.get.semanticDBVersion == semanticdbVersion)
+        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
+        assert(
+          List(
+            "-P:semanticdb:failures:warning",
+            s"-P:semanticdb:sourceroot:$workspace",
+            "-P:semanticdb:synthetics:on",
+            "-Xplugin-require:semanticdb",
+            "semanticdb-scalac"
+          ).forall(opt => scalacOptions.find(_.contains(opt)).isDefined)
+        )
+      }
     }
   }
 
   test("do not initialize metals client and save settings with unsupported scala version") {
     TestUtil.withinWorkspace { workspace =>
-      val metalsProject =
-        TestProject(workspace, projectName, Nil, scalaVersion = Some("2.12.4"))
-      val projects = List(metalsProject)
+      val semanticdbVersion = "4.2.0" // Doesn't support 2.12.4
+      val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some("2.12.4"))
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val semanticdbVersion = "4.2.0"
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = List("2.12.8"),
         reapplySettings = false
       )
-      val bspState =
-        loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) {
-          state =>
-            val scalacOptions = state.scalaOptions(metalsProject)._2.items.head.options
-            assert(scalacOptions.isEmpty)
-        }
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
+        assert(scalacOptions.isEmpty)
+      }
     }
   }
 
-  test("initialize metals client with existing plugin in workspace") {
+  test("initialize metals client in workspace with already enabled semanticdb") {
     TestUtil.withinWorkspace { workspace =>
       val defaultScalacOptions = List(
         "-P:semanticdb:failures:warning",
@@ -95,15 +94,15 @@ class BspMetalsClientSpec(
         "-Xplugin-require:semanticdb",
         s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar"
       )
-      val metalsProject =
-        TestProject(
-          workspace,
-          projectName,
-          Nil,
-          scalaVersion = Some(testedScalaVersion),
-          scalacOptions = defaultScalacOptions //${getClass().getResource("semanticdb_2.12.8-4.1.11.jar")}
-        )
-      val projects = List(metalsProject)
+
+      val `A` = TestProject(
+        workspace,
+        "A",
+        Nil,
+        scalaVersion = Some(testedScalaVersion),
+        scalacOptions = defaultScalacOptions
+      )
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val semanticdbVersion = "4.2.0"
@@ -113,17 +112,16 @@ class BspMetalsClientSpec(
         supportedScalaVersions = List(testedScalaVersion),
         reapplySettings = false
       )
-      val bspState =
-        loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) {
-          state =>
-            val scalacOptions = state.scalaOptions(metalsProject)._2.items.head.options
-            val expected = defaultScalacOptions :+ "-Yrangepos"
-            assert(scalacOptions == expected)
-        }
+
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
+        val expected = defaultScalacOptions :+ "-Yrangepos"
+        assert(scalacOptions == expected)
+      }
     }
   }
 
-  test("initialize metals client with existing plugin and -Yrangepos in workspace") {
+  test("initialize metals client in workspace with already enabled semanticdb and -Yrangepos") {
     TestUtil.withinWorkspace { workspace =>
       val defaultScalacOptions = List(
         "-P:semanticdb:failures:warning",
@@ -133,15 +131,14 @@ class BspMetalsClientSpec(
         s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar",
         "-Yrangepos"
       )
-      val metalsProject =
-        TestProject(
-          workspace,
-          projectName,
-          Nil,
-          scalaVersion = Some(testedScalaVersion),
-          scalacOptions = defaultScalacOptions //${getClass().getResource("semanticdb_2.12.8-4.1.11.jar")}
-        )
-      val projects = List(metalsProject)
+      val `A` = TestProject(
+        workspace,
+        "A",
+        Nil,
+        scalaVersion = Some(testedScalaVersion),
+        scalacOptions = defaultScalacOptions
+      )
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val semanticdbVersion = "4.2.0"
@@ -151,12 +148,10 @@ class BspMetalsClientSpec(
         supportedScalaVersions = List(testedScalaVersion),
         reapplySettings = false
       )
-      val bspState =
-        loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) {
-          state =>
-            val scalacOptions = state.scalaOptions(metalsProject)._2.items.head.options
-            assert(scalacOptions == defaultScalacOptions)
-        }
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
+        assert(scalacOptions == defaultScalacOptions)
+      }
     }
   }
 
@@ -169,8 +164,8 @@ class BspMetalsClientSpec(
         supportedScalaVersions = List(testedScalaVersion),
         reapplySettings = true
       )
-      val metalsProject = TestProject(workspace, projectName, Nil)
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", Nil)
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       WorkspaceSettings.write(
         configDir,
@@ -193,8 +188,8 @@ class BspMetalsClientSpec(
         supportedScalaVersions = List(testedScalaVersion),
         reapplySettings = false
       )
-      val metalsProject = TestProject(workspace, projectName, Nil)
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", Nil)
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       WorkspaceSettings.write(
         configDir,
@@ -216,9 +211,8 @@ class BspMetalsClientSpec(
         java.util.concurrent.Executors.newFixedThreadPool(20),
         ExecutionModel.Default
       )
-      val metalsProject =
-        TestProject(workspace, projectName, Nil, scalaVersion = Some(testedScalaVersion))
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some(testedScalaVersion))
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
@@ -264,7 +258,7 @@ class BspMetalsClientSpec(
       val metalsClient = createClient(metalsClientVersion, "Metals")
 
       val allClients = List(client1, client2, client3, client4, client5, metalsClient)
-      TestUtil.await(FiniteDuration(5, "s"), poolFor6Clients) {
+      TestUtil.await(FiniteDuration(10, "s"), poolFor6Clients) {
         Task.gatherUnordered(allClients).map(_ => ())
       }
 
@@ -276,66 +270,38 @@ class BspMetalsClientSpec(
 
   test("compile with semanticDB") {
     TestUtil.withinWorkspace { workspace =>
-      val sources = List(
-        """/main/scala/Foo.scala
-          |class Foo
-          """.stripMargin
-      )
-
-      val metalsProject = TestProject(workspace, projectName, sources)
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", dummyFooSources)
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       WorkspaceSettings.write(configDir, WorkspaceSettings("4.2.0", List(testedScalaVersion)))
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val bspState = loadBspState(workspace, projects, logger) { state =>
-        val compiledState = state.compile(metalsProject).toTestState
+        val compiledState = state.compile(`A`).toTestState
         assert(compiledState.status == ExitStatus.Ok)
-        val classesDir = compiledState.client.getUniqueClassesDirFor(
-          compiledState.build.getProjectFor(projectName).get
-        )
-        val semanticDBFile =
-          classesDir.resolve(s"META-INF/semanticdb/$projectName/src/main/scala/Foo.scala.semanticdb")
-        assert(semanticDBFile.exists)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
       }
     }
   }
 
   test("compile with semanticDB using cached plugin") {
     TestUtil.withinWorkspace { workspace =>
-      val sources = List(
-        """/main/scala/Foo.scala
-          |class Foo
-          """.stripMargin
-      )
-      val projectName = "metals-project"
-      val metalsProject = TestProject(workspace, projectName, sources)
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", dummyFooSources)
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       WorkspaceSettings.write(configDir, WorkspaceSettings("4.1.11", List(testedScalaVersion)))
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val bspState = loadBspState(workspace, projects, logger) { state =>
-        val compiledState = state.compile(metalsProject).toTestState
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`).toTestState
         assert(compiledState.status == ExitStatus.Ok)
-        val classesDir = compiledState.client.getUniqueClassesDirFor(
-          compiledState.build.getProjectFor(projectName).get
-        )
-        val semanticDBFile =
-          classesDir.resolve(s"META-INF/semanticdb/$projectName/src/main/scala/Foo.scala.semanticdb")
-        assert(semanticDBFile.exists)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
       }
     }
   }
 
   test("save settings and compile with semanticDB") {
     TestUtil.withinWorkspace { workspace =>
-      val sources = List(
-        """/main/scala/Foo.scala
-          |class Foo
-          """.stripMargin
-      )
-      val projectName = "metals-project"
-      val metalsProject = TestProject(workspace, projectName, sources)
-      val projects = List(metalsProject)
+      val `A` = TestProject(workspace, "A", dummyFooSources)
+      val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val extraParams = BloopExtraBuildParams(
@@ -344,18 +310,26 @@ class BspMetalsClientSpec(
         supportedScalaVersions = List(testedScalaVersion),
         reapplySettings = false
       )
-      val bspState =
-        loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) {
-          state =>
-            val compiledState = state.compile(metalsProject).toTestState
-            assert(compiledState.status == ExitStatus.Ok)
-            val classesDir = compiledState.client.getUniqueClassesDirFor(
-              compiledState.build.getProjectFor(projectName).get
-            )
-            val semanticDBFile =
-              classesDir.resolve(s"META-INF/semanticdb/$projectName/src/main/scala/Foo.scala.semanticdb")
-            assert(semanticDBFile.exists)
-        }
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val compiledState = state.compile(`A`).toTestState
+        assert(compiledState.status == ExitStatus.Ok)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
+      }
     }
+  }
+
+  private val dummyFooSources = List(
+    """/Foo.scala
+      |class Foo
+          """.stripMargin
+  )
+
+  private def assertSemanticdbFileFor(sourceFileName: String, state: TestState): Unit = {
+    val projectA = state.build.getProjectFor("A").get
+    val classesDir = state.client.getUniqueClassesDirFor(projectA)
+    val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
+    assertIsFile(
+      classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")
+    )
   }
 }
