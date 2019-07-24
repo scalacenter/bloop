@@ -147,8 +147,8 @@ object DebugServerSpec extends BspBaseSuite {
     val cancelled = Promise[Boolean]()
     val awaitCancellation = Task
       .fromFuture(cancelled.future)
-      .doOnFinish(_ => Task(cancelled.trySuccess(false)))
-      .doOnCancel(Task(cancelled.trySuccess(true)))
+      .doOnFinish(_ => complete(cancelled, false))
+      .doOnCancel(complete(cancelled, true))
 
     startDebugServer(awaitCancellation) { server =>
       val test = for {
@@ -172,8 +172,8 @@ object DebugServerSpec extends BspBaseSuite {
     val cancelled = Promise[Boolean]()
     val awaitCancellation = Task
       .fromFuture(cancelled.future)
-      .doOnFinish(_ => Task(cancelled.trySuccess(false)))
-      .doOnCancel(Task(cancelled.trySuccess(true)))
+      .doOnFinish(_ => complete(cancelled, false))
+      .doOnCancel(complete(cancelled, true))
 
     startDebugServer(awaitCancellation) { server =>
       val test = for {
@@ -303,4 +303,10 @@ object DebugServerSpec extends BspBaseSuite {
       }
     }
   }
+
+  private def complete[A](promise: Promise[A], value: A): Task[Unit] =
+    Task {
+      promise.trySuccess(value)
+      ()
+    }
 }
