@@ -90,6 +90,7 @@ final class DebugSession(
             .fromFuture(communicationDone.future)
             .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(()))
             .runOnComplete(_ => socket.close())(ioScheduler)
+          ()
         }
       }
     })
@@ -125,10 +126,6 @@ final class DebugSession(
         // Trick dap4j into thinking we're processing a launch instead of attach
         response.command = Command.LAUNCH.getName
         super.sendResponse(response)
-      case "disconnect" if requestId == DebugSession.InternalRequestId =>
-        // Request sent by the session itself, don't send response to the client
-        // cannot close the socket here - still have some events to send
-        logger.info("Disconnected from the debuggee")
       case _ =>
         super.sendResponse(response)
     }
@@ -166,8 +163,6 @@ final class DebugSession(
       cancelDebuggee()
       Task
         .fromFuture(communicationDone.future)
-        .map(_ => DebugSession.disconnectRequest(DebugSession.InternalRequestId))
-        .foreachL(dispatchRequest)
         .doOnFinish(_ => Task(socket.close()))
         .timeoutTo(
           FiniteDuration(5, TimeUnit.SECONDS),
@@ -190,8 +185,6 @@ final class DebugSession(
 }
 
 object DebugSession {
-  private[DebugSession] val InternalRequestId = Int.MinValue
-
   sealed trait ExitStatus
   final case object Restarted extends ExitStatus
   final case object Terminated extends ExitStatus

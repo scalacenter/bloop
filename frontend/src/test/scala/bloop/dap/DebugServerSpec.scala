@@ -1,7 +1,6 @@
 package bloop.dap
 import java.net.{ConnectException, SocketException, SocketTimeoutException}
 import java.util.NoSuchElementException
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
 import bloop.bsp.BspBaseSuite
@@ -21,7 +20,7 @@ object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
 
-  test("closes server connection") {
+  test("cancelling closes server connection") {
     startDebugServer(Task.now(())) { server =>
       val test = for {
         _ <- Task(server.cancel())
@@ -34,7 +33,7 @@ object DebugServerSpec extends BspBaseSuite {
     }
   }
 
-  test("closes client connection") {
+  test("cancelling closes client connection") {
     startDebugServer(Task.now(())) { server =>
       val test = for {
         client <- server.connect
@@ -130,13 +129,12 @@ object DebugServerSpec extends BspBaseSuite {
     val cancelled = Promise[Boolean]()
     val awaitCancellation = Task
       .fromFuture(cancelled.future)
-      .doOnFinish(_ => Task(cancelled.success(false)))
-      .doOnCancel(Task(cancelled.success(true)))
+      .doOnFinish(_ => Task(cancelled.trySuccess(false)))
+      .doOnCancel(Task(cancelled.trySuccess(true)))
 
     startDebugServer(awaitCancellation) { server =>
       val test = for {
         firstClient <- server.connect
-        _ <- firstClient.initialize()
         _ <- firstClient.disconnect(restart = true)
         secondClient <- server.connect
         debuggeeCanceled <- Task.fromFuture(cancelled.future)
@@ -148,7 +146,7 @@ object DebugServerSpec extends BspBaseSuite {
         assert(debuggeeCanceled, firstClientClosed, !secondClientClosed)
       }
 
-      TestUtil.await(15, TimeUnit.SECONDS)(test)
+      TestUtil.await(15, SECONDS)(test)
     }
   }
 
@@ -156,8 +154,8 @@ object DebugServerSpec extends BspBaseSuite {
     val cancelled = Promise[Boolean]()
     val awaitCancellation = Task
       .fromFuture(cancelled.future)
-      .doOnFinish(_ => Task(cancelled.success(false)))
-      .doOnCancel(Task(cancelled.success(true)))
+      .doOnFinish(_ => Task(cancelled.trySuccess(false)))
+      .doOnCancel(Task(cancelled.trySuccess(true)))
 
     startDebugServer(awaitCancellation) { server =>
       val test = for {
@@ -170,7 +168,7 @@ object DebugServerSpec extends BspBaseSuite {
         assert(debuggeeCanceled, clientClosed, serverClosed)
       }
 
-      TestUtil.await(5, TimeUnit.SECONDS)(test)
+      TestUtil.await(5, SECONDS)(test)
     }
   }
 
@@ -186,7 +184,7 @@ object DebugServerSpec extends BspBaseSuite {
         assert(clientDisconnected)
       }
 
-      TestUtil.await(20, TimeUnit.SECONDS)(test) // higher limit to accommodate the timout
+      TestUtil.await(20, SECONDS)(test) // higher limit to accommodate the timout
     }
   }
 
@@ -252,10 +250,7 @@ object DebugServerSpec extends BspBaseSuite {
       .doOnCancel(Task(testServer.close()))
 
     TestUtil.await(15, SECONDS)(test)
-  }
-
-  override def test(name: String)(fun: => Any): Unit = {
-    super.test(name)(fun)
+    ()
   }
 
   private final class TestServer(val server: StartedDebugServer)
