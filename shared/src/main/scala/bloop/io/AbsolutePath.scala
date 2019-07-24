@@ -4,7 +4,6 @@ package bloop.io
 import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Path, Paths => NioPaths}
-import scala.collection.JavaConverters._
 
 final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def syntax: String = toString
