@@ -52,6 +52,10 @@ final class DebugSession(
   private val isStarted = Atomic(false)
   private val isCancelled = Atomic(false)
 
+  // contains all [[DebugSession.TerminalEvents]] already sent.
+  // Communication is done only when all of them were sent.
+  private val terminalEventsSent = mutable.Set.empty[String]
+
   // Access to this cancelable is always protected behind `isCancelled` to avoid race conditions
   private val runningDebuggee = Atomic(CancelableFuture.unit)
 
@@ -142,9 +146,12 @@ final class DebugSession(
     try {
       super.sendEvent(event)
     } finally {
-      if (event.`type` == "exited") {
-        communicationDone.success(())
-        // cannot close the socket here - communication should now terminate on its own
+      if (DebugSession.TerminalEvents.contains(event.`type`)) {
+        terminalEventsSent.add(event.`type`)
+        if (terminalEventsSent == DebugSession.TerminalEvents) {
+          communicationDone.success(())
+          // cannot close the socket here - communication should now terminate on its own
+        }
       }
     }
   }
@@ -192,6 +199,8 @@ final class DebugSession(
 }
 
 object DebugSession {
+  private[DebugSession] val TerminalEvents = Set("exited", "terminated")
+
   sealed trait ExitStatus
   final case object Restarted extends ExitStatus
   final case object Terminated extends ExitStatus
