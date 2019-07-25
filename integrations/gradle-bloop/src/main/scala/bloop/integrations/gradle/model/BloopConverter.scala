@@ -197,6 +197,7 @@ final class BloopConverter(parameters: BloopParameters) {
         bloopProject = Config.Project(
           name = getProjectName(project, sourceSet),
           directory = project.getProjectDir.toPath,
+          workspaceRoot = Option(project.getRootProject().getProjectDir().toPath()),
           sources = sources,
           dependencies = allDependencies,
           classpath = classpath,

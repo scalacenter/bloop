@@ -216,6 +216,7 @@ object Config {
   case class Project(
       name: String,
       directory: Path,
+      workspaceRoot: Option[Path],
       sources: List[Path],
       dependencies: List[String],
       classpath: List[Path],
@@ -232,7 +233,7 @@ object Config {
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None, None)
+    private[bloop] val empty: Project = Project("", emptyPath, None, List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -271,6 +272,7 @@ object Config {
       val project = Project(
         "dummy-project",
         workingDirectory,
+        Some(workingDirectory),
         List(sourceFile),
         List("dummy-2"),
         List(scalaLibraryJar),
