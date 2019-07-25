@@ -19,7 +19,7 @@ import org.gradle.api.internal.file.copy.DefaultCopySpec
 import org.gradle.api.internal.tasks.DefaultSourceSetOutput
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
 import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
-import org.gradle.api.specs.Specs
+import org.gradle.api.specs.{Spec, Specs}
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
 import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
@@ -112,7 +112,7 @@ final class BloopConverter(parameters: BloopParameters) {
       val allRuntimeProjectDependencies = getProjectDependenciesRecursively(
         runtimeClassPathConfiguration)
 
-      // retrieve all artifacts (includes transitive) + file/dir dependencies
+      // retrieve all artifacts (includes transitive)
       val compileArtifacts: List[ResolvedArtifact] =
         compileClassPathConfiguration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
       val runtimeArtifacts: List[ResolvedArtifact] =
@@ -151,21 +151,37 @@ final class BloopConverter(parameters: BloopParameters) {
             resolvedArtifact))
 
       // retrieve all file/dir dependencies (includes transitive?)
-      val compileArtifactFiles: Set[File] =
+      val compileClassPathFiles: Set[File] =
         compileClassPathConfiguration.getResolvedConfiguration
           .getFiles(Specs.SATISFIES_ALL)
           .asScala
           .toSet
-      val runtimeArtifactFiles: Set[File] =
+      val runtimeClassPathFiles: Set[File] =
         runtimeClassPathConfiguration.getResolvedConfiguration
           .getFiles(Specs.SATISFIES_ALL)
           .asScala
           .toSet
 
-      val compileClasspathFilesAsPaths = compileArtifactFiles
+      // retrieve file/dir dependencies not coming from resolved artifacts, but referenced directly
+      // by `dependencies { compile files(path) }`
+      val compileArtifactFiles: Set[File] = compileArtifacts.map(_.getFile).toSet
+      val runtimeArtifactFiles: Set[File] = runtimeArtifacts.map(_.getFile).toSet
+
+      val nonArtifactCompileClassPathFiles =
+        compileClassPathFiles
+          .diff(compileArtifactFiles)
+          .filter(f => !isProjectSourceSet(allSourceSetsToProjects, f))
+          .map(_.toPath)
+      val nonArtifactRuntimeClassPathFiles =
+        runtimeClassPathFiles
+          .diff(runtimeArtifactFiles)
+          .filter(f => !isProjectSourceSet(allSourceSetsToProjects, f))
+          .map(_.toPath)
+
+      val compileClasspathFilesAsPaths = compileClassPathFiles
         .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
         .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
-      val runtimeClasspathFilesAsPaths = runtimeArtifactFiles
+      val runtimeClasspathFilesAsPaths = runtimeClassPathFiles
         .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
         .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
 
@@ -188,7 +204,8 @@ final class BloopConverter(parameters: BloopParameters) {
       // tag runtime items to the end of the classpath until Bloop has separate compile and runtime paths
       val classpath: List[Path] =
         (strictProjectDependencies.map(_.classesDir) ++ compileClasspathItems ++ runtimeClasspathItems ++
-          compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths).distinct
+          compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths ++
+          nonArtifactCompileClassPathFiles ++ nonArtifactRuntimeClassPathFiles).distinct
 
       val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
         additionalArtifacts.map(artifactToConfigModule(_, project))).distinct
