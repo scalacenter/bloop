@@ -5,6 +5,8 @@ import bloop.io.AbsolutePath
 
 import sbt.librarymanagement._
 import sbt.librarymanagement.ivy._
+import coursier.core.Repository
+import coursier.error.CoursierError
 
 object DependencyResolution {
   private final val BloopResolvers =
@@ -15,83 +17,65 @@ object DependencyResolution {
     IvyDependencyResolution(configuration)
   }
 
-  import java.io.File
-  import coursier.util.{Gather, Task}
-  import coursier.cache.{Cache, ArtifactError}
-  import coursier.{
-    Dependency,
-    Fetch,
-    MavenRepository,
-    Module,
-    Repository,
-    Resolution,
-    LocalRepositories,
-    ResolutionProcess
-  }
-
   /**
    * Resolve the specified module and get all the files. By default, the local ivy
-   * repository and Maven Central are included in resolution.
+   * repository and Maven Central are included in resolution. This resolution throws
+   * in case there is an error.
    *
    * @param organization           The module's organization.
    * @param module                 The module's name.
    * @param version                The module's version.
    * @param logger                 A logger that receives messages about resolution.
    * @param additionalRepositories Additional repositories to include in resolition.
-   * @return All the files that compose the module and that could be found.
+   * @return All the resolved files.
    */
   def resolve(
       organization: String,
       module: String,
       version: String,
       logger: Logger,
-      additionalRepositories: Seq[Repository] = Nil,
-      shouldReportErrors: Boolean = false
+      additionalRepos: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
-    logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.Compilation)
-    val org = coursier.Organization(organization)
-    val moduleName = coursier.ModuleName(module)
-    val dependency = Dependency(Module(org, moduleName), version)
-    val start = Resolution(List(dependency))
-    val repositories = {
-      val baseRepositories = Seq(
-        LocalRepositories.ivy2Local,
-        MavenRepository("https://repo1.maven.org/maven2"),
-        MavenRepository("https://dl.bintray.com/scalacenter/releases")
-      )
-      baseRepositories ++ additionalRepositories
-    }
-    val fetch = ResolutionProcess.fetch(repositories, Cache.default.fetch)
-    val resolution = start.process.run(fetch).unsafeRun()
-    if (shouldReportErrors) reportErrors(resolution, logger)
-    val localArtifacts: Seq[(Boolean, Either[ArtifactError, File])] = {
-      Gather[Task]
-        .gather(resolution.artifacts().map { artifact =>
-          Cache.default.file(artifact).run.map(artifact.optional -> _)
-        })
-        .unsafeRun()(ec)
-    }
-
-    val fileErrors = localArtifacts.collect {
-      case (isOptional, Left(error)) if !isOptional || !error.notFound => error
-    }
-    if (fileErrors.isEmpty) {
-      localArtifacts.collect { case (_, Right(f)) => AbsolutePath(f.toPath) }.toArray
-    } else {
-      val moduleInfo = s"$organization:$module:$version"
-      val prettyFileErrors = fileErrors.map(_.describe).mkString(System.lineSeparator)
-      sys.error(
-        s"Resolution of module $moduleInfo failed with:${System.lineSeparator}${prettyFileErrors}"
-      )
+    resolveWithErrors(organization, module, version, logger, additionalRepos) match {
+      case Right(paths) => paths
+      case Left(error) => throw error
     }
   }
 
-  private def reportErrors(resolution: Resolution, logger: Logger): Unit = {
-    resolution.errorCache.foreach {
-      case ((module, version), errors) =>
-        logger.displayWarningToUser(
-          s"There were issues resolving $module:$version - ${errors.mkString("; ")}." 
-        )
+  /**
+   * Resolve the specified module and get all the files. By default, the local ivy
+   * repository and Maven Central are included in resolution. This resolution is
+   * pure and returns either some errors or some resolved jars.
+   *
+   * @param organization           The module's organization.
+   * @param module                 The module's name.
+   * @param version                The module's version.
+   * @param logger                 A logger that receives messages about resolution.
+   * @param additionalRepositories Additional repositories to include in resolition.
+   * @return Either a coursier error or all the resolved files.
+   */
+  def resolveWithErrors(
+      organization: String,
+      module: String,
+      version: String,
+      logger: Logger,
+      additionalRepositories: Seq[Repository] = Nil
+  )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
+    import coursier._
+    logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
+    val org = coursier.Organization(organization)
+    val moduleName = coursier.ModuleName(module)
+    val dependency = Dependency(Module(org, moduleName), version)
+    var fetch = Fetch()
+      .addDependencies(dependency)
+      .addRepositories(Repositories.bintray("scalacenter", "releases"))
+    for (repository <- additionalRepositories) {
+      fetch.addRepositories(repository)
+    }
+
+    try Right(fetch.run().map(f => AbsolutePath(f.toPath)).toArray)
+    catch {
+      case error: CoursierError => Left(error)
     }
   }
 }

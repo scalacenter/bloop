@@ -115,7 +115,7 @@ object BuildLoader {
       settings: Option[WorkspaceSettings]
   ): Project = {
     val project = Project.fromBytesAndOrigin(bytes, origin, logger)
-    settings.map(applySettings(_, project, logger)).getOrElse(project)
+    settings.map(Project.enableMetalsSettings(project, _, logger)).getOrElse(project)
   }
 
   private def updateWorkspaceSettings(
@@ -137,56 +137,4 @@ object BuildLoader {
     }
 
   }
-
-  /**
-   * Applies workspace settings from bloop.settings.json file to a project. This includes:
-   * - SemanticDB plugin version to resolve and include in Scala compiler options
-   */
-  private def applySettings(
-      settings: WorkspaceSettings,
-      project: Project,
-      logger: Logger
-  ): Project = {
-    def addSemanticDBOptions(pluginPath: AbsolutePath) = {
-      {
-        val optionsSet = project.scalacOptions
-        val containsSemanticDB = optionsSet.find(
-          setting => setting.contains("-Xplugin") && setting.contains("semanticdb-scalac")
-        )
-        val containsYrangepos = optionsSet.find(_.contains("-Yrangepos"))
-        val semanticDBAdded = if (containsSemanticDB.isDefined) {
-          logger.info(s"SemanticDB plugin already added: ${containsSemanticDB.get}")
-          optionsSet
-        } else {
-          val workspaceDir = project.origin.path.getParent.getParent
-          optionsSet ++ Set(
-            "-P:semanticdb:failures:warning",
-            s"-P:semanticdb:sourceroot:$workspaceDir",
-            "-P:semanticdb:synthetics:on",
-            "-Xplugin-require:semanticdb",
-            s"-Xplugin:$pluginPath"
-          )
-        }
-        if (containsYrangepos.isDefined) {
-          semanticDBAdded
-        } else {
-          semanticDBAdded :+ "-Yrangepos"
-        }.distinct
-      }
-    }
-
-    val mappedProject = for {
-      scalaInstance <- project.scalaInstance
-      pluginPath <- SemanticDBCache.findSemanticDBPlugin(
-        scalaInstance.version,
-        settings.semanticDBVersion,
-        logger
-      )
-    } yield {
-      val scalacOptions = addSemanticDBOptions(pluginPath)
-      project.copy(scalacOptions = scalacOptions)
-    }
-    mappedProject.getOrElse(project)
-  }
-
 }

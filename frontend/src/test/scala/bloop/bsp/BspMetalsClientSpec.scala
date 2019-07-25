@@ -8,7 +8,6 @@ import bloop.logging.RecordingLogger
 import bloop.logging.BspClientLogger
 import bloop.cli.ExitStatus
 import bloop.data.WorkspaceSettings
-import bloop.engine.SemanticDBCache
 import bloop.internal.build.BuildInfo
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 
@@ -97,7 +96,8 @@ class BspMetalsClientSpec(
              |}
              |""".stripMargin
         )
-        assertScalacOptions(state, `A`, "")
+        // Expect only range positions to be added, semanticdb is missing
+        assertScalacOptions(state, `A`, "-Yrangepos")
         assertNoDiff(logger.warnings.mkString(System.lineSeparator), "")
       }
     }
@@ -379,6 +379,7 @@ class BspMetalsClientSpec(
     val expectedOptions = unorderedExpectedOptions
       .replace("$workspace", workspaceDir)
       .split(System.lineSeparator)
+      .filterNot(_.isEmpty)
       .sorted
       .mkString(System.lineSeparator)
     assertNoDiff(

@@ -7,6 +7,7 @@ import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.engine.Dag
+import bloop.engine.caches.SemanticDBCache
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.io.ByteHasher
 
@@ -196,6 +197,84 @@ object Project {
         ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
           case Right(file) => Project.fromConfig(file, origin, logger)
           case Left(failure) => throw failure
+        }
+    }
+  }
+
+  /**
+   * Enable any Metals-specific setting in a project by applying an in-memory
+   * project transformation. A setting is Metals-specific if it's required for
+   * Metals to provide a complete IDE experience to users.
+   *
+   * A side-effect of this transformation is that we force the resolution of the
+   * semanticdb plugin. This is an expensive operation that is heavily cached
+   * inside [[bloop.engine.caches.SemanticDBCache]] and which can be retried in
+   * case the resolution for a version hasn't been successful yet and the
+   * workspace settings passed as a parameter asks for another attempt.
+   *
+   * @param project The project that we want to transform.
+   * @param settings The settings that contain Metals-specific information such
+   *                 as the expected semanticdb version or supported Scala versions.
+   * @param logger The logger responsible of tracking any transformation-related event.
+   *
+   */
+  def enableMetalsSettings(
+      project: Project,
+      settings: WorkspaceSettings,
+      logger: Logger
+  ): Project = {
+    val workspaceDir = WorkspaceSettings.detectWorkspaceDirectory(project, settings)
+    def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
+      val hasSemanticDB =
+        options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
+
+      if (hasSemanticDB) options
+      else {
+        // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
+        // engine so that semanticdb files are replicated in those directories
+        val semanticdbScalacOptions = List(
+          "-P:semanticdb:failures:warning",
+          s"-P:semanticdb:sourceroot:$workspaceDir",
+          "-P:semanticdb:synthetics:on",
+          "-Xplugin-require:semanticdb",
+          s"-Xplugin:$pluginPath"
+        )
+
+        (options ++ semanticdbScalacOptions.toList).distinct
+      }
+    }
+
+    def enableRangePositions(options: List[String]): List[String] = {
+      val hasYrangepos = options.exists(_.contains("-Yrangepos"))
+      if (hasYrangepos) options else options :+ "-Yrangepos"
+    }
+
+    project.scalaInstance match {
+      case None => project
+      case Some(instance) =>
+        val projectWithRangePositions =
+          project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+
+        // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
+        val isUnsupportedVersion =
+          !settings.supportedScalaVersions.exists(instance.version.startsWith(_))
+        if (isUnsupportedVersion) {
+          logger.debug(
+            s"Skipping configuration of SemanticDB for '${project.name}': unsupported Scala v${instance.version}"
+          )(DebugFilter.All)
+          projectWithRangePositions
+        } else {
+          SemanticDBCache.fetchPlugin(instance.version, settings.semanticDBVersion, logger) match {
+            case Right(pluginPath) =>
+              val options = projectWithRangePositions.scalacOptions
+              val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
+              projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+            case Left(error) =>
+              logger.displayWarningToUser(
+                s"Skipping configuration of SemanticDB for '${project.name}': $error"
+              )
+              projectWithRangePositions
+          }
         }
     }
   }
