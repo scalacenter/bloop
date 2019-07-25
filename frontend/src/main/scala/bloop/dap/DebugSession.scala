@@ -76,11 +76,7 @@ final class DebugSession(
         Task(super.run())
           .runOnComplete(_ => {
             exitStatusPromise.trySuccess(DebugSession.Terminated); ()
-            Task
-              .fromFuture(communicationDone.future)
-              .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(()))
-              .runOnComplete(_ => socket.close())(ioScheduler)
-            ()
+            scheduleClosingSocket()
           })(ioScheduler)
 
         val logger =
@@ -179,26 +175,22 @@ final class DebugSession(
 
       case Started(debuggee) =>
         cancelDebuggee(debuggee)
-
-        Task
-          .fromFuture(communicationDone.future)
-          .doOnFinish(_ => Task(socket.close()))
-          .timeoutTo(
-            FiniteDuration(5, TimeUnit.SECONDS),
-            Task {
-              initialLogger.warn(
-                "Could not close the debug adapter gracefully. It will be terminated forcefully."
-              )
-              socket.close()
-            }
-          )
-          .runAsync(ioScheduler)
+        scheduleClosingSocket()
 
         Cancelled
 
       case Cancelled =>
         Cancelled
     }
+  }
+
+  private def scheduleClosingSocket(): Unit = {
+    val message = "Communication frozen. Closing client socket forcefully."
+    Task
+      .fromFuture(communicationDone.future)
+      .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(initialLogger.warn(message)))
+      .runOnComplete(_ => socket.close())(ioScheduler)
+    ()
   }
 
   private def cancelDebuggee(debuggee: Cancelable): Unit = {
