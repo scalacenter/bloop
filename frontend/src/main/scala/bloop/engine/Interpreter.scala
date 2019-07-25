@@ -111,8 +111,8 @@ object Interpreter {
         logger.info(s"Running on Java v$v ($h) ($runtimeEnv)")
       case _ =>
     }
-    val jdiStatus = if (JavaEnv.isDebugInterfaceEnabled) "enabled" else "disabled"
-    logger.info(s"Debug interface is $jdiStatus")
+    val jdiStatus = if (JavaEnv.resolveDebugInterface.isSuccess) "available" else "unavailable"
+    logger.info(s"Java Debug interface is $jdiStatus")
     logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)

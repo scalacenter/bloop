@@ -23,7 +23,7 @@ import scala.util.control.NonFatal
 import caseapp.core.CommandsMessages
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
-import scala.util.Try
+import bloop.exec.JavaEnv
 import monix.execution.atomic.AtomicBoolean
 
 class Cli
@@ -247,6 +247,8 @@ object Cli {
       pool: ClientPool,
       cancel: CompletableFuture[java.lang.Boolean]
   ): ExitStatus = {
+    val _ = JavaEnv.resolveDebugInterface
+
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       val cwd = AbsolutePath(cliOptions.common.workingDirectory)

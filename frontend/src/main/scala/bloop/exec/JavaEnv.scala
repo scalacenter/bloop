@@ -4,7 +4,7 @@ import bloop.config.Config
 import bloop.io.AbsolutePath
 import javax.tools.ToolProvider
 
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 /**
  * The configuration of the Java environment for a given project.
@@ -38,30 +38,43 @@ object JavaEnv {
     Option(sys.props("java.version"))
   }
 
-  def isDebugInterfaceEnabled: Boolean = {
-    def loadTools(): Unit = {
+  lazy val resolveDebugInterface: Try[Unit] = {
+    def resolveDebugInterface(): Unit = {
+      Class.forName("com.sun.jdi.Value")
+      ()
+    }
+
+    def loadTools(): Try[Unit] = {
       import java.net.URL
       import java.net.URLClassLoader
 
-      Option(ToolProvider.getSystemToolClassLoader)
-        .collect { case classLoader: URLClassLoader => classLoader.getURLs }
-        .filter(_.nonEmpty)
-        .foreach { urls =>
-          val method = classOf[URLClassLoader].getDeclaredMethod("addURL", classOf[URL])
-          method.setAccessible(true)
-          urls.foreach(method.invoke(getClass.getClassLoader, _))
-        }
+      val urls = Option(ToolProvider.getSystemToolClassLoader).collect {
+        case classLoader: URLClassLoader => classLoader.getURLs
+      }
+
+      urls match {
+        case None =>
+          Failure(new Exception("JDI implementation is not provided by the vendor"))
+
+        case Some(urls) =>
+          val hotLoadTools = Try {
+            val method = classOf[URLClassLoader].getDeclaredMethod("addURL", classOf[URL])
+            method.setAccessible(true)
+            urls.foreach(method.invoke(getClass.getClassLoader, _))
+            resolveDebugInterface()
+          }
+
+          hotLoadTools
+            .recoverWith {
+              case cause: ClassNotFoundException =>
+                Failure(new Exception("JDI implementation is not on the classpath", cause))
+              case cause: ReflectiveOperationException =>
+                Failure(new Exception("Could not load tools due to: " + cause.getMessage, cause))
+            }
+      }
     }
 
-    val debugInterfaceResolution = Try(Class.forName("com.sun.jdi.Value")).recoverWith[Class[_]] {
-      case _: ClassNotFoundException =>
-        Try {
-          loadTools()
-          Class.forName("com.sun.jdi.Value")
-        }
-    }
-
-    debugInterfaceResolution.isSuccess
+    Try(resolveDebugInterface()).orElse(loadTools())
   }
 
   /**
