@@ -26,6 +26,8 @@ import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
 
+import bloop.exec.JavaEnv
+
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
   def execute(action: Action, stateTask: Task[State]): Task[State] = {
@@ -97,16 +99,20 @@ object Interpreter {
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
-    val javaVersion = Option(System.getProperty("java.version"))
+    val javaVersion = JavaEnv.version
     val javaHome = Option(System.getProperty("java.home"))
+    val runtimeEnv = JavaEnv.runtimeEnvironment
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
     logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
     (javaVersion, javaHome) match {
-      case (Some(v), Some(h)) => logger.info(s"Running on Java v$v ($h)")
+      case (Some(v), Some(h)) =>
+        logger.info(s"Running on Java v$v ($h) ($runtimeEnv)")
       case _ =>
     }
+    val jdiStatus = if (JavaEnv.isDebugInterfaceEnabled) "enabled" else "disabled"
+    logger.info(s"Debug interface is $jdiStatus")
     logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)

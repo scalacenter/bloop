@@ -453,8 +453,16 @@ final class BloopBspServices(
 
     ifInitialized {
       case state if !JavaEnv.isDebugInterfaceEnabled =>
+        val runtime = JavaEnv.runtimeEnvironment
+        val java = JavaEnv.version match {
+          case Some(version) => s"$runtime v$version"
+          case None => s"$runtime"
+        }
+        val home = JavaEnv.DefaultJavaHome
+
         val message = "Java Debug Interface is not available. " +
-          "Make sure you are using JDK and your JVM vendor implements the interface. "
+          s"You are using: $java from [$home]" +
+          "Make sure you are using JDK and your JVM vendor implements this interface."
 
         Task.now((state, Left(JsonRpcResponse.internalError(message))))
       case state =>

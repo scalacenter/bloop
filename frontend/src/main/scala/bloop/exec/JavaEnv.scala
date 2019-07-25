@@ -27,6 +27,17 @@ object JavaEnv {
     Config.JvmConfig(Some(env.javaHome.underlying), env.javaOptions.toList)
   }
 
+  def runtimeEnvironment: Runtime = {
+    Option(ToolProvider.getSystemJavaCompiler) match {
+      case Some(_) => JDK
+      case None => JRE
+    }
+  }
+
+  def version: Option[String] = {
+    Option(sys.props("java.version"))
+  }
+
   def isDebugInterfaceEnabled: Boolean = {
     def loadTools(): Unit = {
       import java.net.URL
@@ -61,4 +72,8 @@ object JavaEnv {
     val javaOptions = Array.empty[String]
     JavaEnv(DefaultJavaHome, javaOptions)
   }
+
+  sealed trait Runtime
+  case object JDK extends Runtime
+  case object JRE extends Runtime
 }
