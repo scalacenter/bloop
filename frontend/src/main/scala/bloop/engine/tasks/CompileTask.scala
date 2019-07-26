@@ -147,6 +147,7 @@ object CompileTask {
               state.compilerCache,
               sources.toArray,
               classpath,
+              project.annotationProcessorPath.toArray,
               bundle.uniqueInputs,
               compileOut,
               project.out,

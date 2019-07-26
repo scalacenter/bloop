@@ -41,6 +41,7 @@ case class CompileInputs(
     compilerCache: CompilerCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
+    processorpath: Array[AbsolutePath],
     uniqueInputs: UniqueCompileInputs,
     out: CompileOutPaths,
     baseDirectory: AbsolutePath,
@@ -282,6 +283,10 @@ object Compiler {
           Nil
         }
       }
+      val annotationProcessorOptions =
+        if (inputs.processorpath.isEmpty) List.empty[String]
+        else List("-processorpath", inputs.processorpath.mkString(":"))
+      val javacOptions = inputs.javacOptions ++ annotationProcessorOptions
 
       // Enable fatal warnings in the reporter if they are enabled in the build
       if (isFatalWarningsEnabled)
@@ -293,7 +298,7 @@ object Compiler {
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
         .withScalacOptions(optionsWithoutFatalWarnings)
-        .withJavacOptions(inputs.javacOptions)
+        .withJavacOptions(javacOptions)
         .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)
     }

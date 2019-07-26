@@ -165,7 +165,7 @@ object CompileBundle {
       val compileDependenciesData = {
         tracer.trace("dependency classpath") { _ =>
           CompileDependenciesData.compute(
-            project.rawClasspath.toArray,
+            (project.rawClasspath ++ project.annotationProcessorPath).toArray,
             dependentProducts
           )
         }

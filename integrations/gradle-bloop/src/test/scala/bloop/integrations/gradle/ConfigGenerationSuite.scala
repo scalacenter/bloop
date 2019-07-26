@@ -548,6 +548,48 @@ abstract class ConfigGenerationSuite {
     assert(compileBloopProject("b-test", bloopDir).status.isOk)
   }
 
+  @Test def worksWithAnnotationProcessorDependencies(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  compile 'com.google.dagger:dagger:2.2'
+         |  annotationProcessor 'com.google.dagger:dagger-compiler:2.2'
+         |}
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath.asJava)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+    val resultConfig = readValidBloopConfig(bloopFile)
+    assert(resultConfig.project.processorpath.nonEmpty)
+  }
+
   @Test def encodingOptionGeneratedCorrectly(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")

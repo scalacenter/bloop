@@ -129,6 +129,7 @@ object TestProject {
       List(sourceDir.underlying),
       directDependencies.map(_.config.name),
       classpath,
+      List.empty,
       outDir.underlying,
       classes.underlying,
       resources = Some(List(resourceDir.underlying)),
