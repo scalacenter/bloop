@@ -37,7 +37,7 @@ final class DebugSessionLogger(
 
   override def error(msg: String): Unit = {
     underlying.error(msg)
-    forwardToDebugClient(msg, OutputEvent.Category.stdout)
+    forwardToDebugClient(msg, OutputEvent.Category.stderr)
   }
 
   override def info(msg: String): Unit = {
@@ -52,7 +52,7 @@ final class DebugSessionLogger(
         listener(address)
       }
     } else {
-      forwardToDebugClient(msg, OutputEvent.Category.stderr)
+      forwardToDebugClient(msg, OutputEvent.Category.stdout)
     }
   }
 
