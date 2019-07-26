@@ -4,6 +4,7 @@ import bloop.data.{Platform, Project}
 import bloop.engine.State
 import bloop.engine.tasks.{RunMode, Tasks}
 import bloop.exec.JavaEnv
+import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteEventHandler}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
 
@@ -34,6 +35,41 @@ private final class MainClassDebugAdapter(
   }
 }
 
+private final class TestSuiteDebugAdapter(
+    projects: Seq[Project],
+    filters: List[String],
+    state: State
+) extends DebuggeeRunner {
+  def run(debugLogger: DebugSessionLogger): Task[Unit] = {
+    val filter = TestInternals.parseFilters(filters)
+    val handler = new LoggingEventHandler(state.logger)
+
+    val sequentialTests = projects.map { project =>
+      runTestSuite(project, state.copy(logger = debugLogger), filter, handler)
+    }
+
+    Task.sequence(sequentialTests).map(_ => ())
+  }
+
+  private def runTestSuite(
+      project: Project,
+      state: State,
+      filter: String => Boolean,
+      handler: TestSuiteEventHandler
+  ): Task[State] = {
+    Tasks.test(
+      state,
+      List(project),
+      Nil,
+      filter,
+      handler,
+      failIfNoTestFrameworks = true,
+      runInParallel = false,
+      mode = RunMode.Debug
+    )
+  }
+}
+
 object DebuggeeRunner {
   def forMainClass(
       projects: Seq[Project],
@@ -52,6 +88,19 @@ object DebuggeeRunner {
         }
       case _ =>
         Left(s"Multiple projects specified for the main class [$mainClass]")
+    }
+  }
+
+  def forTestSuite(
+      projects: Seq[Project],
+      filters: List[String],
+      state: State
+  ): Either[String, DebuggeeRunner] = {
+    projects match {
+      case Seq() =>
+        Left(s"No projects specified for the test suites: [${filters.sorted}]")
+      case projects =>
+        Right(new TestSuiteDebugAdapter(projects, filters, state))
     }
   }
 }

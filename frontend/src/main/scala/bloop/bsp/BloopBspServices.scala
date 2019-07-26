@@ -29,6 +29,7 @@ import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{
   BuildTargetIdentifier,
   DebugSessionAddress,
+  LaunchParametersDataKind,
   MessageType,
   ShowMessageParams,
   endpoints
@@ -49,7 +50,7 @@ import scala.util.Success
 import scala.util.Failure
 
 import monix.execution.Cancelable
-import io.circe.Json
+import io.circe.{Decoder, Json}
 
 final class BloopBspServices(
     callSiteState: State,
@@ -436,18 +437,26 @@ final class BloopBspServices(
         projects: Seq[Project],
         state: State
     ): BspResponse[DebuggeeRunner] = {
-      val dataKind = params.parameters.dataKind
-      if (dataKind == "scala-main-class") {
-        params.parameters.data.as[bsp.ScalaMainClass] match {
+      def convert[A: Decoder](
+          f: A => Either[String, DebuggeeRunner]
+      ): Either[ProtocolError, DebuggeeRunner] = {
+        params.parameters.data.as[A] match {
           case Left(error) => Left(JsonRpcResponse.invalidRequest(error.getMessage()))
-          case Right(mainClass) =>
-            DebuggeeRunner.forMainClass(projects, mainClass, state) match {
+          case Right(params) =>
+            f(params) match {
               case Right(adapter) => Right(adapter)
               case Left(error) => Left(JsonRpcResponse.invalidRequest(error))
             }
         }
-      } else {
-        Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
+      }
+
+      params.parameters.dataKind match {
+        case LaunchParametersDataKind.scalaMainClass =>
+          convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
+        case "scala-test-suites" =>
+          convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
+        case dataKind =>
+          Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }
 
@@ -519,7 +528,7 @@ final class BloopBspServices(
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new BspLoggingEventHandler(id, state.logger, client)
-      Tasks.test(state, List(project), Nil, testFilter, handler, false)
+      Tasks.test(state, List(project), Nil, testFilter, handler, false, mode = RunMode.Normal)
     }
 
     ifInitialized { (state: State) =>

@@ -89,7 +89,8 @@ object Tasks {
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler,
       failIfNoTestFrameworks: Boolean,
-      runInParallel: Boolean = false
+      runInParallel: Boolean = false,
+      mode: RunMode
   ): Task[State] = {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
@@ -118,7 +119,8 @@ object Tasks {
         userTestOptions,
         testFilter,
         failureHandler,
-        failIfNoTestFrameworks
+        failIfNoTestFrameworks,
+        mode
       )
     }
 

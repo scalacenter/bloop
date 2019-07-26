@@ -353,7 +353,8 @@ object Interpreter {
             testFilter,
             handler,
             failIfNoFrameworks,
-            cmd.parallel
+            cmd.parallel,
+            RunMode.Normal
           )
         }
       }
