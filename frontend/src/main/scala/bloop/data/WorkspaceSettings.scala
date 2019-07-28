@@ -29,24 +29,21 @@ object WorkspaceSettings {
   private val settingsEncoder: ObjectEncoder[WorkspaceSettings] = deriveEncoder
   private val settingsDecoder: Decoder[WorkspaceSettings] = deriveDecoder
 
-  def fromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
+  def readFromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
     val settingsPath = configPath.resolve(settingsFileName)
-    if (!settingsPath.isFile) {
-      None
-    } else {
+    if (!settingsPath.isFile) None
+    else {
       val bytes = Files.readAllBytes(settingsPath.underlying)
-      logger.debug(s"Loading workspace settings from $settingsFileName")(
-        DebugFilter.All
-      )
+      logger.debug(s"Loading workspace settings from $settingsFileName")(DebugFilter.All)
       val contents = new String(bytes, StandardCharsets.UTF_8)
       parser.parse(contents) match {
-        case Left(failure) => throw failure
+        case Left(e) => throw e
         case Right(json) => Option(fromJson(json))
       }
     }
   }
 
-  def write(configDir: AbsolutePath, settings: WorkspaceSettings): Either[Throwable, Path] = {
+  def writeToFile(configDir: AbsolutePath, settings: WorkspaceSettings): Either[Throwable, Path] = {
     Try {
       val jsonObject = settingsEncoder(settings)
       val output = Printer.spaces4.copy(dropNullValues = true).pretty(jsonObject)
@@ -54,10 +51,7 @@ object WorkspaceSettings {
         configDir.resolve(settingsFileName).underlying,
         output.getBytes(StandardCharsets.UTF_8)
       )
-    } match {
-      case Failure(exception) => Left(exception)
-      case Success(value) => Right(value)
-    }
+    }.toEither
   }
 
   def fromJson(json: Json): WorkspaceSettings = {

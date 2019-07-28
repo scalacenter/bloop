@@ -47,6 +47,7 @@ class BspMetalsClientSpec(
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        assertNoDiff(logger.warnings.mkString(System.lineSeparator), "")
         assertNoDiffInSettingsFile(
           configDir,
           """|{
@@ -217,7 +218,7 @@ class BspMetalsClientSpec(
       loadBspState(workspace, projects, logger, "Metals")(_ => ())
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
-        val settings = WorkspaceSettings.fromFile(configDir, logger)
+        val settings = WorkspaceSettings.readFromFile(configDir, logger)
         assert(settings.isDefined && settings.get.semanticDBVersion == semanticdbVersion)
       }
     }

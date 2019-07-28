@@ -8,6 +8,7 @@ import bloop.util.CacheHashCode
 import bloop.io.ByteHasher
 import monix.eval.Task
 import bloop.data.WorkspaceSettings
+import bloop.logging.DebugFilter
 
 final case class Build private (
     origin: AbsolutePath,
@@ -38,14 +39,19 @@ final case class Build private (
     val files = projects.iterator.map(p => p.origin.toAttributedPath).toSet
     val newFiles = BuildLoader.readConfigurationFilesInBase(origin, logger).toSet
 
-    def relevantChange(workspaceSettings: WorkspaceSettings) =
+    def settingsForProjectReload(workspaceSettings: WorkspaceSettings) =
       (workspaceSettings.semanticDBVersion, workspaceSettings.supportedScalaVersions)
-    val changedSettings = reapplySettings ||
+    val changedSettings = reapplySettings || (
       (incomingSettings.nonEmpty &&
-        settings.map(relevantChange) != incomingSettings.map(relevantChange))
+        settings.map(settingsForProjectReload) != incomingSettings.map(settingsForProjectReload))
+    )
+
     if (reapplySettings) {
-      logger.info(s"Forcing reload of all projects")
+      logger.debug(s"Incoming BSP workspace settings require reloading all projects")(
+        DebugFilter.All
+      )
     }
+
     // This is the fast path to short circuit quickly if they are the same
     if (newFiles == files && !changedSettings) {
       Task.now(Build.ReturnPreviousState)

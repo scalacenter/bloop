@@ -30,7 +30,7 @@ object BuildLoader {
   }
 
   /**
-   * Load only the projects passed as arguments.
+   * Loads only the projects passed as arguments.
    *
    * @param configRoot The base directory from which to load the projects.
    * @param logger The logger that collects messages about project loading.
@@ -44,7 +44,7 @@ object BuildLoader {
   ): Task[LoadedBuild] = {
     val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, incomingSettings))
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
-      DebugFilter.Compilation
+      DebugFilter.All
     )
     workspaceSettings
       .flatMap { settings =>
@@ -95,7 +95,7 @@ object BuildLoader {
       configDir: AbsolutePath,
       logger: Logger
   ): LoadedBuild = {
-    val settings = WorkspaceSettings.fromFile(configDir, logger)
+    val settings = WorkspaceSettings.readFromFile(configDir, logger)
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       val bytes = ap.path.readAllBytes
       val hash = ByteHasher.hashBytes(bytes)
@@ -123,18 +123,16 @@ object BuildLoader {
       logger: Logger,
       incomingSettings: Option[WorkspaceSettings]
   ): Option[WorkspaceSettings] = {
-    val savedSettings = WorkspaceSettings.fromFile(configDir, logger)
+    val currentSettings = WorkspaceSettings.readFromFile(configDir, logger)
     incomingSettings match {
-      case Some(incoming) =>
-        if (savedSettings.isEmpty || savedSettings.exists(_ != incoming)) {
-          WorkspaceSettings.write(configDir, incoming)
-          Some(incoming)
-        } else {
-          savedSettings
+      case Some(newSettings)
+          if currentSettings.isEmpty || currentSettings.exists(_ != newSettings) =>
+        WorkspaceSettings.writeToFile(configDir, newSettings).left.foreach { t =>
+          logger.debug(s"Unexpected failure when writing workspace settings: $t")(DebugFilter.All)
+          logger.trace(t)
         }
-      case None =>
-        savedSettings
+        Some(newSettings)
+      case _ => currentSettings
     }
-
   }
 }
