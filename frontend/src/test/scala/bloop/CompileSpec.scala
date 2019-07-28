@@ -25,6 +25,94 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 
 object CompileSpec extends bloop.testing.BaseSuite {
+
+  test("compile Scala class after renaming a static member in a Java class") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A1.java` =
+          """/A.java
+            |public class A {
+            |  public static void method() {}
+            |  public static void dummy() {}
+            |}
+          """.stripMargin
+
+        val `B1.java` =
+          """/B.java
+            |public class B {
+            |  public void callA() {
+            |    A.method();
+            |  }
+            |}
+          """.stripMargin
+
+        val `O.java` =
+          """/O.java
+            |
+            |public class O {
+            |  public void callA() {
+            |    A.dummy();
+            |  }
+            |}
+            |
+            |""".stripMargin
+
+        val `A2.java` =
+          """/A.java
+            |public class A {
+            |  public static void methodRenamed() {}
+            |  public static void dummy() {}
+            |}
+          """.stripMargin
+
+        val `B2.java` =
+          """/B.java
+            |public class B {
+            |  public void callA() {
+            |    A.methodRenamed();
+            |  }
+            |}
+          """.stripMargin
+
+        val `C.scala` =
+          """/C.scala
+            |object C {
+            |  val b = new B()
+            |  b.callA()
+            |}
+          """.stripMargin
+
+
+        val `Dummy1.scala` =
+          """/Dummy1.scala
+            |class Dummy1 {}
+          """.stripMargin
+
+        val `Dummy2.scala` =
+          """/Dummy2.scala
+            |class Dummy2 {}
+          """.stripMargin
+
+
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "a", List(
+        Sources.`A1.java`, Sources.`B1.java`, Sources.`O.java`,
+        Sources.`C.scala`, Sources.`Dummy1.scala`, Sources.`Dummy2.scala`))
+      val projects = List(project)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(project)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+      writeFile(project.srcFor("A.java"), Sources.`A2.java`)
+      writeFile(project.srcFor("B.java"), Sources.`B2.java`)
+
+      val newState = compiledState.compile(project)
+      assert(newState.status == ExitStatus.Ok)
+      assertValidCompilationState(newState, projects)
+    }
+  }
+
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
@@ -373,7 +461,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
             |  public void entrypoint(String[] args) {
             |    A$ a = A$.MODULE$;
             |    System.out.println(a.HelloWorld());
-            |  }  
+            |  }
             |}""".stripMargin
         val `C.scala` =
           """/C.scala

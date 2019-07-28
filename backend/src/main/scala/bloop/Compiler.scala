@@ -256,7 +256,8 @@ object Compiler {
             f =>
               // A safety measure in case Zinc does not get a complete list of generated classes
               val filePath = f.getAbsolutePath
-              if (!filePath.startsWith(readOnlyClassesDirPath)) true
+              if (!filePath.startsWith(readOnlyClassesDirPath))
+                false
               else {
                 import compileInputs.generatedClassFilePathsInDependentProjects
                 val relativeFilePath = filePath.replace(readOnlyClassesDirPath, "")
