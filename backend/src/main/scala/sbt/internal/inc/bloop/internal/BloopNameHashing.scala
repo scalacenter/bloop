@@ -50,6 +50,7 @@ private final class BloopNameHashing(
    * @param invalidatedClasses The invalidated classes either initially or by a previous cycle.
    * @param initialChangedSources The initial changed sources by the user, empty if previous cycle.
    * @param allSources All the sources defined in the project and compiled in the first iteration.
+   * @param allPreviouslyRecompiledClasses All classes that were were compiled in all previous iterations.
    * @param binaryChanges The initially detected changes derived from [[InitialChanges]].
    * @param lookup The lookup instance to query classpath and analysis information.
    * @param previous The last analysis file known of this project.
@@ -62,6 +63,7 @@ private final class BloopNameHashing(
       invalidatedClasses: Set[String],
       initialChangedSources: Set[File],
       allSources: Set[File],
+      allPreviouslyRecompiledClasses: Set[String],
       binaryChanges: DependencyChanges,
       lookup: ExternalLookup,
       previous: Analysis,
@@ -74,7 +76,7 @@ private final class BloopNameHashing(
       // Compute all the invalidated classes by aggregating invalidated package objects
       val invalidatedByPackageObjects =
         invalidatedPackageObjects(invalidatedClasses, previous.relations, previous.apis)
-      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects
+      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects -- allPreviouslyRecompiledClasses
 
       // Computes which source files are mapped to the invalidated classes and recompile them
       val invalidatedSources =
@@ -93,6 +95,10 @@ private final class BloopNameHashing(
                 initialChangedSources.flatMap(current.relations.classNames)
             }
 
+            // Keep track of all the stuff we already compiled, in order to avoid recompiling
+            // the same classes over and over again:
+            val allRecompiledClasses = recompiledClasses ++ allPreviouslyRecompiledClasses
+
             val newApiChanges =
               detectAPIChanges(
                 recompiledClasses,
@@ -100,13 +106,15 @@ private final class BloopNameHashing(
                 current.apis.internalAPI
               )
             debug("\nChanges:\n" + newApiChanges)
+
             val nextInvalidations = invalidateAfterInternalCompilation(
               current.relations,
               newApiChanges,
               recompiledClasses,
               cycleNum >= options.transitiveStep,
               IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
-            )
+            ) -- allRecompiledClasses
+            debug(s"Next invalidations: ${nextInvalidations.mkString(", ")}")
 
             val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
 
@@ -125,6 +133,7 @@ private final class BloopNameHashing(
               if (continue) nextInvalidations else Set.empty,
               Set.empty,
               allSources,
+              allRecompiledClasses,
               IncrementalCommon.emptyChanges,
               lookup,
               current,

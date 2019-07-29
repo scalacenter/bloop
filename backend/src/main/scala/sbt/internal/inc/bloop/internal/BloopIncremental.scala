@@ -104,7 +104,7 @@ object BloopIncremental {
         } yield callback.get
       }
 
-      incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, binaryChanges, lookup, previous, doCompile, manager, 1)
+      incremental.entrypoint(initialInvClasses, initialInvSources, setOfSources, Set.empty, binaryChanges, lookup, previous, doCompile, manager, 1)
     }
 
     analysisTask.materialize.map {
