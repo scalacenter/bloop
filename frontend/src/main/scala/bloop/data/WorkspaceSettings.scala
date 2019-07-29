@@ -3,29 +3,40 @@ package bloop.data
 import bloop.engine.BuildLoader
 import bloop.logging.Logger
 import bloop.logging.DebugFilter
-import java.nio.charset.StandardCharsets
 import bloop.config.ConfigEncoderDecoders
-import io.circe.Printer
-import io.circe.Json
-import io.circe.parser
 import bloop.io.AbsolutePath
-import java.nio.file.Files
-import io.circe.JsonObject
 import bloop.DependencyResolution
+import bloop.io.RelativePath
+
 import scala.util.Try
-import io.circe.ObjectEncoder
-import io.circe.Decoder
-import io.circe.derivation._
-import java.nio.file.Path
 import scala.util.Failure
 import scala.util.Success
 
-case class WorkspaceSettings(semanticDBVersion: String, supportedScalaVersions: List[String])
+import java.nio.file.Path
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
+
+import io.circe.Json
+import io.circe.parser
+import io.circe.Printer
+import io.circe.Decoder
+import io.circe.ObjectEncoder
+import io.circe.JsonObject
+
+case class WorkspaceSettings(
+    semanticDBVersion: String,
+    supportedScalaVersions: List[String]
+)
 
 object WorkspaceSettings {
 
-  /** File to store Metals specific settings*/
-  val settingsFileName = "bloop.settings.json"
+  sealed trait DetectedChange
+  final case class SemanticdbVersionChange(newVersion: String) extends DetectedChange
+
+  /** File name to store Metals specific settings*/
+  private[bloop] val settingsFileName = RelativePath("bloop.settings.json")
+
+  import io.circe.derivation._
   private val settingsEncoder: ObjectEncoder[WorkspaceSettings] = deriveEncoder
   private val settingsDecoder: Decoder[WorkspaceSettings] = deriveDecoder
 

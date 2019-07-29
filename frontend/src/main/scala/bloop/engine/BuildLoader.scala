@@ -5,9 +5,11 @@ import bloop.io.Paths.AttributedPath
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.io.ByteHasher
-import monix.eval.Task
 import bloop.data.WorkspaceSettings
-import bloop.data.LoadedBuild
+import bloop.data.PartialLoadedBuild
+import bloop.data.LoadedProject
+
+import monix.eval.Task
 
 object BuildLoader {
 
@@ -39,36 +41,36 @@ object BuildLoader {
   def loadBuildFromConfigurationFiles(
       configDir: AbsolutePath,
       configFiles: List[Build.ReadConfiguration],
-      incomingSettings: Option[WorkspaceSettings],
+      newSettings: Option[WorkspaceSettings],
       logger: Logger
-  ): Task[LoadedBuild] = {
-    val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, incomingSettings))
+  ): Task[PartialLoadedBuild] = {
+    val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, newSettings))
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
       DebugFilter.All
     )
-    workspaceSettings
-      .flatMap { settings =>
-        val all = configFiles.map(f => Task(loadProject(f.bytes, f.origin, logger, settings)))
-        val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
-        Task
-          .sequence(groupTasks)
-          .map(fp => LoadedBuild(fp.flatten, settings))
-      }
-      .executeOn(ExecutionContext.ioScheduler)
+
+    val loadSettingsAndBuild = workspaceSettings.flatMap { settings =>
+      val all = configFiles.map(f => Task(loadProject(f.bytes, f.origin, logger, settings)))
+      val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
+      Task.sequence(groupTasks).map(fp => PartialLoadedBuild(fp.flatten))
+    }
+
+    loadSettingsAndBuild.executeOn(ExecutionContext.ioScheduler)
   }
 
   /**
    * Load all the projects from `configDir` in a parallel, lazy fashion via monix Task.
    *
    * @param configDir The base directory from which to load the projects.
+   * @param newSettings The settings that we should use to load this build.
    * @param logger The logger that collects messages about project loading.
    * @return The list of loaded projects.
    */
   def load(
       configDir: AbsolutePath,
-      incomingSettings: Option[WorkspaceSettings],
+      newSettings: Option[WorkspaceSettings],
       logger: Logger
-  ): Task[LoadedBuild] = {
+  ): Task[PartialLoadedBuild] = {
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       Task {
         val bytes = ap.path.readAllBytes
@@ -80,12 +82,16 @@ object BuildLoader {
     Task
       .gatherUnordered(configFiles)
       .flatMap { fs =>
-        loadBuildFromConfigurationFiles(configDir, fs, incomingSettings, logger)
+        loadBuildFromConfigurationFiles(configDir, fs, newSettings, logger)
       }
   }
 
   /**
-   * Load all the projects from `configDir` synchronously.
+   * Loads all the projects from `configDir` synchronously.
+   *
+   * This method does not take any new settings because its call-sites are
+   * not used in the CLI/bloop server, instead this is an entrypoint used
+   * mostly for our testing and community build infrastructure.
    *
    * @param configDir The base directory from which to load the projects.
    * @param logger The logger that collects messages about project loading.
@@ -94,7 +100,7 @@ object BuildLoader {
   def loadSynchronously(
       configDir: AbsolutePath,
       logger: Logger
-  ): LoadedBuild = {
+  ): PartialLoadedBuild = {
     val settings = WorkspaceSettings.readFromFile(configDir, logger)
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       val bytes = ap.path.readAllBytes
@@ -103,9 +109,10 @@ object BuildLoader {
     }
 
     logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
-      DebugFilter.Compilation
+      DebugFilter.All
     )
-    LoadedBuild(configFiles.map(f => loadProject(f.bytes, f.origin, logger, settings)), settings)
+
+    PartialLoadedBuild(configFiles.map(f => loadProject(f.bytes, f.origin, logger, settings)))
   }
 
   private def loadProject(
@@ -113,9 +120,16 @@ object BuildLoader {
       origin: Origin,
       logger: Logger,
       settings: Option[WorkspaceSettings]
-  ): Project = {
+  ): LoadedProject = {
     val project = Project.fromBytesAndOrigin(bytes, origin, logger)
-    settings.map(Project.enableMetalsSettings(project, _, logger)).getOrElse(project)
+    settings match {
+      case None => LoadedProject.RawProject(project)
+      case Some(settings) =>
+        Project.enableMetalsSettings(project, settings, logger) match {
+          case Left(project) => LoadedProject.RawProject(project)
+          case Right(transformed) => LoadedProject.ConfiguredProject(transformed, project, settings)
+        }
+    }
   }
 
   private def updateWorkspaceSettings(

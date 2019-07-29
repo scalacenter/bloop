@@ -216,13 +216,13 @@ object Project {
    * @param settings The settings that contain Metals-specific information such
    *                 as the expected semanticdb version or supported Scala versions.
    * @param logger The logger responsible of tracking any transformation-related event.
-   *
+   * @return Either the same project as before or the transformed project.
    */
   def enableMetalsSettings(
       project: Project,
       settings: WorkspaceSettings,
       logger: Logger
-  ): Project = {
+  ): Either[Project, Project] = {
     val workspaceDir = WorkspaceSettings.detectWorkspaceDirectory(project, settings)
     def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
       val hasSemanticDB =
@@ -250,7 +250,7 @@ object Project {
     }
 
     project.scalaInstance match {
-      case None => project
+      case None => Left(project)
       case Some(instance) =>
         val projectWithRangePositions =
           project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
@@ -262,18 +262,18 @@ object Project {
           logger.debug(
             s"Skipping configuration of SemanticDB for '${project.name}': unsupported Scala v${instance.version}"
           )(DebugFilter.All)
-          projectWithRangePositions
+          Right(projectWithRangePositions)
         } else {
           SemanticDBCache.fetchPlugin(instance.version, settings.semanticDBVersion, logger) match {
             case Right(pluginPath) =>
               val options = projectWithRangePositions.scalacOptions
               val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
-              projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+              Right(projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB))
             case Left(error) =>
               logger.displayWarningToUser(
                 s"Skipping configuration of SemanticDB for '${project.name}': $error"
               )
-              projectWithRangePositions
+              Right(projectWithRangePositions)
           }
         }
     }

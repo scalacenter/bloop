@@ -186,7 +186,7 @@ class BspMetalsClientSpec(
       val `A` = TestProject(workspace, "A", Nil)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
-      WorkspaceSettings.write(
+      WorkspaceSettings.writeToFile(
         configDir,
         WorkspaceSettings(semanticdbVersion, List(testedScalaVersion))
       )
@@ -210,7 +210,7 @@ class BspMetalsClientSpec(
       val `A` = TestProject(workspace, "A", Nil)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
-      WorkspaceSettings.write(
+      WorkspaceSettings.writeToFile(
         configDir,
         WorkspaceSettings(semanticdbVersion, List(testedScalaVersion))
       )
@@ -282,7 +282,7 @@ class BspMetalsClientSpec(
       }
 
       assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
-      val settings = WorkspaceSettings.fromFile(configDir, logger)
+      val settings = WorkspaceSettings.readFromFile(configDir, logger)
       assert(settings.isDefined && settings.get.semanticDBVersion == metalsClientVersion)
     }
   }
@@ -292,7 +292,7 @@ class BspMetalsClientSpec(
       val `A` = TestProject(workspace, "A", dummyFooSources)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
-      WorkspaceSettings.write(configDir, WorkspaceSettings("4.2.0", List(testedScalaVersion)))
+      WorkspaceSettings.writeToFile(configDir, WorkspaceSettings("4.2.0", List(testedScalaVersion)))
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val bspState = loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
@@ -307,7 +307,10 @@ class BspMetalsClientSpec(
       val `A` = TestProject(workspace, "A", dummyFooSources)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
-      WorkspaceSettings.write(configDir, WorkspaceSettings("4.1.11", List(testedScalaVersion)))
+      WorkspaceSettings.writeToFile(
+        configDir,
+        WorkspaceSettings("4.1.11", List(testedScalaVersion))
+      )
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState

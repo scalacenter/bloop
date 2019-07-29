@@ -91,13 +91,13 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
   ): Task[State] = {
     getStateFor(from, client, pool, commonOptions, logger) match {
       case Some(state) =>
-        state.build.checkForChange(logger, incomingSettings, reapplySettings).flatMap {
+        state.build.checkForChange(incomingSettings, logger, reapplySettings).flatMap {
           case Build.ReturnPreviousState => Task.now(state)
           case Build.UpdateState(createdOrModified, deleted, settingsChanged) =>
             BuildLoader
               .loadBuildFromConfigurationFiles(from, createdOrModified, settingsChanged, logger)
               .map {
-                case LoadedBuild(newProjects, settings) =>
+                case PartialLoadedBuild(newProjects, settings) =>
                   val currentProjects = state.build.projects
                   val toRemove = deleted.toSet ++ newProjects.map(_.origin.path)
                   val untouched =

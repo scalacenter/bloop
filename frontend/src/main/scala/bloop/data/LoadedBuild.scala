@@ -1,3 +1,9 @@
 package bloop.data
 
-case class LoadedBuild(projects : List[Project], workspaceSettings : Option[WorkspaceSettings])
+/**
+ * A partial loaded build is the incremental result of loading a certain amount
+ * of configuration files from disk and post-processing them in-memory.
+ */
+case class PartialLoadedBuild(
+    projects: List[LoadedProject]
+)
