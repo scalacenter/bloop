@@ -8,8 +8,10 @@ import bloop.io.ByteHasher
 import bloop.data.WorkspaceSettings
 import bloop.data.PartialLoadedBuild
 import bloop.data.LoadedProject
+import bloop.engine.caches.SemanticDBCache
 
 import monix.eval.Task
+import scala.collection.mutable
 
 object BuildLoader {
 
@@ -26,64 +28,129 @@ object BuildLoader {
    * @return A map associating each tracked file with its last modification time.
    */
   def readConfigurationFilesInBase(base: AbsolutePath, logger: Logger): List[AttributedPath] = {
+    val workspaceFileName = WorkspaceSettings.settingsFileName.toFile.getName()
     bloop.io.Paths
       .attributedPathFilesUnder(base, JsonFilePattern, logger, 1)
-      .filterNot(_.path.toFile.getName() == WorkspaceSettings.settingsFileName)
+      .filterNot(_.path.toFile.getName() == workspaceFileName)
   }
 
   /**
-   * Loads only the projects passed as arguments.
+   * Loads the build incrementally based on the inputs.
    *
    * @param configRoot The base directory from which to load the projects.
+   * @param configs The read configurations for added/modified projects.
+   * @param inMemoryChanged The projects that require a re-transformation based on settings.
+   * @param settingsForLoad The settings to be used to reload the build.
    * @param logger The logger that collects messages about project loading.
    * @return The list of loaded projects.
    */
-  def loadBuildFromConfigurationFiles(
+  def loadBuildIncrementally(
       configDir: AbsolutePath,
-      configFiles: List[Build.ReadConfiguration],
-      newSettings: Option[WorkspaceSettings],
+      configs: List[Build.ReadConfiguration],
+      inMemoryChanged: List[Build.InvalidatedInMemoryProject],
+      settingsForLoad: Option[WorkspaceSettings],
       logger: Logger
-  ): Task[PartialLoadedBuild] = {
-    val workspaceSettings = Task(updateWorkspaceSettings(configDir, logger, newSettings))
-    logger.debug(s"Loading ${configFiles.length} projects from '${configDir.syntax}'...")(
-      DebugFilter.All
-    )
+  ): Task[List[LoadedProject]] = {
+    val incrementalLoadTask = Task {
+      val loadMsg = s"Loading ${configs.length} projects from '${configDir.syntax}'..."
+      logger.debug(loadMsg)(DebugFilter.All)
+      val rawProjects = configs.map(f => Task(loadProject(f.bytes, f.origin, logger)))
+      val groupTasks = rawProjects.grouped(10).map(group => Task.gatherUnordered(group)).toList
+      val newOrModifiedRawProjects = Task.sequence(groupTasks).map(fp => fp.flatten)
 
-    val loadSettingsAndBuild = workspaceSettings.flatMap { settings =>
-      val all = configFiles.map(f => Task(loadProject(f.bytes, f.origin, logger, settings)))
-      val groupTasks = all.grouped(10).map(group => Task.gatherUnordered(group)).toList
-      Task.sequence(groupTasks).map(fp => PartialLoadedBuild(fp.flatten))
+      newOrModifiedRawProjects.flatMap { projects =>
+        val projectsRequiringMetalsTransformation = projects ++ inMemoryChanged.collect {
+          case Build.InvalidatedInMemoryProject(project, changes)
+              if changes.contains(WorkspaceSettings.SemanticDBVersionChange) =>
+            project
+        }
+
+        settingsForLoad match {
+          case None =>
+            Task.now(projectsRequiringMetalsTransformation.map(LoadedProject.RawProject(_)))
+          case Some(settings) =>
+            resolveSemanticDBForProjects(
+              projectsRequiringMetalsTransformation,
+              configDir,
+              settings.semanticDBVersion,
+              settings.supportedScalaVersions,
+              logger
+            ).map { transformedProjects =>
+              transformedProjects.map {
+                case (project, None) => LoadedProject.RawProject(project)
+                case (project, Some(original)) =>
+                  LoadedProject.ConfiguredProject(project, original, settings)
+              }
+            }
+        }
+      }
     }
 
-    loadSettingsAndBuild.executeOn(ExecutionContext.ioScheduler)
+    incrementalLoadTask.flatten.executeOn(ExecutionContext.ioScheduler)
   }
 
   /**
-   * Load all the projects from `configDir` in a parallel, lazy fashion via monix Task.
+   * Resolves the semanticdb plugin for every project with a different Scala
+   * version and then enables the Metals settings on those projects that have
+   * changed in this incremental build load.
    *
-   * @param configDir The base directory from which to load the projects.
-   * @param newSettings The settings that we should use to load this build.
-   * @param logger The logger that collects messages about project loading.
-   * @return The list of loaded projects.
+   * Some of the logic of this method has a duplicate version in
+   * `loadSynchronously` that doesn't use `Task` to resolve SemanticDB plugins
+   * in parallel and apply the Metals projects. Any change here **must** also
+   * be propagated there.
    */
-  def load(
+  private def resolveSemanticDBForProjects(
+      rawProjects: List[Project],
       configDir: AbsolutePath,
-      newSettings: Option[WorkspaceSettings],
+      semanticDBVersion: String,
+      supportedScalaVersions: List[String],
       logger: Logger
-  ): Task[PartialLoadedBuild] = {
-    val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
-      Task {
-        val bytes = ap.path.readAllBytes
-        val hash = ByteHasher.hashBytes(bytes)
-        Build.ReadConfiguration(Origin(ap, hash), bytes)
+  ): Task[List[(Project, Option[Project])]] = {
+    val projectsWithNoScalaConfig = new mutable.ListBuffer[Project]()
+    val groupedProjectsPerScalaVersion = new mutable.HashMap[String, List[Project]]()
+    rawProjects.foreach { project =>
+      project.scalaInstance match {
+        case None => projectsWithNoScalaConfig.+=(project)
+        case Some(instance) =>
+          val scalaVersion = instance.version
+          groupedProjectsPerScalaVersion.get(scalaVersion) match {
+            case Some(projects) =>
+              groupedProjectsPerScalaVersion.put(scalaVersion, project :: projects)
+            case None => groupedProjectsPerScalaVersion.put(scalaVersion, project :: Nil)
+          }
       }
     }
 
-    Task
-      .gatherUnordered(configFiles)
-      .flatMap { fs =>
-        loadBuildFromConfigurationFiles(configDir, fs, newSettings, logger)
-      }
+    val workspace = WorkspaceSettings.detectWorkspaceDirectory(configDir)
+    val enableMetalsInProjectsTask = groupedProjectsPerScalaVersion.toList.map {
+      case (scalaVersion, projects) =>
+        def enableMetalsTask(plugin: Option[AbsolutePath]) = {
+          Task(
+            projects.map(p => Project.enableMetalsSettings(p, plugin, workspace, logger) -> Some(p))
+          )
+        }
+
+        // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
+        val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
+        if (isUnsupportedVersion) {
+          logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
+          enableMetalsTask(None)
+        } else {
+          SemanticDBCache.fetchPlugin(scalaVersion, semanticDBVersion, logger) match {
+            case Right(path) =>
+              logger.debug(Feedback.configuredMetalsProjects(projects))(DebugFilter.All)
+              enableMetalsTask(Some(path))
+            case Left(cause) =>
+              logger.displayWarningToUser(Feedback.failedMetalsConfiguration(scalaVersion, cause))
+              enableMetalsTask(None)
+          }
+        }
+    }
+
+    Task.gatherUnordered(enableMetalsInProjectsTask).map { pps =>
+      // Add projects with Metals settings enabled + projects with no scala config at all
+      pps.flatten ++ projectsWithNoScalaConfig.toList.map(_ -> None)
+    }
   }
 
   /**
@@ -100,7 +167,7 @@ object BuildLoader {
   def loadSynchronously(
       configDir: AbsolutePath,
       logger: Logger
-  ): PartialLoadedBuild = {
+  ): List[LoadedProject] = {
     val settings = WorkspaceSettings.readFromFile(configDir, logger)
     val configFiles = readConfigurationFilesInBase(configDir, logger).map { ap =>
       val bytes = ap.path.readAllBytes
@@ -112,41 +179,49 @@ object BuildLoader {
       DebugFilter.All
     )
 
-    PartialLoadedBuild(configFiles.map(f => loadProject(f.bytes, f.origin, logger, settings)))
-  }
+    configFiles.map { f =>
+      val project = loadProject(f.bytes, f.origin, logger)
+      settings match {
+        case None => LoadedProject.RawProject(project)
+        case Some(settings) =>
+          project.scalaInstance match {
+            case None => LoadedProject.RawProject(project)
+            case Some(instance) =>
+              val workspace = WorkspaceSettings.detectWorkspaceDirectory(configDir)
+              def enableMetals(plugin: Option[AbsolutePath]) = {
+                LoadedProject.ConfiguredProject(
+                  Project.enableMetalsSettings(project, plugin, workspace, logger),
+                  project,
+                  settings
+                )
+              }
 
-  private def loadProject(
-      bytes: Array[Byte],
-      origin: Origin,
-      logger: Logger,
-      settings: Option[WorkspaceSettings]
-  ): LoadedProject = {
-    val project = Project.fromBytesAndOrigin(bytes, origin, logger)
-    settings match {
-      case None => LoadedProject.RawProject(project)
-      case Some(settings) =>
-        Project.enableMetalsSettings(project, settings, logger) match {
-          case Left(project) => LoadedProject.RawProject(project)
-          case Right(transformed) => LoadedProject.ConfiguredProject(transformed, project, settings)
-        }
+              val scalaVersion = instance.version
+              import settings.{supportedScalaVersions, semanticDBVersion}
+
+              // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
+              val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
+              if (isUnsupportedVersion) {
+                logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
+                enableMetals(None)
+              } else {
+                SemanticDBCache.fetchPlugin(scalaVersion, semanticDBVersion, logger) match {
+                  case Right(path) =>
+                    logger.debug(Feedback.configuredMetalsProjects(List(project)))(DebugFilter.All)
+                    enableMetals(Some(path))
+                  case Left(cause) =>
+                    logger.displayWarningToUser(
+                      Feedback.failedMetalsConfiguration(scalaVersion, cause)
+                    )
+                    enableMetals(None)
+                }
+              }
+          }
+      }
     }
   }
 
-  private def updateWorkspaceSettings(
-      configDir: AbsolutePath,
-      logger: Logger,
-      incomingSettings: Option[WorkspaceSettings]
-  ): Option[WorkspaceSettings] = {
-    val currentSettings = WorkspaceSettings.readFromFile(configDir, logger)
-    incomingSettings match {
-      case Some(newSettings)
-          if currentSettings.isEmpty || currentSettings.exists(_ != newSettings) =>
-        WorkspaceSettings.writeToFile(configDir, newSettings).left.foreach { t =>
-          logger.debug(s"Unexpected failure when writing workspace settings: $t")(DebugFilter.All)
-          logger.trace(t)
-        }
-        Some(newSettings)
-      case _ => currentSettings
-    }
+  private def loadProject(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
+    Project.fromBytesAndOrigin(bytes, origin, logger)
   }
 }

@@ -7,71 +7,127 @@ import bloop.engine.{Build, BuildLoader, State}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{Logger, RecordingLogger}
 import bloop.util.TestUtil
-import monix.eval.Task
-
 import bloop.testing.BaseSuite
 import bloop.data.WorkspaceSettings
 import bloop.internal.build.BuildInfo
+
+import monix.eval.Task
+
 object BuildLoaderSpec extends BaseSuite {
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>
-    testBuild.state.build.checkForChange(logger).map {
+    testBuild.state.build.checkForChange(None, logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState => sys.error(s"Expected return previous state, got ${action}")
     }
   }
 
-  testLoad("reload if forced") { (testBuild, logger) =>
-    testBuild.state.build.checkForChange(logger, reapplySettings = true).map {
+  testLoad("reload if settings are added") { (testBuild, logger) =>
+    val settings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
+    testBuild.state.build.checkForChange(Some(settings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
       case action: Build.UpdateState =>
-        assert(action.createdOrModified.size == 4)
+        assert(action.createdOrModified.size == 0)
+        assert(action.deleted.size == 0)
+        assert(action.invalidated.size == 4)
+        assert(action.settingsForReload == Some(settings))
     }
-  }
-
-  testLoad("reload if settings are added") { (testBuild, logger) =>
-    val settings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
-    testBuild.state.build
-      .checkForChange(logger, incomingSettings = Some(settings))
-      .map {
-        case Build.ReturnPreviousState =>
-          sys.error(s"Expected return updated state, got previous state")
-        case action: Build.UpdateState =>
-          assert(action.createdOrModified.size == 4)
-      }
   }
 
   val sameSettings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
-    testBuild.state.build
-      .checkForChange(logger, incomingSettings = Some(sameSettings))
-      .map {
-        case Build.ReturnPreviousState => ()
-        case action: Build.UpdateState =>
-          sys.error(s"Expected return previous state, got updated state")
-      }
+    testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
+      case Build.ReturnPreviousState => ()
+      case action: Build.UpdateState =>
+        pprint.log(action.invalidated)
+        sys.error(s"Expected return previous state, got updated state")
+    }
   }
 
   testLoad("reload if new settings are added", Some(sameSettings)) { (testBuild, logger) =>
     val newSettings = WorkspaceSettings("4.1.11", List(BuildInfo.scalaVersion))
-    testBuild.state.build
-      .checkForChange(logger, incomingSettings = Some(newSettings))
-      .map {
+    testBuild.state.build.checkForChange(Some(newSettings), logger).map {
+      case Build.ReturnPreviousState =>
+        sys.error(s"Expected return updated state, got previous state")
+      case action: Build.UpdateState =>
+        assert(action.createdOrModified.size == 0)
+        assert(action.deleted.size == 0)
+        assert(action.invalidated.size == 4)
+        assert(action.settingsForReload == Some(newSettings))
+    }
+  }
+
+  private def changeHashOfRandomFiles(build: TestBuild, n: Int): Unit = {
+    val randomFiles = scala.util.Random.shuffle(configurationFiles(build)).take(n)
+    randomFiles.foreach { f =>
+      // Add whitespace at the end to modify hash
+      val bytes = Files.readAllBytes(f.underlying)
+      val contents = new String(bytes, StandardCharsets.UTF_8) + " "
+      Files.write(f.underlying, contents.getBytes(StandardCharsets.UTF_8))
+    }
+  }
+
+  testLoad("reload if two file contents changed in build with previous", Some(sameSettings)) {
+    (testBuild, logger) =>
+      changeHashOfRandomFiles(testBuild, 2)
+      // Don't pass in any settings so that the previous ones are used instead
+      testBuild.state.build.checkForChange(None, logger).map {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected return updated state, got previous state")
         case action: Build.UpdateState =>
-          assert(action.createdOrModified.size == 4)
+          assert(action.createdOrModified.size == 2)
+          assert(action.deleted.size == 0)
+          assert(action.invalidated.size == 0)
+          assert(action.settingsForReload == Some(sameSettings))
       }
+  }
+
+  testLoad("reload if two file contents changed with same settings", Some(sameSettings)) {
+    (testBuild, logger) =>
+      changeHashOfRandomFiles(testBuild, 2)
+      testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
+        case Build.ReturnPreviousState =>
+          sys.error(s"Expected return updated state, got previous state")
+        case action: Build.UpdateState =>
+          assert(action.createdOrModified.size == 2)
+          assert(action.deleted.size == 0)
+          assert(action.invalidated.size == 0)
+          assert(action.settingsForReload == Some(sameSettings))
+      }
+  }
+
+  testLoad("reload if new settings are added and two file contents changed", Some(sameSettings)) {
+    (testBuild, logger) =>
+      changeHashOfRandomFiles(testBuild, 2)
+      val newSettings = WorkspaceSettings("4.1.11", List(BuildInfo.scalaVersion))
+      testBuild.state.build.checkForChange(Some(newSettings), logger).map {
+        case Build.ReturnPreviousState =>
+          sys.error(s"Expected return updated state, got previous state")
+        case action: Build.UpdateState =>
+          assert(action.deleted.size == 0)
+          assert(action.createdOrModified.size == 2)
+          assert(action.invalidated.size == 2)
+          assert(action.settingsForReload == Some(newSettings))
+      }
+  }
+
+  testLoad(
+    "do not reload if no settings are passed to build configured with previous settings",
+    Some(sameSettings)
+  ) { (testBuild, logger) =>
+    testBuild.state.build.checkForChange(None, logger).map {
+      case Build.ReturnPreviousState => ()
+      case action: Build.UpdateState =>
+        sys.error(s"Expected return previous state, got updated state")
+    }
   }
 
   testLoad("do not reload on empty settings") { (testBuild, logger) =>
     val configDir = testBuild.configFileFor(testBuild.projects.head).getParent
-    testBuild.state.build
-      .checkForChange(logger, incomingSettings = None)
-      .map {
-        case Build.ReturnPreviousState => ()
-        case action: Build.UpdateState => sys.error(s"Expected return previous state, got $action")
-      }
+    testBuild.state.build.checkForChange(None, logger).map {
+      case Build.ReturnPreviousState => ()
+      case action: Build.UpdateState => sys.error(s"Expected return previous state, got $action")
+    }
   }
 
   private def configurationFiles(build: TestBuild): List[AbsolutePath] = {
@@ -82,7 +138,7 @@ object BuildLoaderSpec extends BaseSuite {
     val randomConfigFiles = scala.util.Random.shuffle(configurationFiles(testBuild)).take(5)
     // Update the timestamps of the configuration files to trigger a reload
     randomConfigFiles.foreach(f => Files.write(f.underlying, Files.readAllBytes(f.underlying)))
-    testBuild.state.build.checkForChange(logger).map {
+    testBuild.state.build.checkForChange(None, logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState => sys.error(s"Expected return previous state, got ${action}")
     }
@@ -109,21 +165,19 @@ object BuildLoaderSpec extends BaseSuite {
     val pathOfDummyFile = testBuild.state.build.origin.resolve("dummy.json").underlying
     Files.write(pathOfDummyFile, ContentsNewConfigurationFile.getBytes(StandardCharsets.UTF_8))
 
-    testBuild.state.build
-      .checkForChange(logger)
-      .map {
-        case action: Build.UpdateState =>
-          val hasDummyPath =
-            action.createdOrModified.exists(_.origin.path.underlying == pathOfDummyFile)
-          if (action.deleted.isEmpty && hasDummyPath) ()
-          else sys.error(s"Expected state with new project addition, got ${action}")
-        case Build.ReturnPreviousState =>
-          sys.error(s"Expected state with new project addition, got ReturnPreviousState")
-      }
+    testBuild.state.build.checkForChange(None, logger).map {
+      case action: Build.UpdateState =>
+        val hasDummyPath =
+          action.createdOrModified.exists(_.origin.path.underlying == pathOfDummyFile)
+        if (action.deleted.isEmpty && hasDummyPath) ()
+        else sys.error(s"Expected state with new project addition, got ${action}")
+      case Build.ReturnPreviousState =>
+        sys.error(s"Expected state with new project addition, got ReturnPreviousState")
+    }
   }
 
   testLoad("reload when existing configuration files change") { (testBuild, logger) =>
-    val projectsToModify = testBuild.state.build.projects.take(2)
+    val projectsToModify = testBuild.state.build.loadedProjects.map(_.project).take(2)
     val backups = projectsToModify.map(p => p -> p.origin.path.readAllBytes)
 
     val changes = backups.map {
@@ -137,7 +191,7 @@ object BuildLoaderSpec extends BaseSuite {
     Task
       .gatherUnordered(changes)
       .flatMap { _ =>
-        testBuild.state.build.checkForChange(logger).map {
+        testBuild.state.build.checkForChange(None, logger).map {
           case action: Build.UpdateState =>
             val hasAllProjects = {
               val originProjects = projectsToModify.map(_.origin.path).toSet
@@ -159,7 +213,7 @@ object BuildLoaderSpec extends BaseSuite {
     }
 
     change.flatMap { _ =>
-      testBuild.state.build.checkForChange(logger).map {
+      testBuild.state.build.checkForChange(None, logger).map {
         case action: Build.UpdateState =>
           val hasProjectDeleted = {
             action.deleted match {

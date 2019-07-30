@@ -252,7 +252,7 @@ class RunSpec {
       val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
       val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
       val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
-      val projects = state.build.projects
+      val projects = state.build.loadedProjects.map(_.project)
       val projectA = getProject("A", state)
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(15, TimeUnit.SECONDS)
@@ -284,7 +284,7 @@ class RunSpec {
       val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
       val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
       val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
-      val projects = state.build.projects
+      val projects = state.build.loadedProjects.map(_.project)
       val projectA = getProject("A", state)
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(13, TimeUnit.SECONDS)

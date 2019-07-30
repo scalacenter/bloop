@@ -35,8 +35,8 @@ object Bloop extends CaseApp[CliOptions] {
     )
     logger.warn("Please refer to our documentation for more information.")
     val client = ClientInfo.CliClientInfo("bloop-single-app", () => true)
-    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedBuild.workspaceSettings, loadedBuild.projects)
+    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
+    val build = Build(configDirectory, loadedProjects)
     val state = State(build, client, NoPool, options.common, logger)
     run(state, options)
   }
@@ -71,7 +71,7 @@ object Bloop extends CaseApp[CliOptions] {
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 
       case Array("clean") =>
-        val allProjects = state.build.projects.map(_.name)
+        val allProjects = state.build.loadedProjects.map(_.project.name)
         val action = Run(Commands.Clean(allProjects), Exit(ExitStatus.Ok))
         run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
 

@@ -7,7 +7,6 @@ import bloop.engine.caches.{ResultsCache, StateCache}
 import bloop.io.Paths
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
-import bloop.data.LoadedBuild
 import bloop.data.WorkspaceSettings
 
 /**
@@ -89,27 +88,18 @@ object State {
       pool: ClientPool,
       opts: CommonOptions,
       logger: Logger,
-      incomingSettings: Option[WorkspaceSettings] = None,
-      reapplySettings: Boolean = false
+      clientSettings: Option[WorkspaceSettings] = None
   ): Task[State] = {
-    def loadState(path: bloop.io.AbsolutePath): Task[State] = {
-      BuildLoader.load(configDir, incomingSettings, logger).map {
-        case LoadedBuild(projects, buildSettings) =>
-          val build: Build = Build(configDir, buildSettings, projects)
-          State(build, client, pool, opts, logger)
-      }
-    }
-
-    val cached = State.stateCache.addIfMissing(
+    val cached = State.stateCache.loadState(
       configDir,
       client,
       pool,
       opts,
       logger,
-      loadState(_),
-      incomingSettings,
-      reapplySettings
+      State(_, client, pool, opts, logger),
+      clientSettings
     )
+
     cached.map(_.copy(pool = pool, client = client, commonOptions = opts, logger = logger))
   }
 

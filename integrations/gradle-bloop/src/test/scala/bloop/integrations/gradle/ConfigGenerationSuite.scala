@@ -22,11 +22,11 @@ import bloop.engine.BuildLoader
 
 import scala.collection.JavaConverters._
 
-class ConfigGenerationSuite481 extends ConfigGenerationSuite{
+class ConfigGenerationSuite481 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "4.8.1"
 }
 
-class ConfigGenerationSuite531 extends ConfigGenerationSuite{
+class ConfigGenerationSuite531 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "5.3.1"
 }
 
@@ -214,7 +214,8 @@ abstract class ConfigGenerationSuite {
     createHelloWorldScalaSource(buildDirC, "package z { class C }")
     createHelloWorldScalaSource(
       buildDirD,
-      "package zz { class D extends x.A { println(new z.C) } }")
+      "package zz { class D extends x.A { println(new z.C) } }"
+    )
 
     GradleRunner
       .create()
@@ -265,16 +266,19 @@ abstract class ConfigGenerationSuite {
     def assertSources(config: Config.File, entryName: String): Unit = {
       assertTrue(
         s"Resolution field for ${config.project.name} does not exist",
-        config.project.resolution.isDefined)
+        config.project.resolution.isDefined
+      )
       config.project.resolution.foreach { resolution =>
         val sources = resolution.modules.find(
           module =>
-            module.name.contains(entryName) && module.artifacts.exists(
-              _.classifier.contains("sources")))
+            module.name.contains(entryName) && module.artifacts
+              .exists(_.classifier.contains("sources"))
+        )
         assertTrue(s"Sources for $entryName do not exist", sources.isDefined)
         assertTrue(
           s"There are more sources than one for $entryName:\n${sources.get.artifacts.mkString("\n")}",
-          sources.exists(_.artifacts.size == 2))
+          sources.exists(_.artifacts.size == 2)
+        )
       }
     }
 
@@ -290,33 +294,24 @@ abstract class ConfigGenerationSuite {
     assertSources(configBTest, "scala-library")
     assert(hasClasspathEntryName(configCTest, "scala-library"))
     assertSources(configCTest, "scala-library")
-    assert(
-      hasClasspathEntryName(configATest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configCTest, "/c/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configATest, "/a/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configCTest, "/c/build/classes".replace('/', File.separatorChar)))
     assert(hasClasspathEntryName(configB, "cats-core"))
     assertSources(configB, "cats-core")
     assert(hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
     assert(hasClasspathEntryName(configB, "/c/build/classes".replace('/', File.separatorChar)))
     assert(hasClasspathEntryName(configBTest, "cats-core"))
     assertSources(configBTest, "cats-core")
-    assert(
-      hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configBTest, "/c/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configBTest, "/c/build/classes".replace('/', File.separatorChar)))
     assert(hasClasspathEntryName(configD, "/a/build/classes".replace('/', File.separatorChar)))
     assert(hasClasspathEntryName(configD, "/b/build/classes".replace('/', File.separatorChar)))
     assert(hasClasspathEntryName(configD, "/c/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configDTest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configDTest, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configDTest, "/c/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configDTest, "/d/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configDTest, "/a/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configDTest, "/b/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configDTest, "/c/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configDTest, "/d/build/classes".replace('/', File.separatorChar)))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
     assert(compileBloopProject("d", bloopDir).status.isOk)
@@ -421,13 +416,13 @@ abstract class ConfigGenerationSuite {
 
     assert(!hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
     assert(
-      !hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar)))
+      !hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar))
+    )
+    assert(!hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
     assert(
-      !hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar)))
+      hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar))
+    )
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
   }
@@ -542,11 +537,12 @@ abstract class ConfigGenerationSuite {
       config.project.classpath.exists(_.toString.contains(entryName))
     assert(!hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
     assert(
-      !hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar)))
+      !hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar))
+    )
     assert(
-      hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
+      hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar))
+    )
+    assert(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
 
     assert(compileBloopProject("b-test", bloopDir).status.isOk)
   }
@@ -596,7 +592,8 @@ abstract class ConfigGenerationSuite {
 
     assertEquals(
       List("-deprecation", "-encoding", "utf8", "-unchecked"),
-      resultConfig.project.`scala`.get.options)
+      resultConfig.project.`scala`.get.options
+    )
   }
 
   @Test def flagsWithArgsGeneratedCorrectly(): Unit = {
@@ -656,7 +653,8 @@ abstract class ConfigGenerationSuite {
         "-deprecation",
         "-encoding",
         "utf8",
-        "-unchecked"),
+        "-unchecked"
+      ),
       resultConfig.project.`scala`.get.options
     )
   }
@@ -771,8 +769,7 @@ abstract class ConfigGenerationSuite {
       .withArguments("bloopInstall", "-Si")
       .build()
 
-    assert(
-      result.getOutput.contains("Ignoring 'bloopInstall' on non-Scala and non-Java project"))
+    assert(result.getOutput.contains("Ignoring 'bloopInstall' on non-Scala and non-Java project"))
     val projectName = testProjectDir.getRoot.getName
     val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
     assert(!bloopFile.exists())
@@ -1084,11 +1081,13 @@ abstract class ConfigGenerationSuite {
 
     assert(resultConfig.project.resolution.nonEmpty)
     assert(
-      resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.8"))
+      resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.8")
+    )
 
     assert(
       resultConfig.project.`scala`.get.options
-        .contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot.getCanonicalPath()}"))
+        .contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot.getCanonicalPath()}")
+    )
     assert(resultConfig.project.`scala`.get.options.exists(p => p.startsWith("-Xplugin:")))
   }
 
@@ -1096,8 +1095,8 @@ abstract class ConfigGenerationSuite {
     val logger = BloopLogger.default(configDir.toString)
     assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
     val configDirectory = AbsolutePath(configDir)
-    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedBuild.workspaceSettings, loadedBuild.projects)
+    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
+    val build = Build(configDirectory, loadedProjects)
     State.forTests(build, TestUtil.getCompilerCache(logger), logger)
   }
 

@@ -42,8 +42,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion),
-        reapplySettings = false
+        supportedScalaVersions = List(testedScalaVersion)
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -83,9 +82,9 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List("2.12.8"),
-        reapplySettings = false
+        supportedScalaVersions = List("2.12.8")
       )
+
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         assertNoDiffInSettingsFile(
           configDir,
@@ -97,7 +96,7 @@ class BspMetalsClientSpec(
              |}
              |""".stripMargin
         )
-        // Expect only range positions to be added, semanticdb is missing
+        // Expect only range positions to be added, semanticdb is not supported
         assertScalacOptions(state, `A`, "-Yrangepos")
         assertNoDiff(logger.warnings.mkString(System.lineSeparator), "")
       }
@@ -128,11 +127,21 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion),
-        reapplySettings = false
+        supportedScalaVersions = List(testedScalaVersion)
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        assertNoDiffInSettingsFile(
+          configDir,
+          """|{
+             |    "semanticDBVersion" : "4.2.0",
+             |    "supportedScalaVersions" : [
+             |        "2.12.8"
+             |    ]
+             |}
+             |""".stripMargin
+        )
+
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
         val expected = defaultScalacOptions :+ "-Yrangepos"
         assert(scalacOptions == expected)
@@ -164,36 +173,23 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion),
-        reapplySettings = false
+        supportedScalaVersions = List(testedScalaVersion)
       )
+
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        assertNoDiffInSettingsFile(
+          configDir,
+          """|{
+             |    "semanticDBVersion" : "4.2.0",
+             |    "supportedScalaVersions" : [
+             |        "2.12.8"
+             |    ]
+             |}
+             |""".stripMargin
+        )
+
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
         assert(scalacOptions == defaultScalacOptions)
-      }
-    }
-  }
-
-  test("force reload of all projects if reapplySettings is set to true") {
-    TestUtil.withinWorkspace { workspace =>
-      val semanticdbVersion = "4.2.0"
-      val extraParams = BloopExtraBuildParams(
-        clientClassesRootDir = None,
-        semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion),
-        reapplySettings = true
-      )
-      val `A` = TestProject(workspace, "A", Nil)
-      val projects = List(`A`)
-      val configDir = TestProject.populateWorkspace(workspace, projects)
-      WorkspaceSettings.writeToFile(
-        configDir,
-        WorkspaceSettings(semanticdbVersion, List(testedScalaVersion))
-      )
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams)(_ => ())
-      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
-        assert(logger.infos.contains("Forcing reload of all projects"))
       }
     }
   }
@@ -204,22 +200,28 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion),
-        reapplySettings = false
+        supportedScalaVersions = List(testedScalaVersion)
       )
       val `A` = TestProject(workspace, "A", Nil)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings(semanticdbVersion, List(testedScalaVersion))
+        WorkspaceSettings(semanticdbVersion, List(testedScalaVersion)),
+        logger
       )
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspState(workspace, projects, logger, "Metals")(_ => ())
-      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+
+      def checkSettings: Unit = {
         assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
         val settings = WorkspaceSettings.readFromFile(configDir, logger)
         assert(settings.isDefined && settings.get.semanticDBVersion == semanticdbVersion)
+      }
+
+      loadBspState(workspace, projects, logger, "Metals")(_ => checkSettings)
+      loadBspState(workspace, projects, logger, "unrecognized")(_ => checkSettings)
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { _ =>
+        checkSettings
       }
     }
   }
@@ -243,8 +245,7 @@ class BspMetalsClientSpec(
           val extraParams = BloopExtraBuildParams(
             clientClassesRootDir = None,
             semanticdbVersion = Some(semanticdbVersion),
-            supportedScalaVersions = List(testedScalaVersion),
-            reapplySettings = false
+            supportedScalaVersions = List(testedScalaVersion)
           )
           val bspLogger = new BspClientLogger(logger)
           val bspCommand = createBspCommand(configDir)
@@ -292,8 +293,12 @@ class BspMetalsClientSpec(
       val `A` = TestProject(workspace, "A", dummyFooSources)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
-      WorkspaceSettings.writeToFile(configDir, WorkspaceSettings("4.2.0", List(testedScalaVersion)))
       val logger = new RecordingLogger(ansiCodesSupported = false)
+      WorkspaceSettings.writeToFile(
+        configDir,
+        WorkspaceSettings("4.2.0", List(testedScalaVersion)),
+        logger
+      )
       val bspState = loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
         assert(compiledState.status == ExitStatus.Ok)
@@ -307,11 +312,12 @@ class BspMetalsClientSpec(
       val `A` = TestProject(workspace, "A", dummyFooSources)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings("4.1.11", List(testedScalaVersion))
+        WorkspaceSettings("4.1.11", List(testedScalaVersion)),
+        logger
       )
-      val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
         assert(compiledState.status == ExitStatus.Ok)
@@ -329,8 +335,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some("4.2.0"),
-        supportedScalaVersions = List(testedScalaVersion),
-        reapplySettings = false
+        supportedScalaVersions = List(testedScalaVersion)
       )
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         val compiledState = state.compile(`A`).toTestState

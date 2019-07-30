@@ -112,22 +112,13 @@ final class BloopBspServices(
   private def reloadState(
       config: AbsolutePath,
       clientInfo: ClientInfo,
-      workspaceSettings: Option[WorkspaceSettings] = None,
-      reapplySettings: Boolean = false
+      clientSettings: Option[WorkspaceSettings] = None
   ): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
     State
-      .loadActiveStateFor(
-        config,
-        clientInfo,
-        pool,
-        defaultOpts,
-        bspLogger,
-        workspaceSettings,
-        reapplySettings
-      )
+      .loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger, clientSettings)
       .map { state0 =>
         /* Create a new state that has the previously compiled results in this BSP
          * client as the last compiled result available for a project. This is required
@@ -203,13 +194,14 @@ final class BloopBspServices(
       () => isClientConnected.get
     )
 
-    /* Metals specific settings that are used to store the
-     * SemanticDB version that will later be applied to all
-     * projects in the workspace. If the client is Metals but
-     * the version is not specified we use `latest.release`
+    /**
+     * A Metals BSP client enables a special transformation of a build via the
+     * workspace settings. These workspace settings contains all of the
+     * information required by bloop to enable Metals-specific settings in
+     * every project of a build so that users from different build tools don't
+     * need to manually enable these in their build.
      */
-    val reapplySettings = extraBuildParams.map(_.reapplySettings).getOrElse(false)
-    val metalsSettings =
+    val metalsSettings = {
       if (!params.displayName.contains("Metals")) {
         None
       } else {
@@ -222,8 +214,9 @@ final class BloopBspServices(
             )
           }
       }
+    }
 
-    reloadState(configDir, client, metalsSettings, reapplySettings).map { state =>
+    reloadState(configDir, client, metalsSettings).map { state =>
       callSiteState.logger.info(s"request received: build/initialize")
       clientInfo.success(client)
       connectedBspClients.put(client, configDir)
@@ -640,8 +633,9 @@ final class BloopBspServices(
           Task.now((state, Right(bsp.WorkspaceBuildTargetsResult(Nil))))
         else {
           val build = state.build
+          val projects = build.loadedProjects.map(_.project)
           val targets = bsp.WorkspaceBuildTargetsResult(
-            build.projects.map { p =>
+            projects.map { p =>
               val id = toBuildTargetId(p)
               val tag = {
                 if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)

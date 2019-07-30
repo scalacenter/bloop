@@ -30,7 +30,7 @@ trait BloopHelpers {
       settings: Option[WorkspaceSettings] = None
   ): TestState = {
     val configDir = TestProject.populateWorkspace(workspace, projects)
-    settings.foreach(WorkspaceSettings.writeToFile(configDir, _))
+    settings.foreach(WorkspaceSettings.writeToFile(configDir, _, logger))
     new TestState(TestUtil.loadTestProject(configDir.underlying, logger))
   }
 

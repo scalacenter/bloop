@@ -38,6 +38,7 @@ import scala.meta.jsonrpc.Services
 import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 import bloop.data.WorkspaceSettings
+import bloop.data.LoadedProject
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -73,7 +74,6 @@ object TestUtil {
   def checkAfterCleanCompilation(
       structures: Map[String, Map[String, String]],
       dependencies: Map[String, Set[String]],
-      workspaceSettings: Option[WorkspaceSettings] = None,
       rootProjects: List[String] = List(RootProject),
       scalaInstance: ScalaInstance = TestUtil.scalaInstance,
       javaEnv: JavaEnv = JavaEnv.default,
@@ -82,11 +82,11 @@ object TestUtil {
       useSiteLogger: Option[Logger] = None,
       order: CompileOrder = Config.Mixed
   )(afterCompile: State => Unit = (_ => ())) = {
-    testState(structures, dependencies, workspaceSettings, scalaInstance, javaEnv, order) { (state: State) =>
+    testState(structures, dependencies, scalaInstance, javaEnv, order) { (state: State) =>
       def action(state0: State): Unit = {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
         // Check that this is a clean compile!
-        val projects = state.build.projects
+        val projects = state.build.loadedProjects.map(_.project)
         assert(projects.forall(p => noPreviousAnalysis(p, state)))
         val action = Run(Commands.Compile(rootProjects, incremental = true))
         val compiledState = TestUtil.blockingExecute(action, state)
@@ -199,8 +199,18 @@ object TestUtil {
     assert(Files.exists(configDir), "Does not exist: " + configDir)
 
     val configDirectory = AbsolutePath(configDir)
-    val loadedBuild = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedBuild.workspaceSettings, transformProjects(loadedBuild.projects))
+    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
+    val transformedProjects = loadedProjects.map {
+      case LoadedProject.RawProject(project) =>
+        LoadedProject.RawProject(transformProjects(List(project)).head)
+      case LoadedProject.ConfiguredProject(project, original, settings) =>
+        LoadedProject.ConfiguredProject(
+          transformProjects(List(project)).head,
+          original,
+          settings
+        )
+    }
+    val build = Build(configDirectory, transformedProjects)
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
     val state1 = state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
     if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
@@ -262,7 +272,6 @@ object TestUtil {
   def testState[T](
       projectStructures: Map[String, Map[String, String]],
       dependenciesMap: Map[String, Set[String]],
-      workspaceSettings: Option[WorkspaceSettings] = None,
       instance: ScalaInstance = TestUtil.scalaInstance,
       env: JavaEnv = JavaEnv.default,
       order: CompileOrder = Config.Mixed,
@@ -276,7 +285,8 @@ object TestUtil {
           val deps = dependenciesMap.getOrElse(name, Set.empty)
           makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
       }
-      val build = Build(temp, workspaceSettings, projects.toList)
+      val loaded = projects.map(p => LoadedProject.RawProject(p))
+      val build = Build(temp, loaded.toList)
       val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
       try op(state)
       catch {
@@ -300,7 +310,7 @@ object TestUtil {
     state.results.lastSuccessfulResult(project).isDefined
 
   private[bloop] def syntheticOriginFor(path: AbsolutePath): Origin =
-    Origin(path, FileTime.fromMillis(0), scala.util.Random.nextInt())
+    Origin(path, FileTime.fromMillis(0), 0L, scala.util.Random.nextInt())
 
   def makeProject(
       baseDir: AbsolutePath,
@@ -379,7 +389,8 @@ object TestUtil {
   }
 
   def ensureCompilationInAllTheBuild(state: State): Unit = {
-    state.build.projects.foreach { p =>
+    state.build.loadedProjects.foreach { loadedProject =>
+      val p = loadedProject.project
       Assert.assertTrue(s"${p.name} was not compiled", hasPreviousResult(p, state))
     }
   }

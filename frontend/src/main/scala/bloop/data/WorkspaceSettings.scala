@@ -23,6 +23,27 @@ import io.circe.Decoder
 import io.circe.ObjectEncoder
 import io.circe.JsonObject
 
+/**
+ * Defines the settings of a given workspace. A workspace is a URI that has N
+ * configuration files associated with it. Typically the workspace is the root
+ * directory where all of the projects in the configuration files are defined.
+ *
+ * Workspace settings have a special status in bloop as they change the build
+ * load semantics. Only bloop's build server has permission to write workspace
+ * settings and the existence of the workspace settings file is an internal
+ * detail.
+ *
+ * Workspace settings can be written to disk when, for example, Metals asks to
+ * import a build and Bloop needs to cache the fact that a build needs to
+ * enable Metals specific settings based on some inputs from the BSP clients.
+ * These keys are usually the fields of the workspace settings.
+ *
+ * @param semanticDBVersion The version that should be used to enable the
+ * Semanticdb compiler plugin in a project.
+ * @param semanticDBScalaVersions The sequence of Scala versions for which the
+ * SemanticDB plugin can be resolved for. Important to know for which projects
+ * we should skip the resolution of the plugin.
+ */
 case class WorkspaceSettings(
     semanticDBVersion: String,
     supportedScalaVersions: List[String]
@@ -30,8 +51,9 @@ case class WorkspaceSettings(
 
 object WorkspaceSettings {
 
+  /** Represents the supported changes in the workspace. */
   sealed trait DetectedChange
-  final case class SemanticdbVersionChange(newVersion: String) extends DetectedChange
+  final case object SemanticDBVersionChange extends DetectedChange
 
   /** File name to store Metals specific settings*/
   private[bloop] val settingsFileName = RelativePath("bloop.settings.json")
@@ -54,14 +76,17 @@ object WorkspaceSettings {
     }
   }
 
-  def writeToFile(configDir: AbsolutePath, settings: WorkspaceSettings): Either[Throwable, Path] = {
+  def writeToFile(
+      configDir: AbsolutePath,
+      settings: WorkspaceSettings,
+      logger: Logger
+  ): Either[Throwable, Path] = {
     Try {
+      val settingsFile = configDir.resolve(settingsFileName)
+      logger.debug(s"Writing workspace settings to $settingsFile")(DebugFilter.All)
       val jsonObject = settingsEncoder(settings)
       val output = Printer.spaces4.copy(dropNullValues = true).pretty(jsonObject)
-      Files.write(
-        configDir.resolve(settingsFileName).underlying,
-        output.getBytes(StandardCharsets.UTF_8)
-      )
+      Files.write(settingsFile.underlying, output.getBytes(StandardCharsets.UTF_8))
     }.toEither
   }
 
@@ -73,7 +98,7 @@ object WorkspaceSettings {
   }
 
   /**
-   * Detects the workspace directory of a project.
+   * Detects the workspace directory from the config dir.
    *
    * Bloop doesn't have the notion of workspace directory yet so this is just an
    * approximation. We assume that the parent of `.bloop` is the workspace. This
@@ -83,9 +108,9 @@ object WorkspaceSettings {
    * to introduce a new field to the bloop configuration file so that we can map
    * a project with a workspace irrevocably.
    */
-  def detectWorkspaceDirectory(project: Project, settings: WorkspaceSettings): AbsolutePath = {
-    val configFile = project.origin.path
-    val configDir = configFile.getParent
+  def detectWorkspaceDirectory(
+      configDir: AbsolutePath
+  ): AbsolutePath = {
     configDir.getParent
   }
 }

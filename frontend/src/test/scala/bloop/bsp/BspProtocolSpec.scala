@@ -107,8 +107,7 @@ class BspProtocolSpec(
       val extraBloopParams = BloopExtraBuildParams(
         Some(Uri(userClientClassesRootDir.toBspUri)),
         semanticdbVersion = None,
-        supportedScalaVersions = Nil,
-        reapplySettings = false
+        supportedScalaVersions = Nil
       )
 
       // Start first client and query for scalac options which creates client classes dirs

@@ -201,6 +201,10 @@ object Project {
     }
   }
 
+  def pprint(projects: Traversable[Project]): String = {
+    projects.map(p => s"'${p.name}'").mkString(", ")
+  }
+
   /**
    * Enable any Metals-specific setting in a project by applying an in-memory
    * project transformation. A setting is Metals-specific if it's required for
@@ -220,14 +224,12 @@ object Project {
    */
   def enableMetalsSettings(
       project: Project,
-      settings: WorkspaceSettings,
+      semanticDBPlugin: Option[AbsolutePath],
+      workspaceDir: AbsolutePath,
       logger: Logger
-  ): Either[Project, Project] = {
-    val workspaceDir = WorkspaceSettings.detectWorkspaceDirectory(project, settings)
+  ): Project = {
     def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
-      val hasSemanticDB =
-        options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
-
+      val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
       if (hasSemanticDB) options
       else {
         // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
@@ -249,33 +251,19 @@ object Project {
       if (hasYrangepos) options else options :+ "-Yrangepos"
     }
 
-    project.scalaInstance match {
-      case None => Left(project)
-      case Some(instance) =>
-        val projectWithRangePositions =
-          project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
-
+    val projectWithRangePositions =
+      project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+    semanticDBPlugin match {
+      case None => projectWithRangePositions
+      case Some(pluginPath) =>
         // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
-        val isUnsupportedVersion =
-          !settings.supportedScalaVersions.exists(instance.version.startsWith(_))
-        if (isUnsupportedVersion) {
-          logger.debug(
-            s"Skipping configuration of SemanticDB for '${project.name}': unsupported Scala v${instance.version}"
-          )(DebugFilter.All)
-          Right(projectWithRangePositions)
-        } else {
-          SemanticDBCache.fetchPlugin(instance.version, settings.semanticDBVersion, logger) match {
-            case Right(pluginPath) =>
-              val options = projectWithRangePositions.scalacOptions
-              val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
-              Right(projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB))
-            case Left(error) =>
-              logger.displayWarningToUser(
-                s"Skipping configuration of SemanticDB for '${project.name}': $error"
-              )
-              Right(projectWithRangePositions)
-          }
-        }
+        val options = projectWithRangePositions.scalacOptions
+        val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
+        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
     }
+  }
+
+  def hasSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
+    options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
   }
 }
