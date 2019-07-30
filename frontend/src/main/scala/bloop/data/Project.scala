@@ -203,10 +203,6 @@ object Project {
     }
   }
 
-  def pprint(projects: Traversable[Project]): String = {
-    projects.map(p => s"'${p.name}'").mkString(", ")
-  }
-
   /**
    * Enable any Metals-specific setting in a project by applying an in-memory
    * project transformation. A setting is Metals-specific if it's required for
