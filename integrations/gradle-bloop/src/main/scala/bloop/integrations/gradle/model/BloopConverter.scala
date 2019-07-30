@@ -200,6 +200,7 @@ final class BloopConverter(parameters: BloopParameters) {
        * sbt). Therefore, to avoid any compilation/test/run issue between Gradle and Bloop, we just
        * use our own classes 'bloop' directory in the ".bloop" directory. */
       val classesDir = getClassesDir(targetDir, project, sourceSet)
+      val outDir = getOutDir(targetDir, project, sourceSet)
 
       // tag runtime items to the end of the classpath until Bloop has separate compile and runtime paths
       val classpath: List[Path] =
@@ -219,7 +220,7 @@ final class BloopConverter(parameters: BloopParameters) {
           sources = sources,
           dependencies = allDependencies,
           classpath = classpath,
-          out = project.getBuildDir.toPath,
+          out = outDir,
           classesDir = classesDir,
           resources = if (resources.isEmpty) None else Some(resources),
           `scala` = scalaConfig,
@@ -405,6 +406,12 @@ final class BloopConverter(parameters: BloopParameters) {
       .flatten
       .distinct
   }
+
+  def getOutDir(targetDir: File, projectName: String): Path =
+    (targetDir / projectName / "build").toPath
+
+  def getOutDir(targetDir: File, project: Project, sourceSet: SourceSet): Path =
+    getOutDir(targetDir, getProjectName(project, sourceSet))
 
   def getClassesDir(targetDir: File, projectName: String): Path =
     (targetDir / projectName / "build" / "classes").toPath
