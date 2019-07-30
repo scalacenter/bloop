@@ -97,9 +97,11 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
         if (writeSettings) {
           settings.foreach { settings =>
             // Write settings, swallow any error and report it to the user instead of propagating it
-            WorkspaceSettings.writeToFile(from, settings, logger).left.foreach { e =>
-              logger.displayWarningToUser(s"Failed to write workspace settings: ${e.getMessage}")
-              logger.trace(e)
+            try WorkspaceSettings.writeToFile(from, settings, logger)
+            catch {
+              case e: Throwable =>
+                logger.displayWarningToUser(s"Failed to write workspace settings: ${e.getMessage}")
+                logger.trace(e)
             }
           }
         }

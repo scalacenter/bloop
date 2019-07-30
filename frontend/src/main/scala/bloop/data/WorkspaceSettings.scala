@@ -80,14 +80,13 @@ object WorkspaceSettings {
       configDir: AbsolutePath,
       settings: WorkspaceSettings,
       logger: Logger
-  ): Either[Throwable, Path] = {
-    Try {
-      val settingsFile = configDir.resolve(settingsFileName)
-      logger.debug(s"Writing workspace settings to $settingsFile")(DebugFilter.All)
-      val jsonObject = settingsEncoder(settings)
-      val output = Printer.spaces4.copy(dropNullValues = true).pretty(jsonObject)
-      Files.write(settingsFile.underlying, output.getBytes(StandardCharsets.UTF_8))
-    }.toEither
+  ): AbsolutePath = {
+    val settingsFile = configDir.resolve(settingsFileName)
+    logger.debug(s"Writing workspace settings to $settingsFile")(DebugFilter.All)
+    val jsonObject = settingsEncoder(settings)
+    val output = Printer.spaces4.copy(dropNullValues = true).pretty(jsonObject)
+    Files.write(settingsFile.underlying, output.getBytes(StandardCharsets.UTF_8))
+    settingsFile
   }
 
   def fromJson(json: Json): WorkspaceSettings = {
