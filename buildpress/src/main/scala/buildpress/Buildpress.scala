@@ -194,7 +194,6 @@ abstract class Buildpress(
 
     repositoryPaths.eitherFlatTraverse { clonedRepo =>
       if (diff.isChanged(clonedRepo.metadata)) {
-        out.println("Buildpress repository needs an update")
         detectBuildTool(clonedRepo.localPath) match {
           case Some(sbtBuild: BuildTool.Sbt) =>
             out.println(success(s"Detected $sbtBuild"))
@@ -242,104 +241,123 @@ abstract class Buildpress(
   ): Either[BuildpressError, AbsolutePath] = {
     val repoUriRepr: String = repo.uri.toASCIIString
 
-    def wrap(
+    def wrapCommandExecution(
         before: => String,
-        cmd: StatusCommand,
+        runCommand: => StatusCommand,
         onError: String => String,
         onSuccess: => String
-    ): EitherErrorOr[Unit] = {
+    ): EitherErrorOr[String] = {
       out.println(before)
-      cmd.toEither.left
-        .map {
-          case (_, err) =>
-            BuildpressError.CloningFailure(onError(onError(err)), None)
-        }
+      runCommand.toEither.left
+        .map { case (_, err) => BuildpressError.CloningFailure(onError(err), None) }
         .right
-        .map(_ => out.println(success(onSuccess)))
+        .map(output => { out.println(success(onSuccess)); output })
+    }
+
+    def cloneRepository(
+        cloneTargetDir: AbsolutePath,
+        localPath: String,
+        sha: String
+    ): EitherErrorOr[AbsolutePath] = {
+      val clonePath: Path = cloneTargetDir.underlying
+      val cloneUri: String = repo.uriWithoutSha
+      val cloneCmd = List("git", "clone", cloneUri, cloneTargetDir.syntax)
+      val cloneSubmoduleCmd = List("git", "submodule", "update", "--init")
+      val checkoutCmd = List("git", "checkout", "-q", sha)
+
+      for {
+        _ <- wrapCommandExecution(
+          s"Cloning $cloneUri...",
+          shell.runCommand(cloneCmd, cwd.underlying, Some(4 * 60L), Some(out)),
+          err => s"Failed to clone $cloneUri in $clonePath: $err",
+          s"Cloned $cloneUri"
+        )
+
+        _ <- wrapCommandExecution(
+          s"Cloning submodules of $cloneUri...",
+          shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), Some(out)),
+          err => s"Failed to clone submodules of $cloneUri: $err",
+          s"Cloned submodules of $cloneUri"
+        )
+
+        _ <- wrapCommandExecution(
+          s"Checking out $clonePath",
+          shell.runCommand(checkoutCmd, clonePath, Some(30L), Some(out)),
+          err => s"Failed to checkout $sha in $cloneTargetDir: $err",
+          s"Checked out $clonePath"
+        )
+      } yield {
+        cloneTargetDir
+      }
+    }
+
+    def handleRepositoryFromClonedRepo(
+        cloneTargetDir: AbsolutePath,
+        localPath: String,
+        sha: String,
+        clonedRepository: Repository
+    ): EitherErrorOr[AbsolutePath] = {
+      val clonedRepr = clonedRepository.uri.toASCIIString()
+      def deleteCloneDir = {
+        out.println(s"Deleting $localPath, uri $repoUriRepr != $clonedRepr")
+        try {
+          BuildpressPaths.delete(cloneTargetDir)
+          Right(())
+        } catch {
+          case t: IOException =>
+            val msg = s"Failed to delete $cloneTargetDir: '${t.getMessage}'"
+            Left(BuildpressError.CloningFailure(error(msg), None))
+        }
+      }
+
+      if (clonedRepository.uri == repo.uri) {
+        out.println(s"Skipping git clone for ${repo.id}, $localPath exists")
+        Right(cloneTargetDir)
+      } else {
+        for {
+          _ <- deleteCloneDir
+          _ <- cloneRepository(cloneTargetDir, localPath, sha)
+        } yield cloneTargetDir
+      }
     }
 
     repo.sha match {
       case None =>
         val expectedFormat =
           "git://github.com/foo/repo.git#23063e2813c81daee64d31dd7760f5a4fae392e6"
-        val msg =
-          s"Missing sha hash in uri $repoUriRepr, expected format '$expectedFormat'"
+        val msg = s"Missing sha hash in uri $repoUriRepr, expected format '$expectedFormat'"
         Left(BuildpressError.CloningFailure(error(msg), None))
 
       case Some(sha) =>
         val cloneTargetDir = cacheDir.resolve(repo.id)
         val localPath: String = cloneTargetDir.syntax
 
-        def clone(): EitherErrorOr[AbsolutePath] = {
-          val clonePath: Path = cloneTargetDir.underlying
-          val cloneUri: String = repo.uriWithoutSha
-          val cloneCmd = List("git", "clone", cloneUri, cloneTargetDir.syntax)
-          val cloneSubmoduleCmd = List("git", "submodule", "update", "--init")
-          val checkoutCmd = List("git", "checkout", "-q", sha)
-
-          for {
-            _ <- wrap(
-              s"Cloning $cloneUri...",
-              shell.runCommand(cloneCmd, cwd.underlying, Some(4 * 60L), Some(out)),
-              err => s"Failed to clone $cloneUri in $clonePath: $err",
-              s"Cloned $cloneUri..."
-            )
-
-            _ <- wrap(
-              s"Cloning submodules of $cloneUri...",
-              shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), Some(out)),
-              err => s"Failed to clone submodules of $cloneUri: $err",
-              s"Cloned submodules of $cloneUri"
-            )
-
-            _ <- wrap(
-              s"Checking out $clonePath",
-              shell.runCommand(checkoutCmd, clonePath, Some(30L), Some(out)),
-              err => s"Failed to checkout $sha in $cloneTargetDir: $err",
-              s"Checked out $clonePath"
-            )
-          } yield {
-            cloneTargetDir
-          }
-        }
-
-        def deleteCloneDir(): EitherErrorOr[Unit] = {
-          try {
-            BuildpressPaths.delete(cloneTargetDir)
-            Right(())
-          } catch {
-            case t: IOException =>
-              val msg = s"Failed to delete $cloneTargetDir: '${t.getMessage}'"
-              Left(BuildpressError.CloningFailure(error(msg), None))
-          }
-        }
-
-        def deleteAndClone(): EitherErrorOr[AbsolutePath] = {
-          for {
-            _ <- deleteCloneDir()
-            _ <- clone()
-          } yield {
-            cloneTargetDir
-          }
-        }
-
-        if (cloneTargetDir.exists) {
+        if (!cloneTargetDir.exists) cloneRepository(cloneTargetDir, localPath, sha)
+        else {
           cachedRepos.getById(repo) match {
+            case Some(clonedRepo) =>
+              handleRepositoryFromClonedRepo(cloneTargetDir, localPath, sha, clonedRepo.metadata)
             case None =>
-              out.println(s"Deleting $localPath, missing ${repo.uriWithoutSha} in cache file")
-              deleteAndClone()
+              val headCommand = List("git", "rev-parse", "HEAD")
+              val headReference = wrapCommandExecution(
+                s"Obtaining HEAD git reference...",
+                shell.runCommand(headCommand, cloneTargetDir.underlying, Some(5L), Some(out)),
+                err => s"Failed to obtain HEAD reference in $cloneTargetDir: $err",
+                s"Obtained HEAD reference, proceeding..."
+              )
 
-            case Some(oldRepo) if oldRepo.metadata.uri == repo.uri =>
-              out.println(s"Skipping git clone for ${repo.id}, $localPath exists")
-              Right(cloneTargetDir)
-
-            case Some(oldRepo) =>
-              val oldRepoUri: String = oldRepo.metadata.uri.toASCIIString
-              out.println(s"Deleting $localPath, uri $repoUriRepr != $oldRepoUri")
-              deleteAndClone()
+              headReference.flatMap { ref =>
+                val newReference = ref.trim
+                if (newReference.isEmpty) {
+                  val msg =
+                    s"Unexpected reference from git repo is empty, delete $cloneTargetDir manually"
+                  Left(BuildpressError.CloningFailure(error(msg), None))
+                } else {
+                  val updatedClonedRepo = repo.copy(uri = repo.uriWithNewSha(ref.trim))
+                  handleRepositoryFromClonedRepo(cloneTargetDir, localPath, sha, updatedClonedRepo)
+                }
+              }
           }
-        } else {
-          clone()
         }
     }
   }
