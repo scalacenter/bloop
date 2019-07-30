@@ -39,7 +39,6 @@ object BuildLoaderSpec extends BaseSuite {
     testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState =>
-        pprint.log(action.invalidated)
         sys.error(s"Expected return previous state, got updated state")
     }
   }

@@ -112,7 +112,7 @@ final case class Build private (
               case Build.AvoidReload(_) =>
                 val options = project.scalacOptions
                 val reattemptConfiguration = newSettings.nonEmpty && {
-                  Project.hasSemanticDBEnabledInCompilerOptions(project.scalacOptions)
+                  !Project.hasSemanticDBEnabledInCompilerOptions(project.scalacOptions)
                 }
 
                 if (reattemptConfiguration) {
