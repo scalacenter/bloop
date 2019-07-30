@@ -375,7 +375,10 @@ class BspMetalsClientSpec(
       unorderedExpectedOptions: String
   ): Unit = {
     // Not the best way to obtain workspace but valid for tests
-    val workspaceDir = state.underlying.build.origin.getParent.syntax
+    val workspaceDir = project.config.workspaceDir
+      .map(AbsolutePath(_))
+      .getOrElse(state.underlying.build.origin.getParent)
+      .syntax
     val scalacOptions = state.scalaOptions(project)._2.items.flatMap(_.options).map { opt =>
       if (!opt.startsWith("-Xplugin:")) opt
       else {
