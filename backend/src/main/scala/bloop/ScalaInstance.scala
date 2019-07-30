@@ -162,7 +162,7 @@ object ScalaInstance {
    * happen to be so strict as to prevent getting the location from the protected
    * domain.
    */
-  def scalaInstanceFromBloop(
+  def scalaInstanceForJavaProjects(
       logger: Logger
   )(implicit ec: ExecutionContext): Option[ScalaInstance] = {
     lazy val tempDirectory = Files.createTempDirectory("bloop-scala-instance")

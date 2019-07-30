@@ -127,9 +127,18 @@ object BuildPipeliningSpec extends bloop.testing.BaseSuite {
   test("pipelining makes Java wait on upstream Scala compiles") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
-        val `A.scala` = "/A.scala\nclass A"
-        val `B.scala` = "/B.scala\nclass B extends A"
-        val `C.java` = "/C.java\npublic class C extends B {}"
+        val `A.scala` =
+          """/A.scala
+            |class A
+          """.stripMargin
+        val `B.scala` =
+          """/B.scala
+            |class B extends A
+          """.stripMargin
+        val `C.java` =
+          """/C.java
+            |public class C extends B {}
+          """.stripMargin
       }
 
       val logger = new RecordingLogger(ansiCodesSupported = false)

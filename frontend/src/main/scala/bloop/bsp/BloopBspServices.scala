@@ -616,12 +616,14 @@ final class BloopBspServices(
                 canTest = true,
                 canRun = true
               )
+              val isJavaOnly = p.scalaInstance == ScalaInstance.scalaInstanceForJavaProjects(bspLogger)(ioScheduler)
+              val languageIds = if(isJavaOnly) BloopBspServices.JavaOnly else BloopBspServices.DefaultLanguages
               bsp.BuildTarget(
                 id = id,
                 displayName = Some(p.name),
                 baseDirectory = Some(bsp.Uri(p.baseDirectory.toBspUri)),
                 tags = List(tag),
-                languageIds = BloopBspServices.DefaultLanguages,
+                languageIds = languageIds,
                 dependencies = deps.map(toBuildTargetId).toList,
                 capabilities = capabilities,
                 dataKind = Some(bsp.BuildTargetDataKind.Scala),
@@ -823,6 +825,7 @@ final class BloopBspServices(
 object BloopBspServices {
   private[bloop] val counter: AtomicInteger = new AtomicInteger(0)
   private[bloop] val DefaultLanguages = List("scala", "java")
+  private[bloop] val JavaOnly = List("java")
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
