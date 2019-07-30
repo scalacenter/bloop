@@ -260,7 +260,7 @@ object Interpreter {
                   val dag = state.build.getDagFor(project)
                   // If none version is found (e.g. all Java projects), use Bloop's scala version
                   val scalaVersion = findScalaVersion(dag)
-                    .getOrElse(ScalaInstance.scalaInstanceFromBloop(state.logger))
+                    .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
 
                   val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
                   val coursierCmd = List(
