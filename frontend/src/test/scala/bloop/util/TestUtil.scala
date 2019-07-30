@@ -343,7 +343,7 @@ object TestUtil {
     Project(
       name = name,
       baseDirectory = AbsolutePath(baseDirectory),
-      workspaceRootDirectory = Option(baseDir),
+      workspaceDirectory = Option(baseDir),
       dependencies = dependencies.toList,
       scalaInstance = scalaInstance,
       rawClasspath = classpath,

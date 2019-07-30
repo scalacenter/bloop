@@ -23,7 +23,7 @@ import xsbti.compile.{ClasspathOptions, CompileOrder}
 final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
-    workspaceRootDirectory: Option[AbsolutePath],
+    workspaceDirectory: Option[AbsolutePath],
     dependencies: List[String],
     scalaInstance: Option[ScalaInstance],
     rawClasspath: List[AbsolutePath],
@@ -168,7 +168,7 @@ object Project {
     Project(
       project.name,
       AbsolutePath(project.directory),
-      project.workspaceRoot.map(AbsolutePath.apply),
+      project.workspaceDir.map(AbsolutePath.apply),
       project.dependencies,
       instance,
       project.classpath.map(AbsolutePath.apply),

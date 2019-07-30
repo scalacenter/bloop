@@ -6,7 +6,6 @@ import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.io.ByteHasher
 import bloop.data.WorkspaceSettings
-import bloop.data.PartialLoadedBuild
 import bloop.data.LoadedProject
 import bloop.engine.caches.SemanticDBCache
 

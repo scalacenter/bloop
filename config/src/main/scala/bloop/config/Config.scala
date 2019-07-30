@@ -216,7 +216,7 @@ object Config {
   case class Project(
       name: String,
       directory: Path,
-      workspaceRoot: Option[Path],
+      workspaceDir: Option[Path],
       sources: List[Path],
       dependencies: List[String],
       classpath: List[Path],
@@ -288,7 +288,8 @@ object Config {
             List(),
             Some(outAnalysisFile),
             Some(CompileSetup.empty)
-          )),
+          )
+        ),
         Some(Java(List("-version"))),
         Some(Sbt("1.1.0", Nil)),
         Some(Test(List(), TestOptions(Nil, Nil))),
