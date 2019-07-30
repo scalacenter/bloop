@@ -120,12 +120,11 @@ object BuildLoader {
       }
     }
 
-    val workspace = WorkspaceSettings.detectWorkspaceDirectory(configDir)
     val enableMetalsInProjectsTask = groupedProjectsPerScalaVersion.toList.map {
       case (scalaVersion, projects) =>
         def enableMetalsTask(plugin: Option[AbsolutePath]) = {
           Task(
-            projects.map(p => Project.enableMetalsSettings(p, plugin, workspace, logger) -> Some(p))
+            projects.map(p => Project.enableMetalsSettings(p, configDir, plugin, logger) -> Some(p))
           )
         }
 
@@ -186,10 +185,9 @@ object BuildLoader {
           project.scalaInstance match {
             case None => LoadedProject.RawProject(project)
             case Some(instance) =>
-              val workspace = WorkspaceSettings.detectWorkspaceDirectory(configDir)
               def enableMetals(plugin: Option[AbsolutePath]) = {
                 LoadedProject.ConfiguredProject(
-                  Project.enableMetalsSettings(project, plugin, workspace, logger),
+                  Project.enableMetalsSettings(project, configDir, plugin, logger),
                   project,
                   settings
                 )

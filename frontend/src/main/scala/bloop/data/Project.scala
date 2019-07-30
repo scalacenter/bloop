@@ -226,14 +226,15 @@ object Project {
    */
   def enableMetalsSettings(
       project: Project,
+      configDir: AbsolutePath,
       semanticDBPlugin: Option[AbsolutePath],
-      workspaceDir: AbsolutePath,
       logger: Logger
   ): Project = {
     def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
       val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
       if (hasSemanticDB) options
       else {
+        val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
         // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
         // engine so that semanticdb files are replicated in those directories
         val semanticdbScalacOptions = List(

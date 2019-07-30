@@ -95,21 +95,4 @@ object WorkspaceSettings {
       case Left(failure) => throw failure
     }
   }
-
-  /**
-   * Detects the workspace directory from the config dir.
-   *
-   * Bloop doesn't have the notion of workspace directory yet so this is just an
-   * approximation. We assume that the parent of `.bloop` is the workspace. This
-   * assumption is broken when source dependencies are used because we inline the
-   * configuration files of the projects in source dependencies into a single
-   * .bloop configuration directory. To fix this well-known limitation, we need
-   * to introduce a new field to the bloop configuration file so that we can map
-   * a project with a workspace irrevocably.
-   */
-  def detectWorkspaceDirectory(
-      configDir: AbsolutePath
-  ): AbsolutePath = {
-    configDir.getParent
-  }
 }
