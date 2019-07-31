@@ -7,7 +7,7 @@ import java.nio.file.{Files, Paths}
 
 import bloop.cli.Commands
 import bloop.config.Config
-import bloop.config.Config.Platform
+import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform}
 import bloop.config.ConfigEncoderDecoders._
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
@@ -1004,6 +1004,89 @@ abstract class ConfigGenerationSuite {
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
     assert(config.options.toSet == Set("-XX:+UseG1GC", "-verbose:gc", "-Xms1g", "-Xmx2g", "-Dproperty=value"))
+  }
+
+  @Test def setsCorrectCompileOrder(): Unit = {
+    def getSetup(buildDir: File): CompileSetup = {
+      GradleRunner
+        .create()
+        .withGradleVersion(gradleVersion)
+        .withProjectDir(buildDir)
+        .withPluginClasspath(getClasspath.asJava)
+        .withArguments("bloopInstall", "-Si")
+        .build()
+
+      val projectName = buildDir.getName
+      val bloopDir = new File(buildDir, ".bloop")
+      val projectFile = new File(bloopDir, s"${projectName}.json")
+      val projectConfig = readValidBloopConfig(projectFile)
+      val scalaConfig = projectConfig.project.`scala`.get
+      scalaConfig.setup.getOrElse(CompileSetup.empty)
+    }
+
+    val buildDirA = testProjectDir.newFolder("a")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |apply plugin: 'java'
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |sourceSets {
+         |  main {
+         |    java {  srcDirs = ['src/main/java'] }
+         |    scala {  srcDirs = ['src/main/scala'] }
+         |  }
+         |}
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    val setupA = getSetup(buildDirA)
+    assert(setupA.order == JavaThenScala)
+
+    val buildDirB = testProjectDir.newFolder("b")
+    val buildFileB = new File(buildDirB, "build.gradle")
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |apply plugin: 'java'
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |sourceSets {
+         |  main {
+         |    java { srcDirs = [] }
+         |    scala {  srcDirs = ['src/main/scala', 'src/main/java'] }
+         |  }
+         |}
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    val setupB = getSetup(buildDirB)
+    assert(setupB.order == Mixed)
   }
 
 
