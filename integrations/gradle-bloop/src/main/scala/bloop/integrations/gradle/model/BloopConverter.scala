@@ -6,7 +6,7 @@ import java.nio.file.Paths
 import java.nio.file.Files
 
 import bloop.config.Config
-import bloop.config.Config.{JvmConfig, Platform, TestArgument, TestOptions}
+import bloop.config.Config.{CompileOrder, CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform, TestArgument, TestOptions}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
@@ -593,11 +593,15 @@ final class BloopConverter(parameters: BloopParameters) {
           val opts = scalaCompileTask.getScalaCompileOptions
           val options = optionList(opts)
           val compilerName = parameters.compilerName
+          val compileOrder =
+            if (!sourceSet.getJava.getSourceDirectories.isEmpty) JavaThenScala
+            else Mixed
+          val setup = CompileSetup.empty.copy(order = compileOrder)
 
           // Use the compile setup and analysis out defaults, Gradle doesn't expose its customization
           Success(
             Some(
-              Config.Scala(scalaOrg, compilerName, scalaVersion, options, scalaJars, None, None)
+              Config.Scala(scalaOrg, compilerName, scalaVersion, options, scalaJars, None, Some(setup))
             )
           )
         } else {
