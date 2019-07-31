@@ -197,7 +197,8 @@ final case class Build private (
           if currentSettings.semanticDBVersion != newSettings.semanticDBVersion =>
         Build.ForceReload(newSettings, List(WorkspaceSettings.SemanticDBVersionChange))
       case (Some(_), Some(newSettings)) => Build.AvoidReload(Some(newSettings))
-      case (None, Some(newSettings)) => Build.AvoidReload(Some(newSettings))
+      case (None, Some(newSettings)) =>
+        Build.ForceReload(newSettings, List(WorkspaceSettings.SemanticDBVersionChange))
       case (Some(currentSettings), None) => Build.AvoidReload(Some(currentSettings))
       case (None, None) => Build.AvoidReload(None)
     }
