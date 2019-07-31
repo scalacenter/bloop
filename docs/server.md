@@ -71,6 +71,9 @@ Bloop supports the following mechanisms out-of-the-box:
 > lifecycle management has to be manual. Do you want to help improve the situation?
 > Check this [ticket](https://github.com/scalacenter/bloop/issues/766).
 
+If you are using a SDK manager, you should ensure that the managed bloop server has 
+access to a `java` binary from the `$PATH` environement variable.
+
 ### via `brew services`
 
 Brew services are powered by `launchd` and need a macOS property list (`plist`) that explains how to
@@ -115,6 +118,8 @@ Command examples:
 1. `systemctl --user start bloop`: starts up the bloop server.
 1. `systemctl --user stop bloop`: stops the bloop server.
 1. `systemctl --user restart bloop`: restarts the build server.
+
+
 
 ### via Desktop Entries
 
