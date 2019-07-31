@@ -13,6 +13,9 @@ import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
 import ch.epfl.scala.bsp.ScalacOptionsItem
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import io.circe.Json
+import ch.epfl.scala.bsp.Uri
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -100,15 +103,22 @@ class BspProtocolSpec(
 
       var firstScalacOptions: List[ScalacOptionsItem] = Nil
       var secondScalacOptions: List[ScalacOptionsItem] = Nil
+
+      val extraBloopParams = BloopExtraBuildParams(
+        Some(Uri(userClientClassesRootDir.toBspUri)),
+        semanticdbVersion = None,
+        supportedScalaVersions = Nil
+      )
+
       // Start first client and query for scalac options which creates client classes dirs
-      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
+      loadBspState(workspace, projects, logger, bloopExtraParams = extraBloopParams) { bspState =>
         val (_, options) = bspState.scalaOptions(`A`)
         firstScalacOptions = options.items
         firstScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
       }
 
       // Start second client and query for scalac options which should use same dirs as before
-      loadBspState(workspace, projects, logger, Some(userClientClassesRootDir)) { bspState =>
+      loadBspState(workspace, projects, logger, bloopExtraParams = extraBloopParams) { bspState =>
         val (_, options) = bspState.scalaOptions(`A`)
         secondScalacOptions = options.items
         secondScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))

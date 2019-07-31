@@ -3,6 +3,7 @@ package bloop.engine.caches
 import java.util.concurrent.ConcurrentHashMap
 
 import bloop.data.ClientInfo
+import bloop.data.WorkspaceSettings
 import bloop.logging.Logger
 import bloop.cli.CommonOptions
 import bloop.engine.{Build, BuildLoader, State, ClientPool}
@@ -77,36 +78,55 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
    * @param computeBuild A function that computes the state from a location.
    * @return The state associated with `from`, or the newly computed state.
    */
-  def addIfMissing(
+  def loadState(
       from: AbsolutePath,
       client: ClientInfo,
       pool: ClientPool,
       commonOptions: CommonOptions,
       logger: Logger,
-      computeBuild: AbsolutePath => Task[State]
+      createState: Build => State,
+      clientSettings: Option[WorkspaceSettings]
   ): Task[State] = {
-    getStateFor(from, client, pool, commonOptions, logger) match {
-      case Some(state) =>
-        state.build.checkForChange(logger).flatMap {
-          case Build.ReturnPreviousState => Task.now(state)
-          case Build.UpdateState(createdOrModified, deleted) =>
-            BuildLoader.loadBuildFromConfigurationFiles(from, createdOrModified, logger).map {
-              newProjects =>
-                val currentProjects = state.build.projects
-                val toRemove = deleted.toSet ++ newProjects.map(_.origin.path)
-                val untouched =
-                  currentProjects.collect { case p if !toRemove.contains(p.origin.path) => p }
-                val newBuild = state.build.copy(projects = untouched ++ newProjects)
-                val newState = state.copy(build = newBuild)
-                cache.put(from, StateCache.CachedState.fromState(newState))
-                newState
+    val empty = Build(from, Nil)
+    val previousState = getStateFor(from, client, pool, commonOptions, logger)
+    val build = previousState.map(_.build).getOrElse(empty)
+
+    build.checkForChange(clientSettings, logger).flatMap {
+      case Build.ReturnPreviousState => Task.now(previousState.getOrElse(createState(empty)))
+      case Build.UpdateState(created, modified, deleted, changed, settings, writeSettings) =>
+        if (writeSettings) {
+          settings.foreach { settings =>
+            // Write settings, swallow any error and report it to the user instead of propagating it
+            try WorkspaceSettings.writeToFile(from, settings, logger)
+            catch {
+              case e: Throwable =>
+                logger.displayWarningToUser(s"Failed to write workspace settings: ${e.getMessage}")
+                logger.trace(e)
             }
+          }
         }
-      case None =>
-        computeBuild(from).map { state =>
-          cache.put(from, StateCache.CachedState.fromState(state))
-          state
-        }
+
+        val createdOrModified = created ++ modified
+        BuildLoader
+          .loadBuildIncrementally(from, createdOrModified, changed, settings, logger)
+          .map { newProjects =>
+            val newState = previousState match {
+              case Some(state) =>
+                // Update the build incrementally and then create a new updated state
+                val currentProjects = state.build.loadedProjects
+                val toRemove = deleted.toSet ++ newProjects.map(_.project.origin.path)
+                val untouched = currentProjects.collect {
+                  case p if !toRemove.contains(p.project.origin.path) => p
+                }
+
+                val newBuild = state.build.copy(loadedProjects = untouched ++ newProjects)
+                state.copy(build = newBuild)
+              // Create a new state since there was no previous one
+              case None => createState(Build(from, newProjects))
+            }
+            cache.put(from, StateCache.CachedState.fromState(newState))
+            newState
+          }
     }
   }
 }

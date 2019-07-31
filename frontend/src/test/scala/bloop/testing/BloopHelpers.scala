@@ -19,15 +19,18 @@ import monix.execution.CancelableFuture
 
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
+import bloop.data.WorkspaceSettings
 
 trait BloopHelpers {
   self: BaseSuite =>
   def loadState(
       workspace: AbsolutePath,
       projects: List[TestProject],
-      logger: RecordingLogger
+      logger: RecordingLogger,
+      settings: Option[WorkspaceSettings] = None
   ): TestState = {
     val configDir = TestProject.populateWorkspace(workspace, projects)
+    settings.foreach(WorkspaceSettings.writeToFile(configDir, _, logger))
     new TestState(TestUtil.loadTestProject(configDir.underlying, logger))
   }
 

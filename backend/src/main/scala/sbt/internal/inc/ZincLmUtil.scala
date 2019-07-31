@@ -30,12 +30,11 @@ object ZincLmUtil {
       secondaryCacheDir: Option[File],
       dependencyResolution: DependencyResolution,
       compilerBridgeSource: ModuleID,
-      scalaJarsTarget: File,
-      log: Logger
+      scalaJarsTarget: File
   ): AnalyzingCompiler = {
     val compilerBridgeProvider = ZincComponentCompiler.interfaceProvider(
       compilerBridgeSource,
-      new ZincComponentManager(globalLock, componentProvider, secondaryCacheDir, log),
+      new ZincComponentManager(globalLock, componentProvider, secondaryCacheDir),
       dependencyResolution,
       scalaJarsTarget
     )

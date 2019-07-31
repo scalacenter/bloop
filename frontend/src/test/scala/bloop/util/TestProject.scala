@@ -120,6 +120,7 @@ object TestProject {
     val config = Config.Project(
       name,
       projectBaseDir,
+      Option(baseDir.underlying),
       List(sourceDir.underlying),
       directDependencies.map(_.config.name),
       classpath,

@@ -93,6 +93,15 @@ object Feedback {
   def unknownHostName(host: String): String =
     s"Host name '$host' could not be either parsed or resolved"
 
+  def pprint(projects: Traversable[Project]): String =
+    projects.map(p => s"'${p.name}'").mkString(", ")
+  def skippedUnsupportedScalaMetals(scalaVersion: String): String =
+    s"Skipped configuration of SemanticDB in unsupported $scalaVersion projects"
+  def configuredMetalsProjects(projects: Traversable[Project]): String =
+    s"Configured SemanticDB in projects ${pprint(projects)}"
+  def failedMetalsConfiguration(version: String, cause: String): String =
+    s"Stopped configuration of SemanticDB in Scala $version projects: $cause"
+
   implicit class XMessageString(msg: String) {
     def suggest(suggestion: String): String = s"$msg\n$suggestion"
   }

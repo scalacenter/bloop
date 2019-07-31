@@ -79,7 +79,7 @@ object Paths {
     out.toList
   }
 
-  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime, size: Long = 0L)
+  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime, size: Long)
 
   /**
    * Get all files under `base` that match the pattern `pattern` up to depth `maxDepth`.

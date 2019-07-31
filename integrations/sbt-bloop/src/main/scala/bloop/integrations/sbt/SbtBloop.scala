@@ -868,7 +868,7 @@ object BloopDefaults {
           val resources = Some(bloopResourcesTask.value)
 
           val sbt = computeSbtMetadata.value.map(_.config)
-          val project = Config.Project(projectName, baseDirectory, sources, dependenciesAndAggregates,
+          val project = Config.Project(projectName, baseDirectory, Option(buildBaseDirectory.toPath), sources, dependenciesAndAggregates,
             classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
           Config.File(Config.File.LatestVersion, project)
         }

@@ -85,8 +85,7 @@ final class CompilerCache(
           Some(Paths.getCacheDirectory("bridge-cache").toFile),
           DependencyResolution.getEngine(userResolvers),
           bridgeSources,
-          retrieveDir.toFile,
-          logger
+          retrieveDir.toFile
         )
     }
   }

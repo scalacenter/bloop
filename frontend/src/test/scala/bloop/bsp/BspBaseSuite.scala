@@ -37,6 +37,7 @@ import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, 
 import monix.execution.Scheduler
 import ch.epfl.scala.bsp.Uri
 import io.circe.Json
+import scala.util.Try
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -49,7 +50,6 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       private val serverStates: Observable[State]
   ) {
     val status = state.status
-
     def toUnsafeManagedState: ManagedBspTestState = {
       new ManagedBspTestState(
         state,
@@ -363,7 +363,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       workspace: AbsolutePath,
       projects: List[TestProject],
       logger: RecordingLogger,
-      clientClassesRootDir: Option[AbsolutePath] = None
+      bspClientName: String = "test-bloop-client",
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
   )(runTest: ManagedBspTestState => Unit): Unit = {
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -374,7 +375,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       bspCommand,
       configDir,
       bspLogger,
-      clientClassesRootDir = clientClassesRootDir
+      clientName = bspClientName,
+      bloopExtraParams = bloopExtraParams
     ).withinSession(runTest(_))
   }
 
@@ -386,7 +388,9 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       allowError: Boolean = false,
       userIOScheduler: Option[Scheduler] = None,
       userComputationScheduler: Option[Scheduler] = None,
-      clientClassesRootDir: Option[AbsolutePath] = None
+      clientClassesRootDir: Option[AbsolutePath] = None,
+      clientName: String = "test-bloop-client",
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
   ): UnmanagedBspTestState = {
     val compileIteration = AtomicInt(0)
     val readyToConnect = Promise[Unit]()
@@ -428,22 +432,16 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
-
-      val initializeData: Option[Json] = {
-        clientClassesRootDir
-          .map(d => Uri(d.toBspUri))
-          .map(uri => BloopExtraBuildParams.encoder(BloopExtraBuildParams(Some(uri))))
-      }
-
       val cwd = configDirectory.underlying.getParent
+      val additionalData = Try(BloopExtraBuildParams.encoder(bloopExtraParams)).toOption
       val initializeServer = endpoints.Build.initialize.request(
         bsp.InitializeBuildParams(
-          "test-bloop-client",
+          clientName,
           "1.0.0",
           BuildInfo.bspVersion,
           rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
           capabilities = bsp.BuildClientCapabilities(List("scala", "java")),
-          initializeData
+          additionalData
         )
       )
 

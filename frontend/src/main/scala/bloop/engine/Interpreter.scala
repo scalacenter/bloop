@@ -151,7 +151,10 @@ object Interpreter {
     // Make new state cleaned of all compilation products if compilation is not incremental
     val state: Task[State] = {
       if (cmd.incremental) Task.now(state0)
-      else Tasks.clean(state0, state0.build.projects, true)
+      else {
+        val projects = state0.build.loadedProjects.map(_.project)
+        Tasks.clean(state0, projects, true)
+      }
     }
 
     val compileTask = state.flatMap { state =>
@@ -195,7 +198,7 @@ object Interpreter {
     } else {
       val configDirectory = state.build.origin.syntax
       logger.debug(s"Projects loaded from '$configDirectory':")(DebugFilter.All)
-      state.build.projects.map(_.name).sorted.foreach(logger.info)
+      state.build.loadedProjects.map(_.project.name).sorted.foreach(logger.info)
     }
 
     state.mergeStatus(ExitStatus.Ok)
@@ -397,7 +400,8 @@ object Interpreter {
       case Mode.Projects =>
         Task {
           for {
-            project <- state.build.projects
+            loadedProject <- state.build.loadedProjects
+            project = loadedProject.project
             completion <- cmd.format.showProject(project)
           } state.logger.info(completion)
           state
@@ -468,9 +472,8 @@ object Interpreter {
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
     if (cmd.projects.isEmpty) {
-      Tasks
-        .clean(state, state.build.projects, cmd.includeDependencies)
-        .map(_.mergeStatus(ExitStatus.Ok))
+      val projects = state.build.loadedProjects.map(_.project)
+      Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
     } else {
       val lookup = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
       if (!lookup.missing.isEmpty)
