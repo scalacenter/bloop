@@ -255,7 +255,6 @@ object Project {
     semanticDBPlugin match {
       case None => projectWithRangePositions
       case Some(pluginPath) =>
-        // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
         val options = projectWithRangePositions.scalacOptions
         val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
         projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)

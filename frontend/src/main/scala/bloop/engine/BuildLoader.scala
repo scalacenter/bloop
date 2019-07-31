@@ -9,8 +9,9 @@ import bloop.data.WorkspaceSettings
 import bloop.data.LoadedProject
 import bloop.engine.caches.SemanticDBCache
 
-import monix.eval.Task
+import monix.eval.{Task, Coeval}
 import scala.collection.mutable
+import bloop.ScalaInstance
 
 object BuildLoader {
 
@@ -122,27 +123,19 @@ object BuildLoader {
 
     val enableMetalsInProjectsTask = groupedProjectsPerScalaVersion.toList.map {
       case (scalaVersion, projects) =>
-        def enableMetalsTask(plugin: Option[AbsolutePath]) = {
-          Task(
-            projects.map(p => Project.enableMetalsSettings(p, configDir, plugin, logger) -> Some(p))
+        val coeval = tryEnablingSemanticDB(
+          projects,
+          configDir,
+          scalaVersion,
+          semanticDBVersion,
+          supportedScalaVersions,
+          logger
+        ) { (plugin: Option[AbsolutePath]) =>
+          projects.map(
+            p => Project.enableMetalsSettings(p, configDir, plugin, logger) -> Some(p)
           )
         }
-
-        // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
-        val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
-        if (isUnsupportedVersion) {
-          logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
-          enableMetalsTask(None)
-        } else {
-          SemanticDBCache.fetchPlugin(scalaVersion, semanticDBVersion, logger) match {
-            case Right(path) =>
-              logger.debug(Feedback.configuredMetalsProjects(projects))(DebugFilter.All)
-              enableMetalsTask(Some(path))
-            case Left(cause) =>
-              logger.displayWarningToUser(Feedback.failedMetalsConfiguration(scalaVersion, cause))
-              enableMetalsTask(None)
-          }
-        }
+        coeval.task
     }
 
     Task.gatherUnordered(enableMetalsInProjectsTask).map { pps =>
@@ -185,7 +178,15 @@ object BuildLoader {
           project.scalaInstance match {
             case None => LoadedProject.RawProject(project)
             case Some(instance) =>
-              def enableMetals(plugin: Option[AbsolutePath]) = {
+              val scalaVersion = instance.version
+              val coeval = tryEnablingSemanticDB(
+                List(project),
+                configDir,
+                scalaVersion,
+                settings.semanticDBVersion,
+                settings.supportedScalaVersions,
+                logger
+              ) { (plugin: Option[AbsolutePath]) =>
                 LoadedProject.ConfiguredProject(
                   Project.enableMetalsSettings(project, configDir, plugin, logger),
                   project,
@@ -193,27 +194,41 @@ object BuildLoader {
                 )
               }
 
-              val scalaVersion = instance.version
-              import settings.{supportedScalaVersions, semanticDBVersion}
-
-              // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
-              val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
-              if (isUnsupportedVersion) {
-                logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
-                enableMetals(None)
-              } else {
-                SemanticDBCache.fetchPlugin(scalaVersion, semanticDBVersion, logger) match {
-                  case Right(path) =>
-                    logger.debug(Feedback.configuredMetalsProjects(List(project)))(DebugFilter.All)
-                    enableMetals(Some(path))
-                  case Left(cause) =>
-                    logger.displayWarningToUser(
-                      Feedback.failedMetalsConfiguration(scalaVersion, cause)
-                    )
-                    enableMetals(None)
-                }
+              // Run coeval, we rethrow but note that `tryEnablingSemanticDB` handles errors
+              coeval.run match {
+                case Left(value) => throw value
+                case Right(value) => value
               }
           }
+      }
+    }
+  }
+
+  private def tryEnablingSemanticDB[T](
+      projects: List[Project],
+      configDir: AbsolutePath,
+      scalaVersion: String,
+      semanticDBVersion: String,
+      supportedScalaVersions: List[String],
+      logger: Logger
+  )(
+      enableMetals: Option[AbsolutePath] => T
+  ): Coeval[T] = {
+    // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
+    val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
+    if (isUnsupportedVersion) {
+      logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
+      Coeval.now(enableMetals(None))
+    } else {
+      Coeval.eval {
+        SemanticDBCache.fetchPlugin(scalaVersion, semanticDBVersion, logger) match {
+          case Right(path) =>
+            logger.debug(Feedback.configuredMetalsProjects(projects))(DebugFilter.All)
+            enableMetals(Some(path))
+          case Left(cause) =>
+            logger.displayWarningToUser(Feedback.failedMetalsConfiguration(scalaVersion, cause))
+            enableMetals(None)
+        }
       }
     }
   }
