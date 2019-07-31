@@ -1307,4 +1307,99 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(compiledState, projects)
     }
   }
+
+  test("compile Scala class after renaming a static member in a Java class") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A1.java` =
+          """/A.java
+            |public class A {
+            |  public static void method() {}
+            |  public static void dummy() {}
+            |}
+          """.stripMargin
+
+        val `B1.java` =
+          """/B.java
+            |public class B {
+            |  public void callA() {
+            |    A.method();
+            |  }
+            |}
+          """.stripMargin
+
+        val `O.java` =
+          """/O.java
+            |
+            |public class O {
+            |  public void callA() {
+            |    A.dummy();
+            |  }
+            |}
+            |
+            |""".stripMargin
+
+        val `A2.java` =
+          """/A.java
+            |public class A {
+            |  public static void methodRenamed() {}
+            |  public static void dummy() {}
+            |}
+          """.stripMargin
+
+        val `B2.java` =
+          """/B.java
+            |public class B {
+            |  public void callA() {
+            |    A.methodRenamed();
+            |  }
+            |}
+          """.stripMargin
+
+        val `C.scala` =
+          """/C.scala
+            |object C {
+            |  val b = new B()
+            |  b.callA()
+            |}
+          """.stripMargin
+
+        val `Dummy1.scala` =
+          """/Dummy1.scala
+            |class Dummy1 {}
+          """.stripMargin
+
+        val `Dummy2.scala` =
+          """/Dummy2.scala
+            |class Dummy2 {}
+          """.stripMargin
+
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(
+          Sources.`A1.java`,
+          Sources.`B1.java`,
+          Sources.`O.java`,
+          Sources.`C.scala`,
+          Sources.`Dummy1.scala`,
+          Sources.`Dummy2.scala`
+        )
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+      writeFile(`A`.srcFor("A.java"), Sources.`A2.java`)
+      writeFile(`A`.srcFor("B.java"), Sources.`B2.java`)
+
+      val newState = compiledState.compile(`A`)
+      assert(newState.status == ExitStatus.Ok)
+      assertValidCompilationState(newState, projects)
+    }
+  }
 }

@@ -226,7 +226,6 @@ object Compiler {
       new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
     def getClassFileManager(): ClassFileManager = {
       new ClassFileManager {
-        private[this] val invalidatedClassFilesInLastRun = new mutable.HashSet[File]
         def delete(classes: Array[File]): Unit = {
           // Add to the blacklist so that we never copy them
           allInvalidatedClassFilesForProject.++=(classes)
@@ -284,6 +283,9 @@ object Compiler {
             allGeneratedRelativeClassFilePaths.put(relativeClassFilePath, generatedClassFile)
             val rebasedClassFile =
               new File(newClassFile.replace(newClassesDirPath, readOnlyClassesDirPath))
+            // Delete generated class file + rebased class file because
+            // invalidations can happen in both paths, no-op if missing
+            allInvalidatedClassFilesForProject.-=(generatedClassFile)
             allInvalidatedClassFilesForProject.-=(rebasedClassFile)
             supportedCompileProducts.foreach { supportedProductSuffix =>
               val productName = rebasedClassFile
