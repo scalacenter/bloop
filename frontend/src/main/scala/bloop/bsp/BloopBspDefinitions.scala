@@ -6,14 +6,14 @@ object BloopBspDefinitions {
   final case class BloopExtraBuildParams(
       clientClassesRootDir: Option[Uri],
       semanticdbVersion: Option[String],
-      supportedScalaVersions: List[String]
+      supportedScalaVersions: Option[List[String]]
   )
 
   object BloopExtraBuildParams {
     val empty = BloopExtraBuildParams(
       clientClassesRootDir = None,
       semanticdbVersion = None,
-      supportedScalaVersions = Nil
+      supportedScalaVersions = None
     )
 
     import io.circe.{RootEncoder, Decoder}

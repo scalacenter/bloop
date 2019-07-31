@@ -42,7 +42,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion)
+        supportedScalaVersions = Some(List(testedScalaVersion))
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -82,7 +82,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List("2.12.8")
+        supportedScalaVersions = Some(List("2.12.8"))
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -127,7 +127,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion)
+        supportedScalaVersions = Some(List(testedScalaVersion))
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -173,7 +173,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion)
+        supportedScalaVersions = Some(List(testedScalaVersion))
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -200,7 +200,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = List(testedScalaVersion)
+        supportedScalaVersions = Some(List(testedScalaVersion))
       )
       val `A` = TestProject(workspace, "A", Nil)
       val projects = List(`A`)
@@ -245,7 +245,7 @@ class BspMetalsClientSpec(
           val extraParams = BloopExtraBuildParams(
             clientClassesRootDir = None,
             semanticdbVersion = Some(semanticdbVersion),
-            supportedScalaVersions = List(testedScalaVersion)
+            supportedScalaVersions = Some(List(testedScalaVersion))
           )
           val bspLogger = new BspClientLogger(logger)
           val bspCommand = createBspCommand(configDir)
@@ -335,7 +335,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         clientClassesRootDir = None,
         semanticdbVersion = Some("4.2.0"),
-        supportedScalaVersions = List(testedScalaVersion)
+        supportedScalaVersions = Some(List(testedScalaVersion))
       )
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         val compiledState = state.compile(`A`).toTestState

@@ -208,9 +208,11 @@ final class BloopBspServices(
         extraBuildParams
           .flatMap(extra => extra.semanticdbVersion)
           .map { semanticDBVersion =>
+            val supportedScalaVersions =
+              extraBuildParams.toList.flatMap(_.supportedScalaVersions.toList.flatten)
             WorkspaceSettings(
               semanticDBVersion,
-              extraBuildParams.toList.flatMap(_.supportedScalaVersions)
+              supportedScalaVersions
             )
           }
       }
@@ -649,8 +651,11 @@ final class BloopBspServices(
                 canTest = true,
                 canRun = true
               )
-              val isJavaOnly = p.scalaInstance == ScalaInstance.scalaInstanceForJavaProjects(bspLogger)(ioScheduler)
-              val languageIds = if(isJavaOnly) BloopBspServices.JavaOnly else BloopBspServices.DefaultLanguages
+              val javaInstance = ScalaInstance.scalaInstanceForJavaProjects(bspLogger)(ioScheduler)
+              val isJavaOnly = p.scalaInstance == javaInstance
+              val languageIds =
+                if (isJavaOnly) BloopBspServices.JavaOnly
+                else BloopBspServices.DefaultLanguages
               bsp.BuildTarget(
                 id = id,
                 displayName = Some(p.name),
