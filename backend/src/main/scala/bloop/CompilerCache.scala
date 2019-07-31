@@ -247,6 +247,7 @@ final class CompilerCache(
         processJavaDirArgument(cleanedOptions.indexOf("-h"))
 
         val newJavacOptions = cleanedOptions.toList.asJava
+        log.debug(s"Invoking javac with ${newJavacOptions.asScala.mkString(" ")}")
         val success = compiler
           .getTask(logWriter, fileManager, diagnostics, newJavacOptions, null, jfiles)
           .call()
