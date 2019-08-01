@@ -9,6 +9,8 @@ import bloop.engine.tasks.RunMode
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 
+import scala.util.{Failure, Success, Try}
+
 /**
  * Collects configuration to start a new program in a new process
  *
@@ -109,13 +111,11 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
   ): Task[Int] = {
     val jvmOptions = jargs ++ env.javaOptions
     val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
-    val java = env.javaHome.resolve("bin").resolve("java")
-    val classpathOption = "-cp" :: fullClasspath :: Nil
-    val appOptions = mainClass :: args.toList
-    val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
-
-    val logTask =
-      if (logger.isVerbose) {
+    Task.fromTry(javaExecutable).flatMap { java =>
+      val classpathOption = "-cp" :: fullClasspath :: Nil
+      val appOptions = mainClass :: args.toList
+      val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
+      val logTask = if (logger.isVerbose) {
         val debugOptions =
           s"""
              |Fork options:
@@ -123,7 +123,14 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
              |   cwd          = '$cwd'""".stripMargin
         Task(logger.debug(debugOptions)(DebugFilter.All))
       } else Task.unit
-    logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
+      logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
+    }
+  }
+
+  private def javaExecutable: Try[AbsolutePath] = {
+    val java = env.javaHome.resolve("bin").resolve("java")
+    if (java.exists) Success(java)
+    else Failure(new IllegalStateException(s"Java executable [$java] does not exist"))
   }
 }
 
