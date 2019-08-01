@@ -7,7 +7,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
-import bloop.data.{Origin, Project}
+import bloop.data.{Origin, Project, LoadedProject}
 import bloop.engine.{
   Action,
   Build,
@@ -111,19 +111,20 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       val logger = BloopLogger.default("community-build-logger")
       val initialState = loadStateForBuild(buildBaseDir.resolve(".bloop"), logger)
       val blacklistedProjects = readBlacklistFile(buildBaseDir.resolve("blacklist.buildpress"))
-      val allProjectsInBuild =
-        initialState.build.projects.filterNot(p => blacklistedProjects.contains(p.name))
+      val allProjectsInBuild = initialState.build.loadedProjects
+        .filterNot(lp => blacklistedProjects.contains(lp.project.name))
 
       val rootProjectName = "bloop-test-root"
       val dummyExistingBaseDir = buildBaseDir.resolve("project")
       val dummyClassesDir = dummyExistingBaseDir.resolve("target")
-      val origin = Origin(buildBaseDir, FileTime.fromMillis(0), scala.util.Random.nextInt())
+      val origin = Origin(buildBaseDir, FileTime.fromMillis(0), 0L, scala.util.Random.nextInt())
       val analysisOut = dummyClassesDir.resolve(Config.Project.analysisFileName(rootProjectName))
       val rootProject = Project(
         name = rootProjectName,
         baseDirectory = dummyExistingBaseDir,
-        dependencies = allProjectsInBuild.map(_.name),
-        scalaInstance = allProjectsInBuild.head.scalaInstance,
+        workspaceDirectory = Some(buildBaseDir),
+        dependencies = allProjectsInBuild.map(_.project.name),
+        scalaInstance = allProjectsInBuild.head.project.scalaInstance,
         rawClasspath = Nil,
         resources = Nil,
         compileSetup = Config.CompileSetup.empty,
@@ -141,8 +142,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         origin = origin
       )
 
-      val newProjects = rootProject :: allProjectsInBuild
-      val state = initialState.copy(build = initialState.build.copy(projects = newProjects))
+      val newLoaded = LoadedProject.RawProject(rootProject) :: allProjectsInBuild
+      val state = initialState.copy(build = initialState.build.copy(loadedProjects = newLoaded))
       val allReachable = Dag.dfs(state.build.getDagFor(rootProject))
       val reachable = allReachable.filter(_ != rootProject)
       val cleanAction = Run(Commands.Clean(reachable.map(_.name)), Exit(ExitStatus.Ok))

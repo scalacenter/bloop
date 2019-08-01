@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
 import bloop.io.ServerHandle
+import bloop.data.WorkspaceSettings
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
@@ -122,25 +123,31 @@ final class BloopBspServices(
   }
 
   private val previouslyFailedCompilations = new TrieMap[Project, Compiler.Result.Failed]()
-  private def reloadState(config: AbsolutePath, clientInfo: ClientInfo): Task[State] = {
+  private def reloadState(
+      config: AbsolutePath,
+      clientInfo: ClientInfo,
+      clientSettings: Option[WorkspaceSettings] = None
+  ): Task[State] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
-    State.loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger).map { state0 =>
-      /* Create a new state that has the previously compiled results in this BSP
-       * client as the last compiled result available for a project. This is required
-       * because in diagnostics reporting in BSP is stateful. When compilations
-       * happen in other clients, the previous result does not contain the list of
-       * previous problems (that tracks where we reported diagnostics) that this client
-       * had and therefore we can fail to reset diagnostics. */
-      val newState = {
-        val previous = previouslyFailedCompilations.toMap
-        state0.copy(results = state0.results.replacePreviousResults(previous))
-      }
+    State
+      .loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger, clientSettings)
+      .map { state0 =>
+        /* Create a new state that has the previously compiled results in this BSP
+         * client as the last compiled result available for a project. This is required
+         * because in diagnostics reporting in BSP is stateful. When compilations
+         * happen in other clients, the previous result does not contain the list of
+         * previous problems (that tracks where we reported diagnostics) that this client
+         * had and therefore we can fail to reset diagnostics. */
+        val newState = {
+          val previous = previouslyFailedCompilations.toMap
+          state0.copy(results = state0.results.replacePreviousResults(previous))
+        }
 
-      currentState = newState
-      newState
-    }
+        currentState = newState
+        newState
+      }
   }
 
   private def saveState(state: State): Task[Unit] = {
@@ -190,7 +197,10 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val uri = new URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    val clientClassesRootDir = parseClientClassesRootDir(params.data)
+    val extraBuildParams = parseClientClassesRootDir(params.data)
+    val clientClassesRootDir = extraBuildParams.flatMap(
+      extra => extra.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
+    )
     val client = ClientInfo.BspClientInfo(
       params.displayName,
       params.version,
@@ -199,8 +209,32 @@ final class BloopBspServices(
       () => isClientConnected.get
     )
 
-    reloadState(configDir, client).map { state =>
-      callSiteState.logger.info("request received: build/initialize")
+    /**
+     * A Metals BSP client enables a special transformation of a build via the
+     * workspace settings. These workspace settings contains all of the
+     * information required by bloop to enable Metals-specific settings in
+     * every project of a build so that users from different build tools don't
+     * need to manually enable these in their build.
+     */
+    val metalsSettings = {
+      if (!params.displayName.contains("Metals")) {
+        None
+      } else {
+        extraBuildParams
+          .flatMap(extra => extra.semanticdbVersion)
+          .map { semanticDBVersion =>
+            val supportedScalaVersions =
+              extraBuildParams.toList.flatMap(_.supportedScalaVersions.toList.flatten)
+            WorkspaceSettings(
+              semanticDBVersion,
+              supportedScalaVersions
+            )
+          }
+      }
+    }
+
+    reloadState(configDir, client, metalsSettings).map { state =>
+      callSiteState.logger.info(s"request received: build/initialize")
       clientInfo.success(client)
       connectedBspClients.put(client, configDir)
       observer.foreach(_.onNext(state.copy(client = client)))
@@ -224,11 +258,11 @@ final class BloopBspServices(
     }
   }
 
-  private def parseClientClassesRootDir(data: Option[Json]): Option[AbsolutePath] = {
+  private def parseClientClassesRootDir(data: Option[Json]): Option[BloopExtraBuildParams] = {
     data.flatMap { json =>
       BloopExtraBuildParams.decoder.decodeJson(json) match {
         case Right(bloopParams) =>
-          bloopParams.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
+          Some(bloopParams)
         case Left(failure) =>
           callSiteState.logger.warn(
             s"Unexpected error decoding bloop-specific initialize params: ${failure.message}"
@@ -715,8 +749,9 @@ final class BloopBspServices(
           Task.now((state, Right(bsp.WorkspaceBuildTargetsResult(Nil))))
         else {
           val build = state.build
+          val projects = build.loadedProjects.map(_.project)
           val targets = bsp.WorkspaceBuildTargetsResult(
-            build.projects.map { p =>
+            projects.map { p =>
               val id = toBuildTargetId(p)
               val tag = {
                 if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)
@@ -730,12 +765,17 @@ final class BloopBspServices(
                 canTest = true,
                 canRun = true
               )
+              val javaInstance = ScalaInstance.scalaInstanceForJavaProjects(bspLogger)(ioScheduler)
+              val isJavaOnly = p.scalaInstance == javaInstance
+              val languageIds =
+                if (isJavaOnly) BloopBspServices.JavaOnly
+                else BloopBspServices.DefaultLanguages
               bsp.BuildTarget(
                 id = id,
                 displayName = Some(p.name),
                 baseDirectory = Some(bsp.Uri(p.baseDirectory.toBspUri)),
                 tags = List(tag),
-                languageIds = BloopBspServices.DefaultLanguages,
+                languageIds = languageIds,
                 dependencies = deps.map(toBuildTargetId).toList,
                 capabilities = capabilities,
                 dataKind = Some(bsp.BuildTargetDataKind.Scala),
@@ -937,6 +977,7 @@ final class BloopBspServices(
 object BloopBspServices {
   private[bloop] val counter: AtomicInteger = new AtomicInteger(0)
   private[bloop] val DefaultLanguages = List("scala", "java")
+  private[bloop] val JavaOnly = List("java")
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)

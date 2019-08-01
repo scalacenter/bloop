@@ -7,6 +7,7 @@ import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.{Config, ConfigEncoderDecoders}
 import bloop.engine.Dag
+import bloop.engine.caches.SemanticDBCache
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.io.ByteHasher
 
@@ -22,6 +23,7 @@ import xsbti.compile.{ClasspathOptions, CompileOrder}
 final case class Project(
     name: String,
     baseDirectory: AbsolutePath,
+    workspaceDirectory: Option[AbsolutePath],
     dependencies: List[String],
     scalaInstance: Option[ScalaInstance],
     rawClasspath: List[AbsolutePath],
@@ -137,7 +139,7 @@ object Project {
           )
         }
       }
-      .orElse(ScalaInstance.scalaInstanceFromBloop(logger)(ec))
+      .orElse(ScalaInstance.scalaInstanceForJavaProjects(logger)(ec))
 
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val platform = project.platform match {
@@ -166,6 +168,7 @@ object Project {
     Project(
       project.name,
       AbsolutePath(project.directory),
+      project.workspaceDir.map(AbsolutePath.apply),
       project.dependencies,
       instance,
       project.classpath.map(AbsolutePath.apply),
@@ -198,5 +201,67 @@ object Project {
           case Left(failure) => throw failure
         }
     }
+  }
+
+  /**
+   * Enable any Metals-specific setting in a project by applying an in-memory
+   * project transformation. A setting is Metals-specific if it's required for
+   * Metals to provide a complete IDE experience to users.
+   *
+   * A side-effect of this transformation is that we force the resolution of the
+   * semanticdb plugin. This is an expensive operation that is heavily cached
+   * inside [[bloop.engine.caches.SemanticDBCache]] and which can be retried in
+   * case the resolution for a version hasn't been successful yet and the
+   * workspace settings passed as a parameter asks for another attempt.
+   *
+   * @param project The project that we want to transform.
+   * @param settings The settings that contain Metals-specific information such
+   *                 as the expected semanticdb version or supported Scala versions.
+   * @param logger The logger responsible of tracking any transformation-related event.
+   * @return Either the same project as before or the transformed project.
+   */
+  def enableMetalsSettings(
+      project: Project,
+      configDir: AbsolutePath,
+      semanticDBPlugin: Option[AbsolutePath],
+      logger: Logger
+  ): Project = {
+    def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
+      val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
+      if (hasSemanticDB) options
+      else {
+        val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
+        // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
+        // engine so that semanticdb files are replicated in those directories
+        val semanticdbScalacOptions = List(
+          "-P:semanticdb:failures:warning",
+          s"-P:semanticdb:sourceroot:$workspaceDir",
+          "-P:semanticdb:synthetics:on",
+          "-Xplugin-require:semanticdb",
+          s"-Xplugin:$pluginPath"
+        )
+
+        (options ++ semanticdbScalacOptions.toList).distinct
+      }
+    }
+
+    def enableRangePositions(options: List[String]): List[String] = {
+      val hasYrangepos = options.exists(_.contains("-Yrangepos"))
+      if (hasYrangepos) options else options :+ "-Yrangepos"
+    }
+
+    val projectWithRangePositions =
+      project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+    semanticDBPlugin match {
+      case None => projectWithRangePositions
+      case Some(pluginPath) =>
+        val options = projectWithRangePositions.scalacOptions
+        val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
+        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+    }
+  }
+
+  def hasSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
+    options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
   }
 }

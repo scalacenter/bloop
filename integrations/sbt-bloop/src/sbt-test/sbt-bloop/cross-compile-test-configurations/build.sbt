@@ -83,6 +83,9 @@ checkBloopFile in ThisBuild := {
     "Source file is missing in foo."
   )
 
+  val barConfigContents = readConfigFor("bar", allConfigs)
+  assert(barConfigContents.project.dependencies.sorted == List())
+
   // Test that 'yay-test' does not add a dependency to 'foo-test' without the "test->test" configuration
   // Default if no configuration is dependency to `Compile` (double checked by '-> yay/test:compile')
   val yayTestConfigContents = readConfigFor("yay-test", allConfigs)
@@ -90,7 +93,6 @@ checkBloopFile in ThisBuild := {
 
   // Test that zee-it contains a dependency to foo-test
   val zeeItConfigContents = readConfigFor("zee-it", allConfigs)
-  println(zeeItConfigContents.project.dependencies.sorted)
   assert(zeeItConfigContents.project.dependencies.sorted == List("foo-test", "zee"))
 }
 

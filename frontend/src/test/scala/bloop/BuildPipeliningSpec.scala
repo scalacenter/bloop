@@ -123,4 +123,36 @@ object BuildPipeliningSpec extends bloop.testing.BaseSuite {
       )
     }
   }
+
+  test("pipelining makes Java wait on upstream Scala compiles") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |class A
+          """.stripMargin
+        val `B.scala` =
+          """/B.scala
+            |class B extends A
+          """.stripMargin
+        val `C.java` =
+          """/C.java
+            |public class C extends B {}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`, Sources.`B.scala`))
+      // A project in the middle of the dependency graph with no sources
+      val `B` = TestProject(workspace, "b", Nil, List(`A`))
+      val `C` = TestProject(workspace, "c", List(Sources.`C.java`), List(`B`))
+
+      val projects = List(`A`, `B`, `C`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compileWithPipelining(`C`)
+      assert(compiledState.status == ExitStatus.Ok)
+      // Only check valid state in `A` and `C` because `B` is empty!
+      assertValidCompilationState(compiledState, List(`A`, `C`))
+    }
+  }
 }

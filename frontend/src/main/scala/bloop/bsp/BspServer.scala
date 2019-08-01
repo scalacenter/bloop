@@ -285,8 +285,9 @@ object BspServer {
       }
     } finally {
       // Guarantee that we always schedule the external classes directories deletion
-      val deleteExternalDirsTasks = latestState.build.projects.map { project =>
+      val deleteExternalDirsTasks = latestState.build.loadedProjects.map { loadedProject =>
         import bloop.io.Paths
+        val project = loadedProject.project
         try {
           val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
           val skipDirectoryManagement =

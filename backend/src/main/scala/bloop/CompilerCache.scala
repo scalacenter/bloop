@@ -85,8 +85,7 @@ final class CompilerCache(
           Some(Paths.getCacheDirectory("bridge-cache").toFile),
           DependencyResolution.getEngine(userResolvers),
           bridgeSources,
-          retrieveDir.toFile,
-          logger
+          retrieveDir.toFile
         )
     }
   }
@@ -248,6 +247,7 @@ final class CompilerCache(
         processJavaDirArgument(cleanedOptions.indexOf("-h"))
 
         val newJavacOptions = cleanedOptions.toList.asJava
+        log.debug(s"Invoking javac with ${newJavacOptions.asScala.mkString(" ")}")
         val success = compiler
           .getTask(logWriter, fileManager, diagnostics, newJavacOptions, null, jfiles)
           .call()

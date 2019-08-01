@@ -1,6 +1,7 @@
 .idea/
 bin/.coursier
 bin/.scalafmt*
+.vscode/
 
 # Required because these are the proxies for the sourcedeps
 .bridge/

@@ -4,8 +4,9 @@ import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.Files
+
 import bloop.config.Config
-import bloop.config.Config.{JvmConfig, Platform}
+import bloop.config.Config.{CompileOrder, CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform, TestArgument, TestOptions}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
@@ -18,10 +19,11 @@ import org.gradle.api.internal.file.copy.DefaultCopySpec
 import org.gradle.api.internal.tasks.DefaultSourceSetOutput
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
 import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
-import org.gradle.api.specs.Specs
+import org.gradle.api.specs.{Spec, Specs}
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
-import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
+import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.JvmLibrary
 import org.gradle.language.base.artifact.SourcesArtifact
 import org.gradle.language.java.artifact.JavadocArtifact
@@ -110,7 +112,7 @@ final class BloopConverter(parameters: BloopParameters) {
       val allRuntimeProjectDependencies = getProjectDependenciesRecursively(
         runtimeClassPathConfiguration)
 
-      // retrieve all artifacts (includes transitive) + file/dir dependencies
+      // retrieve all artifacts (includes transitive)
       val compileArtifacts: List[ResolvedArtifact] =
         compileClassPathConfiguration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
       val runtimeArtifacts: List[ResolvedArtifact] =
@@ -149,21 +151,37 @@ final class BloopConverter(parameters: BloopParameters) {
             resolvedArtifact))
 
       // retrieve all file/dir dependencies (includes transitive?)
-      val compileArtifactFiles: Set[File] =
+      val compileClassPathFiles: Set[File] =
         compileClassPathConfiguration.getResolvedConfiguration
           .getFiles(Specs.SATISFIES_ALL)
           .asScala
           .toSet
-      val runtimeArtifactFiles: Set[File] =
+      val runtimeClassPathFiles: Set[File] =
         runtimeClassPathConfiguration.getResolvedConfiguration
           .getFiles(Specs.SATISFIES_ALL)
           .asScala
           .toSet
 
-      val compileClasspathFilesAsPaths = compileArtifactFiles
+      // retrieve file/dir dependencies not coming from resolved artifacts, but referenced directly
+      // by `dependencies { compile files(path) }`
+      val compileArtifactFiles: Set[File] = compileArtifacts.map(_.getFile).toSet
+      val runtimeArtifactFiles: Set[File] = runtimeArtifacts.map(_.getFile).toSet
+
+      val nonArtifactCompileClassPathFiles =
+        compileClassPathFiles
+          .diff(compileArtifactFiles)
+          .filter(f => !isProjectSourceSet(allSourceSetsToProjects, f))
+          .map(_.toPath)
+      val nonArtifactRuntimeClassPathFiles =
+        runtimeClassPathFiles
+          .diff(runtimeArtifactFiles)
+          .filter(f => !isProjectSourceSet(allSourceSetsToProjects, f))
+          .map(_.toPath)
+
+      val compileClasspathFilesAsPaths = compileClassPathFiles
         .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
         .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
-      val runtimeClasspathFilesAsPaths = runtimeArtifactFiles
+      val runtimeClasspathFilesAsPaths = runtimeClassPathFiles
         .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
         .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
 
@@ -182,11 +200,13 @@ final class BloopConverter(parameters: BloopParameters) {
        * sbt). Therefore, to avoid any compilation/test/run issue between Gradle and Bloop, we just
        * use our own classes 'bloop' directory in the ".bloop" directory. */
       val classesDir = getClassesDir(targetDir, project, sourceSet)
+      val outDir = getOutDir(targetDir, project, sourceSet)
 
       // tag runtime items to the end of the classpath until Bloop has separate compile and runtime paths
       val classpath: List[Path] =
         (strictProjectDependencies.map(_.classesDir) ++ compileClasspathItems ++ runtimeClasspathItems ++
-          compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths).distinct
+          compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths ++
+          nonArtifactCompileClassPathFiles ++ nonArtifactRuntimeClassPathFiles).distinct
 
       val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
         additionalArtifacts.map(artifactToConfigModule(_, project))).distinct
@@ -197,34 +217,66 @@ final class BloopConverter(parameters: BloopParameters) {
         bloopProject = Config.Project(
           name = getProjectName(project, sourceSet),
           directory = project.getProjectDir.toPath,
+          workspaceDir = Option(project.getRootProject().getProjectDir().toPath()),
           sources = sources,
           dependencies = allDependencies,
           classpath = classpath,
-          out = project.getBuildDir.toPath,
+          out = outDir,
           classesDir = classesDir,
           resources = if (resources.isEmpty) None else Some(resources),
           `scala` = scalaConfig,
           java = getJavaConfig(project, sourceSet),
           sbt = None,
           test = getTestConfig(sourceSet),
-          platform = getPlatform(project, isTestSourceSet),
+          platform = getPlatform(project, sourceSet, isTestSourceSet),
           resolution = Some(resolution)
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }
   }
 
-  def getPlatform(project: Project, isTestSourceSet: Boolean): Option[Platform] = {
+  private def getJavaCompileOptions(project: Project, sourceSet: SourceSet): CompileOptions = {
+    val javaCompileTaskName = sourceSet.getCompileTaskName("java")
+    val javaCompileTask = project.getTask[JavaCompile](javaCompileTaskName)
+    javaCompileTask.getOptions
+  }
+
+  def getPlatform(project: Project, sourceSet: SourceSet, isTestSourceSet: Boolean): Option[Platform] = {
+    val forkOptions = getJavaCompileOptions(project, sourceSet).getForkOptions
+    val projectJdkPath = Option(forkOptions.getJavaHome).map(_.toPath)
+
+    lazy val compileJvmOptions =
+      Option(forkOptions.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
+      Option(forkOptions.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
+      forkOptions.getJvmArgs.asScala.toList
+
+    lazy val testTask = project.getTask[Test]("test")
+    lazy val testProperties =
+      for ((name, value) <- testTask.getSystemProperties.asScala.toList)
+        yield s"-D$name=$value"
+
+    lazy val testJvmOptions =
+      Option(testTask.getMinHeapSize).map(mem => s"-Xms$mem").toList ++
+      Option(testTask.getMaxHeapSize).map(mem => s"-Xmx$mem").toList ++
+      testTask.getJvmArgs.asScala.toList ++
+      testProperties
+
+    val projectJvmOptions =
+      if (isTestSourceSet) testJvmOptions
+      else compileJvmOptions
+
     val currentJDK = DefaultInstalledJdk.current()
-    val jdkPath = Option(currentJDK).map(_.getJavaHome.toPath)
-    project.getConvention.findPlugin(classOf[ApplicationPluginConvention]) match {
-      case appPluginConvention: ApplicationPluginConvention if !isTestSourceSet =>
-        val mainClass = Option(appPluginConvention.getMainClassName)
-        val options = appPluginConvention.getApplicationDefaultJvmArgs.asScala.toList
-        Some(Platform.Jvm(JvmConfig(jdkPath, options), mainClass))
-      case _ =>
-        Some(Platform.Jvm(JvmConfig(jdkPath, Nil), None))
-    }
+    val defaultJdkPath = Option(currentJDK).map(_.getJavaHome.toPath)
+    val mainClass =
+      project.getConvention.findPlugin(classOf[ApplicationPluginConvention]) match {
+        case appPluginConvention: ApplicationPluginConvention if !isTestSourceSet =>
+          Option(appPluginConvention.getMainClassName)
+        case _ =>
+          None
+      }
+
+    val jdkPath = projectJdkPath.orElse(defaultJdkPath)
+    Some(Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass))
   }
 
   def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {
@@ -355,6 +407,12 @@ final class BloopConverter(parameters: BloopParameters) {
       .flatten
       .distinct
   }
+
+  def getOutDir(targetDir: File, projectName: String): Path =
+    (targetDir / projectName / "build").toPath
+
+  def getOutDir(targetDir: File, project: Project, sourceSet: SourceSet): Path =
+    getOutDir(targetDir, getProjectName(project, sourceSet))
 
   def getClassesDir(targetDir: File, projectName: String): Path =
     (targetDir / projectName / "build" / "classes").toPath
@@ -535,11 +593,15 @@ final class BloopConverter(parameters: BloopParameters) {
           val opts = scalaCompileTask.getScalaCompileOptions
           val options = optionList(opts)
           val compilerName = parameters.compilerName
+          val compileOrder =
+            if (!sourceSet.getJava.getSourceDirectories.isEmpty) JavaThenScala
+            else Mixed
+          val setup = CompileSetup.empty.copy(order = compileOrder)
 
           // Use the compile setup and analysis out defaults, Gradle doesn't expose its customization
           Success(
             Some(
-              Config.Scala(scalaOrg, compilerName, scalaVersion, options, scalaJars, None, None)
+              Config.Scala(scalaOrg, compilerName, scalaVersion, options, scalaJars, None, Some(setup))
             )
           )
         } else {
@@ -567,9 +629,7 @@ final class BloopConverter(parameters: BloopParameters) {
   }
 
   private def getJavaConfig(project: Project, sourceSet: SourceSet): Option[Config.Java] = {
-    val javaCompileTaskName = sourceSet.getCompileTaskName("java")
-    val javaCompileTask = project.getTask[JavaCompile](javaCompileTaskName)
-    val opts = javaCompileTask.getOptions
+    val opts = getJavaCompileOptions(project, sourceSet)
 
     val specs = new DefaultJavaCompileSpec()
     specs.setCompileOptions(opts)
@@ -622,7 +682,7 @@ final class BloopConverter(parameters: BloopParameters) {
       ifEnabled(options.isOptimize)("-optimize"),
       ifEnabled(options.getDebugLevel == "verbose")("-verbose"),
       ifEnabled(options.getDebugLevel == "debug")("-Ydebug"),
-      Option(options.getEncoding).map(encoding => s"-encoding $encoding"),
+      Option(options.getEncoding).map(encoding => s"-encoding$argumentSpaceSeparator$encoding"),
       Option(options.getDebugLevel).map(level => s"-g:$level")
     ).flatten.toSet
 
