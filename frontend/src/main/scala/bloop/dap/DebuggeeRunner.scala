@@ -45,28 +45,20 @@ private final class TestSuiteDebugAdapter(
     val handler = new LoggingEventHandler(state.logger)
 
     val sequentialTests = projects.map { project =>
-      runTestSuite(project, state.copy(logger = debugLogger), filter, handler)
+      val debugState = state.copy(logger = debugLogger)
+      Tasks.test(
+        state,
+        List(project),
+        Nil,
+        filter,
+        handler,
+        failIfNoTestFrameworks = true,
+        runInParallel = false,
+        mode = RunMode.Debug
+      )
     }
 
     Task.sequence(sequentialTests).map(_ => ())
-  }
-
-  private def runTestSuite(
-      project: Project,
-      state: State,
-      filter: String => Boolean,
-      handler: TestSuiteEventHandler
-  ): Task[State] = {
-    Tasks.test(
-      state,
-      List(project),
-      Nil,
-      filter,
-      handler,
-      failIfNoTestFrameworks = true,
-      runInParallel = false,
-      mode = RunMode.Debug
-    )
   }
 }
 

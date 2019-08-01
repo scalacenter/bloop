@@ -149,15 +149,13 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
       loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
         val testFilters = List(
-          "JUnitTest",
-          "ScalaTestTest",
-          "ScalaCheckTest",
-          "WritingTest",
-          "Specs2Test",
-          "EternalUTest",
-          "UTestTest",
-          "ResourcesTest"
-        ).map("hello." + _)
+          "hello.JUnitTest",
+          "hello.ScalaTestTest",
+          "hello.ScalaCheckTest",
+          "hello.WritingTest",
+          "hello.Specs2Test",
+          "hello.EternalUTest"
+        )
 
         val output = build.state.withDebugSession(project, testSuiteParams(testFilters)) { client =>
           for {
