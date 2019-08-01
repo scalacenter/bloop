@@ -128,9 +128,9 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
   }
 
   private def javaExecutable: Try[AbsolutePath] = {
-    val java = env.javaHome.resolve("bin").resolve("java")
-    if (java.exists) Success(java)
-    else Failure(new IllegalStateException(s"Java executable [$java] does not exist"))
+    val javaPath = env.javaHome.resolve("bin").resolve("java")
+    if (javaPath.exists) Success(javaPath)
+    else Failure(new IllegalStateException(s"Missing java executable at $javaPath!"))
   }
 }
 
