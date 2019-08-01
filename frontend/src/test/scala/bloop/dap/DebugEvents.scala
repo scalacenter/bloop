@@ -57,7 +57,7 @@ private[dap] final class DebugEvents extends Observer[Messages.Event] {
 object DebugEvents {
   class Channel(name: String) {
     private val buffer = mutable.Buffer.empty[Messages.Event]
-    private val firstEvent = Promise[Unit]()
+    private val firstEvent = Promise[Messages.Event]()
     private val completed = Promise[Unit]()
 
     def first: Task[Messages.Event] = {
