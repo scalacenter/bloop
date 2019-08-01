@@ -94,7 +94,7 @@ final class DebugSession(
     request.command match {
       case "launch" =>
         launchedRequests.add(requestId)
-        val _ = Task
+        val startDebuggeeTask = Task
           .fromFuture(debugAddress.future)
           .map(DebugSession.toAttachRequest(requestId, _))
           .foreachL(super.dispatchRequest)
@@ -105,7 +105,9 @@ final class DebugSession(
               this.sendResponse(response)
             }
           )
-          .runAsync(ioScheduler)
+
+        startDebuggeeTask.runAsync(ioScheduler)
+        ()
 
       case "disconnect" =>
         if (DebugSession.shouldRestart(request)) {
@@ -119,6 +121,7 @@ final class DebugSession(
           case otherState =>
             otherState
         }
+
         super.dispatchRequest(request)
 
       case _ => super.dispatchRequest(request)
@@ -145,7 +148,7 @@ final class DebugSession(
         terminalEventsSent.add(event.`type`)
         if (terminalEventsSent == DebugSession.TerminalEvents) {
           communicationDone.success(())
-          // cannot close the socket here - communication should now terminate on its own
+          // Don't close socket, it terminates on its own
         }
       }
     }
@@ -176,16 +179,14 @@ final class DebugSession(
       case Started(debuggee) =>
         cancelDebuggee(debuggee)
         scheduleClosingSocket()
-
         Cancelled
 
-      case Cancelled =>
-        Cancelled
+      case Cancelled => Cancelled
     }
   }
 
   private def scheduleClosingSocket(): Unit = {
-    val message = "Communication frozen. Closing client socket forcefully."
+    val message = "Closing client socket forcefully (communication is frozen)..."
     Task
       .fromFuture(communicationDone.future)
       .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(initialLogger.warn(message)))
@@ -257,6 +258,7 @@ object DebugSession {
     if (name == Configuration.LOGGER_NAME) {
       logger.addHandler(handler)
     }
+
     logger
   }
 

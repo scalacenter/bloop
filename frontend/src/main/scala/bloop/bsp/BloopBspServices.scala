@@ -487,10 +487,9 @@ final class BloopBspServices(
       params.parameters.dataKind match {
         case LaunchParametersDataKind.scalaMainClass =>
           convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
-        case "scala-test-suites" =>
+        case LaunchParametersDataKind.scalaTestSuites =>
           convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
-        case dataKind =>
-          Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
+        case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }
 

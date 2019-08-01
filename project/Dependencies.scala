@@ -10,8 +10,8 @@ object Dependencies {
   val nailgunCommit = "9327a60a"
 
   val zincVersion = "1.3.0-M4+22-4704d479"
-  val bspVersion = "2.0.0-M4+1-05b517a3"
-  val javaDebugVersion = "0.21.0"
+  val bspVersion = "2.0.0-M4+1-4ddca89a"
+  val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
   val coursierVersion = "1.1.0-M14-4"
@@ -51,7 +51,7 @@ object Dependencies {
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
   val bsp = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val nailgun = "ch.epfl.scala" % "nailgun-server" % nailgunVersion
-  val javaDebug = "com.microsoft.java" % "com.microsoft.java.debug.core" % javaDebugVersion
+  val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion

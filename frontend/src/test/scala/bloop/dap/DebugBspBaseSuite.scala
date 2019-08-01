@@ -1,10 +1,13 @@
 package bloop.dap
+
 import bloop.TestSchedulers
 import bloop.bsp.BspBaseSuite
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BspClientLogger
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+
 import monix.execution.Scheduler
 
 abstract class DebugBspBaseSuite extends BspBaseSuite {
@@ -20,7 +23,9 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       allowError: Boolean = false,
       userIOScheduler: Option[Scheduler] = None,
       userComputationScheduler: Option[Scheduler] = None,
-      clientClassesRootDir: Option[AbsolutePath] = None
+      clientClassesRootDir: Option[AbsolutePath] = None,
+      clientName: String = "test-bloop-client",
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
   ): UnmanagedBspTestState = {
     val ioScheduler = userIOScheduler.orElse(Some(debugDefaultScheduler))
     super.openBspConnection(
@@ -31,7 +36,9 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       allowError,
       ioScheduler,
       userComputationScheduler,
-      clientClassesRootDir
+      clientClassesRootDir,
+      clientName,
+      bloopExtraParams
     )
   }
 }
