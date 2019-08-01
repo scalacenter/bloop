@@ -34,17 +34,16 @@ object DebugServer {
     val ongoingSessions = CompositeCancelable()
 
     def listen(serverSocket: ServerSocket): Task[Unit] = {
-      val session =
-        Task {
-          listeningPromise.trySuccess(Some(handle.uri))
-          val socket = serverSocket.accept()
+      val session = Task {
+        listeningPromise.trySuccess(Some(handle.uri))
+        val socket = serverSocket.accept()
 
-          val session = DebugSession(socket, runner.run, logger, ioScheduler)
-          ongoingSessions += session
+        val session = DebugSession(socket, runner.run, logger, ioScheduler)
+        ongoingSessions += session
 
-          session.startDebuggeeAndServer()
-          session.exitStatus
-        }.flatten
+        session.startDebuggeeAndServer()
+        session.exitStatus
+      }.flatten
 
       session
         .restartUntil(_ == DebugSession.Terminated)

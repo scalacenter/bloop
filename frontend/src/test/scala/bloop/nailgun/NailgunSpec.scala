@@ -5,6 +5,7 @@ import bloop.testing.BaseSuite
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 import bloop.util.TestUtil
+import bloop.exec.JavaEnv
 
 import java.nio.file.{Paths, Files}
 import java.util.concurrent.TimeUnit
@@ -14,13 +15,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   val workspace = AbsolutePath(Files.createTempDirectory("bloop-test-workspace"))
   val simpleBuild = loadBuildFromResources("simple-build", workspace, new RecordingLogger)
   val configDir = simpleBuild.state.build.origin.underlying
-
-  val javaVersion = Option(System.getProperty("java.version"))
-  val javaHome = Option(System.getProperty("java.home"))
-  val jvmLine = (javaVersion, javaHome) match {
-    case (Some(v), Some(h)) => s"Running on Java v$v ($h)"
-    case _ => ""
-  }
+  val jvmLine = s"Running on Java v${JavaEnv.version} (${JavaEnv.DefaultJavaHome})"
 
   def withServerInProject[T](op: (RecordingLogger, Client) => T): T =
     withServer(configDir, false, new RecordingLogger(ansiCodesSupported = false))(op)
@@ -94,6 +89,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
+            |Detected Java JDK runtime supports debugging
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
       )
@@ -151,6 +147,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
+            |Detected Java JDK runtime supports debugging
             |Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
             |""".stripMargin
       )

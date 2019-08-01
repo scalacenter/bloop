@@ -242,13 +242,13 @@ object Cli {
     run(action, pool, FalseCancellation)
   }
 
+  // Attempt to load JDI when we initialize the CLI class
+  private val _ = JavaEnv.loadJavaDebugInterface
   private def run(
       action: Action,
       pool: ClientPool,
       cancel: CompletableFuture[java.lang.Boolean]
   ): ExitStatus = {
-    val _ = JavaEnv.resolveDebugInterface
-
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       val cwd = AbsolutePath(cliOptions.common.workingDirectory)

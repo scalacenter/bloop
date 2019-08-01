@@ -44,7 +44,7 @@ final class DebugSessionLogger(
     underlying.info(msg)
 
     import DebugSessionLogger.ListeningMessagePrefix
-    // Expect the first log to be JDI notification since debuggee is running with `quiet=n` JDI option
+    // Expect the first log to be JDI notification since debuggee runs with `quiet=n` JDI option
     if (msg.startsWith(ListeningMessagePrefix)) {
       if (initialized.compareAndSet(false, true)) {
         val port = Integer.parseInt(msg.drop(ListeningMessagePrefix.length))

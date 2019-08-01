@@ -52,6 +52,7 @@ import scala.util.Failure
 
 import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
+import bloop.engine.Feedback
 
 final class BloopBspServices(
     callSiteState: State,
@@ -494,24 +495,12 @@ final class BloopBspServices(
     }
 
     ifInitialized { state =>
-      JavaEnv.resolveDebugInterface match {
+      JavaEnv.loadJavaDebugInterface match {
         case Failure(exception) =>
-          def jdkRuntimeStatus: String = JavaEnv.runtimeEnvironment match {
-            case JavaEnv.JDK => "already done"
-            case JavaEnv.JRE => s"currently runs on JRE from ${JavaEnv.DefaultJavaHome}"
+          val message = JavaEnv.detectRuntime match {
+            case JavaEnv.JDK => Feedback.detectedJdkWithoutJDI(exception)
+            case JavaEnv.JRE => Feedback.detectedUnsupportedJreForDebugging(exception)
           }
-
-          val message =
-            s"""
-               |Java Debug Interface is not available due to: ${exception.getMessage}. 
-               |Debug Adapter Protocol will not be supported.
-               |To enable Debug Adapter Protocol:
-               | - run bloop using JDK ($jdkRuntimeStatus)
-               | - make sure JDK vendor implements the Java Debug Interface
-               |
-               |Run "bloop about" to know more about current runtime
-               |""".stripMargin
-
           Task.now((state, Left(JsonRpcResponse.internalError(message))))
 
         case Success(_) =>

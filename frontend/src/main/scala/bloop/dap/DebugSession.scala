@@ -254,11 +254,7 @@ object DebugSession {
     val logger = JLogger.getLogger(name)
     logger.getHandlers.foreach(logger.removeHandler)
     logger.setUseParentHandlers(false)
-
-    if (name == Configuration.LOGGER_NAME) {
-      logger.addHandler(handler)
-    }
-
+    if (name == Configuration.LOGGER_NAME) logger.addHandler(handler)
     logger
   }
 
@@ -273,18 +269,15 @@ object DebugSession {
     override def publish(record: LogRecord): Unit = {
       val message = record.getMessage
       record.getLevel match {
-        case Level.WARNING =>
-          logger.warn(message)
+        case Level.INFO | Level.CONFIG => logger.info(message)
+        case Level.WARNING => logger.warn(message)
         case Level.SEVERE =>
           if (isExpectedDuringCancellation(message) || isIgnoredError(message)) {
             logger.debug(message)
           } else {
             logger.error(message)
           }
-        case Level.INFO | Level.CONFIG =>
-          logger.info(message)
-        case _ =>
-          logger.debug(message)
+        case _ => logger.debug(message)
       }
     }
 
@@ -303,7 +296,7 @@ object DebugSession {
       cancelled.set(true)
     }
 
-    override def flush(): Unit = {}
-    override def close(): Unit = {}
+    override def flush(): Unit = ()
+    override def close(): Unit = ()
   }
 }

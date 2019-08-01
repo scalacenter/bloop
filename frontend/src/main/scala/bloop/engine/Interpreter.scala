@@ -100,19 +100,17 @@ object Interpreter {
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
     val javaVersion = JavaEnv.version
-    val javaHome = Option(System.getProperty("java.home"))
-    val runtimeEnv = JavaEnv.runtimeEnvironment
+    val javaHome = JavaEnv.DefaultJavaHome
+    val jdiStatus =
+      if (JavaEnv.loadJavaDebugInterface.isSuccess) "supports debugging"
+      else "doesn't support debugging!"
+    val runtimeInfo = s"Detected Java ${JavaEnv.detectRuntime} runtime $jdiStatus"
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
     logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
-    (javaVersion, javaHome) match {
-      case (Some(v), Some(h)) =>
-        logger.info(s"Running on Java v$v ($h) ($runtimeEnv)")
-      case _ =>
-    }
-    val jdiStatus = if (JavaEnv.resolveDebugInterface.isSuccess) "available" else "unavailable"
-    logger.info(s"Java Debug interface is $jdiStatus")
+    logger.info(s"Running on Java v$javaVersion ($javaHome)")
+    logger.info(s"Detected Java ${JavaEnv.detectRuntime} runtime $jdiStatus")
     logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)

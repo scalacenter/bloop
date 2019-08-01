@@ -75,11 +75,13 @@ object DebugEvents {
     private[dap] def onNext(event: Messages.Event): Unit = {
       buffer.append(event)
       if (!firstEvent.isCompleted) firstEvent.success(event)
+      ()
     }
 
     private[dap] def onError(ex: Throwable): Unit = {
       firstEvent.tryFailure(ex)
       completed.tryFailure(ex)
+      ()
     }
 
     private[dap] def onComplete(): Unit = {
