@@ -476,7 +476,8 @@ final class BloopBspServices(
           f: A => Either[String, DebuggeeRunner]
       ): Either[ProtocolError, DebuggeeRunner] = {
         params.parameters.data.as[A] match {
-          case Left(error) => Left(JsonRpcResponse.invalidRequest(error.getMessage()))
+          case Left(error) =>
+            Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(params) =>
             f(params) match {
               case Right(adapter) => Right(adapter)

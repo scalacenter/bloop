@@ -16,7 +16,7 @@ import bloop.testing.BaseSuite
 import bloop.util.{TestProject, TestUtil}
 
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.{DebugSessionAddress, Uri, endpoints}
+import ch.epfl.scala.bsp.{Uri, endpoints}
 import io.circe.Json
 
 import monix.eval.Task
@@ -238,18 +238,13 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(task)
     }
 
-    def withDebugSession[A](project: TestProject, mainClass: String)(
-        f: DebugTestClient => Task[A]
-    ): A = {
-      def sessionAddress: Task[DebugSessionAddress] =
+    def withDebugSession[A](
+        project: TestProject,
+        paramsFactory: bsp.BuildTargetIdentifier => bsp.DebugSessionParams
+    )(f: DebugTestClient => Task[A]): A = {
+      def sessionAddress: Task[bsp.DebugSessionAddress] =
         runAfterTargets(project) { target =>
-          val params = {
-            val targets = List(target)
-            val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
-            val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-            val parameters = bsp.LaunchParameters("scala-main-class", json)
-            bsp.DebugSessionParams(targets, parameters)
-          }
+          val params = paramsFactory(target)
 
           endpoints.DebugSession.start.request(params).map {
             case Left(error) =>

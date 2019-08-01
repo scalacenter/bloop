@@ -85,7 +85,7 @@ object DebugEvents {
     }
 
     private[dap] def onComplete(): Unit = {
-      firstEvent.tryFailure(new NoSuchElementException(s"Missing event $name")) // if no events were published
+      firstEvent.tryFailure(new NoSuchElementException(s"Missing [$name] event")) // if no events were published
       completed.success(())
     }
   }
