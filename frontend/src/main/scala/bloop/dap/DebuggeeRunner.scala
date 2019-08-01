@@ -77,17 +77,16 @@ object DebuggeeRunner {
       state: State
   ): Either[String, DebuggeeRunner] = {
     projects match {
-      case Seq() =>
-        Left(s"No projects specified for the main class: [$mainClass]")
-      case project :: Seq() =>
+      case Seq() => Left(s"No projects specified for main class: [$mainClass]")
+      case Seq(project) =>
         project.platform match {
           case jvm: Platform.Jvm =>
             Right(new MainClassDebugAdapter(project, mainClass, jvm.env, state))
           case platform =>
             Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")
         }
-      case _ =>
-        Left(s"Multiple projects specified for the main class [$mainClass]")
+
+      case projects => Left(s"Multiple projects specified for main class [$mainClass]: $projects")
     }
   }
 
@@ -97,10 +96,8 @@ object DebuggeeRunner {
       state: State
   ): Either[String, DebuggeeRunner] = {
     projects match {
-      case Seq() =>
-        Left(s"No projects specified for the test suites: [${filters.sorted}]")
-      case projects =>
-        Right(new TestSuiteDebugAdapter(projects, filters, state))
+      case Seq() => Left(s"No projects specified for the test suites: [${filters.sorted}]")
+      case projects => Right(new TestSuiteDebugAdapter(projects, filters, state))
     }
   }
 }
