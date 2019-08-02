@@ -41,24 +41,23 @@ private final class TestSuiteDebugAdapter(
     state: State
 ) extends DebuggeeRunner {
   def run(debugLogger: DebugSessionLogger): Task[Unit] = {
+    val debugState = state.copy(logger = debugLogger)
+
     val filter = TestInternals.parseFilters(filters)
-    val handler = new LoggingEventHandler(state.logger)
+    val handler = new LoggingEventHandler(debugState.logger)
 
-    val sequentialTests = projects.map { project =>
-      val debugState = state.copy(logger = debugLogger)
-      Tasks.test(
-        state,
-        List(project),
-        Nil,
-        filter,
-        handler,
-        failIfNoTestFrameworks = true,
-        runInParallel = false,
-        mode = RunMode.Debug
-      )
-    }
+    val task = Tasks.test(
+      debugState,
+      projects.toList,
+      Nil,
+      filter,
+      handler,
+      failIfNoTestFrameworks = true,
+      runInParallel = false,
+      mode = RunMode.Debug
+    )
 
-    Task.sequence(sequentialTests).map(_ => ())
+    task.map(_ => ())
   }
 }
 

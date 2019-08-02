@@ -143,18 +143,17 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     }
   }
 
-  test("starts a test suite") {
+  test("starts test suites") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-1.0", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
         val testFilters = List(
           "hello.JUnitTest",
-          "hello.ScalaTestTest",
           "hello.ScalaCheckTest",
-          "hello.WritingTest",
+          "hello.ScalaTestTest",
           "hello.Specs2Test",
-          "hello.EternalUTest"
+          "hello.UTestTest"
         )
 
         val output = build.state.withDebugSession(project, testSuiteParams(testFilters)) { client =>
@@ -169,10 +168,9 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
           } yield output
         }
 
-        val lines = output.lines.toSeq
-        assert(lines.size == 2)
-        assert(lines(0).contains("Running Tests"))
-        assert(lines(1).contains("+ hello.UTestTest.Greetings are very personal"))
+        testFilters.foreach { testSuite =>
+          assert(output.contains(s"All tests in $testSuite passed"))
+        }
       }
     }
   }
