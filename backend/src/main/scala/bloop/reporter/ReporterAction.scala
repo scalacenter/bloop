@@ -6,6 +6,7 @@ import ch.epfl.scala.bsp
 
 sealed trait ReporterAction
 object ReporterAction {
+  final case object EnableFatalWarnings extends ReporterAction
   final case object ReportStartCompilation extends ReporterAction
 
   final case class ReportStartIncrementalCycle(

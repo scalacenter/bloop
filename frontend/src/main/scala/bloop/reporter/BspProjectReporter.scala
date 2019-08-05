@@ -38,7 +38,8 @@ final class BspProjectReporter(
   private val startedPhaseInFile = TrieMap.empty[String, Boolean]
 
   /** Log a problem in a thread-safe manner. */
-  override private[reporter] def logFull(problem: Problem): Unit = {
+  override private[reporter] def logFull(problem0: Problem): Unit = {
+    val problem = super.liftFatalWarning(problem0)
     sbt.util.InterfaceUtil.toOption(problem.position.sourceFile()) match {
       case Some(file) =>
         // If it's the first diagnostic for this file, set clear to true
@@ -221,12 +222,13 @@ final class BspProjectReporter(
         val statusCode = finalCompilationStatusCode.getOrElse(codeRightAfterCycle)
         if (!inputs.isLastCycle) reportRemainingProblems(false, Map.empty)
         else reportRemainingProblems(reportAllPreviousProblems, inputs.previousSuccessfulProblems)
+        val liftedProblems = allProblems.toIterator.map(super.liftFatalWarning(_)).toList
         logger.publishCompilationEnd(
           CompilationEvent.EndCompilation(
             project.name,
             project.bspUri,
             taskId,
-            allProblems,
+            liftedProblems,
             statusCode
           )
         )
@@ -274,8 +276,9 @@ final class BspProjectReporter(
           }
       }
 
+      val liftedProblems = allProblems.toIterator.map(super.liftFatalWarning(_)).toList
       logger.publishCompilationEnd(
-        CompilationEvent.EndCompilation(project.name, project.bspUri, taskId, allProblems, code)
+        CompilationEvent.EndCompilation(project.name, project.bspUri, taskId, liftedProblems, code)
       )
     } else {
       // Great, let's report the pending end incremental cycle as the last one

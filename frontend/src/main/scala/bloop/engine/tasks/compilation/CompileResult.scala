@@ -138,8 +138,13 @@ object FinalCompileResult {
             case Compiler.Result.Empty => s"${projectName} (empty)"
             case Compiler.Result.Cancelled(problems, ms, _) =>
               s"${projectName} (cancelled, failed with ${Problem.count(problems)}, ${ms}ms)"
-            case Compiler.Result.Success(_, _, _, ms, _, isNoOp) =>
-              val noOp = if (isNoOp) " no-op" else ""
+            case Compiler.Result.Success(_, _, _, ms, _, isNoOp, reportedFatalWarnings) =>
+              val noOp = {
+                if (isNoOp) " no-op"
+                else if (reportedFatalWarnings) " with fatal warnings"
+                else ""
+              }
+
               s"${projectName} (success$noOp ${ms}ms)"
             case Compiler.Result.Blocked(on) => s"${projectName} (blocked on ${on.mkString(", ")})"
             case Compiler.Result.GlobalError(problem) =>

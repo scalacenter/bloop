@@ -24,6 +24,13 @@ final class ObservedReporter(
   override def hasWarnings: Boolean = underlying.hasWarnings
   override def comment(pos: xsbti.Position, msg: String): Unit = underlying.comment(pos, msg)
   override def reset(): Unit = underlying.reset()
+  override def enableFatalWarnings(): Unit = {
+    underlying.enableFatalWarnings()
+    registerAction(ReporterAction.EnableFatalWarnings)
+  }
+
+  override def getSourceFilesWithFatalWarnings: Set[File] =
+    underlying.getSourceFilesWithFatalWarnings
 
   override def printSummary(): Unit = {
     underlying.printSummary()

@@ -928,4 +928,152 @@ class BspCompileSpec(
       }
     }
   }
+
+  test("support -Xfatal-warnings internal implementation") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Foo.scala` =
+          """/Foo.scala
+            |import Predef.assert
+            |class Foo
+            """.stripMargin
+        val `Bar.scala` =
+          """/Bar.scala
+            |class Bar
+            """.stripMargin
+        val `Baz.scala` =
+          """/Baz.scala
+            |class Baz
+            """.stripMargin
+        val `Foo2.scala` =
+          """/Foo.scala
+            |class Foo
+            """.stripMargin
+        val `Foo3.scala` =
+          """/Foo.scala
+            |import Predef.assert
+            |import Predef.Manifest
+            |class Foo
+            """.stripMargin
+        val `Buzz.scala` =
+          """/Buzz.scala
+            |class Buzz
+            """.stripMargin
+        val `Buzz2.scala` =
+          """/Buzz.scala
+            |import Predef.assert
+            |class Buzz
+            """.stripMargin
+      }
+
+      val bspLogger = new RecordingLogger(ansiCodesSupported = false)
+      val sourcesA = List(Sources.`Bar.scala`, Sources.`Foo.scala`, Sources.`Baz.scala`)
+      val sourcesB = List(Sources.`Buzz.scala`)
+      val options = List("-Ywarn-unused", "-Xfatal-warnings")
+      val `A` = TestProject(workspace, "a", sourcesA, scalacOptions = options)
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`), scalacOptions = options)
+      val projects = List(`A`, `B`)
+      loadBspState(workspace, projects, bspLogger) { state =>
+        val compiledState = state.compile(`B`)
+        assert(compiledState.status == ExitStatus.CompilationError)
+        assertValidCompilationState(compiledState, projects)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """|#1: task start 1
+             |  -> Msg: Compiling a (3 Scala sources)
+             |  -> Data kind: compile-task
+             |#1: a/src/Foo.scala
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),None,None,Unused import,None))
+             |  -> reset = true
+             |#1: task finish 1
+             |  -> errors 1, warnings 0
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+
+        assertNoDiff(
+          compiledState.lastDiagnostics(`B`),
+          """|#1: task start 2
+             |  -> Msg: Compiling b (1 Scala source)
+             |  -> Data kind: compile-task
+             |#1: task finish 2
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'b'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+
+        writeFile(`A`.srcFor("/Foo.scala"), Sources.`Foo2.scala`)
+        val secondCompiledState = compiledState.compile(`B`)
+        assert(secondCompiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
+          """|#2: task start 3
+             |  -> Msg: Compiling a (1 Scala source)
+             |  -> Data kind: compile-task
+             |#2: a/src/Foo.scala
+             |  -> List()
+             |  -> reset = true
+             |#2: task finish 3
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+
+        assertNoDiff(
+          compiledState.lastDiagnostics(`B`),
+          """|#2: task start 4
+             |  -> Msg: Start no-op compilation for b
+             |  -> Data kind: compile-task
+             |#2: task finish 4
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'b'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+
+        writeFile(`A`.srcFor("/Foo.scala"), Sources.`Foo3.scala`)
+        writeFile(`B`.srcFor("/Buzz.scala"), Sources.`Buzz2.scala`)
+        val thirdCompiledState = secondCompiledState.compile(`B`)
+        assert(thirdCompiledState.status == ExitStatus.CompilationError)
+        assertValidCompilationState(thirdCompiledState, projects)
+        assertNoDiff(
+          thirdCompiledState.lastDiagnostics(`A`),
+          """|#3: task start 5
+             |  -> Msg: Compiling a (1 Scala source)
+             |  -> Data kind: compile-task
+             |#3: a/src/Foo.scala
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),None,None,Unused import,None))
+             |  -> reset = true
+             |#3: a/src/Foo.scala
+             |  -> List(Diagnostic(Range(Position(1,0),Position(1,7)),Some(Error),None,None,Unused import,None))
+             |  -> reset = false
+             |#3: task finish 5
+             |  -> errors 2, warnings 0
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+
+        assertNoDiff(
+          compiledState.lastDiagnostics(`B`),
+          """|#3: task start 6
+             |  -> Msg: Compiling b (1 Scala source)
+             |  -> Data kind: compile-task
+             |#3: b/src/Buzz.scala
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),None,None,Unused import,None))
+             |  -> reset = true
+             |#3: task finish 6
+             |  -> errors 1, warnings 0
+             |  -> Msg: Compiled 'b'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+      }
+    }
+  }
+
 }

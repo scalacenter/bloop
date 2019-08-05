@@ -381,7 +381,7 @@ final class BloopBspServices(
           result match {
             case Compiler.Result.Empty => Nil
             case Compiler.Result.Blocked(_) => Nil
-            case Compiler.Result.Success(_, _, _, _, _, _) =>
+            case Compiler.Result.Success(_, _, _, _, _, _, _) =>
               previouslyFailedCompilations.remove(p)
               Nil
             case Compiler.Result.GlobalError(problem) => List(problem)
