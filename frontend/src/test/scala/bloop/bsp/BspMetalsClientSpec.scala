@@ -11,7 +11,7 @@ import bloop.data.WorkspaceSettings
 import bloop.internal.build.BuildInfo
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 import io.circe.JsonObject
 import io.circe.Json
@@ -382,8 +382,11 @@ class BspMetalsClientSpec(
     val scalacOptions = state.scalaOptions(project)._2.items.flatMap(_.options).map { opt =>
       if (!opt.startsWith("-Xplugin:")) opt
       else {
-        opt.split(":") match {
-          case Array(key, value) => s"$key:${value.split(java.io.File.separator).last}"
+        val idx = opt.indexOf(":")
+        opt.splitAt(idx) match {
+          case (key, value) =>
+            val pluginPath = Paths.get(value.tail).getFileName().toString
+            s"$key:$pluginPath"
         }
       }
     }
