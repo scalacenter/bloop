@@ -67,7 +67,8 @@ abstract class Reporter(
   }
 
   protected def liftFatalWarning(problem: Problem): Problem = {
-    if (!hasFatalWarningsEnabled || problem.severity != Severity.Warn) problem
+    val isFatalWarning = hasFatalWarningsEnabled && problem.severity == Severity.Warn
+    if (!isFatalWarning) problem
     else {
       InterfaceUtil
         .toOption(problem.position.sourceFile())

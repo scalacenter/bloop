@@ -478,7 +478,7 @@ object Compiler {
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs
           val sourcesWithFatal = reporter.getSourceFilesWithFatalWarnings
-          val reportedFatalWarnings = isFatalWarningsEnabled && reporter.getSourceFilesWithFatalWarnings.nonEmpty
+          val reportedFatalWarnings = isFatalWarningsEnabled && sourcesWithFatal.nonEmpty
           val code = if (reportedFatalWarnings) bsp.StatusCode.Error else bsp.StatusCode.Ok
           reporter.reportEndCompilation(previousSuccessfulProblems, code)
 
@@ -520,7 +520,7 @@ object Compiler {
           }
 
           val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
-          val isNoOp = previousAnalysis.exists(_ == analysis)
+          val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
             // If no-op, return previous result
             val products = CompileProducts(
@@ -726,7 +726,8 @@ object Compiler {
       val rebasedSources = oldStamps.sources.map {
         case t @ (file, _) =>
           // Assumes file in reported diagnostic matches path in here
-          if (!sourceFilesWithFatalWarnings.contains(file)) t
+          val fileHasFatalWarnings = sourceFilesWithFatalWarnings.contains(file)
+          if (!fileHasFatalWarnings) t
           else file -> BloopStamps.emptyStampFor(file)
       }
       val rebasedProducts = oldStamps.products.map {

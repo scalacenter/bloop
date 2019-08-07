@@ -281,7 +281,7 @@ object CompileTask {
             results.fromCompiler match {
               case Compiler.Result.NotOk(_) => List(p)
               // Consider success with reported fatal warnings as error to simulate -Xfatal-warnings
-              case Compiler.Result.Success(_, _, _, _, _, _, true) => List(p)
+              case s: Compiler.Result.Success if s.reportedFatalWarnings => List(p)
               case _ => Nil
             }
           case _ => Nil
