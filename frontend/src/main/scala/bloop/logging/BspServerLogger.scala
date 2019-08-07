@@ -27,16 +27,20 @@ final class BspServerLogger private (
     underlying: Logger,
     implicit val client: JsonRpcClient,
     taskIdCounter: AtomicInt,
-    ansiSupported: Boolean
+    ansiSupported: Boolean,
+    val originId: Option[String]
 ) extends Logger
     with ScribeAdapter {
   override def debugFilter: DebugFilter = underlying.debugFilter
 
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger =
-    new BspServerLogger(name, underlying.asDiscrete, client, taskIdCounter, ansiSupported)
+    new BspServerLogger(name, underlying.asDiscrete, client, taskIdCounter, ansiSupported, originId)
   override def asVerbose: Logger =
-    new BspServerLogger(name, underlying.asVerbose, client, taskIdCounter, ansiSupported)
+    new BspServerLogger(name, underlying.asVerbose, client, taskIdCounter, ansiSupported, originId)
+
+  def withOriginId(originId: String): BspServerLogger =
+    new BspServerLogger(name, underlying, client, taskIdCounter, ansiSupported, Some(originId))
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
@@ -47,7 +51,7 @@ final class BspServerLogger private (
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
   override def error(msg: String): Unit = {
-    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Error, None, None, msg))
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Error, None, originId, msg))
     ()
   }
 
@@ -57,18 +61,18 @@ final class BspServerLogger private (
     // Metals and other clients should be showing `showMessage` to users
     import ch.epfl.scala.bsp.MessageType
     import ch.epfl.scala.bsp.ShowMessageParams
-    val showParams = ShowMessageParams(MessageType.Warning, None, None, msg)
+    val showParams = ShowMessageParams(MessageType.Warning, None, originId, msg)
     bsp.endpoints.Build.showMessage.notify(showParams)
     ()
   }
 
   override def warn(msg: String): Unit = {
-    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, None, msg))
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, originId, msg))
     ()
   }
 
   override def info(msg: String): Unit = {
-    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Info, None, None, msg))
+    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Info, None, originId, msg))
     ()
   }
 
@@ -106,7 +110,7 @@ final class BspServerLogger private (
           bsp.PublishDiagnosticsParams(
             textDocument,
             buildTargetId,
-            None,
+            originId,
             List(diagnostic),
             event.clear
           )
@@ -220,6 +224,6 @@ object BspServerLogger {
       ansiCodesSupported: Boolean
   ): BspServerLogger = {
     val name: String = s"bsp-logger-${BspServerLogger.counter.incrementAndGet()}"
-    new BspServerLogger(name, state.logger, client, taskIdCounter, ansiCodesSupported)
+    new BspServerLogger(name, state.logger, client, taskIdCounter, ansiCodesSupported, None)
   }
 }

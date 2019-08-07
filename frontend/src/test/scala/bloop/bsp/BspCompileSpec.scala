@@ -131,14 +131,50 @@ class BspCompileSpec(
         assertValidCompilationState(secondCompiledState, projects)
         assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
         assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
           """#2: task start 2
             |  -> Msg: Start no-op compilation for a
             |  -> Data kind: compile-task
             |#2: task finish 2
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report""".stripMargin,
-          secondCompiledState.lastDiagnostics(`A`)
+            |  -> Data kind: compile-report""".stripMargin
+        )
+      }
+    }
+  }
+
+  test("compile simple build with client origin id") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/Foo.scala
+          |import Predef.assert
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val scalacOptions = List("-Ywarn-unused:imports")
+      val `A` = TestProject(workspace, "a", sources, scalacOptions = scalacOptions)
+      val projects = List(`A`)
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`, originId = Some("test-origin"))
+        assert(compiledState.status == ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """|#1: task start 1
+             |  -> Msg: Compiling a (1 Scala source)
+             |  -> Data kind: compile-task
+             |#1: a/src/Foo.scala
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Warning),None,None,Unused import,None))
+             |  -> reset = true
+             |  -> origin = test-origin
+             |#1: task finish 1
+             |  -> errors 0, warnings 1
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
         )
       }
     }
