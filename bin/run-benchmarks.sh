@@ -96,7 +96,7 @@ main() {
       #"-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
       "-wi 15 -i 5 -f1 -t1 -p project=atlas -p projectName=root-test"
       "-wi 20 -i 10 -f1 -t1 -p project=grid -p projectName=grid-test"
-      #"-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
+      "-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=linkerd -p projectName=all-test"
       #"-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
