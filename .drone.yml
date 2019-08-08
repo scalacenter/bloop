@@ -42,7 +42,6 @@ matrix:
           "sbtBloop10/publishLocal" \
           "frontend/testOnly bloop.ScalaVersionsSpec" \
           "backend/test" \
-          "jsBridge06/test" \
           "jsBridge10/test" \
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
@@ -157,6 +156,7 @@ pipeline:
         OPS: jdk11
     commands:
       - export JAVA_HOME="/usr/lib/jvm/jdk11/bin"
+      - export PATH="$JAVA_HOME:$PATH"
       - java -version
       - export DRONE_DIR="/drone"
       - git log --oneline --graph | head -n 20
