@@ -553,6 +553,11 @@ class BaseSuite extends TestSuite with BloopHelpers {
     )
   }
 
+  def testOnlyOnJava8(name: String)(fun: => Any): Unit = {
+    if (TestUtil.isJdk8) test(name)(fun)
+    else ignore(name, label = s"IGNORED ON JAVA v${TestUtil.jdkVersion}")(fun)
+  }
+
   def test(name: String)(fun: => Any): Unit = {
     myTests += FlatTest(name, () => { fun; () })
   }

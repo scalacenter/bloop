@@ -40,9 +40,13 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
 
     val `2.10` = compileProjectFor("2.10.7")
     val `2.11` = compileProjectFor("2.11.11")
-    val `2.12` = compileProjectFor("2.12.8")
-    val `2.13` = compileProjectFor("2.13.0-RC2")
-    val all = List(`2.10`, `2.11`, `2.12`, `2.13`)
+    val `2.12` = compileProjectFor("2.12.9")
+    val `2.13` = compileProjectFor("2.13.0")
+    val all = {
+      if (TestUtil.isJdk8) List(`2.10`, `2.11`, `2.12`, `2.13`)
+      else List(`2.12`, `2.13`)
+    }
+
     TestUtil.await(FiniteDuration(60, "s"), ExecutionContext.ioScheduler) {
       Task.gatherUnordered(all).map(_ => ())
     }

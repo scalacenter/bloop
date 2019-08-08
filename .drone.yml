@@ -29,6 +29,24 @@ matrix:
           "frontend/it:run" \
           "gradleBloop212/test" \
           "docs/run"
+  TEST_BLOOP_JDK11:
+    - bin/sbt-ci.sh \
+          "show version" \
+          "benchmarks/compile" \
+          "jsonConfig210/test" \
+          "jsonConfig211/test" \
+          "jsonConfig212/test" \
+          "millBloop/compile" \
+          "mavenBloop/compile" \
+          "sbtBloop013/publishLocal" \
+          "sbtBloop10/publishLocal" \
+          "frontend/testOnly bloop.ScalaVersionsSpec" \
+          "backend/test" \
+          "jsBridge06/test" \
+          "jsBridge10/test" \
+          "jsBridge06/publishLocal" \
+          "jsBridge10/publishLocal" \
+          "frontend/testOnly -bloop.ScalaVersionsSpec"
 
   RUN_COMMUNITY_BUILD_EXTRA:
     - bin/sbt-ci.sh \
@@ -63,6 +81,7 @@ matrix:
   OPS:
     - basic
     - community-build
+    - jdk11
     - extra
 clone:
   git:
@@ -126,6 +145,24 @@ pipeline:
       - curl -o- -L https://yarnpkg.com/install.sh | bash
       - yarn --help
       - ${TEST_BLOOP}
+      - . bin/check-good-practices.sh # Check that good practices in the repo hold
+
+  build-jdk11:
+    image: eed3si9n/scala-docs:1.6-M2
+    group: build
+    when:
+      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
+      matrix:
+        OS: linux
+        OPS: jdk11
+    commands:
+      - export JAVA_HOME="/usr/lib/jvm/jdk11/bin"
+      - java -version
+      - export DRONE_DIR="/drone"
+      - git log --oneline --graph | head -n 20
+      - . bin/set-up-community-build-infra.sh # Source it because it exports variables
+      - . bin/detect-community-build.sh # Source it because it exports variables
+      - ${TEST_BLOOP_JDK11}
       - . bin/check-good-practices.sh # Check that good practices in the repo hold
 
   run_benchmarks_scripted:

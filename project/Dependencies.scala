@@ -18,7 +18,7 @@ object Dependencies {
   val caseAppVersion = "1.2.0-faster-compile-time"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.0.4"
+  val sbtTestAgentVersion = "1.2.8"
   val junitVersion = "0.11"
   val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
