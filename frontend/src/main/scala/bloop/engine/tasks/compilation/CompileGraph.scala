@@ -228,6 +228,8 @@ object CompileGraph {
           .foreachL {
             case Left(action) =>
               action match {
+                case ReporterAction.EnableFatalWarnings =>
+                  reporter.enableFatalWarnings()
                 case ReporterAction.ReportStartCompilation =>
                   reporter.reportStartCompilation(previousProblems)
                 case a: ReporterAction.ReportStartIncrementalCycle =>

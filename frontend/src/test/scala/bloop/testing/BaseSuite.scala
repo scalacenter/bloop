@@ -225,7 +225,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
   def assertDiagnosticsResult(
       result: Compiler.Result,
       errors: Int,
-      warnings: Int = 0
+      warnings: Int = 0,
+      expectFatalWarnings: Boolean = false
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     if (errors > 0) {
       result match {
@@ -247,9 +248,10 @@ class BaseSuite extends TestSuite with BloopHelpers {
       }
     } else {
       result match {
-        case Compiler.Result.Success(_, reporter, _, _, _, _) =>
+        case Compiler.Result.Success(_, reporter, _, _, _, _, reportedFatalWarnings) =>
           val count = Problem.count(reporter.allProblemsPerPhase.toList)
           assert(count.errors == 0)
+          assert(expectFatalWarnings == reportedFatalWarnings)
           assert(count.warnings == warnings)
         case _ => fail("Result ${result} != Success, but expected errors == 0")
       }

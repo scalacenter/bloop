@@ -4,11 +4,15 @@ import java.io.File
 import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.logging.{Logger, ObservedLogger}
-import xsbti.compile.CompileAnalysis
-import xsbti.{Position, Severity}
+
 import ch.epfl.scala.bsp
 
+import xsbti.compile.CompileAnalysis
+import xsbti.{Position, Severity}
+import sbt.util.InterfaceUtil
+
 import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 
 final class LogReporter(
     val project: Project,
@@ -35,7 +39,8 @@ final class LogReporter(
    *
    * @param problem The problem to log.
    */
-  override private[reporter] def logFull(problem: Problem): Unit = {
+  override private[reporter] def logFull(problem0: Problem): Unit = {
+    val problem = super.liftFatalWarning(problem0)
     val text = format.formatProblem(problem)
     problem.severity match {
       case Severity.Error => logger.error(text)
