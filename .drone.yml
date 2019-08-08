@@ -157,6 +157,7 @@ pipeline:
         OPS: jdk11
     commands:
       - export JAVA_HOME="/usr/lib/jvm/jdk11/bin"
+      - export PATH="$JAVA_HOME:$PATH"
       - java -version
       - export DRONE_DIR="/drone"
       - git log --oneline --graph | head -n 20
