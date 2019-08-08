@@ -59,7 +59,7 @@ object BuildPipeliningSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compile simple build using Scala 2.10 (without pipelining)") {
+  testOnlyOnJava8("compile simple build using Scala 2.10 (without pipelining)") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =

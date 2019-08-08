@@ -19,16 +19,17 @@ import scala.concurrent.duration.FiniteDuration
 import monix.eval.Task
 import monix.execution.CancelableFuture
 
-abstract class BaseTestSpec(val projectName: String)
-    extends ProjectBaseSuite("cross-test-build-0.6") {
-  testProject("project compiles") { (build, logger) =>
+abstract class BaseTestSpec(val projectName: String, buildName: String)
+    extends ProjectBaseSuite(buildName) {
+  val testOnlyOnJava8 = buildName == "cross-test-build-0.6"
+  testProject("project compiles", testOnlyOnJava8) { (build, logger) =>
     val project = build.projectFor(projectName)
     val compiledState = build.state.compile(project)
     assert(compiledState.status == ExitStatus.Ok)
   }
 
   val expectedFullTestsOutput: String
-  testProject("runs all available suites") { (build, logger) =>
+  testProject("runs all available suites", testOnlyOnJava8) { (build, logger) =>
     val project = build.projectFor(projectName)
     val testState = build.state.test(project)
     assert(logger.errors.size == 0)
@@ -39,7 +40,23 @@ abstract class BaseTestSpec(val projectName: String)
   }
 }
 
-object JsTestSpec extends BaseTestSpec("test-projectJS-test") {
+object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
+  val expectedFullTestsOutput: String =
+    """|HelloSpec:
+       |The Hello object
+       |- should say hello
+       |Execution took ???
+       |1 tests, 1 passed
+       |All tests in example.HelloSpec passed
+       |
+       |===============================================
+       |Total duration: ???
+       |All 1 test suites passed.
+       |===============================================
+       |""".stripMargin
+}
+
+object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-0.6") {
   val expectedFullTestsOutput: String = {
     """|Execution took ???
        |1 tests, 1 passed
@@ -87,7 +104,7 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test") {
   }
 }
 
-object JvmTestSpec extends BaseTestSpec("test-project-test") {
+object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-0.6") {
   val expectedFullTestsOutput: String = {
     """|Test run started
        |Test hello.JUnitTest.myTest started
@@ -144,26 +161,27 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
        |===============================================""".stripMargin
   }
 
-  testProject("test options work when one framework is singled out") { (build, logger) =>
-    val project = build.projectFor(projectName)
-    val testState = build.state.test(project, List("hello.JUnitTest"), List("*myTest*"))
-    assertNoDiff(
-      logger.renderTimeInsensitiveTestInfos,
-      """Test run started
-        |Test hello.JUnitTest.myTest started
-        |Test run finished: 0 failed, 0 ignored, 1 total, ???
-        |Execution took ???
-        |1 tests, 1 passed
-        |All tests in hello.JUnitTest passed
-        |
-        |===============================================
-        |Total duration: ???
-        |All 1 test suites passed.
-        |===============================================""".stripMargin
-    )
+  testProject("test options work when one framework is singled out", runOnlyOnJava8 = true) {
+    (build, logger) =>
+      val project = build.projectFor(projectName)
+      val testState = build.state.test(project, List("hello.JUnitTest"), List("*myTest*"))
+      assertNoDiff(
+        logger.renderTimeInsensitiveTestInfos,
+        """Test run started
+          |Test hello.JUnitTest.myTest started
+          |Test run finished: 0 failed, 0 ignored, 1 total, ???
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in hello.JUnitTest passed
+          |
+          |===============================================
+          |Total duration: ???
+          |All 1 test suites passed.
+          |===============================================""".stripMargin
+      )
   }
 
-  testProject("test exclusions work") { (build, logger) =>
+  testProject("test exclusions work", runOnlyOnJava8 = true) { (build, logger) =>
     val project = build.projectFor(projectName)
     val testState = build.state.test(project, List("-hello.JUnitTest"), Nil)
     assertNoDiff(
@@ -217,7 +235,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
     )
   }
 
-  testProject("specifying -h in Scalatest runner works") { (build, logger) =>
+  testProject("specifying -h in Scalatest runner works", runOnlyOnJava8 = true) { (build, logger) =>
     val project = build.projectFor(projectName)
     val scalatestArgs = List("-h", "target/test-reports")
     val testState = build.state.test(project, List("hello.ScalaTestTest"), scalatestArgs)
@@ -237,74 +255,75 @@ object JvmTestSpec extends BaseTestSpec("test-project-test") {
     )
   }
 
-  testProject("test options don't work when none framework is singled out") { (build, logger) =>
-    val project = build.projectFor(projectName)
-    val testState = build.state.test(project, Nil, List("*myTest*"))
+  testProject("test options don't work when none framework is singled out", runOnlyOnJava8 = true) {
+    (build, logger) =>
+      val project = build.projectFor(projectName)
+      val testState = build.state.test(project, Nil, List("*myTest*"))
 
-    assertNoDiff(
-      logger.warnings.mkString(System.lineSeparator()),
-      "Ignored CLI test options 'List(*myTest*)' can only be applied to one framework, found: JUnit, ScalaCheck, ScalaTest, specs2, utest"
-    )
+      assertNoDiff(
+        logger.warnings.mkString(System.lineSeparator()),
+        "Ignored CLI test options 'List(*myTest*)' can only be applied to one framework, found: JUnit, ScalaCheck, ScalaTest, specs2, utest"
+      )
 
-    assertNoDiff(
-      logger.renderTimeInsensitiveTestInfos,
-      """|Test run started
-         |Test hello.JUnitTest.myTest started
-         |Test run finished: 0 failed, 0 ignored, 1 total, ???
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.JUnitTest passed
-         |
-         |Execution took ???
-         |No test suite was run
-         |
-         |+ Greeting.is personal: OK, passed 100 tests.
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.ScalaCheckTest passed
-         |
-         |ResourcesTest:
-         |Resources
-         |- should be found
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.ResourcesTest passed
-         |
-         |ScalaTestTest:
-         |A greeting
-         |- should be very personal
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.ScalaTestTest passed
-         |
-         |Specs2Test
-         |
-         | This is a specification to check the `Hello` object.
-         |
-         | A greeting
-         | + is very personal
-         |
-         |Total for specification Specs2Test
-         |Finished in ??? 1 example, 0 failure, 0 error
-         |
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.Specs2Test passed
-         |
-         |-------------------------------- Running Tests --------------------------------
-         |+ hello.UTestTest.Greetings are very personal ???
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.UTestTest passed
-         |
-         |===============================================
-         |Total duration: ???
-         |6 passed
-         |===============================================""".stripMargin
-    )
+      assertNoDiff(
+        logger.renderTimeInsensitiveTestInfos,
+        """|Test run started
+           |Test hello.JUnitTest.myTest started
+           |Test run finished: 0 failed, 0 ignored, 1 total, ???
+           |Execution took ???
+           |1 tests, 1 passed
+           |All tests in hello.JUnitTest passed
+           |
+           |Execution took ???
+           |No test suite was run
+           |
+           |+ Greeting.is personal: OK, passed 100 tests.
+           |Execution took ???
+           |1 tests, 1 passed
+           |All tests in hello.ScalaCheckTest passed
+           |
+           |ResourcesTest:
+           |Resources
+           |- should be found
+           |Execution took ???
+           |1 tests, 1 passed
+           |All tests in hello.ResourcesTest passed
+           |
+           |ScalaTestTest:
+           |A greeting
+           |- should be very personal
+           |Execution took ???
+           |1 tests, 1 passed
+           |All tests in hello.ScalaTestTest passed
+           |
+           |Specs2Test
+           |
+           | This is a specification to check the `Hello` object.
+           |
+           | A greeting
+           | + is very personal
+           |
+           |Total for specification Specs2Test
+           |Finished in ??? 1 example, 0 failure, 0 error
+           |
+           |Execution took ???
+           |1 tests, 1 passed
+           |All tests in hello.Specs2Test passed
+           |
+           |-------------------------------- Running Tests --------------------------------
+           |+ hello.UTestTest.Greetings are very personal ???
+           |Execution took ???
+           |1 tests, 1 passed
+           |All tests in hello.UTestTest passed
+           |
+           |===============================================
+           |Total duration: ???
+           |6 passed
+           |===============================================""".stripMargin
+      )
   }
 
-  testProject("cancel test execution works") { (build, logger) =>
+  testProject("cancel test execution works", runOnlyOnJava8 = true) { (build, logger) =>
     object Sources {
       val `JUnitTest.scala` =
         """package hello

@@ -48,6 +48,11 @@ object TestUtil {
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
+  def ignoreOnJava11(thunk: => Unit): Unit = {
+    if (sys.props("java.version").startsWith("11.")) ()
+    else thunk
+  }
+
   final val componentProvider =
     ZincInternals.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
 
