@@ -21,6 +21,8 @@ final class BufferedLogger private (
   override def isVerbose: Boolean = underlying.isVerbose
   override def asVerbose: Logger = new BufferedLogger(underlying.asVerbose, buffer)
   override def asDiscrete: Logger = new BufferedLogger(underlying.asDiscrete, buffer)
+  override def withOriginId(originId: Option[String]): Logger =
+    new BufferedLogger(underlying.withOriginId(originId), buffer)
 
   // Custom functions for buffered logger
   def clear(): Unit = buffer.clear()

@@ -16,6 +16,9 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
   /** Return a logger that doesn't log verbose and debug events. */
   def asDiscrete: Logger
 
+  /** Return a logger that doesn't log verbose and debug events. */
+  def withOriginId(originId: Option[String]): Logger
+
   /** Context for debug logging. */
   def debugFilter: DebugFilter
 

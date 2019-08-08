@@ -130,7 +130,8 @@ trait BspClientTest {
 
       implicit val lsClient = new LanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
-      val services = customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
+      val services =
+        customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
       val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
 
@@ -268,6 +269,7 @@ trait BspClientTest {
                   (builder: StringBuilder) => {
                     builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
                     builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                    report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
                     taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
                     taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
                     builder
@@ -280,7 +282,7 @@ trait BspClientTest {
         ()
       }
       .notification(endpoints.Build.publishDiagnostics) {
-        case p @ bsp.PublishDiagnosticsParams(tid, btid, _, diagnostics, reset) =>
+        case p @ bsp.PublishDiagnosticsParams(tid, btid, originId, diagnostics, reset) =>
           record(
             btid,
             (builder: StringBuilder) => {
@@ -310,6 +312,11 @@ trait BspClientTest {
                 .++=(s"#${compileIteration()}: $canonical\n")
                 .++=(s"  -> $report\n")
                 .++=(s"  -> reset = $reset\n")
+
+              originId match {
+                case None => builder
+                case Some(originId) => builder.++=(s"  -> origin = $originId\n")
+              }
             }
           )
           ()

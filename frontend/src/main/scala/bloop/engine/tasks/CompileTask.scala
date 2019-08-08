@@ -17,7 +17,7 @@ import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.{AbsolutePath, ParallelOps}
 import bloop.io.ParallelOps.CopyMode
 import bloop.tracing.BraveTracer
-import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
+import bloop.logging.{DebugFilter, Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{
   Reporter,
   ReporterAction,

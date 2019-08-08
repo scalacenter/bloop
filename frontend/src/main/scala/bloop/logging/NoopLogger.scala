@@ -14,4 +14,5 @@ object NoopLogger extends Logger {
   override def isVerbose: Boolean = false
   override def asDiscrete: Logger = this
   override def asVerbose: Logger = this
+  override def withOriginId(originId: Option[String]): Logger = this
 }
