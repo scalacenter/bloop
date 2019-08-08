@@ -48,9 +48,12 @@ object TestUtil {
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
-  def ignoreOnJava11(thunk: => Unit): Unit = {
-    if (sys.props("java.version").startsWith("11.")) ()
-    else thunk
+  val jdkVersion = sys.props("java.version")
+  def isJdk8 = jdkVersion.startsWith("8") || jdkVersion.startsWith("1.8")
+
+  def runOnlyOnJava8(thunk: => Unit): Unit = {
+    if (isJdk8) thunk
+    else ()
   }
 
   final val componentProvider =

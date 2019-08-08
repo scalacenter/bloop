@@ -554,9 +554,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   def testOnlyOnJava8(name: String)(fun: => Any): Unit = {
-    val javaVersion = sys.props("java.version")
-    if (javaVersion.startsWith("8.") || javaVersion.startsWith("1.8")) test(name)(fun)
-    else ignore(name, label = s"IGNORED ON JAVA v$javaVersion")(fun)
+    if (TestUtil.isJdk8) test(name)(fun)
+    else ignore(name, label = s"IGNORED ON JAVA v${TestUtil.jdkVersion}")(fun)
   }
 
   def test(name: String)(fun: => Any): Unit = {

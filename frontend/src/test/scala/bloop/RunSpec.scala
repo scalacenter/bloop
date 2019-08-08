@@ -120,7 +120,7 @@ class RunSpec {
 
   @Test
   def runCanSeeCompileResources: Unit = {
-    TestUtil.ignoreOnJava11 {
+    TestUtil.runOnlyOnJava8 {
       val mainClassName = "hello.AppWithResources"
       val state = loadTestProject("cross-test-build-0.6")
       val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
@@ -132,7 +132,7 @@ class RunSpec {
 
   @Test
   def runIncludesTransitiveResourcesInAggregatedProjects: Unit = {
-    TestUtil.ignoreOnJava11 {
+    TestUtil.runOnlyOnJava8 {
       val target = "cross-test-build-0-6"
       val state = loadTestProject("cross-test-build-0.6")
       state.build.getProjectFor(target) match {
@@ -157,7 +157,7 @@ class RunSpec {
 
   @Test
   def canRunMainFromSourceDependency: Unit = {
-    TestUtil.ignoreOnJava11 {
+    TestUtil.runOnlyOnJava8 {
       val mainClassName = "hello.App"
       val state = loadTestProject("cross-test-build-0.6")
       val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
@@ -169,7 +169,7 @@ class RunSpec {
 
   @Test
   def canRunDefaultMainClass: Unit = {
-    TestUtil.ignoreOnJava11 {
+    TestUtil.runOnlyOnJava8 {
       // The default main class is set to hello.App build.sbt. Therefore, no error must be triggered here.
       val state = loadTestProject("cross-test-build-0.6")
       val command = Commands.Run(List("test-project"), None, args = List.empty)
@@ -181,7 +181,7 @@ class RunSpec {
 
   @Test
   def canRunMainFromBinaryDependency: Unit = {
-    TestUtil.ignoreOnJava11 {
+    TestUtil.runOnlyOnJava8 {
       val mainClassName = "App"
       val state = loadTestProject("cross-test-build-0.6")
       val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
@@ -193,7 +193,7 @@ class RunSpec {
 
   @Test
   def setCorrectCwd: Unit = {
-    TestUtil.ignoreOnJava11 {
+    TestUtil.runOnlyOnJava8 {
       val mainClassName = "hello.ShowCwd"
       val state = loadTestProject("cross-test-build-0.6")
       val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
