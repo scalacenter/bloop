@@ -17,6 +17,8 @@ final class ObservedLogger[+UseSiteLogger <: Logger] private (
   override def asDiscrete: Logger = new ObservedLogger(underlying.asDiscrete, observer)
   override def asVerbose: Logger = new ObservedLogger(underlying.asVerbose, observer)
   override def ansiCodesSupported: Boolean = underlying.ansiCodesSupported
+  override def withOriginId(originId: Option[String]): Logger =
+    new ObservedLogger(underlying.withOriginId(originId), observer)
 
   override def debugFilter: DebugFilter = underlying.debugFilter
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =

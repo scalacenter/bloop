@@ -131,6 +131,7 @@ class RecordingLogger(
   override def isVerbose: Boolean = true
   override def asVerbose: Logger = this
   override def asDiscrete: Logger = this
+  override def withOriginId(originId: Option[String]): Logger = this
 
   def dump(out: PrintStream = System.out): Unit = {
     out.println {

@@ -269,6 +269,7 @@ trait BspClientTest {
                   (builder: StringBuilder) => {
                     builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
                     builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                    report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
                     taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
                     taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
                     builder

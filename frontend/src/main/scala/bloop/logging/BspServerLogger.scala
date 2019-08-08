@@ -38,9 +38,8 @@ final class BspServerLogger private (
     new BspServerLogger(name, underlying.asDiscrete, client, taskIdCounter, ansiSupported, originId)
   override def asVerbose: Logger =
     new BspServerLogger(name, underlying.asVerbose, client, taskIdCounter, ansiSupported, originId)
-
-  def withOriginId(originId: String): BspServerLogger =
-    new BspServerLogger(name, underlying, client, taskIdCounter, ansiSupported, Some(originId))
+  override def withOriginId(originId: Option[String]): BspServerLogger =
+    new BspServerLogger(name, underlying, client, taskIdCounter, ansiSupported, originId)
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
@@ -193,7 +192,7 @@ final class BspServerLogger private (
     val json = bsp.CompileReport.encodeCompileReport(
       bsp.CompileReport(
         bsp.BuildTargetIdentifier(event.projectUri),
-        None,
+        originId,
         errors,
         warnings,
         None

@@ -172,6 +172,7 @@ class BspCompileSpec(
              |  -> origin = test-origin
              |#1: task finish 1
              |  -> errors 0, warnings 1
+             |  -> origin = test-origin
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report
              |""".stripMargin
