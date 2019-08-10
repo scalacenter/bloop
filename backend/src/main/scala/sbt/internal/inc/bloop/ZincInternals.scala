@@ -5,11 +5,11 @@ import java.nio.file.Files
 
 import bloop.ScalaInstance
 import bloop.io.AbsolutePath
-import xsbti.{ComponentProvider, Position}
 import sbt.internal.inc.ZincComponentCompiler
-import sbt.internal.inc.javac.{AnalyzingJavaCompiler, DiagnosticsReporter}
+import sbt.internal.inc.javac.AnalyzingJavaCompiler
 import sbt.librarymanagement.{Configurations, ModuleID}
 import xsbti.compile.{ClasspathOptions, JavaCompiler}
+import xsbti.{ComponentProvider, Position}
 
 object ZincInternals {
   def latestVersion: String = ZincComponentCompiler.incrementalVersion
@@ -65,16 +65,12 @@ object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
   object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
-      // Use the range position if available first. Otherwise fallback in pointer information.
-      val rangePosition = position.startLine.toOption.flatMap(
-        startLine =>
-          position.startColumn().toOption.map(startColumn => (startLine.toInt, startColumn.toInt))
-      )
-
-      rangePosition.orElse {
-        position.line.toOption
-          .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
-      }
+      // Javac doesn't provide column information, so we just assume beginning of the line
+      val rangePosition = for { startLine <- position.startLine().toOption.map(_.toInt) }
+        yield (startLine, position.startColumn().toOption.map(_.toInt).getOrElse(0))
+      lazy val pointerPosition = for { line <- position.line().toOption.map(_.toInt) }
+        yield (line, position.pointer().toOption.map(_.toInt).getOrElse(0))
+      rangePosition.orElse(pointerPosition)
     }
   }
 
@@ -96,10 +92,7 @@ object ZincInternals {
     new AnalyzingJavaCompiler(javac, classpath, instance, cpOptions, lookup, searchClasspath)
   }
 
-  import sbt.internal.inc.UsedName
   import sbt.internal.inc.Relations
-  import sbt.internal.inc.InternalDependencies
-  import sbt.internal.inc.ExternalDependencies
   import sbt.internal.util.Relation
   def copyRelations(
       relations: Relations,
