@@ -779,8 +779,7 @@ final class BloopBspServices(
                 canTest = true,
                 canRun = true
               )
-              val javaInstance = ScalaInstance.scalaInstanceForJavaProjects(logger)(ioScheduler)
-              val isJavaOnly = p.scalaInstance == javaInstance
+              val isJavaOnly = p.scalaInstance.isEmpty
               val languageIds =
                 if (isJavaOnly) BloopBspServices.JavaOnly
                 else BloopBspServices.DefaultLanguages

@@ -111,8 +111,11 @@ final case class SuccessfulCompileBundle(
       ResultBundle(Compiler.Result.Empty, last, None)
     }
 
+    val ec = bloop.engine.ExecutionContext.ioScheduler
     val uniqueSources = javaSources ++ scalaSources
-    project.scalaInstance match {
+    val scalaInstance = project.scalaInstance.orElse(ScalaInstance.scalaInstanceForJavaProjects(logger)(ec))
+
+    scalaInstance match {
       case Some(instance) =>
         (scalaSources, javaSources) match {
           case (Nil, Nil) => Left(empty)
