@@ -95,7 +95,7 @@ the best developer experience to end users.
 That's it, this is all you need to know to get started using Bloop!
 
 * To **use** bloop with your current build tool:
-  * Follow the [Installation guide](/setup) to install and integrate with your build.
+  * Follow the [Installation guide](/bloop/setup) to install and integrate with your build.
   * Read the [Quickstart](usage.md) page to get you acquainted with Bloop.
 * To **integrate** with bloop, follow the [Integration Guide](integration.md).
 
