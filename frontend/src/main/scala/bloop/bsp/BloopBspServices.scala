@@ -642,7 +642,7 @@ final class BloopBspServices(
           val build = state.build
           val projects = build.loadedProjects.map(_.project)
           val targets = bsp.WorkspaceBuildTargetsResult(
-            projects.map { p =>
+            projects.par.map { p =>
               val id = toBuildTargetId(p)
               val tag = {
                 if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)
@@ -672,7 +672,7 @@ final class BloopBspServices(
                 dataKind = Some(bsp.BuildTargetDataKind.Scala),
                 data = extra
               )
-            }
+            }.toList
           )
 
           Task.now((state, Right(targets)))
@@ -690,7 +690,7 @@ final class BloopBspServices(
     ): BspResult[bsp.SourcesResult] = {
 
       val response = bsp.SourcesResult(
-        projects.iterator.map {
+        projects.par.map {
           case (target, project) =>
             val sources = project.sources.map {
               s =>
@@ -734,7 +734,7 @@ final class BloopBspServices(
     ): BspResult[bsp.ResourcesResult] = {
 
       val response = bsp.ResourcesResult(
-        projects.iterator.map {
+        projects.par.map {
           case (target, project) =>
             val resources = project.resources.flatMap { s =>
               if (s.exists) {
@@ -770,7 +770,7 @@ final class BloopBspServices(
         state: State
     ): BspResult[bsp.DependencySourcesResult] = {
       val response = bsp.DependencySourcesResult(
-        projects.iterator.map {
+        projects.par.map {
           case (target, project) =>
             val sourceJars = project.resolution.toList.flatMap { res =>
               res.modules.flatMap { m =>
@@ -806,7 +806,7 @@ final class BloopBspServices(
         state: State
     ): BspResult[bsp.ScalacOptionsResult] = {
       val response = bsp.ScalacOptionsResult(
-        projects.iterator.map {
+        projects.par.map {
           case (target, project) =>
             val dag = state.build.getDagFor(project)
             val fullClasspath = project.fullClasspath(dag, state.client)
