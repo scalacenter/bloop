@@ -34,7 +34,6 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
-            _ <- client.disconnect()
             output <- client.allOutput
           } yield output
         }
@@ -133,7 +132,6 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
-            _ <- client.disconnect()
             output <- client.allOutput
           } yield output
         }
@@ -163,7 +161,6 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
-            _ <- client.disconnect()
             output <- client.allOutput
           } yield output
         }

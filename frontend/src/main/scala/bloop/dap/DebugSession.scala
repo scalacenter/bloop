@@ -47,7 +47,7 @@ final class DebugSession(
 
   private val communicationDone = Promise[Unit]()
   private val debugAddress = Promise[InetSocketAddress]()
-  private val exitStatusPromise = Promise[DebugSession.ExitStatus]()
+  private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
 
   private val state = new Synchronized(initialState)
 
@@ -73,15 +73,23 @@ final class DebugSession(
   def startDebuggeeAndServer(): Unit = {
     state.transform {
       case Idle(runner) =>
-        Task(super.run())
-          .runOnComplete(_ => {
-            exitStatusPromise.trySuccess(DebugSession.Terminated); ()
-            scheduleClosingSocket()
-          })(ioScheduler)
+        def terminateGracefully(result: Option[Throwable]): Task[Unit] =
+          Task.fromFuture(communicationDone.future).map { _ =>
+            sessionStatusPromise.trySuccess(Terminated)
+            socket.close()
+          }
+
+        Task(super.run()).runAsync(ioScheduler)
 
         val logger =
           new DebugSessionLogger(this, address => debugAddress.success(address), initialLogger)
-        val debuggee = runner(logger).runAsync(ioScheduler)
+
+        // all output events are sent before debuggee task gets finished
+        val debuggee = runner(logger)
+          .doOnFinish(terminateGracefully)
+          .doOnCancel(terminateGracefully(None))
+          .runAsync(ioScheduler)
+
         Started(debuggee)
 
       case otherState =>
@@ -111,7 +119,7 @@ final class DebugSession(
 
       case "disconnect" =>
         if (DebugSession.shouldRestart(request)) {
-          exitStatusPromise.trySuccess(DebugSession.Restarted)
+          sessionStatusPromise.trySuccess(DebugSession.Restarted)
         }
 
         state.transform {
@@ -147,7 +155,7 @@ final class DebugSession(
       if (DebugSession.TerminalEvents.contains(event.`type`)) {
         terminalEventsSent.add(event.`type`)
         if (terminalEventsSent == DebugSession.TerminalEvents) {
-          communicationDone.success(())
+          communicationDone.trySuccess(()) // can already be set when canceling
           // Don't close socket, it terminates on its own
         }
       }
@@ -164,7 +172,7 @@ final class DebugSession(
    * (i.e. sending terminated and exited events).</p>
    */
   def exitStatus: Task[DebugSession.ExitStatus] = {
-    Task.fromFuture(exitStatusPromise.future)
+    Task.fromFuture(sessionStatusPromise.future)
   }
 
   /**
@@ -178,19 +186,20 @@ final class DebugSession(
 
       case Started(debuggee) =>
         cancelDebuggee(debuggee)
-        scheduleClosingSocket()
+        forceCommunicationDone()
         Cancelled
 
       case Cancelled => Cancelled
     }
   }
 
-  private def scheduleClosingSocket(): Unit = {
-    val message = "Closing client socket forcefully (communication is frozen)..."
+  // prevents blocking when one of the [[TerminalEvents]] doesn't get sent
+  private def forceCommunicationDone(): Unit = {
+    val message = "Communication is frozen, closing client forcefully."
     Task
       .fromFuture(communicationDone.future)
       .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(initialLogger.warn(message)))
-      .runOnComplete(_ => socket.close())(ioScheduler)
+      .runOnComplete(_ => communicationDone.trySuccess(()))(ioScheduler)
     ()
   }
 

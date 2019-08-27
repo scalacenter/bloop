@@ -84,6 +84,44 @@ object DebugServerSpec extends BspBaseSuite {
     }
   }
 
+  test("closes the client when debuggee finished and terminal events are sent") {
+    TestUtil.withinWorkspace { workspace =>
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println("Hello, World!")
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "r", List(main))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val runner = mainRunner(project, state)
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.connect
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.configurationDone()
+            _ <- client.terminated
+            _ <- client.exited
+            clientClosed <- awaitClosed(client)
+            output <- client.allOutput
+          } yield {
+            assert(clientClosed)
+            assertNoDiff(output, "Hello, World!")
+          }
+
+          TestUtil.await(10, SECONDS)(test)
+        }
+      }
+    }
+  }
+
   test("sends exit and terminated events when cannot run debuggee") {
     TestUtil.withinWorkspace { workspace =>
       // note that there is nothing that can be run (no sources)
@@ -243,7 +281,7 @@ object DebugServerSpec extends BspBaseSuite {
       project: TestProject,
       state: DebugServerSpec.ManagedBspTestState
   ): DebuggeeRunner = {
-    val testState = state.toTestState
+    val testState = state.compile(project).toTestState
     DebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
       new ScalaMainClass("Main", Nil, Nil),
