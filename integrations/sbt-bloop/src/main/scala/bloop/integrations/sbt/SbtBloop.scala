@@ -756,6 +756,11 @@ object BloopDefaults {
     else {
       Def.task {
         val projectName = projectNameFromString(project.id, configuration, logger)
+        val bloopConfigDir = BloopKeys.bloopConfigDir.value
+        sbt.IO.createDirectory(bloopConfigDir)
+        val outFile = bloopConfigDir / s"$projectName.json"
+        val oldConfig = ConfigReader.read(outFile.toPath)
+
         val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
         val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
         val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
@@ -792,7 +797,7 @@ object BloopDefaults {
           project.aggregate.map(agg => projectNameFromString(agg.project, configuration, logger))
         val dependenciesAndAggregates = (dependencies ++ aggregates).distinct
 
-        val bloopConfigDir = BloopKeys.bloopConfigDir.value
+        //val bloopConfigDir = BloopKeys.bloopConfigDir.value
         val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
         val scalaName = "scala-compiler"
         val scalaVersion = Keys.scalaVersion.value
@@ -874,8 +879,8 @@ object BloopDefaults {
         }
         // format: ON
 
-        sbt.IO.createDirectory(bloopConfigDir)
-        val outFile = bloopConfigDir / s"$projectName.json"
+        //sbt.IO.createDirectory(bloopConfigDir)
+        //val outFile = bloopConfigDir / s"$projectName.json"
         bloop.config.write(config, outFile.toPath)
 
         // Only shorten path for configuration files written to the the root build

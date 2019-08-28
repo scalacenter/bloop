@@ -3,6 +3,8 @@ val metaconfigCore = "com.geirsson" %% "metaconfig-core" % "0.6.0"
 val metaconfigConfig = "com.geirsson" %% "metaconfig-typesafe-config" % "0.6.0"
 val metaconfigDocs = "com.geirsson" %% "metaconfig-docs" % "0.6.0"
 val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
+val jsoniterCore = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "0.54.0"
+val jsoniterMacros = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "0.54.0"
 
 // Let's add our sbt plugin to the sbt too ;)
 unmanagedSourceDirectories in Compile ++= {
@@ -16,7 +18,7 @@ unmanagedSourceDirectories in Compile ++= {
       baseDir / "config" / "src" / "main" / "scala",
       baseDir / "config" / "src" / "main" / "scala-2.11-12",
       pluginMainDir / "scala",
-      pluginMainDir / s"scala-sbt-${sbt.Keys.sbtBinaryVersion.value}"
+      pluginMainDir / "scala-bloop-build"
     )
   }
 }
@@ -26,7 +28,9 @@ libraryDependencies ++= List(
   metaconfigCore,
   metaconfigDocs,
   metaconfigConfig,
-  circeDerivation
+  circeDerivation,
+  jsoniterCore,
+  jsoniterMacros
 )
 
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "0.6.0")

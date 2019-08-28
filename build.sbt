@@ -109,6 +109,8 @@ lazy val jsonConfig211 = project
       List(
         Dependencies.circeParser,
         Dependencies.circeDerivation,
+        Dependencies.jsoniterCore,
+        Dependencies.jsoniterMacros,
         Dependencies.scalacheck % Test
       )
     }
@@ -132,6 +134,8 @@ lazy val jsonConfig212 = project
       List(
         Dependencies.circeParser,
         Dependencies.circeDerivation,
+        Dependencies.jsoniterCore,
+        Dependencies.jsoniterMacros,
         Dependencies.scalacheck % Test
       )
     }

@@ -27,7 +27,7 @@ val `bloop-build` = project
         baseDir / "config" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala-2.11-12",
         pluginMainDir / "scala",
-        pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
+        pluginMainDir / "scala-bloop-build"
       )
     },
     // We need to add libdeps for the maven integration plugin to work
@@ -42,6 +42,10 @@ val `bloop-build` = project
       "commons-codec" % "commons-codec" % "1.11"
     ),
     libraryDependencies ++= List(circeDerivation),
+    libraryDependencies ++= List(
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "0.54.0" % Compile,
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "0.54.0" % Provided
+    ),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
     dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)
   )

@@ -44,6 +44,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val jnaVersion = "4.5.0"
   val asmVersion = "6.0"
+  val jsoniterVersion = "0.54.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -92,6 +93,8 @@ object Dependencies {
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
+  val jsoniterCore = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
+  val jsoniterMacros = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
 
   val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
