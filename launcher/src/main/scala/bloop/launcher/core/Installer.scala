@@ -4,10 +4,10 @@ import java.io.PrintStream
 import java.nio.file.Path
 import java.nio.file.Paths
 
+import bloop.bloopgun.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
 
 import scala.util.control.NonFatal
-import bloop.launcher.util.Environment
 
 object Installer {
   import java.net.URL

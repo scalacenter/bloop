@@ -5,6 +5,9 @@ import java.net.Socket
 import java.net.URL
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
+
+import scala.concurrent.Promise
+
 import bloop.launcher.LauncherStatus.{
   FailedLauncherStatus,
   FailedToConnectToServer,
@@ -23,8 +26,7 @@ import bloop.launcher.core.{
   ServerStatus,
   Shell
 }
-import bloop.launcher.util.Environment
-import scala.concurrent.Promise
+import bloop.bloopgun.util.Environment
 import bloop.launcher.core.Shell.StatusCommand
 
 object Launcher

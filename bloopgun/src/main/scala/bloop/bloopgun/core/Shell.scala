@@ -1,4 +1,4 @@
-package bloop.launcher.core
+package bloop.bloopgun.core
 
 import java.io.PrintStream
 import java.nio.ByteBuffer
@@ -7,15 +7,16 @@ import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import java.util.logging.{Level, Logger}
 
-import bloop.launcher.bsp.BspConnection
 import bloop.bloopgun.util.Environment
-
-import com.zaxxer.nuprocess.internal.BasePosixProcess
-import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
+import bloop.bloopgun.core.Shell.StatusCommand
 
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
-import bloop.launcher.core.Shell.StatusCommand
+
+import org.zeroturnaround.exec.ProcessExecutor
+import org.zeroturnaround.exec.listener.ProcessListener
+import org.zeroturnaround.exec.stream.ExecuteStreamHandler
+import org.zeroturnaround.exec.stream.LogOutputStream
 
 /**
  * Defines shell utilities to run programs via system process.
@@ -36,65 +37,91 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       cmd0: List[String],
       cwd: Path,
       timeoutInSeconds: Option[Long],
-      userOutput: Option[PrintStream]
-  ): StatusCommand = runCommand(cmd0, cwd, timeoutInSeconds, None, userOutput)
+      userOutput: Option[PrintStream],
+      attachTerminal: Boolean,
+      useJdkProcessAndInheritIO: Boolean
+  ): StatusCommand =
+    runCommand(
+      cmd0,
+      cwd,
+      timeoutInSeconds,
+      None,
+      userOutput,
+      attachTerminal,
+      useJdkProcessAndInheritIO
+    )
+
+  def runCommandInheritingIO(
+      cmd0: List[String],
+      cwd: Path,
+      timeoutInSeconds: Option[Long],
+      attachTerminal: Boolean
+  ): StatusCommand = {
+    import scala.collection.JavaConverters._
+    val builder = new ProcessBuilder()
+    val newEnv = builder.environment()
+    newEnv.putAll(System.getenv())
+    addAdditionalEnvironmentVariables(newEnv)
+
+    val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
+    val code = builder.command(cmd.asJava).directory(cwd.toFile).inheritIO().start().waitFor()
+    // Returns empty output because IO is inherited, meaning all IO is passed to the default stdout
+    StatusCommand(code, "")
+  }
 
   def runCommand(
       cmd0: List[String],
       cwd: Path,
       timeoutInSeconds: Option[Long],
       msgsBuffer: Option[ListBuffer[String]] = None,
-      userOutput: Option[PrintStream] = None
+      userOutput: Option[PrintStream] = None,
+      attachTerminal: Boolean = false,
+      useJdkProcessAndInheritIO: Boolean = false
   ): StatusCommand = {
-    val isServerRun = cmd0.exists(_.contains("server"))
     val outBuilder = StringBuilder.newBuilder
-    final class ProcessHandler extends NuAbstractProcessHandler {
-      override def onStart(nuProcess: NuProcess): Unit = ()
+    val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
+    val executor = new ProcessExecutor(cmd: _*)
 
-      override def onExit(statusCode: Int): Unit = ()
-      override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
-        val bytes = new Array[Byte](buffer.remaining())
-        buffer.get(bytes)
-        val msg = new String(bytes, StandardCharsets.UTF_8)
-        outBuilder.++=(msg)
-        userOutput.foreach(out => out.print(msg))
-        msgsBuffer.foreach(b => b += msg)
-      }
+    val newEnv = executor.getEnvironment()
+    newEnv.putAll(System.getenv())
+    addAdditionalEnvironmentVariables(newEnv)
 
-      override def onStderr(buffer: ByteBuffer, closed: Boolean): Unit = {
-        val bytes = new Array[Byte](buffer.remaining())
-        buffer.get(bytes)
-        val msg = new String(bytes, StandardCharsets.UTF_8)
-        outBuilder.++=(msg)
-        userOutput.foreach(out => out.print(msg))
-        msgsBuffer.foreach(b => b += msg)
-      }
+    executor
+      .directory(cwd.toFile)
+      .destroyOnExit()
+      .redirectErrorStream(true)
+      .redirectOutput(new LogOutputStream() {
+        override def processLine(line: String): Unit = {
+          outBuilder.++=(line).++=(System.lineSeparator())
+          userOutput.foreach(out => out.println(line))
+          msgsBuffer.foreach(b => b += line)
+        }
+      })
+
+    timeoutInSeconds.foreach { seconds =>
+      executor.timeout(seconds, TimeUnit.SECONDS)
     }
 
-    val cmd = {
-      if (Environment.isWindows && !Environment.isCygwin) {
-        // Interpret all commands in Windows except java (used in tests) which causes
-        // long classpath issues, see https://github.com/sbt/sbt-native-packager/issues/72
-        if (cmd0.headOption.exists(_.startsWith("java"))) cmd0
-        else List("cmd.exe", "/C") ++ cmd0
-      } else {
-        if (!runWithInterpreter) cmd0
-        else List("sh", "-c", cmd0.mkString(" "))
-      }
-    }
-
-    val builder = new NuProcessBuilder(cmd: _*)
-    builder.setProcessListener(new ProcessHandler)
-    builder.setCwd(cwd)
-
-    val currentEnv = builder.environment()
-    currentEnv.putAll(System.getenv())
-    addAdditionalEnvironmentVariables(currentEnv)
-
-    val process = builder.start()
-    process.closeStdin(true)
-    val code = Try(process.waitFor(timeoutInSeconds.getOrElse(0), TimeUnit.SECONDS)).getOrElse(1)
+    val code = Try(executor.execute().getExitValue()).getOrElse(1)
     StatusCommand(code, outBuilder.toString)
+  }
+
+  private def deriveCommandForPlatform(
+      cmd0: List[String],
+      attachTerminal: Boolean
+  ): List[String] = {
+    if (Environment.isWindows && !Environment.isCygwin) {
+      // Interpret all commands in Windows except java (used in tests) which causes
+      // long classpath issues, see https://github.com/sbt/sbt-native-packager/issues/72
+      if (cmd0.headOption.exists(_.startsWith("java"))) cmd0
+      else List("cmd.exe", "/C") ++ cmd0
+    } else {
+      if (!runWithInterpreter && !attachTerminal) cmd0
+      else {
+        val cmd = if (attachTerminal) s"(${cmd0.mkString(" ")}) </dev/tty" else cmd0.mkString(" ")
+        List("sh", "-c", cmd)
+      }
+    }
   }
 
   // Add coursier cache and ivy home system properties if set and not available in env
@@ -124,29 +151,9 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     thread
   }
 
-  def deriveBspInvocation(
-      serverCmd: List[String],
-      useTcp: Boolean,
-      tempDir: Path
-  ): (List[String], BspConnection) = {
-    // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
-    if (useTcp || Environment.isWindows) {
-      // We draw a random port from a "safe" tcp port range...
-      val randomPort = Shell.portNumberWithin(17812, 18222)
-      val cmd = serverCmd ++ List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
-      (cmd, BspConnection.Tcp("127.0.0.1", randomPort))
-    } else {
-      // Let's be conservative with names here, socket files have a 100 char limit
-      val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath
-      Files.deleteIfExists(socketPath)
-      val cmd = serverCmd ++ List("bsp", "--protocol", "local", "--socket", socketPath.toString)
-      (cmd, BspConnection.UnixLocal(socketPath))
-    }
-  }
-
   def runBloopAbout(binaryCmd: List[String], out: PrintStream): Option[ServerStatus] = {
-    // bloop is installed, let's check if it's running now
-    val statusAbout = runCommand(binaryCmd ++ List("about"), Environment.cwd, Some(10))
+    val statusAbout =
+      runCommand(binaryCmd ++ List("about"), Environment.cwd, Some(10))
     Some {
       if (statusAbout.isOk) ListeningAndAvailableAt(binaryCmd)
       else AvailableAt(binaryCmd)
@@ -194,7 +201,8 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       out: PrintStream
   ): Option[ServerStatus] = {
     // --nailgun-help is always interpreted in the script, no connection with the server is required
-    val status = runCommand(binaryCmd ++ List("--nailgun-help"), Environment.cwd, Some(2))
+    val status =
+      runCommand(binaryCmd ++ List("--nailgun-help"), Environment.cwd, Some(2))
     if (!status.isOk) None
     else runBloopAbout(binaryCmd, out)
   }
@@ -206,7 +214,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 }
 
 object Shell {
-  Logger.getLogger(classOf[BasePosixProcess].getCanonicalName).setLevel(Level.SEVERE)
+  //Logger.getLogger(classOf[BasePosixProcess].getCanonicalName).setLevel(Level.SEVERE)
 
   def default: Shell = new Shell(false, true)
 

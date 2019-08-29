@@ -206,9 +206,63 @@ lazy val frontend: Project = project
     dependencyOverrides += Dependencies.shapeless
   )
 
+lazy val bloopgun: Project = project
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(GraalVMNativeImagePlugin)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloopgun",
+    fork in Test := true,
+    parallelExecution in Test := false,
+    libraryDependencies ++= List(
+      Dependencies.configDirectories,
+      Dependencies.snailgun,
+      // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
+      Dependencies.ztExec,
+      Dependencies.slf4jNop
+    ),
+    graalVMNativeImageOptions ++= {
+      val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+      assert(reflectionFile.exists)
+      List(
+        "--no-server",
+        //"--enable-http",
+        //"--enable-https",
+        "--no-fallback",
+        s"-H:ReflectionConfigurationFiles=$reflectionFile",
+        //"--allow-incomplete-classpath",
+        "-H:+ReportExceptionStackTraces"
+        //"--initialize-at-build-time=scala.Function1"
+      )
+    }
+  )
+
+lazy val bloopgunShaded = project
+  .in(file("bloopgun/target/shaded-module"))
+  .enablePlugins(ShadingPlugin)
+  .settings(
+    name := "bloopgun-shaded",
+    /*
+    //packageBin in Compile := (assembly in (bloopgun, Compile)).value,
+    unmanagedSourceDirectories.in(Compile) :=
+      unmanagedSourceDirectories.in(Compile).in(bloopgun).value,
+    coursier.ShadingPlugin.projectSettings,
+    libraryDependencies ++= List(
+      Dependencies.configDirectories,
+      Dependencies.snailgun,
+      // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
+      Dependencies.ztExec,
+      Dependencies.slf4jNop
+    ),
+     */
+    shadingNamespace := "bloop.internal.shaded",
+    shadeNamespaces ++= Set("bloop"),
+    libraryDependencies += "ch.epfl.scala" %% "bloopgun" % "1.3.2+133-b03067d7+20190829-1345" % "shaded"
+  )
+
 lazy val launcher: Project = project
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(sockets, frontend % "test->test")
+  .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher",
@@ -217,8 +271,7 @@ lazy val launcher: Project = project
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
-      Dependencies.nuprocess,
-      Dependencies.snailgun
+      Dependencies.nuprocess
     )
   )
 
@@ -425,7 +478,8 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge10,
   launcher,
-  sockets
+  sockets,
+  bloopgun
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -480,6 +534,7 @@ addCommandAlias(
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${sockets.id}/$publishLocalCmd",
+    s"${bloopgun.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
     s"${buildpressConfig.id}/$publishLocalCmd",
     s"${buildpress.id}/$publishLocalCmd",
@@ -522,6 +577,7 @@ val allBloopReleases = List(
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
   s"${sockets.id}/$releaseEarlyCmd",
+  s"${bloopgun.id}/$releaseEarlyCmd",
   s"${launcher.id}/$releaseEarlyCmd",
   s"${buildpressConfig.id}/$releaseEarlyCmd",
   s"${buildpress.id}/$releaseEarlyCmd"

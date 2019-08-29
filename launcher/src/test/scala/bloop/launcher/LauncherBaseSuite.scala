@@ -4,7 +4,7 @@ import bloop.io.Paths
 import bloop.io.AbsolutePath
 import bloop.testing.BaseSuite
 import bloop.launcher.core.Shell
-import bloop.launcher.util.Environment
+import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildTestInfo
 
 import java.nio.file.Files

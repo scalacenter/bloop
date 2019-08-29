@@ -6,7 +6,7 @@ import java.nio.file.Files
 
 import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
 import bloop.internal.build.BuildInfo
-import bloop.launcher.util.Environment
+import bloop.bloopgun.util.Environment
 import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.util.TestUtil
 import monix.eval.Task

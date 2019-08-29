@@ -4,13 +4,15 @@ import java.io.{Closeable, IOException, InputStream, OutputStream, PrintStream}
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
+
 import bloop.launcher.core.{Feedback, Shell}
-import bloop.launcher.util.Environment
+import bloop.bloopgun.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
 import bloop.sockets.UnixDomainSocket
+import bloop.launcher.core.Shell.StatusCommand
+
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
-import bloop.launcher.core.Shell.StatusCommand
 
 final class BspBridge(
     clientIn: InputStream,

@@ -12,8 +12,6 @@ object Defaults {
     System.getenv().asScala.toMap
   }
 
-  val cwd = Paths.get(System.getProperty("user.dir"))
-
   object Time {
     val DefaultHeartbeatIntervalMillis = 500.toLong
     val SendThreadWaitTerminationMillis = 5000.toLong

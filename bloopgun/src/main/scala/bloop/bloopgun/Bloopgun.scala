@@ -1,5 +1,8 @@
 package bloop.bloopgun
 
+import bloop.bloopgun.core.Shell
+import bloop.bloopgun.util.Environment
+
 import java.io.PrintStream
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -17,8 +20,6 @@ import scala.collection.mutable
 
 import scopt.OParser
 
-import bloop.launcher.core.Shell
-import bloop.launcher.core.Shell.StatusCommand
 import scala.sys.process.ProcessIO
 import java.lang.ProcessBuilder.Redirect
 
@@ -26,9 +27,9 @@ import java.lang.ProcessBuilder.Redirect
  *
  * Supports:
  *   1. `bloop server` to start server right away. Does it make sense to keep it?
- *   2. DONE: `bloop help` recommends user to use `bloopgun --nailgun-help`. done
- *   3. `bloop console`, invoking Ammonite if repl kind matches.
  *   4. Custom banner if error happens when connecting to server.
+ *   2. DONE: `bloop help` recommends user to use `bloopgun --nailgun-help`. done
+ *   3. DONE: `bloop console`, invoking Ammonite if repl kind matches.
  *   5. DONE: Custom error if user types `bloop repl`
  *
  *
@@ -58,7 +59,7 @@ import java.lang.ProcessBuilder.Redirect
  * Proposed solution:
  *   1. `bloop server restart` and `bloop server shutdown` will try to first use the System-specific ways of managing the lifetime of the server.
  */
-abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) {
+abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, shell: Shell) {
   def exit(code: Int): Unit
   def run(args: Array[String]): Unit = {
     var setServer: Boolean = false
@@ -94,6 +95,8 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) 
         .unbounded()
         .action((arg, params) => params.copy(args = params.args ++ List(arg)))
         .text("The command and arguments for the Bloop server")
+      val serverCmd = builder
+        .cmd("server")
       OParser
         .sequence(
           builder.programName("bloopgun"),
@@ -134,7 +137,7 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) 
                 initialCmdArgs ++ Array("--out-file", consoleCmdOutFile.toAbsolutePath.toString)
               }
             }
-          } ++ Array("--config-dir", "/Users/jvican/Code/playground/.bloop")
+          }
 
           val streams = Streams(in, out, err)
           val hostServer =
@@ -149,12 +152,13 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) 
 
           try {
             val code =
-              client.run(cmd, cmdArgs, Defaults.cwd, Defaults.env, streams, logger, noCancel)
+              client.run(cmd, cmdArgs, Environment.cwd, Defaults.env, streams, logger, noCancel)
             logger.debug(s"Return code is $code")
             runAfterCommand(cmd, cmdArgs, consoleCmdOutFile, code, logger)
             exit(code)
           } catch {
             case _: ConnectException =>
+              // Attempt to start server here, move launcher logic
               errorAndExit(s"No server running in $hostServer:$portServer!")
           } finally {
             if (consoleCmdOutFile != null) {
@@ -185,7 +189,7 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) 
     }
 
     if (exitCode != 0 && cmd == "repl") {
-      // Assumes that `repl` is not a valid Bloop command, provides hint to user that console is preferred
+      // Assumes `repl` is not a valid Bloop command, provides user hint to use console instead
       errorAndExit(s"Command `repl` doesn't exist in Bloop, did you mean `console`?")
     }
 
@@ -196,12 +200,16 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) 
         if (replCoursierCmd.length == 0) {
           errorAndExit("Unexpected empty REPL command after running console in Bloop server!")
         } else {
-          // FIXME: Will fail if coursier is not installed
-          import scala.collection.JavaConverters._
-          replCoursierCmd(0) = "/usr/local/Cellar/Bloop/1.3.2/bin/blp-coursier"
-          val cmdWithTerminal = List("sh", "-c", s"(${replCoursierCmd.mkString(" ")}) </dev/tty")
-          val process = new ProcessBuilder().command(cmdWithTerminal.asJava).inheritIO().start()
-          exit(process.waitFor())
+          println(shell.runCommand(List("ls", "/home/jvican"), Environment.cwd, None).output)
+
+          val status = shell.runCommandInheritingIO(
+            replCoursierCmd.toList,
+            Environment.cwd,
+            None,
+            attachTerminal = true
+          )
+
+          exit(status.code)
         }
       }
 
@@ -214,7 +222,7 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream) 
   }
 }
 
-object Bloopgun extends BloopgunCli(System.in, System.out, System.err) {
+object Bloopgun extends BloopgunCli(System.in, System.out, System.err, Shell.default) {
   def main(args: Array[String]): Unit = run(args)
   override def exit(code: Int) = System.exit(code)
 }

@@ -51,6 +51,7 @@ object Dependencies {
   val jnaVersion = "4.5.0"
   val asmVersion = "6.0"
   val snailgunVersion = "0.2.0"
+  val ztExecVersion = "1.11"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -71,6 +72,8 @@ object Dependencies {
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = "me.vican.jorge" %% "snailgun-cli" % snailgunVersion
+  val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
+  val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 
   val scalatest = "org.scalatest" % "scalatest_2.12" % "3.0.5"
   val utest = "com.lihaoyi" %% "utest" % "0.6.6"
