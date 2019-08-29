@@ -1,6 +1,7 @@
 package bloop.bloopgun
 
 import bloop.bloopgun.core.Shell
+import bloop.bloopgun.core.DependencyResolution
 import bloop.bloopgun.util.Environment
 
 import java.io.PrintStream
@@ -22,6 +23,9 @@ import scopt.OParser
 
 import scala.sys.process.ProcessIO
 import java.lang.ProcessBuilder.Redirect
+import scala.util.Try
+import java.net.URLDecoder
+import java.net.URLClassLoader
 
 /**
  *
@@ -151,8 +155,12 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
           val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
 
           try {
+            import Environment.cwd
+            // Disable interactive if running with shaded bloopgun bc JNA cannot be shaded
+            val shadedClass = "bloop.shaded.bloop.bloopgun.Bloopgun"
+            val isInteractive = Try(getClass.getClassLoader.loadClass(shadedClass)).isFailure
             val code =
-              client.run(cmd, cmdArgs, Environment.cwd, Defaults.env, streams, logger, noCancel)
+              client.run(cmd, cmdArgs, cwd, Defaults.env, streams, logger, noCancel, isInteractive)
             logger.debug(s"Return code is $code")
             runAfterCommand(cmd, cmdArgs, consoleCmdOutFile, code, logger)
             exit(code)
@@ -184,6 +192,10 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
       exitCode: Int,
       logger: SnailgunLogger
   ): Unit = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    println(
+      DependencyResolution.resolve("ch.epfl.scala", "bloop-frontend_2.12", "1.3.2", System.out)
+    )
     if (exitCode == 0 && cmdArgs.contains("--help")) {
       out.println("Type `--nailgun-help` for help on the Nailgun CLI tool.")
     }
@@ -200,8 +212,6 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         if (replCoursierCmd.length == 0) {
           errorAndExit("Unexpected empty REPL command after running console in Bloop server!")
         } else {
-          println(shell.runCommand(List("ls", "/home/jvican"), Environment.cwd, None).output)
-
           val status = shell.runCommandInheritingIO(
             replCoursierCmd.toList,
             Environment.cwd,

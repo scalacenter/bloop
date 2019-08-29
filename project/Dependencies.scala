@@ -50,7 +50,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val jnaVersion = "4.5.0"
   val asmVersion = "6.0"
-  val snailgunVersion = "0.2.0"
+  val snailgunVersion = "0.3.0"
   val ztExecVersion = "1.11"
 
   import sbt.librarymanagement.syntax.stringToOrganization
@@ -71,7 +71,7 @@ object Dependencies {
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
-  val snailgun = "me.vican.jorge" %% "snailgun-cli" % snailgunVersion
+  val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 

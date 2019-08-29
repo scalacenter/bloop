@@ -78,6 +78,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       attachTerminal: Boolean = false,
       useJdkProcessAndInheritIO: Boolean = false
   ): StatusCommand = {
+    assert(cmd0.nonEmpty)
     val outBuilder = StringBuilder.newBuilder
     val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
     val executor = new ProcessExecutor(cmd: _*)
@@ -137,6 +138,16 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       if (env.containsKey(ivyHomeKey)) ()
       else env.put(ivyHomeKey, ivyHome)
     }
+  }
+
+  def findCmdInPath(cmd0: String): StatusCommand = {
+    val cmd = {
+      if (Environment.isWindows && !Environment.isCygwin) List("where", cmd0)
+      // https://unix.stackexchange.com/questions/85249/why-not-use-which-what-to-use-then
+      else List("command", "-v", cmd0)
+    }
+
+    runCommand(cmd, Environment.cwd, None)
   }
 
   def startThread(name: String, daemon: Boolean)(thunk: => Unit): Thread = {

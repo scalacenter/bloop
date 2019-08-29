@@ -212,22 +212,28 @@ lazy val bloopgun: Project = project
   .settings(testSuiteSettings)
   .settings(
     name := "bloopgun",
+    fork in run := true,
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
-      Dependencies.configDirectories,
+      //Dependencies.configDirectories,
       Dependencies.snailgun,
       // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
       Dependencies.ztExec,
-      Dependencies.slf4jNop
+      Dependencies.slf4jNop,
+      Dependencies.coursier,
+      Dependencies.coursierCache
     ),
+    mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageOptions ++= {
       val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
       assert(reflectionFile.exists)
       List(
         "--no-server",
-        //"--enable-http",
-        //"--enable-https",
+        "--enable-http",
+        "--enable-https",
+        "-H:EnableURLProtocols=http,https",
+        "--enable-all-security-services",
         "--no-fallback",
         s"-H:ReflectionConfigurationFiles=$reflectionFile",
         //"--allow-incomplete-classpath",
@@ -242,22 +248,34 @@ lazy val bloopgunShaded = project
   .enablePlugins(ShadingPlugin)
   .settings(
     name := "bloopgun-shaded",
-    /*
-    //packageBin in Compile := (assembly in (bloopgun, Compile)).value,
-    unmanagedSourceDirectories.in(Compile) :=
-      unmanagedSourceDirectories.in(Compile).in(bloopgun).value,
-    coursier.ShadingPlugin.projectSettings,
-    libraryDependencies ++= List(
-      Dependencies.configDirectories,
-      Dependencies.snailgun,
-      // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
-      Dependencies.ztExec,
-      Dependencies.slf4jNop
+    fork in run := true,
+    fork in Test := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
+    shadingNamespace := "bloop.shaded",
+    // List all Scala dependencies transitively for the shading to work correctly
+    shadeNamespaces := Set(
+      // Bloopgun direct and transitive deps
+      "snailgun",
+      "bloop",
+      "org.zeroturnaround",
+      "io.github.soc",
+      "org.slf4j",
+      // Coursier direct and transitive deps
+      "coursier",
+      "shapeless",
+      "argonaut",
+      "org.fusesource",
+      "org.jline"
     ),
-     */
-    shadingNamespace := "bloop.internal.shaded",
-    shadeNamespaces ++= Set("bloop"),
-    libraryDependencies += "ch.epfl.scala" %% "bloopgun" % "1.3.2+133-b03067d7+20190829-1345" % "shaded"
+    libraryDependencies ++= List(
+      // Remove JNA from transitive dependency so that they are not shaded
+      ("ch.epfl.scala" %% "bloopgun" % Keys.version.value % "shaded")
+        .excludeAll(sbt.ExclusionRule(organization = "net.java.dev.jna")),
+      // Add them back so that the shaded binary works, otherwise fails
+      Dependencies.jna,
+      Dependencies.jnaPlatform
+    )
   )
 
 lazy val launcher: Project = project

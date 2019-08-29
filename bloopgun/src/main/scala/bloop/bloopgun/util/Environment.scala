@@ -2,15 +2,10 @@ package bloop.bloopgun.util
 
 import java.nio.file.{Files, Path, Paths}
 
-import io.github.soc.directories.ProjectDirectories
 import java.{util => ju}
+import scala.util.control.NonFatal
 
 object Environment {
-  final val projectDirectories: ProjectDirectories =
-    ProjectDirectories.from("", "", "bloop")
-  final val bloopDataLogsDir: Path =
-    Files.createDirectories(Paths.get(projectDirectories.dataDir).resolve("logs"))
-
   final val isWindows: Boolean = scala.util.Properties.isWin
   final val isCygwin: Boolean = {
     Option(System.getenv("OSTYPE")) match {
@@ -22,4 +17,19 @@ object Environment {
   def cwd: Path = Paths.get(System.getProperty("user.dir"))
   def homeDirectory: Path = Paths.get(System.getProperty("user.home"))
   def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
+
+  /**
+   * Returns the path of the running program, imitating `sys.argv[0]` in Python.
+   *
+   * If the program has been compiled to GraalVM Native, it returns a path to
+   * the native application. If the program is a JVM-based application, the
+   * path points to the JAR that owns this class (e.g. bloopgun jar).
+   */
+  def executablePath: Option[Path] = {
+    try {
+      Some(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI))
+    } catch {
+      case NonFatal(t) => None
+    }
+  }
 }
