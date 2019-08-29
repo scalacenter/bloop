@@ -49,6 +49,7 @@ final class DebugSession(
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
 
+  @volatile private var isDisconnecting = false
   private val state = new Synchronized(initialState)
 
   // contains all [[DebugSession.TerminalEvents]] already sent.
@@ -118,6 +119,9 @@ final class DebugSession(
         ()
 
       case "disconnect" =>
+        // when disconnecting, we cannot expect the 'exited' event to be sent
+        isDisconnecting = true
+
         if (DebugSession.shouldRestart(request)) {
           sessionStatusPromise.trySuccess(DebugSession.Restarted)
         }
@@ -154,7 +158,13 @@ final class DebugSession(
     } finally {
       if (DebugSession.TerminalEvents.contains(event.`type`)) {
         terminalEventsSent.add(event.`type`)
-        if (terminalEventsSent == DebugSession.TerminalEvents) {
+
+        def isTerminated = {
+          terminalEventsSent.contains("terminated") &&
+          (isDisconnecting || terminalEventsSent.contains("exited"))
+        }
+
+        if (isTerminated) {
           communicationDone.trySuccess(()) // can already be set when canceling
           // Don't close socket, it terminates on its own
         }
