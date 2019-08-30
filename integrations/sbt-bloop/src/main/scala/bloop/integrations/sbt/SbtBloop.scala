@@ -744,6 +744,17 @@ object BloopDefaults {
     }
   }
 
+  def parseConfig(jsonConfig: Path): Config.File = {
+    import io.circe.parser
+    import bloop.config.ConfigEncoderDecoders._
+    val contents = new String(Files.readAllBytes(jsonConfig), StandardCharsets.UTF_8)
+    val parsed = parser.parse(contents).right.getOrElse(sys.error("error parsing"))
+    allDecoder.decodeJson(parsed) match {
+      case Right(parsedConfig) => parsedConfig
+      case Left(failure) => throw failure
+    }
+  }
+
   lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -874,8 +885,16 @@ object BloopDefaults {
         }
         // format: ON
 
+        //asf
         sbt.IO.createDirectory(bloopConfigDir)
         val outFile = bloopConfigDir / s"$projectName.json"
+
+        val outFilePath = outFile.toPath
+        if (Files.exists(outFilePath)) {
+          println(s"Reading configuration $outFilePath")
+          parseConfig(outFilePath)
+        }
+
         bloop.config.write(config, outFile.toPath)
 
         // Only shorten path for configuration files written to the the root build
