@@ -351,7 +351,7 @@ class LauncherMain(
   }
 
   // Reused across the two different ways we can run a server
-  private var bloopBackgroundError: Option[(String, StatusCommand)] = None
+  @volatile private var bloopBackgroundError: Option[(String, StatusCommand)] = None
 
   /**
    * Start a server in the background by using the python script `bloop server`.

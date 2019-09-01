@@ -3,6 +3,11 @@ package bloop.bloopgun
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.DependencyResolution
 import bloop.bloopgun.util.Environment
+import bloop.bloopgun.util.Feedback
+import bloop.bloopgun.core.AvailableAt
+import bloop.bloopgun.core.ListeningAndAvailableAt
+import bloop.bloopgun.core.ServerStatus
+import bloop.bloopgun.core.ResolvedAt
 
 import java.io.PrintStream
 import java.io.InputStream
@@ -26,6 +31,9 @@ import java.lang.ProcessBuilder.Redirect
 import scala.util.Try
 import java.net.URLDecoder
 import java.net.URLClassLoader
+import bloop.bloopgun.core.Shell.StatusCommand
+import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.Promise
 
 /**
  *
@@ -101,6 +109,25 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         .text("The command and arguments for the Bloop server")
       val serverCmd = builder
         .cmd("server")
+        .action((_, params) => params.copy(server = true))
+        .children(
+          builder
+            .arg[String]("<nailgun-host>")
+            .optional()
+            .maxOccurs(1)
+            .action {
+              case (arg, params) =>
+                params.copy(serverParams = params.serverParams.copy(host = Some(arg)))
+            },
+          builder
+            .arg[Int]("<nailgun-port>")
+            .optional()
+            .maxOccurs(1)
+            .action {
+              case (arg, params) =>
+                params.copy(serverParams = params.serverParams.copy(port = Some(arg)))
+            }
+        )
       OParser
         .sequence(
           builder.programName("bloopgun"),
@@ -115,76 +142,199 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
           nailgunHelpOpt,
           nailgunShowVersionOpt,
           verboseOpt,
-          cmdOpt
+          cmdOpt,
+          serverCmd
         )
     }
 
     OParser.parse(cliParser, args, BloopgunParams()) match {
       case None => exit(1)
       case Some(params) =>
+        val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
         if (params.nailgunShowVersion)
-          out.println(s"Nailgun protocol v${Defaults.Version}")
+          logger.info(s"Nailgun protocol v${Defaults.Version}")
 
-        def process(cmd: String, initialCmdArgs: Array[String]) = {
-          var consoleCmdOutFile: Path = null
-          val cmdArgs = {
-            if (cmd != "console") initialCmdArgs
-            else {
-              val outFileIndex = initialCmdArgs.indexOf("--out-file")
-              if (outFileIndex >= 0) {
-                if (outFileIndex + 1 < initialCmdArgs.length) {
-                  consoleCmdOutFile = Paths.get(initialCmdArgs(outFileIndex + 1))
-                }
-                initialCmdArgs
-              } else {
-                consoleCmdOutFile = Files.createTempFile("ammonite-cmd", "out")
-                initialCmdArgs ++ Array("--out-file", consoleCmdOutFile.toAbsolutePath.toString)
-              }
-            }
+        val config = ServerConfig(
+          if (setServer) Some(params.nailgunServer)
+          else Defaults.env.get("BLOOP_SERVER"),
+          if (setPort) Some(params.nailgunPort)
+          else Defaults.env.get("BLOOP_PORT").map(_.toInt)
+        )
+
+        if (params.server) {
+          logger.info(s"HELLO! ${params.serverParams}")
+          exit(0)
+        } else {
+          params.args match {
+            case Nil if params.help => fireCommand("help", Array.empty, params, config, logger)
+            case Nil => errorAndExit("Missing CLI command for Bloop server!", logger)
+            case cmd :: cmdArgs => fireCommand(cmd, cmdArgs.toArray, params, config, logger)
           }
-
-          val streams = Streams(in, out, err)
-          val hostServer =
-            if (setServer) params.nailgunServer
-            else Defaults.env.getOrElse("BLOOP_SERVER", params.nailgunServer)
-          val portServer =
-            if (setPort) params.nailgunPort
-            else Defaults.env.getOrElse("BLOOP_PORT", params.nailgunPort.toString).toInt
-          val client = TcpClient(hostServer, portServer)
-          val noCancel = new AtomicBoolean(false)
-          val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
-
-          try {
-            import Environment.cwd
-            // Disable interactive if running with shaded bloopgun bc JNA cannot be shaded
-            val shadedClass = "bloop.shaded.bloop.bloopgun.Bloopgun"
-            val isInteractive = Try(getClass.getClassLoader.loadClass(shadedClass)).isFailure
-            val code =
-              client.run(cmd, cmdArgs, cwd, Defaults.env, streams, logger, noCancel, isInteractive)
-            logger.debug(s"Return code is $code")
-            runAfterCommand(cmd, cmdArgs, consoleCmdOutFile, code, logger)
-            exit(code)
-          } catch {
-            case _: ConnectException =>
-              // Attempt to start server here, move launcher logic
-              errorAndExit(s"No server running in $hostServer:$portServer!")
-          } finally {
-            if (consoleCmdOutFile != null) {
-              Files.deleteIfExists(consoleCmdOutFile)
-            }
-            ()
-          }
-        }
-
-        params.args match {
-          case Nil if params.help => process("help", Array.empty)
-          case Nil => errorAndExit("Missing CLI command for Bloop server!")
-          case cmd :: cmdArgs => process(cmd, cmdArgs.toArray)
         }
     }
   }
 
-  def errorAndExit(msg: String, code: Int = 1): Unit = { err.println(msg); exit(code) }
+  // Disable interactive if running with shaded bloopgun bc JNA cannot be shaded
+  private val isInteractive = {
+    val shadedClass = "bloop.shaded.bloop.bloopgun.Bloopgun"
+    Try(getClass.getClassLoader.loadClass(shadedClass)).isFailure
+  }
+
+  private def fireCommand(
+      cmd: String,
+      initialCmdArgs: Array[String],
+      params: BloopgunParams,
+      config: ServerConfig,
+      logger: SnailgunLogger
+  ) = {
+    var consoleCmdOutFile: Path = null
+    val cmdArgs = {
+      if (cmd != "console") initialCmdArgs
+      else {
+        val outFileIndex = initialCmdArgs.indexOf("--out-file")
+        if (outFileIndex >= 0) {
+          if (outFileIndex + 1 < initialCmdArgs.length) {
+            consoleCmdOutFile = Paths.get(initialCmdArgs(outFileIndex + 1))
+          }
+          initialCmdArgs
+        } else {
+          consoleCmdOutFile = Files.createTempFile("ammonite-cmd", "out")
+          initialCmdArgs ++ Array("--out-file", consoleCmdOutFile.toAbsolutePath.toString)
+        }
+      }
+    }
+
+    import Defaults.env
+    import Environment.cwd
+    val streams = Streams(in, out, err)
+    val client = TcpClient(config.userOrDefaultHost, config.userOrDefaultPort)
+    val noCancel = new AtomicBoolean(false)
+
+    def executeCmd(client: TcpClient) = {
+      val code = client.run(cmd, cmdArgs, cwd, env, streams, logger, noCancel, isInteractive)
+      logger.debug(s"Return code is $code")
+      runAfterCommand(cmd, cmdArgs, consoleCmdOutFile, code, logger)
+      exit(code)
+    }
+
+    try executeCmd(client)
+    catch {
+      case _: ConnectException =>
+        // Attempt to start server here, move launcher logic
+        logger.info(s"No server running in ${config.host}:${config.port}, let's fire one...")
+        fireServer(params, config, "1.3.2", logger) match {
+          case Some(l: ListeningAndAvailableAt) => executeCmd(client)
+          case None => errorAndExit(Feedback.serverCouldNotBeStarted(config), logger)
+        }
+    } finally {
+      if (consoleCmdOutFile != null) {
+        Files.deleteIfExists(consoleCmdOutFile)
+      }
+      ()
+    }
+  }
+
+  def fireServer(
+      params: BloopgunParams,
+      config: ServerConfig,
+      bloopVersion: String,
+      logger: SnailgunLogger
+  ): Option[ListeningAndAvailableAt] = {
+    // FIXME: Add logic to grab jvm options
+    val serverJvmOptions: List[String] = Nil
+
+    ServerStatus.findServerToRun(bloopVersion, shell, out).flatMap { found =>
+      val cmd = found match {
+        case AvailableAt(cmd) => cmd
+        case ResolvedAt(classpath) =>
+          val delimiter = if (Environment.isWindows) ";" else ":"
+          val opts = serverJvmOptions.map(_.stripPrefix("-J"))
+          val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(delimiter)
+          List("java") ++ opts ++ List("-classpath", stringClasspath, "bloop.Server")
+      }
+
+      val statusPromise = Promise[StartStatus]()
+      val serverThread = startServerInBackground(cmd, serverJvmOptions, config, statusPromise)
+      logger.info("Server was started in a thread, waiting until it's up and running...")
+
+      val port = config.userOrDefaultPort
+      var listening: Option[ListeningAndAvailableAt] = None
+      def isConnected = listening.exists(_.isInstanceOf[ListeningAndAvailableAt])
+
+      /*
+       * Retry connecting to the server for a bunch of times until we get some
+       * response the server is up and running. The server can be slow to start
+       * up, particularly in Windows systems where antivirus usually have a
+       * high tax on application startup times. This operation usually takes
+       * around a second on Linux and Unix systems.
+       */
+      while (!statusPromise.isCompleted && !isConnected) {
+        val waitMs = 125.toLong
+        Thread.sleep(waitMs)
+        logger.debug(s"Sleeping for ${waitMs}ms until we connect to server port $port")
+        listening = shell.connectToBloopPort(cmd, port, out)
+      }
+
+      // Either listening exists or status promise is completed
+      listening.orElse {
+        statusPromise.future.value match {
+          case Some(scala.util.Success(Some((cmd, status)))) =>
+            logger.error(s"Command '$cmd' finished with ${status.code}: '${status.output}'")
+          case Some(scala.util.Failure(t)) =>
+            logger.error(s"Unexpected exception thrown by thread starting server: '$t'")
+          case unexpected =>
+            logger.error(s"Unexpected error when starting server: $unexpected")
+        }
+
+        // Required to protect ourselves from other clients racing to start the server
+        logger.info("Attempt connection a last time before giving up...")
+        Thread.sleep(500.toLong)
+        shell.connectToBloopPort(cmd, port, out)
+      }
+    }
+  }
+
+  // Reused across the two different ways we can run a server
+  type StartStatus = Option[(String, StatusCommand)]
+
+  /**
+   * Start a server in the background by using the python script `bloop server`.
+   *
+   * This operation can take a while in some operating systems (most notably Windows, Unix is fast).
+   * After running a thread in the background, we will wait until the server is up.
+   *
+   * @param binary The list of arguments that make the python binary script we want to run.
+   */
+  def startServerInBackground(
+      binary: List[String],
+      jvmOptions: List[String],
+      config: ServerConfig,
+      runningServer: Promise[StartStatus]
+  ): Thread = {
+    // Always keep a server running in the background by making it a daemon thread
+    shell.startThread("bloop-server-background", true) {
+      val serverArgs = (config.host, config.port) match {
+        case (Some(host), Some(port)) => List(host, port.toString)
+        case (None, Some(port)) => List(port.toString)
+        case (None, None) => Nil
+        case (Some(host), None) =>
+          out.println(Feedback.unexpectedServerArgsSyntax(host))
+          Nil
+      }
+
+      val startCmd = binary ++ serverArgs ++ jvmOptions
+      out.println(Feedback.startingBloopServer(startCmd))
+      val status = shell.runCommand(startCmd, Environment.cwd, Some(15))
+      runningServer.success(Some(startCmd.mkString(" ") -> status))
+
+      ()
+    }
+  }
+
+  def errorAndExit(msg: String, logger: SnailgunLogger, code: Int = 1): Unit = {
+    logger.error(msg); exit(code)
+  }
+
   private def runAfterCommand(
       cmd: String,
       cmdArgs: Array[String],
@@ -202,7 +352,7 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
 
     if (exitCode != 0 && cmd == "repl") {
       // Assumes `repl` is not a valid Bloop command, provides user hint to use console instead
-      errorAndExit(s"Command `repl` doesn't exist in Bloop, did you mean `console`?")
+      errorAndExit(s"Command `repl` doesn't exist in Bloop, did you mean `console`?", logger)
     }
 
     if (exitCode == 0 && cmdOutFile != null && cmd == "console") {
@@ -210,7 +360,10 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         val contents = new String(Files.readAllBytes(cmdOutFile), StandardCharsets.UTF_8)
         val replCoursierCmd = contents.trim.split(" ")
         if (replCoursierCmd.length == 0) {
-          errorAndExit("Unexpected empty REPL command after running console in Bloop server!")
+          errorAndExit(
+            "Unexpected empty REPL command after running console in Bloop server!",
+            logger
+          )
         } else {
           val status = shell.runCommandInheritingIO(
             replCoursierCmd.toList,

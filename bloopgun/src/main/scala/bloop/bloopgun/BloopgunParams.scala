@@ -7,5 +7,7 @@ final case class BloopgunParams(
     nailgunHelp: Boolean = false,
     verbose: Boolean = false,
     nailgunShowVersion: Boolean = false,
-    args: List[String] = Nil
+    args: List[String] = Nil,
+    server: Boolean = false,
+    serverParams: ServerConfig = ServerConfig()
 )

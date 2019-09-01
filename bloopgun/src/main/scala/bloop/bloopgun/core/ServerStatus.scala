@@ -34,7 +34,6 @@ object ServerStatus {
    */
   def findServerToRun(
       bloopVersion: String,
-      port: String,
       shell: Shell,
       out: PrintStream
   ): Option[LocatedServer] = {

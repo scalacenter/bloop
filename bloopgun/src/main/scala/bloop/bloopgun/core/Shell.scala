@@ -175,7 +175,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       binaryCmd: List[String],
       port: Int,
       out: PrintStream
-  ): Option[ServerStatus] = {
+  ): Option[ListeningAndAvailableAt] = {
     import java.net.Socket
     var socket: Socket = null
     import scala.util.control.NonFatal
@@ -186,21 +186,17 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       import java.net.InetAddress
       import java.net.InetSocketAddress
       socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, port))
-      Some {
-        if (socket.isConnected) ListeningAndAvailableAt(binaryCmd)
-        else AvailableAt(binaryCmd)
-      }
+      if (!socket.isConnected) None
+      else Some(ListeningAndAvailableAt(binaryCmd))
     } catch {
       case NonFatal(t) =>
         out.println(s"Connection to port $port failed with '${t.getMessage()}'")
-        Some(AvailableAt(binaryCmd))
+        None
     } finally {
       if (socket != null) {
         try {
-          val in = socket.getInputStream()
-          val out = socket.getOutputStream()
-          in.close()
-          out.close()
+          socket.shutdownInput()
+          socket.shutdownOutput()
           socket.close()
         } catch { case NonFatal(_) => }
       }
