@@ -106,7 +106,11 @@ class LauncherMain(
       case Right(Left(_)) => SuccessfulRun
 
       case Right(Right(Some(socket))) =>
-        bridge.wireBspConnectionStreams(socket)
+        try{
+          bridge.wireBspConnectionStreams(socket)
+        } finally {
+          socket.close()
+        }
         SuccessfulRun
 
       case Right(Right(None)) =>
