@@ -11,8 +11,8 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.BuildTargetIdentifier
-import ch.epfl.scala.bsp.endpoints.Build
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, DebuggeeAddress}
+import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
 import monix.execution.atomic.AtomicInt
 
 /**
@@ -210,6 +210,11 @@ final class BspServerLogger private (
       )
     )
     ()
+  }
+
+  def publishDebuggeeAttachable(port: Int): Unit = {
+    val notification = bsp.DebuggeeAddress(originId, s"tcp://localhost:$port")
+    BuildTarget.debuggeeListening.notify(notification)
   }
 }
 
