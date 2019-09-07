@@ -35,8 +35,9 @@ object Dependencies {
   val circeVersion = "0.9.3"
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
-  val scalaNativeVersion = "0.3.7"
-  val scalaJs06Version = "0.6.25"
+  val scalaNative03Version = "0.3.9"
+  val scalaNative04Version = "0.4.0-M2"
+  val scalaJs06Version = "0.6.28"
   val scalaJs10Version = "1.0.0-M5"
   val millVersion = "0.3.6"
   val xxHashVersion = "1.3.0"
@@ -96,7 +97,8 @@ object Dependencies {
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
 
-  val scalaNativeTools = "org.scala-native" %% "tools" % scalaNativeVersion
+  val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version
+  val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
   val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version
   val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version

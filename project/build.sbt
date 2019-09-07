@@ -5,7 +5,7 @@ val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 val `bloop-build` = project
   .in(file("."))
   .settings(
-    scalaVersion := "2.12.4",
+    scalaVersion := "2.12.9",
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
     addSbtPlugin("com.lucidchart" % "sbt-scalafmt" % "1.14"),

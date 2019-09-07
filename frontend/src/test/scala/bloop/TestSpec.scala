@@ -21,7 +21,7 @@ import monix.execution.CancelableFuture
 
 abstract class BaseTestSpec(val projectName: String, buildName: String)
     extends ProjectBaseSuite(buildName) {
-  val testOnlyOnJava8 = buildName == "cross-test-build-0.6"
+  val testOnlyOnJava8 = buildName == "cross-test-build-scalajs-0.6"
   testProject("project compiles", testOnlyOnJava8) { (build, logger) =>
     val project = build.projectFor(projectName)
     val compiledState = build.state.compile(project)
@@ -56,7 +56,7 @@ object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
        |""".stripMargin
 }
 
-object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-0.6") {
+object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
     """|Execution took ???
        |1 tests, 1 passed
@@ -104,7 +104,7 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-
   }
 }
 
-object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-0.6") {
+object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
     """|Test run started
        |Test hello.JUnitTest.myTest started
