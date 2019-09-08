@@ -10,7 +10,7 @@ with no sacrifices in correctness or compromises in user experience. In spite
 of these constraints, Bloop is in fact as fast as or faster than the most
 popular build tools in the Scala ecosystem.
 
-However, it is easy to go astray without an appropiate set of tools that
+However, it is easy to go astray without an appropriate set of tools that
 identify regressions and measure build performance objectively. Builds stress
 their use of a toolchain uniquely, so it is necessary these tools are not
 only used during development but by users wishing to keep their build
