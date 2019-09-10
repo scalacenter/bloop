@@ -5,7 +5,6 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
-import java.util.logging.{Level, Logger}
 
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.core.Shell.StatusCommand
@@ -17,6 +16,8 @@ import org.zeroturnaround.exec.ProcessExecutor
 import org.zeroturnaround.exec.listener.ProcessListener
 import org.zeroturnaround.exec.stream.ExecuteStreamHandler
 import org.zeroturnaround.exec.stream.LogOutputStream
+import snailgun.logging.Logger
+import bloop.bloopgun.ServerConfig
 
 /**
  * Defines shell utilities to run programs via system process.
@@ -167,14 +168,14 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       runCommand(binaryCmd ++ List("about"), Environment.cwd, Some(10))
     Some {
       if (statusAbout.isOk) ListeningAndAvailableAt(binaryCmd)
-      else AvailableAt(binaryCmd)
+      else AvailableWithCommand(binaryCmd)
     }
   }
 
   def connectToBloopPort(
       binaryCmd: List[String],
-      port: Int,
-      out: PrintStream
+      config: ServerConfig,
+      logger: Logger
   ): Option[ListeningAndAvailableAt] = {
     import java.net.Socket
     var socket: Socket = null
@@ -185,12 +186,13 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       socket.setTcpNoDelay(true)
       import java.net.InetAddress
       import java.net.InetSocketAddress
-      socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, port))
+      socket.connect(new InetSocketAddress(config.userOrDefaultHost, config.userOrDefaultPort))
       if (!socket.isConnected) None
       else Some(ListeningAndAvailableAt(binaryCmd))
     } catch {
       case NonFatal(t) =>
-        out.println(s"Connection to port $port failed with '${t.getMessage()}'")
+        logger.info("Attempting a connection to the server...")
+        logger.debug(s"Connection to port $config failed with '${t.getMessage()}'")
         None
     } finally {
       if (socket != null) {
@@ -221,8 +223,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
 }
 
 object Shell {
-  //Logger.getLogger(classOf[BasePosixProcess].getCanonicalName).setLevel(Level.SEVERE)
-
   def default: Shell = new Shell(false, true)
 
   def portNumberWithin(from: Int, to: Int): Int = {

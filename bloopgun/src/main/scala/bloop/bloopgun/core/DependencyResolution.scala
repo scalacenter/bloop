@@ -3,8 +3,8 @@ package bloop.bloopgun.core
 import coursier.core.Repository
 import coursier.error.CoursierError
 
-import java.io.PrintStream
 import java.nio.file.Path
+import snailgun.logging.Logger
 
 object DependencyResolution {
 
@@ -24,10 +24,10 @@ object DependencyResolution {
       organization: String,
       module: String,
       version: String,
-      out: PrintStream,
+      logger: Logger,
       additionalRepos: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Array[Path] = {
-    resolveWithErrors(organization, module, version, out, additionalRepos) match {
+    resolveWithErrors(organization, module, version, logger, additionalRepos) match {
       case Right(paths) => paths
       case Left(error) => throw error
     }
@@ -49,11 +49,11 @@ object DependencyResolution {
       organization: String,
       module: String,
       version: String,
-      out: PrintStream,
+      logger: Logger,
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[Path]] = {
     import coursier._
-    out.println(s"Resolving $organization:$module:$version")
+    logger.info(s"Resolving $organization:$module:$version...")
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)
     val dependency = Dependency(Module(org, moduleName), version)

@@ -4,7 +4,8 @@ import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.DependencyResolution
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.util.Feedback
-import bloop.bloopgun.core.AvailableAt
+import bloop.bloopgun.core.AvailableAtPath
+import bloop.bloopgun.core.AvailableWithCommand
 import bloop.bloopgun.core.ListeningAndAvailableAt
 import bloop.bloopgun.core.ServerStatus
 import bloop.bloopgun.core.ResolvedAt
@@ -34,44 +35,35 @@ import java.net.URLClassLoader
 import bloop.bloopgun.core.Shell.StatusCommand
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Promise
+import snailgun.logging.Logger
+import bloop.bloopgun.core.LocatedServer
 
 /**
  *
- * Supports:
- *   1. `bloop server` to start server right away. Does it make sense to keep it?
- *   4. Custom banner if error happens when connecting to server.
- *   2. DONE: `bloop help` recommends user to use `bloopgun --nailgun-help`. done
- *   3. DONE: `bloop console`, invoking Ammonite if repl kind matches.
- *   5. DONE: Custom error if user types `bloop repl`
+ * The main library entrypoint for bloopgun, the Bloop binary CLI.
  *
+ * It uses Nailgun to communicate to the Bloop server and has support for:
  *
- * What should `bloop server` do?
- *   1. Detect if server is running
- *   2. If it is running and version matches, do nothing and print successful message
- *   3. If it's running and versions are recognized to be incompatible, print error saying that bloop doesn't match.
- *   4. If it's not running, detect JVM options and start server preventing races.
- *   5. At the end of the execution, the server is running with the right JVM options.
+ *   1. Prints Bloop-specific feedback to the user to improve the CLI UX.
+ *      * Print custom error if user types `bloop repl`.
+ *      * Recomend using `bloop --nailgun-help` if `help` set to print CLI help.
+ *   2. Starts the server if already not running or if `bloop server` is used.
+ *   3. Invokes Ammonite if `bloop console` is used and repl kind is default or
+ *      matches Ammonite.
  *
- * Who should call `bloop server`? Should we call bloop server if bloopgun
- * fails to establish a connection with the server during the execution of a
- * normal command?
- *
- * Pros:
- *   1. Easier, users don't need to think about starting the server manually
- *   1. We don't need to support services in Windows
- * Cons:
- *   1. The overhead of attempting to start the server can be too much.
- *   1. Confusing story to handle the lifetime of the bloop server. What should the user do if it wants to restart the server? How does that affect other clients using the server in the background?
- *
- * What happens if a command attempts to start the server but it fails because it's incompatible?
- *
- * 1. We can ask the user to do `bloop exit` and then run the command again.
- *    `bloop exit` should notify to connected clients that a client has decided to kill/restart the server.
- *
- * Proposed solution:
- *   1. `bloop server restart` and `bloop server shutdown` will try to first use the System-specific ways of managing the lifetime of the server.
+ * For the moment, this client doesn't do any kind of version handling so if
+ * the client and the server have serious incompatibilities the communication
+ * could crash. To avoid that users can forcefully exit the server and let the
+ * client start a session. Exiting requires the intervention of the user
+ * because it can affect already connected clients to the server instance.
  */
-abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, shell: Shell) {
+abstract class BloopgunCli(
+    bloopVersion: String,
+    in: InputStream,
+    out: PrintStream,
+    err: PrintStream,
+    shell: Shell
+) {
   def exit(code: Int): Unit
   def run(args: Array[String]): Unit = {
     var setServer: Boolean = false
@@ -107,26 +99,38 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         .unbounded()
         .action((arg, params) => params.copy(args = params.args ++ List(arg)))
         .text("The command and arguments for the Bloop server")
+
+      // Here for backwards bincompat reasons with previous Python-based bloop client
       val serverCmd = builder
         .cmd("server")
         .action((_, params) => params.copy(server = true))
         .children(
-          builder
-            .arg[String]("<nailgun-host>")
-            .optional()
-            .maxOccurs(1)
-            .action {
-              case (arg, params) =>
-                params.copy(serverParams = params.serverParams.copy(host = Some(arg)))
-            },
           builder
             .arg[Int]("<nailgun-port>")
             .optional()
             .maxOccurs(1)
             .action {
               case (arg, params) =>
-                params.copy(serverParams = params.serverParams.copy(port = Some(arg)))
-            }
+                params.copy(serverConfig = params.serverConfig.copy(port = Some(arg)))
+            },
+          builder
+            .opt[String]("server-location")
+            .action {
+              case (arg, params) =>
+                val path = Some(Paths.get(arg))
+                params.copy(serverConfig = params.serverConfig.copy(serverLocation = path))
+            },
+          builder
+            .arg[String]("<server-args>...")
+            .optional()
+            .unbounded()
+            .action(
+              (arg, params) =>
+                params.copy(
+                  serverConfig = params.serverConfig.copy(serverArgs = params.args ++ List(arg))
+                )
+            )
+            .text("The command and arguments for the Bloop server")
         )
       OParser
         .sequence(
@@ -162,8 +166,10 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         )
 
         if (params.server) {
-          logger.info(s"HELLO! ${params.serverParams}")
-          exit(0)
+          shell.connectToBloopPort(Nil, config, logger) match {
+            case Some(_) => logger.info(s"Server is already running at $config, exiting!")
+            case None => fireCommand("about", Array.empty, params, config, logger)
+          }
         } else {
           params.args match {
             case Nil if params.help => fireCommand("help", Array.empty, params, config, logger)
@@ -221,8 +227,8 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
     catch {
       case _: ConnectException =>
         // Attempt to start server here, move launcher logic
-        logger.info(s"No server running in ${config.host}:${config.port}, let's fire one...")
-        fireServer(params, config, "1.3.2", logger) match {
+        logger.info(s"No server running in ${config}, let's fire one...")
+        fireServer(params, config, bloopVersion, logger) match {
           case Some(l: ListeningAndAvailableAt) => executeCmd(client)
           case None => errorAndExit(Feedback.serverCouldNotBeStarted(config), logger)
         }
@@ -234,28 +240,64 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
     }
   }
 
+  /**
+   * Reads all jvm options required to start the Bloop server, in order of priority:
+   *
+   * 1. Read `$HOME/.bloop/.jvmopts` file.
+   * 2. Read `.jvmopts` file right next to the location of the bloop server jar.
+   * 3. Parse `-J` prefixed jvm options in the arguments passed to the server command.
+   *
+   * Returns a list of jvm options with no `-J` prefix.
+   */
+  def readAllServerJvmOptions(
+      server: LocatedServer,
+      serverArgs: List[String],
+      logger: SnailgunLogger
+  ): List[String] = {
+    def readJvmOptsFile(jvmOptsFile: Path): List[String] = {
+      if (!Files.isReadable(jvmOptsFile)) {
+        if (Files.exists(jvmOptsFile)) {
+          logger.error(s"Ignored unreadable ${jvmOptsFile.toAbsolutePath()}")
+        }
+
+        Nil
+      } else {
+        val contents = new String(Files.readAllBytes(jvmOptsFile), StandardCharsets.UTF_8)
+        contents.linesIterator.toList
+      }
+    }
+
+    val jvmOptionsFromHome = readJvmOptsFile(Environment.defaultBloopDirectory.resolve(".jvmopts"))
+    val jvmOptionsFromPathNextToBinary = server match {
+      case AvailableAtPath(binary) => readJvmOptsFile(binary.getParent.resolve(".jvmopts"))
+      case _ => Nil
+    }
+
+    val jvmServerArgs = serverArgs.filter(_.startsWith("-J"))
+    (jvmOptionsFromHome ++ jvmOptionsFromPathNextToBinary ++ jvmServerArgs).map(_.stripPrefix("-J"))
+  }
+
   def fireServer(
       params: BloopgunParams,
       config: ServerConfig,
       bloopVersion: String,
       logger: SnailgunLogger
   ): Option[ListeningAndAvailableAt] = {
-    // FIXME: Add logic to grab jvm options
-    val serverJvmOptions: List[String] = Nil
-
-    ServerStatus.findServerToRun(bloopVersion, shell, out).flatMap { found =>
+    ServerStatus.findServerToRun(bloopVersion, config, shell, logger).flatMap { found =>
+      val serverJvmOpts = readAllServerJvmOptions(found, config.serverArgs, logger)
       val cmd = found match {
-        case AvailableAt(cmd) => cmd
+        case AvailableWithCommand(cmd) => cmd
+        case AvailableAtPath(path) => List(path.toAbsolutePath.toString)
         case ResolvedAt(classpath) =>
           val delimiter = if (Environment.isWindows) ";" else ":"
-          val opts = serverJvmOptions.map(_.stripPrefix("-J"))
           val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(delimiter)
-          List("java") ++ opts ++ List("-classpath", stringClasspath, "bloop.Server")
+          List("java") ++ serverJvmOpts ++ List("-classpath", stringClasspath, "bloop.Server")
       }
 
       val statusPromise = Promise[StartStatus]()
-      val serverThread = startServerInBackground(cmd, serverJvmOptions, config, statusPromise)
-      logger.info("Server was started in a thread, waiting until it's up and running...")
+      val serverThread =
+        startServerInBackground(cmd, serverJvmOpts, config, statusPromise, logger)
+      logger.debug("Server was started in a thread, waiting until it's up and running...")
 
       val port = config.userOrDefaultPort
       var listening: Option[ListeningAndAvailableAt] = None
@@ -272,25 +314,26 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         val waitMs = 125.toLong
         Thread.sleep(waitMs)
         logger.debug(s"Sleeping for ${waitMs}ms until we connect to server port $port")
-        listening = shell.connectToBloopPort(cmd, port, out)
+        listening = shell.connectToBloopPort(cmd, config, logger)
       }
 
       // Either listening exists or status promise is completed
-      listening.orElse {
-        statusPromise.future.value match {
-          case Some(scala.util.Success(Some((cmd, status)))) =>
-            logger.error(s"Command '$cmd' finished with ${status.code}: '${status.output}'")
-          case Some(scala.util.Failure(t)) =>
-            logger.error(s"Unexpected exception thrown by thread starting server: '$t'")
-          case unexpected =>
-            logger.error(s"Unexpected error when starting server: $unexpected")
-        }
+      listening
+        .orElse {
+          statusPromise.future.value match {
+            case Some(scala.util.Success(Some((cmd, status)))) =>
+              logger.error(s"Command '$cmd' finished with ${status.code}: '${status.output}'")
+            case Some(scala.util.Failure(t)) =>
+              logger.error(s"Unexpected exception thrown by thread starting server: '$t'")
+            case unexpected =>
+              logger.error(s"Unexpected error when starting server: $unexpected")
+          }
 
-        // Required to protect ourselves from other clients racing to start the server
-        logger.info("Attempt connection a last time before giving up...")
-        Thread.sleep(500.toLong)
-        shell.connectToBloopPort(cmd, port, out)
-      }
+          // Required to protect ourselves from other clients racing to start the server
+          logger.info("Attempt connection a last time before giving up...")
+          Thread.sleep(500.toLong)
+          shell.connectToBloopPort(cmd, config, logger)
+        }
     }
   }
 
@@ -309,7 +352,8 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
       binary: List[String],
       jvmOptions: List[String],
       config: ServerConfig,
-      runningServer: Promise[StartStatus]
+      runningServer: Promise[StartStatus],
+      logger: Logger
   ): Thread = {
     // Always keep a server running in the background by making it a daemon thread
     shell.startThread("bloop-server-background", true) {
@@ -318,14 +362,22 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
         case (None, Some(port)) => List(port.toString)
         case (None, None) => Nil
         case (Some(host), None) =>
-          out.println(Feedback.unexpectedServerArgsSyntax(host))
+          logger.warn(Feedback.unexpectedServerArgsSyntax(host))
           Nil
       }
 
       val startCmd = binary ++ serverArgs ++ jvmOptions
-      out.println(Feedback.startingBloopServer(startCmd))
-      val status = shell.runCommand(startCmd, Environment.cwd, Some(15))
-      runningServer.success(Some(startCmd.mkString(" ") -> status))
+      logger.info(s"Starting bloop server at $config...")
+      logger.debug(s"Start command: $startCmd")
+
+      // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
+      val code = new ProcessBuilder()
+        .command(startCmd.toArray: _*)
+        .directory(Environment.cwd.toFile)
+        .start()
+        .waitFor()
+
+      runningServer.success(Some(startCmd.mkString(" ") -> StatusCommand(code, "")))
 
       ()
     }
@@ -343,7 +395,7 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
       logger: SnailgunLogger
   ): Unit = {
     if (exitCode == 0 && cmdArgs.contains("--help")) {
-      out.println("Type `--nailgun-help` for help on the Nailgun CLI tool.")
+      logger.info("Type `--nailgun-help` for help on the Nailgun CLI tool.")
     }
 
     if (exitCode != 0 && cmd == "repl") {
@@ -381,7 +433,7 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
   }
 }
 
-object Bloopgun extends BloopgunCli(System.in, System.out, System.err, Shell.default) {
+object Bloopgun extends BloopgunCli("1.3.2", System.in, System.out, System.err, Shell.default) {
   def main(args: Array[String]): Unit = run(args)
   override def exit(code: Int) = System.exit(code)
 }

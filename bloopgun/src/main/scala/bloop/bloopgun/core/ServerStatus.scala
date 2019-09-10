@@ -1,15 +1,18 @@
 package bloop.bloopgun.core
 
-import java.io.PrintStream
 import java.nio.file.Path
 import java.nio.file.Files
 
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.core.Shell.StatusCommand
+import snailgun.logging.Logger
+import bloop.bloopgun.ServerConfig
+import java.nio.file.Paths
 
 sealed trait ServerStatus
 sealed trait LocatedServer extends ServerStatus
-case class AvailableAt(binary: List[String]) extends LocatedServer
+case class AvailableWithCommand(binary: List[String]) extends LocatedServer
+case class AvailableAtPath(binary: Path) extends LocatedServer
 case class ResolvedAt(files: Seq[Path]) extends LocatedServer
 case class ListeningAndAvailableAt(binary: List[String]) extends ServerStatus
 
@@ -27,51 +30,61 @@ object ServerStatus {
    *   2. Look for a `blp-server` located right next to the binary of bloopgun
    *      that is running because `blp-server` and `bloop` are always located
    *      together when bloop is installed.
-   *   3. Look for `blp-server` in `$HOME/.bloop` where bloop installation script
+   *   3. Look for `blp-server` in `$$HOME/.bloop` where bloop installation script
    *      installs bloop if the curl installation method is used. Works in case
    *      the running bloopgun client is a binary dependency of an existing tool.
    *   4. Resolve Bloop server via coursier.
    */
   def findServerToRun(
       bloopVersion: String,
+      serverConfig: ServerConfig,
       shell: Shell,
-      out: PrintStream
+      logger: Logger
   ): Option[LocatedServer] = {
-    shell.findCmdInPath("blp-server") match {
-      case StatusCommand(0, _) => Some(AvailableAt(List("blp-server")))
-      case StatusCommand(errorCode, errorOutput) =>
-        out.println(s"Missing `blp-server` in `$$PATH`: ${errorOutput}")
+    serverConfig.serverLocation.filter(Files.exists(_)) match {
+      case Some(location) => Some(AvailableAtPath(location))
+      case None =>
+        shell.findCmdInPath("blp-server") match {
+          case StatusCommand(0, outputPath) =>
+            val serverLocationFromPath = Paths.get(outputPath)
+            if (Files.exists(serverLocationFromPath)) Some(AvailableAtPath(serverLocationFromPath))
+            else Some(AvailableWithCommand(List("blp-server")))
+          case StatusCommand(errorCode, errorOutput0) =>
+            val errorOutput = if (errorOutput0.isEmpty) errorOutput0 else s": $errorOutput0"
+            logger.debug(s"Missing `blp-server` in `$$PATH`$errorOutput")
 
-        val installedBlpServer = Environment.executablePath.flatMap { clientPath =>
-          val defaultBlpServer = clientPath.getParent.resolve("blp-server")
-          if (Files.exists(defaultBlpServer)) {
-            Some(AvailableAt(List(defaultBlpServer.toAbsolutePath().toString)))
-          } else {
-            out.println(s"Missing `blp-server` executable at $defaultBlpServer")
-            None
-          }
-        }
-
-        installedBlpServer.orElse {
-          val blpServerUnderHome = Environment.homeDirectory.resolve(".bloop").resolve("blp-server")
-          if (Files.exists(blpServerUnderHome))
-            Some(AvailableAt(List(blpServerUnderHome.toAbsolutePath().toString)))
-          else {
-            out.println(s"Missing `blp-server` executable at $blpServerUnderHome")
-            import scala.concurrent.ExecutionContext.Implicits.global
-            DependencyResolution.resolveWithErrors(
-              "ch.epfl.scala",
-              "bloop-frontend_2.12",
-              bloopVersion,
-              System.out
-            ) match {
-              case Right(jars) => Some(ResolvedAt(jars))
-              case Left(value) =>
-                out.println("Unexpected error when resolving Bloop server via coursier!")
-                out.println(value.getMessage())
+            val installedBlpServer = Environment.executablePath.flatMap { clientPath =>
+              val defaultBlpServer = clientPath.getParent.resolve("blp-server")
+              if (Files.exists(defaultBlpServer)) {
+                Some(AvailableAtPath(defaultBlpServer))
+              } else {
+                logger.debug(s"Missing `blp-server` executable at $defaultBlpServer")
                 None
+              }
             }
-          }
+
+            installedBlpServer.orElse {
+              val blpServerUnderHome = Environment.defaultBloopDirectory.resolve("blp-server")
+              if (Files.exists(blpServerUnderHome))
+                Some(AvailableAtPath(blpServerUnderHome))
+              else {
+                logger.debug(s"Missing `blp-server` executable at $blpServerUnderHome")
+                import scala.concurrent.ExecutionContext.Implicits.global
+                DependencyResolution.resolveWithErrors(
+                  "ch.epfl.scala",
+                  "bloop-frontend_2.12",
+                  bloopVersion,
+                  logger
+                ) match {
+                  case Right(jars) => Some(ResolvedAt(jars))
+                  case Left(value) =>
+                    logger.error("Unexpected error when resolving Bloop server via coursier!")
+                    logger.error(value.getMessage())
+                    logger.trace(value)
+                    None
+                }
+              }
+            }
         }
     }
   }

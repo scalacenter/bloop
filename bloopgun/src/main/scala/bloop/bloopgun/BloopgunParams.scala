@@ -9,5 +9,5 @@ final case class BloopgunParams(
     nailgunShowVersion: Boolean = false,
     args: List[String] = Nil,
     server: Boolean = false,
-    serverParams: ServerConfig = ServerConfig()
+    serverConfig: ServerConfig = ServerConfig()
 )
