@@ -342,10 +342,6 @@ abstract class BloopgunCli(in: InputStream, out: PrintStream, err: PrintStream, 
       exitCode: Int,
       logger: SnailgunLogger
   ): Unit = {
-    import scala.concurrent.ExecutionContext.Implicits.global
-    println(
-      DependencyResolution.resolve("ch.epfl.scala", "bloop-frontend_2.12", "1.3.2", System.out)
-    )
     if (exitCode == 0 && cmdArgs.contains("--help")) {
       out.println("Type `--nailgun-help` for help on the Nailgun CLI tool.")
     }
