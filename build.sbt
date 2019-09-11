@@ -23,7 +23,7 @@ val benchmarkBridge = project
 lazy val bloopShared = (project in file("shared"))
   .settings(
     libraryDependencies ++= Seq(
-      Dependencies.bsp,
+      Dependencies.bsp4s,
       Dependencies.zinc,
       Dependencies.xxHashLibrary,
       Dependencies.configDirectories,
@@ -270,8 +270,21 @@ val bloopgunAndLauncherShadeSettings = List(
   )
 )
 
+lazy val bloop4j = project
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig212)
+  .settings(
+    name := "bloop4j",
+    fork in run := true,
+    fork in Test := true,
+    libraryDependencies ++= List(
+      Dependencies.bsp4j
+    )
+  )
+
 lazy val bloopgunShaded = project
   .in(file("bloopgun/target/shaded-module"))
+  .disablePlugins(ScriptedPlugin)
   .enablePlugins(ShadingPlugin)
   .settings(bloopgunAndLauncherShadeSettings)
   .settings(
