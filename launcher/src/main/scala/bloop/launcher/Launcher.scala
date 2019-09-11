@@ -6,6 +6,7 @@ import java.net.URL
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file._
 
+import scala.util.Try
 import scala.concurrent.Promise
 
 import bloop.launcher.LauncherStatus.{
@@ -28,6 +29,7 @@ import bloop.launcher.core.{
 }
 import bloop.bloopgun.util.Environment
 import bloop.launcher.core.Shell.StatusCommand
+import bloop.bloopgun.BloopgunCli
 
 object Launcher
     extends LauncherMain(
@@ -36,9 +38,9 @@ object Launcher
       System.err,
       StandardCharsets.UTF_8,
       Shell.default,
+      nailgunHost = None,
       nailgunPort = None,
-      Promise[Unit](),
-      Installer.defaultWebsiteURL(_)
+      Promise[Unit]()
     )
 
 class LauncherMain(
@@ -47,15 +49,17 @@ class LauncherMain(
     val out: PrintStream,
     charset: Charset,
     val shell: Shell,
+    val nailgunHost: Option[String],
     val nailgunPort: Option[Int],
-    startedServer: Promise[Unit],
-    generateBloopInstallerURL: String => URL
+    startedServer: Promise[Unit]
 ) {
   private final val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
   private final val bloopAdditionalArgs: List[String] = {
-    nailgunPort match {
-      case Some(port) => List("--nailgun-port", port.toString)
-      case None => Nil
+    (nailgunHost, nailgunPort) match {
+      case (Some(host), Some(port)) => List("--nailgun-host", host, "--nailgun-port", port.toString)
+      case (Some(host), None) => List("--nailgun-host", host)
+      case (None, Some(port)) => List("--nailgun-port", port.toString)
+      case (None, None) => Nil
     }
   }
 
@@ -68,6 +72,7 @@ class LauncherMain(
 
   private final val SkipBspConnection = "--skip-bsp-connection"
   def cli(args0: Array[String]): LauncherStatus = {
+    // A poor man's implementation of a CLI
     val (args, extraArgs) = {
       val index = args0.indexOf("--")
       if (index == -1) (args0, Array.empty[String])
@@ -79,8 +84,7 @@ class LauncherMain(
     val skipBspConnection = cliFlags.exists(_ == SkipBspConnection)
     if (cliArgs.size == 1) {
       val bloopVersion = cliArgs.apply(0)
-      val bloopInstallerURL = generateBloopInstallerURL(bloopVersion)
-      runLauncher(bloopVersion, bloopInstallerURL, skipBspConnection, jvmOptions.toList)
+      runLauncher(bloopVersion, skipBspConnection, jvmOptions.toList)
     } else {
       printError(Feedback.NoBloopVersion, out)
       FailedToParseArguments
@@ -89,7 +93,6 @@ class LauncherMain(
 
   def runLauncher(
       bloopVersionToInstall: String,
-      bloopInstallerURL: URL,
       skipBspConnection: Boolean,
       serverJvmOptions: List[String]
   ): LauncherStatus = {
@@ -100,7 +103,6 @@ class LauncherMain(
 
     connectToBloopBspServer(
       bloopVersionToInstall,
-      bloopInstallerURL,
       skipBspConnection,
       bridge,
       serverJvmOptions
@@ -129,27 +131,10 @@ class LauncherMain(
   type ConnectionResult = Either[Unit, Option[Socket]]
   def connectToBloopBspServer(
       bloopVersion: String,
-      bloopInstallerURL: URL,
       skipBspConnection: Boolean,
       bridge: BspBridge,
       serverJvmOptions: List[String]
   ): Either[LauncherStatus, ConnectionResult] = {
-    def ifSessionIsLive[T](establishConnection: => LauncherStatus): LauncherStatus = {
-      bloopBackgroundError match {
-        case Some((cmd, status)) if status.isOk =>
-          printError(s"Unexpected early exit of the bloop server spawned with '$cmd'!", out)
-          if (!status.output.isEmpty) printQuoted(status.output, out)
-          FailedToConnectToServer
-
-        case Some((cmd, status)) =>
-          printError(s"Spawning a bloop server with '$cmd' failed!", out)
-          if (!status.output.isEmpty) printQuoted(status.output, out)
-          FailedToConnectToServer
-
-        case None => establishConnection
-      }
-    }
-
     def openBspSocket(forceTcp: Boolean = false)(
         connect: Boolean => bridge.RunningBspConnection
     ): Either[LauncherStatus, Either[Unit, Option[Socket]]] = {
@@ -160,10 +145,8 @@ class LauncherMain(
           connection match {
             case bridge.RunningBspConnection(BspConnection.Tcp(_, _), _) =>
               Left {
-                ifSessionIsLive {
-                  printError("The launcher failed to establish a bsp connection, aborting...", out)
-                  FailedToOpenBspConnection
-                }
+                printError("The launcher failed to establish a bsp connection, aborting...", out)
+                FailedToOpenBspConnection
               }
 
             case bridge.RunningBspConnection(connection, logs) =>
@@ -173,76 +156,34 @@ class LauncherMain(
       }
     }
 
-    val latestServerStatus = detectServerState(bloopVersion) match {
-      case s @ Some(_) => println(Feedback.DetectedBloopinstallation, out); s
-      case None => recoverFromUninstalledServer(bloopVersion, bloopInstallerURL)
+    if (skipBspConnection) {
+      val bloopgunArgs = List("server") ++ bloopAdditionalArgs ++ serverJvmOptions
+      val bloopgun = newBloopgunCli(bloopVersion, out)
+      Try(bloopgun.run(bloopgunArgs.toArray)).toEither match {
+        case Right(code) if code == 0 => Right(Left(()))
+        case Right(errorCode) =>
+          out.println(s"Error when starting server: $errorCode")
+          Left(FailedToConnectToServer)
+        case Left(t) =>
+          out.println("Exception caught when starting server!")
+          t.printStackTrace(out)
+          Left(FailedToConnectToServer)
+      }
+    } else {
+      openBspSocket(false) { useTcp =>
+        bridge.establishBspConnectionViaBinary(
+          out => newBloopgunCli(bloopVersion, out),
+          bloopAdditionalArgs,
+          useTcp
+        )
+      }
     }
+  }
 
-    latestServerStatus match {
-      case Some(ListeningAndAvailableAt(binary)) =>
-        if (skipBspConnection) Right(Left(()))
-        else {
-          openBspSocket(false) { useTcp =>
-            bridge.establishBspConnectionViaBinary(binary, useTcp)
-          }
-        }
-
-      case Some(AvailableAt(binary)) =>
-        // Start the server if we only have a bloop binary
-        startServerViaScriptInBackground(binary, serverJvmOptions)
-        println("Server was started in a thread, waiting until it's up and running...", out)
-
-        // Run `bloop about` until server is running for a max of N attempts (about 10s)
-        val maxAttempts: Int = 40
-        var attempts: Int = 1
-        var totalMs: Long = 0
-        var listening: Option[ServerStatus] = None
-        while ({
-          listening match {
-            case Some(ListeningAndAvailableAt(_)) => false
-            case _ if attempts <= maxAttempts => true
-            case _ => false
-          }
-        }) {
-          val waitMs = 250.toLong
-          Thread.sleep(waitMs)
-          totalMs += waitMs
-          val port = nailgunPort.getOrElse(8212)
-          println(s"Sleeping for ${waitMs}ms until we connect to server port $port", out)
-          listening = shell.connectToBloopPort(binary, port, out)
-          attempts += 1
-        }
-
-        listening match {
-          case Some(ListeningAndAvailableAt(binary)) =>
-            if (skipBspConnection) Right(Left(()))
-            else {
-              openBspSocket(false) { forceTcp =>
-                bridge.establishBspConnectionViaBinary(binary, forceTcp)
-              }
-            }
-
-          case _ =>
-            // Let's diagnose why `bloop about` failed to run for more than 5 attempts
-            Left {
-              ifSessionIsLive {
-                printError(s"Failed to connect to server after waiting ${totalMs}ms", out)
-                FailedToConnectToServer
-              }
-            }
-        }
-
-      // The build server is resolved when `install.py` failed in the system
-      case Some(ResolvedAt(classpath)) =>
-        if (skipBspConnection) Left(FailedToInstallBloop)
-        else {
-          openBspSocket(false) { forceTcp =>
-            bridge.runEmbeddedBspInvocationInBackground(classpath, forceTcp, serverJvmOptions)
-          }
-        }
-
-      case None => Left(FailedToInstallBloop)
-    }
+  def newBloopgunCli(bloopVersion: String, out: PrintStream): BloopgunCli = {
+    val dummyIn = new ByteArrayInputStream(new Array(0))
+    val bloopgunShell = bloop.bloopgun.core.Shell.default
+    new BloopgunCli(bloopVersion, dummyIn, out, out, bloopgunShell)
   }
 
   def detectServerState(bloopVersion: String): Option[ServerStatus] = {
@@ -284,105 +225,5 @@ class LauncherMain(
         )
         None
     }
-  }
-
-  /**
-   * Install the server by the universal method (install.py) or, if that fails, by resolving it.
-   *
-   * When the server is not installed, we need to figure out a way to bring it to the user's
-   * computer. Therefore, we first try the `install.py` universal method to install bloop and
-   * all its scripts. This method can fail if, for example, python is not in the classpath or
-   * the installation script errors. As a fallback, we resolve bloop with coursier and execute
-   * an embedded cli as the last attempt to obtain a bloop instance running. This method does
-   * not depend on bloop, it just requires internet connection.
-   *
-   * @param bloopVersion The version we want to install, passed in by the client.
-   * @return An optional server state depending on whether any of the installation method succeeded.
-   */
-  def recoverFromUninstalledServer(
-      bloopVersion: String,
-      bloopInstallerURL: URL
-  ): Option[ServerStatus] = {
-    isValidBloopVersion(bloopVersion) match {
-      case Some(true) =>
-        println(Feedback.installingBloop(bloopVersion), out)
-        val fullyInstalled = Installer.installBloopBinaryInHomeDir(
-          launcherTmpDir,
-          Environment.defaultBloopDirectory,
-          bloopVersion,
-          out,
-          detectServerState(_),
-          shell,
-          bloopInstallerURL
-        )
-
-        fullyInstalled.orElse {
-          println(Feedback.UseFallbackInstallation, out)
-          val (bloopDependency, vanillaResolution) =
-            Installer.resolveServer(bloopVersion, true, out)
-          if (vanillaResolution.errors.isEmpty) {
-            val jars = Installer.fetchJars(vanillaResolution, out)
-            if (jars.isEmpty) None else Some(ResolvedAt(jars))
-          } else {
-            val stringBloopDep = Installer.fromDependencyToString(bloopDependency)
-            printError(Feedback.resolvingDependencyWithNoScalaSuffix(stringBloopDep), out)
-
-            // Before failing, let's try resolving bloop without a scala suffix to support future versions out of the box
-            val (_, versionlessResolution) = Installer.resolveServer(bloopVersion, false, out)
-            if (versionlessResolution.errors.isEmpty) {
-              val jars = Installer.fetchJars(versionlessResolution, out)
-              if (jars.isEmpty) None else Some(ResolvedAt(jars))
-            } else {
-              // Only report errors coming from the first resolution (second resolution was a backup)
-              val prettyErrors = vanillaResolution.errors.map {
-                case ((module, version), errors) =>
-                  s"  $module:$version\n${errors.map("    " + _.replace("\n", "    \n")).mkString("\n")}"
-              }
-
-              printError(s"Failed to resolve '${bloopDependency}'... the server cannot start!", out)
-              val errorMsg = s"Resolution error:\n${prettyErrors.mkString("\n")}"
-              None
-            }
-          }
-        }
-
-      case _ => None
-    }
-  }
-
-  // Reused across the two different ways we can run a server
-  @volatile private var bloopBackgroundError: Option[(String, StatusCommand)] = None
-
-  /**
-   * Start a server in the background by using the python script `bloop server`.
-   *
-   * This operation can take a while in some operating systems (most notably Windows, Unix is fast).
-   * After running a thread in the background, we will wait until the server is up.
-   *
-   * @param binary The list of arguments that make the python binary script we want to run.
-   */
-  def startServerViaScriptInBackground(binary: List[String], jvmOptions: List[String]): Unit = {
-    // Always keep a server running in the background by making it a daemon thread
-    shell.startThread("bsp-server-background", true) {
-      // Running 'bloop server' should always work if v > 1.1.0
-      val startCmd = {
-        val cmd = nailgunPort match {
-          case Some(port) => binary.diff(bloopAdditionalArgs) ++ List("server", port.toString)
-          case None => binary ++ List("server")
-        }
-
-        cmd ++ jvmOptions
-      }
-
-      println(Feedback.startingBloopServer(startCmd), out)
-      val status = shell.runCommand(startCmd, Environment.cwd, None)
-
-      // Communicate to the driver logic in `connectToServer` if server failed or not
-      bloopBackgroundError = Some(startCmd.mkString(" ") -> status)
-
-      ()
-    }
-
-    ()
   }
 }

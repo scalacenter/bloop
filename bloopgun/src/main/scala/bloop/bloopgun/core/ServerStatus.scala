@@ -8,6 +8,7 @@ import bloop.bloopgun.core.Shell.StatusCommand
 import snailgun.logging.Logger
 import bloop.bloopgun.ServerConfig
 import java.nio.file.Paths
+import bloop.bloopgun.util.Feedback
 
 sealed trait ServerStatus
 sealed trait LocatedServer extends ServerStatus
@@ -46,6 +47,7 @@ object ServerStatus {
       case None =>
         shell.findCmdInPath("blp-server") match {
           case StatusCommand(0, outputPath) =>
+            logger.info(Feedback.DetectedBloopInstallation)
             val serverLocationFromPath = Paths.get(outputPath)
             if (Files.exists(serverLocationFromPath)) Some(AvailableAtPath(serverLocationFromPath))
             else Some(AvailableWithCommand(List("blp-server")))
@@ -56,6 +58,7 @@ object ServerStatus {
             val installedBlpServer = Environment.executablePath.flatMap { clientPath =>
               val defaultBlpServer = clientPath.getParent.resolve("blp-server")
               if (Files.exists(defaultBlpServer)) {
+                logger.info(Feedback.DetectedBloopInstallation)
                 Some(AvailableAtPath(defaultBlpServer))
               } else {
                 logger.debug(s"Missing `blp-server` executable at $defaultBlpServer")
@@ -65,9 +68,10 @@ object ServerStatus {
 
             installedBlpServer.orElse {
               val blpServerUnderHome = Environment.defaultBloopDirectory.resolve("blp-server")
-              if (Files.exists(blpServerUnderHome))
+              if (Files.exists(blpServerUnderHome)) {
+                logger.info(Feedback.DetectedBloopInstallation)
                 Some(AvailableAtPath(blpServerUnderHome))
-              else {
+              } else {
                 logger.debug(s"Missing `blp-server` executable at $blpServerUnderHome")
                 import scala.concurrent.ExecutionContext.Implicits.global
                 DependencyResolution.resolveWithErrors(

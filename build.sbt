@@ -243,45 +243,51 @@ lazy val bloopgun: Project = project
     }
   )
 
+val bloopgunAndLauncherShadeSettings = List(
+  shadingNamespace := "bloop.shaded",
+  // Lists *all* Scala dependencies transitively for the shading to work correctly
+  shadeNamespaces := Set(
+    // Bloopgun direct and transitive deps
+    "snailgun",
+    "bloop",
+    "org.zeroturnaround",
+    "io.github.soc",
+    "org.slf4j",
+    // Coursier direct and transitive deps
+    "coursier",
+    "shapeless",
+    "argonaut",
+    "org.fusesource",
+    "org.jline"
+  ),
+  libraryDependencies ++= List(
+    // Remove JNA from transitive dependency so that they are not shaded
+    ("ch.epfl.scala" %% "bloopgun" % Keys.version.value % "shaded")
+      .excludeAll(sbt.ExclusionRule(organization = "net.java.dev.jna")),
+    // Add them back so that the shaded binary works, otherwise fails
+    Dependencies.jna,
+    Dependencies.jnaPlatform
+  )
+)
+
 lazy val bloopgunShaded = project
   .in(file("bloopgun/target/shaded-module"))
   .enablePlugins(ShadingPlugin)
+  .settings(bloopgunAndLauncherShadeSettings)
   .settings(
     name := "bloopgun-shaded",
     fork in run := true,
     fork in Test := true,
     bloopGenerate in Compile := None,
-    bloopGenerate in Test := None,
-    shadingNamespace := "bloop.shaded",
-    // List all Scala dependencies transitively for the shading to work correctly
-    shadeNamespaces := Set(
-      // Bloopgun direct and transitive deps
-      "snailgun",
-      "bloop",
-      "org.zeroturnaround",
-      "io.github.soc",
-      "org.slf4j",
-      // Coursier direct and transitive deps
-      "coursier",
-      "shapeless",
-      "argonaut",
-      "org.fusesource",
-      "org.jline"
-    ),
-    libraryDependencies ++= List(
-      // Remove JNA from transitive dependency so that they are not shaded
-      ("ch.epfl.scala" %% "bloopgun" % Keys.version.value % "shaded")
-        .excludeAll(sbt.ExclusionRule(organization = "net.java.dev.jna")),
-      // Add them back so that the shaded binary works, otherwise fails
-      Dependencies.jna,
-      Dependencies.jnaPlatform
-    )
+    bloopGenerate in Test := None
   )
 
 lazy val launcher: Project = project
+  .enablePlugins(ShadingPlugin)
   .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
+  .settings(bloopgunAndLauncherShadeSettings)
   .settings(
     name := "bloop-launcher",
     fork in Test := true,

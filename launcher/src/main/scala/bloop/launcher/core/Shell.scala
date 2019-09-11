@@ -125,7 +125,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
   }
 
   def deriveBspInvocation(
-      serverCmd: List[String],
       useTcp: Boolean,
       tempDir: Path
   ): (List[String], BspConnection) = {
@@ -133,13 +132,13 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     if (useTcp || Environment.isWindows) {
       // We draw a random port from a "safe" tcp port range...
       val randomPort = Shell.portNumberWithin(17812, 18222)
-      val cmd = serverCmd ++ List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
+      val cmd = List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
       (cmd, BspConnection.Tcp("127.0.0.1", randomPort))
     } else {
       // Let's be conservative with names here, socket files have a 100 char limit
       val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath
       Files.deleteIfExists(socketPath)
-      val cmd = serverCmd ++ List("bsp", "--protocol", "local", "--socket", socketPath.toString)
+      val cmd = List("bsp", "--protocol", "local", "--socket", socketPath.toString)
       (cmd, BspConnection.UnixLocal(socketPath))
     }
   }

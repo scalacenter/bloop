@@ -1,5 +1,7 @@
 package bloop.bloopgun.core
 
+import bloop.bloopgun.util.Feedback
+
 import coursier.core.Repository
 import coursier.error.CoursierError
 
@@ -53,7 +55,7 @@ object DependencyResolution {
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[Path]] = {
     import coursier._
-    logger.info(s"Resolving $organization:$module:$version...")
+    logger.info(Feedback.resolvingDependency(s"$organization:$module:$version"))
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)
     val dependency = Dependency(Module(org, moduleName), version)

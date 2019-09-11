@@ -57,17 +57,19 @@ import bloop.bloopgun.core.LocatedServer
  * client start a session. Exiting requires the intervention of the user
  * because it can affect already connected clients to the server instance.
  */
-abstract class BloopgunCli(
+class BloopgunCli(
     bloopVersion: String,
     in: InputStream,
     out: PrintStream,
     err: PrintStream,
     shell: Shell
 ) {
-  def exit(code: Int): Unit
-  def run(args: Array[String]): Unit = {
+  def run(args: Array[String]): Int = {
     var setServer: Boolean = false
     var setPort: Boolean = false
+    var parsedServerOptionFlag: Option[String] = None
+    var additionalCmdArgs: List[String] = Nil
+
     val cliParser = {
       val builder = OParser.builder[BloopgunParams]
       val nailgunServerOpt = builder
@@ -97,7 +99,10 @@ abstract class BloopgunCli(
         .arg[String]("<cmd>...")
         .optional()
         .unbounded()
-        .action((arg, params) => params.copy(args = params.args ++ List(arg)))
+        .action { (arg, params) =>
+          additionalCmdArgs = additionalCmdArgs ++ List(arg)
+          params
+        }
         .text("The command and arguments for the Bloop server")
 
       // Here for backwards bincompat reasons with previous Python-based bloop client
@@ -151,9 +156,22 @@ abstract class BloopgunCli(
         )
     }
 
-    OParser.parse(cliParser, args, BloopgunParams()) match {
-      case None => exit(1)
-      case Some(params) =>
+    import scopt.{OParserSetup, DefaultOParserSetup}
+    val setup: OParserSetup = new DefaultOParserSetup {
+      override def errorOnUnknownArgument: Boolean = false
+      override def reportWarning(msg: String): Unit = {
+        if (msg.startsWith("Unknown option ")) {
+          additionalCmdArgs = additionalCmdArgs ++ List(msg.stripPrefix("Unknown option "))
+        } else {
+          err.println(msg)
+        }
+      }
+    }
+
+    OParser.parse(cliParser, args, BloopgunParams(), setup) match {
+      case None => 1
+      case Some(params0) =>
+        val params = params0.copy(args = additionalCmdArgs)
         val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
         if (params.nailgunShowVersion)
           logger.info(s"Nailgun protocol v${Defaults.Version}")
@@ -167,13 +185,13 @@ abstract class BloopgunCli(
 
         if (params.server) {
           shell.connectToBloopPort(Nil, config, logger) match {
-            case Some(_) => logger.info(s"Server is already running at $config, exiting!")
+            case Some(_) => logger.info(s"Server is already running at $config, exiting!"); 0
             case None => fireCommand("about", Array.empty, params, config, logger)
           }
         } else {
           params.args match {
             case Nil if params.help => fireCommand("help", Array.empty, params, config, logger)
-            case Nil => errorAndExit("Missing CLI command for Bloop server!", logger)
+            case Nil => logger.error("Missing CLI command for Bloop server!"); 1
             case cmd :: cmdArgs => fireCommand(cmd, cmdArgs.toArray, params, config, logger)
           }
         }
@@ -192,7 +210,7 @@ abstract class BloopgunCli(
       params: BloopgunParams,
       config: ServerConfig,
       logger: SnailgunLogger
-  ) = {
+  ): Int = {
     var consoleCmdOutFile: Path = null
     val cmdArgs = {
       if (cmd != "console") initialCmdArgs
@@ -220,18 +238,26 @@ abstract class BloopgunCli(
       val code = client.run(cmd, cmdArgs, cwd, env, streams, logger, noCancel, isInteractive)
       logger.debug(s"Return code is $code")
       runAfterCommand(cmd, cmdArgs, consoleCmdOutFile, code, logger)
-      exit(code)
+      code
     }
 
     try executeCmd(client)
     catch {
       case _: ConnectException =>
-        // Attempt to start server here, move launcher logic
-        logger.info(s"No server running in ${config}, let's fire one...")
-        fireServer(params, config, bloopVersion, logger) match {
-          case Some(l: ListeningAndAvailableAt) => executeCmd(client)
-          case None => errorAndExit(Feedback.serverCouldNotBeStarted(config), logger)
+        cmd match {
+          case "ng-stop" | "exit" =>
+            logger.info(s"No server running at ${config}, skipping 'exit' or 'ng-stop' command!")
+            0
+
+          case _ =>
+            // Attempt to start server here, move launcher logic
+            logger.info(s"No server running at ${config}, let's fire one...")
+            fireServer(params, config, bloopVersion, logger) match {
+              case Some(l: ListeningAndAvailableAt) => executeCmd(client)
+              case None => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
+            }
         }
+
     } finally {
       if (consoleCmdOutFile != null) {
         Files.deleteIfExists(consoleCmdOutFile)
@@ -367,7 +393,7 @@ abstract class BloopgunCli(
       }
 
       val startCmd = binary ++ serverArgs ++ jvmOptions
-      logger.info(s"Starting bloop server at $config...")
+      logger.info(Feedback.startingBloopServer(config))
       logger.debug(s"Start command: $startCmd")
 
       // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
@@ -383,57 +409,53 @@ abstract class BloopgunCli(
     }
   }
 
-  def errorAndExit(msg: String, logger: SnailgunLogger, code: Int = 1): Unit = {
-    logger.error(msg); exit(code)
-  }
-
   private def runAfterCommand(
       cmd: String,
       cmdArgs: Array[String],
       cmdOutFile: Path,
       exitCode: Int,
       logger: SnailgunLogger
-  ): Unit = {
+  ): Int = {
     if (exitCode == 0 && cmdArgs.contains("--help")) {
       logger.info("Type `--nailgun-help` for help on the Nailgun CLI tool.")
     }
 
     if (exitCode != 0 && cmd == "repl") {
       // Assumes `repl` is not a valid Bloop command, provides user hint to use console instead
-      errorAndExit(s"Command `repl` doesn't exist in Bloop, did you mean `console`?", logger)
-    }
+      logger.error(s"Command `repl` doesn't exist in Bloop, did you mean `console`?")
+      1
+    } else {
+      val requiresAmmonite = exitCode == 0 && cmdOutFile != null && cmd == "console"
+      if (!requiresAmmonite) 0
+      else {
+        def processAmmoniteOutFile: Int = {
+          val contents = new String(Files.readAllBytes(cmdOutFile), StandardCharsets.UTF_8)
+          val replCoursierCmd = contents.trim.split(" ")
+          if (replCoursierCmd.length == 0) {
+            logger.error("Unexpected empty REPL command after running console in Bloop server!")
+            1
+          } else {
+            val status = shell.runCommandInheritingIO(
+              replCoursierCmd.toList,
+              Environment.cwd,
+              None,
+              attachTerminal = true
+            )
 
-    if (exitCode == 0 && cmdOutFile != null && cmd == "console") {
-      def processAmmoniteOutFile = {
-        val contents = new String(Files.readAllBytes(cmdOutFile), StandardCharsets.UTF_8)
-        val replCoursierCmd = contents.trim.split(" ")
-        if (replCoursierCmd.length == 0) {
-          errorAndExit(
-            "Unexpected empty REPL command after running console in Bloop server!",
-            logger
-          )
-        } else {
-          val status = shell.runCommandInheritingIO(
-            replCoursierCmd.toList,
-            Environment.cwd,
-            None,
-            attachTerminal = true
-          )
-
-          exit(status.code)
+            status.code
+          }
         }
-      }
 
-      val replKindFlagIndex = cmdArgs.indexOf("--repl")
-      if (replKindFlagIndex < 0) processAmmoniteOutFile
-      val replKind = cmdArgs(replKindFlagIndex + 1)
-      if (replKind != "ammonite") ()
-      else processAmmoniteOutFile
+        val replKindFlagIndex = cmdArgs.indexOf("--repl")
+        if (replKindFlagIndex < 0) processAmmoniteOutFile
+        val replKind = cmdArgs(replKindFlagIndex + 1)
+        if (replKind != "ammonite") 0
+        else processAmmoniteOutFile
+      }
     }
   }
 }
 
 object Bloopgun extends BloopgunCli("1.3.2", System.in, System.out, System.err, Shell.default) {
-  def main(args: Array[String]): Unit = run(args)
-  override def exit(code: Int) = System.exit(code)
+  def main(args: Array[String]): Unit = System.exit(run(args))
 }
