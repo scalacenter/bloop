@@ -6,12 +6,12 @@ import scala.meta.jsonrpc.CancelParams
 import scala.meta.jsonrpc.Notification
 import scala.meta.jsonrpc.JsonRpcClient
 import scala.meta.jsonrpc.MessageWriter
-
 import io.circe.Decoder
 import io.circe.Encoder
 import io.circe.syntax._
 import java.io.OutputStream
 import java.nio.ByteBuffer
+import java.nio.channels.Channels
 
 import monix.eval.Task
 import monix.eval.Callback
@@ -24,7 +24,6 @@ import monix.execution.atomic.AtomicInt
 import scala.concurrent.Future
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
-
 import scribe.LoggerSupport
 
 /**
@@ -139,11 +138,12 @@ object BloopLanguageClient {
   ): Observer.Sync[ByteBuffer] = {
     new Observer.Sync[ByteBuffer] {
       private[this] var isClosed: Boolean = false
+      private[this] val channel = Channels.newChannel(out)
       override def onNext(elem: ByteBuffer): Ack = out.synchronized {
         if (isClosed) Ack.Stop
         else {
           try {
-            while (elem.hasRemaining) out.write(elem.get().toInt)
+            channel.write(elem)
             out.flush()
             Ack.Continue
           } catch {
@@ -157,6 +157,7 @@ object BloopLanguageClient {
       override def onError(ex: Throwable): Unit = ()
       override def onComplete(): Unit = {
         out.synchronized {
+          channel.close()
           out.close()
         }
       }
