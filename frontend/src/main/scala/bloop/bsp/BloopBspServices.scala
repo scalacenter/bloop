@@ -27,14 +27,7 @@ import bloop.testing.{BspLoggingEventHandler, TestInternals}
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{
-  BuildTargetIdentifier,
-  DebugSessionAddress,
-  LaunchParametersDataKind,
-  MessageType,
-  ShowMessageParams,
-  endpoints
-}
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import monix.eval.Task
@@ -475,7 +468,7 @@ final class BloopBspServices(
       def convert[A: Decoder](
           f: A => Either[String, DebuggeeRunner]
       ): Either[ProtocolError, DebuggeeRunner] = {
-        params.parameters.data.as[A] match {
+        params.data.as[A] match {
           case Left(error) =>
             Left(JsonRpcResponse.invalidRequest(error.getMessage()))
           case Right(params) =>
@@ -486,10 +479,10 @@ final class BloopBspServices(
         }
       }
 
-      params.parameters.dataKind match {
-        case LaunchParametersDataKind.scalaMainClass =>
+      params.dataKind match {
+        case bsp.DebugSessionParamsDataKind.scalaMainClass =>
           convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
-        case LaunchParametersDataKind.scalaTestSuites =>
+        case bsp.DebugSessionParamsDataKind.scalaTestSuites =>
           convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
