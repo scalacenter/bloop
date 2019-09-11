@@ -49,12 +49,11 @@ final class DebugSession(
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
 
-  @volatile private var isDisconnecting = false
   private val state = new Synchronized(initialState)
 
   // contains all [[DebugSession.TerminalEvents]] already sent.
   // Communication is done only when all of them were sent.
-  private val terminalEventsSent = mutable.Set.empty[String]
+  private val remainingTerminalEvents = DebugSession.terminalEvents
 
   /**
    * Redirects to [[startDebuggeeAndServer()]].
@@ -119,8 +118,8 @@ final class DebugSession(
         ()
 
       case "disconnect" =>
-        // when disconnecting, we cannot expect the 'exited' event to be sent
-        isDisconnecting = true
+        // "exited" event may not be sent if the debugger disconnects from the jvm beforehand
+        remainingTerminalEvents.remove("exited")
 
         if (DebugSession.shouldRestart(request)) {
           sessionStatusPromise.trySuccess(DebugSession.Restarted)
@@ -156,18 +155,12 @@ final class DebugSession(
     try {
       super.sendEvent(event)
     } finally {
-      if (DebugSession.TerminalEvents.contains(event.`type`)) {
-        terminalEventsSent.add(event.`type`)
+      remainingTerminalEvents.remove(event.`type`)
 
-        def isTerminated = {
-          terminalEventsSent.contains("terminated") &&
-          (isDisconnecting || terminalEventsSent.contains("exited"))
-        }
-
-        if (isTerminated) {
-          communicationDone.trySuccess(()) // can already be set when canceling
-          // Don't close socket, it terminates on its own
-        }
+      val isTerminated = remainingTerminalEvents.isEmpty
+      if (isTerminated) {
+        communicationDone.trySuccess(()) // might already be set when canceling
+        // Don't close socket, it terminates on its own
       }
     }
   }
@@ -220,8 +213,6 @@ final class DebugSession(
 }
 
 object DebugSession {
-  private[DebugSession] val TerminalEvents = Set("exited", "terminated")
-
   sealed trait ExitStatus
   final case object Restarted extends ExitStatus
   final case object Terminated extends ExitStatus
@@ -230,6 +221,8 @@ object DebugSession {
   final case class Idle(runner: DebugSessionLogger => Task[Unit]) extends State
   final case class Started(debuggee: Cancelable) extends State
   final case object Cancelled extends State
+
+  private def terminalEvents: mutable.Set[String] = mutable.Set("terminated", "exited")
 
   def apply(
       socket: Socket,
