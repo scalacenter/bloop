@@ -21,7 +21,7 @@ class ScalaNativeToolchainSpec {
       val platform = p.platform match {
         case nativePlatform: Platform.Native =>
           nativePlatform.copy(
-            toolchain = Some(ScalaNativeToolchain.apply(this.getClass.getClassLoader))
+            toolchain = Some(ScalaNativeToolchain.apply(getClass.getClassLoader))
           )
         case _ => p.platform
       }

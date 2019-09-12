@@ -7,7 +7,6 @@ lazy val `test-project` =
     .settings(
       name := "test-project",
       scalaVersion := "2.11.12",
-      scalacOptions += "-Ywarn-unused",
       mainClass in (Compile, run) := Some("hello.App")
     )
 

@@ -156,7 +156,7 @@ object Config {
    * Represents the native platform and all the options it takes.
    *
    * For the description of these fields, see:
-   * http://static.javadoc.io/org.scala-native/tools_2.10/0.3.7/index.html#scala.scalanative.build.Config
+   * https://static.javadoc.io/org.scala-native/tools_2.12/0.3.9/scala/scalanative/build/Config.html
    *
    * The only field that has been replaced for user-friendliness is `targetTriple` by `platform`.
    */

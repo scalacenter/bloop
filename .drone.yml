@@ -22,10 +22,6 @@ matrix:
           "jsBridge10/test" \
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
-          "nativeBridge03/test" \
-          "nativeBridge04/test" \
-          "nativeBridge03/publishLocal" \
-          "nativeBridge04/publishLocal" \
           "frontend/runMain bloop.util.CommandsDocGenerator --test" \
           "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
           "frontend/testOnly -bloop.ScalaVersionsSpec" \
@@ -46,13 +42,15 @@ matrix:
           "frontend/testOnly bloop.ScalaVersionsSpec" \
           "backend/test" \
           "jsBridge10/test" \
-          "nativeBridge03/test" \
-          "nativeBridge04/test" \
           "jsBridge06/publishLocal" \
           "jsBridge10/publishLocal" \
-          "nativeBridge03/publishLocal" \
-          "nativeBridge04/publishLocal" \
           "frontend/testOnly -bloop.ScalaVersionsSpec"
+  TEST_BLOOP_NATIVE:
+    - bin/sbt-ci.sh \
+          "nativeBridge03/test" \
+          "nativeBridge04/test" \
+          "nativeBridge03/publishLocal" \
+          "nativeBridge04/publishLocal"
 
   RUN_COMMUNITY_BUILD_EXTRA:
     - bin/sbt-ci.sh \
@@ -155,6 +153,7 @@ pipeline:
       - curl -o- -L https://yarnpkg.com/install.sh | bash
       - yarn --help
       - ${TEST_BLOOP}
+      - ${TEST_BLOOP_NATIVE}
       - . bin/check-good-practices.sh # Check that good practices in the repo hold
 
   build-jdk11:

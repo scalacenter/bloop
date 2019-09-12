@@ -36,7 +36,13 @@ lazy val bloopShared = (project in file("shared"))
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 import build.Dependencies
-import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version}
+import build.Dependencies.{
+  Scala210Version,
+  Scala211Version,
+  Scala212Version,
+  Sbt013Version,
+  Sbt1Version
+}
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
@@ -230,7 +236,7 @@ lazy val sbtBloop10 = project
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
-  .settings(sbtPluginSettings("1.1.4", jsonConfig212))
+  .settings(sbtPluginSettings(Sbt1Version, jsonConfig212))
   .dependsOn(jsonConfig212)
 
 // Let's remove scripted for 0.13, we only test 1.0
@@ -238,7 +244,7 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("0.13.18", jsonConfig210))
+  .settings(sbtPluginSettings(Sbt013Version, jsonConfig210))
   .dependsOn(jsonConfig210)
 
 lazy val mavenBloop = project
@@ -323,7 +329,7 @@ val docs = project
     name := "bloop-docs",
     moduleName := "bloop-docs",
     skip in publish := true,
-    scalaVersion := "2.12.9",
+    scalaVersion := Scala212Version,
     mdoc := run.in(Compile).evaluated,
     mainClass.in(Compile) := Some("bloop.Docs"),
     resources.in(Compile) ++= {
@@ -429,7 +435,7 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     skip in publish := true,
-    crossSbtVersions := Seq("1.2.8", "0.13.18"),
+    crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
     commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
