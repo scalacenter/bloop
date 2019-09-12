@@ -91,8 +91,8 @@ class BloopgunCli(
       val nailgunHelpOpt = builder
         .help("nailgun-help")
         .text("Print Bloopgun's help client information")
-      val verboseOpt = builder
-        .opt[Unit]("verbose")
+      val nailgunVerboseOpt = builder
+        .opt[Unit]("nailgun-verbose")
         .action((_, params) => params.copy(verbose = true))
         .text("Enable verbosity of Bloopgun's logs")
       val cmdOpt = builder
@@ -150,7 +150,7 @@ class BloopgunCli(
           helpOpt,
           nailgunHelpOpt,
           nailgunShowVersionOpt,
-          verboseOpt,
+          nailgunVerboseOpt,
           cmdOpt,
           serverCmd
         )
@@ -269,7 +269,7 @@ class BloopgunCli(
   /**
    * Reads all jvm options required to start the Bloop server, in order of priority:
    *
-   * 1. Read `$HOME/.bloop/.jvmopts` file.
+   * 1. Read `$$HOME/.bloop/.jvmopts` file.
    * 2. Read `.jvmopts` file right next to the location of the bloop server jar.
    * 3. Parse `-J` prefixed jvm options in the arguments passed to the server command.
    *
