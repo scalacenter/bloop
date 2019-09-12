@@ -7,7 +7,7 @@ import bloop.cli.BspProtocol
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.LaunchParametersDataKind._
+import ch.epfl.scala.bsp.DebugSessionParamsDataKind._
 
 object DebugProtocolSpec extends DebugBspBaseSuite {
   override val protocol: BspProtocol = BspProtocol.Local
@@ -177,8 +177,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
       val targets = List(target)
       val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
       val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-      val parameters = bsp.LaunchParameters(scalaMainClass, json)
-      bsp.DebugSessionParams(targets, parameters)
+      bsp.DebugSessionParams(targets, scalaMainClass, json)
     }
 
   def testSuiteParams(filters: List[String]): bsp.BuildTargetIdentifier => bsp.DebugSessionParams =
@@ -186,7 +185,6 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
       import io.circe.syntax._
       val targets = List(target)
       val json = filters.asJson
-      val parameters = bsp.LaunchParameters(scalaTestSuites, json)
-      bsp.DebugSessionParams(targets, parameters)
+      bsp.DebugSessionParams(targets, scalaTestSuites, json)
     }
 }

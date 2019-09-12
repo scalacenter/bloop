@@ -45,6 +45,7 @@ final class DebugSession(
   // A set of all processed launched requests by the client
   private val launchedRequests = mutable.Set.empty[LaunchId]
 
+  private val isDisconnected = Atomic(false)
   private val communicationDone = Promise[Unit]()
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
@@ -118,23 +119,25 @@ final class DebugSession(
         ()
 
       case "disconnect" =>
-        // "exited" event may not be sent if the debugger disconnects from the jvm beforehand
-        remainingTerminalEvents.remove("exited")
+        try {
+          if (DebugSession.shouldRestart(request)) {
+            sessionStatusPromise.trySuccess(DebugSession.Restarted)
+          }
 
-        if (DebugSession.shouldRestart(request)) {
-          sessionStatusPromise.trySuccess(DebugSession.Restarted)
+          sendAcknowledgment(request)
+        } finally {
+          // "exited" event may not be sent if the debugger disconnects from the jvm beforehand
+          remainingTerminalEvents.remove("exited")
+
+          state.transform {
+            case Started(debuggee) =>
+              cancelDebuggee(debuggee)
+              super.dispatchRequest(request)
+              Cancelled
+            case otherState =>
+              otherState
+          }
         }
-
-        state.transform {
-          case Started(debuggee) =>
-            cancelDebuggee(debuggee)
-            Cancelled
-          case otherState =>
-            otherState
-        }
-
-        super.dispatchRequest(request)
-
       case _ => super.dispatchRequest(request)
     }
   }
@@ -146,6 +149,12 @@ final class DebugSession(
         // Trick dap4j into thinking we're processing a launch instead of attach
         response.command = Command.LAUNCH.getName
         super.sendResponse(response)
+      case "disconnect" =>
+        // we are sending a response manually but the actual handler is also sending one so let's ignore it
+        // because our disconnection must be successful as it is basically just cancelling the debuggee
+        if (isDisconnected.compareAndSet(false, true)) {
+          super.sendResponse(response)
+        }
       case _ =>
         super.sendResponse(response)
     }
@@ -163,6 +172,11 @@ final class DebugSession(
         // Don't close socket, it terminates on its own
       }
     }
+  }
+
+  private def sendAcknowledgment(request: Request): Unit = {
+    val ack = new Response(request.seq, request.command, true)
+    sendResponse(ack)
   }
 
   /**
