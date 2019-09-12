@@ -612,7 +612,7 @@ final class BloopBspServices(
   }
 
   def run(params: bsp.RunParams): BspEndpointResponse[bsp.RunResult] = {
-    def getMainClass(project: Project, state: State): Either[Exception, bsp.ScalaMainClass] = {
+    def parseMainClass(project: Project, state: State): Either[Exception, bsp.ScalaMainClass] = {
       params.dataKind match {
         // TODO replace with RunParamsDataKind.ScalaMainClass once bsp updates
         case Some("scala-main-class") =>
@@ -643,7 +643,7 @@ final class BloopBspServices(
       import bloop.engine.tasks.LinkTask.{linkMainWithJs, linkMainWithNative}
       val cwd = state.commonOptions.workingPath
 
-      getMainClass(project, state) match {
+      parseMainClass(project, state) match {
         case Left(error) =>
           Task.now(sys.error(s"Failed to run main class in $project due to: ${error.getMessage}"))
         case Right(mainClass) =>
