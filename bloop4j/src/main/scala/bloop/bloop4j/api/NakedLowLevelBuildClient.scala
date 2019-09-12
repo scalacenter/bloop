@@ -1,12 +1,14 @@
-package bloop.bloop4j
+package bloop.bloop4j.api
 
 import bloop.config.Config
+import bloop.bloop4j.util.Environment
+import bloop.bloop4j.api.internal.TestBuildClient
 
 import java.net.URI
 import java.{util => ju}
 import java.nio.file.{Files, Path}
 import java.io.InputStream
-import java.io.PrintStream
+import java.io.OutputStream
 import java.util.concurrent.CompletableFuture
 
 import org.eclipse.lsp4j.jsonrpc.Launcher
@@ -20,8 +22,13 @@ import ch.epfl.scala.bsp4j.InitializeBuildResult
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 import ch.epfl.scala.bsp4j.CompileParams
 import ch.epfl.scala.bsp4j.CompileResult
+import java.lang.ProcessBuilder.Redirect
 
-class RemoteBloopClient(clientIn: InputStream, clientOut: PrintStream) {
+class NakedLowLevelBuildClient(
+    clientIn: InputStream,
+    clientOut: OutputStream,
+    underlyingProcess: Option[Process]
+) extends LowLevelBuildClientApi[CompletableFuture] {
   val testDirectory = Files.createTempDirectory("remote-bloop-client")
 
   private var client: TestBuildClient = null
@@ -53,8 +60,8 @@ class RemoteBloopClient(clientIn: InputStream, clientOut: PrintStream) {
 
   def exit: CompletableFuture[Unit] = {
     server.buildShutdown().thenApply { _ =>
-      server.onBuildExit()
-      ()
+      try server.onBuildExit()
+      finally ()
     }
   }
 
@@ -80,55 +87,23 @@ class RemoteBloopClient(clientIn: InputStream, clientOut: PrintStream) {
 }
 
 object RemoteBloopClient {
-  def unsafeCreateBuildTarget(bloopConfigPath: Path): BuildTargetIdentifier = {
-    bloop.config.read(bloopConfigPath) match {
-      case Left(value) => throw value
-      case Right(configFile) =>
-        val projectUri = deriveProjectUri(bloopConfigPath, configFile.project.name)
-        new BuildTargetIdentifier(projectUri.toString)
-    }
-  }
+  def fromLauncherJars(
+      buildDir: Path,
+      launcherJars: Seq[Path],
+      additionalEnv: ju.Map[String, String] = new ju.HashMap()
+  ): NakedLowLevelBuildClient = {
+    import scala.collection.JavaConverters._
+    val builder = new ProcessBuilder()
+    val newEnv = builder.environment()
+    newEnv.putAll(additionalEnv)
 
-  def unsafeCreateBuildTarget(
-      bloopConfigDir: Path,
-      configFile: Config.File
-  ): BuildTargetIdentifier = {
-    val projectName = configFile.project.name
-    val configPath = bloopConfigDir.resolve(s"$projectName.json")
-    val projectUri = deriveProjectUri(configPath, projectName)
-    bloop.config.write(configFile, configPath)
-    new BuildTargetIdentifier(projectUri.toString)
-  }
+    builder.redirectInput(Redirect.PIPE)
+    builder.redirectOutput(Redirect.PIPE)
 
-  def deriveProjectUri(projectBaseDir: Path, name: String): URI = {
-    // This is the "idiomatic" way of adding a query to a URI in Java
-    val existingUri = projectBaseDir.toUri
-    new URI(
-      existingUri.getScheme,
-      existingUri.getUserInfo,
-      existingUri.getHost,
-      existingUri.getPort,
-      existingUri.getPath,
-      s"id=${name}",
-      existingUri.getFragment
-    )
-  }
-
-  case class ProjectId(name: String, dir: Path)
-  def projectNameFrom(btid: BuildTargetIdentifier): ProjectId = {
-    val existingUri = new URI(btid.getUri)
-    val uriWithNoQuery = new URI(
-      existingUri.getScheme,
-      existingUri.getUserInfo,
-      existingUri.getHost,
-      existingUri.getPort,
-      existingUri.getPath,
-      null,
-      existingUri.getFragment
-    )
-
-    val name = existingUri.getQuery().stripPrefix("id=")
-    val projectDir = java.nio.file.Paths.get(uriWithNoQuery)
-    ProjectId(name, projectDir)
+    val delimiter = if (Environment.isWindows) ";" else ":"
+    val stringClasspath = launcherJars.map(_.normalize().toAbsolutePath).mkString(delimiter)
+    val cmd = List("java", "-classpath", stringClasspath, "bloop.launcher.Launcher")
+    val process = builder.command(cmd.asJava).directory(buildDir.toFile).start()
+    new NakedLowLevelBuildClient(process.getInputStream(), process.getOutputStream(), Some(process))
   }
 }

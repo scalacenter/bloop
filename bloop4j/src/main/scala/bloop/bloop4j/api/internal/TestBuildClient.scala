@@ -1,4 +1,4 @@
-package bloop.bloop4j
+package bloop.bloop4j.api.internal
 
 import ch.epfl.scala.bsp4j._
 import com.google.gson.{Gson, JsonElement}
