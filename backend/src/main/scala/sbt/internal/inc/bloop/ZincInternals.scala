@@ -1,6 +1,7 @@
 package sbt.internal.inc.bloop
 
 import java.io.File
+import java.{util => ju}
 import java.nio.file.Files
 
 import bloop.ScalaInstance
@@ -65,12 +66,15 @@ object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
   object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
+      def asIntPos(opt: ju.Optional[Integer]): Option[Int] = opt.toOption.map(_.toInt)
+
       // Javac doesn't provide column information, so we just assume beginning of the line
-      val rangePosition = for { startLine <- position.startLine().toOption.map(_.toInt) }
-        yield (startLine, position.startColumn().toOption.map(_.toInt).getOrElse(0))
-      lazy val pointerPosition = for { line <- position.line().toOption.map(_.toInt) }
-        yield (line, position.pointer().toOption.map(_.toInt).getOrElse(0))
-      rangePosition.orElse(pointerPosition)
+      val rangePosition = for { startLine <- asIntPos(position.startLine()) } yield
+        (startLine, asIntPos(position.startColumn()).getOrElse(0))
+      rangePosition.orElse {
+        for { line <- asIntPos(position.line()) } yield
+          (line, asIntPos(position.pointer()).getOrElse(0))
+      }
     }
   }
 
