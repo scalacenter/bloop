@@ -9,14 +9,14 @@ import java.io.InputStream
 import java.io.PrintStream
 import java.util.concurrent.CompletableFuture
 
+import org.eclipse.lsp4j.jsonrpc.Launcher
+
 import ch.epfl.scala.bsp4j.BuildClient
 import ch.epfl.scala.bsp4j.BuildServer
 import ch.epfl.scala.bsp4j.ScalaBuildServer
 import ch.epfl.scala.bsp4j.InitializeBuildParams
 import ch.epfl.scala.bsp4j.BuildClientCapabilities
 import ch.epfl.scala.bsp4j.InitializeBuildResult
-
-import org.eclipse.lsp4j.jsonrpc.Launcher
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 import ch.epfl.scala.bsp4j.CompileParams
 import ch.epfl.scala.bsp4j.CompileResult
@@ -100,7 +100,7 @@ object RemoteBloopClient {
     new BuildTargetIdentifier(projectUri.toString)
   }
 
-  def deriveProjectUri(projectBaseDir: Path, id: String): URI = {
+  def deriveProjectUri(projectBaseDir: Path, name: String): URI = {
     // This is the "idiomatic" way of adding a query to a URI in Java
     val existingUri = projectBaseDir.toUri
     new URI(
@@ -109,8 +109,26 @@ object RemoteBloopClient {
       existingUri.getHost,
       existingUri.getPort,
       existingUri.getPath,
-      s"id=${id}",
+      s"id=${name}",
       existingUri.getFragment
     )
+  }
+
+  case class ProjectId(name: String, dir: Path)
+  def projectNameFrom(btid: BuildTargetIdentifier): ProjectId = {
+    val existingUri = new URI(btid.getUri)
+    val uriWithNoQuery = new URI(
+      existingUri.getScheme,
+      existingUri.getUserInfo,
+      existingUri.getHost,
+      existingUri.getPort,
+      existingUri.getPath,
+      null,
+      existingUri.getFragment
+    )
+
+    val name = existingUri.getQuery().stripPrefix("id=")
+    val projectDir = java.nio.file.Paths.get(uriWithNoQuery)
+    ProjectId(name, projectDir)
   }
 }
