@@ -1,15 +1,16 @@
 package sbt.internal.inc.bloop
 
 import java.io.File
+import java.{util => ju}
 import java.nio.file.Files
 
 import bloop.ScalaInstance
 import bloop.io.AbsolutePath
-import xsbti.{ComponentProvider, Position}
 import sbt.internal.inc.ZincComponentCompiler
-import sbt.internal.inc.javac.{AnalyzingJavaCompiler, DiagnosticsReporter}
+import sbt.internal.inc.javac.AnalyzingJavaCompiler
 import sbt.librarymanagement.{Configurations, ModuleID}
 import xsbti.compile.{ClasspathOptions, JavaCompiler}
+import xsbti.{ComponentProvider, Position}
 
 object ZincInternals {
   def latestVersion: String = ZincComponentCompiler.incrementalVersion
@@ -65,15 +66,14 @@ object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
   object ZincExistsStartPos {
     def unapply(position: Position): Option[(Int, Int)] = {
-      // Use the range position if available first. Otherwise fallback in pointer information.
-      val rangePosition = position.startLine.toOption.flatMap(
-        startLine =>
-          position.startColumn().toOption.map(startColumn => (startLine.toInt, startColumn.toInt))
-      )
+      def asIntPos(opt: ju.Optional[Integer]): Option[Int] = opt.toOption.map(_.toInt)
 
+      // Javac doesn't provide column information, so we just assume beginning of the line
+      val rangePosition = for { startLine <- asIntPos(position.startLine()) } yield
+        (startLine, asIntPos(position.startColumn()).getOrElse(0))
       rangePosition.orElse {
-        position.line.toOption
-          .flatMap(line => position.pointer.toOption.map(column => (line.toInt, column.toInt)))
+        for { line <- asIntPos(position.line()) } yield
+          (line, asIntPos(position.pointer()).getOrElse(0))
       }
     }
   }
@@ -96,10 +96,7 @@ object ZincInternals {
     new AnalyzingJavaCompiler(javac, classpath, instance, cpOptions, lookup, searchClasspath)
   }
 
-  import sbt.internal.inc.UsedName
   import sbt.internal.inc.Relations
-  import sbt.internal.inc.InternalDependencies
-  import sbt.internal.inc.ExternalDependencies
   import sbt.internal.util.Relation
   def copyRelations(
       relations: Relations,

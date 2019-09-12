@@ -11,7 +11,7 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.BuildTargetIdentifier
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, DiagnosticSeverity}
 import ch.epfl.scala.bsp.endpoints.Build
 import monix.execution.atomic.AtomicInt
 
@@ -75,6 +75,14 @@ final class BspServerLogger private (
     ()
   }
 
+  private def bspSeverity(problemSeverity: Severity): DiagnosticSeverity = {
+    problemSeverity match {
+      case Severity.Error => bsp.DiagnosticSeverity.Error
+      case Severity.Warn => bsp.DiagnosticSeverity.Warning
+      case Severity.Info => bsp.DiagnosticSeverity.Information
+    }
+  }
+
   def diagnostic(event: CompilationEvent.Diagnostic): Unit = {
     import sbt.util.InterfaceUtil.toOption
     val message = event.problem.message
@@ -95,14 +103,26 @@ final class BspServerLogger private (
             bsp.Range(pos, pos)
         }
 
-        val severity = problemSeverity match {
-          case Severity.Error => bsp.DiagnosticSeverity.Error
-          case Severity.Warn => bsp.DiagnosticSeverity.Warning
-          case Severity.Info => bsp.DiagnosticSeverity.Information
-        }
-
+        val severity = bspSeverity(problemSeverity)
         val uri = bsp.Uri(file.toPath.toUri)
         val diagnostic = bsp.Diagnostic(pos, Some(severity), None, None, message, None)
+        val textDocument = bsp.TextDocumentIdentifier(uri)
+        val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
+        Build.publishDiagnostics.notify(
+          bsp.PublishDiagnosticsParams(
+            textDocument,
+            buildTargetId,
+            originId,
+            List(diagnostic),
+            event.clear
+          )
+        )
+      case (_, Some(file)) =>
+        val uri = bsp.Uri(file.toPath.toUri)
+        val pos = bsp.Position(0, 0)
+        val range = bsp.Range(pos, pos)
+        val severity = bspSeverity(problemSeverity)
+        val diagnostic = bsp.Diagnostic(range, Some(severity), None, None, message, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
         Build.publishDiagnostics.notify(
