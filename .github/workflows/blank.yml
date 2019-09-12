@@ -1,0 +1,29 @@
+name: CI
+
+on: [pull_request]
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Test on ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build, test and run
+      run: |
+        echo Add other actions to build,
+        echo test, and deploy your project.
+        git log --oneline --graph | head -n 20
+        . bin/set-up-community-build-infra.sh
+        . bin/detect-community-build.sh
+        touch ~/.profile
+        export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+        bin/sbt-ci.sh "show version"
