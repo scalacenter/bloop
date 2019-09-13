@@ -4,6 +4,7 @@ import bloop.util.CacheHashCode
 import scalaz.Show
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 
 sealed trait Dag[T]
 final case class Leaf[T](value: T) extends Dag[T] with CacheHashCode
@@ -93,22 +94,25 @@ object Dag {
    * @return An optional value of a list of dags.
    */
   def dagFor[T](dags: List[Dag[T]], targets: Set[T]): Option[List[Dag[T]]] = {
-    dags.foldLeft[Option[List[Dag[T]]]](None) {
-      case (found: Some[List[Dag[T]]], _) => found
-      case (acc, dag) =>
-        def aggregate(dag: Dag[T]): Option[List[Dag[T]]] = acc match {
-          case Some(dags) => Some(dag :: dags)
-          case None => Some(List(dag))
-        }
-
-        dag match {
-          case Leaf(value) if targets.contains(value) => aggregate(dag)
-          case Leaf(value) => None
-          case Parent(value, children) if targets.contains(value) => aggregate(dag)
-          case Parent(value, children) => dagFor(children, targets)
-          case Aggregate(dags) => dagFor(dags, targets)
-        }
+    val cache = mutable.Map.empty[T, Option[List[Dag[T]]]]
+    def loop(dags: List[Dag[T]], targets: Set[T]): Option[List[Dag[T]]] = {
+      dags.foldLeft[Option[List[Dag[T]]]](None) {
+        case (found: Some[List[Dag[T]]], _) => found
+        case (acc, dag) =>
+          def aggregate(dag: Dag[T]): Option[List[Dag[T]]] = acc match {
+            case Some(dags) => Some(dag :: dags)
+            case None => Some(List(dag))
+          }
+          dag match {
+            case Leaf(value) if targets.contains(value) => aggregate(dag)
+            case Leaf(value) => None
+            case Parent(value, children) if targets.contains(value) => aggregate(dag)
+            case Parent(value, children) => cache.getOrElseUpdate(value, loop(children, targets))
+            case Aggregate(dags) => loop(dags, targets)
+          }
+      }
     }
+    loop(dags, targets)
   }
 
   def transitive[T](dag: Dag[T]): List[Dag[T]] = {
