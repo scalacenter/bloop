@@ -4,7 +4,6 @@ import java.net.{InetSocketAddress, Socket}
 import java.util.concurrent.TimeUnit
 import java.util.logging.{Handler, Level, LogRecord, Logger => JLogger}
 
-import bloop.dap.DebugSession._
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
@@ -29,10 +28,10 @@ import scala.util.Try
  */
 final class DebugSession(
     socket: Socket,
-    initialState: State,
+    initialState: DebugSession.State,
     initialLogger: Logger,
     ioScheduler: Scheduler,
-    loggerAdapter: LoggerAdapter
+    loggerAdapter: DebugSession.LoggerAdapter
 ) extends DapServer(
       socket.getInputStream,
       socket.getOutputStream,
@@ -46,15 +45,17 @@ final class DebugSession(
   private val launchedRequests = mutable.Set.empty[LaunchId]
 
   private val isDisconnected = Atomic(false)
-  private val communicationDone = Promise[Unit]()
+  private val endOfConnection = Promise[Unit]()
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
-
   private val state = new Synchronized(initialState)
 
-  // contains all [[DebugSession.TerminalEvents]] already sent.
-  // Communication is done only when all of them were sent.
-  private val remainingTerminalEvents = DebugSession.terminalEvents
+  /*
+   * We reach an end of connection when all expected terminal events have been
+   * sent from the DAP client to the DAP server. The event types will be
+   * removed from the set as more requests are processed by the client.
+   */
+  private val expectedTerminalEvents = mutable.Set("terminated", "exited")
 
   /**
    * Redirects to [[startDebuggeeAndServer()]].
@@ -73,17 +74,17 @@ final class DebugSession(
    */
   def startDebuggeeAndServer(): Unit = {
     state.transform {
-      case Idle(runner) =>
-        def terminateGracefully(result: Option[Throwable]): Task[Unit] =
-          Task.fromFuture(communicationDone.future).map { _ =>
-            sessionStatusPromise.trySuccess(Terminated)
+      case DebugSession.Idle(runner) =>
+        def terminateGracefully(result: Option[Throwable]): Task[Unit] = {
+          Task.fromFuture(endOfConnection.future).map { _ =>
+            sessionStatusPromise.trySuccess(DebugSession.Terminated)
             socket.close()
           }
+        }
 
         Task(super.run()).runAsync(ioScheduler)
 
-        val logger =
-          new DebugSessionLogger(this, address => debugAddress.success(address), initialLogger)
+        val logger = new DebugSessionLogger(this, addr => debugAddress.success(addr), initialLogger)
 
         // all output events are sent before debuggee task gets finished
         val debuggee = runner(logger)
@@ -91,7 +92,7 @@ final class DebugSession(
           .doOnCancel(terminateGracefully(None))
           .runAsync(ioScheduler)
 
-        Started(debuggee)
+        DebugSession.Started(debuggee)
 
       case otherState =>
         otherState // don't start if already started or cancelled
@@ -126,16 +127,15 @@ final class DebugSession(
 
           sendAcknowledgment(request)
         } finally {
-          // "exited" event may not be sent if the debugger disconnects from the jvm beforehand
-          remainingTerminalEvents.remove("exited")
+          // Exited event should not be expected if debugger has already disconnected from the JVM
+          expectedTerminalEvents.remove("exited")
 
           state.transform {
-            case Started(debuggee) =>
+            case DebugSession.Started(debuggee) =>
               cancelDebuggee(debuggee)
               super.dispatchRequest(request)
-              Cancelled
-            case otherState =>
-              otherState
+              DebugSession.Cancelled
+            case otherState => otherState
           }
         }
       case _ => super.dispatchRequest(request)
@@ -164,12 +164,12 @@ final class DebugSession(
     try {
       super.sendEvent(event)
     } finally {
-      remainingTerminalEvents.remove(event.`type`)
+      expectedTerminalEvents.remove(event.`type`)
 
-      val isTerminated = remainingTerminalEvents.isEmpty
+      val isTerminated = expectedTerminalEvents.isEmpty
       if (isTerminated) {
-        communicationDone.trySuccess(()) // might already be set when canceling
-        // Don't close socket, it terminates on its own
+        endOfConnection.trySuccess(()) // Might already be set when canceling
+        () // Don't close socket, it terminates on its own
       }
     }
   }
@@ -196,28 +196,28 @@ final class DebugSession(
    * Cancels the background debuggee process, the DAP server and closes the socket.
    */
   def cancel(): Unit = {
-    state.transform {
-      case Idle(_) =>
-        socket.close()
-        Cancelled
-
-      case Started(debuggee) =>
-        cancelDebuggee(debuggee)
-        forceCommunicationDone()
-        Cancelled
-
-      case Cancelled => Cancelled
+    // Close connection after the timeout to prevent blocking if [[TerminalEvents]] are not sent
+    def scheduleForcedEndOfConnection(): Unit = {
+      val message = "Communication with DAP client is frozen, closing client forcefully..."
+      Task
+        .fromFuture(endOfConnection.future)
+        .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(initialLogger.warn(message)))
+        .runOnComplete(_ => { endOfConnection.trySuccess(()); () })(ioScheduler)
+      ()
     }
-  }
 
-  // prevents blocking when one of the [[TerminalEvents]] doesn't get sent
-  private def forceCommunicationDone(): Unit = {
-    val message = "Communication is frozen, closing client forcefully."
-    Task
-      .fromFuture(communicationDone.future)
-      .timeoutTo(FiniteDuration(5, TimeUnit.SECONDS), Task(initialLogger.warn(message)))
-      .runOnComplete(_ => communicationDone.trySuccess(()))(ioScheduler)
-    ()
+    state.transform {
+      case DebugSession.Idle(_) =>
+        socket.close()
+        DebugSession.Cancelled
+
+      case DebugSession.Started(debuggee) =>
+        cancelDebuggee(debuggee)
+        scheduleForcedEndOfConnection()
+        DebugSession.Cancelled
+
+      case DebugSession.Cancelled => DebugSession.Cancelled
+    }
   }
 
   private def cancelDebuggee(debuggee: Cancelable): Unit = {
@@ -235,8 +235,6 @@ object DebugSession {
   final case class Idle(runner: DebugSessionLogger => Task[Unit]) extends State
   final case class Started(debuggee: Cancelable) extends State
   final case object Cancelled extends State
-
-  private def terminalEvents: mutable.Set[String] = mutable.Set("terminated", "exited")
 
   def apply(
       socket: Socket,
@@ -307,12 +305,12 @@ object DebugSession {
       }
     }
 
-    val socketClosed = "java.net.SocketException: Socket closed"
+    private val socketClosed = "java.net.SocketException: Socket closed"
     private def isExpectedDuringCancellation(message: String): Boolean = {
-      cancelled.get && message.endsWith(socketClosed)
+      message.endsWith(socketClosed) && cancelled.get
     }
 
-    val recordingWhenVmDisconnected =
+    private val recordingWhenVmDisconnected =
       "Exception on recording event: com.sun.jdi.VMDisconnectedException"
     private def isIgnoredError(message: String): Boolean = {
       message.startsWith(recordingWhenVmDisconnected)

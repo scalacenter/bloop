@@ -483,15 +483,15 @@ final class BloopBspServices(
       }
 
       params.dataKind match {
-        case bsp.DebugSessionParamsDataKind.scalaMainClass =>
+        case bsp.DebugSessionParamsDataKind.ScalaMainClass =>
           convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
-        case bsp.DebugSessionParamsDataKind.scalaTestSuites =>
+        case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }
 
-    ifInitialized { state =>
+    ifInitialized(None) { (state, logger) =>
       JavaEnv.loadJavaDebugInterface match {
         case Failure(exception) =>
           val message = JavaEnv.detectRuntime match {
@@ -504,10 +504,11 @@ final class BloopBspServices(
           mapToProjects(params.targets, state) match {
             case Left(error) =>
               // Log the mapping error to the user via a log event + an error status code
-              bspLogger.error(error)
+              logger.error(error)
               Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
             case Right(mappings) =>
-              compileProjects(mappings, state, Nil).flatMap {
+              // FIXME: Add origin id to DAP request
+              compileProjects(mappings, state, Nil, None, logger).flatMap {
                 case (state, Left(error)) =>
                   Task.now((state, Left(error)))
                 case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
@@ -518,7 +519,7 @@ final class BloopBspServices(
                   val projects = mappings.map(_._2)
                   inferDebuggeeRunner(projects, state) match {
                     case Right(runner) =>
-                      val startedServer = DebugServer.start(runner, bspLogger, ioScheduler)
+                      val startedServer = DebugServer.start(runner, logger, ioScheduler)
                       val listenAndUnsubscribe = startedServer.listen
                         .runOnComplete(_ => backgroundDebugServers -= startedServer)(ioScheduler)
                       backgroundDebugServers += startedServer -> listenAndUnsubscribe

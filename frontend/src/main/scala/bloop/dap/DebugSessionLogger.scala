@@ -17,9 +17,10 @@ import monix.execution.atomic.Atomic
 final class DebugSessionLogger(
     debugSession: DebugSession,
     listener: InetSocketAddress => Unit,
-    underlying: Logger
+    underlying: Logger,
+    initialized0: Option[Atomic[Boolean]] = None
 ) extends Logger {
-  private val initialized = Atomic(false)
+  private val initialized = initialized0.getOrElse(Atomic(false))
   override val name: String = s"${underlying.name}-debug"
 
   override def isVerbose: Boolean = underlying.isVerbose
@@ -31,9 +32,17 @@ final class DebugSessionLogger(
 
   override def debugFilter: DebugFilter = underlying.debugFilter
   override def asVerbose: Logger =
-    new DebugSessionLogger(debugSession, listener, underlying.asVerbose)
+    new DebugSessionLogger(debugSession, listener, underlying.asVerbose, Some(initialized))
   override def asDiscrete: Logger =
-    new DebugSessionLogger(debugSession, listener, underlying.asDiscrete)
+    new DebugSessionLogger(debugSession, listener, underlying.asDiscrete, Some(initialized))
+  override def withOriginId(originId: Option[String]): Logger = {
+    new DebugSessionLogger(
+      debugSession,
+      listener,
+      underlying.withOriginId(originId),
+      Some(initialized)
+    )
+  }
 
   override def error(msg: String): Unit = {
     underlying.error(msg)

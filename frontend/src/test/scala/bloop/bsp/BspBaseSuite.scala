@@ -260,7 +260,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         result <- f(client)
       } yield result
 
-      TestUtil.await(10, TimeUnit.SECONDS)(session)
+      TestUtil.await(20, TimeUnit.SECONDS)(session)
     }
 
     def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {

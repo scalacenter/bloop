@@ -172,19 +172,20 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     }
   }
 
-  def mainClassParams(mainClass: String): bsp.BuildTargetIdentifier => bsp.DebugSessionParams =
-    target => {
+  def mainClassParams(mainClass: String): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = {
+    target =>
       val targets = List(target)
       val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
       val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-      bsp.DebugSessionParams(targets, scalaMainClass, json)
-    }
+      bsp.DebugSessionParams(targets, ScalaMainClass, json)
+  }
 
-  def testSuiteParams(filters: List[String]): bsp.BuildTargetIdentifier => bsp.DebugSessionParams =
-    target => {
-      import io.circe.syntax._
-      val targets = List(target)
-      val json = filters.asJson
-      bsp.DebugSessionParams(targets, scalaTestSuites, json)
-    }
+  def testSuiteParams(
+      filters: List[String]
+  ): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = { target =>
+    import io.circe.syntax._
+    val targets = List(target)
+    val json = filters.asJson
+    bsp.DebugSessionParams(targets, ScalaTestSuites, json)
+  }
 }
