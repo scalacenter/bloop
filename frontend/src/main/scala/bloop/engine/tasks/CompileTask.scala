@@ -17,7 +17,7 @@ import bloop.engine.tasks.compilation.{FinalCompileResult, _}
 import bloop.io.{AbsolutePath, ParallelOps}
 import bloop.io.ParallelOps.CopyMode
 import bloop.tracing.BraveTracer
-import bloop.logging.{BspServerLogger, DebugFilter, Logger, ObservedLogger, LoggerAction}
+import bloop.logging.{DebugFilter, Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{
   Reporter,
   ReporterAction,
@@ -280,6 +280,8 @@ object CompileTask {
           case FinalNormalCompileResult(p, results) =>
             results.fromCompiler match {
               case Compiler.Result.NotOk(_) => List(p)
+              // Consider success with reported fatal warnings as error to simulate -Xfatal-warnings
+              case s: Compiler.Result.Success if s.reportedFatalWarnings => List(p)
               case _ => Nil
             }
           case _ => Nil

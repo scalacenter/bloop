@@ -125,13 +125,13 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
-    def compileTask(project: TestProject): Task[ManagedBspTestState] = {
+    def compileTask(project: TestProject, originId: Option[String]): Task[ManagedBspTestState] = {
       runAfterTargets(project) { target =>
         // Handle internal state before sending compile request
         diagnostics.clear()
         currentCompileIteration.increment(1)
 
-        BuildTarget.compile.request(bsp.CompileParams(List(target), None, None)).flatMap {
+        BuildTarget.compile.request(bsp.CompileParams(List(target), originId, None)).flatMap {
           case Right(r) =>
             // `headL` returns latest saved state from bsp because source is behavior subject
             serverStates.headL.map { state =>
@@ -154,7 +154,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         delay: Option[FiniteDuration] = None
     ): CancelableFuture[ManagedBspTestState] = {
       val interpretedTask = {
-        val task = compileTask(project)
+        val task = compileTask(project, None)
         delay match {
           case Some(duration) => task.delayExecution(duration)
           case None => task
@@ -164,10 +164,10 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       interpretedTask.runAsync(ExecutionContext.scheduler)
     }
 
-    def compile(project: TestProject): ManagedBspTestState = {
+    def compile(project: TestProject, originId: Option[String] = None): ManagedBspTestState = {
       // Use a default timeout of 30 seconds for every operation
       TestUtil.await(FiniteDuration(30, "s")) {
-        compileTask(project)
+        compileTask(project, originId)
       }
     }
 

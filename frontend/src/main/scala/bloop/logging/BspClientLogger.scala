@@ -9,6 +9,8 @@ final class BspClientLogger[L <: Logger](val underlying: L) extends Logger with 
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger = new BspClientLogger(underlying.asDiscrete)
   override def asVerbose: Logger = new BspClientLogger(underlying.asVerbose)
+  override def withOriginId(originId: Option[String]): Logger =
+    new BspClientLogger(underlying.withOriginId(originId))
 
   override def printDebug(msg: String): Unit = underlying.printDebug(msg)
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =

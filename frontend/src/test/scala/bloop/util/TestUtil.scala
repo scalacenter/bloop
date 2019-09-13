@@ -48,6 +48,14 @@ object TestUtil {
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
+  val jdkVersion = sys.props("java.version")
+  def isJdk8 = jdkVersion.startsWith("8") || jdkVersion.startsWith("1.8")
+
+  def runOnlyOnJava8(thunk: => Unit): Unit = {
+    if (isJdk8) thunk
+    else ()
+  }
+
   final val componentProvider =
     ZincInternals.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
 
@@ -477,33 +485,44 @@ object TestUtil {
     configDir
   }
 
-  def createTestServices(addDiagnosticsHandler: Boolean, logger0: BspClientLogger[_]): Services = {
+  def createTestServices(
+      addDiagnosticsHandler: Boolean,
+      logger0: BspClientLogger[_]
+  ): Services = {
     implicit val ctx: DebugFilter = DebugFilter.Bsp
     import ch.epfl.scala.bsp
     import ch.epfl.scala.bsp.endpoints
     val logger: bloop.logging.Logger = logger0
+    def fmt(msg: String, originId: Option[String]): String = {
+      originId match {
+        case None => msg
+        case Some(origin) => msg + s"(origin id: $origin)"
+      }
+    }
+
     val rawServices = Services
       .empty(logger0)
       .notification(endpoints.Build.showMessage) {
-        case bsp.ShowMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
-        case bsp.ShowMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
-        case bsp.ShowMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
-        case bsp.ShowMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
+        case bsp.ShowMessageParams(bsp.MessageType.Log, _, o, msg) => logger.debug(fmt(msg, o))
+        case bsp.ShowMessageParams(bsp.MessageType.Info, _, o, msg) => logger.info(fmt(msg, o))
+        case bsp.ShowMessageParams(bsp.MessageType.Warning, _, o, msg) => logger.warn(fmt(msg, o))
+        case bsp.ShowMessageParams(bsp.MessageType.Error, _, o, msg) => logger.error(fmt(msg, o))
       }
       .notification(endpoints.Build.logMessage) {
-        case bsp.LogMessageParams(bsp.MessageType.Log, _, _, msg) => logger.debug(msg)
-        case bsp.LogMessageParams(bsp.MessageType.Info, _, _, msg) => logger.info(msg)
-        case bsp.LogMessageParams(bsp.MessageType.Warning, _, _, msg) => logger.warn(msg)
-        case bsp.LogMessageParams(bsp.MessageType.Error, _, _, msg) => logger.error(msg)
+        case bsp.LogMessageParams(bsp.MessageType.Log, _, o, msg) => logger.debug(fmt(msg, o))
+        case bsp.LogMessageParams(bsp.MessageType.Info, _, o, msg) => logger.info(fmt(msg, o))
+        case bsp.LogMessageParams(bsp.MessageType.Warning, _, o, msg) => logger.warn(fmt(msg, o))
+        case bsp.LogMessageParams(bsp.MessageType.Error, _, o, msg) => logger.error(fmt(msg, o))
       }
 
     // Lsp4s fails if we try to repeat a handler for a given notification
     if (!addDiagnosticsHandler) rawServices
     else {
       rawServices.notification(endpoints.Build.publishDiagnostics) {
-        case bsp.PublishDiagnosticsParams(uri, _, _, diagnostics, _) =>
+        case bsp.PublishDiagnosticsParams(uri, _, originId, diagnostics, _) =>
           // We prepend diagnostics so that tests can check they came from this notification
-          def printDiagnostic(d: bsp.Diagnostic): String = s"[diagnostic] ${d.message} ${d.range}"
+          def printDiagnostic(d: bsp.Diagnostic): String =
+            fmt(s"[diagnostic] ${d.message} ${d.range}", originId)
           diagnostics.foreach { d =>
             d.severity match {
               case Some(bsp.DiagnosticSeverity.Error) => logger.error(printDiagnostic(d))

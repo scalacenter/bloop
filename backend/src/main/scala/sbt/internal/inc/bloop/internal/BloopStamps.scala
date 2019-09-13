@@ -9,7 +9,7 @@ import sbt.internal.inc.Hash
 import sbt.internal.inc.Stamps
 import sbt.internal.inc.Stamper
 import sbt.internal.inc.EmptyStamp
-import xsbti.compile.analysis.ReadStamps
+import xsbti.compile.analysis.{ReadStamps, Stamp}
 
 object BloopStamps {
   def initial: ReadStamps = {
@@ -34,6 +34,8 @@ object BloopStamps {
   def forHash(file: File): Hash = {
     fromBloopHashToZincHash(ByteHasher.hashFileContents(file))
   }
+
+  def emptyStampFor(file: File): Stamp = EmptyStamp
 
   def fromBloopHashToZincHash(hash: Int): Hash = {
     val hex = hash.toString

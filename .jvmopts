@@ -1,1 +1,1 @@
--XX:ReservedCodeCacheSize=256m
+-XX:ReservedCodeCacheSize=512m

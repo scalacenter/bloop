@@ -19,7 +19,8 @@ final class BloopLogger(
     err: PrintStream,
     private val debugCount: Int,
     colorOutput: Boolean,
-    val debugFilter: DebugFilter
+    val debugFilter: DebugFilter,
+    originId: Option[String]
 ) extends Logger {
   override def ansiCodesSupported() = true
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
@@ -31,13 +32,16 @@ final class BloopLogger(
 
   override def asDiscrete: Logger = {
     if (debugCount <= 0) this
-    else new BloopLogger(name, out, err, debugCount - 1, colorOutput, debugFilter)
+    else new BloopLogger(name, out, err, debugCount - 1, colorOutput, debugFilter, originId)
   }
 
   override def isVerbose: Boolean = debugCount > 0
   override def asVerbose: Logger = {
-    new BloopLogger(name, out, err, debugCount + 1, colorOutput, debugFilter)
+    new BloopLogger(name, out, err, debugCount + 1, colorOutput, debugFilter, originId)
   }
+
+  override def withOriginId(originId: Option[String]): Logger =
+    new BloopLogger(name, out, err, debugCount, colorOutput, debugFilter, originId)
 
   @scala.annotation.tailrec
   private def trace(prefix: String, exception: Throwable): Unit = {
@@ -103,7 +107,9 @@ object BloopLogger {
       isVerbose: Boolean,
       colorOutput: Boolean,
       filter: DebugFilter
-  ): BloopLogger = new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput, filter)
+  ): BloopLogger = {
+    new BloopLogger(name, out, err, if (isVerbose) 1 else 0, colorOutput, filter, None)
+  }
 
   /**
    * Instantiates a new `BloopLogger` using the specified streams.

@@ -34,7 +34,7 @@ import scala.util.control.NonFatal
 object TestInternals {
   private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
-  private final val testAgentVersion = "1.0.4"
+  private final val testAgentVersion = "1.2.8"
 
   private implicit val logContext: DebugFilter = DebugFilter.Test
 
@@ -45,7 +45,15 @@ object TestInternals {
 
   lazy val filteredLoader = {
     val filter = new IncludePackagesFilter(
-      Set("java.", "javax.", "sun.", "sbt.testing.", "org.scalatools.testing.", "org.xml.sax.")
+      Set(
+        "jdk.",
+        "java.",
+        "javax.",
+        "sun.",
+        "sbt.testing.",
+        "org.scalatools.testing.",
+        "org.xml.sax."
+      )
     )
     new FilteredLoader(getClass.getClassLoader, filter)
   }

@@ -120,81 +120,93 @@ class RunSpec {
 
   @Test
   def runCanSeeCompileResources: Unit = {
-    val mainClassName = "hello.AppWithResources"
-    val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Resources were found")))
+    TestUtil.runOnlyOnJava8 {
+      val mainClassName = "hello.AppWithResources"
+      val state = loadTestProject("cross-test-build-0.6")
+      val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
+      runAndCheck(state, command) { messages =>
+        assert(messages.contains(("info", "Resources were found")))
+      }
     }
   }
 
   @Test
   def runIncludesTransitiveResourcesInAggregatedProjects: Unit = {
-    val target = "cross-test-build-0-6"
-    val state = loadTestProject("cross-test-build-0.6")
-    state.build.getProjectFor(target) match {
-      case Some(rootWithAggregation) =>
-        val dag = state.build.getDagFor(rootWithAggregation)
-        // Create dependent resources so that they appear in the full dependency classpath
-        val dependentResources = Dag.dfs(dag).flatMap(_.resources)
-        dependentResources.foreach { resource =>
-          if (resource.exists) ()
-          else Files.createDirectories(resource.underlying)
-        }
+    TestUtil.runOnlyOnJava8 {
+      val target = "cross-test-build-0-6"
+      val state = loadTestProject("cross-test-build-0.6")
+      state.build.getProjectFor(target) match {
+        case Some(rootWithAggregation) =>
+          val dag = state.build.getDagFor(rootWithAggregation)
+          // Create dependent resources so that they appear in the full dependency classpath
+          val dependentResources = Dag.dfs(dag).flatMap(_.resources)
+          dependentResources.foreach { resource =>
+            if (resource.exists) ()
+            else Files.createDirectories(resource.underlying)
+          }
 
-        val fullClasspath = rootWithAggregation.fullClasspath(dag, state.client).toList
-        Assert.assertFalse(dependentResources.isEmpty)
-        dependentResources.foreach { r =>
-          Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))
-        }
-      case None => Assert.fail(s"Missing root $target")
+          val fullClasspath = rootWithAggregation.fullClasspath(dag, state.client).toList
+          Assert.assertFalse(dependentResources.isEmpty)
+          dependentResources.foreach { r =>
+            Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))
+          }
+        case None => Assert.fail(s"Missing root $target")
+      }
     }
   }
 
   @Test
   def canRunMainFromSourceDependency: Unit = {
-    val mainClassName = "hello.App"
-    val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Hello, world!")))
+    TestUtil.runOnlyOnJava8 {
+      val mainClassName = "hello.App"
+      val state = loadTestProject("cross-test-build-0.6")
+      val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
+      runAndCheck(state, command) { messages =>
+        assert(messages.contains(("info", "Hello, world!")))
+      }
     }
   }
 
   @Test
   def canRunDefaultMainClass: Unit = {
-    // The default main class is set to hello.App build.sbt. Therefore, no error must be triggered here.
-    val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run(List("test-project"), None, args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Hello, world!")))
+    TestUtil.runOnlyOnJava8 {
+      // The default main class is set to hello.App build.sbt. Therefore, no error must be triggered here.
+      val state = loadTestProject("cross-test-build-0.6")
+      val command = Commands.Run(List("test-project"), None, args = List.empty)
+      runAndCheck(state, command) { messages =>
+        assert(messages.contains(("info", "Hello, world!")))
+      }
     }
   }
 
   @Test
   def canRunMainFromBinaryDependency: Unit = {
-    val mainClassName = "App"
-    val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
-    runAndCheck(state, command) { messages =>
-      assert(messages.contains(("info", "Hello, world!")))
+    TestUtil.runOnlyOnJava8 {
+      val mainClassName = "App"
+      val state = loadTestProject("cross-test-build-0.6")
+      val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
+      runAndCheck(state, command) { messages =>
+        assert(messages.contains(("info", "Hello, world!")))
+      }
     }
   }
 
   @Test
   def setCorrectCwd: Unit = {
-    val mainClassName = "hello.ShowCwd"
-    val state = loadTestProject("cross-test-build-0.6")
-    val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
-    val targetMsg = {
-      if (bloop.util.CrossPlatform.isWindows) "cross-test-build-0.6\\test-project\\jvm"
-      else "cross-test-build-0.6/test-project/jvm"
-    }
+    TestUtil.runOnlyOnJava8 {
+      val mainClassName = "hello.ShowCwd"
+      val state = loadTestProject("cross-test-build-0.6")
+      val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
+      val targetMsg = {
+        if (bloop.util.CrossPlatform.isWindows) "cross-test-build-0.6\\test-project\\jvm"
+        else "cross-test-build-0.6/test-project/jvm"
+      }
 
-    runAndCheck(state, command) { messages =>
-      assert(
-        messages.reverse.find(_._1 == "info").exists(_._2.endsWith(targetMsg))
-      )
+      runAndCheck(state, command) { messages =>
+        assert(
+          messages.reverse.find(_._1 == "info").exists(_._2.endsWith(targetMsg))
+        )
+      }
     }
   }
 
