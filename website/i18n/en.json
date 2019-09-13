@@ -49,6 +49,14 @@
         "title": "Contributing to bloop",
         "sidebar_label": "Contributing Guide"
       },
+      "dap-integration": {
+        "title": "Debug Adapter Protocol Integration",
+        "sidebar_label": "DAP Integration guide"
+      },
+      "debugging-reference": {
+        "title": "Debugging Reference",
+        "sidebar_label": "Debugging Reference"
+      },
       "ides/intellij": {
         "title": "IntelliJ",
         "sidebar_label": "IntelliJ"
@@ -88,9 +96,6 @@
       },
       "tools/homebrew/install": {
         "title": "tools/homebrew/install"
-      },
-      "tools/homebrew/usage.1": {
-        "title": "tools/homebrew/usage.1"
       },
       "tools/homebrew/usage": {
         "title": "tools/homebrew/usage"

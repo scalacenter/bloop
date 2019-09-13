@@ -110,7 +110,7 @@ object Feedback {
   }
 
   def detectedUnsupportedJreForDebugging(error: Throwable): String = {
-    s"""Debugging is not supported because bloop server is running on a JRE ${JavaEnv.DefaultJavaHome} with no support for Java Debug Interface: '${error.getMessage}'. To enable debugging, install a JDK and restart the server.
+    s"""Debugging is not supported because bloop server is running on a JRE ${JavaEnv.DefaultJavaHome} with no support for Java Debug Interface: '${error.getMessage}'. To enable debugging, install a JDK and restart the bloop server.
        |
        |Run bloop about for more information about the current JDK runtime.""".stripMargin
   }

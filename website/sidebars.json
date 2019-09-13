@@ -18,6 +18,7 @@
       "ides/metals"
     ],
     "References": [
+      "debugging-reference",
       "performance-guide",
       "cli-reference",
       "server-reference",
