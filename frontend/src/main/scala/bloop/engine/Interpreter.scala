@@ -101,16 +101,20 @@ object Interpreter {
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
     val javaVersion = JavaEnv.version
     val javaHome = JavaEnv.DefaultJavaHome
-    val jdiStatus =
-      if (JavaEnv.loadJavaDebugInterface.isSuccess) "supports debugging"
-      else "doesn't support debugging!"
+    val jdiStatus = {
+      if (JavaEnv.loadJavaDebugInterface.isSuccess)
+        "Supports debugging user code, Java Debug Interface (JDI) is available."
+      else
+        "Doesn't support debugging user code, runtime doesn't implement Java Debug Interface (JDI)."
+    }
+
     val runtimeInfo = s"Detected Java ${JavaEnv.detectRuntime} runtime $jdiStatus"
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
     logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
-    logger.info(s"Running on Java v$javaVersion ($javaHome)")
-    logger.info(s"Detected Java ${JavaEnv.detectRuntime} runtime $jdiStatus")
+    logger.info(s"Running on Java ${JavaEnv.detectRuntime} v$javaVersion ($javaHome)")
+    logger.info(s"  -> $jdiStatus")
     logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)
