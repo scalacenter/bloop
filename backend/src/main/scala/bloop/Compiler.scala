@@ -41,7 +41,6 @@ case class CompileInputs(
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
     uniqueInputs: UniqueCompileInputs,
-    //store: IRStore,
     out: CompileOutPaths,
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
@@ -202,11 +201,6 @@ object Compiler {
     }
   }
 
-  trait HasInvalidatedFileSet {
-    def invalidatedClassFilesSet(): mutable.HashSet[File]
-  }
-
-  private final val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
   def compile(compileInputs: CompileInputs): Task[Result] = {
     val logger = compileInputs.logger
     val tracer = compileInputs.tracer
@@ -218,6 +212,7 @@ object Compiler {
     val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
     val newClassesDirPath = newClassesDir.toString
+
     logger.debug(s"External classes directory ${externalClassesDirPath}")
     logger.debug(s"Read-only classes directory ${readOnlyClassesDirPath}")
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
@@ -226,146 +221,23 @@ object Compiler {
     val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
+
     val backgroundTasksWhenNewSuccessfulAnalysis =
-      new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
+      new mutable.ListBuffer[CompileBackgroundTasks.Sig]()
     val backgroundTasksForFailedCompilation =
-      new mutable.ListBuffer[(AbsolutePath, BraveTracer) => Task[Unit]]()
+      new mutable.ListBuffer[CompileBackgroundTasks.Sig]()
 
-    def getClassFileManager(): ClassFileManager with HasInvalidatedFileSet = {
-      new ClassFileManager with HasInvalidatedFileSet {
-
-        private var memoizedInvalidatedClassFiles: Array[File] = _
-
-        /*
-         * Filter out the dependent generated class files in the dependent
-         * invalidations. This is key to avoid "not found type" or not found
-         * symbols during incremental compilation.
-         */
-        private val dependentClassFilesThatShouldNotBeLoaded: Set[File] =
-          compileInputs.invalidatedClassFilesInDependentProjects -- compileInputs.generatedClassFilePathsInDependentProjects.valuesIterator
-
-        allInvalidatedClassFilesForProject ++= dependentClassFilesThatShouldNotBeLoaded
-
-        def invalidatedClassFilesSet(): mutable.HashSet[File] =
-          allInvalidatedClassFilesForProject
-
-        def invalidatedClassFiles(): Array[File] = {
-          if (memoizedInvalidatedClassFiles == null) {
-            memoizedInvalidatedClassFiles = allInvalidatedClassFilesForProject.toArray
-          }
-          memoizedInvalidatedClassFiles
-        }
-
-        def delete(classes: Array[File]): Unit = {
-          memoizedInvalidatedClassFiles = null
-
-          import compileInputs.generatedClassFilePathsInDependentProjects
-          val classesToInvalidate = classes.filter { classFile =>
-            // Don't invalidate a class file if it has been generated earlier by a
-            // dependency of this project, which can when users move sources around projects
-            val relativeFilePath = classFile.getAbsolutePath.replace(readOnlyClassesDirPath, "")
-            !generatedClassFilePathsInDependentProjects.contains(relativeFilePath)
-          }
-
-          // Add to the blacklist so that we never copy them
-          allInvalidatedClassFilesForProject.++=(classesToInvalidate)
-          val invalidatedExtraCompileProducts = classesToInvalidate.flatMap { classFile =>
-            val prefixClassName = classFile.getName().stripSuffix(".class")
-            supportedCompileProducts.flatMap { supportedProductSuffix =>
-              val productName = prefixClassName + supportedProductSuffix
-              val productAssociatedToClassFile = new File(classFile.getParentFile, productName)
-              if (!productAssociatedToClassFile.exists()) Nil
-              else List(productAssociatedToClassFile)
-            }
-          }
-          allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
-        }
-
-        def generated(generatedClassFiles: Array[File]): Unit = {
-          memoizedInvalidatedClassFiles = null
-          generatedClassFiles.foreach { generatedClassFile =>
-            val newClassFile = generatedClassFile.getAbsolutePath
-            val relativeClassFilePath = newClassFile.replace(newClassesDirPath, "")
-            allGeneratedRelativeClassFilePaths.put(relativeClassFilePath, generatedClassFile)
-            val rebasedClassFile =
-              new File(newClassFile.replace(newClassesDirPath, readOnlyClassesDirPath))
-            // Delete generated class file + rebased class file because
-            // invalidations can happen in both paths, no-op if missing
-            allInvalidatedClassFilesForProject.-=(generatedClassFile)
-            allInvalidatedClassFilesForProject.-=(rebasedClassFile)
-            supportedCompileProducts.foreach { supportedProductSuffix =>
-              val productName = rebasedClassFile
-                .getName()
-                .stripSuffix(".class") + supportedProductSuffix
-              val productAssociatedToClassFile =
-                new File(rebasedClassFile.getParentFile, productName)
-              if (productAssociatedToClassFile.exists())
-                allInvalidatedExtraCompileProducts.-=(productAssociatedToClassFile)
-            }
-          }
-        }
-
-        def complete(success: Boolean): Unit = {
-          if (success) {
-            // Schedule copying compilation products to visible classes directory
-            backgroundTasksWhenNewSuccessfulAnalysis.+=(
-              (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
-                clientTracer.traceTask("copy new products to external classes dir") { _ =>
-                  val config = ParallelOps
-                    .CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-                  ParallelOps
-                    .copyDirectories(config)(
-                      newClassesDir,
-                      clientExternalClassesDir.underlying,
-                      compileInputs.ioScheduler,
-                      compileInputs.logger,
-                      enableCancellation = false
-                    )
-                    .map { walked =>
-                      copiedPathsFromNewClassesDir.++=(walked.target)
-                      ()
-                    }
-                }
-              }
-            )
-          } else {
-            // Delete all compilation products generated in the new classes directory
-            val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
-            backgroundTasksForFailedCompilation.+=(
-              (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
-                clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
-              }
-            )
-
-            backgroundTasksForFailedCompilation.+=(
-              (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
-                clientTracer.traceTask("populate external classes dir as it's empty") { _ =>
-                  Task {
-                    if (!BloopPaths.isDirectoryEmpty(clientExternalClassesDir)) Task.unit
-                    else {
-                      if (BloopPaths.isDirectoryEmpty(compileOut.internalReadOnlyClassesDir)) {
-                        Task.unit
-                      } else {
-                        // Prepopulate external classes dir even though compilation failed
-                        val config = ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty)
-                        ParallelOps
-                          .copyDirectories(config)(
-                            readOnlyClassesDir,
-                            clientExternalClassesDir.underlying,
-                            compileInputs.ioScheduler,
-                            compileInputs.logger,
-                            enableCancellation = false
-                          )
-                          .map(_ => ())
-                      }
-                    }
-                  }.flatten
-                }
-              }
-            )
-          }
-        }
-      }
+    def newFileManager: ClassFileManager = {
+      new BloopClassFileManager(
+        compileInputs,
+        compileOut,
+        allGeneratedRelativeClassFilePaths,
+        copiedPathsFromNewClassesDir,
+        allInvalidatedClassFilesForProject,
+        allInvalidatedExtraCompileProducts,
+        backgroundTasksWhenNewSuccessfulAnalysis,
+        backgroundTasksForFailedCompilation
+      )
     }
 
     var isFatalWarningsEnabled: Boolean = false
@@ -454,6 +326,7 @@ object Compiler {
           completeJava.trySuccess(())
           finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
       }
+
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
     }
@@ -470,11 +343,10 @@ object Compiler {
       Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
     }
 
-    val manager = getClassFileManager()
     val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, mode, reporter, logger, uniqueInputs, manager, tracer)
+      .compile(inputs, mode, reporter, logger, uniqueInputs, newFileManager, tracer)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {

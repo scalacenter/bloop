@@ -35,8 +35,6 @@ import sbt.internal.util.LoggerWriter
 import sbt.internal.inc.javac.DiagnosticsReporter
 import java.io.IOException
 
-import bloop.Compiler.HasInvalidatedFileSet
-
 final class CompilerCache(
     componentProvider: ComponentProvider,
     retrieveDir: AbsolutePath,
@@ -289,11 +287,13 @@ final class CompilerCache(
           kinds: ju.Set[Kind],
           recurse: Boolean
       ): Iterable[JavaFileObject] = {
-        val invalidated =
+        val invalidated = {
           zincManager match {
-            case m: HasInvalidatedFileSet => m.invalidatedClassFilesSet()
+            case m: bloop.BloopClassFileManager => m.invalidatedClassFilesSet
             case _ => zincManager.invalidatedClassFiles().toSet
           }
+        }
+
         val ls = super.list(location, packageName, kinds, recurse)
         ls.asScala.filter(o => !invalidated.contains(new File(o.getName))).asJava
       }

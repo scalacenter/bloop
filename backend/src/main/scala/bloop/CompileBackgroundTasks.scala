@@ -9,6 +9,7 @@ abstract class CompileBackgroundTasks {
 }
 
 object CompileBackgroundTasks {
+  type Sig = (AbsolutePath, BraveTracer) => Task[Unit]
   val empty: CompileBackgroundTasks = {
     new CompileBackgroundTasks {
       def trigger(clientClassesDir: AbsolutePath, tracer: BraveTracer): Task[Unit] = Task.now(())
