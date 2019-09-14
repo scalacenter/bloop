@@ -10,6 +10,7 @@ import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 
 import scala.util.{Failure, Success, Try}
+import bloop.util.CrossPlatform
 
 /**
  * Collects configuration to start a new program in a new process
@@ -130,7 +131,11 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
   private def javaExecutable: Try[AbsolutePath] = {
     val javaPath = env.javaHome.resolve("bin").resolve("java")
     if (javaPath.exists) Success(javaPath)
-    else Failure(new IllegalStateException(s"Missing java executable at $javaPath!"))
+    else {
+      val javaExePath = env.javaHome.resolve("bin").resolve("java.exe")
+      if (CrossPlatform.isWindows && javaExePath.exists) Success(javaExePath)
+      else Failure(new IllegalStateException(s"Missing java executable at $javaPath!"))
+    }
   }
 }
 
