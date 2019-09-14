@@ -4,35 +4,33 @@ import java.io.File
 import java.lang.Iterable
 import java.io.PrintWriter
 import java.util.concurrent.ConcurrentHashMap
+
 import javax.tools.JavaFileManager.Location
 import javax.tools.JavaFileObject.Kind
 import javax.tools.{
   FileObject,
   ForwardingJavaFileManager,
-  StandardJavaFileManager,
-  ForwardingJavaFileObject,
   JavaFileManager,
   JavaFileObject,
   JavaCompiler => JavaxCompiler
 }
-
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.Logger
-
 import sbt.librarymanagement.Resolver
-
 import xsbti.ComponentProvider
 import xsbti.compile.Compilers
 import xsbti.compile.{JavaCompiler => XJavaCompiler, JavaTool => XJavaTool}
 import xsbti.compile.ClassFileManager
 import xsbti.{Logger => XLogger, Reporter => XReporter}
-
 import sbt.internal.inc.bloop.ZincInternals
 import sbt.internal.inc.{AnalyzingCompiler, ZincLmUtil, ZincUtil}
-import sbt.internal.inc.javac.JavaTools
-import sbt.internal.inc.javac.{JavaCompiler, Javadoc, ForkedJava}
+import sbt.internal.inc.javac.{
+  DiagnosticsReporter,
+  JavaTools,
+  Javadoc,
+  WriteReportingJavaFileObject
+}
 import sbt.internal.util.LoggerWriter
-import sbt.internal.inc.javac.DiagnosticsReporter
 import java.io.IOException
 
 final class CompilerCache(
@@ -296,6 +294,15 @@ final class CompilerCache(
 
         val ls = super.list(location, packageName, kinds, recurse)
         ls.asScala.filter(o => !invalidated.contains(new File(o.getName))).asJava
+      }
+
+      // Needed because JavaFileManager doesn't expect WriteReportingJavaFileObjects in isSameFile, fixes #956
+      override def isSameFile(a: FileObject, b: FileObject): Boolean = {
+        def unwrap(fo: FileObject): FileObject = fo match {
+          case wrfo: WriteReportingJavaFileObject => wrfo.javaFileObject
+          case other => other
+        }
+        super.isSameFile(unwrap(a), unwrap(b))
       }
     }
   }
