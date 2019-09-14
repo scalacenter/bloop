@@ -287,13 +287,15 @@ final class CompilerCache(
           kinds: ju.Set[Kind],
           recurse: Boolean
       ): Iterable[JavaFileObject] = {
-        val invalidated = zincManager.invalidatedClassFiles().map(_.getAbsolutePath()).toSet
-        val ls = super.list(location, packageName, kinds, recurse)
-        ls.asScala.filter { o =>
-          !invalidated.exists { invalidatedPath =>
-            o.getName().contains(invalidatedPath)
+        val invalidated = {
+          zincManager match {
+            case m: bloop.BloopClassFileManager => m.invalidatedClassFilesSet
+            case _ => zincManager.invalidatedClassFiles().toSet
           }
-        }.asJava
+        }
+
+        val ls = super.list(location, packageName, kinds, recurse)
+        ls.asScala.filter(o => !invalidated.contains(new File(o.getName))).asJava
       }
     }
   }
