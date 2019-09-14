@@ -37,7 +37,7 @@ class CompilerCacheSpec {
           Charset.defaultCharset
         )
 
-        val classPath = StandardLocation.CLASS_PATH
+        val classPath = StandardLocation.CLASS_OUTPUT
         val fo1 = javacFileManager.getJavaFileForOutput(
           classPath,
           "bloop.CompilerCacheSpec",
