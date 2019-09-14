@@ -18,43 +18,52 @@ import bloop.io.Paths
 class CompilerCacheSpec {
 
   @Test
-  def testInvalidatingFileManager(): Unit = {
+  // Checks that https://github.com/scalacenter/bloop/issues/956 is fixed
+  def testTicket956(): Unit = {
     val tempDir = AbsolutePath(Files.createTempDirectory("compiler-cache-spec"))
     try {
       val compiler = javax.tools.ToolProvider.getSystemJavaCompiler
       if (compiler == null) {
         System.out.println("Ignore test because system Java compiler is not available")
       } else {
-
         val listener = new DiagnosticListener[JavaFileObject] {
-          override def report(diagnostic: Diagnostic[_ <: JavaFileObject]): Unit = {}
+          override def report(diagnostic: Diagnostic[_ <: JavaFileObject]): Unit = ()
         }
+
         val logger = new bloop.logging.RecordingLogger()
-        val javacFileManager =
-          compiler.getStandardFileManager(listener, Locale.getDefault, Charset.defaultCharset)
+        val javacFileManager = compiler.getStandardFileManager(
+          listener,
+          Locale.getDefault,
+          Charset.defaultCharset
+        )
 
         val classPath = StandardLocation.CLASS_PATH
-        val fo1 = javacFileManager.getJavaFileForInput(
+        val fo1 = javacFileManager.getJavaFileForOutput(
           classPath,
           "bloop.CompilerCacheSpec",
-          JavaFileObject.Kind.CLASS
+          JavaFileObject.Kind.CLASS,
+          null
         )
-        val fo2 = javacFileManager.getJavaFileForInput(
+
+        val fo2 = javacFileManager.getJavaFileForOutput(
           classPath,
           "bloop.CompilerCacheSpec",
-          JavaFileObject.Kind.CLASS
+          JavaFileObject.Kind.CLASS,
+          null
         )
-        val fo3 = javacFileManager.getJavaFileForInput(
+
+        val fo3 = javacFileManager.getJavaFileForOutput(
           classPath,
           "bloop.CompilerCache",
-          JavaFileObject.Kind.CLASS
+          JavaFileObject.Kind.CLASS,
+          null
         )
 
         val classFileManager = new ClassFileManager {
-          override def delete(classes: Array[File]): Unit = {}
+          override def delete(classes: Array[File]): Unit = ()
           override def invalidatedClassFiles(): Array[File] = Array.empty
-          override def generated(classes: Array[File]): Unit = {}
-          override def complete(success: Boolean): Unit = {}
+          override def generated(classes: Array[File]): Unit = ()
+          override def complete(success: Boolean): Unit = ()
         }
 
         val wr1 = new WriteReportingJavaFileObject(fo1, classFileManager)
@@ -68,9 +77,11 @@ class CompilerCacheSpec {
 
         assertTrue(invalidatingFileManager.isSameFile(fo1, fo2))
         assertFalse(invalidatingFileManager.isSameFile(fo1, fo3))
+
         assertTrue(invalidatingFileManager.isSameFile(wr1, wr2))
         assertTrue(invalidatingFileManager.isSameFile(wr1, fo2))
         assertTrue(invalidatingFileManager.isSameFile(fo1, wr2))
+
         assertFalse(invalidatingFileManager.isSameFile(wr1, wr3))
         assertFalse(invalidatingFileManager.isSameFile(wr1, fo3))
         assertFalse(invalidatingFileManager.isSameFile(fo1, wr3))
