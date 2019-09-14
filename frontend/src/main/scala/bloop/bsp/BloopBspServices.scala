@@ -614,8 +614,7 @@ final class BloopBspServices(
   def run(params: bsp.RunParams): BspEndpointResponse[bsp.RunResult] = {
     def parseMainClass(project: Project, state: State): Either[Exception, bsp.ScalaMainClass] = {
       params.dataKind match {
-        // TODO replace with RunParamsDataKind.ScalaMainClass once bsp updates
-        case Some("scala-main-class") =>
+        case Some(bsp.RunParamsDataKind.ScalaMainClass) =>
           params.data match {
             case None =>
               Left(new IllegalStateException(s"Missing data for $params"))
