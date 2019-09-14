@@ -8,7 +8,7 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger, NoopLogger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask}
+import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.data.{ClientInfo, Platform, Project}
@@ -25,6 +25,8 @@ import bloop.ScalaInstance
 import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
+
+import bloop.exec.JavaEnv
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -97,16 +99,22 @@ object Interpreter {
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
-    val javaVersion = Option(System.getProperty("java.version"))
-    val javaHome = Option(System.getProperty("java.home"))
+    val javaVersion = JavaEnv.version
+    val javaHome = JavaEnv.DefaultJavaHome
+    val jdiStatus = {
+      if (JavaEnv.loadJavaDebugInterface.isSuccess)
+        "Supports debugging user code, Java Debug Interface (JDI) is available."
+      else
+        "Doesn't support debugging user code, runtime doesn't implement Java Debug Interface (JDI)."
+    }
+
+    val runtimeInfo = s"Detected Java ${JavaEnv.detectRuntime} runtime $jdiStatus"
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
     logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
-    (javaVersion, javaHome) match {
-      case (Some(v), Some(h)) => logger.info(s"Running on Java v$v ($h)")
-      case _ =>
-    }
+    logger.info(s"Running on Java ${JavaEnv.detectRuntime} v$javaVersion ($javaHome)")
+    logger.info(s"  -> $jdiStatus")
     logger.info(s"Maintained by the Scala Center ($developers)")
 
     state.mergeStatus(ExitStatus.Ok)
@@ -350,7 +358,8 @@ object Interpreter {
             testFilter,
             handler,
             failIfNoFrameworks,
-            cmd.parallel
+            cmd.parallel,
+            RunMode.Normal
           )
         }
       }
@@ -563,7 +572,8 @@ object Interpreter {
                   cwd,
                   mainClass,
                   cmd.args.toArray,
-                  cmd.skipJargs
+                  cmd.skipJargs,
+                  RunMode.Normal
                 )
             }
         }

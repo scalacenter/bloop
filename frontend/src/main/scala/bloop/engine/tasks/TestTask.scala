@@ -5,7 +5,7 @@ import bloop.config.Config
 import bloop.data.{Platform, Project}
 import bloop.engine.{Dag, Feedback, State}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
-import bloop.exec.Forker
+import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals}
@@ -43,7 +43,8 @@ object TestTask {
       rawTestOptions: List[String],
       testFilter: String => Boolean,
       handler: LoggingEventHandler,
-      failIfNoTestFrameworks: Boolean
+      failIfNoTestFrameworks: Boolean,
+      mode: RunMode
   ): Task[Int] = {
     import state.logger
     def handleEmptyTestFrameworks: Task[Int] = {
@@ -73,7 +74,7 @@ object TestTask {
         }
       }
     } else {
-      TestTask.discoverTestFrameworks(project, state).flatMap {
+      TestTask.discoverTestFrameworks(project, state, mode).flatMap {
         case None => handleEmptyTestFrameworks
         case Some(found) if found.frameworks.isEmpty => handleEmptyTestFrameworks
         case Some(found) =>
@@ -150,7 +151,8 @@ object TestTask {
    */
   private[bloop] def discoverTestFrameworks(
       project: Project,
-      state: State
+      state: State,
+      mode: RunMode = RunMode.Normal
   ): Task[Option[DiscoveredTestFrameworks]] = {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
@@ -158,7 +160,7 @@ object TestTask {
       case Platform.Jvm(env, _, _) =>
         val dag = state.build.getDagFor(project)
         val classpath = project.fullClasspath(dag, state.client)
-        val forker = Forker(env, classpath)
+        val forker = JvmProcessForker(env, classpath, mode)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
         val frameworks = project.testFrameworks.flatMap(
           f => TestInternals.loadFramework(testLoader, f.names, logger)

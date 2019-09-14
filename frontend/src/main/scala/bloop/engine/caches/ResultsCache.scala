@@ -53,7 +53,7 @@ final case class ResultsCache private (
     successful: Map[Project, LastSuccessfulResult]
 ) {
 
-  /** Returns the last succesful result if present, empty otherwise. */
+  /** Returns the last successful result if present, empty otherwise. */
   def lastSuccessfulResultOrEmpty(project: Project): LastSuccessfulResult =
     lastSuccessfulResult(project).getOrElse(LastSuccessfulResult.empty(project))
 

@@ -7,7 +7,7 @@ import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.config.Config
 import bloop.config.Config.TestArgument
 import bloop.engine.ExecutionContext
-import bloop.exec.Forker
+import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
@@ -111,7 +111,7 @@ object TestInternals {
    */
   def execute(
       cwd: AbsolutePath,
-      forker: Forker,
+      forker: JvmProcessForker,
       classLoader: ClassLoader,
       discovered: Map[Framework, List[TaskDef]],
       args: List[Config.TestArgument],

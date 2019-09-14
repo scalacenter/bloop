@@ -23,7 +23,7 @@ import scala.util.control.NonFatal
 import caseapp.core.CommandsMessages
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
-import scala.util.Try
+import bloop.exec.JavaEnv
 import monix.execution.atomic.AtomicBoolean
 
 class Cli
@@ -242,6 +242,8 @@ object Cli {
     run(action, pool, FalseCancellation)
   }
 
+  // Attempt to load JDI when we initialize the CLI class
+  private val _ = JavaEnv.loadJavaDebugInterface
   private def run(
       action: Action,
       pool: ClientPool,

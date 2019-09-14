@@ -1,19 +1,24 @@
 package bloop.bsp
 
 import java.io.InputStream
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.{Files, FileSystems, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
+import bloop.io.ServerHandle
+import bloop.data.WorkspaceSettings
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.data.{Platform, Project, ClientInfo}
-import bloop.engine.tasks.{CompileTask, Tasks, TestTask}
+import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
+import bloop.data.{ClientInfo, Platform, Project}
+import bloop.engine.{State, Aggregate, Dag, Interpreter}
+import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.engine._
+import bloop.exec.JavaEnv
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter, Logger}
@@ -25,7 +30,6 @@ import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-
 import monix.eval.Task
 import monix.reactive.Observer
 import monix.execution.Scheduler
@@ -38,9 +42,10 @@ import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.Failure
+
 import monix.execution.Cancelable
-import io.circe.Json
-import bloop.data.WorkspaceSettings
+import io.circe.{Decoder, Json}
+import bloop.engine.Feedback
 
 final class BloopBspServices(
     callSiteState: State,
@@ -75,6 +80,8 @@ final class BloopBspServices(
     Task.fork(t, computationScheduler).asyncBoundary(ioScheduler)
   }
 
+  private val backgroundDebugServers = TrieMap.empty[StartedDebugServer, Cancelable]
+
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
   private val baseBspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
@@ -95,6 +102,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
+    .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -163,6 +171,7 @@ final class BloopBspServices(
    * disconnected for any reason.
    */
   def unregisterClient: Option[ClientInfo.BspClientInfo] = {
+    Cancelable.cancelAll(backgroundDebugServers.values)
     clientInfo.future.value match {
       case None => None
       case Some(client) =>
@@ -186,7 +195,7 @@ final class BloopBspServices(
       params: bsp.InitializeBuildParams
   ): BspEndpointResponse[bsp.InitializeBuildResult] = {
     val bspLogger = baseBspLogger
-    val uri = new java.net.URI(params.rootUri.value)
+    val uri = new URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
     val extraBuildParams = parseClientClassesRootDir(params.data)
     val clientClassesRootDir = extraBuildParams.flatMap(
@@ -311,14 +320,13 @@ final class BloopBspServices(
       targets: Seq[bsp.BuildTargetIdentifier],
       state: State
   ): Either[String, Seq[ProjectMapping]] = {
-    targets.headOption match {
-      case Some(head) =>
-        val init = mapToProject(head, state).map(m => m :: Nil)
-        targets.tail.foldLeft(init) {
-          case (acc, t) => acc.flatMap(ms => mapToProject(t, state).map(m => m :: ms))
-        }
-      case None =>
-        Left("Empty build targets. Expected at least one build target identifier.")
+    if (targets.isEmpty) {
+      Left("Empty build targets. Expected at least one build target identifier.")
+    } else {
+      val zero: Either[String, List[ProjectMapping]] = Right(Nil)
+      targets.foldLeft(zero) { (acc, t) =>
+        acc.flatMap(ms => mapToProject(t, state).map(m => m :: ms))
+      }
     }
   }
 
@@ -453,6 +461,85 @@ final class BloopBspServices(
     }
   }
 
+  def startDebugSession(
+      params: bsp.DebugSessionParams
+  ): BspEndpointResponse[bsp.DebugSessionAddress] = {
+    def inferDebuggeeRunner(
+        projects: Seq[Project],
+        state: State
+    ): BspResponse[DebuggeeRunner] = {
+      def convert[A: Decoder](
+          f: A => Either[String, DebuggeeRunner]
+      ): Either[ProtocolError, DebuggeeRunner] = {
+        params.data.as[A] match {
+          case Left(error) =>
+            Left(JsonRpcResponse.invalidRequest(error.getMessage()))
+          case Right(params) =>
+            f(params) match {
+              case Right(adapter) => Right(adapter)
+              case Left(error) => Left(JsonRpcResponse.invalidRequest(error))
+            }
+        }
+      }
+
+      params.dataKind match {
+        case bsp.DebugSessionParamsDataKind.ScalaMainClass =>
+          convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
+        case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
+          convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
+        case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
+      }
+    }
+
+    ifInitialized(None) { (state, logger) =>
+      JavaEnv.loadJavaDebugInterface match {
+        case Failure(exception) =>
+          val message = JavaEnv.detectRuntime match {
+            case JavaEnv.JDK => Feedback.detectedJdkWithoutJDI(exception)
+            case JavaEnv.JRE => Feedback.detectedUnsupportedJreForDebugging(exception)
+          }
+          Task.now((state, Left(JsonRpcResponse.internalError(message))))
+
+        case Success(_) =>
+          mapToProjects(params.targets, state) match {
+            case Left(error) =>
+              // Log the mapping error to the user via a log event + an error status code
+              logger.error(error)
+              Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
+            case Right(mappings) =>
+              // FIXME: Add origin id to DAP request
+              compileProjects(mappings, state, Nil, None, logger).flatMap {
+                case (state, Left(error)) =>
+                  Task.now((state, Left(error)))
+                case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
+                  Task.now(
+                    (state, Left(JsonRpcResponse.internalError("Compilation not successful")))
+                  )
+                case (state, Right(_)) =>
+                  val projects = mappings.map(_._2)
+                  inferDebuggeeRunner(projects, state) match {
+                    case Right(runner) =>
+                      val startedServer = DebugServer.start(runner, logger, ioScheduler)
+                      val listenAndUnsubscribe = startedServer.listen
+                        .runOnComplete(_ => backgroundDebugServers -= startedServer)(ioScheduler)
+                      backgroundDebugServers += startedServer -> listenAndUnsubscribe
+
+                      startedServer.address.map {
+                        case Some(uri) => (state, Right(new bsp.DebugSessionAddress(uri.toString)))
+                        case None =>
+                          val error = JsonRpcResponse.internalError("Failed to start debug server")
+                          (state, Left(error))
+                      }
+
+                    case Left(error) =>
+                      Task.now((state, Left(error)))
+                  }
+              }
+          }
+      }
+    }
+  }
+
   def test(params: bsp.TestParams): BspEndpointResponse[bsp.TestResult] = {
     def test(
         id: BuildTargetIdentifier,
@@ -461,7 +548,7 @@ final class BloopBspServices(
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new BspLoggingEventHandler(id, state.logger, client)
-      Tasks.test(state, List(project), Nil, testFilter, handler, false)
+      Tasks.test(state, List(project), Nil, testFilter, handler, false, mode = RunMode.Normal)
     }
 
     val originId = params.originId
@@ -539,7 +626,17 @@ final class BloopBspServices(
         case Right(mainClass) =>
           project.platform match {
             case Platform.Jvm(javaEnv, _, _) =>
-              Tasks.runJVM(state, project, javaEnv, cwd, mainClass, cmd.args.toArray, false)
+              val mainArgs = cmd.args.toArray
+              Tasks.runJVM(
+                state,
+                project,
+                javaEnv,
+                cwd,
+                mainClass,
+                mainArgs,
+                skipJargs = false,
+                RunMode.Normal
+              )
             case platform @ Platform.Native(config, _, _) =>
               val target = ScalaNativeToolchain.linkTargetFrom(project, config)
               linkMainWithNative(cmd, project, state, mainClass, target, platform).flatMap {
@@ -702,7 +799,7 @@ final class BloopBspServices(
                   val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
                   if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
                   // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-                  else (new java.net.URI(uri.toString + "/"), Directory)
+                  else (new URI(uri.toString + "/"), Directory)
                 }
                 // TODO(jvican): Don't default on false for generated, add this info to JSON fields
                 bsp.SourceItem(bsp.Uri(bspUri), kind, false)
