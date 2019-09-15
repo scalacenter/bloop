@@ -612,6 +612,28 @@ final class BloopBspServices(
   }
 
   def run(params: bsp.RunParams): BspEndpointResponse[bsp.RunResult] = {
+    def parseMainClass(project: Project, state: State): Either[Exception, bsp.ScalaMainClass] = {
+      params.dataKind match {
+        case Some(bsp.RunParamsDataKind.ScalaMainClass) =>
+          params.data match {
+            case None =>
+              Left(new IllegalStateException(s"Missing data for $params"))
+            case Some(json) =>
+              json.as[bsp.ScalaMainClass]
+          }
+        case Some(kind) =>
+          Left(new IllegalArgumentException(s"Unsupported data kind: $kind"))
+        case None =>
+          val cmd = Commands.Run(List(project.name))
+          Interpreter.getMainClass(state, project, cmd.main) match {
+            case Right(name) =>
+              Right(new bsp.ScalaMainClass(name, cmd.args, Nil))
+            case Left(_) =>
+              Left(new IllegalStateException(s"Main class for project $project not found"))
+          }
+      }
+    }
+
     def run(
         id: BuildTargetIdentifier,
         project: Project,
@@ -619,40 +641,44 @@ final class BloopBspServices(
     ): Task[State] = {
       import bloop.engine.tasks.LinkTask.{linkMainWithJs, linkMainWithNative}
       val cwd = state.commonOptions.workingPath
-      val cmd = Commands.Run(List(project.name))
-      Interpreter.getMainClass(state, project, cmd.main) match {
-        case Left(state) =>
-          Task.now(sys.error(s"Failed to run main class in ${project.name}"))
+
+      parseMainClass(project, state) match {
+        case Left(error) =>
+          Task.now(sys.error(s"Failed to run main class in $project due to: ${error.getMessage}"))
         case Right(mainClass) =>
           project.platform match {
             case Platform.Jvm(javaEnv, _, _) =>
-              val mainArgs = cmd.args.toArray
+              val mainArgs = mainClass.arguments.toArray
+              val env = JavaEnv(javaEnv.javaHome, javaEnv.javaOptions ++ mainClass.jvmOptions)
               Tasks.runJVM(
                 state,
                 project,
-                javaEnv,
+                env,
                 cwd,
-                mainClass,
+                mainClass.`class`,
                 mainArgs,
                 skipJargs = false,
                 RunMode.Normal
               )
             case platform @ Platform.Native(config, _, _) =>
+              val cmd = Commands.Run(List(project.name))
               val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-              linkMainWithNative(cmd, project, state, mainClass, target, platform).flatMap {
-                state =>
+              linkMainWithNative(cmd, project, state, mainClass.`class`, target, platform)
+                .flatMap { state =>
                   val args = (target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
-                  else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
-              }
+                  else Tasks.runNativeOrJs(state, project, cwd, mainClass.`class`, args)
+                }
             case platform @ Platform.Js(config, _, _) =>
+              val cmd = Commands.Run(List(project.name))
               val target = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap { state =>
-                // We use node to run the program (is this a special case?)
-                val args = ("node" +: target.syntax +: cmd.args).toArray
-                if (!state.status.isOk) Task.now(state)
-                else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
-              }
+              linkMainWithJs(cmd, project, state, mainClass.`class`, target, platform)
+                .flatMap { state =>
+                  // We use node to run the program (is this a special case?)
+                  val args = ("node" +: target.syntax +: cmd.args).toArray
+                  if (!state.status.isOk) Task.now(state)
+                  else Tasks.runNativeOrJs(state, project, cwd, mainClass.`class`, args)
+                }
           }
       }
     }
