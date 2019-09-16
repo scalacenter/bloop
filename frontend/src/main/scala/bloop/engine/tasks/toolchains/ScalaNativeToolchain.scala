@@ -64,7 +64,12 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
   override type Platform = Config.Platform.Native
   override type Config = Config.NativeConfig
 
-  override def artifactNameFrom(version: String): String = BuildInfo.nativeBridge
+  override def artifactNameFrom(version: String): String = {
+    if (version.startsWith("0.3")) BuildInfo.nativeBridge03
+    else if (version.startsWith("0.4")) BuildInfo.nativeBridge04
+    else sys.error(s"Expected compatible Scala Native version [0.3, 0.4], $version given")
+  }
+
   override def getPlatformData(platform: Platform): Option[PlatformData] = {
     Some(PlatformData(artifactNameFrom(platform.config.version), platform.config.toolchain))
   }

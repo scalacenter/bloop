@@ -8,4 +8,3 @@ object BspConnection {
   final case class Tcp(host: String, port: Int) extends BspConnection
   final case class UnixLocal(socketPath: Path) extends BspConnection
 }
-

@@ -187,7 +187,7 @@ class BspProtocolSpec(
   test("find test classes") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
         val expectedClasses = Set(
           "JUnitTest",
@@ -213,13 +213,13 @@ class BspProtocolSpec(
   test("build targets request works on complicated build") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val mainProject = build.projectFor("test-project")
         val testProject = build.projectFor("test-project-test")
         val mainJsProject = build.projectFor("test-projectJS")
         val testJsProject = build.projectFor("test-projectJS-test")
-        val rootMain = build.projectFor("cross-test-build-0-6")
-        val rootTest = build.projectFor("cross-test-build-0-6-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
 
         def checkTarget(project: TestProject): Unit = {
           val bspTarget = build.state.findBuildTarget(project)
@@ -270,13 +270,13 @@ class BspProtocolSpec(
   test("sources request works") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val mainProject = build.projectFor("test-project")
         val testProject = build.projectFor("test-project-test")
         val mainJsProject = build.projectFor("test-projectJS")
         val testJsProject = build.projectFor("test-projectJS-test")
-        val rootMain = build.projectFor("cross-test-build-0-6")
-        val rootTest = build.projectFor("cross-test-build-0-6-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
 
         def checkSources(project: TestProject): Unit = {
           val sourcesResult = build.state.requestSources(project)
@@ -302,13 +302,13 @@ class BspProtocolSpec(
   test("resources request works") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val mainProject = build.projectFor("test-project")
         val testProject = build.projectFor("test-project-test")
         val mainJsProject = build.projectFor("test-projectJS")
         val testJsProject = build.projectFor("test-projectJS-test")
-        val rootMain = build.projectFor("cross-test-build-0-6")
-        val rootTest = build.projectFor("cross-test-build-0-6-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
 
         def checkResources(project: TestProject): Unit = {
           val resourcesResult = build.state.requestResources(project)
@@ -339,13 +339,13 @@ class BspProtocolSpec(
   test("dependency sources request works") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-0.6", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val mainProject = build.projectFor("test-project")
         val testProject = build.projectFor("test-project-test")
         val mainJsProject = build.projectFor("test-projectJS")
         val testJsProject = build.projectFor("test-projectJS-test")
-        val rootMain = build.projectFor("cross-test-build-0-6")
-        val rootTest = build.projectFor("cross-test-build-0-6-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
 
         def checkDependencySources(project: TestProject): Unit = {
           val dependencySourcesResult = build.state.requestDependencySources(project)

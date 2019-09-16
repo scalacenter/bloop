@@ -36,7 +36,13 @@ lazy val bloopShared = (project in file("shared"))
 /*                            This is the build definition of the wrapper                          */
 /***************************************************************************************************/
 import build.Dependencies
-import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version}
+import build.Dependencies.{
+  Scala210Version,
+  Scala211Version,
+  Scala212Version,
+  Sbt013Version,
+  Sbt1Version
+}
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
@@ -182,7 +188,7 @@ lazy val frontend: Project = project
     mainClass in Compile in run := Some("bloop.Cli"),
     bloopMainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge, jsBridge06, jsBridge10),
+    buildInfoKeys := bloopInfoKeys(nativeBridge03, nativeBridge04, jsBridge06, jsBridge10),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     javaOptions in IntegrationTest ++= jvmOptions,
@@ -230,7 +236,7 @@ lazy val sbtBloop10 = project
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
-  .settings(sbtPluginSettings("1.1.4", jsonConfig212))
+  .settings(sbtPluginSettings(Sbt1Version, jsonConfig212))
   .dependsOn(jsonConfig212)
 
 // Let's remove scripted for 0.13, we only test 1.0
@@ -238,7 +244,7 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("0.13.18", jsonConfig210))
+  .settings(sbtPluginSettings(Sbt013Version, jsonConfig210))
   .dependsOn(jsonConfig210)
 
 lazy val mavenBloop = project
@@ -323,7 +329,7 @@ val docs = project
     name := "bloop-docs",
     moduleName := "bloop-docs",
     skip in publish := true,
-    scalaVersion := "2.12.6",
+    scalaVersion := Scala212Version,
     mdoc := run.in(Compile).evaluated,
     mainClass.in(Compile) := Some("bloop.Docs"),
     resources.in(Compile) ++= {
@@ -363,14 +369,26 @@ lazy val jsBridge10 = project
     )
   )
 
-lazy val nativeBridge = project
+lazy val nativeBridge03 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scala-native")
+  .in(file("bridges") / "scala-native-0.3")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
-    name := "bloop-native-bridge",
-    libraryDependencies += Dependencies.scalaNativeTools,
+    name := "bloop-native-bridge-0.3",
+    libraryDependencies += Dependencies.scalaNativeTools03,
+    javaOptions in Test ++= jvmOptions,
+    fork in Test := true
+  )
+
+lazy val nativeBridge04 = project
+  .dependsOn(frontend % Provided, frontend % "test->test")
+  .in(file("bridges") / "scala-native-0.4")
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(
+    name := "bloop-native-bridge-0.4",
+    libraryDependencies += Dependencies.scalaNativeTools04,
     javaOptions in Test ++= jvmOptions,
     fork in Test := true
   )
@@ -401,7 +419,8 @@ val allProjects = Seq(
   gradleBloop211,
   gradleBloop212,
   millBloop,
-  nativeBridge,
+  nativeBridge03,
+  nativeBridge04,
   jsBridge06,
   jsBridge10,
   launcher,
@@ -416,7 +435,7 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     skip in publish := true,
-    crossSbtVersions := Seq("1.2.8", "0.13.18"),
+    crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
     commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
@@ -454,7 +473,8 @@ addCommandAlias(
     s"${gradleBloop212.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
     s"${frontend.id}/$publishLocalCmd",
-    s"${nativeBridge.id}/$publishLocalCmd",
+    s"${nativeBridge03.id}/$publishLocalCmd",
+    s"${nativeBridge04.id}/$publishLocalCmd",
     s"${millBloop.id}/$publishLocalCmd",
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
@@ -496,7 +516,8 @@ val allBloopReleases = List(
   s"${gradleBloop211.id}/$releaseEarlyCmd",
   s"${gradleBloop212.id}/$releaseEarlyCmd",
   s"${millBloop.id}/$releaseEarlyCmd",
-  s"${nativeBridge.id}/$releaseEarlyCmd",
+  s"${nativeBridge03.id}/$releaseEarlyCmd",
+  s"${nativeBridge04.id}/$releaseEarlyCmd",
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
   s"${sockets.id}/$releaseEarlyCmd",

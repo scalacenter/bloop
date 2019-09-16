@@ -122,7 +122,7 @@ class RunSpec {
   def runCanSeeCompileResources: Unit = {
     TestUtil.runOnlyOnJava8 {
       val mainClassName = "hello.AppWithResources"
-      val state = loadTestProject("cross-test-build-0.6")
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
       val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
       runAndCheck(state, command) { messages =>
         assert(messages.contains(("info", "Resources were found")))
@@ -133,8 +133,8 @@ class RunSpec {
   @Test
   def runIncludesTransitiveResourcesInAggregatedProjects: Unit = {
     TestUtil.runOnlyOnJava8 {
-      val target = "cross-test-build-0-6"
-      val state = loadTestProject("cross-test-build-0.6")
+      val target = "cross-test-build-scalajs-0-6"
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
       state.build.getProjectFor(target) match {
         case Some(rootWithAggregation) =>
           val dag = state.build.getDagFor(rootWithAggregation)
@@ -159,7 +159,7 @@ class RunSpec {
   def canRunMainFromSourceDependency: Unit = {
     TestUtil.runOnlyOnJava8 {
       val mainClassName = "hello.App"
-      val state = loadTestProject("cross-test-build-0.6")
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
       val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
       runAndCheck(state, command) { messages =>
         assert(messages.contains(("info", "Hello, world!")))
@@ -171,7 +171,7 @@ class RunSpec {
   def canRunDefaultMainClass: Unit = {
     TestUtil.runOnlyOnJava8 {
       // The default main class is set to hello.App build.sbt. Therefore, no error must be triggered here.
-      val state = loadTestProject("cross-test-build-0.6")
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
       val command = Commands.Run(List("test-project"), None, args = List.empty)
       runAndCheck(state, command) { messages =>
         assert(messages.contains(("info", "Hello, world!")))
@@ -183,7 +183,7 @@ class RunSpec {
   def canRunMainFromBinaryDependency: Unit = {
     TestUtil.runOnlyOnJava8 {
       val mainClassName = "App"
-      val state = loadTestProject("cross-test-build-0.6")
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
       val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
       runAndCheck(state, command) { messages =>
         assert(messages.contains(("info", "Hello, world!")))
@@ -195,11 +195,11 @@ class RunSpec {
   def setCorrectCwd: Unit = {
     TestUtil.runOnlyOnJava8 {
       val mainClassName = "hello.ShowCwd"
-      val state = loadTestProject("cross-test-build-0.6")
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
       val command = Commands.Run(List("test-project"), Some(mainClassName), args = List.empty)
       val targetMsg = {
-        if (bloop.util.CrossPlatform.isWindows) "cross-test-build-0.6\\test-project\\jvm"
-        else "cross-test-build-0.6/test-project/jvm"
+        if (bloop.util.CrossPlatform.isWindows) "cross-test-build-scalajs-0.6\\test-project\\jvm"
+        else "cross-test-build-scalajs-0.6/test-project/jvm"
       }
 
       runAndCheck(state, command) { messages =>
