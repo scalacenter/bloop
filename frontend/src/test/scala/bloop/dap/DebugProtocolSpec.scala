@@ -150,8 +150,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
           "hello.JUnitTest",
           "hello.ScalaCheckTest",
           "hello.ScalaTestTest",
-          "hello.Specs2Test",
-          "hello.UTestTest"
+          "hello.Specs2Test"
         )
 
         val output = build.state.withDebugSession(project, testSuiteParams(testFilters)) { client =>
