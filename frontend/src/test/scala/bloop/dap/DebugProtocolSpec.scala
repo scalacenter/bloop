@@ -144,7 +144,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts test suites") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-1.0", workspace, logger) { build =>
+      loadBspBuildFromResources("cross-test-build-scalajs-1.0", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
         val testFilters = List(
           "hello.JUnitTest",
