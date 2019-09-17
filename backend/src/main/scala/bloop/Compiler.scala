@@ -397,11 +397,6 @@ object Compiler {
           val resultForDependentCompilationsInSameRun =
             PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
           val analysis = result.analysis()
-          val analysisForFutureCompilationRuns =
-            rebaseAnalysisClassFiles(analysis, readOnlyClassesDir, newClassesDir, sourcesWithFatal)
-          val resultForFutureCompilationRuns = resultForDependentCompilationsInSameRun.withAnalysis(
-            Optional.of(analysisForFutureCompilationRuns)
-          )
 
           def updateExternalClassesDirWithReadOnly(
               clientClassesDir: AbsolutePath,
@@ -463,6 +458,21 @@ object Compiler {
               reportedFatalWarnings
             )
           } else {
+            val analysisForFutureCompilationRuns = {
+              rebaseAnalysisClassFiles(
+                analysis,
+                readOnlyClassesDir,
+                newClassesDir,
+                sourcesWithFatal
+              )
+            }
+
+            val resultForFutureCompilationRuns = {
+              resultForDependentCompilationsInSameRun.withAnalysis(
+                Optional.of(analysisForFutureCompilationRuns)
+              )
+            }
+
             val persistTask = {
               val persistOut = compileOut.analysisOut
               val setup = result.setup
