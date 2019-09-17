@@ -32,6 +32,7 @@ import scala.util.{Failure, Success}
 import xsbti.compile.Signature
 import scala.collection.mutable
 import java.{util => ju}
+import bloop.CompileOutPaths
 
 object CompileGraph {
   type CompileTraversal = Task[Dag[PartialCompileResult]]
@@ -526,7 +527,7 @@ object CompileGraph {
                           .doOnFinish { _ =>
                             Task {
                               // Don't delete classes dir if it's an empty
-                              if (toDeleteResult.hasEmptyClassesDir) {
+                              if (CompileOutPaths.hasEmptyClassesDir(toDeleteResult.classesDir)) {
                                 // The empty classes dir should not exist in the
                                 // first place but we guarantee that even if it
                                 // does we don't delete it to avoid any conflicts
