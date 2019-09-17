@@ -332,7 +332,7 @@ object Interpreter {
           (userDefinedProjects, projectsToTest)
         } else {
           val result = Dag.inverseDependencies(state.build.dags, userDefinedProjects)
-          (result.reduced, result.strictlyInverseNodes)
+          (result.reduced, result.allCascaded)
         }
       }
 
