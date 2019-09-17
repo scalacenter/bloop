@@ -20,12 +20,8 @@ final class BloopLookup(
     if (classpathHash == previousClasspathHash) None
     else {
       // Discard directories and known empty classes dirs and check if there's still a hash mismatch
-      val newPreviousClasspathHash = previousClasspathHash.filterNot { fh =>
-        // If directory exists, filter it out
-        fh.file.isDirectory() ||
-        // If directory is empty classes dir, filter it out
-        CompileOutPaths.hasEmptyClassesDir(AbsolutePath(fh.file.toPath))
-      }
+      val newPreviousClasspathHash =
+        BloopLookup.filterOutDirsFromHashedClasspath(previousClasspathHash)
 
       if (classpathHash == newPreviousClasspathHash) None
       else {
@@ -35,6 +31,20 @@ final class BloopLookup(
         logger.debug(Diff.unifiedDiff(previousClasspath, newClasspath, "", ""))
         Some(classpathHash)
       }
+    }
+  }
+}
+
+object BloopLookup {
+  def filterOutDirsFromHashedClasspath(classpath: Seq[FileHash]): Seq[FileHash] = {
+    classpath.filterNot { fh =>
+      // If directory hash matches, filter it out (directory hash changes with different
+      // bloop server sessions, it's just an optimization to avoid checking for isDir
+      BloopStamps.isDirectoryHash(fh) ||
+      // If directory exists, filter it out
+      fh.file.isDirectory() ||
+      // If directory is empty classes dir, filter it out
+      CompileOutPaths.hasEmptyClassesDir(AbsolutePath(fh.file.toPath))
     }
   }
 }

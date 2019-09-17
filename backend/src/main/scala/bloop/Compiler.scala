@@ -34,6 +34,7 @@ import monix.execution.Scheduler
 import monix.execution.CancelableFuture
 import monix.execution.ExecutionModel
 import sbt.internal.inc.bloop.internal.BloopStamps
+import sbt.internal.inc.bloop.internal.BloopLookup
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -428,12 +429,20 @@ object Compiler {
           val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
-            // If no-op, return previous result
+            // If no-op, return previous result with updated classpath hashes
+            val noOpPreviousResult = {
+              updatePreviousResultWithRecentClasspathHashes(
+                compileInputs.previousResult,
+                uniqueInputs
+              )
+            }
+
+            val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
             val products = CompileProducts(
               readOnlyClassesDir,
               readOnlyClassesDir,
-              compileInputs.previousResult,
-              compileInputs.previousResult,
+              noOpPreviousResult,
+              noOpPreviousResult,
               Set(),
               Map.empty,
               definedMacroSymbols
@@ -607,6 +616,35 @@ object Compiler {
       case _: Compiler.Result.Success => previousSuccessfulProblems
       case _ => Nil
     }
+  }
+
+  /**
+   * Update the previous reuslt with the most recent classpath hashes.
+   *
+   * The incremental compiler has two mechanisms to ascertain if it has to
+   * recompile code or can skip recompilation (what it's traditionally called
+   * as a no-op compile). The first phase checks if classpath hashes are the
+   * same. If they are, it's a no-op compile, if they are not then it passes to
+   * the second phase which does an expensive classpath computation to better
+   * decide if a recompilation is needed.
+   *
+   * This last step can be expensive when there are lots of projects in a
+   * build and even more so when these projects produce no-op compiles. This
+   * method makes sure we update the classpath hash if Zinc finds a change in
+   * the classpath and still decides it's a no-op compile. This prevents
+   * subsequent no-op compiles from paying the price for the same expensive
+   * classpath check.
+   */
+  def updatePreviousResultWithRecentClasspathHashes(
+      previous: PreviousResult,
+      uniqueInputs: UniqueCompileInputs
+  ): PreviousResult = {
+    val newClasspathHashes =
+      BloopLookup.filterOutDirsFromHashedClasspath(uniqueInputs.classpath)
+    val newSetup = InterfaceUtil
+      .toOption(previous.setup())
+      .map(s => s.withOptions(s.options().withClasspathHash(newClasspathHashes.toArray)))
+    previous.withSetup(InterfaceUtil.toOptional(newSetup))
   }
 
   /**

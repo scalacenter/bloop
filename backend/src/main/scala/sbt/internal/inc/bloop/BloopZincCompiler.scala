@@ -227,7 +227,7 @@ object BloopZincCompiler {
       tracer: BraveTracer
   ): Task[CompileConfiguration] = Task.now {
     // Remove directories from classpath hashes, we're only interested in jars
-    val jarClasspathHashes = classpathHashes.filterNot(fh => BloopStamps.isDirectoryHash(fh))
+    val jarClasspathHashes = BloopLookup.filterOutDirsFromHashedClasspath(classpathHashes)
     val compileSetup = MiniSetup.of(
       output,
       MiniOptions.of(
