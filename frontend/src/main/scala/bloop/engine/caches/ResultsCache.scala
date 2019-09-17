@@ -207,7 +207,8 @@ object ResultsCache {
                       val inputs = UniqueCompileInputs.emptyFor(originPath)
                       val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
-                      val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
+                      val reporter =
+                        new LogReporter(p.name, dummy, cwd, ReporterConfig.defaultFormat)
 
                       // TODO: Figure out a way to populate macros from previous run after restart
                       val ms = new Array[String](0)

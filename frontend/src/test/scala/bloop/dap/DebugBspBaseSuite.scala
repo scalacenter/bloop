@@ -6,7 +6,7 @@ import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BspClientLogger
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.bsp.BloopExtraBuildParams
 
 import monix.execution.Scheduler
 

@@ -36,6 +36,7 @@ import monix.execution.CancelableFuture
 import monix.reactive.{Observer, Observable, MulticastStrategy}
 
 import sbt.internal.inc.AnalyzingCompiler
+import sbt.internal.inc.FreshCompilerCache
 import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
 
 import scala.concurrent.Promise
@@ -137,6 +138,7 @@ object CompileTask {
             CompileInputs(
               instance,
               state.compilerCache,
+              new FreshCompilerCache,
               sources.toArray,
               classpath,
               bundle.uniqueInputs,

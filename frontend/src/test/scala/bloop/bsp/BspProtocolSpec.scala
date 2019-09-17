@@ -13,7 +13,6 @@ import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
 import ch.epfl.scala.bsp.ScalacOptionsItem
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import io.circe.Json
 import ch.epfl.scala.bsp.Uri
 

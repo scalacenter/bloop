@@ -24,12 +24,14 @@ case class LastSuccessfulResult(
 )
 
 object LastSuccessfulResult {
-  private final val EmptyPreviousResult =
+  private[bloop] final val EmptyPreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
-  def empty(project: Project): LastSuccessfulResult = {
+  def empty(project: Project): LastSuccessfulResult =
+    empty(project.name, project.genericClassesDir)
+  def empty(projectName: String, genericClassesDir: AbsolutePath): LastSuccessfulResult = {
     val emptyClassesDir =
-      CompileOutPaths.deriveEmptyClassesDir(project.name, project.genericClassesDir)
+      CompileOutPaths.deriveEmptyClassesDir(projectName, genericClassesDir)
     LastSuccessfulResult(
       Vector.empty,
       Vector.empty,

@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.collection.concurrent.TrieMap
 
 final class LogReporter(
-    val project: Project,
+    projectName: String,
     override val logger: Logger,
     cwd: AbsolutePath,
     config: ReporterConfig,
@@ -52,7 +52,7 @@ final class LogReporter(
   override def reportCompilationProgress(progress: Long, total: Long): Unit = {}
 
   override def reportCancelledCompilation(): Unit = {
-    logger.warn(s"Cancelling compilation of ${project.name}")
+    logger.warn(s"Cancelling compilation of ${projectName}")
     ()
   }
 
@@ -60,11 +60,11 @@ final class LogReporter(
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site
     compilingFiles ++= sources
-    logger.info(Reporter.compilationMsgFor(project.name, sources))
+    logger.info(Reporter.compilationMsgFor(projectName, sources))
   }
 
   override def reportEndIncrementalCycle(durationMs: Long, result: scala.util.Try[Unit]): Unit = {
-    logger.info(s"Compiled ${project.name} (${durationMs}ms)")
+    logger.info(s"Compiled ${projectName} (${durationMs}ms)")
   }
 
   override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = ()
@@ -89,5 +89,17 @@ final class LogReporter(
     }
 
     super.reportEndCompilation(previousSuccessfulProblems, code)
+  }
+}
+
+object LogReporter {
+  def apply(
+      project: Project,
+      logger: Logger,
+      cwd: AbsolutePath,
+      config: ReporterConfig,
+      _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
+  ): LogReporter = {
+    new LogReporter(project.name, logger, cwd, config, _problems)
   }
 }

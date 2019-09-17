@@ -213,6 +213,12 @@ object Config {
       modules: List[Module]
   )
 
+  case class SnippetConfig(
+      classesDir: Path,
+      classpath: List[Path],
+      `scala`: Scala
+  )
+
   case class Project(
       name: String,
       directory: Path,

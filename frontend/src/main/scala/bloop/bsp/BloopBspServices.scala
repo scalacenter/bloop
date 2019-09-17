@@ -10,7 +10,6 @@ import java.util.stream.Collectors
 
 import bloop.io.ServerHandle
 import bloop.data.WorkspaceSettings
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
@@ -103,6 +102,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
+    .requestAsync(BloopCodeSnippet.compile)(p => schedule(compileSnippet(p)))
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -366,7 +366,7 @@ final class BloopBspServices(
           }
         }
 
-        new BspProjectReporter(
+        BspProjectReporter(
           inputs.project,
           inputs.logger,
           inputs.cwd,
@@ -434,6 +434,19 @@ final class BloopBspServices(
           val compileArgs = params.arguments.getOrElse(Nil)
           compileProjects(mappings, state, compileArgs, params.originId, logger)
       }
+    }
+  }
+
+  def compileSnippet(
+      params: BloopCompileSnippetParams
+  ): BspEndpointResponse[BloopCompileSnippetResult] = {
+    ifInitialized(None) { (_: State, logger: BspServerLogger) =>
+      import bloop.config.ConfigEncoderDecoders.allDecoder
+      params.config.as[bloop.config.Config.File] match {
+        case Right(configFile) => configFile
+        case Left(decodingError) =>
+      }
+      ???
     }
   }
 

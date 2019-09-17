@@ -39,6 +39,7 @@ import sbt.internal.inc.bloop.internal.BloopLookup
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
+    globalsCache: GlobalsCache,
     sources: Array[AbsolutePath],
     classpath: Array[AbsolutePath],
     uniqueInputs: UniqueCompileInputs,
@@ -63,7 +64,7 @@ case class CompileInputs(
 )
 
 case class CompileOutPaths(
-    analysisOut: AbsolutePath,
+    analysisOut: Option[AbsolutePath],
     genericClassesDir: AbsolutePath,
     externalClassesDir: AbsolutePath,
     internalReadOnlyClassesDir: AbsolutePath
@@ -308,16 +309,19 @@ object Compiler {
 
       val lookup = new BloopClasspathEntryLookup(results, compileInputs.uniqueInputs.classpath)
       val reporter = compileInputs.reporter
-      val compilerCache = new FreshCompilerCache
+      val globalsCache = compileInputs.globalsCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
+
+      // Don't pass class file manager in inc options; we pass directly ours via zinc APIs
       val incOptions = {
-        val disableIncremental = java.lang.Boolean.getBoolean("bloop.zinc.disabled")
-        // Don't customize class file manager bc we pass our own to the zinc APIs directly
-        IncOptions.create().withEnabled(!disableIncremental)
+        IncOptions.create().withEnabled {
+          // Don't enable incremental compilation if out is missing or user explicitly disabled it
+          compileOut.analysisOut.nonEmpty && !java.lang.Boolean.getBoolean("bloop.zinc.disabled")
+        }
       }
 
       val progress = Optional.of[CompileProgress](new BloopProgress(reporter, cancelPromise))
-      Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
+      Setup.create(lookup, skip, cacheFile, globalsCache, incOptions, reporter, progress, empty)
     }
 
     def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
@@ -472,10 +476,14 @@ object Compiler {
             }
 
             val persistTask = {
-              val persistOut = compileOut.analysisOut
-              val setup = result.setup
-              // Important to memoize it, it's triggered by different clients
-              Task(persist(persistOut, analysisForFutureCompilationRuns, setup, tracer, logger)).memoize
+              compileOut.analysisOut match {
+                case None => Task.unit
+                case Some(out) =>
+                  // Important to memoize it, it's triggered by different clients
+                  Task {
+                    persist(out, analysisForFutureCompilationRuns, result.setup, tracer, logger)
+                  }.memoize
+              }
             }
 
             // Delete all those class files that were invalidated in the external classes dir

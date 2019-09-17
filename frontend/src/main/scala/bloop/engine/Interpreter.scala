@@ -169,7 +169,7 @@ object Interpreter {
       val config = ReporterKind.toReporterConfig(cmd.reporter)
       val dag = getProjectsDag(projects, state)
       val createReporter = (inputs: ReporterInputs[Logger]) =>
-        new LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
+        LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
       CompileTask.compile(
         state,
         dag,

@@ -9,7 +9,6 @@ import bloop.logging.BspClientLogger
 import bloop.cli.ExitStatus
 import bloop.data.WorkspaceSettings
 import bloop.internal.build.BuildInfo
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 
 import java.nio.file.{Files, Paths}
 

@@ -5,7 +5,6 @@ import java.nio.file.Files
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException, TimeUnit}
 
 import bloop.TestSchedulers
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.cli.{BspProtocol, Commands}
 import bloop.dap.DebugTestClient
 import bloop.engine.{ExecutionContext, State}
