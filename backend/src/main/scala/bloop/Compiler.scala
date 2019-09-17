@@ -121,6 +121,41 @@ object CompileOutPaths {
       )
     )
   }
+
+  /*
+   * An empty classes directory never exists on purpose. It is merely a
+   * placeholder until a non empty classes directory is used. There is only
+   * one single empty classes directory per project and can be shared by
+   * different projects, so to avoid problems across different compilations
+   * we never create this directory and special case Zinc logic to skip it.
+   *
+   * The prefix name 'classes-empty-` of this classes directory should not
+   * change without modifying `BloopLookup` defined in `backend`.
+   */
+  def deriveEmptyClassesDir(projectName: String, genericClassesDir: AbsolutePath): AbsolutePath = {
+    val classesDirName = s"classes-empty-${projectName}"
+    genericClassesDir.getParent.resolve(classesDirName)
+  }
+
+  private val ClassesEmptyDirPrefix = java.io.File.separator + "classes-empty-"
+  def hasEmptyClassesDir(classesDir: AbsolutePath): Boolean = {
+    /*
+     * Empty classes dirs don't exist so match on path.
+     *
+     * Don't match on `getFileName` because `classes-empty` is followed by
+     * target name, which could contains `java.io.File.separator`, making
+     * `getFileName` pick the suffix after the latest separator.
+     *
+     * e.g. if target name is
+     * `util/util-function/src/main/java/com/twitter/function:function`
+     * classes empty dir path will be
+     * `classes-empty-util/util-function/src/main/java/com/twitter/function:function`.
+     * and `getFileName` would yield `function:function` which is not what we want.
+     * Hence we avoid using this code for the implementation:
+     * `classesDir.underlying.getFileName().toString.startsWith("classes-empty-")`
+     */
+    classesDir.syntax.contains(ClassesEmptyDirPrefix)
+  }
 }
 
 object Compiler {

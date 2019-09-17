@@ -13,6 +13,7 @@ import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup, FileHash}
 
 import monix.eval.Task
 import bloop.UniqueCompileInputs
+import bloop.CompileOutPaths
 
 case class LastSuccessfulResult(
     sources: Vector[UniqueCompileInputs.HashedSource],
@@ -20,33 +21,20 @@ case class LastSuccessfulResult(
     previous: PreviousResult,
     classesDir: AbsolutePath,
     populatingProducts: Task[Unit]
-) {
-  def hasEmptyClassesDir: Boolean =
-    classesDir.underlying.getFileName().toString.startsWith("classes-empty-")
-}
+)
 
 object LastSuccessfulResult {
   private final val EmptyPreviousResult =
     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
 
   def empty(project: Project): LastSuccessfulResult = {
-    /*
-     * An empty classes directory never exists on purpose. It is merely a
-     * placeholder until a non empty classes directory is used. There is only
-     * one single empty classes directory per project and can be shared by
-     * different projects, so to avoid problems across different compilations
-     * we never create this directory and special case Zinc logic to skip it.
-     *
-     * The prefix name 'classes-empty-` of this classes directory should not
-     * change without modifying `BloopLookup` defined in `backend`.
-     */
-    val classesDirName = s"classes-empty-${project.name}"
-    val classesDir = project.genericClassesDir.getParent.resolve(classesDirName).underlying
+    val emptyClassesDir =
+      CompileOutPaths.deriveEmptyClassesDir(project.name, project.genericClassesDir)
     LastSuccessfulResult(
       Vector.empty,
       Vector.empty,
       EmptyPreviousResult,
-      AbsolutePath(classesDir),
+      emptyClassesDir,
       Task.now(())
     )
   }
