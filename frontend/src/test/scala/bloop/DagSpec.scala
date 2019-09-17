@@ -229,6 +229,7 @@ class DagSpec {
     def reduceInverseDeps(targets: List[Project]): Set[Project] =
       Dag.inverseDependencies(dags, targets).reduced.toSet
 
+    Assert.assertEquals("base case", Set(e, b), reduceInverseDeps(List(a)))
     Assert.assertEquals("reduced case 1", Set(e, g, i, b), reduceInverseDeps(List(a, f)))
     Assert.assertEquals("reduced case 2", Set(e, g, i, b), reduceInverseDeps(List(e, g, i, b)))
     Assert.assertEquals("reduced case 3", Set(e, b), reduceInverseDeps(List(a, c, d)))
@@ -240,7 +241,7 @@ class DagSpec {
     Assert.assertEquals("reduced case 9", Set(g, i), reduceInverseDeps(List(f)))
 
     def allInverseDeps(targets: List[Project]): Set[Project] =
-      Dag.inverseDependencies(dags, targets).strictlyInverseNodes.toSet
+      Dag.inverseDependencies(dags, targets).allCascaded.toSet
 
     Assert.assertEquals("all case 1", allProjects.toSet, allInverseDeps(List(a, f)))
     Assert.assertEquals("all case 2", Set(e, g, i, b), allInverseDeps(List(e, g, i, b)))
