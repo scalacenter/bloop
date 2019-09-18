@@ -161,17 +161,6 @@ object CompileOutPaths {
 
 object Compiler {
   private implicit val filter = bloop.logging.DebugFilter.Compilation
-  private final class ZincClasspathEntryLookup(results: Map[File, PreviousResult])
-      extends PerClasspathEntryLookup {
-    override def analysis(classpathEntry: File): Optional[CompileAnalysis] = {
-      InterfaceUtil.toOptional(results.get(classpathEntry)).flatMap(_.analysis())
-    }
-
-    override def definesClass(classpathEntry: File): DefinesClass = {
-      Locate.definesClass(classpathEntry)
-    }
-  }
-
   private final class BloopProgress(
       reporter: ZincReporter,
       cancelPromise: Promise[Unit]
@@ -317,7 +306,7 @@ object Compiler {
         newClassesDir.toFile -> compileInputs.previousResult
       )
 
-      val lookup = new ZincClasspathEntryLookup(results)
+      val lookup = new BloopClasspathEntryLookup(results, compileInputs.uniqueInputs.classpath)
       val reporter = compileInputs.reporter
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
