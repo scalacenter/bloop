@@ -6,13 +6,13 @@ object Dependencies {
   val Scala212Version = "2.12.8"
 
   val Sbt013Version = "0.13.18"
-  val Sbt1Version   = "1.2.8"
+  val Sbt1Version = "1.2.8"
 
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
   val nailgunCommit = "d7ed5db"
 
-  val zincVersion = "1.3.0-M4+25-0283d5c6"
+  val zincVersion = "1.3.0-M4+26-045d2c8c"
   val bspVersion = "2.0.0-M4+10-61e61e87"
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
