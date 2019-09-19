@@ -50,7 +50,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val jnaVersion = "4.5.0"
   val asmVersion = "6.0"
-  val snailgunVersion = "0.3.0"
+  val snailgunVersion = "0.3.1"
   val ztExecVersion = "1.11"
 
   import sbt.librarymanagement.syntax.stringToOrganization
