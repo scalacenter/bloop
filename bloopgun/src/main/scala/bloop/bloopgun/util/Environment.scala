@@ -1,9 +1,15 @@
 package bloop.bloopgun.util
 
+import java.{util => ju}
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
-import java.{util => ju}
+import bloop.bloopgun.core.LocatedServer
+import bloop.bloopgun.core.AvailableAtPath
+
 import scala.util.control.NonFatal
+
+import snailgun.logging.SnailgunLogger
 
 object Environment {
   final val isWindows: Boolean = scala.util.Properties.isWin
@@ -31,5 +37,42 @@ object Environment {
     } catch {
       case NonFatal(t) => None
     }
+  }
+
+  /**
+   * Reads all jvm options required to start the Bloop server, in order of priority:
+   *
+   * 1. Read `$$HOME/.bloop/.jvmopts` file.
+   * 2. Read `.jvmopts` file right next to the location of the bloop server jar.
+   * 3. Parse `-J` prefixed jvm options in the arguments passed to the server command.
+   *
+   * Returns a list of jvm options with no `-J` prefix.
+   */
+  def detectJvmOptionsForServer(
+      server: LocatedServer,
+      serverArgs: List[String],
+      logger: SnailgunLogger
+  ): List[String] = {
+    def readJvmOptsFile(jvmOptsFile: Path): List[String] = {
+      if (!Files.isReadable(jvmOptsFile)) {
+        if (Files.exists(jvmOptsFile)) {
+          logger.error(s"Ignored unreadable ${jvmOptsFile.toAbsolutePath()}")
+        }
+
+        Nil
+      } else {
+        val contents = new String(Files.readAllBytes(jvmOptsFile), StandardCharsets.UTF_8)
+        contents.linesIterator.toList
+      }
+    }
+
+    val jvmServerArgs = serverArgs.filter(_.startsWith("-J"))
+    val jvmOptionsFromHome = readJvmOptsFile(Environment.defaultBloopDirectory.resolve(".jvmopts"))
+    val jvmOptionsFromPathNextToBinary = server match {
+      case AvailableAtPath(binary) => readJvmOptsFile(binary.getParent.resolve(".jvmopts"))
+      case _ => Nil
+    }
+
+    (jvmOptionsFromHome ++ jvmOptionsFromPathNextToBinary ++ jvmServerArgs).map(_.stripPrefix("-J"))
   }
 }

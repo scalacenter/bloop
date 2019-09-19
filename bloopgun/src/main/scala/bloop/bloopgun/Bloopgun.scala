@@ -186,7 +186,14 @@ class BloopgunCli(
         if (params.server) {
           shell.connectToBloopPort(Nil, config, logger) match {
             case Some(_) => logger.info(s"Server is already running at $config, exiting!"); 0
-            case None => fireCommand("about", Array.empty, params, config, logger)
+            case None =>
+              // Fire server and wait until it exits
+              fireServer(FireAndWaitForExit, params, config, bloopVersion, logger) match {
+                case Some((cmd, status)) =>
+                  logger.info(s"Command '$cmd' finished with ${status.code}, bye!"); 0
+                case None =>
+                  logger.error("Failed to locate server, aborting start of server!"); 1
+              }
           }
         } else {
           params.args match {
@@ -252,7 +259,7 @@ class BloopgunCli(
           case _ =>
             // Attempt to start server here, move launcher logic
             logger.info(s"No server running at ${config}, let's fire one...")
-            fireServer(params, config, bloopVersion, logger) match {
+            fireServer(FireInBackground, params, config, bloopVersion, logger).flatten match {
               case Some(l: ListeningAndAvailableAt) => executeCmd(client)
               case None => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
             }
@@ -266,64 +273,41 @@ class BloopgunCli(
     }
   }
 
-  /**
-   * Reads all jvm options required to start the Bloop server, in order of priority:
-   *
-   * 1. Read `$$HOME/.bloop/.jvmopts` file.
-   * 2. Read `.jvmopts` file right next to the location of the bloop server jar.
-   * 3. Parse `-J` prefixed jvm options in the arguments passed to the server command.
-   *
-   * Returns a list of jvm options with no `-J` prefix.
-   */
-  def readAllServerJvmOptions(
-      server: LocatedServer,
-      serverArgs: List[String],
-      logger: SnailgunLogger
-  ): List[String] = {
-    def readJvmOptsFile(jvmOptsFile: Path): List[String] = {
-      if (!Files.isReadable(jvmOptsFile)) {
-        if (Files.exists(jvmOptsFile)) {
-          logger.error(s"Ignored unreadable ${jvmOptsFile.toAbsolutePath()}")
-        }
+  sealed trait FireMode {
+    type Out
 
-        Nil
-      } else {
-        val contents = new String(Files.readAllBytes(jvmOptsFile), StandardCharsets.UTF_8)
-        contents.linesIterator.toList
-      }
-    }
-
-    val jvmOptionsFromHome = readJvmOptsFile(Environment.defaultBloopDirectory.resolve(".jvmopts"))
-    val jvmOptionsFromPathNextToBinary = server match {
-      case AvailableAtPath(binary) => readJvmOptsFile(binary.getParent.resolve(".jvmopts"))
-      case _ => Nil
-    }
-
-    val jvmServerArgs = serverArgs.filter(_.startsWith("-J"))
-    (jvmOptionsFromHome ++ jvmOptionsFromPathNextToBinary ++ jvmServerArgs).map(_.stripPrefix("-J"))
+    def fire(
+        serverCmd: List[String],
+        found: LocatedServer,
+        config: ServerConfig,
+        logger: SnailgunLogger
+    ): Out
   }
 
-  def fireServer(
-      params: BloopgunParams,
-      config: ServerConfig,
-      bloopVersion: String,
-      logger: SnailgunLogger
-  ): Option[ListeningAndAvailableAt] = {
-    ServerStatus.findServerToRun(bloopVersion, config, shell, logger).flatMap { found =>
-      val serverJvmOpts = readAllServerJvmOptions(found, config.serverArgs, logger)
-      val cmd = found match {
-        case AvailableWithCommand(cmd) => cmd
-        case AvailableAtPath(path) => List(path.toAbsolutePath.toString)
-        case ResolvedAt(classpath) =>
-          val delimiter = if (Environment.isWindows) ";" else ":"
-          val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(delimiter)
-          List("java") ++ serverJvmOpts ++ List("-classpath", stringClasspath, "bloop.Server")
-      }
+  case object FireAndWaitForExit extends FireMode {
+    type Out = ExitServerStatus
+    def fire(
+        cmd: List[String],
+        found: LocatedServer,
+        config: ServerConfig,
+        logger: SnailgunLogger
+    ): Out = {
+      startServer(cmd, config, true, logger)
+    }
+  }
 
-      val statusPromise = Promise[StartStatus]()
-      val serverThread =
-        startServerInBackground(cmd, serverJvmOpts, config, statusPromise, logger)
-      logger.debug("Server was started in a thread, waiting until it's up and running...")
+  case object FireInBackground extends FireMode {
+    type Out = Option[ListeningAndAvailableAt]
+    def fire(
+        cmd: List[String],
+        found: LocatedServer,
+        config: ServerConfig,
+        logger: SnailgunLogger
+    ): Out = {
+      val exitPromise = Promise[ExitServerStatus]()
+      val serverThread = shell.startThread("bloop-server-background", true) {
+        exitPromise.success(startServer(cmd, config, false, logger))
+      }
 
       val port = config.userOrDefaultPort
       var listening: Option[ListeningAndAvailableAt] = None
@@ -336,7 +320,7 @@ class BloopgunCli(
        * high tax on application startup times. This operation usually takes
        * around a second on Linux and Unix systems.
        */
-      while (!statusPromise.isCompleted && !isConnected) {
+      while (!exitPromise.isCompleted && !isConnected) {
         val waitMs = 125.toLong
         Thread.sleep(waitMs)
         logger.debug(s"Sleeping for ${waitMs}ms until we connect to server port $port")
@@ -344,69 +328,99 @@ class BloopgunCli(
       }
 
       // Either listening exists or status promise is completed
-      listening
-        .orElse {
-          statusPromise.future.value match {
-            case Some(scala.util.Success(Some((cmd, status)))) =>
-              logger.error(s"Command '$cmd' finished with ${status.code}: '${status.output}'")
-            case Some(scala.util.Failure(t)) =>
-              logger.error(s"Unexpected exception thrown by thread starting server: '$t'")
-            case unexpected =>
-              logger.error(s"Unexpected error when starting server: $unexpected")
-          }
-
-          // Required to protect ourselves from other clients racing to start the server
-          logger.info("Attempt connection a last time before giving up...")
-          Thread.sleep(500.toLong)
-          shell.connectToBloopPort(cmd, config, logger)
+      listening.orElse {
+        exitPromise.future.value match {
+          case Some(scala.util.Success((runCmd, status))) =>
+            val cmd = runCmd.mkString(" ")
+            logger.error(s"Command '$cmd' finished with ${status.code}: '${status.output}'")
+          case Some(scala.util.Failure(t)) =>
+            logger.error(s"Unexpected exception thrown by thread starting server: '$t'")
+          case unexpected =>
+            logger.error(s"Unexpected error when starting server: $unexpected")
         }
+
+        // Required to protect ourselves from other clients racing to start the server
+        logger.info("Attempt connection a last time before giving up...")
+        Thread.sleep(500.toLong)
+        shell.connectToBloopPort(cmd, config, logger)
+      }
+    }
+  }
+
+  def fireServer(
+      mode: FireMode,
+      params: BloopgunParams,
+      config: ServerConfig,
+      bloopVersion: String,
+      logger: SnailgunLogger
+  ): Option[mode.Out] = {
+    ServerStatus.findServerToRun(bloopVersion, config, shell, logger).map { found =>
+      val cmd = found match {
+        case AvailableWithCommand(cmd) => cmd
+        case AvailableAtPath(path) => List(path.toAbsolutePath.toString)
+        case ResolvedAt(classpath) =>
+          val delimiter = java.io.File.pathSeparator
+          val jvmOpts = Environment.detectJvmOptionsForServer(found, config.serverArgs, logger)
+          val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
+          List("java") ++ jvmOpts ++ List("-classpath", stringClasspath, "bloop.Server")
+      }
+
+      mode.fire(cmd, found, config, logger)
     }
   }
 
   // Reused across the two different ways we can run a server
-  type StartStatus = Option[(String, StatusCommand)]
+  type ExitServerStatus = (List[String], StatusCommand)
 
   /**
    * Start a server in the background by using the python script `bloop server`.
    *
-   * This operation can take a while in some operating systems (most notably Windows, Unix is fast).
-   * After running a thread in the background, we will wait until the server is up.
+   * This operation can take a while in some operating systems (most notably
+   * Windows, where antivirus programs slow down the execution of startup).
+   * Therefore, we start the server in background and the call-site uses the
+   * value of `exitPromise`. The promise will not be completed so long as the
+   * server is running.
    *
    * @param binary The list of arguments that make the python binary script we want to run.
    */
-  def startServerInBackground(
+  def startServer(
       binary: List[String],
-      jvmOptions: List[String],
       config: ServerConfig,
-      runningServer: Promise[StartStatus],
+      redirectOutErr: Boolean,
       logger: Logger
-  ): Thread = {
+  ): ExitServerStatus = {
     // Always keep a server running in the background by making it a daemon thread
-    shell.startThread("bloop-server-background", true) {
-      val serverArgs = (config.host, config.port) match {
-        case (Some(host), Some(port)) => List(host, port.toString)
-        case (None, Some(port)) => List(port.toString)
-        case (None, None) => Nil
-        case (Some(host), None) =>
-          logger.warn(Feedback.unexpectedServerArgsSyntax(host))
-          Nil
-      }
-
-      val startCmd = binary ++ serverArgs ++ jvmOptions
-      logger.info(Feedback.startingBloopServer(config))
-      logger.debug(s"Start command: $startCmd")
-
-      // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
-      val code = new ProcessBuilder()
-        .command(startCmd.toArray: _*)
-        .directory(Environment.cwd.toFile)
-        .start()
-        .waitFor()
-
-      runningServer.success(Some(startCmd.mkString(" ") -> StatusCommand(code, "")))
-
-      ()
+    val serverArgs = (config.host, config.port) match {
+      case (Some(host), Some(port)) => List(host, port.toString)
+      case (None, Some(port)) => List(port.toString)
+      case (None, None) => Nil
+      case (Some(host), None) =>
+        logger.warn(Feedback.unexpectedServerArgsSyntax(host))
+        Nil
     }
+
+    /*
+     * Procedure to run the build server:
+     *   - Run server with JVM-specific options to speed up execution.
+     *   - If error related to options, run server without them.
+     */
+
+    val startCmd = binary ++ serverArgs
+    logger.info(Feedback.startingBloopServer(config))
+    logger.debug(s"Start command: $startCmd")
+
+    // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
+    val process = new ProcessBuilder()
+      .command(startCmd.toArray: _*)
+      .directory(Environment.cwd.toFile)
+
+    if (redirectOutErr) {
+      process.redirectOutput()
+      process.redirectError()
+    }
+
+    val code = process.start().waitFor()
+    startCmd -> StatusCommand(code, "")
   }
 
   private def runAfterCommand(
