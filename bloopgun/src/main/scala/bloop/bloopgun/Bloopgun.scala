@@ -37,6 +37,8 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Promise
 import snailgun.logging.Logger
 import bloop.bloopgun.core.LocatedServer
+import java.io.InputStreamReader
+import java.io.BufferedReader
 
 /**
  *
@@ -373,15 +375,19 @@ class BloopgunCli(
   type ExitServerStatus = (List[String], StatusCommand)
 
   /**
-   * Start a server in the background by using the python script `bloop server`.
+   * Start a server with the executable present in `binary`.
    *
    * This operation can take a while in some operating systems (most notably
    * Windows, where antivirus programs slow down the execution of startup).
-   * Therefore, we start the server in background and the call-site uses the
-   * value of `exitPromise`. The promise will not be completed so long as the
-   * server is running.
+   * Therefore, call sites usually start the server in background and wait on
+   * the value of `exitPromise`. The promise will not be completed so long as
+   * the server is running and at the end it will contain either a success or
+   * failure.
    *
-   * @param binary The list of arguments that make the python binary script we want to run.
+   * @param binary The list of arguments that make the python binary script to run.
+   * @param config The configuration for the server we want to launch.
+   * @param redirectOutErr Whether we should forward logs from the system process
+   *        to the inherited streams. This is typically used when `bloop server` runs.
    */
   def startServer(
       binary: List[String],
@@ -400,27 +406,66 @@ class BloopgunCli(
     }
 
     /*
-     * Procedure to run the build server:
-     *   - Run server with JVM-specific options to speed up execution.
-     *   - If error related to options, run server without them.
+     * The process to launch the server is as follows:
+     *
+     *   - First we run the server with some JVM options that the launcher knows
+     *     speeds up the execution of the server. This execution can fail because
+     *     the JVM options are specific to the JVM.
+     *   - When the first run fails, we attempt to run the server with no
+     *     additional JVM options and report that to the user.
      */
 
-    val startCmd = binary ++ serverArgs
-    logger.info(Feedback.startingBloopServer(config))
-    logger.debug(s"Start command: $startCmd")
+    def sysproc(cmd: List[String]): StatusCommand = {
+      logger.info(Feedback.startingBloopServer(config))
+      logger.debug(s"-> Command: $cmd")
 
-    // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
-    val process = new ProcessBuilder()
-      .command(startCmd.toArray: _*)
-      .directory(Environment.cwd.toFile)
+      // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
+      val process = new ProcessBuilder()
+        .command(cmd.toArray: _*)
+        .directory(Environment.cwd.toFile)
 
-    if (redirectOutErr) {
-      process.redirectOutput()
-      process.redirectError()
+      if (redirectOutErr) {
+        process.redirectOutput()
+        process.redirectError()
+      }
+
+      val started = process.start()
+      val is = started.getInputStream()
+      val code = started.waitFor()
+      val output = scala.io.Source.fromInputStream(is).mkString
+      StatusCommand(code, output)
     }
 
-    val code = process.start().waitFor()
-    startCmd -> StatusCommand(code, "")
+    val start = System.currentTimeMillis()
+
+    val performanceSensitiveOpts = Environment.PerformanceSensitiveOptsForBloop
+    val allServerArgs = {
+      if (performanceSensitiveOpts.forall(serverArgs.contains(_))) serverArgs
+      else serverArgs ++ performanceSensitiveOpts
+    }
+
+    // Run bloop server with special performance-sensitive JVM options
+    val firstCmd = binary ++ allServerArgs
+    val firstStatus = sysproc(firstCmd)
+
+    val end = System.currentTimeMillis()
+    val elapsedFirstCmd = end - start
+
+    // Don't run server twice, exit was successful or user args already contain performance-sensitive args
+    if (firstStatus.code == 0 || allServerArgs == serverArgs) firstCmd -> firstStatus
+    else {
+      val isExitRelatedToPerformanceSensitiveOpts = {
+        performanceSensitiveOpts.exists(firstStatus.output.contains(_)) ||
+        // Output can be empty when `bloop server` bc it redirects streams; use timing as proxy
+        elapsedFirstCmd <= 8000 // Use large number because launching JVMs on Windows is expensive
+      }
+
+      if (!isExitRelatedToPerformanceSensitiveOpts) firstCmd -> firstStatus
+      else {
+        val secondCmd = binary ++ serverArgs
+        secondCmd -> sysproc(secondCmd)
+      }
+    }
   }
 
   private def runAfterCommand(
