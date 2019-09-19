@@ -33,6 +33,7 @@ import xsbti.compile.Signature
 import scala.collection.mutable
 import java.{util => ju}
 import bloop.CompileOutPaths
+import bloop.CompileBackgroundTasks
 
 object CompileGraph {
   type CompileTraversal = Task[Dag[PartialCompileResult]]
@@ -46,7 +47,7 @@ object CompileGraph {
   )
 
   case class Inputs(
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       oracle: CompilerOracle,
       pipelineInputs: Option[PipelineInputs],
       dependentResults: Map[File, PreviousResult]
@@ -83,8 +84,10 @@ object CompileGraph {
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
-  private def partialSuccess(bundle: CompileBundle, result: ResultBundle): PartialSuccess =
-    PartialSuccess(bundle, None, Task.now(result))
+  private def partialSuccess(
+      bundle: SuccessfulCompileBundle,
+      result: ResultBundle
+  ): PartialSuccess = PartialSuccess(bundle, None, Task.now(result))
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
@@ -177,17 +180,21 @@ object CompileGraph {
       inputs: BundleInputs,
       setup: BundleInputs => Task[CompileBundle]
   )(
-      compile: CompileBundle => CompileTraversal
+      compile: SuccessfulCompileBundle => CompileTraversal
   ): CompileTraversal = {
     implicit val filter = DebugFilter.Compilation
-    def withBundle(f: CompileBundle => CompileTraversal): CompileTraversal = {
+    def withBundle(f: SuccessfulCompileBundle => CompileTraversal): CompileTraversal = {
       setup(inputs).materialize.flatMap {
-        case Success(bundle) => f(bundle)
+        case Success(bundle: SuccessfulCompileBundle) => f(bundle)
+        case Success(CancelledCompileBundle) =>
+          val result = Compiler.Result.Cancelled(Nil, 0L, CompileBackgroundTasks.empty)
+          val failed = Task.now(ResultBundle(result, None))
+          Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
         case Failure(t) =>
-          // Register the name of the projects we're blocked on (intransitively)
           val failedResult = Compiler.Result.GlobalError(
             s"Unexpected exception when computing compile inputs ${t.getMessage()}"
           )
+
           val failed = Task.now(ResultBundle(failedResult, None))
           Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
       }
@@ -396,9 +403,9 @@ object CompileGraph {
    */
   def scheduleCompilation(
       inputs: BundleInputs,
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       client: ClientInfo,
-      compile: CompileBundle => CompileTraversal
+      compile: SuccessfulCompileBundle => CompileTraversal
   ): RunningCompilation = {
     import inputs.project
     import bundle.logger
@@ -630,7 +637,7 @@ object CompileGraph {
      * turn an actual compiler failure into a partial failure with a dummy
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
-    def toPartialFailure(bundle: CompileBundle, results: ResultBundle): PartialFailure = {
+    def toPartialFailure(bundle: SuccessfulCompileBundle, results: ResultBundle): PartialFailure = {
       PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
     }
 

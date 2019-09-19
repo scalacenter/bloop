@@ -14,7 +14,11 @@ import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.zip.ZipEntry
 
 import monix.eval.Task
+import monix.eval.Callback
 import monix.execution.Scheduler
+import monix.execution.Cancelable
+import monix.execution.atomic.AtomicBoolean
+import monix.execution.cancelables.CompositeCancelable
 import monix.reactive.{Observable, MulticastStrategy, Consumer}
 
 import xsbti.compile.FileHash
@@ -22,9 +26,9 @@ import sbt.internal.inc.{EmptyStamp, Stamper}
 import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.io.IO
 import java.util.concurrent.TimeUnit
-import monix.eval.Callback
 
 object ClasspathHasher {
+
   // For more safety, store both the time and size
   private type JarMetadata = (FileTime, Long)
   private[this] val hashingPromises = new ConcurrentHashMap[File, Promise[FileHash]]()
@@ -33,53 +37,67 @@ object ClasspathHasher {
   /**
    * Hash the classpath in parallel with Monix's task.
    *
-   * The hashing works in two steps: first, we try to acquire the hash of a given entry.
-   * This "negotiation" step is required because we may be hashing other project's classpath
-   * concurrently and we want to minimize stalling and make as much progress as we can hashing.
-   * Those entries whose hashing couldn't be "acquired" are left to the second step, which blocks
-   * until the ongoing hashing finishes.
+   * The hashing works in two steps: first, we try to acquire the hash of a
+   * given entry. This "negotiation" step is required because we may be hashing
+   * other project's classpath concurrently and we want to minimize stalling
+   * and make as much progress as we can hashing. Those entries whose hashing
+   * couldn't be "acquired" are left to the second step, which blocks until the
+   * ongoing hashing finishes.
    *
    * This approach allows us to control how many concurrent tasks we spawn to
-   * new threads (and, therefore, how many threads we create in the io pool) and, at the same time,
-   * allows us to do as much progress without blocking.
+   * new threads (and, therefore, how many threads we create in the io pool)
+   * and, at the same time, allows us to do as much progress without blocking.
+   *
+   * NOTE: When the task returned by this method is cancelled, the promise
+   * `cancelCompilation` will be completed and the returned value will be
+   * empty. The call-site needs to handle the case where cancellation happens.
    *
    * @param classpath The list of files to be hashed (if they exist).
-   * @param parallelUnits The amount of parallel hashing we can do.
+   * @param parallelUnits The amount of classpath entries we can hash at once.
+   * @param cancelCompilation A promise that will be completed if task is cancelled.
+   * @param scheduler The scheduler that should be used for internal Monix usage.
+   * @param logger The logger where every action will be logged.
    * @param tracer A tracer to keep track of timings in Zipkin.
-   * @return A task returning a list of hashes.
+   * @return A task returning an error if the task was cancelled or a complete list of hashes.
    */
   def hash(
       classpath: Array[AbsolutePath],
       parallelUnits: Int,
+      cancelCompilation: Promise[Unit],
       scheduler: Scheduler,
       logger: Logger,
       tracer: BraveTracer
-  ): Task[Seq[FileHash]] = {
+  ): Task[Either[Unit, Vector[FileHash]]] = {
     val timeoutSeconds: Long = 15L
     // We'll add the file hashes to the indices here and return it at the end
     val classpathHashes = new Array[FileHash](classpath.length)
     case class AcquiredTask(file: File, idx: Int, p: Promise[FileHash])
 
+    val finishedOrCancelled = Promise[Unit]()
     val parallelConsumer = {
       Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
         case AcquiredTask(file, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
           val hashingTask = Task.now {
             val hash = try {
-              val filePath = file.toPath
-              val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
-              if (attrs.isDirectory) BloopStamps.directoryHash(file)
-              else {
-                val currentMetadata =
-                  (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
-                Option(cacheMetadataJar.get(file)) match {
-                  case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
-                  case _ =>
-                    tracer.trace(s"computing hash ${filePath.toAbsolutePath.toString}") { _ =>
-                      val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
-                      cacheMetadataJar.put(file, (currentMetadata, newHash))
-                      newHash
-                    }
+              if (finishedOrCancelled.isCompleted) {
+                BloopStamps.cancelledHash(file)
+              } else {
+                val filePath = file.toPath
+                val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
+                if (attrs.isDirectory) BloopStamps.directoryHash(file)
+                else {
+                  val currentMetadata =
+                    (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
+                  Option(cacheMetadataJar.get(file)) match {
+                    case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
+                    case _ =>
+                      tracer.trace(s"computing hash ${filePath.toAbsolutePath.toString}") { _ =>
+                        val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
+                        cacheMetadataJar.put(file, (currentMetadata, newHash))
+                        newHash
+                      }
+                  }
                 }
               }
             } catch {
@@ -138,11 +156,12 @@ object ClasspathHasher {
           acquiredByOtherTasks.+=(
             Task.fromFuture(promise.future).flatMap { hash =>
               if (hash == BloopStamps.cancelledHash) {
-                logger.warn(
-                  s"Disabling sharing of hash for $entry, upstream hashing took more than ${timeoutSeconds}s!"
-                )
-                // If the process that acquired it cancels the computation, try acquiring it again
-                Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
+                if (cancelCompilation.isCompleted) Task.now(())
+                else {
+                  // If the process that acquired it cancels the computation, try acquiring it again
+                  logger.warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
+                  Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
+                }
               } else {
                 Task.now {
                   // Save the result hash in its index
@@ -161,21 +180,55 @@ object ClasspathHasher {
           acquireHashingEntry(entry, idx)
       }
 
-      // Let's first obtain the hashes for those entries which we acquired
-      Observable
-        .fromIterable(acquiredByThisHashingProcess)
-        .consumeWith(parallelConsumer)
-        .flatMap { _ =>
-          // Then, we block on the hashes sequentially to avoid creating too many blocking threads
-          Task.sequence(acquiredByOtherTasks.toList).map(_ => classpathHashes)
+      // Let's first turn the obtained hash tasks into an observable, don't allow cancellation
+      val acquiredTask = Observable.fromIterable(acquiredByThisHashingProcess)
+
+      val cancelableAcquiredTask = Task.create[Unit] { (scheduler, cb) =>
+        if (finishedOrCancelled.isCompleted) {
+          cb.onSuccess(())
+          Cancelable.empty
+        } else {
+          val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
+          // Ignore source subscription, cancelling it leaves us in a hanging state!
+          val _ = acquiredTask.subscribe(out)
+          //val cancelSource = Cancelable(() => { out.onComplete() })
+          CompositeCancelable(consumerSubscription)
         }
+      }
+
+      println("Hello!")
+      val aggregateTask = cancelableAcquiredTask.flatMap { _ =>
+        if (finishedOrCancelled.isCompleted) {
+          println("I AM CANCELLED")
+          pprint.log(classpathHashes.toList)
+          cancelCompilation.trySuccess(())
+          Task.now(Left(()))
+        } else {
+          // Then, we block on the hashes sequentially to avoid creating too many blocking threads
+          Task.sequence(acquiredByOtherTasks.toList).map { _ =>
+            println("sequence")
+            pprint.log(classpathHashes.toList)
+            if (finishedOrCancelled.isCompleted ||
+                classpathHashes.contains(BloopStamps.cancelledHash)) {
+              cancelCompilation.trySuccess(())
+              Left(())
+            } else {
+              Right(classpathHashes.toVector)
+            }
+          }
+        }
+      }
+
+      aggregateTask
+        .doOnFinish(_ => Task { finishedOrCancelled.trySuccess(()); () })
+        .doOnCancel(Task { finishedOrCancelled.trySuccess(()); () })
     }
   }
 
   private[this] val definedMacrosJarCache = new ConcurrentHashMap[File, (JarMetadata, Boolean)]()
 
-  val blackboxReference = "scala/reflect/macros/blackbox/Context".getBytes
-  val whiteboxReference = "scala/reflect/macros/whitebox/Context".getBytes
+  private val blackboxReference = "scala/reflect/macros/blackbox/Context".getBytes
+  private val whiteboxReference = "scala/reflect/macros/whitebox/Context".getBytes
   def containsMacroDefinition(classpath: Seq[File]): Task[Seq[(File, Boolean)]] = {
     import org.zeroturnaround.zip.commons.IOUtils
     import org.zeroturnaround.zip.{ZipEntryCallback, ZipUtil}

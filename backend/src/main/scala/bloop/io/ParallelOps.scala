@@ -268,6 +268,7 @@ object ParallelOps {
     val aggregatedCopyTask = Task {
       Task.mapBoth(orderlyDiscovery, copyFilesInParallel) { case (fileWalk, _) => fileWalk }
     }.flatten.executeOn(scheduler)
+
     aggregatedCopyTask.doOnCancel(Task {
       if (enableCancellation) {
         isCancelled.compareAndSet(false, true)

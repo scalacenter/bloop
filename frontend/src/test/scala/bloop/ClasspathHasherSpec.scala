@@ -9,10 +9,49 @@ import org.junit.Test
 import org.junit.experimental.categories.Category
 
 import scala.concurrent.duration.FiniteDuration
+import bloop.io.ClasspathHasher
+import bloop.tracing.BraveTracer
+import monix.eval.Task
+import org.junit.Ignore
+import scala.concurrent.Await
+import scala.concurrent.Promise
+import sbt.internal.inc.bloop.internal.BloopStamps
 
 @Category(Array(classOf[bloop.FastTests]))
 class ClasspathHasherSpec {
+
   @Test
+  def cancelsCorrectly(): Unit = {
+    import bloop.engine.ExecutionContext.ioScheduler
+    val logger = new RecordingLogger()
+    val cancelPromise = Promise[Unit]()
+    val cancelPromise2 = Promise[Unit]()
+    val tracer = BraveTracer("cancels-correctly-test")
+    val jars = DependencyResolution.resolve("org.apache.spark", "spark-core_2.11", "2.4.4", logger)
+    val hashClasspathTask =
+      ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer)
+    val competingHashClasspathTask =
+      ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer)
+    val running = hashClasspathTask.runAsync(ioScheduler)
+
+    Thread.sleep(10)
+    val running2 = competingHashClasspathTask.runAsync(ioScheduler)
+
+    Thread.sleep(30)
+    running.cancel()
+
+    val result = Await.result(running, FiniteDuration(20, "s"))
+    assert(result.isLeft)
+    assert(cancelPromise.isCompleted)
+
+    println("COMPETING RESULT")
+    val competingResult = Await.result(running2, FiniteDuration(20, "s"))
+    assert(competingResult.isRight)
+    assert(competingResult.forall(s => s != BloopStamps.cancelledHash))
+    assert(!cancelPromise.isCompleted)
+  }
+
+  @Ignore
   def detectsMacrosInClasspath(): Unit = {
     val logger = new RecordingLogger()
     import bloop.engine.ExecutionContext.ioScheduler
@@ -20,7 +59,6 @@ class ClasspathHasherSpec {
       .resolve("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091", logger)
       .filter(_.syntax.endsWith(".jar"))
 
-    import bloop.io.ClasspathHasher
     Timer.timed(logger) {
       val duration = FiniteDuration(7, TimeUnit.SECONDS)
       TestUtil.await(duration) {
