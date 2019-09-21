@@ -243,7 +243,8 @@ lazy val bloopgun: Project = project
     }
   )
 
-val bloopgunAndLauncherShadeSettings = List(
+def shadeSettingsForModule(moduleId: String) = List(
+  publishLocal := (publishLocal in Shading).value,
   shadingNamespace := "bloop.shaded",
   // Lists *all* Scala dependencies transitively for the shading to work correctly
   shadeNamespaces := Set(
@@ -253,22 +254,87 @@ val bloopgunAndLauncherShadeSettings = List(
     "org.zeroturnaround",
     "io.github.soc",
     "org.slf4j",
+    "scopt",
+    "macrocompat",
     // Coursier direct and transitive deps
     "coursier",
     "shapeless",
-    "argonaut",
-    "org.fusesource",
-    "org.jline"
+    "argonaut"
   ),
   libraryDependencies ++= List(
-    // Remove JNA from transitive dependency so that they are not shaded
-    ("ch.epfl.scala" %% "bloopgun" % Keys.version.value % "shaded")
+    /*
+     * Mark bloopgun artifact with the configuration shaded so that the
+     * shading plugin attempts to shade its contents and that of every
+     * transitive dependency. We exclude JNA from these on purpose as they
+     * cannot be shaded, otherwise we get a runtime error.
+     */
+    ("ch.epfl.scala" %% moduleId % Keys.version.value % "shaded")
       .excludeAll(sbt.ExclusionRule(organization = "net.java.dev.jna")),
-    // Add them back so that the shaded binary works, otherwise fails
+    // Add JNA deps back so that the shaded binary works
     Dependencies.jna,
     Dependencies.jnaPlatform
   )
 )
+
+lazy val bloopgunShaded = project
+  .in(file("bloopgun/target/shaded-module"))
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(ShadingPlugin)
+  .settings(shadeSettingsForModule("bloopgun"))
+  .settings(
+    name := "bloopgun-shaded",
+    fork in run := true,
+    fork in Test := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
+    ivyConfiguration in Shading := {
+      // Redefine ivy configuration to force publishing deps to shade
+      Def.sequential(
+        publishLocal in bloopgun,
+        ivyConfiguration in Shading
+      ).value
+    }
+  )
+
+lazy val launcher: Project = project
+  .enablePlugins(ShadingPlugin)
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, bloopgun, frontend % "test->test")
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher",
+    fork in Test := true,
+    parallelExecution in Test := false,
+    libraryDependencies ++= List(
+      Dependencies.coursier,
+      Dependencies.coursierCache,
+      Dependencies.nuprocess
+    )
+  )
+
+lazy val launcherShaded = project
+  .in(file("launcher/target/shaded-module"))
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(ShadingPlugin)
+  .settings(shadeSettingsForModule("bloop-launcher"))
+  .settings(
+    name := "bloop-launcher-shaded",
+    fork in run := true,
+    fork in Test := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
+    ivyConfiguration in Shading := {
+      // Redefine ivy configuration to force publishing deps to shade
+      val config = (ivyConfiguration in Shading).value
+      // Needs to be in order otherwise they run in parallel and fail
+      Def.sequential(
+        publishLocal in sockets,
+        publishLocal in bloopgun,
+        publishLocal in launcher,
+      ).value
+      config
+    }
+  )
 
 lazy val bloop4j = project
   .disablePlugins(ScriptedPlugin)
@@ -279,36 +345,6 @@ lazy val bloop4j = project
     fork in Test := true,
     libraryDependencies ++= List(
       Dependencies.bsp4j
-    )
-  )
-
-lazy val bloopgunShaded = project
-  .in(file("bloopgun/target/shaded-module"))
-  .disablePlugins(ScriptedPlugin)
-  .enablePlugins(ShadingPlugin)
-  .settings(bloopgunAndLauncherShadeSettings)
-  .settings(
-    name := "bloopgun-shaded",
-    fork in run := true,
-    fork in Test := true,
-    bloopGenerate in Compile := None,
-    bloopGenerate in Test := None
-  )
-
-lazy val launcher: Project = project
-  .enablePlugins(ShadingPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(sockets, bloopgun, frontend % "test->test")
-  .settings(testSuiteSettings)
-  .settings(bloopgunAndLauncherShadeSettings)
-  .settings(
-    name := "bloop-launcher",
-    fork in Test := true,
-    parallelExecution in Test := false,
-    libraryDependencies ++= List(
-      Dependencies.coursier,
-      Dependencies.coursierCache,
-      Dependencies.nuprocess
     )
   )
 
@@ -573,6 +609,8 @@ addCommandAlias(
     s"${sockets.id}/$publishLocalCmd",
     s"${bloopgun.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    s"${bloopgunShaded.id}/$publishLocalCmd",
+    s"${launcherShaded.id}/$publishLocalCmd",
     s"${buildpressConfig.id}/$publishLocalCmd",
     s"${buildpress.id}/$publishLocalCmd",
     // Force build info generators in frontend-test
@@ -616,6 +654,8 @@ val allBloopReleases = List(
   s"${sockets.id}/$releaseEarlyCmd",
   s"${bloopgun.id}/$releaseEarlyCmd",
   s"${launcher.id}/$releaseEarlyCmd",
+  s"${bloopgunShaded.id}/$releaseEarlyCmd",
+  s"${launcherShaded.id}/$releaseEarlyCmd",
   s"${buildpressConfig.id}/$releaseEarlyCmd",
   s"${buildpress.id}/$releaseEarlyCmd"
 )
