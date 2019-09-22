@@ -22,8 +22,14 @@ val `bloop-build` = project
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.4.0"),
     addSbtPlugin("ch.epfl.scala" % "sbt-bloop-build-shaded" % "1.0.0-SNAPSHOT"),
+    excludeDependencies ++= List(
+      sbt.ExclusionRule("org.pantsbuild", "jarjar")
+    ),
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
+      ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
+        .exclude("org.apache.maven", "maven-plugin-api")
+        .exclude("org.apache.ant", "ant"),
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
       "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mvnPluginToolsVersion,
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % mvnPluginToolsVersion,

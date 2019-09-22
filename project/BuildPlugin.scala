@@ -15,6 +15,7 @@ import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
+import coursier.ShadingPlugin.{autoImport => ShadingKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -167,7 +168,15 @@ object BuildKeys {
     val nativeBridge03Key = fromIvyModule("nativeBridge03", Keys.ivyModule in nativeBridge03)
     val nativeBridge04Key = fromIvyModule("nativeBridge04", Keys.ivyModule in nativeBridge04)
     val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
-    val extra = List(zincKey, developersKey, nativeBridge03Key, nativeBridge04Key, jsBridge06Key, jsBridge10Key, bspKey)
+    val extra = List(
+      zincKey,
+      developersKey,
+      nativeBridge03Key,
+      nativeBridge04Key,
+      jsBridge06Key,
+      jsBridge10Key,
+      bspKey
+    )
     val commonKeys = List[BuildInfoKey](
       Keys.organization,
       BuildKeys.bloopName,
@@ -203,8 +212,26 @@ object BuildKeys {
     }
   )
 
-  def sbtPluginSettings(sbtVersion: String, jsonConfig: Reference): Seq[Def.Setting[_]] = List(
-    Keys.name := "sbt-bloop",
+  import ShadingKeys.Shading
+  def shadedModuleSettings = List(
+    ShadingKeys.shadingNamespace := "bloop.shaded",
+    Keys.packageBin in Compile := {
+      coursier.Shading.createPackage(
+        Keys.packageBin.in(Compile).value,
+        ShadingKeys.shadingNamespace.value,
+        ShadingKeys.shadeNamespaces.value,
+        (ShadingKeys.toShadeClasses in Shading).value,
+        (ShadingKeys.toShadeJars in Shading).value
+      )
+    }
+  )
+
+  def sbtPluginSettings(
+      name: String,
+      sbtVersion: String,
+      jsonConfig: Reference
+  ): Seq[Def.Setting[_]] = List(
+    Keys.name := name,
     Keys.sbtPlugin := true,
     Keys.sbtVersion := sbtVersion,
     Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
