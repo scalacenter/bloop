@@ -9,6 +9,7 @@ import bloop.{
   CompileBackgroundTasks,
   CompileExceptions
 }
+import bloop.io.{Paths => BloopPaths}
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.engine.{State, Dag, ExecutionContext, Feedback}
@@ -40,6 +41,13 @@ import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
 
 import scala.concurrent.Promise
 import bloop.io.Paths
+import scala.collection.mutable
+import bloop.Compiler.Result.GlobalError
+import bloop.Compiler.Result.Empty
+import bloop.Compiler.Result.Success
+import bloop.Compiler.Result.Failed
+import bloop.Compiler.Result.Cancelled
+import bloop.Compiler.Result.Blocked
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -161,15 +169,16 @@ object CompileTask {
             )
           }
 
-          val setUpEnvironment = compileProjectTracer.traceTask("wait on populating products") {
-            _ =>
+          val waitOnReadClassesDir = {
+            compileProjectTracer.traceTask("wait on populating products") { _ =>
               // This task is memoized and started by the compilation that created
               // it, so this execution blocks until it's run or completes right away
               lastSuccessful.populatingProducts
+            }
           }
 
           // Block on the task associated with this result that sets up the read-only classes dir
-          setUpEnvironment.flatMap { _ =>
+          waitOnReadClassesDir.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
             inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
               // Post-compilation hook to complete/validate pipelining state
@@ -194,34 +203,36 @@ object CompileTask {
                     .fromFuture(runningTasks)
                     .executeOn(ExecutionContext.ioScheduler)
                   val populatingTask = {
-                    if (s.isNoOp) blockingOnRunningTasks
+                    if (s.isNoOp) blockingOnRunningTasks //Task.unit
                     else {
                       for {
                         _ <- blockingOnRunningTasks
-                        _ <- createNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
+                        _ <- populateNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
                           .doOnFinish(_ => Task(bgTracer.terminate()))
                       } yield ()
                     }
-                  }.memoize
+                  }
 
-                  // Memoize so that no matter how many times it's run, only once it's executed
-                  val last = LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask)
-                  ResultBundle(s, Some(last), runningTasks)
+                  // Memoize so that no matter how many times it's run, it's executed only once
+                  val newSuccessful =
+                    LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask.memoize)
+                  ResultBundle(s, Some(newSuccessful), Some(lastSuccessful), runningTasks)
                 case f: Compiler.Result.Failed =>
                   val runningTasks = runPostCompilationTasks(f.backgroundTasks)
-                  ResultBundle(result, None, runningTasks)
+                  ResultBundle(result, None, Some(lastSuccessful), runningTasks)
                 case c: Compiler.Result.Cancelled =>
                   val runningTasks = runPostCompilationTasks(c.backgroundTasks)
-                  ResultBundle(result, None, runningTasks)
-                case result =>
-                  ResultBundle(result, None, CancelableFuture.unit)
+                  ResultBundle(result, None, Some(lastSuccessful), runningTasks)
+                case _: Compiler.Result.Blocked | Compiler.Result.Empty |
+                    _: Compiler.Result.GlobalError =>
+                  ResultBundle(result, None, None, CancelableFuture.unit)
               }
             }
           }
       }
     }
 
-    def setup(inputs: CompileGraph.BundleInputs): Task[CompileBundle] = {
+    def setup(inputs: CompileDefinitions.BundleInputs): Task[CompileBundle] = {
       // Create a multicast observable stream to allow multiple mirrors of loggers
       val (observer, obs) = {
         Observable.multicast[Either[ReporterAction, LoggerAction]](
@@ -259,23 +270,9 @@ object CompileTask {
       val partialResults = Dag.dfs(partialDag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
-        results.foreach { finalResult =>
-          /*
-           * Iterate through every final compile result at the end of the
-           * compilation run and trigger a background task to populate the new
-           * read-only classes directory. This task can also be triggered by
-           * other concurrent processes needing to use this result, but we
-           * trigger it now to use the gaps between compiler requests more
-           * effectively. It's likely we will not have another compile request
-           * requiring this last successful result immediately, so we start the
-           * task now to spare some time the next time a compilation request
-           * comes in. Note the task is memoized internally..
-           */
-          finalResult.result.successful
-            .foreach(l => l.populatingProducts.runAsync(ExecutionContext.ioScheduler))
-        }
+        val cleanUpTasksToRunInBackground =
+          markUnusedClassesDirAndCollectCleanUpTasks(results, rawLogger)
 
-        val stateWithResults = state.copy(results = state.results.addFinalResults(results))
         val failures = results.flatMap {
           case FinalNormalCompileResult(p, results) =>
             results.fromCompiler match {
@@ -288,6 +285,7 @@ object CompileTask {
         }
 
         val newState: State = {
+          val stateWithResults = state.copy(results = state.results.addFinalResults(results))
           if (failures.isEmpty) {
             stateWithResults.copy(status = ExitStatus.Ok)
           } else {
@@ -314,18 +312,21 @@ object CompileTask {
           }
         }
 
-        val backgroundTasks = Task.sequence {
+        // Schedule to run clean up tasks in the background
+        runIOTasksInParallel(cleanUpTasksToRunInBackground)
+
+        val runningTasksRequiredForCorrectness = Task.sequence {
           results.flatMap {
-            case FinalNormalCompileResult(_, results) =>
+            case FinalNormalCompileResult(_, result) =>
               val tasksAtEndOfBuildCompilation =
-                Task.fromFuture(results.runningBackgroundTasks)
+                Task.fromFuture(result.runningBackgroundTasks)
               List(tasksAtEndOfBuildCompilation)
             case _ => Nil
           }
         }
 
-        // Block on all background task operations to fully populate classes directories
-        backgroundTasks
+        // Block on all background task that are running and are required for correctness
+        runningTasksRequiredForCorrectness
           .executeOn(ExecutionContext.ioScheduler)
           .map(_ => newState)
           .doOnFinish(_ => Task(rootTracer.terminate()))
@@ -391,15 +392,15 @@ object CompileTask {
     }
   }
 
-  private def createNewReadOnlyClassesDir(
+  private def populateNewReadOnlyClassesDir(
       products: CompileProducts,
       tracer: BraveTracer,
       logger: Logger
   ): Task[Unit] = {
     // Do nothing if origin and target classes dir are the same, as protective measure
     if (products.readOnlyClassesDir == products.newClassesDir) {
-      logger.warn(s"Running `createNewReadOnlyClassesDir` on same dir ${products.newClassesDir}")
-      Task.now(())
+      logger.warn(s"Running `populateNewReadOnlyClassesDir` on same dir ${products.newClassesDir}")
+      Task.unit
     } else {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
@@ -415,6 +416,91 @@ object CompileTask {
       }
 
       task.map(rs => ()).memoize
+    }
+  }
+
+  private def markUnusedClassesDirAndCollectCleanUpTasks(
+      results: List[FinalCompileResult],
+      logger: Logger
+  ): List[Task[Unit]] = {
+    val cleanUpTasksToSpawnInBackground = mutable.ListBuffer[Task[Unit]]()
+    results.foreach { finalResult =>
+      val resultBundle = finalResult.result
+      val newSuccessful = resultBundle.successful
+      val compilerResult = resultBundle.fromCompiler
+      val populateNewProductsTask = newSuccessful.map(_.populatingProducts).getOrElse(Task.unit)
+      val cleanUpPreviousLastSuccessful = resultBundle.previous match {
+        case None => populateNewProductsTask
+        case Some(previousSuccessful) =>
+          for {
+            populate <- populateNewProductsTask
+            _ <- cleanUpPreviousResult(previousSuccessful, compilerResult, logger)
+          } yield ()
+      }
+
+      cleanUpTasksToSpawnInBackground.+=(cleanUpPreviousLastSuccessful)
+    }
+
+    cleanUpTasksToSpawnInBackground.toList
+  }
+
+  def runIOTasksInParallel[T](
+      tasks: Traversable[Task[T]],
+      parallelUnits: Int = Runtime.getRuntime().availableProcessors()
+  ): Unit = {
+    val aggregatedTask = Task.sequence(
+      tasks.toList.grouped(parallelUnits).map(group => Task.gatherUnordered(group))
+    )
+    aggregatedTask.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
+    ()
+  }
+
+  /**
+   * Prepares a clean up task that will delete the previous used read-only
+   * classes directory used as the read-only directory of an effectful compile.
+   *
+   * If a compilation is a no-op or its used counter is bigger than zero, the
+   * deletion is skipped because in both scenarios the classes directory is
+   * still useful for either a next compile or is being used by an alternative
+   * running compilation process. The last process to own the classes directory
+   * and not use it will be in charge of cleaning up the used read-only classes
+   * directory as it's superseeded by the new classes directory generated
+   * during a successful compile.
+   */
+  private def cleanUpPreviousResult(
+      previousSuccessful: LastSuccessfulResult,
+      compilerResult: Compiler.Result,
+      logger: Logger
+  ): Task[Unit] = {
+    val previousClassesDir = previousSuccessful.classesDir
+    val currentlyUsedCounter = previousSuccessful.counterForClassesDir.decrementAndGet(1)
+
+    val previousReadOnlyToDelete = compilerResult match {
+      case Success(_, _, products, _, _, isNoOp, _) =>
+        if (isNoOp) {
+          logger.debug(s"Skipping delete of ${previousClassesDir} associated with no-op result")
+          None
+        } else if (CompileOutPaths.hasEmptyClassesDir(previousClassesDir)) {
+          logger.debug(s"Skipping delete of empty classes dir ${previousClassesDir}")
+          None
+        } else if (currentlyUsedCounter != 0) {
+          logger.debug(s"Skipping delete of $previousClassesDir, counter is $currentlyUsedCounter")
+          None
+        } else {
+          val newClassesDir = products.newClassesDir
+          logger.debug(s"Scheduling to delete ${previousClassesDir} superseeded by $newClassesDir")
+          Some(previousClassesDir)
+        }
+      case _ => None
+    }
+
+    previousReadOnlyToDelete match {
+      case None => Task.unit
+      case Some(classesDir) =>
+        Task.fork(Task.eval {
+          logger.debug(s"Deleting contents of orphan dir $classesDir")
+          BloopPaths.delete(classesDir)
+        })
     }
   }
 }

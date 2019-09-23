@@ -330,21 +330,21 @@ class BaseSuite extends TestSuite with BloopHelpers {
       stateToCheck: TestState,
       projects: List[TestProject]
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
-    assertNonExistingInternalClassesDir(lastState, stateToCheck, projects, exists = true)
+    assertExistenceOfInternalClassesDir(lastState, stateToCheck, projects, checkExists = true)
   }
 
   def assertNonExistingInternalClassesDir(lastState: TestState)(
       stateToCheck: TestState,
       projects: List[TestProject]
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
-    assertNonExistingInternalClassesDir(lastState, stateToCheck, projects, exists = false)
+    assertExistenceOfInternalClassesDir(lastState, stateToCheck, projects, checkExists = false)
   }
 
-  private def assertNonExistingInternalClassesDir(
+  private def assertExistenceOfInternalClassesDir(
       lastState: TestState,
       stateToCheck: TestState,
       projects: List[TestProject],
-      exists: Boolean
+      checkExists: Boolean
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     val buildProjects =
       projects.flatMap(p => stateToCheck.build.getProjectFor(p.config.name).toList)
@@ -361,7 +361,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
         val classesDir = last.classesDir
         // Sleep for 20 ms to give time to classes dir to be deleted (runs inside `doOnFinish`)
         Thread.sleep(20)
-        if (exists) assert(classesDir.exists)
+        if (checkExists) assert(classesDir.exists)
         else assert(!classesDir.exists)
     }
   }
@@ -394,7 +394,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
         val latestResult = state
           .getLastSuccessfulResultFor(testProject)
           .getOrElse(
-            sys.error(s"No latest result for $${testProject.name}, results: ${state.results}")
+            sys.error(s"No latest result for ${testProject.config.name}, results: ${state.results}")
           )
 
         val analysis = latestResult.previous.analysis().get()
@@ -403,8 +403,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
         assert(stamps.getAllSourceStamps.asScala.nonEmpty)
         //assert(stamps.getAllBinaryStamps.asScala.nonEmpty)
 
-        val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
         assert(takeDirectorySnapshot(latestResult.classesDir).nonEmpty)
+        val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
         assertSameFilesIn(projectClassesDir, latestResult.classesDir)
     }
   }

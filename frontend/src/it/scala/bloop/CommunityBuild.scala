@@ -20,12 +20,12 @@ import bloop.engine.{
   State
 }
 import bloop.engine.caches.ResultsCache
-import bloop.engine.tasks.compilation.CompileGraph
 import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 import sbt.internal.inc.bloop.ZincInternals
+import bloop.engine.tasks.compilation.CompileGatekeeper
 
 object CommunityBuild
     extends CommunityBuild(
@@ -105,7 +105,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       }
 
       // First thing to do: clear cache of successful results between project runs to free up space
-      CompileGraph.clearSuccessfulResults()
+      CompileGatekeeper.clearSuccessfulResults()
 
       // After reporting the state of the execution, compile the projects accordingly.
       val logger = BloopLogger.default("community-build-logger")

@@ -94,10 +94,10 @@ final case class CompileBundle(
   def prepareSourcesAndInstance: Either[ResultBundle, CompileSourcesAndInstance] = {
     import monix.execution.CancelableFuture
     def earlyError(msg: String): ResultBundle =
-      ResultBundle(Compiler.Result.GlobalError(msg), None)
+      ResultBundle(Compiler.Result.GlobalError(msg), None, None)
     def empty: ResultBundle = {
       val last = Some(LastSuccessfulResult.empty(project))
-      ResultBundle(Compiler.Result.Empty, last)
+      ResultBundle(Compiler.Result.Empty, last, None)
     }
 
     val uniqueSources = javaSources ++ scalaSources
@@ -139,7 +139,7 @@ case class CompileSourcesAndInstance(
 object CompileBundle {
   implicit val filter = bloop.logging.DebugFilter.Compilation
   def computeFrom(
-      inputs: CompileGraph.BundleInputs,
+      inputs: CompileDefinitions.BundleInputs,
       clientExternalClassesDir: AbsolutePath,
       reporter: ObservedReporter,
       lastSuccessful: LastSuccessfulResult,

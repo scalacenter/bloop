@@ -14,14 +14,23 @@ import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup, FileHash}
 import monix.eval.Task
 import bloop.UniqueCompileInputs
 import bloop.CompileOutPaths
+import monix.execution.atomic.AtomicInt
 
 case class LastSuccessfulResult(
     sources: Vector[UniqueCompileInputs.HashedSource],
     classpath: Vector[FileHash],
     previous: PreviousResult,
     classesDir: AbsolutePath,
+    counterForClassesDir: AtomicInt,
     populatingProducts: Task[Unit]
-)
+) {
+  def isEmpty: Boolean = {
+    sources.isEmpty &&
+    classpath.isEmpty &&
+    previous == LastSuccessfulResult.EmptyPreviousResult &&
+    CompileOutPaths.hasEmptyClassesDir(classesDir)
+  }
+}
 
 object LastSuccessfulResult {
   private final val EmptyPreviousResult =
@@ -35,6 +44,7 @@ object LastSuccessfulResult {
       Vector.empty,
       EmptyPreviousResult,
       emptyClassesDir,
+      AtomicInt(0),
       Task.now(())
     )
   }
@@ -49,6 +59,7 @@ object LastSuccessfulResult {
       inputs.classpath,
       products.resultForFutureCompilationRuns,
       AbsolutePath(products.newClassesDir),
+      AtomicInt(0),
       backgroundIO
     )
   }

@@ -185,8 +185,8 @@ trait BloopHelpers {
     }
 
     def clean(projects: TestProject*): TestState = {
-      val compileTask = Run(Commands.Clean(projects.map(_.config.name).toList))
-      new TestState(TestUtil.blockingExecute(compileTask, state))
+      val cleanTask = Run(Commands.Clean(projects.map(_.config.name).toList))
+      new TestState(TestUtil.blockingExecute(cleanTask, state))
     }
 
     def testTask(project: TestProject, only: List[String], args: List[String]): Task[TestState] = {
