@@ -32,7 +32,7 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     Thread.sleep(10)
     val running2 = competingHashClasspathTask.runAsync(ioScheduler)
 
-    Thread.sleep(30)
+    Thread.sleep(5)
     running.cancel()
 
     val result = Await.result(running, FiniteDuration(20, "s"))

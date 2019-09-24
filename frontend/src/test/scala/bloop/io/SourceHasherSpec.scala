@@ -13,7 +13,7 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
     val largeFileContents = {
       val sb = new StringBuilder()
       var base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      for (i <- 0 to 1000) {
+      for (i <- 0 to 4000) {
         sb.++=(base)
       }
       sb.result()
@@ -42,7 +42,7 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise, ioScheduler)
       val running = sourceHashesTask.runAsync(ioScheduler)
 
-      Thread.sleep(10)
+      Thread.sleep(2)
       running.cancel()
 
       val cancelledResult = Await.result(running, FiniteDuration(20, "s"))
