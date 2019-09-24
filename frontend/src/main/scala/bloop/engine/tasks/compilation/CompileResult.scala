@@ -22,7 +22,7 @@ sealed trait PartialCompileResult extends CompileResult[Task[ResultBundle]] {
 
 object PartialCompileResult {
   def apply(
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       pipelineAttempt: Try[Array[Signature]],
       futureProducts: Promise[Option[CompileProducts]],
       hasJavacCompleted: Promise[Unit],
@@ -85,7 +85,7 @@ case class PartialFailures(
     with CacheHashCode {}
 
 case class PartialSuccess(
-    bundle: CompileBundle,
+    bundle: SuccessfulCompileBundle,
     pipeliningResults: Option[PipelineResults],
     result: Task[ResultBundle]
 ) extends PartialCompileResult

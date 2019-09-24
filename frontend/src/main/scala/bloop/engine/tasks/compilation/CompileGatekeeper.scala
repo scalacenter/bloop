@@ -43,9 +43,9 @@ object CompileGatekeeper {
 
   def findRunningCompilationAtomically(
       inputs: BundleInputs,
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       client: ClientInfo,
-      compile: CompileBundle => CompileTraversal
+      compile: SuccessfulCompileBundle => CompileTraversal
   ): (RunningCompilation, CanBeDeduplicated) = {
     var deduplicate = true
 
@@ -142,9 +142,9 @@ object CompileGatekeeper {
    */
   def scheduleCompilation(
       inputs: BundleInputs,
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       client: ClientInfo,
-      compile: CompileBundle => CompileTraversal
+      compile: SuccessfulCompileBundle => CompileTraversal
   ): RunningCompilation = {
     import inputs.project
     import bundle.logger
