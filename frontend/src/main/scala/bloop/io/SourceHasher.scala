@@ -39,8 +39,7 @@ object SourceHasher {
    * Find sources in a project and hash them in parallel.
    *
    * NOTE: When the task returned by this method is cancelled, the promise
-   * `cancelCompilation` will be completed and the returned value will be
-   * empty. The call-site needs to handle the case where cancellation happens.
+   * `cancelCompilation` will be completed.
    *
    * @param project The project where the sources will be discovered.
    * @param parallelUnits The amount of sources we can hash at once.
