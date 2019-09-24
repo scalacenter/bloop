@@ -32,24 +32,27 @@ final class BloopClasspathEntryLookup(
         case None => FalseDefinesClass
         case Some(entryHash) =>
           def computeDefinesClassForJar = {
-            val definesClass = {
-              if (!ClasspathUtilities.isArchive(entry, contentFallback = true)) FalseDefinesClass
-              else new JarDefinesClass(entry)
-            }
-            BloopClasspathEntryLookup.definedClasses.put(entry, (entryHash, definesClass))
-            definesClass
+            if (!ClasspathUtilities.isArchive(entry, contentFallback = true)) FalseDefinesClass
+            else new JarDefinesClass(entry)
           }
 
           if (BloopStamps.isDirectoryHash(entryHash)) new DirectoryDefinesClass(entry)
           else {
-            BloopClasspathEntryLookup.definedClasses.get(entry) match {
-              case null =>
-                if (entry.isDirectory()) new DirectoryDefinesClass(entry)
-                else computeDefinesClassForJar
-              case (cachedHash, cachedDefinesClass) =>
-                if (entryHash.hash() == cachedHash.hash()) cachedDefinesClass
-                else computeDefinesClassForJar
-            }
+            val (_, cachedDefinesClass) = BloopClasspathEntryLookup.definedClasses.compute(
+              entry,
+              (entry, definesClass) => {
+                definesClass match {
+                  case null =>
+                    if (entry.isDirectory()) entryHash -> new DirectoryDefinesClass(entry)
+                    else entryHash -> computeDefinesClassForJar
+                  case current @ (cachedHash, cachedDefinesClass) =>
+                    if (entryHash.hash() == cachedHash.hash()) current
+                    else entryHash -> computeDefinesClassForJar
+                }
+              }
+            )
+
+            cachedDefinesClass
           }
       }
     }
