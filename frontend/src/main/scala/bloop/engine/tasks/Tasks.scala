@@ -206,22 +206,20 @@ object Tasks {
   def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
 
-    val analysis = {
-      state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().toOption match {
-        case Some(analysis: Analysis) => analysis
-        case _ =>
-          logger.warn(
-            s"Cannot find main classes in '${project.name}'. No successful compilation detected."
-          )
-          Analysis.empty
-      }
-    }
+    state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().toOption match {
+      case Some(analysis: Analysis) =>
+        val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
+        logger.debug(s"Found ${mainClasses.size} main classes: ${mainClasses.mkString(", ")}.")(
+          DebugFilter.All
+        )
+        mainClasses
+      case _ =>
+        logger.debug(
+          s"Cannot find main classes in '${project.name}'. No successful compilation detected."
+        )(DebugFilter.All)
 
-    val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
-    logger.debug(s"Found ${mainClasses.size} main classes${mainClasses.mkString(": ", ", ", ".")}")(
-      DebugFilter.All
-    )
-    mainClasses
+        Nil
+    }
   }
 
   def reasonOfInvalidPath(output: Path): Option[String] = {

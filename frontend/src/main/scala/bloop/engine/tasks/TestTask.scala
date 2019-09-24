@@ -303,7 +303,9 @@ object TestTask {
         val frameworks = found.frameworks
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
-          logger.warn(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")
+          logger.debug(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")(
+            DebugFilter.All
+          )
           Analysis.empty
         }
         val tests = discoverTests(analysis, frameworks)
