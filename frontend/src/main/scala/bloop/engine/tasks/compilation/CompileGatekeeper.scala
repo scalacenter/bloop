@@ -91,48 +91,6 @@ object CompileGatekeeper {
     runningCompilations.remove(inputs, runningCompilation); ()
   }
 
-  private def processResultAtomically(
-      resultDag: Dag[PartialCompileResult],
-      project: Project,
-      oinputs: UniqueCompileInputs,
-      previous: LastSuccessfulResult,
-      isAlreadyUnsubscribed: AtomicBoolean,
-      client: ClientInfo,
-      logger: Logger
-  ): Dag[PartialCompileResult] = {
-
-    def cleanUpAfterCompilationError[T](result: T): T = {
-      if (!isAlreadyUnsubscribed.get) {
-        // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
-        runningCompilations.remove(oinputs)
-      }
-
-      result
-    }
-
-    // Unregister deduplication atomically and register last successful if any
-    PartialCompileResult.mapEveryResult(resultDag) {
-      case s: PartialSuccess =>
-        val processedResult = s.result.map { (result: ResultBundle) =>
-          result.successful match {
-            case None => cleanUpAfterCompilationError(result)
-            case Some(res) =>
-              unregisterDeduplicationAndRegisterSuccessful(project, oinputs, res, logger)
-          }
-          result
-        }
-
-        /**
-         * This result task must only be run once and thus needs to be
-         * memoized for correctness reasons. The result task can be called
-         * several times by the compilation engine driving the execution.
-         */
-        s.copy(result = processedResult.memoize)
-
-      case result => cleanUpAfterCompilationError(result)
-    }
-  }
-
   /**
    * Schedules a unique compilation for the given inputs.
    *
@@ -236,6 +194,48 @@ object CompileGatekeeper {
       bundle.mirror,
       client
     )
+  }
+
+  private def processResultAtomically(
+      resultDag: Dag[PartialCompileResult],
+      project: Project,
+      oinputs: UniqueCompileInputs,
+      previous: LastSuccessfulResult,
+      isAlreadyUnsubscribed: AtomicBoolean,
+      client: ClientInfo,
+      logger: Logger
+  ): Dag[PartialCompileResult] = {
+
+    def cleanUpAfterCompilationError[T](result: T): T = {
+      if (!isAlreadyUnsubscribed.get) {
+        // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
+        runningCompilations.remove(oinputs)
+      }
+
+      result
+    }
+
+    // Unregister deduplication atomically and register last successful if any
+    PartialCompileResult.mapEveryResult(resultDag) {
+      case s: PartialSuccess =>
+        val processedResult = s.result.map { (result: ResultBundle) =>
+          result.successful match {
+            case None => cleanUpAfterCompilationError(result)
+            case Some(res) =>
+              unregisterDeduplicationAndRegisterSuccessful(project, oinputs, res, logger)
+          }
+          result
+        }
+
+        /**
+         * This result task must only be run once and thus needs to be
+         * memoized for correctness reasons. The result task can be called
+         * several times by the compilation engine driving the execution.
+         */
+        s.copy(result = processedResult.memoize)
+
+      case result => cleanUpAfterCompilationError(result)
+    }
   }
 
   /**
