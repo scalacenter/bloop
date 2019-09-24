@@ -113,7 +113,6 @@ object CompileGatekeeper {
 
     def initializeLastSuccessful(previousOrNull: LastSuccessfulResult): LastSuccessfulResult = {
       val result = Option(previousOrNull).getOrElse(bundle.lastSuccessful)
-      debug(s"Checking result of ${result.classesDir}")
       if (!result.classesDir.exists) {
         debug(s"Ignoring analysis for ${project.name}, directory ${result.classesDir} is missing")
         LastSuccessfulResult.empty(inputs.project)
@@ -250,19 +249,18 @@ object CompileGatekeeper {
       successful: LastSuccessfulResult,
       logger: Logger
   ): Unit = {
-    logger.debug(
-      s"Successful classes dir ${successful.classesDir} exists: ${successful.classesDir.exists}"
-    )
     runningCompilations.compute(
       oracleInputs,
       (_: UniqueCompileInputs, _: RunningCompilation) => {
         lastSuccessfulResults.compute(project.uniqueId, (_, _) => successful)
-        logger.debug(
-          s"Recording new last successful request for ${project.name} associated with ${successful.classesDir}"
-        )
         null
       }
     )
+
+    logger.debug(
+      s"Recording new last successful request for ${project.name} associated with ${successful.classesDir}"
+    )
+
     ()
   }
 
