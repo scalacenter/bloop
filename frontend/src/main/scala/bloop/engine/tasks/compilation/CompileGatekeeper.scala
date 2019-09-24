@@ -111,7 +111,7 @@ object CompileGatekeeper {
     }
 
     // Unregister deduplication atomically and register last successful if any
-    withPartialResult(resultDag) {
+    PartialCompileResult.mapEveryResult(resultDag) {
       case s: PartialSuccess =>
         val processedResult = s.result.map { (result: ResultBundle) =>
           result.successful match {
@@ -264,21 +264,6 @@ object CompileGatekeeper {
       }
     )
     ()
-  }
-
-  /**
-   * Runs function [[f]] within the task returning a [[ResultBundle]] for the
-   * given compilation. This function is typically used to perform book-keeping
-   * related to the compiler deduplication and success of compilations.
-   */
-  def withPartialResult(
-      run: CompileRun
-  )(f: PartialCompileResult => PartialCompileResult): CompileRun = {
-    run match {
-      case Leaf(result) => Leaf(f(result))
-      case Parent(result, children) => Parent(f(result), children)
-      case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
-    }
   }
 
   // Expose clearing mechanism so that it can be invoked in the tests and community build runner

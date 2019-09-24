@@ -251,8 +251,8 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        val obtainResultFromDeduplication = runningCompilationTask.map { run =>
-          CompileGatekeeper.withPartialResult(run) {
+        val obtainResultFromDeduplication = runningCompilationTask.map { results =>
+          PartialCompileResult.mapEveryResult(results) {
             case s @ PartialSuccess(bundle, _, compilerResult) =>
               val newCompilerResult = compilerResult.flatMap { results =>
                 results.fromCompiler match {
@@ -301,8 +301,8 @@ object CompileGraph {
                  * replace the result by a failed result that informs the
                  * client compilation was not successfully deduplicated.
                  */
-                Task.fromFuture(compilationFuture).map { run =>
-                  CompileGatekeeper.withPartialResult(run) { (p: PartialCompileResult) =>
+                Task.fromFuture(compilationFuture).map { results =>
+                  PartialCompileResult.mapEveryResult(results) { (p: PartialCompileResult) =>
                     p match {
                       case s: PartialSuccess =>
                         val failedBundle = ResultBundle(failedDeduplicationResult, None, None)

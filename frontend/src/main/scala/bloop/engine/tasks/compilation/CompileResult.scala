@@ -2,6 +2,7 @@ package bloop.engine.tasks.compilation
 
 import bloop.{Compiler, JavaSignal, CompileProducts, CompileExceptions}
 import bloop.data.Project
+import bloop.engine.{Dag, Leaf, Parent, Aggregate}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 
@@ -44,6 +45,16 @@ object PartialCompileResult {
         PartialSuccess(bundle, None, result)
       case scala.util.Failure(t) =>
         PartialFailure(bundle.project, t, result)
+    }
+  }
+
+  def mapEveryResult(
+      results: Dag[PartialCompileResult]
+  )(f: PartialCompileResult => PartialCompileResult): Dag[PartialCompileResult] = {
+    results match {
+      case Leaf(result) => Leaf(f(result))
+      case Parent(result, children) => Parent(f(result), children)
+      case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
     }
   }
 
