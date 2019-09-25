@@ -113,7 +113,9 @@ object SourceHasher {
     val collectAllSources = Task.create[mutable.ListBuffer[HashedSource]] { (scheduler, cb) =>
       if (isCancelled.get) {
         cb.onSuccess(mutable.ListBuffer.empty)
+        isCancelled.compareAndSet(false, true)
         subscribed.success(())
+        observer.onComplete()
         Cancelable.empty
       } else {
         val (out, consumerSubscription) = collectHashesConsumer.createSubscriber(cb, scheduler)
