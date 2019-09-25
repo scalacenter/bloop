@@ -203,27 +203,4 @@ class LauncherMain(
       }
     }
   }
-
-  /**
-   * Checks that a bloop version can be used with the launcher.
-   * Compatible bloop versions are those that are the same or bigger than 1.1.2.
-   *
-   * @param version The bloop version we want to install if it's missing.
-   * @return Whether the version in compatible or not depending on if it can be parsed or not.
-   */
-  def isValidBloopVersion(version: String): Option[Boolean] = {
-    import coursier.core.Version
-    Version(version).items match {
-      case Version.Number(major) :: Version.Number(minor) :: Version.Number(patch) :: xs =>
-        Some((major == 1 && minor == 1 && patch == 2) || (major >= 1 && minor >= 2))
-      case Version.Number(major) :: Version.Number(minor) :: xs =>
-        Some((major >= 1 && minor >= 2))
-      case xs =>
-        printError(
-          s"Bloop version ${version} does not follow semantic versioning, parsed as ${xs}",
-          out
-        )
-        None
-    }
-  }
 }
