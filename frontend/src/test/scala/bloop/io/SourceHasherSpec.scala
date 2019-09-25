@@ -27,8 +27,7 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       val sources = {
         var allSources: List[String] = Nil
         for (i <- 0 to 200) {
-          val uniqueFile = workspace.resolve(s"/A$i.scala")
-          val contents = s"${uniqueFile}${System.lineSeparator}$largeFileContents"
+          val contents = s"/A$i.scala${System.lineSeparator}$largeFileContents"
           allSources = contents :: allSources
         }
         allSources
