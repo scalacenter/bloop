@@ -17,7 +17,7 @@ jobs:
         run: |
           git submodule update --init --recursive
           gu install native-image
-          sbt bloopgun/graalvm-native-image:packageBin
+          csbt bloopgun/graalvm-native-image:packageBin
       - uses: actions/upload-artifact@master
         with:
           name: bloop
