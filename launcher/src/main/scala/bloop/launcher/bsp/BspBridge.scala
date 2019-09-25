@@ -15,6 +15,10 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
 import bloop.bloopgun.BloopgunCli
 import java.io.ByteArrayOutputStream
+import java.nio.channels.Channels
+import java.nio.channels.ReadableByteChannel
+import java.nio.channels.WritableByteChannel
+import java.nio.ByteBuffer
 
 final class BspBridge(
     clientIn: InputStream,
@@ -200,9 +204,13 @@ final class BspBridge(
       var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {
         val socketIn = socket.getInputStream
-        val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
+        //val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
         try {
-          parser.forward(socketIn, clientOut)
+          val src = Channels.newChannel(socketIn)
+          val dest = Channels.newChannel(clientOut)
+          copyContents(src, dest)
+
+          //parser.forward(socketIn, clientOut)
           isConnectionOpen = false
           println("No more data in the server stdin, exiting...", out)
         } catch {
@@ -239,6 +247,22 @@ final class BspBridge(
       } catch {
         case t: InterruptedException => ()
       }
+    }
+  }
+
+  def copyContents(src: ReadableByteChannel, dest: WritableByteChannel): Unit = {
+    val buffer = ByteBuffer.allocateDirect(16 * 1024)
+
+    while (src.read(buffer) != -1) {
+      buffer.flip()
+      dest.write(buffer)
+      buffer.compact()
+    }
+
+    buffer.flip()
+
+    while (buffer.hasRemaining()) {
+      dest.write(buffer)
     }
   }
 }
