@@ -1,0 +1,24 @@
+name: Bloopgun
+on:
+  push:
+jobs:
+  unix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
+    steps:
+      - uses: actions/checkout@v1
+      - uses: olafurpg/setup-scala@v2
+        with:
+          java-version: graalvm@
+      - name: Link bloopgun
+        run: |
+          git submodule update --init --recursive
+          gu install native-image
+          sbt bloopgun/graalvm-native-image:packageBin
+      - uses: actions/upload-artifact@master
+        with:
+          name: bloop
+          path: bloopgun/target/graalvm-native-image/bloopgun-core
