@@ -30,6 +30,7 @@ import bloop.launcher.core.{
 import bloop.bloopgun.util.Environment
 import bloop.launcher.core.Shell.StatusCommand
 import bloop.bloopgun.BloopgunCli
+import bloop.bloopgun.Defaults
 
 object Launcher
     extends LauncherMain(
@@ -38,8 +39,8 @@ object Launcher
       System.err,
       StandardCharsets.UTF_8,
       Shell.default,
-      nailgunHost = None,
-      nailgunPort = None,
+      userNailgunHost = None,
+      userNailgunPort = None,
       Promise[Unit]()
     )
 
@@ -49,18 +50,17 @@ class LauncherMain(
     val out: PrintStream,
     charset: Charset,
     val shell: Shell,
-    val nailgunHost: Option[String],
-    val nailgunPort: Option[Int],
+    val userNailgunHost: Option[String],
+    val userNailgunPort: Option[Int],
     startedServer: Promise[Unit]
 ) {
   private final val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
-  private final val bloopAdditionalArgs: List[String] = {
-    (nailgunHost, nailgunPort) match {
-      case (Some(host), Some(port)) => List("--nailgun-host", host, "--nailgun-port", port.toString)
-      case (Some(host), None) => List("--nailgun-host", host)
-      case (None, Some(port)) => List("--nailgun-port", port.toString)
-      case (None, None) => Nil
-    }
+  private final val nailgunHost = userNailgunHost.getOrElse(Defaults.Host)
+  private final val nailgunPort = userNailgunPort.getOrElse(Defaults.Port).toString
+  private final val bloopAdditionalCliArgs: List[String] = {
+    val hostArg = if (nailgunHost == Defaults.Host) Nil else List("--nailgun-host", nailgunHost)
+    val portArg = if (nailgunPort == Defaults.Port) Nil else List("--nailgun-port", nailgunPort)
+    portArg ++ hostArg
   }
 
   def main(args: Array[String]): Unit = {
@@ -110,7 +110,7 @@ class LauncherMain(
       case Right(Left(_)) => SuccessfulRun
 
       case Right(Right(Some(socket))) =>
-        try{
+        try {
           bridge.wireBspConnectionStreams(socket)
         } finally {
           socket.close()
@@ -157,7 +157,7 @@ class LauncherMain(
     }
 
     if (skipBspConnection) {
-      val bloopgunArgs = List("server") ++ bloopAdditionalArgs ++ serverJvmOptions
+      val bloopgunArgs = List("server", "--fire-and-forget", nailgunPort) ++ serverJvmOptions
       val bloopgun = newBloopgunCli(bloopVersion, out)
       Try(bloopgun.run(bloopgunArgs.toArray)).toEither match {
         case Right(code) if code == 0 => Right(Left(()))
@@ -173,7 +173,7 @@ class LauncherMain(
       openBspSocket(false) { useTcp =>
         bridge.establishBspConnectionViaBinary(
           out => newBloopgunCli(bloopVersion, out),
-          bloopAdditionalArgs,
+          bloopAdditionalCliArgs,
           useTcp
         )
       }
@@ -187,7 +187,7 @@ class LauncherMain(
   }
 
   def detectServerState(bloopVersion: String): Option[ServerStatus] = {
-    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalArgs, out).orElse {
+    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalCliArgs, out).orElse {
       // The binary is not available in the classpath
       val homeBloopDir = Environment.defaultBloopDirectory
       if (!Files.exists(homeBloopDir)) None
@@ -198,7 +198,7 @@ class LauncherMain(
         if (!Files.exists(pybloop)) None
         else {
           val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalArgs, out)
+          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalCliArgs, out)
         }
       }
     }

@@ -128,6 +128,12 @@ class BloopgunCli(
                 params.copy(serverConfig = params.serverConfig.copy(serverLocation = path))
             },
           builder
+            .opt[Unit]("fire-and-forget")
+            .action {
+              case (_, params) =>
+                params.copy(serverConfig = params.serverConfig.copy(fireAndForget = true))
+            },
+          builder
             .arg[String]("<server-args>...")
             .optional()
             .unbounded()
@@ -178,18 +184,14 @@ class BloopgunCli(
         if (params.nailgunShowVersion)
           logger.info(s"Nailgun protocol v${Defaults.Version}")
 
-        val config = ServerConfig(
-          if (setServer) Some(params.nailgunServer)
-          else Defaults.env.get("BLOOP_SERVER"),
-          if (setPort) Some(params.nailgunPort)
-          else Defaults.env.get("BLOOP_PORT").map(_.toInt)
-        )
-
         if (params.server) {
+          val config = params.serverConfig
           shell.connectToBloopPort(Nil, config, logger) match {
             case Some(_) => logger.info(s"Server is already running at $config, exiting!"); 0
+            case None if config.fireAndForget =>
+              fireCommand("about", Array.empty, params, config, logger)
             case None =>
-              // Fire server and wait until it exits
+              // Fire server and wait until it exits, this is the default `bloop server` mode
               fireServer(FireAndWaitForExit, params, config, bloopVersion, logger) match {
                 case Some((cmd, status)) =>
                   logger.info(s"Command '$cmd' finished with ${status.code}, bye!"); 0
@@ -198,6 +200,14 @@ class BloopgunCli(
               }
           }
         } else {
+
+        val config = ServerConfig(
+          if (setServer) Some(params.nailgunServer)
+          else Defaults.env.get("BLOOP_SERVER"),
+          if (setPort) Some(params.nailgunPort)
+          else Defaults.env.get("BLOOP_PORT").map(_.toInt)
+        )
+
           params.args match {
             case Nil if params.help => fireCommand("help", Array.empty, params, config, logger)
             case Nil => logger.error("Missing CLI command for Bloop server!"); 1
