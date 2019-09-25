@@ -22,6 +22,7 @@ val benchmarkBridge = project
 
 lazy val bloopShared = (project in file("shared"))
   .settings(
+    name := "bloop-shared",
     libraryDependencies ++= Seq(
       Dependencies.bsp4s,
       Dependencies.zinc,
