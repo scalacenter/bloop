@@ -20,7 +20,8 @@ jobs:
           gu install native-image
           ls -al $HOME/bin
           echo $PATH
-          exec $HOME/bin/sbt bloopgun/graalvm-native-image:packageBin
+          curl -Ls https://git.io/sbt > sbt && chmod 0755 sbt
+          ./sbt bloopgun/graalvm-native-image:packageBin
       - uses: actions/upload-artifact@master
         with:
           name: bloop
