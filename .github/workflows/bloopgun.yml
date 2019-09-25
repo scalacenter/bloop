@@ -10,14 +10,14 @@ jobs:
         os: [ubuntu-latest, macOS-latest]
     steps:
       - uses: actions/checkout@v1
-      - uses: olafurpg/setup-scala@v2
+      - uses: olafurpg/setup-scala@master-node_modules
         with:
           java-version: graalvm@
       - name: Link bloopgun
         run: |
           git submodule update --init --recursive
           gu install native-image
-          csbt bloopgun/graalvm-native-image:packageBin
+          sbt bloopgun/graalvm-native-image:packageBin
       - uses: actions/upload-artifact@master
         with:
           name: bloop
