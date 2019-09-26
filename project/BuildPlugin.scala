@@ -15,7 +15,7 @@ import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
-import coursier.ShadingPlugin.{autoImport => ShadingKeys}
+import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -212,17 +212,13 @@ object BuildKeys {
     }
   )
 
-  import ShadingKeys.Shading
   def shadedModuleSettings = List(
-    ShadingKeys.shadingNamespace := "bloop.shaded",
+    BloopShadingKeys.shadingNamespace := "bloop.shaded",
     Keys.packageBin in Compile := {
-      coursier.Shading.createPackage(
-        Keys.packageBin.in(Compile).value,
-        ShadingKeys.shadingNamespace.value,
-        ShadingKeys.shadeNamespaces.value,
-        (ShadingKeys.toShadeClasses in Shading).value,
-        (ShadingKeys.toShadeJars in Shading).value
-      )
+      Def.taskDyn {
+        val baseJar = Keys.packageBin.in(Compile).value
+        BloopShadingKeys.shadingPackageBin(baseJar)
+      }.value
     }
   )
 

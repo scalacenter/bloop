@@ -244,7 +244,7 @@ lazy val bloopgun: Project = project
   )
 
 def shadeSettingsForModule(moduleId: String, module: Reference) = List(
-  toShadeJars in Shading := {
+  toShadeJars := {
     // Redefine toShadeJars as it seems broken in sbt-shading
     Def.taskDyn {
       Def.task {
@@ -268,9 +268,9 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
       }
     }.value
   },
-  toShadeClasses in Shading := {
+  toShadeClasses := {
     // Only shade dependencies, not bloop code or Scala deps
-    (toShadeClasses in Shading).value.filter { p =>
+    toShadeClasses.value.filter { p =>
       !(p.startsWith("bloop.") || p.startsWith("scala."))
     }
   },
@@ -295,7 +295,7 @@ lazy val bloopgunShaded = project
   .in(file("bloopgun/target/shaded-module"))
   .disablePlugins(ScriptedPlugin)
   .disablePlugins(SbtJdiTools)
-  .enablePlugins(ShadingPlugin)
+  .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
   .settings(shadeSettingsForModule("bloopgun-core", bloopgun))
   .settings(
@@ -325,7 +325,7 @@ lazy val launcherShaded = project
   .in(file("launcher/target/shaded-module"))
   .disablePlugins(ScriptedPlugin)
   .disablePlugins(SbtJdiTools)
-  .enablePlugins(ShadingPlugin)
+  .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
   .settings(shadeSettingsForModule("bloop-launcher-core", launcher))
   .settings(
@@ -372,7 +372,7 @@ lazy val benchmarks = project
 val integrations = file("integrations")
 
 def shadeSbtSettingsForModule(moduleId: String, shadingModule: Reference) = List(
-  toShadeJars in Shading := {
+  toShadeJars := {
     // Redefine toShadeJars as it seems broken in sbt-shading
     Def.taskDyn {
       Def.task {
@@ -393,9 +393,9 @@ def shadeSbtSettingsForModule(moduleId: String, shadingModule: Reference) = List
     }.value
   },
   shadeNamespaces := Set("machinist", "shapeless", "cats", "jawn", "io.circe"),
-  toShadeClasses in Shading := {
+  toShadeClasses := {
     // Only shade dependencies, not bloop config code
-    (toShadeClasses in Shading).value.filter(!_.startsWith("bloop"))
+    toShadeClasses.value.filter(!_.startsWith("bloop"))
   }
 )
 
@@ -407,7 +407,7 @@ def defineShadedSbtPlugin(
 ) = {
   sbt
     .Project(projectName, integrations / "sbt-bloop" / "target" / s"sbt-bloop-shaded-$sbtVersion")
-    .enablePlugins(ShadingPlugin)
+    .enablePlugins(BloopShadingPlugin)
     .disablePlugins(ScriptedPlugin)
     .settings(sbtPluginSettings("sbt-bloop", sbtVersion, jsonConfig))
     .settings(shadedModuleSettings)

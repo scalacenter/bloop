@@ -17,7 +17,6 @@ val `bloop-build` = project
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
     addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M14-4"),
-    addSbtPlugin("io.get-coursier" % "sbt-shading" % "1.1.0-M14-4"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.4.0"),
@@ -34,13 +33,25 @@ val `bloop-build` = project
       "commons-codec" % "commons-codec" % "1.11"
     ),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
-    dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)
+    dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion),
+    // Add options to enable sbt-shading plugin sources
+    libraryDependencies += {
+      ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
+        .exclude("org.apache.maven", "maven-plugin-api")
+        .exclude("org.apache.ant", "ant")
+    },
+    unmanagedSourceDirectories in Compile ++= {
+      val baseDir = baseDirectory.value.getParentFile
+      List(
+        baseDir / "sbt-shading" / "src" / "main" / "scala",
+        baseDir / "sbt-shading" / "src" / "main" / "java"
+      )
+    }
   )
 
 Keys.onLoad in Global := {
   val oldOnLoad = (Keys.onLoad in Global).value
   oldOnLoad.andThen { state =>
-    state
     val files = IO.listFiles(state.baseDir / "benchmark-bridge")
     if (files.isEmpty) {
       throw new sbt.internal.util.MessageOnlyException(
