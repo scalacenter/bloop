@@ -10,18 +10,12 @@ jobs:
         os: [ubuntu-latest, macOS-latest]
     steps:
       - uses: actions/checkout@v1
-      - uses: olafurpg/setup-scala@master-node_modules
+      - uses: olafurpg/setup-scala@v4
         with:
           java-version: graalvm@
-      - name: Link bloopgun
-        shell: bash
-        run: |
-          git submodule update --init --recursive
-          gu install native-image
-          ls -al $HOME/bin
-          echo $PATH
-          curl -Ls https://git.io/sbt > sbt && chmod 0755 sbt
-          ./sbt bloopgun/graalvm-native-image:packageBin
+      - run: git submodule update --init --recursive
+      - run: gu install native-image
+      - run: sbt bloopgun/graalvm-native-image:packageBin
       - uses: actions/upload-artifact@master
         with:
           name: bloop
