@@ -70,6 +70,7 @@ val sbtBloopBuildShaded = project
 
       build.Shading.createPackage(
         packageBin.in(Compile).value,
+        Nil,
         namespace,
         shadeNamespaces.value,
         toShadeClasses.value,

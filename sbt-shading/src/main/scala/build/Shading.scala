@@ -92,38 +92,9 @@ object Shading {
     toShadeClasses
   }
 
-  /*
   def createPackage(
       baseJar: File,
-      shadingNamespace: String,
-      shadeNamespaces: Set[String],
-      toShadeClasses: Seq[String],
-      toShadeJars: Seq[File]
-  ): File = {
-
-    val outputJar = new File(
-      baseJar.getParentFile,
-      baseJar.getName.stripSuffix(".jar") + "-shading.jar"
-    )
-
-    val processor = new DefaultJarProcessor
-
-    for (namespace <- shadeNamespaces)
-      processor.addClassRename(new ClassRename(namespace + ".**", shadingNamespace + ".@0"))
-
-    for (cls <- toShadeClasses)
-      processor.addClassRename(new ClassRename(cls, shadingNamespace + ".@0"))
-
-    val transformer = new JarTransformer(outputJar, processor)
-    val cp = new ClassPath(file(sys.props("user.dir")), (baseJar +: toShadeJars).toArray)
-    transformer.transform(cp)
-
-    outputJar
-  }
-   */
-
-  def createPackage(
-      baseJar: File,
+      unshadedJars: Seq[File],
       shadingNamespace: String,
       shadeNamespaces: Set[String],
       toShadeClasses: Seq[String],
@@ -152,7 +123,7 @@ object Shading {
     import scala.collection.JavaConverters._
     val processor = JarJarProcessor(nsRules ++ clsRules, verbose = false, skipManifest = false)
     CoursierJarProcessor.run(
-      (baseJar +: toShadeJars).toArray,
+      ((baseJar +: unshadedJars) ++ toShadeJars).toArray,
       outputJar,
       processor.proc,
       true

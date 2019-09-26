@@ -214,12 +214,14 @@ object BuildKeys {
 
   def shadedModuleSettings = List(
     BloopShadingKeys.shadingNamespace := "bloop.shaded",
+    /*
     Keys.packageBin in Compile := {
       Def.taskDyn {
         val baseJar = Keys.packageBin.in(Compile).value
         BloopShadingKeys.shadingPackageBin(baseJar)
       }.value
     }
+    */
   )
 
   def sbtPluginSettings(

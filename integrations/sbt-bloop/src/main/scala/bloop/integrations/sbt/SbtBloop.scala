@@ -748,10 +748,13 @@ object BloopDefaults {
     import io.circe.parser
     import bloop.config.ConfigEncoderDecoders._
     val contents = new String(Files.readAllBytes(jsonConfig), StandardCharsets.UTF_8)
-    val parsed = parser.parse(contents).right.getOrElse(sys.error("error parsing"))
-    allDecoder.decodeJson(parsed) match {
-      case Right(parsedConfig) => parsedConfig
+    parser.parse(contents) match {
       case Left(failure) => throw failure
+      case Right(json) =>
+        allDecoder.decodeJson(json) match {
+          case Right(file) => file
+          case Left(failure) => throw failure
+        }
     }
   }
 

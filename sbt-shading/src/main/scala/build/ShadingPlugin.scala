@@ -40,28 +40,22 @@ object BloopShadingPlugin extends AutoPlugin {
     val toShadeJars = BloopShadingPlugin.toShadeJars
     val toShadeClasses = BloopShadingPlugin.toShadeClasses
 
-    def shadingPackageBin(jar: File): Def.Initialize[Task[File]] = Def.task {
-      val namespace = shadingNamespace.?.value.getOrElse {
-        throw new NoSuchElementException("shadingNamespace key not set")
+    def shadingPackageBin(jar: File, unshadedJars: Seq[File]): Def.Initialize[Task[File]] =
+      Def.task {
+        val namespace = shadingNamespace.?.value.getOrElse {
+          throw new NoSuchElementException("shadingNamespace key not set")
+        }
+
+        build.Shading.createPackage(
+          jar,
+          unshadedJars,
+          namespace,
+          shadeNamespaces.value,
+          toShadeClasses.value,
+          toShadeJars.value
+        )
       }
-
-      build.Shading.createPackage(
-        jar,
-        namespace,
-        shadeNamespaces.value,
-        toShadeClasses.value,
-        toShadeJars.value
-      )
-    }
   }
-
-  // same as similar things under sbt.Classpaths, tweaking a bit the configuration scope
-  lazy val shadingDefaultArtifactTasks =
-    makePom +: Seq(packageBin, packageSrc, packageDoc).map(_.in(Shading))
-  lazy val shadingJvmPublishSettings = Seq(
-    artifacts := sbt.Classpaths.artifactDefs(shadingDefaultArtifactTasks).value,
-    packagedArtifacts := sbt.Classpaths.packaged(shadingDefaultArtifactTasks).value
-  )
 
   override lazy val buildSettings = super.buildSettings ++ Seq(
     shadeNamespaces := Set()
