@@ -163,6 +163,8 @@ final class DebugSession(
   override def sendEvent(event: Events.DebugEvent): Unit = {
     try {
       super.sendEvent(event)
+
+      if (event.`type` == "exited") loggerAdapter.onDebuggeeFinished()
     } finally {
       expectedTerminalEvents.remove(event.`type`)
 
@@ -221,7 +223,7 @@ final class DebugSession(
   }
 
   private def cancelDebuggee(debuggee: Cancelable): Unit = {
-    loggerAdapter.onDebuggeeCancel()
+    loggerAdapter.onDebuggeeFinished()
     debuggee.cancel()
   }
 }
@@ -288,7 +290,7 @@ object DebugSession {
     /**
      * Debuggee tends to send a lot of SocketClosed exceptions when bloop is terminating the socket. This helps us filter those logs
      */
-    private val cancelled = Atomic(false)
+    @volatile private var debuggeeFinished = false
 
     override def publish(record: LogRecord): Unit = {
       val message = record.getMessage
@@ -307,7 +309,7 @@ object DebugSession {
 
     private val socketClosed = "java.net.SocketException: Socket closed"
     private def isExpectedDuringCancellation(message: String): Boolean = {
-      message.endsWith(socketClosed) && cancelled.get
+      message.endsWith(socketClosed) && debuggeeFinished
     }
 
     private val recordingWhenVmDisconnected =
@@ -316,8 +318,8 @@ object DebugSession {
       message.startsWith(recordingWhenVmDisconnected)
     }
 
-    def onDebuggeeCancel(): Unit = {
-      cancelled.set(true)
+    def onDebuggeeFinished(): Unit = {
+      debuggeeFinished = true
     }
 
     override def flush(): Unit = ()
