@@ -7,6 +7,16 @@ val sharedSettings = List(
   Keys.publishArtifact in (Shading, Keys.packageDoc) := false
 )
 
+val sbtBloopBuildShadedDeps = project
+  .in(file("target")./("sbt-bloop-build-shaded-deps"))
+  .settings(
+    libraryDependencies ++= List(
+      // Don't shade scala-reflect as it creates misbehaviors
+      "io.circe" %% "circe-parser" % "0.9.3",
+      "io.circe" %% "circe-derivation" % "0.9.0-M3"
+    )
+  )
+
 val publishShadedLocal = taskKey[Unit]("Indirection layer to shade and cache")
 val sbtBloopBuildShaded = project
   .in(file("target")./("sbt-bloop-build-shaded"))
@@ -16,14 +26,25 @@ val sbtBloopBuildShaded = project
     // Published name will be sbt-bloop-shaded because of `shading:publishLocal`
     name := "sbt-bloop-build-shaded",
     sbtPlugin := true,
-    libraryDependencies ++= List(
-      // Don't shade scala-reflect as it creates misbehaviors
-      ("io.circe" %% "circe-parser" % "0.9.3" % Shaded)
-        .exclude("org.scala-lang", "scala-reflect"),
-      ("io.circe" %% "circe-derivation" % "0.9.0-M3" % Shaded)
-        .exclude("org.scala-lang", "scala-reflect"),
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value
-    ),
+    libraryDependencies ++= (libraryDependencies in sbtBloopBuildShadedDeps).value,
+    toShadeJars in Shading := {
+      // Redefine toShadeJars as it seems broken in sbt-shading
+      Def.taskDyn {
+        Def.task {
+          // Only shade transitive dependencies, not bloop deps
+          (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter { path =>
+            val ppath = path.toString
+            !(
+              ppath.contains("scala-library") ||
+                ppath.contains("scala-reflect") ||
+                ppath.contains("scala-xml") ||
+                ppath.contains("macro-compat") ||
+                ppath.contains("scalamacros")
+            ) && path.exists
+          }
+        }
+      }.value
+    },
     shadingNamespace := "build",
     shadeNamespaces := Set(
       "machinist",

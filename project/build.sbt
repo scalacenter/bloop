@@ -40,6 +40,7 @@ val `bloop-build` = project
 Keys.onLoad in Global := {
   val oldOnLoad = (Keys.onLoad in Global).value
   oldOnLoad.andThen { state =>
+    state
     val files = IO.listFiles(state.baseDir / "benchmark-bridge")
     if (files.isEmpty) {
       throw new sbt.internal.util.MessageOnlyException(
