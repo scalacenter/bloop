@@ -200,13 +200,12 @@ class BloopgunCli(
               }
           }
         } else {
-
-        val config = ServerConfig(
-          if (setServer) Some(params.nailgunServer)
-          else Defaults.env.get("BLOOP_SERVER"),
-          if (setPort) Some(params.nailgunPort)
-          else Defaults.env.get("BLOOP_PORT").map(_.toInt)
-        )
+          val config = ServerConfig(
+            if (setServer) Some(params.nailgunServer)
+            else Defaults.env.get("BLOOP_SERVER"),
+            if (setPort) Some(params.nailgunPort)
+            else Defaults.env.get("BLOOP_PORT").map(_.toInt)
+          )
 
           params.args match {
             case Nil if params.help => fireCommand("help", Array.empty, params, config, logger)
@@ -217,12 +216,8 @@ class BloopgunCli(
     }
   }
 
-  // Disable interactive if running with shaded bloopgun bc JNA cannot be shaded
-  private val isInteractive = {
-    val shadedClass = "bloop.shaded.bloop.bloopgun.Bloopgun"
-    Try(getClass.getClassLoader.loadClass(shadedClass)).isFailure
-  }
-
+  // Disable interactivity of nailgun, let's just assume all clients are not interactive
+  private val isInteractive = false
   private def fireCommand(
       cmd: String,
       initialCmdArgs: Array[String],
