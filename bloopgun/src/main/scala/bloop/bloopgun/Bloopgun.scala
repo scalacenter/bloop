@@ -361,10 +361,20 @@ class BloopgunCli(
       bloopVersion: String,
       logger: SnailgunLogger
   ): Option[mode.Out] = {
+    def deriveCmdForPath(path: Path, found: LocatedServer): List[String] = {
+      val fullPath = path.toAbsolutePath().toString()
+      if (Files.isExecutable(path.toRealPath())) {
+        shell.deriveCommandForPlatform(List(fullPath), attachTerminal = false)
+      } else {
+        val jvmOpts = Environment.detectJvmOptionsForServer(found, config.serverArgs, logger)
+        List("java") ++ jvmOpts ++ List("-jar", fullPath)
+      }
+    }
+
     ServerStatus.findServerToRun(bloopVersion, config, shell, logger).map { found =>
       val cmd = found match {
         case AvailableWithCommand(cmd) => cmd
-        case AvailableAtPath(path) => List(path.toAbsolutePath.toString)
+        case AvailableAtPath(path) => deriveCmdForPath(path, found)
         case ResolvedAt(classpath) =>
           val delimiter = java.io.File.pathSeparator
           val jvmOpts = Environment.detectJvmOptionsForServer(found, config.serverArgs, logger)
@@ -410,6 +420,14 @@ class BloopgunCli(
         Nil
     }
 
+    def cmdWithArgs(cmd: List[String], serverArgs: List[String]): List[String] = {
+      cmd match {
+        case "sh" :: "-c" :: bloopCmd :: Nil =>
+          "sh" :: "-c" :: (bloopCmd + " " + serverArgs.mkString(" ")) :: Nil
+        case _ => cmd ++ serverArgs
+      }
+    }
+
     /*
      * The process to launch the server is as follows:
      *
@@ -450,7 +468,7 @@ class BloopgunCli(
     }
 
     // Run bloop server with special performance-sensitive JVM options
-    val firstCmd = binary ++ allServerArgs
+    val firstCmd = cmdWithArgs(binary, allServerArgs)
     val firstStatus = sysproc(firstCmd)
 
     val end = System.currentTimeMillis()
@@ -467,7 +485,7 @@ class BloopgunCli(
 
       if (!isExitRelatedToPerformanceSensitiveOpts) firstCmd -> firstStatus
       else {
-        val secondCmd = binary ++ serverArgs
+        val secondCmd = cmdWithArgs(binary, serverArgs)
         secondCmd -> sysproc(secondCmd)
       }
     }

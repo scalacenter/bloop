@@ -108,7 +108,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     StatusCommand(code, outBuilder.toString)
   }
 
-  private def deriveCommandForPlatform(
+  def deriveCommandForPlatform(
       cmd0: List[String],
       attachTerminal: Boolean
   ): List[String] = {
