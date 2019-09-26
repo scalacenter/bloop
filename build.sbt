@@ -243,19 +243,30 @@ lazy val bloopgun: Project = project
     }
   )
 
-def shadeSettingsForModule(moduleId: String) = List(
+def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   toShadeJars in Shading := {
-    // Only shade transitive dependencies, not bloop deps
-    (toShadeJars in Shading).value.filter { path =>
-      val ppath = path.toString
-      !(
-        ppath.contains("bloop") ||
-          ppath.contains("sockets") || // Our own sockets library
-          ppath.contains("scala-library") ||
-          ppath.contains("scala-reflect") ||
-          ppath.contains("scala-xml")
-      )
-    }
+    // Redefine toShadeJars as it seems broken in sbt-shading
+    Def.taskDyn {
+      Def.task {
+        val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+        // Only shade transitive dependencies, not bloop deps
+        (dependencyClasspath in Compile in module).value.map(_.data).filter {
+          path =>
+            val ppath = path.toString
+            !(
+              ppath.contains("bloop") ||
+                ppath.contains("sockets") || // Our own sockets library
+                ppath.contains("scala-library") ||
+                ppath.contains("scala-reflect") ||
+                ppath.contains("scala-xml") ||
+                ppath.contains("jna-platform") ||
+                ppath.contains("jna") ||
+                ppath.contains("macro-compat") ||
+                ppath.contains(toolsJarPath)
+            )
+        }
+      }
+    }.value
   },
   toShadeClasses in Shading := {
     // Only shade dependencies, not bloop code or Scala deps
@@ -277,44 +288,25 @@ def shadeSettingsForModule(moduleId: String) = List(
     "coursier",
     "shapeless",
     "argonaut"
-  ),
-  libraryDependencies ++= List(
-    /*
-     * Mark artifact with a shaded configuration so that the shading plugin
-     * attempts to shade its contents and that of every transitive dependency.
-     * We exclude JNA from these on purpose as they cannot be shaded, otherwise
-     * we get a runtime error.
-     */
-    ("ch.epfl.scala" %% moduleId % Keys.version.value % Shaded)
-      .excludeAll(sbt.ExclusionRule(organization = "net.java.dev.jna")),
-    // Add JNA deps back so that the shaded binary works
-    Dependencies.jna,
-    Dependencies.jnaPlatform
   )
 )
 
 lazy val bloopgunShaded = project
   .in(file("bloopgun/target/shaded-module"))
   .disablePlugins(ScriptedPlugin)
+  .disablePlugins(SbtJdiTools)
   .enablePlugins(ShadingPlugin)
   .settings(shadedModuleSettings)
-  .settings(shadeSettingsForModule("bloopgun-core"))
+  .settings(shadeSettingsForModule("bloopgun-core", bloopgun))
   .settings(
     name := "bloopgun",
     fork in run := true,
     fork in Test := true,
     bloopGenerate in Compile := None,
-    bloopGenerate in Test := None,
-    projectDependencies := {
-      // Redefine ivy configuration to force publishing deps to shade
-      val dependencies = projectDependencies.value
-      (publishLocal in bloopgun).value
-      dependencies
-    }
+    bloopGenerate in Test := None
   )
 
 lazy val launcher: Project = project
-  .enablePlugins(ShadingPlugin)
   .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
@@ -332,9 +324,10 @@ lazy val launcher: Project = project
 lazy val launcherShaded = project
   .in(file("launcher/target/shaded-module"))
   .disablePlugins(ScriptedPlugin)
+  .disablePlugins(SbtJdiTools)
   .enablePlugins(ShadingPlugin)
   .settings(shadedModuleSettings)
-  .settings(shadeSettingsForModule("bloop-launcher-core"))
+  .settings(shadeSettingsForModule("bloop-launcher-core", launcher))
   .settings(
     name := "bloop-launcher",
     fork in run := true,
@@ -378,21 +371,31 @@ lazy val benchmarks = project
 
 val integrations = file("integrations")
 
-def shadeSbtSettingsForModule(moduleId: String) = List(
+def shadeSbtSettingsForModule(moduleId: String, shadingModule: Reference) = List(
+  toShadeJars in Shading := {
+    // Redefine toShadeJars as it seems broken in sbt-shading
+    Def.taskDyn {
+      Def.task {
+        val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+        // Only shade transitive dependencies, not bloop deps
+        (dependencyClasspath in Compile in shadingModule).value.map(_.data).filter { path =>
+          val ppath = path.toString
+          !(
+            ppath.contains("scala-library") ||
+              ppath.contains("scala-reflect") ||
+              ppath.contains("scala-xml") ||
+              ppath.contains("macro-compat") ||
+              ppath.contains("scalamacros") ||
+              ppath.contains(toolsJarPath)
+          )
+        }
+      }
+    }.value
+  },
   shadeNamespaces := Set("machinist", "shapeless", "cats", "jawn", "io.circe"),
   toShadeClasses in Shading := {
     // Only shade dependencies, not bloop config code
     (toShadeClasses in Shading).value.filter(!_.startsWith("bloop"))
-  },
-  libraryDependencies ++= {
-    val sbtV = sbtBinaryVersion.value
-    val scalaV = scalaBinaryVersion.value
-    val sbtBloopPluginDep = "ch.epfl.scala" % moduleId % Keys.version.value
-    List(
-      // Add dependency to sbt-bloop plugin but without enabling shading
-      Defaults.sbtPluginExtra(sbtBloopPluginDep, sbtV, scalaV) % Shaded,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value
-    )
   }
 )
 
@@ -406,21 +409,15 @@ def defineShadedSbtPlugin(
     .Project(projectName, integrations / "sbt-bloop" / "target" / s"sbt-bloop-shaded-$sbtVersion")
     .enablePlugins(ShadingPlugin)
     .disablePlugins(ScriptedPlugin)
-    .settings(sbtPluginSettings("sbt-bloop", sbtVersion, jsonConfig212))
+    .settings(sbtPluginSettings("sbt-bloop", sbtVersion, jsonConfig))
     .settings(shadedModuleSettings)
-    .settings(shadeSbtSettingsForModule("sbt-bloop-core"))
+    .settings(shadeSbtSettingsForModule("sbt-bloop-core", jsonConfig))
     .settings(
       fork in run := true,
       fork in Test := true,
       bloopGenerate in Compile := None,
       bloopGenerate in Test := None,
-      target := (file("integrations") / "sbt-bloop-shaded" / "target" / sbtVersion).getAbsoluteFile,
-      projectDependencies := {
-        val dependencies = projectDependencies.value
-        // Perform this side-effect to ensure that when we get to packageBin dependencies are published
-        Def.sequential(publishLocal in jsonConfig, publishLocal in sbtBloop).value
-        dependencies
-      }
+      target := (file("integrations") / "sbt-bloop-shaded" / "target" / sbtVersion).getAbsoluteFile
     )
 }
 
