@@ -1,4 +1,3 @@
-addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M14-4")
 libraryDependencies += ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
   .exclude("org.apache.maven", "maven-plugin-api")
   .exclude("org.apache.ant", "ant")
