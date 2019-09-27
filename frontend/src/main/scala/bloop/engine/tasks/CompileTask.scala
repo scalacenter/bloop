@@ -433,6 +433,7 @@ object CompileTask {
         case None => populateNewProductsTask
         case Some(previousSuccessful) =>
           for {
+            previousPopulate <- previousSuccessful.populatingProducts
             populate <- populateNewProductsTask
             _ <- cleanUpPreviousResult(previousSuccessful, compilerResult, logger)
           } yield ()
