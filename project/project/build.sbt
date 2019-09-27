@@ -104,3 +104,5 @@ val root = project
       sbt.internal.inc.Analysis.empty
     }
   )
+
+addSbtCoursier
