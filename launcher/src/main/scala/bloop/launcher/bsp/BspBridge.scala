@@ -4,13 +4,21 @@ import java.io.{Closeable, IOException, InputStream, OutputStream, PrintStream}
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
+
 import bloop.launcher.core.{Feedback, Shell}
-import bloop.launcher.util.Environment
+import bloop.bloopgun.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
 import bloop.sockets.UnixDomainSocket
+import bloop.launcher.core.Shell.StatusCommand
+
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
-import bloop.launcher.core.Shell.StatusCommand
+import bloop.bloopgun.BloopgunCli
+import java.io.ByteArrayOutputStream
+import java.nio.channels.Channels
+import java.nio.channels.ReadableByteChannel
+import java.nio.channels.WritableByteChannel
+import java.nio.ByteBuffer
 
 final class BspBridge(
     clientIn: InputStream,
@@ -27,7 +35,12 @@ final class BspBridge(
     bspServerStatus = None
   }
 
-  case class RunningBspConnection(bsp: BspConnection, logs: ListBuffer[String])
+  case class RunningBspConnection(bsp: BspConnection, out: ByteArrayOutputStream) {
+    def logs: List[String] = {
+      val contents = new String(out.toByteArray(), StandardCharsets.UTF_8)
+      contents.linesIterator.toList
+    }
+  }
 
   /**
    * Establish a bsp connection by telling the background server to open a BSP session.
@@ -40,88 +53,50 @@ final class BspBridge(
    * When more than 3 local connections have failed in non Windows systems, we use TCP
    * for the two remaining. After the 5 attempts, we just fail.
    *
-   * @param bloopServerCmd The command we use to run
    * @param useTcp Whether TCP should be always used or not.
    * @param attempts How many attempts are allowed before failing to establish a connection.
    * @return An open bsp connection that we need to poll.
    */
   def establishBspConnectionViaBinary(
-      bloopServerCmd: List[String],
+      createCli: PrintStream => BloopgunCli,
+      bloopAdditionalArgs: List[String],
       useTcp: Boolean,
       attempts: Int = 1
   ): RunningBspConnection = {
     // Reset the status as it can be called several times
     resetServerStatus()
 
-    val logsBuffer = new ListBuffer[String]()
-    val (bspCmd, openConnection) = shell.deriveBspInvocation(bloopServerCmd, useTcp, launcherTmpDir)
+    val cliOut = new ByteArrayOutputStream()
+    val cli = createCli(new PrintStream(cliOut))
+    val (bspCmd, openConnection) = shell.deriveBspInvocation(useTcp, launcherTmpDir)
     println(Feedback.openingBspConnection(bspCmd), out)
     val thread = new Thread {
       override def run(): Unit = {
         // Whenever the connection is broken or the server legitimately stops, this returns
         bspServerStatus = Some {
           bspCmd.mkString(" ") -> {
-            shell.runCommand(
-              // Make it verbose so that bsp preparation logs are emitted
-              bspCmd ++ List("--verbose"),
-              Environment.cwd,
-              None,
-              Some(logsBuffer)
-            )
+            // Make it verbose so that bsp preparation logs are emitted
+            val args = bspCmd ++ bloopAdditionalArgs ++ List("--verbose")
+            StatusCommand(cli.run(args.toArray), "")
           }
         }
       }
     }
 
     thread.start()
-    RunningBspConnection(openConnection, logsBuffer)
-  }
-
-  def runEmbeddedBspInvocationInBackground(
-      classpath: Seq[Path],
-      forceTcp: Boolean,
-      jvmOptions: List[String]
-  ): RunningBspConnection = {
-    // Reset the status as it can be called several times
-    resetServerStatus()
-
-    // NOTE: We don't need to support `$HOME/.bloop/.jvmopts` b/c `$HOME/.bloop` doesn't exist
-    val delimiter = if (Environment.isWindows) ";" else ":"
-    val stringClasspath = classpath.map(_.normalize().toAbsolutePath).mkString(delimiter)
-    val (cmd, connection) = {
-      val opts = jvmOptions.map(_.stripPrefix("-J"))
-      val startCmd = List("java") ++ opts ++ List("-classpath", stringClasspath, "bloop.Cli")
-      shell.deriveBspInvocation(startCmd, forceTcp, launcherTmpDir)
-    }
-
-    val logsBuffer = new ListBuffer[String]()
-
-    // In the embedded mode, the cli bsp invocation is not a daemon
-    shell.startThread("bsp-cli-embedded", false) {
-      println(Feedback.startingBloopServer(cmd), out)
-      val status = shell.runCommand(
-        cmd ++ List("--verbose"),
-        Environment.cwd,
-        None,
-        Some(logsBuffer)
-      )
-
-      // Communicate to the driver logic in `connectToServer` if server failed or not
-      bspServerStatus = Some(cmd.mkString(" ") -> status)
-    }
-
-    RunningBspConnection(connection, logsBuffer)
+    RunningBspConnection(openConnection, cliOut)
   }
 
   private final val BspStartLog = "The server is listening for incoming connections at"
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
-    println("Waiting 200ms until the bsp connection is up...", out)
-    Thread.sleep(200)
-    if (attempts == 50) {
+    println("Waiting 50ms until the bsp connection is up...", out)
+    Thread.sleep(50)
+    if (attempts == 100) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
       printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
       None
     } else if (conn.logs.exists(_.contains(BspStartLog))) {
+      println(conn.logs.mkString(System.lineSeparator), out)
       Some(conn.bsp)
     } else {
       bspServerStatus match {
@@ -229,9 +204,13 @@ final class BspBridge(
       var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {
         val socketIn = socket.getInputStream
-        val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
+        //val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
         try {
-          parser.forward(socketIn, clientOut)
+          val src = Channels.newChannel(socketIn)
+          val dest = Channels.newChannel(clientOut)
+          copyContents(src, dest)
+
+          //parser.forward(socketIn, clientOut)
           isConnectionOpen = false
           println("No more data in the server stdin, exiting...", out)
         } catch {
@@ -268,6 +247,22 @@ final class BspBridge(
       } catch {
         case t: InterruptedException => ()
       }
+    }
+  }
+
+  def copyContents(src: ReadableByteChannel, dest: WritableByteChannel): Unit = {
+    val buffer = ByteBuffer.allocateDirect(16 * 1024)
+
+    while (src.read(buffer) != -1) {
+      buffer.flip()
+      dest.write(buffer)
+      buffer.compact()
+    }
+
+    buffer.flip()
+
+    while (buffer.hasRemaining()) {
+      dest.write(buffer)
     }
   }
 }

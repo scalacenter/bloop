@@ -246,10 +246,12 @@ trait BspClientTest {
                 record(
                   compileTask.target,
                   (builder: StringBuilder) => {
-                    builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
-                    taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                    taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                    builder
+                    builder.synchronized {
+                      builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
+                      taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                      taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                      builder
+                    }
                   }
                 )
             }
@@ -267,12 +269,14 @@ trait BspClientTest {
                 record(
                   report.target,
                   (builder: StringBuilder) => {
-                    builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
-                    builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
-                    report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
-                    taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                    taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                    builder
+                    builder.synchronized {
+                      builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
+                      builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                      report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
+                      taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                      taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                      builder
+                    }
                   }
                 )
             }
@@ -286,36 +290,38 @@ trait BspClientTest {
           record(
             btid,
             (builder: StringBuilder) => {
-              val pathString = {
-                val baseDir = {
-                  // Find out the current working directory of the workspace instead of project
-                  var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
-                  val workspaceFileName = configDir.underlying.getParent.getFileName
-                  while (!bdir.underlying.endsWith(workspaceFileName)) {
-                    bdir = bdir.getParent
+              builder.synchronized {
+                val pathString = {
+                  val baseDir = {
+                    // Find out the current working directory of the workspace instead of project
+                    var bdir = AbsolutePath(ProjectUris.toPath(btid.uri))
+                    val workspaceFileName = configDir.underlying.getParent.getFileName
+                    while (!bdir.underlying.endsWith(workspaceFileName)) {
+                      bdir = bdir.getParent
+                    }
+                    bdir
                   }
-                  bdir
+
+                  val abs = AbsolutePath(tid.uri.toPath)
+                  if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
+                  else abs.toRelative(baseDir).toString
                 }
 
-                val abs = AbsolutePath(tid.uri.toPath)
-                if (!abs.underlying.startsWith(baseDir.underlying)) abs.toString
-                else abs.toRelative(baseDir).toString
-              }
+                val canonical = pathString.replace(File.separatorChar, '/')
+                val report = diagnostics.map(
+                  _.toString
+                    .replace("\n", " ")
+                    .replace(System.lineSeparator, " ")
+                )
+                builder
+                  .++=(s"#${compileIteration()}: $canonical\n")
+                  .++=(s"  -> $report\n")
+                  .++=(s"  -> reset = $reset\n")
 
-              val canonical = pathString.replace(File.separatorChar, '/')
-              val report = diagnostics.map(
-                _.toString
-                  .replace("\n", " ")
-                  .replace(System.lineSeparator, " ")
-              )
-              builder
-                .++=(s"#${compileIteration()}: $canonical\n")
-                .++=(s"  -> $report\n")
-                .++=(s"  -> reset = $reset\n")
-
-              originId match {
-                case None => builder
-                case Some(originId) => builder.++=(s"  -> origin = $originId\n")
+                originId match {
+                  case None => builder
+                  case Some(originId) => builder.++=(s"  -> origin = $originId\n")
+                }
               }
             }
           )

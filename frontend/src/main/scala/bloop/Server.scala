@@ -24,8 +24,20 @@ object Server {
   }
 
   private[bloop] def instantiateServer(args: Array[String]): NGServer = {
-    val port = Try(args(0).toInt).getOrElse(Server.defaultPort)
-    val addr = InetAddress.getLoopbackAddress
+    def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Server.defaultPort)
+    val (addr, port) = {
+      if (args.length == 0) (InetAddress.getLoopbackAddress(), toPortNumber(""))
+      else if (args.length == 1) (InetAddress.getLoopbackAddress(), toPortNumber(args(0)))
+      else if (args.length == 2) {
+        val addr = InetAddress.getByName(args(0))
+        (addr, toPortNumber(args(1)))
+      } else {
+        throw new IllegalArgumentException(
+          s"Invalid arguments to bloop server: $args, expected: [address] [port]"
+        )
+      }
+    }
+
     val logger = BloopLogger.default("bloop-nailgun-main")
     launchServer(System.in, System.out, System.err, addr, port, logger)
   }

@@ -28,6 +28,8 @@ import sbt.{
 }
 import xsbti.compile.CompileOrder
 
+import scala.util.{Try, Success, Failure}
+
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   override def requires = JvmPlugin
@@ -567,7 +569,6 @@ object BloopDefaults {
     val presumedChecksum = path.getParent.resolve(presumedChecksumFilename)
     if (!Files.isRegularFile(presumedChecksum)) None
     else {
-      import scala.util.{Try, Success, Failure}
       Try(new String(Files.readAllBytes(presumedChecksum), StandardCharsets.UTF_8)) match {
         case Success(checksum) => Some(Config.Checksum(algorithm, checksum))
         case Failure(_) => None
@@ -744,6 +745,30 @@ object BloopDefaults {
     }
   }
 
+  def parseConfig(jsonConfig: Path): Config.File = {
+    import io.circe.parser
+    import bloop.config.ConfigEncoderDecoders._
+    val contents = new String(Files.readAllBytes(jsonConfig), StandardCharsets.UTF_8)
+    parser.parse(contents) match {
+      case Left(failure) => throw failure
+      case Right(json) =>
+        allDecoder.decodeJson(json) match {
+          case Right(file) => file
+          case Left(failure) => throw failure
+        }
+    }
+  }
+
+  def safeParseConfig(jsonConfig: Path, logger: Logger): Option[Config.File] = {
+    Try(parseConfig(jsonConfig)) match {
+      case Success(config) => Some(config)
+      case Failure(t) =>
+        logger.error(s"Unexpected error when parsing $jsonConfig: ${t.getMessage}, skipping!")
+        logger.trace(t)
+        None
+    }
+  }
+
   lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -759,6 +784,15 @@ object BloopDefaults {
         val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
         val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
         val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
+
+        val bloopConfigDir = BloopKeys.bloopConfigDir.value
+        sbt.IO.createDirectory(bloopConfigDir)
+        val outFile = bloopConfigDir / s"$projectName.json"
+        val outFilePath = outFile.toPath
+
+        // Important that it's lazy, we want to avoid the price of reading config file if possible
+        lazy val previousConfigFile =
+          if (!Files.exists(outFilePath)) None else safeParseConfig(outFilePath, logger)
 
         val dependencies = {
           val data = Keys.settingsData.value
@@ -792,7 +826,6 @@ object BloopDefaults {
           project.aggregate.map(agg => projectNameFromString(agg.project, configuration, logger))
         val dependenciesAndAggregates = (dependencies ++ aggregates).distinct
 
-        val bloopConfigDir = BloopKeys.bloopConfigDir.value
         val out = (bloopConfigDir / project.id).toPath.toAbsolutePath
         val scalaName = "scala-compiler"
         val scalaVersion = Keys.scalaVersion.value
@@ -848,7 +881,12 @@ object BloopDefaults {
         val platform = findOutPlatform.value
 
         val binaryModules = configModules(Keys.update.value)
-        val sourceModules = updateClassifiers.value.toList.flatMap(configModules)
+        val sourceModules = {
+          val sourceModulesFromSbt = updateClassifiers.value.toList.flatMap(configModules)
+          if (sourceModulesFromSbt.nonEmpty) sourceModulesFromSbt
+          else previousConfigFile.flatMap(_.project.resolution.map(_.modules)).toList.flatten
+        }
+
         val allModules = mergeModules(binaryModules, sourceModules)
         val resolution = {
           val modules = onlyCompilationModules(allModules, classpath).toList
@@ -874,8 +912,6 @@ object BloopDefaults {
         }
         // format: ON
 
-        sbt.IO.createDirectory(bloopConfigDir)
-        val outFile = bloopConfigDir / s"$projectName.json"
         bloop.config.write(config, outFile.toPath)
 
         // Only shorten path for configuration files written to the the root build

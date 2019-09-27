@@ -1,7 +1,7 @@
 val mvnVersion = "3.6.1"
 val mvnPluginToolsVersion = "3.6.0"
-val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
 
+updateOptions := updateOptions.value.withLatestSnapshots(false)
 val `bloop-build` = project
   .in(file("."))
   .settings(
@@ -19,18 +19,8 @@ val `bloop-build` = project
     addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M13-2"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
-    libraryDependencies += { "org.scala-sbt" %% "scripted-plugin" % sbtVersion.value },
-    // Let's add our sbt plugin to the sbt too ;)
-    unmanagedSourceDirectories in Compile ++= {
-      val baseDir = baseDirectory.value.getParentFile
-      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
-      List(
-        baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala-2.11-12",
-        pluginMainDir / "scala",
-        pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
-      )
-    },
+    addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.4.0"),
+    addSbtPlugin("ch.epfl.scala" % "sbt-bloop-build-shaded" % "1.0.0-SNAPSHOT"),
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
@@ -42,9 +32,21 @@ val `bloop-build` = project
       "org.apache.maven" % "maven-model-builder" % mvnVersion,
       "commons-codec" % "commons-codec" % "1.11"
     ),
-    libraryDependencies ++= List(circeDerivation),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
-    dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)
+    dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion),
+    // Add options to enable sbt-shading plugin sources
+    libraryDependencies += {
+      ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
+        .exclude("org.apache.maven", "maven-plugin-api")
+        .exclude("org.apache.ant", "ant")
+    },
+    unmanagedSourceDirectories in Compile ++= {
+      val baseDir = baseDirectory.value.getParentFile
+      List(
+        baseDir / "sbt-shading" / "src" / "main" / "scala",
+        baseDir / "sbt-shading" / "src" / "main" / "java"
+      )
+    }
   )
 
 Keys.onLoad in Global := {

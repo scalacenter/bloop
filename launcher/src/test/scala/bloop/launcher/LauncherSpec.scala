@@ -4,9 +4,9 @@ import java.io._
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.launcher.core.{AvailableAt, Feedback, Installer, Shell}
+import bloop.launcher.core.{AvailableAt, Installer, Shell}
 import bloop.internal.build.BuildInfo
-import bloop.launcher.util.Environment
+import bloop.bloopgun.util.Environment
 import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.util.TestUtil
 import monix.eval.Task
@@ -17,26 +17,29 @@ import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc._
 import scala.util.control.NonFatal
+import bloop.bloopgun.ServerConfig
 
-object StableLauncherSpec extends LauncherSpec("1.2.1", "2.0.0-M1")
-object LatestLauncherSpec extends LauncherSpec(BuildInfo.version, BuildInfo.bspVersion)
+import bloop.launcher.core.{Feedback => LauncherFeedback}
+import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
 
-abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
-    extends LauncherBaseSuite(bloopVersion, bspVersion, 9012) {
-  // Update the bsp version whenever we change the bloop version
+object LatestStableLauncherSpec extends LauncherSpec("1.3.2")
+object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version)
+
+class LauncherSpec(bloopVersion: String)
+    extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, 9014) {
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
-  test("check that environment is correctly mocked") {
-    val parentDir = this.bloopBinDirectory.getParent
-    assert(parentDir.underlying == Environment.cwd.getParent)
-    assert(parentDir.underlying == Environment.homeDirectory.getParent)
-  }
-
   test("fail if arguments are empty") {
     setUpLauncher(shellWithPython) { run =>
       val status = run.launcher.cli(Array())
       assert(status == LauncherStatus.FailedToParseArguments)
-      assert(run.logs.exists(_.contains(Feedback.NoBloopVersion)))
+      assert(run.logs.exists(_.contains(LauncherFeedback.NoBloopVersion)))
     }
+  }
+
+  test("check that environment is correctly mocked") {
+    val parentDir = this.bloopBinDirectory.getParent
+    assert(parentDir.underlying == Environment.cwd.getParent)
+    assert(parentDir.underlying == Environment.homeDirectory.getParent)
   }
 
   test("check that python is in the classpath") {
@@ -44,7 +47,7 @@ abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
     assert(shellWithPython.isPythonInClasspath)
   }
 
-  test("fail for bloop version not supporting launcher") {
+  ignore("fail for bloop version not supporting launcher") {
     setUpLauncher(shellWithPython) { run =>
       val args = Array("1.0.0")
       val status = run.launcher.cli(args)
@@ -92,34 +95,29 @@ abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
         case Some(AvailableAt(binary)) if binary.headOption.exists(_.contains(bloopDir.toString)) =>
           // After installing, let's run the launcher in an environment where bloop is available
           val result1 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
-
           val expectedLogs1 = List(
-            Feedback.DetectedBloopinstallation,
-            Feedback.startingBloopServer(Nil),
-            Feedback.openingBspConnection(Nil)
+            BloopgunFeedback.DetectedBloopInstallation,
+            BloopgunFeedback.startingBloopServer(defaultConfig),
+            LauncherFeedback.openingBspConnection(Nil)
           )
 
           val prohibitedLogs1 = List(
-            Feedback.installingBloop(bloopVersion),
-            Feedback.SkippingFullInstallation,
-            Feedback.UseFallbackInstallation,
-            Feedback.resolvingDependency(bloopDependency)
+            LauncherFeedback.installingBloop(bloopVersion),
+            BloopgunFeedback.resolvingDependency(bloopDependency)
           )
 
           result1.throwIfFailed
-          assertLogsContain(expectedLogs1, result1.launcherLogs)
+          assertLogsContain(expectedLogs1, result1.launcherLogs, prohibitedLogs1)
 
           val expectedLogs2 = List(
-            Feedback.DetectedBloopinstallation,
-            Feedback.openingBspConnection(Nil)
+            LauncherFeedback.openingBspConnection(Nil)
           )
 
           val prohibitedLogs2 = List(
-            Feedback.installingBloop(bloopVersion),
-            Feedback.SkippingFullInstallation,
-            Feedback.UseFallbackInstallation,
-            Feedback.resolvingDependency(bloopDependency),
-            Feedback.startingBloopServer(Nil)
+            BloopgunFeedback.DetectedBloopInstallation,
+            LauncherFeedback.installingBloop(bloopVersion),
+            BloopgunFeedback.resolvingDependency(bloopDependency),
+            BloopgunFeedback.startingBloopServer(defaultConfig)
           )
 
           // Now, the server should be running, check we can open a connection again
@@ -131,50 +129,16 @@ abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
     }
   }
 
-  /**
-   * Tests the most critical case of the launcher: bloop is not installed and the launcher
-   * installs it in `$HOME/.bloop`. After installing it, it starts up the server, it opens
-   * a bsp server session and connects to it, redirecting stdin and stdout appropiately to
-   * the server via sockets.
-   */
-  test("install bloop and run it") {
+  test("when bloop is uninstalled, resolve bloop, start and connect to server via BSP") {
     val result = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
     val expectedLogs = List(
-      Feedback.installingBloop(bloopVersion),
-      Feedback.installationLogs(Environment.defaultBloopDirectory),
-      Feedback.downloadingInstallerAt(installpyURL(bloopVersion)),
-      Feedback.startingBloopServer(Nil)
-    )
-
-    val prohibitedLogs = List(
-      Feedback.SkippingFullInstallation,
-      Feedback.UseFallbackInstallation
+      BloopgunFeedback.resolvingDependency(bloopDependency),
+      BloopgunFeedback.startingBloopServer(defaultConfig),
+      LauncherFeedback.openingBspConnection(Nil)
     )
 
     result.throwIfFailed
-    assertLogsContain(expectedLogs, result.launcherLogs, prohibitedLogs)
-  }
-
-  /**
-   * Tests the fallback mechanism when python is not installed: resolves bloop with coursier
-   * and runs an embedded bsp server that dies together with the launcher.
-   */
-  test("use embedded mode if python is uninstalled") {
-    val result = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithNoPython)
-    val expectedLogs = List(
-      Feedback.installingBloop(bloopVersion),
-      Feedback.SkippingFullInstallation,
-      Feedback.UseFallbackInstallation,
-      Feedback.resolvingDependency(bloopDependency),
-      Feedback.startingBloopServer(Nil)
-    )
-
-    val prohibitedLogs = List(
-      Feedback.installationLogs(Environment.defaultBloopDirectory)
-    )
-
-    result.throwIfFailed
-    assertLogsContain(expectedLogs, result.launcherLogs, prohibitedLogs)
+    assertLogsContain(expectedLogs, result.launcherLogs, Nil)
   }
 
   /**
@@ -186,7 +150,9 @@ abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
    * depend on bloop and start using it without bothering if it's installed or not
    * in a given machine.
    */
-  test("install and run bloop, but skip bsp connection") {
+  test(
+    "when bloop is uninstalled and `--skip-bsp-connection`, resolve bloop, start and connect to server via BSP"
+  ) {
     val args = Array(bloopVersion, "--skip-bsp-connection")
     setUpLauncher(
       in = System.in,
@@ -196,40 +162,16 @@ abstract class LauncherSpec(bloopVersion: String, bspVersion: String)
     ) { run =>
       val status = run.launcher.cli(args)
       val expectedLogs = List(
-        Feedback.installingBloop(bloopVersion),
-        Feedback.installationLogs(Environment.defaultBloopDirectory),
-        Feedback.startingBloopServer(Nil),
-        Feedback.downloadingInstallerAt(installpyURL(bloopVersion))
+        BloopgunFeedback.resolvingDependency(bloopDependency),
+        BloopgunFeedback.startingBloopServer(defaultConfig)
       )
 
       val prohibitedLogs = List(
-        Feedback.SkippingFullInstallation,
-        Feedback.UseFallbackInstallation,
-        Feedback.resolvingDependency(bloopDependency),
-        Feedback.openingBspConnection(Nil)
+        LauncherFeedback.openingBspConnection(Nil)
       )
 
       assert(LauncherStatus.SuccessfulRun == status)
       assertLogsContain(expectedLogs, run.logs, prohibitedLogs)
-    }
-  }
-
-  /**
-   * Tests the behavior of `--skip-bsp-connection` when no python is installed:
-   * the launcher aborts directly because bloop cannot be installed via the
-   * universal method, which means it cannot be used from the client of the
-   * launcher.
-   */
-  test("fail if skip bsp connection is set and bloop can only run in embedded mode") {
-    val args = Array(bloopVersion, "--skip-bsp-connection")
-    setUpLauncher(
-      in = System.in,
-      out = System.out,
-      startedServer = Promise[Unit](),
-      shell = shellWithNoPython
-    ) { run =>
-      val status = run.launcher.cli(args)
-      assert(LauncherStatus.FailedToInstallBloop == status)
     }
   }
 }

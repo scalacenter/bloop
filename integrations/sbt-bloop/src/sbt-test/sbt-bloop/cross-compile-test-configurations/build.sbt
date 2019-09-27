@@ -1,4 +1,5 @@
 import java.nio.file.{Files, Path}
+import bloop.integrations.sbt.BloopDefaults
 
 val foo = project
   .settings(
@@ -50,25 +51,11 @@ allBloopConfigFiles in ThisBuild := {
   )
 }
 
-import bloop.config.{Config, ConfigEncoderDecoders}
-def fromFile(contents: String): Config.File = {
-  import _root_.io.circe.jackson
-  jackson.parse(contents) match {
-    case Left(failure) => throw failure
-    case Right(json) =>
-      ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
-        case Right(file) => file
-        case Left(failure) => throw failure
-      }
-  }
-}
-
-def readConfigFor(projectName: String, allConfigs: Seq[File]): Config.File = {
+def readConfigFor(projectName: String, allConfigs: Seq[File]): bloop.config.Config.File = {
   val configFile = allConfigs
     .find(_.toString.endsWith(s"$projectName.json"))
     .getOrElse(sys.error(s"Missing $projectName.json"))
-  val configContents = new String(Files.readAllBytes(configFile.toPath))
-  fromFile(configContents)
+  BloopDefaults.parseConfig(configFile.toPath)
 }
 
 val checkBloopFile = taskKey[Unit]("Check bloop file contents")

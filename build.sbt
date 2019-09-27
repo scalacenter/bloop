@@ -22,8 +22,9 @@ val benchmarkBridge = project
 
 lazy val bloopShared = (project in file("shared"))
   .settings(
+    name := "bloop-shared",
     libraryDependencies ++= Seq(
-      Dependencies.bsp,
+      Dependencies.bsp4s,
       Dependencies.zinc,
       Dependencies.xxHashLibrary,
       Dependencies.configDirectories,
@@ -75,18 +76,22 @@ lazy val backend = project
     )
   )
 
+val publishJsonModuleSettings = List(
+  publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
+  publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
+  // We compile in both so that the maven integration can be tested locally
+  publishLocal := publishLocal.dependsOn(publishM2).value
+)
+
 lazy val jsonConfig210 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
+  .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     target := (file("config") / "target" / "json-config-2.10").getAbsoluteFile,
     scalaVersion := Scala210Version,
-    publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
-    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-    // We compile in both so that the maven integration can be tested locally
-    publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(
         Dependencies.circeParser,
@@ -102,16 +107,13 @@ lazy val jsonConfig211 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
+  .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     target := (file("config") / "target" / "json-config-2.11").getAbsoluteFile,
     scalaVersion := Scala211Version,
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
-    publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
-    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-    // We compile in both so that the gradle integration can be tested locally
-    publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(
         Dependencies.circeParser,
@@ -126,15 +128,13 @@ lazy val jsonConfig212 = project
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
+  .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
     target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
     scalaVersion := Keys.scalaVersion.in(backend).value,
-    publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
-    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-    publishLocal := publishLocal.dependsOn(publishM2).value,
     libraryDependencies ++= {
       List(
         Dependencies.circeParser,
@@ -206,18 +206,178 @@ lazy val frontend: Project = project
     dependencyOverrides += Dependencies.shapeless
   )
 
-lazy val launcher: Project = project
+lazy val bloopgun: Project = project
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(sockets, frontend % "test->test")
+  .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
   .settings(
-    name := "bloop-launcher",
+    name := "bloopgun-core",
+    fork in run := true,
+    fork in Test := true,
+    parallelExecution in Test := false,
+    libraryDependencies ++= List(
+      //Dependencies.configDirectories,
+      Dependencies.snailgun,
+      // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
+      Dependencies.ztExec,
+      Dependencies.slf4jNop,
+      Dependencies.coursier,
+      Dependencies.coursierCache
+    ),
+    mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
+    graalVMNativeImageOptions ++= {
+      val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+      assert(reflectionFile.exists)
+      List(
+        "--no-server",
+        "--enable-http",
+        "--enable-https",
+        "-H:EnableURLProtocols=http,https",
+        "--enable-all-security-services",
+        "--no-fallback",
+        s"-H:ReflectionConfigurationFiles=$reflectionFile",
+        //"--allow-incomplete-classpath",
+        "-H:+ReportExceptionStackTraces"
+        //"--initialize-at-build-time=scala.Function1"
+      )
+    }
+  )
+
+def shadeSettingsForModule(
+    moduleId: String,
+    module: Reference,
+    dependencyModules: List[Reference]
+) = List(
+  packageBin in Compile := {
+    Def.taskDyn {
+      val data = Keys.settingsData.value
+      val baseJar = Keys.packageBin.in(Compile).in(module).value
+      val unshadedDepJarTasks = dependencyModules.flatMap { dep =>
+        Keys.packageBin.in(Compile).in(dep).get(data).toList
+      }.join
+      Def.taskDyn {
+        val unshadedDepJars = unshadedDepJarTasks.value
+        shadingPackageBin(baseJar, unshadedDepJars)
+      }
+    }.value
+  },
+  toShadeJars := {
+    // Redefine toShadeJars as it seems broken in sbt-shading
+    Def.taskDyn {
+      val data = Keys.settingsData.value
+      val projectDepModuleNames = dependencyModules.flatMap { dep =>
+        Keys.name.get(data).toList
+      }
+      Def.task {
+        val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+        val projectDepNames = Keys.name.in(module).value :: projectDepModuleNames
+        val depJars = dependencyClasspath.in(Compile).in(module).value.map(_.data)
+        depJars.filter { path =>
+          val ppath = path.toString
+          !(
+            projectDepNames.exists(n => ppath.contains(n)) ||
+              ppath.contains("sockets") || // Our own sockets library
+              ppath.contains("scala-library") ||
+              ppath.contains("scala-reflect") ||
+              ppath.contains("scala-xml") ||
+              ppath.contains("jna-platform") ||
+              ppath.contains("jna") ||
+              ppath.contains("macro-compat") ||
+              ppath.contains(toolsJarPath)
+          ) && path.exists && !path.isDirectory
+        }
+      }
+    }.value
+  },
+  toShadeClasses := {
+    // Only shade dependencies, not bloop code or Scala deps
+    toShadeClasses.value.filter { p =>
+      !(p.startsWith("bloop.") || p.startsWith("scala."))
+    }
+  },
+  // Lists *all* Scala dependencies transitively for the shading to work correctly
+  shadeNamespaces := Set(
+    // Bloopgun direct and transitive deps
+    "snailgun",
+    "org.zeroturnaround",
+    "io.github.soc",
+    "org.slf4j",
+    "scopt",
+    "macrocompat",
+    "com.zaxxer.nuprocess",
+    // Coursier direct and transitive deps
+    "coursier",
+    "shapeless",
+    "argonaut"
+  )
+)
+
+lazy val bloopgunShaded = project
+  .in(file("bloopgun/target/shaded-module"))
+  .disablePlugins(ScriptedPlugin)
+  .disablePlugins(SbtJdiTools)
+  .enablePlugins(BloopShadingPlugin)
+  .settings(shadedModuleSettings)
+  .settings(shadeSettingsForModule("bloopgun-core", bloopgun, Nil))
+  .settings(
+    name := "bloopgun",
+    fork in run := true,
+    fork in Test := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None
+  )
+
+lazy val launcher: Project = project
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, bloopgun, frontend % "test->test")
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher-core",
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
       Dependencies.coursier,
       Dependencies.coursierCache,
       Dependencies.nuprocess
+    )
+  )
+
+lazy val launcherShaded = project
+  .in(file("launcher/target/shaded-module"))
+  .disablePlugins(ScriptedPlugin)
+  .disablePlugins(SbtJdiTools)
+  .enablePlugins(BloopShadingPlugin)
+  .settings(shadedModuleSettings)
+  .settings(shadeSettingsForModule("bloop-launcher-core", launcher, List(bloopgun)))
+  .settings(
+    name := "bloop-launcher",
+    fork in run := true,
+    fork in Test := true,
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
+    projectDependencies := {
+      // Redefine ivy configuration to force publishing deps to shade
+      val dependencies = projectDependencies.value
+      Def
+        .sequential(
+          publishLocal in sockets,
+          publishLocal in bloopgun,
+          publishLocal in launcher
+        )
+        .value
+      dependencies
+    }
+  )
+
+lazy val bloop4j = project
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(jsonConfig212)
+  .settings(
+    name := "bloop4j",
+    fork in run := true,
+    fork in Test := true,
+    libraryDependencies ++= List(
+      Dependencies.bsp4j
     )
   )
 
@@ -232,20 +392,92 @@ lazy val benchmarks = project
 
 val integrations = file("integrations")
 
-lazy val sbtBloop10 = project
+def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToShade: Reference) =
+  List(
+    packageBin in Compile := {
+      Def.taskDyn {
+        val baseJar = Keys.packageBin.in(Compile).in(module).value
+        val unshadedJars = List(Keys.packageBin.in(Compile).in(dependencyToShade).value)
+        Def.taskDyn {
+          shadingPackageBin(baseJar, unshadedJars)
+        }
+      }.value
+    },
+    toShadeJars := {
+      // Redefine toShadeJars as it seems broken in sbt-shading
+      Def.taskDyn {
+        Def.task {
+          val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+          val projectDepNames = List(Keys.name.in(dependencyToShade).value)
+
+          // We get dependency jars from dependencyToShade because if we get them from `module`
+          // we get all of the jars in the sbt universe and we only want to share our deps!
+          val depJars = dependencyClasspath.in(Compile).in(dependencyToShade).value.map(_.data)
+          depJars.filter { path =>
+            val ppath = path.toString
+            !(
+              projectDepNames.exists(n => ppath.contains(n)) ||
+                ppath.contains("scala-library") ||
+                ppath.contains("scala-reflect") ||
+                ppath.contains("scala-xml") ||
+                ppath.contains("macro-compat") ||
+                ppath.contains("scalamacros") ||
+                ppath.contains(toolsJarPath)
+            ) && path.exists && !path.isDirectory
+          }
+        }
+      }.value
+    },
+    shadeNamespaces := Set("machinist", "shapeless", "cats", "jawn", "io.circe"),
+    toShadeClasses := {
+      // Only shade dependencies, not bloop config code
+      toShadeClasses.value.filter(!_.startsWith("bloop"))
+    }
+  )
+
+def defineShadedSbtPlugin(
+    projectName: String,
+    sbtVersion: String,
+    sbtBloop: Reference,
+    jsonConfig: Reference
+) = {
+  sbt
+    .Project(projectName, integrations / "sbt-bloop" / "target" / s"sbt-bloop-shaded-$sbtVersion")
+    .enablePlugins(BloopShadingPlugin)
+    .disablePlugins(ScriptedPlugin)
+    .disablePlugins(SbtJdiTools)
+    .settings(sbtPluginSettings("sbt-bloop", sbtVersion, jsonConfig))
+    .settings(shadedModuleSettings)
+    .settings(shadeSbtSettingsForModule("sbt-bloop-core", sbtBloop, jsonConfig))
+    .settings(
+      fork in run := true,
+      fork in Test := true,
+      bloopGenerate in Compile := None,
+      bloopGenerate in Test := None,
+      target := (file("integrations") / "sbt-bloop-shaded" / "target" / sbtVersion).getAbsoluteFile
+    )
+}
+
+lazy val sbtBloop10: Project = project
+  .dependsOn(jsonConfig212)
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
-  .settings(sbtPluginSettings(Sbt1Version, jsonConfig212))
-  .dependsOn(jsonConfig212)
+  .settings(sbtPluginSettings("sbt-bloop-core", Sbt1Version, jsonConfig212))
 
-// Let's remove scripted for 0.13, we only test 1.0
+lazy val sbtBloop10Shaded: Project =
+  defineShadedSbtPlugin("sbtBloop10Shaded", Sbt1Version, sbtBloop10, jsonConfig212)
+
 lazy val sbtBloop013 = project
+  .dependsOn(jsonConfig210)
+  // Let's remove scripted for 0.13, we only test 1.0
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings(Sbt013Version, jsonConfig210))
-  .dependsOn(jsonConfig210)
+  .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version, jsonConfig210))
+
+lazy val sbtBloop013Shaded =
+  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013, jsonConfig210)
 
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
@@ -424,7 +656,8 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge10,
   launcher,
-  sockets
+  sockets,
+  bloopgun
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -468,6 +701,8 @@ addCommandAlias(
     s"${jsonConfig212.id}/$publishLocalCmd",
     s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
+    s"${sbtBloop013Shaded.id}/$publishLocalCmd",
+    s"${sbtBloop10Shaded.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${gradleBloop211.id}/$publishLocalCmd",
     s"${gradleBloop212.id}/$publishLocalCmd",
@@ -479,7 +714,10 @@ addCommandAlias(
     s"${jsBridge06.id}/$publishLocalCmd",
     s"${jsBridge10.id}/$publishLocalCmd",
     s"${sockets.id}/$publishLocalCmd",
+    s"${bloopgun.id}/$publishLocalCmd",
     s"${launcher.id}/$publishLocalCmd",
+    s"${bloopgunShaded.id}/$publishLocalCmd",
+    s"${launcherShaded.id}/$publishLocalCmd",
     s"${buildpressConfig.id}/$publishLocalCmd",
     s"${buildpress.id}/$publishLocalCmd",
     // Force build info generators in frontend-test
@@ -512,6 +750,8 @@ val allBloopReleases = List(
   s"${jsonConfig212.id}/$releaseEarlyCmd",
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
+  s"${sbtBloop013Shaded.id}/$releaseEarlyCmd",
+  s"${sbtBloop10Shaded.id}/$releaseEarlyCmd",
   s"${mavenBloop.id}/$releaseEarlyCmd",
   s"${gradleBloop211.id}/$releaseEarlyCmd",
   s"${gradleBloop212.id}/$releaseEarlyCmd",
@@ -521,7 +761,10 @@ val allBloopReleases = List(
   s"${jsBridge06.id}/$releaseEarlyCmd",
   s"${jsBridge10.id}/$releaseEarlyCmd",
   s"${sockets.id}/$releaseEarlyCmd",
+  s"${bloopgun.id}/$releaseEarlyCmd",
   s"${launcher.id}/$releaseEarlyCmd",
+  s"${bloopgunShaded.id}/$releaseEarlyCmd",
+  s"${launcherShaded.id}/$releaseEarlyCmd",
   s"${buildpressConfig.id}/$releaseEarlyCmd",
   s"${buildpress.id}/$releaseEarlyCmd"
 )

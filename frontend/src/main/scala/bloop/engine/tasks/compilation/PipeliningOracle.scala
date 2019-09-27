@@ -115,7 +115,7 @@ final class PipeliningOracle(
   def collectDownstreamSignatures(): Array[Signature] = signaturesFromRunningCompilations
 }
 
-object ImmutableCompilerOracle {
+object PipeliningOracle {
 
   /**
    * Persists in-memory signatures to a pickles directory associated with the
