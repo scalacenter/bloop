@@ -45,8 +45,6 @@ final class BloopClassFileManager(
       inputs.generatedClassFilePathsInDependentProjects.valuesIterator
   }
 
-  allInvalidatedClassFilesForProject ++= dependentClassFilesThatShouldNotBeLoaded
-
   /**
    * Returns the set of all invalidated class files.
    *
@@ -60,7 +58,8 @@ final class BloopClassFileManager(
   private[this] var memoizedInvalidatedClassFiles: Array[File] = _
   def invalidatedClassFiles(): Array[File] = {
     if (memoizedInvalidatedClassFiles == null) {
-      memoizedInvalidatedClassFiles = allInvalidatedClassFilesForProject.toArray
+      memoizedInvalidatedClassFiles =
+        (allInvalidatedClassFilesForProject ++ dependentClassFilesThatShouldNotBeLoaded).toArray
     }
 
     memoizedInvalidatedClassFiles
