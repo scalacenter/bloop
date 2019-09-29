@@ -176,10 +176,11 @@ class BloopgunCli(
       }
     }
 
-    OParser.parse(cliParser, args, BloopgunParams(), setup) match {
+    val (cliArgsToParse, extraArgsForServer) = args.span(_ == "--")
+    OParser.parse(cliParser, cliArgsToParse, BloopgunParams(), setup) match {
       case None => 1
       case Some(params0) =>
-        val params = params0.copy(args = additionalCmdArgs)
+        val params = params0.copy(args = additionalCmdArgs ++ extraArgsForServer)
         val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
         if (params.nailgunShowVersion)
           logger.info(s"Nailgun protocol v${Defaults.Version}")
