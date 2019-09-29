@@ -1031,8 +1031,14 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
               |""".stripMargin
           )
 
+          // Skip deduplication log that can happen because of timing issues, we're only interested in deduplicating b
+          val cliLogs = cliLogger.renderTimeInsensitiveInfos
+            .split(System.lineSeparator)
+            .filter(!_.startsWith("Deduplicating compilation of a"))
+            .mkString(System.lineSeparator)
+
           assertNoDiff(
-            cliLogger.renderTimeInsensitiveInfos,
+            cliLogs,
             """|Compiling a (1 Scala source)
                |Compiled a ???
                |Compiling b (1 Scala source)
