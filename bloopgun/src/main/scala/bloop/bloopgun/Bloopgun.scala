@@ -176,7 +176,8 @@ class BloopgunCli(
       }
     }
 
-    val (cliArgsToParse, extraArgsForServer) = args.span(_ == "--")
+    val (cliArgsToParse, extraArgsForServer) =
+      if (args.contains("--")) args.span(_ == "--") else (args, Array.empty[String])
     OParser.parse(cliParser, cliArgsToParse, BloopgunParams(), setup) match {
       case None => 1
       case Some(params0) =>
@@ -421,11 +422,15 @@ class BloopgunCli(
         Nil
     }
 
-    def cmdWithArgs(cmd: List[String], serverArgs: List[String]): List[String] = {
+    def cmdWithArgs(cmd: List[String], jvmArgs: List[String]): List[String] = {
+      def jvmArgsForScript = jvmArgs.map(arg => s"-J$arg")
       cmd match {
         case "sh" :: "-c" :: bloopCmd :: Nil =>
-          "sh" :: "-c" :: (bloopCmd + " " + serverArgs.mkString(" ")) :: Nil
-        case _ => cmd ++ serverArgs
+          "sh" :: "-c" :: (bloopCmd + " " + jvmArgsForScript) :: Nil
+        case cmd @ (headCmd :: _) =>
+          if (headCmd == "java") cmd ++ jvmArgs
+          else cmd ++ jvmArgsForScript
+        case Nil => Nil
       }
     }
 
