@@ -1,6 +1,8 @@
 package sbt.internal.inc.bloop.internal
 
 import bloop.util.Diff
+import bloop.CompileOutPaths
+import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 
 import xsbti.compile.{Changes, CompileAnalysis, FileHash, MiniSetup}
@@ -14,27 +16,12 @@ final class BloopLookup(
   implicit val filter: DebugFilter = DebugFilter.Compilation
   private val classpathHash: Vector[FileHash] =
     compileConfiguration.currentSetup.options.classpathHash.toVector
-  private val ClassesEmptyDirPrefix = java.io.File.separator + "classes-empty-"
   override def changedClasspathHash: Option[Vector[FileHash]] = {
     if (classpathHash == previousClasspathHash) None
     else {
       // Discard directories and known empty classes dirs and check if there's still a hash mismatch
-      val newPreviousClasspathHash = previousClasspathHash.filterNot { fh =>
-        // If directory exists, filter it out
-        fh.file.isDirectory() ||
-        /* Empty classes dirs don't exist so match on path.
-         *
-         * Don't match on `getFileName` because `classes-empty` is followed by
-         * target name, which could contains `java.io.File.separator`, making
-         * `getFileName` pick the suffix after the latest separator.
-         *
-         * e.g. if target name is
-         * `util/util-function/src/main/java/com/twitter/function:function`
-         * classes empty dir path will be
-         * `classes-empty-util/util-function/src/main/java/com/twitter/function:function`.
-         */
-        fh.file.getAbsolutePath.contains(ClassesEmptyDirPrefix)
-      }
+      val newPreviousClasspathHash =
+        BloopLookup.filterOutDirsFromHashedClasspath(previousClasspathHash)
 
       if (classpathHash == newPreviousClasspathHash) None
       else {
@@ -44,6 +31,20 @@ final class BloopLookup(
         logger.debug(Diff.unifiedDiff(previousClasspath, newClasspath, "", ""))
         Some(classpathHash)
       }
+    }
+  }
+}
+
+object BloopLookup {
+  def filterOutDirsFromHashedClasspath(classpath: Seq[FileHash]): Seq[FileHash] = {
+    classpath.filterNot { fh =>
+      // If directory hash matches, filter it out (directory hash changes with different
+      // bloop server sessions, it's just an optimization to avoid checking for isDir
+      BloopStamps.isDirectoryHash(fh) ||
+      // If directory exists, filter it out
+      fh.file.isDirectory() ||
+      // If directory is empty classes dir, filter it out
+      CompileOutPaths.hasEmptyClassesDir(AbsolutePath(fh.file.toPath))
     }
   }
 }

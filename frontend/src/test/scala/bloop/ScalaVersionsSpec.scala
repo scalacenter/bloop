@@ -47,8 +47,8 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
       else List(`2.12`, `2.13`)
     }
 
-    TestUtil.await(FiniteDuration(60, "s"), ExecutionContext.ioScheduler) {
-      Task.gatherUnordered(all).map(_ => ())
+    TestUtil.await(FiniteDuration(100, "s"), ExecutionContext.ioScheduler) {
+      Task.sequence(all).map(_ => ())
     }
   }
 }

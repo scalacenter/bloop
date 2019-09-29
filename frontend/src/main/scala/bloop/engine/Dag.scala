@@ -188,60 +188,94 @@ object Dag {
    * Represent the result of [[inverseDependencies()]].
    *
    * @param reduced The minimal set of nodes that subsume `targets`.
-   * @param all The set of all nodes that are strictly inverse dependencies of `targets`.
+   * @param allCascaded The set of all nodes that are transitive inverse
+   *                    dependencies of all `targets`.
    */
-  case class InverseDependencies[T](reduced: List[T], strictlyInverseNodes: List[T])
+  case class InverseDependencies[T](reduced: List[T], allCascaded: List[T])
 
+  /**
+   * Given a forest of DAGs and a collection of targets, this method traverses
+   * the forest to find all dependencies that are parents of the targets
+   * transitively. It returns the maximally minimal set of nodes that cover all
+   * inverse dependencies as well as all the transitive inverse dependencies.
+   */
   def inverseDependencies[T](dags: List[Dag[T]], targets: List[T]): InverseDependencies[T] = {
-    val nonTargetsVisited = scala.collection.mutable.HashSet[Dag[T]]()
     val roots = scala.collection.mutable.HashSet[T]()
     val cascaded = scala.collection.mutable.HashSet[T]()
-    val targetsSet = targets.toSet
+    val nonVisitedTargets = scala.collection.mutable.HashSet[Dag[T]]()
 
-    def loopDag(dag: Dag[T], trace: List[T]): Unit = {
-      if (nonTargetsVisited.contains(dag)) ()
+    var foundTargets = 0
+    val targetsSet = targets.toSet
+    val expectedTargetSize = targetsSet.size
+
+    case class Trace(root: Option[T], recentlyVisited: List[T]) {
+      def addToTrace(elem: T): Trace = {
+        root match {
+          case None => Trace(Some(elem), recentlyVisited)
+          case Some(_) => Trace(root, elem :: recentlyVisited)
+        }
+      }
+    }
+
+    def loopDag(dag: Dag[T], trace: Trace): Unit = {
+      if (nonVisitedTargets.contains(dag)) ()
       else {
-        def processTrace(trace: List[T]): Unit = {
-          trace.lastOption match {
-            case Some(last) =>
+        def processTrace(trace: Trace): Unit = {
+          trace.root match {
+            case Some(root) =>
               // Remove those subsumed by the first root
-              trace.init.foreach { x =>
+              trace.recentlyVisited.foreach { x =>
                 // Try to remove it only if `x` was seen before
                 if (cascaded.contains(x)) roots.remove(x)
                 else cascaded.+=(x)
               }
 
               // Proceed if this node hasn't been processed before
-              if (cascaded.contains(last)) ()
+              if (cascaded.contains(root)) ()
               else {
-                cascaded.+=(last)
+                cascaded.+=(root)
                 // Add as root the outermost node
-                roots.+=(last)
+                roots.+=(root)
               }
             case None => ()
           }
         }
 
         dag match {
-          case Leaf(value) if targetsSet.contains(value) =>
-            processTrace(value :: trace)
-          case Parent(value, children) if targetsSet.contains(value) =>
-            processTrace(value :: trace)
-            // Collect subsumed targets so that targets subsumed by this parent appear in `cascaded`
-            children.foreach(dag => loopDag(dag, value :: trace))
-          case Leaf(value) =>
-            nonTargetsVisited.+=(dag)
-          case Parent(value, children) =>
-            children.foreach(dag => loopDag(dag, value :: trace))
-            nonTargetsVisited.+=(dag)
+          case Leaf(target) if targetsSet.contains(target) =>
+            foundTargets += 1
+            processTrace(trace.addToTrace(target))
+
+          case Parent(target, children) if targetsSet.contains(target) =>
+            foundTargets += 1
+            val newTrace = trace.addToTrace(target)
+            processTrace(newTrace)
+
+            // If we haven't found all targets yeah, keep recursing to populate all cascaded nodes
+            if (foundTargets != expectedTargetSize) {
+              children.foreach(dag => loopDag(dag, newTrace))
+            }
+
+          // Stop when we find a cascaded node but process all nodes we came from
+          case Parent(target, children) if cascaded.contains(target) =>
+            val newTrace = trace.addToTrace(target)
+            processTrace(newTrace)
+
+          /* Continue the traversal through the DAG with new traces. */
+
+          case Leaf(_) => nonVisitedTargets.+=(dag)
+          case Parent(elem, children) =>
+            val newTrace = trace.addToTrace(elem)
+            children.foreach(dag => loopDag(dag, newTrace))
+            nonVisitedTargets.+=(dag)
           case Aggregate(dags) =>
             dags.foreach(dag => loopDag(dag, trace))
-            nonTargetsVisited.+=(dag)
+            nonVisitedTargets.+=(dag)
         }
       }
     }
 
-    dags.foreach(dag => loopDag(dag, Nil))
+    dags.foreach(dag => loopDag(dag, Trace(None, Nil)))
     InverseDependencies(roots.toList, cascaded.toList)
   }
 

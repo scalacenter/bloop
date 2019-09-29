@@ -5,6 +5,8 @@ import java.net.URLClassLoader
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.Properties
+import java.lang.invoke.MethodHandles
+import java.lang.invoke.MethodType
 
 import bloop.internal.build.BloopScalaInfo
 import bloop.logging.{DebugFilter, Logger}
@@ -31,7 +33,7 @@ final class ScalaInstance private (
     organization == "ch.epfl.lamp" && sbt.internal.inc.ScalaInstance.isDotty(version)
 
   override lazy val loaderLibraryOnly: ClassLoader =
-    new URLClassLoader(Array(libraryJar.toURI.toURL), null)
+    new URLClassLoader(Array(libraryJar.toURI.toURL), ScalaInstance.bootClassLoader)
   override lazy val loader: ClassLoader = {
     // For some exceptionally weird reason, we need to load all jars for dotty here
     val jarsToLoad = if (isDotty) allJars else allJars.filterNot(_ == libraryJar)
@@ -77,6 +79,25 @@ final class ScalaInstance private (
 object ScalaInstance {
   import bloop.io.AbsolutePath
   import scala.concurrent.ExecutionContext
+
+  private[ScalaInstance] val bootClassLoader: ClassLoader = {
+    if (!scala.util.Properties.isJavaAtLeast("9")) null
+    else {
+      try {
+        MethodHandles
+          .lookup()
+          .findStatic(
+            classOf[ClassLoader],
+            "getPlatformClassLoader",
+            MethodType.methodType(classOf[ClassLoader])
+          )
+          .invoke()
+      } catch {
+        case _: Throwable =>
+          null
+      }
+    }
+  }
 
   private[ScalaInstance] final val ScalacCompilerName = "scala-compiler"
 

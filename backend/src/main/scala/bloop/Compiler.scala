@@ -34,6 +34,7 @@ import monix.execution.Scheduler
 import monix.execution.CancelableFuture
 import monix.execution.ExecutionModel
 import sbt.internal.inc.bloop.internal.BloopStamps
+import sbt.internal.inc.bloop.internal.BloopLookup
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -121,21 +122,45 @@ object CompileOutPaths {
       )
     )
   }
+
+  /*
+   * An empty classes directory never exists on purpose. It is merely a
+   * placeholder until a non empty classes directory is used. There is only
+   * one single empty classes directory per project and can be shared by
+   * different projects, so to avoid problems across different compilations
+   * we never create this directory and special case Zinc logic to skip it.
+   *
+   * The prefix name 'classes-empty-` of this classes directory should not
+   * change without modifying `BloopLookup` defined in `backend`.
+   */
+  def deriveEmptyClassesDir(projectName: String, genericClassesDir: AbsolutePath): AbsolutePath = {
+    val classesDirName = s"classes-empty-${projectName}"
+    genericClassesDir.getParent.resolve(classesDirName)
+  }
+
+  private val ClassesEmptyDirPrefix = java.io.File.separator + "classes-empty-"
+  def hasEmptyClassesDir(classesDir: AbsolutePath): Boolean = {
+    /*
+     * Empty classes dirs don't exist so match on path.
+     *
+     * Don't match on `getFileName` because `classes-empty` is followed by
+     * target name, which could contains `java.io.File.separator`, making
+     * `getFileName` pick the suffix after the latest separator.
+     *
+     * e.g. if target name is
+     * `util/util-function/src/main/java/com/twitter/function:function`
+     * classes empty dir path will be
+     * `classes-empty-util/util-function/src/main/java/com/twitter/function:function`.
+     * and `getFileName` would yield `function:function` which is not what we want.
+     * Hence we avoid using this code for the implementation:
+     * `classesDir.underlying.getFileName().toString.startsWith("classes-empty-")`
+     */
+    classesDir.syntax.contains(ClassesEmptyDirPrefix)
+  }
 }
 
 object Compiler {
   private implicit val filter = bloop.logging.DebugFilter.Compilation
-  private final class ZincClasspathEntryLookup(results: Map[File, PreviousResult])
-      extends PerClasspathEntryLookup {
-    override def analysis(classpathEntry: File): Optional[CompileAnalysis] = {
-      InterfaceUtil.toOptional(results.get(classpathEntry)).flatMap(_.analysis())
-    }
-
-    override def definesClass(classpathEntry: File): DefinesClass = {
-      Locate.definesClass(classpathEntry)
-    }
-  }
-
   private final class BloopProgress(
       reporter: ZincReporter,
       cancelPromise: Promise[Unit]
@@ -281,7 +306,7 @@ object Compiler {
         newClassesDir.toFile -> compileInputs.previousResult
       )
 
-      val lookup = new ZincClasspathEntryLookup(results)
+      val lookup = new BloopClasspathEntryLookup(results, compileInputs.uniqueInputs.classpath)
       val reporter = compileInputs.reporter
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
@@ -362,11 +387,6 @@ object Compiler {
           val resultForDependentCompilationsInSameRun =
             PreviousResult.of(Optional.of(result.analysis()), Optional.of(result.setup()))
           val analysis = result.analysis()
-          val analysisForFutureCompilationRuns =
-            rebaseAnalysisClassFiles(analysis, readOnlyClassesDir, newClassesDir, sourcesWithFatal)
-          val resultForFutureCompilationRuns = resultForDependentCompilationsInSameRun.withAnalysis(
-            Optional.of(analysisForFutureCompilationRuns)
-          )
 
           def updateExternalClassesDirWithReadOnly(
               clientClassesDir: AbsolutePath,
@@ -398,12 +418,20 @@ object Compiler {
           val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
-            // If no-op, return previous result
+            // If no-op, return previous result with updated classpath hashes
+            val noOpPreviousResult = {
+              updatePreviousResultWithRecentClasspathHashes(
+                compileInputs.previousResult,
+                uniqueInputs
+              )
+            }
+
+            val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
             val products = CompileProducts(
               readOnlyClassesDir,
               readOnlyClassesDir,
-              compileInputs.previousResult,
-              compileInputs.previousResult,
+              noOpPreviousResult,
+              noOpPreviousResult,
               Set(),
               Map.empty,
               definedMacroSymbols
@@ -428,6 +456,21 @@ object Compiler {
               reportedFatalWarnings
             )
           } else {
+            val analysisForFutureCompilationRuns = {
+              rebaseAnalysisClassFiles(
+                analysis,
+                readOnlyClassesDir,
+                newClassesDir,
+                sourcesWithFatal
+              )
+            }
+
+            val resultForFutureCompilationRuns = {
+              resultForDependentCompilationsInSameRun.withAnalysis(
+                Optional.of(analysisForFutureCompilationRuns)
+              )
+            }
+
             val persistTask = {
               val persistOut = compileOut.analysisOut
               val setup = result.setup
@@ -562,6 +605,35 @@ object Compiler {
       case _: Compiler.Result.Success => previousSuccessfulProblems
       case _ => Nil
     }
+  }
+
+  /**
+   * Update the previous reuslt with the most recent classpath hashes.
+   *
+   * The incremental compiler has two mechanisms to ascertain if it has to
+   * recompile code or can skip recompilation (what it's traditionally called
+   * as a no-op compile). The first phase checks if classpath hashes are the
+   * same. If they are, it's a no-op compile, if they are not then it passes to
+   * the second phase which does an expensive classpath computation to better
+   * decide if a recompilation is needed.
+   *
+   * This last step can be expensive when there are lots of projects in a
+   * build and even more so when these projects produce no-op compiles. This
+   * method makes sure we update the classpath hash if Zinc finds a change in
+   * the classpath and still decides it's a no-op compile. This prevents
+   * subsequent no-op compiles from paying the price for the same expensive
+   * classpath check.
+   */
+  def updatePreviousResultWithRecentClasspathHashes(
+      previous: PreviousResult,
+      uniqueInputs: UniqueCompileInputs
+  ): PreviousResult = {
+    val newClasspathHashes =
+      BloopLookup.filterOutDirsFromHashedClasspath(uniqueInputs.classpath)
+    val newSetup = InterfaceUtil
+      .toOption(previous.setup())
+      .map(s => s.withOptions(s.options().withClasspathHash(newClasspathHashes.toArray)))
+    previous.withSetup(InterfaceUtil.toOptional(newSetup))
   }
 
   /**

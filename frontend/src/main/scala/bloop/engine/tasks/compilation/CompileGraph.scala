@@ -19,6 +19,7 @@ import bloop.{Compiler, CompilerOracle, JavaSignal, CompileProducts}
 import bloop.engine.caches.LastSuccessfulResult
 import bloop.UniqueCompileInputs
 import bloop.PartialCompileProducts
+import bloop.engine.tasks.compilation.CompileDefinitions.CompileTraversal
 
 import monix.eval.Task
 import monix.execution.atomic.AtomicInt
@@ -32,31 +33,18 @@ import scala.util.{Failure, Success}
 import xsbti.compile.Signature
 import scala.collection.mutable
 import java.{util => ju}
+import bloop.CompileOutPaths
+import bloop.CompileBackgroundTasks
 
 object CompileGraph {
-  type CompileTraversal = Task[Dag[PartialCompileResult]]
   private implicit val filter: DebugFilter = DebugFilter.Compilation
-
-  type BundleProducts = Either[PartialCompileProducts, CompileProducts]
-  case class BundleInputs(
-      project: Project,
-      dag: Dag[Project],
-      dependentProducts: Map[Project, BundleProducts]
-  )
+  import bloop.engine.tasks.compilation.CompileDefinitions._
 
   case class Inputs(
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       oracle: CompilerOracle,
       pipelineInputs: Option[PipelineInputs],
       dependentResults: Map[File, PreviousResult]
-  )
-
-  case class PipelineInputs(
-      irPromise: Promise[Array[Signature]],
-      finishedCompilation: Promise[Option[CompileProducts]],
-      completeJava: Promise[Unit],
-      transitiveJavaSignal: Task[JavaSignal],
-      separateJavaAndScala: Boolean
   )
 
   /**
@@ -82,8 +70,10 @@ object CompileGraph {
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
-  private def partialSuccess(bundle: CompileBundle, result: ResultBundle): PartialSuccess =
-    PartialSuccess(bundle, None, Task.now(result))
+  private def partialSuccess(
+      bundle: SuccessfulCompileBundle,
+      result: ResultBundle
+  ): PartialSuccess = PartialSuccess(bundle, None, Task.now(result))
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
     def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
@@ -120,32 +110,6 @@ object CompileGraph {
     }
   }
 
-  private[bloop] final case class RunningCompilation(
-      traversal: CompileTraversal,
-      previousLastSuccessful: LastSuccessfulResult,
-      isUnsubscribed: AtomicBoolean,
-      mirror: Observable[Either[ReporterAction, LoggerAction]],
-      client: ClientInfo
-  )
-
-  type RunningCompilationsInAllClients =
-    ConcurrentHashMap[UniqueCompileInputs, RunningCompilation]
-
-  private val runningCompilations: RunningCompilationsInAllClients =
-    new ConcurrentHashMap[UniqueCompileInputs, RunningCompilation]()
-
-  type ProjectId = String
-  private val lastSuccessfulResults = new ConcurrentHashMap[ProjectId, LastSuccessfulResult]()
-
-  // Expose clearing mechanism so that it can be invoked in the tests and community build runner
-  private[bloop] def clearSuccessfulResults(): Unit = {
-    lastSuccessfulResults.synchronized {
-      lastSuccessfulResults.clear()
-    }
-  }
-
-  private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
-
   private sealed trait DeduplicationResult
   private object DeduplicationResult {
     final case object Ok extends DeduplicationResult
@@ -176,43 +140,42 @@ object CompileGraph {
       inputs: BundleInputs,
       setup: BundleInputs => Task[CompileBundle]
   )(
-      compile: CompileBundle => CompileTraversal
+      compile: SuccessfulCompileBundle => CompileTraversal
   ): CompileTraversal = {
     implicit val filter = DebugFilter.Compilation
-    def withBundle(f: CompileBundle => CompileTraversal): CompileTraversal = {
+    def withBundle(f: SuccessfulCompileBundle => CompileTraversal): CompileTraversal = {
       setup(inputs).materialize.flatMap {
-        case Success(bundle) => f(bundle)
+        case Success(bundle: SuccessfulCompileBundle) => f(bundle)
+        case Success(CancelledCompileBundle) =>
+          val result = Compiler.Result.Cancelled(Nil, 0L, CompileBackgroundTasks.empty)
+          val failed = Task.now(ResultBundle(result, None, None))
+          Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
         case Failure(t) =>
-          // Register the name of the projects we're blocked on (intransitively)
           val failedResult = Compiler.Result.GlobalError(
             s"Unexpected exception when computing compile inputs ${t.getMessage()}"
           )
-          val failed = Task.now(ResultBundle(failedResult, None))
+
+          val failed = Task.now(ResultBundle(failedResult, None, None))
           Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
       }
     }
 
-    withBundle { bundle =>
-      val logger = bundle.logger
-      var deduplicate: Boolean = true
-      val ongoingCompilation = runningCompilations.computeIfAbsent(
-        bundle.uniqueInputs,
-        (_: UniqueCompileInputs) => {
-          deduplicate = false
-          scheduleCompilation(inputs, bundle, client, compile)
-        }
-      )
+    withBundle { bundle0 =>
+      val logger = bundle0.logger
+      val (runningCompilation, deduplicate) =
+        CompileGatekeeper.findRunningCompilationAtomically(inputs, bundle0, client, compile)
+      val bundle = bundle0.copy(lastSuccessful = runningCompilation.usedLastSuccessful)
 
       if (!deduplicate) {
-        ongoingCompilation.traversal
+        runningCompilation.traversal
       } else {
         val rawLogger = logger.underlying
         rawLogger.info(
-          s"Deduplicating compilation of ${bundle.project.name} from ${ongoingCompilation.client}"
+          s"Deduplicating compilation of ${bundle.project.name} from ${runningCompilation.client}"
         )
         val reporter = bundle.reporter.underlying
         // Don't use `bundle.lastSuccessful`, it's not the final input to `compile`
-        val analysis = ongoingCompilation.previousLastSuccessful.previous.analysis().toOption
+        val analysis = runningCompilation.usedLastSuccessful.previous.analysis().toOption
         val previousSuccessfulProblems =
           Compiler.previousProblemsFromSuccessfulCompilation(analysis)
         val previousProblems =
@@ -223,7 +186,7 @@ object CompileGraph {
         import java.util.concurrent.TimeUnit
         import monix.execution.exceptions.UpstreamTimeoutException
         val disconnectionTime = SystemProperties.getCompileDisconnectionTime(rawLogger)
-        val replayEventsTask = ongoingCompilation.mirror
+        val replayEventsTask = runningCompilation.mirror
           .timeoutOnSlowUpstream(disconnectionTime)
           .foreachL {
             case Left(action) =>
@@ -273,8 +236,8 @@ object CompileGraph {
          * unbounded. This makes sure that the blocking threads *never* block
          * the computation pool, which could produce a hang in the build server.
          */
-        val ongoingCompilationTask =
-          ongoingCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
+        val runningCompilationTask =
+          runningCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
         val deduplicateStreamSideEffectsHandle =
           replayEventsTask.runAsync(ExecutionContext.ioScheduler)
@@ -288,8 +251,8 @@ object CompileGraph {
          * this mechanism allows pipelined compilations to perform this IO only
          * when the full compilation of a module is finished.
          */
-        val obtainResultFromDeduplication = ongoingCompilationTask.map { resultDag =>
-          enrichResultDag(resultDag) {
+        val obtainResultFromDeduplication = runningCompilationTask.map { results =>
+          PartialCompileResult.mapEveryResult(results) {
             case s @ PartialSuccess(bundle, _, compilerResult) =>
               val newCompilerResult = compilerResult.flatMap { results =>
                 results.fromCompiler match {
@@ -338,11 +301,11 @@ object CompileGraph {
                  * replace the result by a failed result that informs the
                  * client compilation was not successfully deduplicated.
                  */
-                Task.fromFuture(compilationFuture).map { resultDag =>
-                  enrichResultDag(resultDag) { (p: PartialCompileResult) =>
+                Task.fromFuture(compilationFuture).map { results =>
+                  PartialCompileResult.mapEveryResult(results) { (p: PartialCompileResult) =>
                     p match {
                       case s: PartialSuccess =>
-                        val failedBundle = ResultBundle(failedDeduplicationResult, None)
+                        val failedBundle = ResultBundle(failedDeduplicationResult, None, None)
                         s.copy(result = s.result.map(_ => failedBundle))
                       case result => result
                     }
@@ -369,16 +332,22 @@ object CompileGraph {
                  * 4. Display the user that the deduplication was cancelled and a
                  *    new compilation was scheduled.
                  */
-                ongoingCompilation.isUnsubscribed.compareAndSet(false, true)
-                runningCompilations.remove(bundle.uniqueInputs, ongoingCompilation)
+
+                CompileGatekeeper.disconnectDeduplicationFromRunning(
+                  bundle.uniqueInputs,
+                  runningCompilation
+                )
+
                 compilationFuture.cancel()
                 reporter.reportEndCompilation(Nil, StatusCode.Cancelled)
+
                 logger.displayWarningToUser(
                   s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'
                      |No progress update for ${(disconnectionTime: FiniteDuration)
                        .toString()} caused bloop to cancel compilation and schedule a new compile.
                   """.stripMargin
                 )
+
                 setupAndDeduplicate(client, inputs, setup)(compile)
             }
         }
@@ -388,219 +357,6 @@ object CompileGraph {
         }
       }
     }
-  }
-
-  /**
-   * Schedules a compilation for a project that can be deduplicated by other clients.
-   */
-  def scheduleCompilation(
-      inputs: BundleInputs,
-      bundle: CompileBundle,
-      client: ClientInfo,
-      compile: CompileBundle => CompileTraversal
-  ): RunningCompilation = {
-    import inputs.project
-    import bundle.logger
-    import logger.debug
-    import bundle.cancelCompilation
-
-    logger.debug(s"Scheduling compilation for ${project.name}...")
-
-    // Replace client-specific last successful with the most recent result
-    val mostRecentSuccessful = {
-      val result = lastSuccessfulResults.compute(
-        project.uniqueId,
-        (_: String, current0: LastSuccessfulResult) => {
-          // Pick result in map or successful from bundle if it's first compilation in server
-          val current = Option(current0).getOrElse(bundle.lastSuccessful)
-          // Register that we're using this classes directory in a thread-safe way
-          val counter0 = AtomicInt(1)
-          val counter = currentlyUsedClassesDirs.putIfAbsent(current.classesDir, counter0)
-          if (counter == null) () else counter.increment(1)
-          current
-        }
-      )
-
-      // Ignore analysis or consider the last queried result the most recent successful result
-      if (!result.classesDir.exists) {
-        debug(s"Ignoring analysis for ${project.name}, directory ${result.classesDir} is missing")
-        LastSuccessfulResult.empty(inputs.project)
-      } else if (bundle.latestResult != Compiler.Result.Empty) {
-        debug(s"Using successful analysis for ${project.name} associated with ${result.classesDir}")
-        result
-      } else {
-        debug(s"Ignoring existing analysis for ${project.name}, last result was empty")
-        LastSuccessfulResult.empty(inputs.project)
-      }
-    }
-
-    val isUnsubscribed = AtomicBoolean(false)
-    val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
-    val compileAndUnsubscribe = {
-      compile(newBundle)
-        .doOnFinish(_ => Task(logger.observer.onComplete()))
-        .map { result =>
-          // Unregister deduplication atomically and register last successful if any
-          processResultAtomically(
-            result,
-            project,
-            bundle.uniqueInputs,
-            mostRecentSuccessful,
-            isUnsubscribed,
-            logger
-          )
-        }
-        .memoize // Without memoization, there is no deduplication
-    }
-
-    RunningCompilation(
-      compileAndUnsubscribe,
-      mostRecentSuccessful,
-      isUnsubscribed,
-      bundle.mirror,
-      client
-    )
-  }
-
-  /**
-   * Runs function [[f]] within the task returning a [[ResultBundle]] for the
-   * given compilation. This function is typically used to perform book-keeping
-   * related to the compiler deduplication and success of compilations.
-   */
-  private def enrichResultDag(
-      dag: Dag[PartialCompileResult]
-  )(f: PartialCompileResult => PartialCompileResult): Dag[PartialCompileResult] = {
-    dag match {
-      case Leaf(result) => Leaf(f(result))
-      case Parent(result, children) => //Parent(f(result), children.map(c => enrichResultDag(c)(f)))
-        Parent(f(result), children)
-      case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
-    }
-  }
-
-  private def processResultAtomically(
-      resultDag: Dag[PartialCompileResult],
-      project: Project,
-      oinputs: UniqueCompileInputs,
-      previous: LastSuccessfulResult,
-      isAlreadyUnsubscribed: AtomicBoolean,
-      logger: Logger
-  ): Dag[PartialCompileResult] = {
-
-    def unregisterWhenError(): Unit = {
-      // If error and compilation is not stalled, remove from running compilations map
-      // Else don't unregister again, a deduplicated compilation has overridden it
-      if (!isAlreadyUnsubscribed.get) runningCompilations.remove(oinputs)
-
-      // Decrement classes dir use always
-      val classesDirOfFailedResult = previous.classesDir
-      Option(currentlyUsedClassesDirs.get(classesDirOfFailedResult))
-        .foreach(counter => counter.decrement(1))
-    }
-
-    // Unregister deduplication atomically and register last successful if any
-    enrichResultDag(resultDag) { (p: PartialCompileResult) =>
-      p match {
-        case s: PartialSuccess =>
-          val newResultTask = s.result.flatMap { (results: ResultBundle) =>
-            results.successful match {
-              case None =>
-                unregisterWhenError()
-                Task.now(results)
-              case Some(successful) =>
-                unregisterDeduplicationAndRegisterSuccessful(project, oinputs, successful) match {
-                  case None => Task.now(results)
-                  case Some(toDeleteResult) =>
-                    logger.debug(
-                      s"Next request will delete ${toDeleteResult.classesDir}, superseeded by ${successful.classesDir}"
-                    )
-                    Task {
-                      import scala.concurrent.duration.FiniteDuration
-                      val populateAndDelete = {
-                        // Populate products of previous, it might not have been run
-                        toDeleteResult.populatingProducts.materialize
-                        // Then populate products from read-only dir of this run
-                          .flatMap(_ => successful.populatingProducts.materialize.map(_ => ()))
-                          .memoize
-                          // Delete in background after running tasks which could be using this dir
-                          .doOnFinish { _ =>
-                            Task {
-                              // Don't delete classes dir if it's an empty
-                              if (toDeleteResult.hasEmptyClassesDir) {
-                                // The empty classes dir should not exist in the
-                                // first place but we guarantee that even if it
-                                // does we don't delete it to avoid any conflicts
-                                logger.debug(s"Skipping delete for ${toDeleteResult.classesDir}")
-                              } else {
-                                BloopPaths.delete(toDeleteResult.classesDir)
-                              }
-                            }.executeOn(ExecutionContext.ioScheduler)
-                          }
-                      }.memoize
-                      results.copy(
-                        successful = Some(successful.copy(populatingProducts = populateAndDelete))
-                      )
-                    }
-                }
-            }
-          }
-
-          /**
-           * This result task must only be run once and thus needs to be
-           * memoized for semantics reasons. The result task can be called
-           * several times by the compilation engine driving the execution.
-           */
-          s.copy(result = newResultTask.memoize)
-
-        case result =>
-          unregisterWhenError()
-          result
-      }
-    }
-  }
-
-  /**
-   * Removes the deduplication and registers the last successful compilation
-   * atomically. When registering the last successful compilation, we make sure
-   * that the old last successful result is deleted if its count is 0, which
-   * means it's not being used by anyone.
-   */
-  private def unregisterDeduplicationAndRegisterSuccessful(
-      project: Project,
-      oracleInputs: UniqueCompileInputs,
-      successful: LastSuccessfulResult
-  ): Option[LastSuccessfulResult] = {
-    var resultToDelete: Option[LastSuccessfulResult] = None
-    runningCompilations.compute(
-      oracleInputs,
-      (_: UniqueCompileInputs, _: RunningCompilation) => {
-        lastSuccessfulResults.compute(
-          project.uniqueId,
-          (_: String, previous: LastSuccessfulResult) => {
-            if (previous != null) {
-              val previousClassesDir = previous.classesDir
-              val counter = currentlyUsedClassesDirs.get(previousClassesDir)
-              val toDelete = counter == null || {
-                // Decrement has to happen within the compute function
-                val currentCount = counter.decrementAndGet(1)
-                currentCount == 0
-              }
-
-              // Register directory to delete if count is 0
-              if (toDelete && successful.classesDir != previousClassesDir) {
-                resultToDelete = Some(previous)
-              }
-            }
-
-            // Return successful result we want to replace
-            successful
-          }
-        )
-        null
-      }
-    )
-
-    resultToDelete
   }
 
   import scala.collection.mutable
@@ -629,7 +385,7 @@ object CompileGraph {
      * turn an actual compiler failure into a partial failure with a dummy
      * `FailPromise` exception that makes the partial result be recognized as error.
      */
-    def toPartialFailure(bundle: CompileBundle, results: ResultBundle): PartialFailure = {
+    def toPartialFailure(bundle: SuccessfulCompileBundle, results: ResultBundle): PartialFailure = {
       PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
     }
 
@@ -663,7 +419,7 @@ object CompileGraph {
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None))
+                  val blocked = Task.now(ResultBundle(blockedResult, None, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {
@@ -677,7 +433,7 @@ object CompileGraph {
                     var dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
-                      case (p, ResultBundle(s: Compiler.Result.Success, _, _)) =>
+                      case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
                         val newProducts = s.products
                         dependentProducts.+=(p -> Right(newProducts))
                         val newResult = newProducts.resultForDependentCompilationsInSameRun
@@ -785,7 +541,7 @@ object CompileGraph {
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None))
+                  val blocked = Task.now(ResultBundle(blockedResult, None, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {
@@ -844,7 +600,7 @@ object CompileGraph {
                     // If any project failed to pipeline, abort compilation with blocked result
                     val failed = failedPipelineProjects.toList
                     val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                    val blocked = Task.now(ResultBundle(blockedResult, None))
+                    val blocked = Task.now(ResultBundle(blockedResult, None, None))
                     Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                   } else {
                     // Get the compilation result of those projects which were not pipelined
@@ -854,7 +610,7 @@ object CompileGraph {
                       var nonPipelinedDependentResults =
                         new mutable.ListBuffer[(File, PreviousResult)]()
                       nonPipelineResults.foreach {
-                        case (p, ResultBundle(s: Compiler.Result.Success, _, _)) =>
+                        case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
                           val newProducts = s.products
                           nonPipelinedDependentProducts.+=(p -> Right(newProducts))
                           val newResult = newProducts.resultForDependentCompilationsInSameRun

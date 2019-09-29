@@ -2,6 +2,7 @@ package bloop.engine.tasks.compilation
 
 import bloop.{Compiler, JavaSignal, CompileProducts, CompileExceptions}
 import bloop.data.Project
+import bloop.engine.{Dag, Leaf, Parent, Aggregate}
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 
@@ -22,7 +23,7 @@ sealed trait PartialCompileResult extends CompileResult[Task[ResultBundle]] {
 
 object PartialCompileResult {
   def apply(
-      bundle: CompileBundle,
+      bundle: SuccessfulCompileBundle,
       pipelineAttempt: Try[Array[Signature]],
       futureProducts: Promise[Option[CompileProducts]],
       hasJavacCompleted: Promise[Unit],
@@ -47,6 +48,16 @@ object PartialCompileResult {
     }
   }
 
+  def mapEveryResult(
+      results: Dag[PartialCompileResult]
+  )(f: PartialCompileResult => PartialCompileResult): Dag[PartialCompileResult] = {
+    results match {
+      case Leaf(result) => Leaf(f(result))
+      case Parent(result, children) => Parent(f(result), children)
+      case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
+    }
+  }
+
   /**
    * Turns a partial compile result to a full one. In the case of normal
    * compilation, this is an instant operation since the task returning the
@@ -68,7 +79,7 @@ object PartialCompileResult {
 
 case object PartialEmpty extends PartialCompileResult {
   override final val result: Task[ResultBundle] =
-    Task.now(ResultBundle(Compiler.Result.Empty, None))
+    Task.now(ResultBundle(Compiler.Result.Empty, None, None))
 }
 
 case class PartialFailure(
@@ -85,7 +96,7 @@ case class PartialFailures(
     with CacheHashCode {}
 
 case class PartialSuccess(
-    bundle: CompileBundle,
+    bundle: SuccessfulCompileBundle,
     pipeliningResults: Option[PipelineResults],
     result: Task[ResultBundle]
 ) extends PartialCompileResult

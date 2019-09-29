@@ -215,7 +215,8 @@ object ResultsCache {
                         CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty, ms)
                       val bundle = ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false, false),
-                        Some(LastSuccessfulResult(inputs, products, Task.now(())))
+                        Some(LastSuccessfulResult(inputs, products, Task.now(()))),
+                        None
                       )
 
                       // Compute a cleanup task if this is the first time loading this project
