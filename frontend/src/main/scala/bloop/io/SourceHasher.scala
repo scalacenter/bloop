@@ -130,7 +130,6 @@ object SourceHasher {
         // We can only start to discover files after we have finalized the subscription
         subscribed.success(())
         Cancelable { () =>
-          observer.onComplete()
           isCancelled.compareAndSet(false, true)
           try consumerSubscription.cancel()
           finally {
