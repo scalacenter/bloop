@@ -18,19 +18,12 @@ import bloop.launcher.LauncherStatus.{
   SuccessfulRun
 }
 import bloop.launcher.bsp.{BspBridge, BspConnection}
-import bloop.launcher.core.{
-  AvailableAt,
-  Feedback,
-  Installer,
-  ListeningAndAvailableAt,
-  ResolvedAt,
-  ServerStatus,
-  Shell
-}
+import bloop.launcher.core.{Feedback, Installer}
 import bloop.bloopgun.util.Environment
-import bloop.launcher.core.Shell.StatusCommand
+import bloop.bloopgun.core.{Shell, ServerStatus}
 import bloop.bloopgun.BloopgunCli
 import bloop.bloopgun.Defaults
+import snailgun.logging.SnailgunLogger
 
 object Launcher
     extends LauncherMain(
@@ -113,7 +106,9 @@ class LauncherMain(
         try {
           bridge.wireBspConnectionStreams(socket)
         } finally {
-          socket.close()
+          if (socket.isConnected()) {
+            socket.close()
+          }
         }
         SuccessfulRun
 
@@ -151,7 +146,7 @@ class LauncherMain(
 
             case bridge.RunningBspConnection(connection, logs) =>
               printError("Trying a tcp-based connection to the server instead...", out)
-              openBspSocket(true)(connect)
+              openBspSocket(forceTcp = true)(connect)
           }
       }
     }
@@ -170,7 +165,7 @@ class LauncherMain(
           Left(FailedToConnectToServer)
       }
     } else {
-      openBspSocket(false) { useTcp =>
+      openBspSocket(forceTcp = false) { useTcp =>
         bridge.establishBspConnectionViaBinary(
           out => newBloopgunCli(bloopVersion, out),
           bloopAdditionalCliArgs,
@@ -182,25 +177,6 @@ class LauncherMain(
 
   def newBloopgunCli(bloopVersion: String, out: PrintStream): BloopgunCli = {
     val dummyIn = new ByteArrayInputStream(new Array(0))
-    val bloopgunShell = bloop.bloopgun.core.Shell.default
-    new BloopgunCli(bloopVersion, dummyIn, out, out, bloopgunShell)
-  }
-
-  def detectServerState(bloopVersion: String): Option[ServerStatus] = {
-    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalCliArgs, out).orElse {
-      // The binary is not available in the classpath
-      val homeBloopDir = Environment.defaultBloopDirectory
-      if (!Files.exists(homeBloopDir)) None
-      else {
-        // This is the nailgun script that we can use to run bloop
-        val binaryName = if (Environment.isWindows) "bloop.cmd" else "bloop"
-        val pybloop = homeBloopDir.resolve(binaryName)
-        if (!Files.exists(pybloop)) None
-        else {
-          val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalCliArgs, out)
-        }
-      }
-    }
+    new BloopgunCli(bloopVersion, dummyIn, out, out, shell)
   }
 }

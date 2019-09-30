@@ -5,6 +5,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 import bloop.bloopgun.util.Environment
+import bloop.bloopgun.core.{ServerStatus, Shell}
 import bloop.launcher.{printError, printQuoted, println}
 
 import scala.util.control.NonFatal

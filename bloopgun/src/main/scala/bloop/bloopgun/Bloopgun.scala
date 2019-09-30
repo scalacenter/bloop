@@ -373,7 +373,13 @@ class BloopgunCli(
       }
     }
 
-    ServerStatus.findServerToRun(bloopVersion, config, shell, logger).map { found =>
+    val foundOrResolved = {
+      ServerStatus
+        .findServerToRun(bloopVersion, config.serverLocation, shell, logger)
+        .orElse(ServerStatus.resolveServer(bloopVersion, logger))
+    }
+
+    foundOrResolved.map { found =>
       val cmd = found match {
         case AvailableWithCommand(cmd) => cmd
         case AvailableAtPath(path) => deriveCmdForPath(path, found)
