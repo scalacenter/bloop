@@ -177,7 +177,7 @@ object DebugServerSpec extends BspBaseSuite {
         _ <- client.launch()
       } yield ()
 
-      TestUtil.await(10, SECONDS)(test)
+      TestUtil.await(20, SECONDS)(test)
     }
   }
 
@@ -305,7 +305,7 @@ object DebugServerSpec extends BspBaseSuite {
       .doOnFinish(_ => Task(testServer.close()))
       .doOnCancel(Task(testServer.close()))
 
-    TestUtil.await(15, SECONDS)(test)
+    TestUtil.await(20, SECONDS)(test)
     ()
   }
 

@@ -109,7 +109,7 @@ final class DebugSession(
           .map(DebugSession.toAttachRequest(requestId, _))
           .foreachL(super.dispatchRequest)
           .timeoutTo(
-            FiniteDuration(5, TimeUnit.SECONDS),
+            FiniteDuration(15, TimeUnit.SECONDS),
             Task {
               val response = DebugSession.failed(request, "Could not start debuggee")
               this.sendResponse(response)
