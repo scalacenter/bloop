@@ -1,4 +1,5 @@
 package bloop.engine
+import java.{util => ju}
 import bloop.data.Project
 import bloop.util.CacheHashCode
 import scalaz.Show
@@ -148,24 +149,29 @@ object Dag {
   def reduce[T](dags: List[Dag[T]], targets: Set[T]): Set[T] = {
     val transitives = scala.collection.mutable.HashMap[Dag[T], List[T]]()
     val subsumed = scala.collection.mutable.HashSet[T]()
+    val isVisited = new ju.IdentityHashMap[Dag[T], Unit]()
     def loop(dags: Set[Dag[T]], targets: Set[T]): Set[T] = {
       dags.foldLeft[Set[T]](Set()) {
         case (acc, dag) =>
-          dag match {
-            case Leaf(value) if targets.contains(value) =>
-              if (subsumed.contains(value)) acc else acc.+(value)
-            case Leaf(_) => acc
-            case p @ Parent(value, children) if targets.contains(value) =>
-              val transitiveChildren = transitives.get(p).getOrElse {
-                val transitives0 = children.flatMap(Dag.dfs(_))
-                transitives.+=(p -> transitives0)
-                transitives0
-              }
+          if (isVisited.containsKey(dag)) acc
+          else {
+            isVisited.put(dag, ())
+            dag match {
+              case Leaf(value) if targets.contains(value) =>
+                if (subsumed.contains(value)) acc else acc.+(value)
+              case Leaf(_) => acc
+              case p @ Parent(value, children) if targets.contains(value) =>
+                val transitiveChildren = transitives.get(p).getOrElse {
+                  val transitives0 = children.flatMap(Dag.dfs(_))
+                  transitives.+=(p -> transitives0)
+                  transitives0
+                }
 
-              subsumed.++=(transitiveChildren)
-              acc.--(transitiveChildren).+(value)
-            case Parent(_, children) => loop(children.toSet, targets) ++ acc
-            case Aggregate(dags) => loop(dags.toSet, targets)
+                subsumed.++=(transitiveChildren)
+                acc.--(transitiveChildren).+(value)
+              case Parent(_, children) => loop(children.toSet, targets) ++ acc
+              case Aggregate(dags) => loop(dags.toSet, targets)
+            }
           }
       }
     }
