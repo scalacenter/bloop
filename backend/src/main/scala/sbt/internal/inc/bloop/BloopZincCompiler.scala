@@ -19,6 +19,7 @@ import sbt.util.InterfaceUtil
 import xsbti.compile._
 import sbt.internal.inc.JarUtils
 import bloop.UniqueCompileInputs
+import scala.concurrent.Promise
 
 object BloopZincCompiler {
   import bloop.logging.DebugFilter
@@ -49,6 +50,7 @@ object BloopZincCompiler {
       logger: ObservedLogger[_],
       uniqueInputs: UniqueCompileInputs,
       manager: ClassFileManager,
+      cancelPromise: Promise[Unit],
       tracer: BraveTracer
   ): Task[CompileResult] = {
     val config = in.options()
@@ -82,6 +84,7 @@ object BloopZincCompiler {
         extraOptions,
         compileMode,
         manager,
+        cancelPromise,
         tracer
       )(logger)
     }
@@ -109,6 +112,7 @@ object BloopZincCompiler {
       extra: List[(String, String)],
       compileMode: CompileMode,
       manager: ClassFileManager,
+      cancelPromise: Promise[Unit],
       tracer: BraveTracer
   )(implicit logger: ObservedLogger[_]): Task[CompileResult] = {
     val prev = previousAnalysis match {
@@ -128,7 +132,7 @@ object BloopZincCompiler {
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode)
+        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode, cancelPromise)
         BloopIncremental.compile(setOfSources, uniqueInputs, lookup, compile, analysis, output, logger, reporter, config.incOptions, compileMode, manager, tracer).map {
           case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
         }

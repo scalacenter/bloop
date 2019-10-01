@@ -9,12 +9,37 @@ import com.microsoft.java.debug.core.protocol.Requests._
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
 import monix.eval.Task
 import monix.execution.Scheduler
+import scala.concurrent.Promise
+import java.io.Closeable
+import bloop.engine.ExecutionContext
+import java.util.concurrent.TimeUnit
+import monix.execution.Cancelable
 
 /**
  * Manages a connection with a debug adapter.
  * It closes the connection after receiving a response to the 'disconnect' request
  */
-private[dap] final class DebugAdapterConnection(val socket: Socket, adapter: DebugAdapterProxy) {
+private[dap] final class DebugAdapterConnection(
+    val socket: Socket,
+    adapter: DebugAdapterProxy
+) extends Closeable {
+  // Complete the promise in the background whenever the socket is closed
+  val closedPromise = Promise[Unit]()
+  var cancelCompleter: Cancelable = Cancelable.empty
+  cancelCompleter = ExecutionContext.ioScheduler.scheduleAtFixedRate(
+    100,
+    200,
+    TimeUnit.MILLISECONDS,
+    new Runnable() {
+      def run(): Unit = {
+        if (socket.isClosed()) {
+          closedPromise.trySuccess(())
+          cancelCompleter.cancel()
+        }
+      }
+    }
+  )
+
   def initialize(): Task[Response[Capabilities]] = {
     val arguments = new InitializeArguments()
     adapter.request(Initialize, arguments)
@@ -30,12 +55,20 @@ private[dap] final class DebugAdapterConnection(val socket: Socket, adapter: Deb
     adapter.request(Launch, arguments)
   }
 
+  def close(): Unit = {
+    try socket.close()
+    finally {
+      closedPromise.trySuccess(())
+      ()
+    }
+  }
+
   def disconnect(restart: Boolean): Task[Response[Unit]] = {
     val arguments = new DisconnectArguments
     arguments.restart = restart
     for {
       response <- adapter.request(Disconnect, arguments)
-      _ <- Task(socket.close())
+      _ <- Task(close())
     } yield response
   }
 
@@ -72,7 +105,7 @@ private[dap] final class DebugAdapterConnection(val socket: Socket, adapter: Deb
 
 object DebugAdapterConnection {
   def connectTo(uri: URI)(scheduler: Scheduler): DebugAdapterConnection = {
-    val socket = new Socket() // create unconnected socket
+    val socket = new Socket()
     socket.connect(new InetSocketAddress(uri.getHost, uri.getPort), 500)
 
     val proxy = DebugAdapterProxy(socket)

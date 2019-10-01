@@ -44,17 +44,21 @@ class BloopComponentManager(
       ifMissing match {
         case IfMissing.Fail => notFound
         case d: IfMissing.Define =>
-          d.run() // this is expected to have called define.
+          // Run define thunk so that component is saved in primary cache
+          d.run()
+
+          // Save from primary cache to secondary cache in case it exists
           if (d.useSecondaryCache) {
-            cacheToSecondaryCache(id)
+            copyFromCacheToSecondaryCache(id)
           }
+
           getOrElse(notFound)
       }
     }
 
     def fromSecondary: Iterable[File] = {
       lockSecondaryCache {
-        update(id)
+        retrieveAndDefineFromSecondaryCache(id)
         getOrElse(createAndCache)
       }.getOrElse(notFound)
     }
@@ -75,21 +79,19 @@ class BloopComponentManager(
   def define(id: String, files: Iterable[File]): Unit =
     lockLocalCache(provider.defineComponent(id, files.toSeq.toArray))
 
-  /** This is used to lock the local cache in project/boot/.
-   *  By checking the local cache first, we can avoid grabbing a global lock. */
   private def lockLocalCache[T](action: => T): T = lock(provider.lockFile)(action)
-
-  /** This is used to ensure atomic access to components in the global Ivy cache. */
   private def lockSecondaryCache[T](action: => T): Option[T] =
-    secondaryCacheDir.map(dir => lock(new File(dir, ".sbt.cache.lock"))(action))
+    secondaryCacheDir.map(dir => lock(new File(dir, ".bloop.cache.lock"))(action))
 
+  def lock[T](action: => T): T =
+    globalLock(new File(".lock"), new Callable[T] { def call = action })
   private def lock[T](file: File)(action: => T): T =
     globalLock(file, new Callable[T] { def call = action })
 
   private def invalid(msg: String) = throw new InvalidComponent(msg)
 
   /** Retrieve the file for component 'id' from the secondary cache. */
-  private def update(id: String): Unit = {
+  private def retrieveAndDefineFromSecondaryCache(id: String): Unit = {
     secondaryCacheDir.foreach { dir =>
       val file = secondaryCacheFile(id, dir)
       if (file.exists) {
@@ -99,7 +101,7 @@ class BloopComponentManager(
   }
 
   /** Install the files for component 'id' to the secondary cache. */
-  private def cacheToSecondaryCache(id: String): Unit = {
+  private def copyFromCacheToSecondaryCache(id: String): Unit = {
     val fromPrimaryCache = file(id)(IfMissing.fail)
     secondaryCacheDir.foreach { dir =>
       IO.copyFile(fromPrimaryCache, secondaryCacheFile(id, dir))
@@ -107,7 +109,7 @@ class BloopComponentManager(
   }
 
   private def secondaryCacheFile(id: String, dir: File): File = {
-    new File(new File(dir, SbtOrganization), s"$id-${BloopComponentManager.stampedVersion}.jar")
+    new File(new File(dir, "ch.epfl.scala"), s"$id-${BloopComponentManager.stampedVersion}.jar")
   }
 }
 

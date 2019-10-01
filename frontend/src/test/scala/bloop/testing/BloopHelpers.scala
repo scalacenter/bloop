@@ -263,7 +263,7 @@ trait BloopHelpers {
       new TestState(state.copy(logger = logger))
 
     def withNewCompilerCache: TestState =
-      new TestState(state.copy(compilerCache = state.compilerCache.duplicateWith(state.logger)))
+      new TestState(state.copy(compilerCache = state.compilerCache.withLogger(state.logger)))
 
     def backup: TestState = {
       import java.nio.file.Files

@@ -188,6 +188,7 @@ object BuildKeys {
     commonKeys ++ extra
   }
 
+  // Unused, just like `cloneKafka`
   val GradleInfoKeys: List[BuildInfoKey] = List(
     BuildInfoKey.map(Keys.state) {
       case (_, state) =>
@@ -213,15 +214,7 @@ object BuildKeys {
   )
 
   def shadedModuleSettings = List(
-    BloopShadingKeys.shadingNamespace := "bloop.shaded",
-    /*
-    Keys.packageBin in Compile := {
-      Def.taskDyn {
-        val baseJar = Keys.packageBin.in(Compile).value
-        BloopShadingKeys.shadingPackageBin(baseJar)
-      }.value
-    }
-    */
+    BloopShadingKeys.shadingNamespace := "bloop.shaded"
   )
 
   def sbtPluginSettings(
@@ -388,27 +381,27 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
-  final val jvmOptions = "-Xmx5g" :: "-Xms2g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
+  final val jvmOptions = "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
     private final val kafka =
       uri("https://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
 
+    // Currently unused, we leave it here because we might need it in the future
+    private def cloneKafka(state: State): State = {
+      val staging = getStagingDirectory(state)
+      sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
+        case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
+        case None =>
+          state.log.error("Kafka git reference is invalid and cannot be cloned"); state
+      }
+    }
+
     /** This onLoad hook will clone any repository required for the build tool integration tests.
      * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
-        val staging = getStagingDirectory(state)
-        // Side-effecting operation to clone kafka if it hasn't been cloned yet
-        val newState = {
-          sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
-            case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
-            case None =>
-              state.log.error("Kafka git reference is invalid and cannot be cloned"); state
-          }
-        }
-
-        exportProjectsInTestResources(newState, enableCache = true)
+        exportProjectsInTestResources(state, enableCache = true)
       }
     }
 
@@ -447,8 +440,12 @@ object BuildImplementation {
 
         val generate = { (changedFiles: Set[File]) =>
           state.log.info(s"Generating bloop configuration files for ${projectDir}")
-          val cmdBase = if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil else "sbt" :: Nil
-          val cmd = cmdBase ::: List("bloopInstall")
+          val cmd = {
+            val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
+            if (isWindows && isGithubAction) "sh" :: "-c" :: "sbt bloopInstall" :: Nil
+            else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: "bloopInstall" :: Nil
+            else "sbt" :: "bloopInstall" :: Nil
+          }
           val exitGenerate = Process(cmd, projectDir).!
           if (exitGenerate != 0)
             throw new sbt.MessageOnlyException(
@@ -520,7 +517,6 @@ object BuildImplementation {
         },
         // Only generate for tests (they are not published and can contain user-dependent data)
         BuildInfoKeys.buildInfo in Compile := Nil,
-        BuildInfoKeys.buildInfoKeys in Test := BuildKeys.GradleInfoKeys,
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
         BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration"
       )

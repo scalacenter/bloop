@@ -28,6 +28,8 @@ import java.nio.file.Files
 
 import _root_.bloop.logging.{Logger => BloopLogger}
 import _root_.bloop.{DependencyResolution => BloopDependencyResolution}
+import _root_.bloop.logging.DebugFilter
+import scala.concurrent.ExecutionContext
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance
@@ -94,7 +96,8 @@ object BloopComponentCompiler {
       userProvidedBridgeSources: Option[ModuleID],
       manager: BloopComponentManager,
       scalaJarsTarget: File,
-      bloopLogger: BloopLogger
+      logger: BloopLogger,
+      scheduler: ExecutionContext
   ) extends CompilerBridgeProvider {
 
     /**
@@ -104,10 +107,11 @@ object BloopComponentCompiler {
      * is a Scala-defined class to which the compiler bridge cannot depend on.
      */
     private def compiledBridge(bridgeSources: ModuleID, scalaInstance: ScalaInstance): File = {
-      val sbtLog = FullLogger(bloopLogger)
-      val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, sbtLog)
-      val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, bloopLogger)
-      sbtLog.debug(f0(s"Getting $bridgeSources for Scala ${scalaInstance.version}"))
+      val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
+      val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger, scheduler)
+      logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(
+        DebugFilter.Compilation
+      )
       zinc.compiledBridgeJar
     }
 
@@ -119,13 +123,17 @@ object BloopComponentCompiler {
 
     private case class ScalaArtifacts(compiler: File, library: File, others: Vector[File])
 
-    private def getScalaArtifacts(scalaVersion: String, logger: Logger): ScalaArtifacts = {
+    private def getScalaArtifacts(scalaVersion: String, logger: BloopLogger): ScalaArtifacts = {
       def isPrefixedWith(artifact: File, prefix: String) = artifact.getName.startsWith(prefix)
-      import scala.concurrent.ExecutionContext.Implicits.global
-      val allArtifacts = BloopDependencyResolution
-        .resolve(ScalaOrganization, ScalaCompilerID, scalaVersion, bloopLogger)
-        .map(_.toFile)
-        .toVector
+      val allArtifacts = {
+        BloopDependencyResolution
+          .resolve(ScalaOrganization, ScalaCompilerID, scalaVersion, logger)(scheduler)
+          .map(_.toFile)
+          .toVector
+      }
+      logger.debug(s"Resolved scala artifacts for $scalaVersion: $allArtifacts")(
+        DebugFilter.Compilation
+      )
       val isScalaCompiler = (f: File) => isPrefixedWith(f, "scala-compiler-")
       val isScalaLibrary = (f: File) => isPrefixedWith(f, "scala-library-")
       val maybeScalaCompiler = allArtifacts.find(isScalaCompiler)
@@ -136,8 +144,9 @@ object BloopComponentCompiler {
       ScalaArtifacts(scalaCompilerJar, scalaLibraryJar, others)
     }
 
-    override def fetchScalaInstance(scalaVersion: String, logger: Logger): ScalaInstance = {
+    override def fetchScalaInstance(scalaVersion: String, unusedLogger: Logger): ScalaInstance = {
       val scalaArtifacts = getScalaArtifacts(scalaVersion, logger)
+
       val scalaCompiler = scalaArtifacts.compiler
       val scalaLibrary = scalaArtifacts.library
       val jarsToLoad = (scalaCompiler +: scalaLibrary +: scalaArtifacts.others).toArray
@@ -164,23 +173,21 @@ object BloopComponentCompiler {
       compilerBridgeSource: ModuleID,
       manager: BloopComponentManager,
       scalaJarsTarget: File,
-      logger: BloopLogger
+      logger: BloopLogger,
+      scheduler: ExecutionContext
   ): CompilerBridgeProvider = {
     val bridgeSources = Some(compilerBridgeSource)
     new BloopCompilerBridgeProvider(
       bridgeSources,
       manager,
       scalaJarsTarget,
-      logger
+      logger,
+      scheduler
     )
   }
 
-  def getDefaultLock: GlobalLock = new GlobalLock {
-    override def apply[T](file: File, callable: Callable[T]): T = callable.call()
-  }
-
   /** Defines a default component provider that manages the component in a given directory. */
-  private final class DefaultComponentProvider(targetDir: File) extends ComponentProvider {
+  final class DefaultComponentProvider(targetDir: File) extends ComponentProvider {
     import sbt.io.syntax._
     private val LockFile = targetDir / "lock"
     override def lockFile(): File = LockFile
@@ -212,10 +219,9 @@ private[inc] class BloopComponentCompiler(
     compiler: RawCompiler,
     manager: BloopComponentManager,
     bridgeSources: ModuleID,
-    bloopLogger: _root_.bloop.logging.Logger
+    logger: BloopLogger,
+    scheduler: ExecutionContext
 ) {
-  private final val logger = new BufferedLogger(FullLogger(bloopLogger))
-
   def compiledBridgeJar: File = {
     val jarBinaryName =
       BloopComponentCompiler.getBridgeComponentId(bridgeSources, compiler.scalaInstance)
@@ -231,39 +237,36 @@ private[inc] class BloopComponentCompiler(
   private def compileAndInstall(compilerBridgeId: String): Unit = {
     IO.withTemporaryDirectory { binaryDirectory =>
       val target = new File(binaryDirectory, s"$compilerBridgeId.jar")
-      logger.bufferQuietly {
-        IO.withTemporaryDirectory { retrieveDirectory =>
-          import coursier.core.Type
-          import scala.concurrent.ExecutionContext.Implicits.global
-          val resolveSources = bridgeSources.explicitArtifacts.exists(_.`type` == Type.source.value)
-          val allArtifacts = BloopDependencyResolution.resolveWithErrors(
-            bridgeSources.organization,
-            bridgeSources.name,
-            bridgeSources.revision,
-            bloopLogger,
-            resolveSources = resolveSources
-          ) match {
-            case Right(paths) => paths.map(_.toFile).toVector
-            case Left(t) =>
-              val msg = s"Couldn't retrieve module $bridgeSources"
-              throw new InvalidComponent(msg, t)
-          }
+      IO.withTemporaryDirectory { retrieveDirectory =>
+        import coursier.core.Type
+        val resolveSources = bridgeSources.explicitArtifacts.exists(_.`type` == Type.source.value)
+        val allArtifacts = BloopDependencyResolution.resolveWithErrors(
+          bridgeSources.organization,
+          bridgeSources.name,
+          bridgeSources.revision,
+          logger,
+          resolveSources = resolveSources
+        )(scheduler) match {
+          case Right(paths) => paths.map(_.toFile).toVector
+          case Left(t) =>
+            val msg = s"Couldn't retrieve module $bridgeSources"
+            throw new InvalidComponent(msg, t)
+        }
 
-          if (!resolveSources) {
-            manager.define(compilerBridgeId, allArtifacts)
-          } else {
-            val (srcs, xsbtiJars) = allArtifacts.partition(_.getName.endsWith("-sources.jar"))
-            val toCompileID = bridgeSources.name
-            AnalyzingCompiler.compileSources(
-              srcs,
-              target,
-              xsbtiJars,
-              toCompileID,
-              compiler,
-              bloopLogger
-            )
-            manager.define(compilerBridgeId, Seq(target))
-          }
+        if (!resolveSources) {
+          manager.define(compilerBridgeId, allArtifacts)
+        } else {
+          val (srcs, xsbtiJars) = allArtifacts.partition(_.getName.endsWith("-sources.jar"))
+          val toCompileID = bridgeSources.name
+          AnalyzingCompiler.compileSources(
+            srcs,
+            target,
+            xsbtiJars,
+            toCompileID,
+            compiler,
+            logger
+          )
+          manager.define(compilerBridgeId, Seq(target))
         }
       }
     }

@@ -135,8 +135,8 @@ lazy val jsonConfig212 = project
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
     target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
     scalaVersion := Keys.scalaVersion.in(backend).value,
-    scalacOptions in Compile in compile := {
-      (scalacOptions in Compile in compile).value.filterNot(opt => opt == "-deprecation"),
+    scalacOptions := {
+      scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
     libraryDependencies ++= {
       List(
@@ -158,12 +158,8 @@ lazy val jsonConfig213 = project
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
     target := (file("config") / "target" / "json-config-2.13").getAbsoluteFile,
     scalaVersion := "2.13.1",
-    scalacOptions in Compile in compile := {
-      (scalacOptions in Compile in compile).value
-        .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
-    },
-    scalacOptions in Test in compile := {
-      (scalacOptions in Test in compile).value
+    scalacOptions := {
+      scalacOptions.value
         .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
     },
     libraryDependencies ++= {
@@ -201,7 +197,6 @@ lazy val frontend: Project = project
     testSettings,
     testSuiteSettings,
     Defaults.itSettings,
-    fork in Test := true,
     BuildDefaults.frontendTestBuildSettings,
     // Can be removed when metals upgrades to 1.3.0
     inConfig(IntegrationTest)(BloopDefaults.configSettings),

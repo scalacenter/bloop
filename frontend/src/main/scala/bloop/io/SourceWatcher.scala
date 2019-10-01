@@ -56,7 +56,7 @@ final class SourceWatcher private (
 
       // Make sure that errors on the file watcher are reported back
       override def onException(e: Exception): Unit = {
-        slf4jLogger.error(s"File watching threw an exception: ${e.getMessage}")
+        slf4jLogger.debug(s"File watching threw an exception: ${e.getMessage}")
         // Enable tracing when https://github.com/scalacenter/bloop/issues/433 is done
         //logger.trace(e)
       }

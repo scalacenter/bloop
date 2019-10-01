@@ -15,35 +15,34 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
+import bloop.engine.ExecutionContext
 
 object DebugServerSpec extends BspBaseSuite {
   override val protocol: BspProtocol.Local.type = BspProtocol.Local
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
 
-  test("cancelling closes server connection") {
+  test("cancelling server closes server connection") {
     startDebugServer(Task.now(())) { server =>
       val test = for {
         _ <- Task(server.cancel())
-        serverClosed <- awaitClosed(server)
+        serverClosed <- waitForServerEnd(server)
       } yield {
         assert(serverClosed)
       }
 
-      TestUtil.await(5, SECONDS)(test)
+      TestUtil.await(FiniteDuration(10, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
-  test("cancelling closes client connection") {
+  test("cancelling server closes client connection") {
     startDebugServer(Task.now(())) { server =>
       val test = for {
-        client <- server.connect
+        client <- server.startConnection
         _ <- Task(server.cancel())
-        clientClosed <- awaitClosed(client)
-      } yield {
-        assert(clientClosed)
-      }
+        _ <- Task.fromFuture(client.closedPromise.future)
+      } yield ()
 
-      TestUtil.await(10, SECONDS)(test)
+      TestUtil.await(FiniteDuration(10, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
@@ -66,19 +65,17 @@ object DebugServerSpec extends BspBaseSuite {
 
         startDebugServer(runner) { server =>
           val test = for {
-            client <- server.connect
+            client <- server.startConnection
             _ <- client.initialize()
             _ <- client.launch()
             _ <- client.configurationDone()
             _ <- Task(server.cancel())
             _ <- client.terminated
             _ <- client.exited
-            clientClosed <- awaitClosed(client)
-          } yield {
-            assert(clientClosed)
-          }
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield ()
 
-          TestUtil.await(10, SECONDS)(test)
+          TestUtil.await(FiniteDuration(10, SECONDS), ExecutionContext.ioScheduler)(test)
         }
       }
     }
@@ -103,20 +100,20 @@ object DebugServerSpec extends BspBaseSuite {
 
         startDebugServer(runner) { server =>
           val test = for {
-            client <- server.connect
+            client <- server.startConnection
             _ <- client.initialize()
             _ <- client.launch()
             _ <- client.configurationDone()
             _ <- client.terminated
             _ <- client.exited
-            clientClosed <- awaitClosed(client)
+            _ <- Task.fromFuture(client.closedPromise.future)
             output <- client.allOutput
           } yield {
-            assert(clientClosed)
+            assert(client.socket.isClosed)
             assertNoDiff(output, "Hello, World!")
           }
 
-          TestUtil.await(10, SECONDS)(test)
+          TestUtil.await(FiniteDuration(10, SECONDS), ExecutionContext.ioScheduler)(test)
         }
       }
     }
@@ -133,7 +130,7 @@ object DebugServerSpec extends BspBaseSuite {
 
         startDebugServer(runner) { server =>
           val test = for {
-            client <- server.connect
+            client <- server.startConnection
             _ <- client.initialize()
             _ <- client.launch()
             _ <- client.configurationDone()
@@ -141,7 +138,7 @@ object DebugServerSpec extends BspBaseSuite {
             _ <- client.terminated
           } yield ()
 
-          TestUtil.await(5, SECONDS)(test)
+          TestUtil.await(FiniteDuration(5, SECONDS), ExecutionContext.ioScheduler)(test)
         }
       }
     }
@@ -150,8 +147,8 @@ object DebugServerSpec extends BspBaseSuite {
   test("does not accept a connection unless the previous session requests a restart") {
     startDebugServer(Task.now(())) { server =>
       val test = for {
-        firstClient <- server.connect
-        secondClient <- server.connect
+        firstClient <- server.startConnection
+        secondClient <- server.startConnection
         requestBeforeRestart <- secondClient.initialize().timeout(FiniteDuration(1, SECONDS)).failed
         _ <- firstClient.disconnect(restart = true)
         _ <- secondClient.initialize().timeout(FiniteDuration(100, MILLISECONDS))
@@ -159,7 +156,7 @@ object DebugServerSpec extends BspBaseSuite {
         assert(requestBeforeRestart.isInstanceOf[TimeoutException])
       }
 
-      TestUtil.await(5, SECONDS)(test)
+      TestUtil.await(FiniteDuration(5, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
@@ -172,12 +169,12 @@ object DebugServerSpec extends BspBaseSuite {
 
     startDebugServer(runner) { server =>
       val test = for {
-        client <- server.connect
+        client <- server.startConnection
         _ <- client.initialize()
         _ <- client.launch()
       } yield ()
 
-      TestUtil.await(20, SECONDS)(test)
+      TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
@@ -190,19 +187,21 @@ object DebugServerSpec extends BspBaseSuite {
 
     startDebugServer(awaitCancellation) { server =>
       val test = for {
-        firstClient <- server.connect
+        firstClient <- server.startConnection
         _ <- firstClient.disconnect(restart = true)
-        secondClient <- server.connect
+        secondClient <- server.startConnection
         debuggeeCanceled <- Task.fromFuture(cancelled.future)
-        firstClientClosed <- awaitClosed(firstClient)
-        secondClientClosed <- awaitClosed(secondClient)
+        _ <- Task.fromFuture(firstClient.closedPromise.future)
+        secondClientClosed <- Task
+          .fromFuture(secondClient.closedPromise.future)
+          .map(_ => true)
           .timeoutTo(FiniteDuration(1, SECONDS), Task(false))
       } yield {
-        // second client should remain unaffected
-        assert(debuggeeCanceled, firstClientClosed, !secondClientClosed)
+        // Second client should still be connected despite the first one was closed
+        assert(debuggeeCanceled, !secondClientClosed)
       }
 
-      TestUtil.await(15, SECONDS)(test)
+      TestUtil.await(FiniteDuration(15, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
@@ -215,16 +214,16 @@ object DebugServerSpec extends BspBaseSuite {
 
     startDebugServer(awaitCancellation) { server =>
       val test = for {
-        client <- server.connect
+        client <- server.startConnection
         _ <- client.disconnect(restart = false)
         debuggeeCanceled <- Task.fromFuture(cancelled.future)
-        clientClosed <- awaitClosed(client)
-        serverClosed <- awaitClosed(server)
+        _ <- Task.fromFuture(client.closedPromise.future)
+        serverClosed <- waitForServerEnd(server)
       } yield {
-        assert(debuggeeCanceled, clientClosed, serverClosed)
+        assert(debuggeeCanceled, serverClosed)
       }
 
-      TestUtil.await(5, SECONDS)(test)
+      TestUtil.await(FiniteDuration(5, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
@@ -233,33 +232,17 @@ object DebugServerSpec extends BspBaseSuite {
 
     startDebugServer(Task.fromFuture(blockedDebuggee.future)) { server =>
       val test = for {
-        client <- server.connect
+        client <- server.startConnection
         _ <- Task(server.cancel())
-        clientDisconnected <- awaitClosed(client)
-      } yield {
-        assert(clientDisconnected)
-      }
+        _ <- Task.fromFuture(client.closedPromise.future)
+      } yield ()
 
-      TestUtil.await(20, SECONDS)(test) // higher limit to accommodate the timout
+      TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 
-  private def awaitClosed(client: DebugAdapterConnection): Task[Boolean] = {
-    Task(await(client.socket.isClosed))
-  }
-
-  @tailrec
-  private def await(condition: => Boolean): Boolean = {
-    if (condition) true
-    else if (Thread.interrupted()) false
-    else {
-      Thread.sleep(250)
-      await(condition)
-    }
-  }
-
-  private def awaitClosed(server: TestServer): Task[Boolean] = {
-    server.connect.failed
+  private def waitForServerEnd(server: TestServer): Task[Boolean] = {
+    server.startConnection.failed
       .map {
         case _: SocketTimeoutException => true
         case _: ConnectException => true
@@ -268,8 +251,7 @@ object DebugServerSpec extends BspBaseSuite {
           val message = e.getMessage
           message.endsWith("(Connection refused)") || message.endsWith("(connect failed)")
 
-        case _ =>
-          false
+        case _ => false
       }
       .onErrorRestartIf {
         case e: NoSuchElementException =>
@@ -305,7 +287,7 @@ object DebugServerSpec extends BspBaseSuite {
       .doOnFinish(_ => Task(testServer.close()))
       .doOnCancel(Task(testServer.close()))
 
-    TestUtil.await(20, SECONDS)(test)
+    TestUtil.await(35, SECONDS)(test)
     ()
   }
 
@@ -322,18 +304,15 @@ object DebugServerSpec extends BspBaseSuite {
     // terminates both server and its clients
     override def close(): Unit = {
       cancel()
-      val allClientsClosed = clients.map(c => Task(awaitClosed(c)))
-      TestUtil.await(10, SECONDS)(Task.sequence(allClientsClosed))
-
-      clients.foreach { client =>
-        client.socket.close()
-      }
+      val allClientsClosed = clients.map(c => Task.fromFuture(c.closedPromise.future))
+      TestUtil.await(10, SECONDS)(Task.sequence(allClientsClosed)); ()
     }
 
-    def connect: Task[DebugAdapterConnection] = {
+    def startConnection: Task[DebugAdapterConnection] = {
       server.address.flatMap {
         case Some(uri) =>
-          val connection = DebugAdapterConnection.connectTo(uri)(defaultScheduler)
+          val connection =
+            DebugAdapterConnection.connectTo(uri)(defaultScheduler)
           clients += connection
           Task(connection)
         case None =>

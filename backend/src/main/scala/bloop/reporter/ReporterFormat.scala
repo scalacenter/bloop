@@ -77,9 +77,10 @@ abstract class ReporterFormat(reporter: Reporter) {
    */
   protected def showPath(file: File): Option[String] = {
     val absolutePath = Option(file).map(AbsolutePath(_))
-    if (reporter.config.shortenPaths)
-      absolutePath.map(_.toRelative(reporter.cwd).toString)
-    else absolutePath.map(_.toString)
+    if (reporter.config.shortenPaths) {
+      try absolutePath.map(_.toRelative(reporter.cwd).toString)
+      catch { case _: IllegalArgumentException => absolutePath.map(_.toString) }
+    } else absolutePath.map(_.toString)
   }
 
   /**

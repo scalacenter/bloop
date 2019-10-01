@@ -371,7 +371,7 @@ object Compiler {
     val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, mode, reporter, logger, uniqueInputs, newFileManager, tracer)
+      .compile(inputs, mode, reporter, logger, uniqueInputs, newFileManager, cancelPromise, tracer)
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
