@@ -83,7 +83,6 @@ matrix:
           "frontend/updateArchPackage" \
           "frontend/githubRelease"
   OS:
-    - windows
     - linux
   OPS:
     - basic
@@ -207,18 +206,6 @@ pipeline:
 #      - git log --oneline --graph | head -n 20
 #      - . bin/detect-community-build.sh # Source it because it exports variables
 #      - ${RUN_COMMUNITY_BUILD_EXTRA}
-
-  build_windows:
-    group: build
-    image: scalacenter/scala-docs:1.4
-    when:
-      ref: [ refs/heads/master, refs/tags/*, refs/pull/*/head ]
-      matrix:
-        OS: windows
-        OPS: basic
-    secrets: [ bloop_jenkins_token ]
-    commands:
-      - ./bin/stream-jenkins-log.sh "bloop:$BLOOP_JENKINS_TOKEN"
 
   publish:
     image: scalacenter/scala-docs:1.4
