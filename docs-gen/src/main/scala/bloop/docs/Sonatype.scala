@@ -17,8 +17,8 @@ case class Release(version: String, lastModified: Date) {
 }
 
 object Sonatype {
-  lazy val releaseBloop = Sonatype.fetchLatest("bloop-frontend_2.12", "staging")
-  lazy val releaseLauncher = Sonatype.fetchLatest("bloop-launcher_2.12", "staging")
+  lazy val releaseBloop = current //Sonatype.fetchLatest("bloop-frontend_2.12", "staging")
+  lazy val releaseLauncher = current //Sonatype.fetchLatest("bloop-launcher_2.12", "staging")
 
   // Copy-pasted from https://github.com/scalameta/metals/blob/994e5e6746ad327ce727d688ad9831e0fbb69b3f/metals-docs/src/main/scala/docs/Snapshot.scala
   lazy val current: Release = Release(BuildInfo.version, new Date())
