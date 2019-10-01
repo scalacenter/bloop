@@ -73,7 +73,7 @@ object MojoImplementation {
 
     val compileSetup = mojo.getCompileSetup()
     val allScalaJars = mojo.getAllScalaJars().map(abs).toList
-    val scalacArgs = mojo.getScalacArgs().asScala.toList
+    val scalacArgs = mojo.getScalacArgs().asScala.toList.filter(_ != null)
 
     def writeConfig(
         sourceDirs0: Seq[File],
