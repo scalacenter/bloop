@@ -1,0 +1,18 @@
+name: Bloop on Windows
+on:
+  push:
+jobs:
+  unix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+    steps:
+      - uses: actions/checkout@v1
+      - uses: olafurpg/setup-scala@v4
+        with:
+          java-version: graalvm@
+      - run: |
+        git submodule update --init --recursive
+        sbt "backend/test" "jsBridge06/test" "jsBridge06/publishLocal" "jsBridge10/test" "jsBridge10/publishLocal" "frontend/test" "install" "launcher/test"
