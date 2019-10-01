@@ -1,7 +1,7 @@
 package buildpress
 
 import bloop.io.AbsolutePath
-import bloop.launcher.core.Shell
+import bloop.bloopgun.core.Shell
 
 object Main
     extends Buildpress(

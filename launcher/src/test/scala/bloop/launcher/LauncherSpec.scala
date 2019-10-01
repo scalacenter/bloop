@@ -4,7 +4,7 @@ import java.io._
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.launcher.core.{AvailableAt, Installer, Shell}
+import bloop.launcher.core.Installer
 import bloop.internal.build.BuildInfo
 import bloop.bloopgun.util.Environment
 import bloop.logging.{BspClientLogger, RecordingLogger}
@@ -21,6 +21,7 @@ import bloop.bloopgun.ServerConfig
 
 import bloop.launcher.core.{Feedback => LauncherFeedback}
 import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
+import bloop.bloopgun.core.AvailableAtPath
 
 object LatestStableLauncherSpec extends LauncherSpec("1.3.2")
 object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version)
@@ -55,10 +56,10 @@ class LauncherSpec(bloopVersion: String)
     }
   }
 
-  test("don't detect installed bloop if any") {
+  test("don't detect installed bloop if there's one installed in the machine running launcher") {
     setUpLauncher(shellWithPython) { setup =>
       // We should not detect the server state unless we have installed it via the launcher
-      val status = setup.launcher.detectServerState(bloopVersion)
+      val status = detectServerState(bloopVersion, setup.launcher.shell)
       assert(None == status)
     }
   }
@@ -84,15 +85,16 @@ class LauncherSpec(bloopVersion: String)
         Environment.defaultBloopDirectory,
         bloopVersion,
         launcher.out,
-        launcher.detectServerState(_),
+        detectServerState(_, launcher.shell),
         launcher.shell,
         bloopInstallerURL
       )
 
       // We should detect the bloop binary in the place where we installed it!
-      val bloopDir = Environment.defaultBloopDirectory.resolve("bloop")
+      val bloopDir = Environment.defaultBloopDirectory
       state match {
-        case Some(AvailableAt(binary)) if binary.headOption.exists(_.contains(bloopDir.toString)) =>
+        case Some(AvailableAtPath(path))
+            if path.toAbsolutePath.toString.startsWith(bloopDir.toString) =>
           // After installing, let's run the launcher in an environment where bloop is available
           val result1 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
           val expectedLogs1 = List(

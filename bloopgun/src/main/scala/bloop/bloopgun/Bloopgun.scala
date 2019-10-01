@@ -176,21 +176,23 @@ class BloopgunCli(
       }
     }
 
-    OParser.parse(cliParser, args, BloopgunParams(), setup) match {
+    val (cliArgsToParse, extraArgsForServer) =
+      if (args.contains("--")) args.span(_ == "--") else (args, Array.empty[String])
+    OParser.parse(cliParser, cliArgsToParse, BloopgunParams(), setup) match {
       case None => 1
       case Some(params0) =>
-        val params = params0.copy(args = additionalCmdArgs)
+        val params = params0.copy(args = additionalCmdArgs ++ extraArgsForServer)
         val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
         if (params.nailgunShowVersion)
           logger.info(s"Nailgun protocol v${Defaults.Version}")
 
         if (params.server) {
           val config = params.serverConfig
-          shell.connectToBloopPort(Nil, config, logger) match {
-            case Some(_) => logger.info(s"Server is already running at $config, exiting!"); 0
-            case None if config.fireAndForget =>
+          shell.connectToBloopPort(config, logger) match {
+            case true => logger.info(s"Server is already running at $config, exiting!"); 0
+            case _ if config.fireAndForget =>
               fireCommand("about", Array.empty, params, config, logger)
-            case None =>
+            case _ =>
               // Fire server and wait until it exits, this is the default `bloop server` mode
               fireServer(FireAndWaitForExit, params, config, bloopVersion, logger) match {
                 case Some((cmd, status)) =>
@@ -266,9 +268,9 @@ class BloopgunCli(
           case _ =>
             // Attempt to start server here, move launcher logic
             logger.info(s"No server running at ${config}, let's fire one...")
-            fireServer(FireInBackground, params, config, bloopVersion, logger).flatten match {
-              case Some(l: ListeningAndAvailableAt) => executeCmd(client)
-              case None => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
+            fireServer(FireInBackground, params, config, bloopVersion, logger) match {
+              case Some(true) => executeCmd(client)
+              case _ => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
             }
         }
 
@@ -284,7 +286,6 @@ class BloopgunCli(
     type Out
 
     def fire(
-        serverCmd: List[String],
         found: LocatedServer,
         config: ServerConfig,
         logger: SnailgunLogger
@@ -294,31 +295,28 @@ class BloopgunCli(
   case object FireAndWaitForExit extends FireMode {
     type Out = ExitServerStatus
     def fire(
-        cmd: List[String],
         found: LocatedServer,
         config: ServerConfig,
         logger: SnailgunLogger
     ): Out = {
-      startServer(cmd, config, true, logger)
+      startServer(found, config, true, logger)
     }
   }
 
   case object FireInBackground extends FireMode {
-    type Out = Option[ListeningAndAvailableAt]
+    type Out = Boolean
     def fire(
-        cmd: List[String],
         found: LocatedServer,
         config: ServerConfig,
         logger: SnailgunLogger
     ): Out = {
       val exitPromise = Promise[ExitServerStatus]()
       val serverThread = shell.startThread("bloop-server-background", true) {
-        exitPromise.success(startServer(cmd, config, false, logger))
+        exitPromise.success(startServer(found, config, false, logger))
       }
 
       val port = config.userOrDefaultPort
-      var listening: Option[ListeningAndAvailableAt] = None
-      def isConnected = listening.exists(_.isInstanceOf[ListeningAndAvailableAt])
+      var isConnected: Boolean = false
 
       /*
        * Retry connecting to the server for a bunch of times until we get some
@@ -331,11 +329,12 @@ class BloopgunCli(
         val waitMs = 125.toLong
         Thread.sleep(waitMs)
         logger.debug(s"Sleeping for ${waitMs}ms until we connect to server port $port")
-        listening = shell.connectToBloopPort(cmd, config, logger)
+        isConnected = shell.connectToBloopPort(config, logger)
       }
 
       // Either listening exists or status promise is completed
-      listening.orElse {
+      if (isConnected) true
+      else {
         exitPromise.future.value match {
           case Some(scala.util.Success((runCmd, status))) =>
             val cmd = runCmd.mkString(" ")
@@ -349,7 +348,8 @@ class BloopgunCli(
         // Required to protect ourselves from other clients racing to start the server
         logger.info("Attempt connection a last time before giving up...")
         Thread.sleep(500.toLong)
-        shell.connectToBloopPort(cmd, config, logger)
+        isConnected = shell.connectToBloopPort(config, logger)
+        isConnected
       }
     }
   }
@@ -361,29 +361,10 @@ class BloopgunCli(
       bloopVersion: String,
       logger: SnailgunLogger
   ): Option[mode.Out] = {
-    def deriveCmdForPath(path: Path, found: LocatedServer): List[String] = {
-      val fullPath = path.toAbsolutePath().toString()
-      if (Files.isExecutable(path.toRealPath())) {
-        shell.deriveCommandForPlatform(List(fullPath), attachTerminal = false)
-      } else {
-        val jvmOpts = Environment.detectJvmOptionsForServer(found, config.serverArgs, logger)
-        List("java") ++ jvmOpts ++ List("-jar", fullPath)
-      }
-    }
-
-    ServerStatus.findServerToRun(bloopVersion, config, shell, logger).map { found =>
-      val cmd = found match {
-        case AvailableWithCommand(cmd) => cmd
-        case AvailableAtPath(path) => deriveCmdForPath(path, found)
-        case ResolvedAt(classpath) =>
-          val delimiter = java.io.File.pathSeparator
-          val jvmOpts = Environment.detectJvmOptionsForServer(found, config.serverArgs, logger)
-          val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
-          List("java") ++ jvmOpts ++ List("-classpath", stringClasspath, "bloop.Server")
-      }
-
-      mode.fire(cmd, found, config, logger)
-    }
+    ServerStatus
+      .findServerToRun(bloopVersion, config.serverLocation, shell, logger)
+      .orElse(ServerStatus.resolveServer(bloopVersion, logger))
+      .map(mode.fire(_, config, logger))
   }
 
   // Reused across the two different ways we can run a server
@@ -399,32 +380,72 @@ class BloopgunCli(
    * the server is running and at the end it will contain either a success or
    * failure.
    *
-   * @param binary The list of arguments that make the python binary script to run.
+   * @param serverToRun The server that we want to run.
    * @param config The configuration for the server we want to launch.
    * @param redirectOutErr Whether we should forward logs from the system process
    *        to the inherited streams. This is typically used when `bloop server` runs.
    */
   def startServer(
-      binary: List[String],
+      serverToRun: LocatedServer,
       config: ServerConfig,
       redirectOutErr: Boolean,
       logger: Logger
   ): ExitServerStatus = {
     // Always keep a server running in the background by making it a daemon thread
-    val serverArgs = (config.host, config.port) match {
-      case (Some(host), Some(port)) => List(host, port.toString)
-      case (None, Some(port)) => List(port.toString)
-      case (None, None) => Nil
-      case (Some(host), None) =>
-        logger.warn(Feedback.unexpectedServerArgsSyntax(host))
-        Nil
+    val serverArgs = {
+      if (!config.serverArgs.isEmpty) config.serverArgs
+      else {
+        (config.host, config.port) match {
+          case (Some(host), Some(port)) => List(host, port.toString)
+          case (None, Some(port)) => List(port.toString)
+          case (None, None) => Nil
+          case (Some(host), None) =>
+            logger.warn(Feedback.unexpectedServerArgsSyntax(host))
+            Nil
+        }
+      }
     }
 
-    def cmdWithArgs(cmd: List[String], serverArgs: List[String]): List[String] = {
-      cmd match {
-        case "sh" :: "-c" :: bloopCmd :: Nil =>
-          "sh" :: "-c" :: (bloopCmd + " " + serverArgs.mkString(" ")) :: Nil
-        case _ => cmd ++ serverArgs
+    def cmdWithArgs(
+        found: LocatedServer,
+        extraJvmOpts: List[String]
+    ): (List[String], Boolean) = {
+      var usedExtraJvmOpts = false
+      def finalJvmOpts(jvmOpts: List[String]): List[String] = {
+        if (extraJvmOpts.forall(opt => jvmOpts.contains(opt))) jvmOpts
+        else {
+          usedExtraJvmOpts = true
+          jvmOpts ++ extraJvmOpts
+        }
+      }
+
+      def deriveCmdForPath(path: Path): List[String] = {
+        val fullPath = path.toAbsolutePath().toString()
+        if (Files.isExecutable(path.toRealPath())) {
+          val jargs = finalJvmOpts(Nil).map(arg => s"-J$arg")
+          val cmd = fullPath :: (jargs ++ serverArgs)
+          shell.deriveCommandForPlatform(cmd, attachTerminal = false)
+        } else {
+          val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
+          List("java") ++ finalJvmOpts(jvmOpts) ++ List("-jar", fullPath) ++ serverArgs
+        }
+      }
+
+      found match {
+        case AvailableAtPath(path) => deriveCmdForPath(path) -> usedExtraJvmOpts
+        case AvailableWithCommand(cmd) =>
+          val jargs = finalJvmOpts(Nil).map(arg => s"-J$arg")
+          (cmd ++ jargs ++ serverArgs) -> usedExtraJvmOpts
+        case ResolvedAt(classpath) =>
+          val delimiter = java.io.File.pathSeparator
+          val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
+          val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
+          val cmd = List("java") ++ finalJvmOpts(jvmOpts) ++ List(
+            "-classpath",
+            stringClasspath,
+            "bloop.Server"
+          ) ++ serverArgs
+          cmd -> usedExtraJvmOpts
       }
     }
 
@@ -461,21 +482,16 @@ class BloopgunCli(
 
     val start = System.currentTimeMillis()
 
-    val performanceSensitiveOpts = Environment.PerformanceSensitiveOptsForBloop
-    val allServerArgs = {
-      if (performanceSensitiveOpts.forall(serverArgs.contains(_))) serverArgs
-      else serverArgs ++ performanceSensitiveOpts
-    }
-
     // Run bloop server with special performance-sensitive JVM options
-    val firstCmd = cmdWithArgs(binary, allServerArgs)
+    val performanceSensitiveOpts = Environment.PerformanceSensitiveOptsForBloop
+    val (firstCmd, usedExtraJvmOpts) = cmdWithArgs(serverToRun, performanceSensitiveOpts)
     val firstStatus = sysproc(firstCmd)
 
     val end = System.currentTimeMillis()
     val elapsedFirstCmd = end - start
 
     // Don't run server twice, exit was successful or user args already contain performance-sensitive args
-    if (firstStatus.code == 0 || allServerArgs == serverArgs) firstCmd -> firstStatus
+    if (firstStatus.code == 0 || usedExtraJvmOpts) firstCmd -> firstStatus
     else {
       val isExitRelatedToPerformanceSensitiveOpts = {
         performanceSensitiveOpts.exists(firstStatus.output.contains(_)) ||
@@ -485,7 +501,7 @@ class BloopgunCli(
 
       if (!isExitRelatedToPerformanceSensitiveOpts) firstCmd -> firstStatus
       else {
-        val secondCmd = cmdWithArgs(binary, serverArgs)
+        val (secondCmd, _) = cmdWithArgs(serverToRun, Nil)
         secondCmd -> sysproc(secondCmd)
       }
     }

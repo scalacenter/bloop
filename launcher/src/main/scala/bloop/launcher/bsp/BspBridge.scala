@@ -5,11 +5,12 @@ import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
-import bloop.launcher.core.{Feedback, Shell}
+import bloop.launcher.core.Feedback
+import bloop.bloopgun.core.Shell
 import bloop.bloopgun.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
 import bloop.sockets.UnixDomainSocket
-import bloop.launcher.core.Shell.StatusCommand
+import bloop.bloopgun.core.Shell.StatusCommand
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
@@ -19,6 +20,7 @@ import java.nio.channels.Channels
 import java.nio.channels.ReadableByteChannel
 import java.nio.channels.WritableByteChannel
 import java.nio.ByteBuffer
+import java.nio.file.Files
 
 final class BspBridge(
     clientIn: InputStream,
@@ -68,7 +70,7 @@ final class BspBridge(
 
     val cliOut = new ByteArrayOutputStream()
     val cli = createCli(new PrintStream(cliOut))
-    val (bspCmd, openConnection) = shell.deriveBspInvocation(useTcp, launcherTmpDir)
+    val (bspCmd, openConnection) = deriveBspInvocation(useTcp, launcherTmpDir)
     println(Feedback.openingBspConnection(bspCmd), out)
     val thread = new Thread {
       override def run(): Unit = {
@@ -85,6 +87,25 @@ final class BspBridge(
 
     thread.start()
     RunningBspConnection(openConnection, cliOut)
+  }
+
+  def deriveBspInvocation(
+      useTcp: Boolean,
+      tempDir: Path
+  ): (List[String], BspConnection) = {
+    // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
+    if (useTcp || Environment.isWindows) {
+      // We draw a random port from a "safe" tcp port range...
+      val randomPort = Shell.portNumberWithin(17812, 18222)
+      val cmd = List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
+      (cmd, BspConnection.Tcp("127.0.0.1", randomPort))
+    } else {
+      // Let's be conservative with names here, socket files have a 100 char limit
+      val socketPath = tempDir.resolve(s"bsp.socket").toAbsolutePath
+      Files.deleteIfExists(socketPath)
+      val cmd = List("bsp", "--protocol", "local", "--socket", socketPath.toString)
+      (cmd, BspConnection.UnixLocal(socketPath))
+    }
   }
 
   private final val BspStartLog = "The server is listening for incoming connections at"
@@ -172,9 +193,8 @@ final class BspBridge(
       var hasReportedClientError: Boolean = false
       while (isConnectionOpen) {
         val socketOut = socket.getOutputStream
-        val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
         try {
-          parser.forward(clientIn, socketOut)
+          forwardStreamContents(clientIn, socketOut)
           isConnectionOpen = false
         } catch {
           case e: IOException =>
@@ -204,13 +224,8 @@ final class BspBridge(
       var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {
         val socketIn = socket.getInputStream
-        //val parser = new JsonRpcParser(out, StandardCharsets.US_ASCII)
         try {
-          val src = Channels.newChannel(socketIn)
-          val dest = Channels.newChannel(clientOut)
-          copyContents(src, dest)
-
-          //parser.forward(socketIn, clientOut)
+          forwardStreamContents(socketIn, clientOut)
           isConnectionOpen = false
           println("No more data in the server stdin, exiting...", out)
         } catch {
@@ -247,6 +262,17 @@ final class BspBridge(
       } catch {
         case t: InterruptedException => ()
       }
+    }
+  }
+
+  def forwardStreamContents(in: InputStream, out: OutputStream): Unit = {
+    val src = Channels.newChannel(in)
+    val dest = Channels.newChannel(out)
+    try {
+      copyContents(src, dest)
+    } finally {
+      src.close()
+      dest.close()
     }
   }
 

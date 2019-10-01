@@ -7,12 +7,12 @@ import java.nio.file.{Files, Path}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import bloop.io.{AbsolutePath, Paths}
-import bloop.launcher.core.Shell
-import bloop.launcher.core.Shell.StatusCommand
 import buildpress.RepositoryCache.RepoCacheDiff
 import buildpress.io.{BuildpressPaths, SbtProjectHasher}
 import buildpress.util.Traverse._
 import caseapp.core.{Messages, WithHelp}
+import bloop.bloopgun.core.Shell
+import bloop.bloopgun.core.Shell.StatusCommand
 
 abstract class Buildpress(
     in: InputStream,
@@ -268,21 +268,21 @@ abstract class Buildpress(
       for {
         _ <- wrapCommandExecution(
           s"Cloning $cloneUri...",
-          shell.runCommand(cloneCmd, cwd.underlying, Some(4 * 60L), Some(out)),
+          shell.runCommand(cloneCmd, cwd.underlying, Some(4 * 60L), userOutput = Some(out)),
           err => s"Failed to clone $cloneUri in $clonePath: $err",
           s"Cloned $cloneUri"
         )
 
         _ <- wrapCommandExecution(
           s"Cloning submodules of $cloneUri...",
-          shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), Some(out)),
+          shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), userOutput = Some(out)),
           err => s"Failed to clone submodules of $cloneUri: $err",
           s"Cloned submodules of $cloneUri"
         )
 
         _ <- wrapCommandExecution(
           s"Checking out $clonePath",
-          shell.runCommand(checkoutCmd, clonePath, Some(30L), Some(out)),
+          shell.runCommand(checkoutCmd, clonePath, Some(30L), userOutput = Some(out)),
           err => s"Failed to checkout $sha in $cloneTargetDir: $err",
           s"Checked out $clonePath"
         )
@@ -341,7 +341,12 @@ abstract class Buildpress(
               val headCommand = List("git", "rev-parse", "HEAD")
               val headReference = wrapCommandExecution(
                 s"Obtaining HEAD git reference...",
-                shell.runCommand(headCommand, cloneTargetDir.underlying, Some(5L), Some(out)),
+                shell.runCommand(
+                  headCommand,
+                  cloneTargetDir.underlying,
+                  Some(5L),
+                  userOutput = Some(out)
+                ),
                 err => s"Failed to obtain HEAD reference in $cloneTargetDir: $err",
                 s"Obtained HEAD reference, proceeding..."
               )
@@ -476,7 +481,7 @@ abstract class Buildpress(
       )
 
       val timeout = Some(15 * 60L) // Maximum wait is 15 minutes
-      shell.runCommand(cmd, baseDir.underlying, timeout, Some(out)) match {
+      shell.runCommand(cmd, baseDir.underlying, timeout, userOutput = Some(out)) match {
         case status if status.isOk => Right(())
         case failed =>
           val msg = s"Unexpected failure when running `${cmd.mkString(" ")}` in $baseDir"

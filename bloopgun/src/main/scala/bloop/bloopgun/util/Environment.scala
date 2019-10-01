@@ -9,7 +9,7 @@ import bloop.bloopgun.core.AvailableAtPath
 
 import scala.util.control.NonFatal
 
-import snailgun.logging.SnailgunLogger
+import snailgun.logging.Logger
 
 object Environment {
   final val isWindows: Boolean = scala.util.Properties.isWin
@@ -51,7 +51,7 @@ object Environment {
   def detectJvmOptionsForServer(
       server: LocatedServer,
       serverArgs: List[String],
-      logger: SnailgunLogger
+      logger: Logger
   ): List[String] = {
     def readJvmOptsFile(jvmOptsFile: Path): List[String] = {
       if (!Files.isReadable(jvmOptsFile)) {
