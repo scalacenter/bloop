@@ -173,10 +173,9 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
   }
 
   def connectToBloopPort(
-      binaryCmd: List[String],
       config: ServerConfig,
       logger: Logger
-  ): Option[ListeningAndAvailableAt] = {
+  ): Boolean = {
     import java.net.Socket
     var socket: Socket = null
     import scala.util.control.NonFatal
@@ -187,13 +186,12 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       import java.net.InetAddress
       import java.net.InetSocketAddress
       socket.connect(new InetSocketAddress(config.userOrDefaultHost, config.userOrDefaultPort))
-      if (!socket.isConnected) None
-      else Some(ListeningAndAvailableAt(binaryCmd))
+      socket.isConnected()
     } catch {
       case NonFatal(t) =>
         logger.info("Attempting a connection to the server...")
         logger.debug(s"Connection to port $config failed with '${t.getMessage()}'")
-        None
+        false
     } finally {
       if (socket != null) {
         try {
