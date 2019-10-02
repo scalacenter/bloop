@@ -21,8 +21,10 @@ import monix.execution.{ExecutionModel, Scheduler}
 import monix.{eval => me}
 import sbt.internal.util.MessageOnlyException
 
+import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
+import scala.concurrent.Promise
 
 object BspClientTest extends BspClientTest
 trait BspClientTest {
@@ -234,7 +236,8 @@ trait BspClientTest {
   def addServicesTest(
       configDir: AbsolutePath,
       compileIteration: () => Int,
-      record: (bsp.BuildTargetIdentifier, StringBuilder => StringBuilder) => Unit
+      record: (bsp.BuildTargetIdentifier, StringBuilder => StringBuilder) => Unit,
+      compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]]
   ): Services => Services = { (s: Services) =>
     s.notification(endpoints.Build.taskStart) { taskStart =>
         taskStart.dataKind match {
@@ -243,6 +246,9 @@ trait BspClientTest {
             bsp.CompileTask.decodeCompileTask(json.hcursor) match {
               case Left(failure) => ()
               case Right(compileTask) =>
+                compileStartPromises.foreach(
+                  promises => promises.get(compileTask.target).map(_.trySuccess(()))
+                )
                 record(
                   compileTask.target,
                   (builder: StringBuilder) => {
@@ -495,7 +501,7 @@ trait BspClientTest {
         bspCmd,
         configDir,
         logger,
-        addServicesTest(configDir, () => compileIteration, addToStringReport),
+        addServicesTest(configDir, () => compileIteration, addToStringReport, None),
         addDiagnosticsHandler = false,
         userState = userState,
         userScheduler = userScheduler

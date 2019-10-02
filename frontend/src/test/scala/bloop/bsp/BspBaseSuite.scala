@@ -30,6 +30,8 @@ import scala.util.Try
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
+import scala.collection.mutable
+import bloop.logging.Logger
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -320,6 +322,18 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
+  def waitUntilStartAndCompile(
+      state: TestState,
+      project: TestProject,
+      compileStart: Promise[Unit],
+      logger: Logger
+  ) = {
+    Task
+      .fromFuture(compileStart.future)
+      .flatMap(_ => state.withLogger(logger).compileTask(project))
+      .runAsync(ExecutionContext.ioScheduler)
+  }
+
   private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 4)
 
   /** The protocol to use for the inheriting test suite. */
@@ -377,7 +391,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       projects: List[TestProject],
       logger: RecordingLogger,
       bspClientName: String = "test-bloop-client",
-      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
+      compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
   )(runTest: ManagedBspTestState => Unit): Unit = {
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -389,7 +404,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       configDir,
       bspLogger,
       clientName = bspClientName,
-      bloopExtraParams = bloopExtraParams
+      bloopExtraParams = bloopExtraParams,
+      compileStartPromises = compileStartPromises
     ).withinSession(runTest(_))
   }
 
@@ -403,7 +419,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       userComputationScheduler: Option[Scheduler] = None,
       clientClassesRootDir: Option[AbsolutePath] = None,
       clientName: String = "test-bloop-client",
-      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
+      compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
   ): UnmanagedBspTestState = {
     val compileIteration = AtomicInt(0)
     val readyToConnect = Promise[Unit]()
@@ -438,10 +455,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       implicit val lsClient = new BloopLanguageClient(out, logger)
       val messages = BaseProtocolMessage.fromInputStream(in, logger)
-      val addDiagnosticsHandler =
-        addServicesTest(configDirectory, () => compileIteration.get, addToStringReport)
-      val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
+      val addDiagnosticsHandler = addServicesTest(
+        configDirectory,
+        () => compileIteration.get,
+        addToStringReport,
+        compileStartPromises
+      )
 
+      val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
       val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
       val cwd = configDirectory.underlying.getParent
