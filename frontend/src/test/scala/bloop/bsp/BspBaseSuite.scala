@@ -464,7 +464,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
+      val runningClientServer = lsServer.processMessagesSequentiallyTask.runAsync(ioScheduler)
       val cwd = configDirectory.underlying.getParent
       val additionalData = Try(BloopExtraBuildParams.encoder(bloopExtraParams)).toOption
       val initializeServer = endpoints.Build.initialize.request(

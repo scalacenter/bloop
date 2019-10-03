@@ -27,6 +27,7 @@ import scala.meta.jsonrpc.CancelParams
 import scala.meta.jsonrpc.Notification
 import scala.meta.jsonrpc.NamedJsonRpcService
 import scala.meta.jsonrpc.BaseProtocolMessage
+import bloop.util.monix.FoldLeftAsyncConsumer
 
 final class BloopLanguageServer(
     in: Observable[BaseProtocolMessage],
@@ -152,5 +153,15 @@ final class BloopLanguageServer(
         .runAsync(requestScheduler)
       ()
     }
+  }
+
+  def processMessagesSequentiallyTask: Task[Unit] = {
+    in.consumeWith(FoldLeftAsyncConsumer.consume[Unit, BaseProtocolMessage](()) {
+      case (_, msg) =>
+        handleMessage(msg)
+          .map(client.serverRespond)
+          .onErrorRecover { case NonFatal(e) => logger.error("Unhandled error", e) }
+          .map(_ => ())
+    })
   }
 }
