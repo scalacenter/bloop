@@ -148,7 +148,11 @@ final class SourceWatcher private (
     val timespan = FiniteDuration(20, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
-      .liftByOperator(new BloopWhileBusyDropEventsAndSignalOperator(_ => Nil))
+      .liftByOperator(
+        new BloopWhileBusyDropEventsAndSignalOperator(
+          (a: Seq[Seq[DirectoryChangeEvent]]) => a.flatten
+        )
+      )
       .consumeWith(fileEventConsumer)
       .doOnCancel(Task(watchCancellation.cancel()))
   }

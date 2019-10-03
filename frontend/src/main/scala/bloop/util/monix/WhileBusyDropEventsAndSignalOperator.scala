@@ -5,13 +5,14 @@ import monix.execution.Ack.{Continue, Stop}
 import monix.execution.misc.NonFatal
 import monix.reactive.observables.ObservableLike.Operator
 import monix.reactive.observers.Subscriber
+import monix.execution.atomic.AtomicBoolean
 
 import scala.concurrent.Future
-import monix.execution.atomic.AtomicBoolean
+import scala.collection.mutable
 import scala.util.Success
 import scala.util.Failure
 
-final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
+final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Seq[A] => A)
     extends Operator[A, A] {
 
   def apply(out: Subscriber[A]): Subscriber.Sync[A] =
@@ -19,7 +20,7 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
       implicit val scheduler = out.scheduler
 
       private[this] var ack = Continue: Future[Ack]
-      private[this] var eventsDropped = 0L
+      private[this] val bufferedEvents = new mutable.ListBuffer[A]()
       private[this] var isDone = false
 
       def onNext(elem: A) = ack.synchronized {
@@ -44,16 +45,24 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
 
             case Stop => Stop
             case async =>
-              eventsDropped += 1
-              if (eventsDropped == 1) {
+              val eventsSize = bufferedEvents.synchronized {
+                bufferedEvents += elem
+                bufferedEvents.size
+              }
+
+              if (eventsSize == 1) {
                 var streamError = true
                 ack.syncOnComplete {
                   case Failure(e) => ()
                   case Success(Stop) => ()
                   case Success(Continue) =>
                     try {
-                      val message = onOverflow(eventsDropped)
-                      eventsDropped = 0
+                      val overflowedEvents = bufferedEvents.synchronized {
+                        val events = bufferedEvents.toList
+                        bufferedEvents.clear()
+                        events
+                      }
+                      val message = onOverflow(overflowedEvents)
                       streamError = false
                       ack = out.onNext(message)
                     } catch {
@@ -79,9 +88,13 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
       def onComplete() =
         if (!isDone) {
           isDone = true
-          val hasOverflow = eventsDropped > 0
+          val overflowedEvents = bufferedEvents.synchronized {
+            val events = bufferedEvents.toList
+            bufferedEvents.clear()
+            events
+          }
 
-          if (!hasOverflow)
+          if (overflowedEvents.isEmpty)
             out.onComplete()
           else {
             ack.syncOnContinue {
@@ -91,7 +104,7 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Long => A)
               // protocol calls, then the behavior should be undefined.
               var streamError = true
               try {
-                val message = onOverflow(eventsDropped)
+                val message = onOverflow(overflowedEvents)
                 streamError = false
                 out.onNext(message)
                 out.onComplete()

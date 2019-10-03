@@ -10,6 +10,7 @@ import monix.reactive.{Consumer, Observable}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
+import monix.execution.CancelableFuture
 
 // Fork of `FoldLeftAsyncConsumer` from Monix, not thread-safe
 final class FoldLeftAsyncConsumer[A, R](
@@ -23,11 +24,10 @@ final class FoldLeftAsyncConsumer[A, R](
       implicit val scheduler = s
       private[this] var isDone = false
       private[this] var state = initial()
+      private[this] var running: Future[Ack] = Continue
 
-      def onNext(elem: A): Future[Ack] = {
-        // Protects calls to user code from within the operator,
-        // as a matter of contract.
-        try {
+      def onNext(elem: A): Future[Ack] = running.synchronized {
+        def triggerTaskExecution = {
           val task = f(state, elem).transform(update => {
             state = update
             Continue: Continue
@@ -43,6 +43,22 @@ final class FoldLeftAsyncConsumer[A, R](
             ack => { cancelables.-=(future); ack },
             t => { cancelables.-=(future); t }
           )
+        }
+
+        // Protects calls to user code from within the operator,
+        // as a matter of contract.
+        try {
+          running.syncTryFlatten match {
+            case Continue =>
+              running = triggerTaskExecution
+              running
+            case Stop => Stop
+            case async =>
+              running = async.flatMap { _ =>
+                triggerTaskExecution
+              }
+              running
+          }
         } catch {
           case NonFatal(ex) =>
             onError(ex)

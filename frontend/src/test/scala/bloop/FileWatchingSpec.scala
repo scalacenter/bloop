@@ -119,16 +119,16 @@ object FileWatchingSpec extends BaseSuite {
           // Write another change with a delay, no recompilation should happen
           // because consumer is still busy with the previous compilation
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D3.scala`))
-            .delayExecution(FiniteDuration(900, TimeUnit.MILLISECONDS))
-          _ <- waitUntilIteration(2)
+            .delayExecution(FiniteDuration(300, TimeUnit.MILLISECONDS))
+          _ <- waitUntilIteration(3)
           firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
-          _ <- waitUntilIteration(2)
+          _ <- waitUntilIteration(3)
           secondWatchedState <- Task(testValidLatestState)
           // Revert to change without macro calls, third compilation should happen
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`))
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`))
-          _ <- waitUntilIteration(3)
+          _ <- waitUntilIteration(4)
           thirdWatchedState <- Task(testValidLatestState)
         } yield {
           assert(firstWatchedState.status == ExitStatus.Ok)
