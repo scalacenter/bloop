@@ -23,7 +23,12 @@ import xsbti.compile.{JavaCompiler => XJavaCompiler, JavaTool => XJavaTool}
 import xsbti.compile.ClassFileManager
 import xsbti.{Logger => XLogger, Reporter => XReporter}
 import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.{AnalyzingCompiler, ZincLmUtil, ZincUtil}
+import sbt.internal.inc.{
+  AnalyzingCompiler,
+  ZincUtil,
+  BloopZincLibraryManagement,
+  BloopComponentCompiler
+}
 import sbt.internal.inc.javac.{
   DiagnosticsReporter,
   JavaTools,
@@ -71,19 +76,19 @@ final class CompilerCache(
       scalaInstance: ScalaInstance,
       componentProvider: ComponentProvider
   ): AnalyzingCompiler = {
-    val bridgeSources = ZincInternals.getModuleForBridgeSources(scalaInstance)
-    val bridgeId = ZincInternals.getBridgeComponentId(bridgeSources, scalaInstance)
+    val bridgeSources = BloopComponentCompiler.getModuleForBridgeSources(scalaInstance)
+    val bridgeId = BloopComponentCompiler.getBridgeComponentId(bridgeSources, scalaInstance)
     componentProvider.component(bridgeId) match {
       case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar)
       case _ =>
-        ZincLmUtil.scalaCompiler(
+        BloopZincLibraryManagement.scalaCompiler(
           scalaInstance,
           BloopComponentsLock,
           componentProvider,
           Some(Paths.getCacheDirectory("bridge-cache").toFile),
-          DependencyResolution.getEngine(userResolvers),
           bridgeSources,
-          retrieveDir.toFile
+          retrieveDir.toFile,
+          logger
         )
     }
   }

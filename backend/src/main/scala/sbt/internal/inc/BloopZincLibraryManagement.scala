@@ -15,7 +15,7 @@ import sbt.internal.inc.classpath.ClassLoaderCache
 import xsbti._
 import xsbti.compile._
 
-object ZincLmUtil {
+object BloopZincLibraryManagement {
   import xsbti.compile.ScalaInstance
 
   /**
@@ -28,20 +28,17 @@ object ZincLmUtil {
       globalLock: GlobalLock,
       componentProvider: ComponentProvider,
       secondaryCacheDir: Option[File],
-      dependencyResolution: DependencyResolution,
       compilerBridgeSource: ModuleID,
-      scalaJarsTarget: File
+      scalaJarsTarget: File,
+      logger: _root_.bloop.logging.Logger
   ): AnalyzingCompiler = {
-    val compilerBridgeProvider = ZincComponentCompiler.interfaceProvider(
+    val compilerBridgeProvider = BloopComponentCompiler.interfaceProvider(
       compilerBridgeSource,
-      new ZincComponentManager(globalLock, componentProvider, secondaryCacheDir),
-      dependencyResolution,
-      scalaJarsTarget
+      new BloopComponentManager(globalLock, componentProvider, secondaryCacheDir),
+      scalaJarsTarget,
+      logger
     )
     val loader = Some(new ClassLoaderCache(new URLClassLoader(new Array(0))))
     new AnalyzingCompiler(scalaInstance, compilerBridgeProvider, _ => (), loader)
   }
-
-  def getDefaultBridgeModule(scalaVersion: String): ModuleID =
-    ZincComponentCompiler.getDefaultBridgeModule(scalaVersion)
 }
