@@ -446,13 +446,12 @@ object BuildImplementation {
 
         val generate = { (changedFiles: Set[File]) =>
           state.log.info(s"Generating bloop configuration files for ${projectDir}")
-          val cmdBase = {
+          val cmd = {
             val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
-            if (isWindows && isGithubAction) "sh" :: "sbt" :: Nil
-            else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil
-            else "sbt" :: Nil
+            if (isWindows && isGithubAction) "sh" :: "-c" :: "sbt bloopInstall" :: Nil
+            else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: "bloopInstall" :: Nil
+            else "sbt" :: "bloopInstall" :: Nil
           }
-          val cmd = cmdBase ::: List("bloopInstall")
           val exitGenerate = Process(cmd, projectDir).!
           if (exitGenerate != 0)
             throw new sbt.MessageOnlyException(
