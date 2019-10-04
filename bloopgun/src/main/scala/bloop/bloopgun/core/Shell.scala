@@ -112,14 +112,13 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       cmd0: List[String],
       attachTerminal: Boolean
   ): List[String] = {
+    val isJavaCmd = cmd0.headOption.exists(_ == "java")
     if (Environment.isWindows && !Environment.isCygwin) {
-      // Interpret all commands in Windows except java (used in tests) which causes
-      // long classpath issues, see https://github.com/sbt/sbt-native-packager/issues/72
-      if (cmd0.headOption.exists(_.startsWith("java"))) cmd0
-      else List("cmd.exe", "/C") ++ cmd0
+      if (isJavaCmd) cmd0 else List("cmd.exe", "/C") ++ cmd0
     } else {
-      if (!runWithInterpreter && !attachTerminal) cmd0
-      else {
+      if (!runWithInterpreter && !attachTerminal) {
+        if (isJavaCmd) cmd0 else "sh" :: cmd0
+      } else {
         val cmd = if (attachTerminal) s"(${cmd0.mkString(" ")}) </dev/tty" else cmd0.mkString(" ")
         List("sh", "-c", cmd)
       }

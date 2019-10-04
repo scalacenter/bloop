@@ -50,7 +50,7 @@ object ServerStatus {
         val defaultBlpServer = clientPath.getParent.resolve("blp-server")
         if (Files.exists(defaultBlpServer)) {
           logger.info(Feedback.DetectedBloopInstallation)
-          Some(AvailableAtPath(defaultBlpServer))
+          Some(AvailableAtPath(defaultBlpServer.toRealPath()))
         } else {
           logger.debug(s"Missing `blp-server` executable at $defaultBlpServer")
           None
@@ -61,7 +61,7 @@ object ServerStatus {
         val blpServerUnderHome = Environment.defaultBloopDirectory.resolve("blp-server")
         if (Files.exists(blpServerUnderHome)) {
           logger.info(Feedback.DetectedBloopInstallation)
-          Some(AvailableAtPath(blpServerUnderHome))
+          Some(AvailableAtPath(blpServerUnderHome.toRealPath()))
         } else {
           logger.debug(s"Missing `blp-server` executable at $blpServerUnderHome")
           None
@@ -79,7 +79,7 @@ object ServerStatus {
             val serverLocationFromPath = Paths.get(outputPath)
             if (Files.exists(serverLocationFromPath)) {
               if (Files.size(serverLocationFromPath) == 0L) keepOnSearchForServer
-              else Some(AvailableAtPath(serverLocationFromPath))
+              else Some(AvailableAtPath(serverLocationFromPath.toRealPath()))
             } else Some(AvailableWithCommand(List("blp-server")))
           case StatusCommand(errorCode, errorOutput0) =>
             val errorOutput = if (errorOutput0.isEmpty) errorOutput0 else s": $errorOutput0"
