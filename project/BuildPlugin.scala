@@ -447,7 +447,7 @@ object BuildImplementation {
         val generate = { (changedFiles: Set[File]) =>
           state.log.info(s"Generating bloop configuration files for ${projectDir}")
           val cmdBase = {
-            val isGithubAction = sys.env.get("GITHUB_WORKFLOW").isEmpty
+            val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
             if (isWindows && isGithubAction) "sh" :: "sbt" :: Nil
             else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: Nil
             else "sbt" :: Nil
