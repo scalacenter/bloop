@@ -12,7 +12,7 @@ import xsbti.GlobalLock
 import java.io.File
 import java.util.concurrent.Callable
 import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.ZincComponentManager
+import sbt.internal.inc.BloopComponentManager
 import sbt.internal.inc.IfMissing
 import scala.util.Failure
 import scala.util.Success
@@ -20,6 +20,7 @@ import bloop.ComponentLock
 import bloop.SemanticDBCacheLock
 import java.nio.file.Path
 import coursier.error.CoursierError
+import sbt.internal.inc.BloopComponentCompiler
 
 object SemanticDBCache {
   @volatile private var latestResolvedSemanticDB: Path = null
@@ -31,8 +32,9 @@ object SemanticDBCache {
     val organization = "org.scalameta"
     val module = s"semanticdb-scalac_$scalaVersion"
     val semanticDBId = s"$organization.$module.$version"
-    val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
-    val manager = new ZincComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
+    val provider =
+      BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
+    val manager = new BloopComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
 
     def attemptResolution: Either[String, AbsolutePath] = {
       import bloop.engine.ExecutionContext.ioScheduler

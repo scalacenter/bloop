@@ -26,7 +26,7 @@ import xsbti.ArtifactInfo.SbtOrganization
  * filesystem. This is used for compiled source jars so that the compilation need not be repeated
  * for other projects on the same machine.
  */
-class ZincComponentManager(
+class BloopComponentManager(
     globalLock: GlobalLock,
     provider: ComponentProvider,
     secondaryCacheDir: Option[File]
@@ -67,7 +67,7 @@ class ZincComponentManager(
   def file(id: String)(ifMissing: IfMissing): File = {
     files(id)(ifMissing).toList match {
       case x :: Nil => x
-      case xs       => invalid(s"Expected single file for component '$id', found: ${xs.mkString(", ")}")
+      case xs => invalid(s"Expected single file for component '$id', found: ${xs.mkString(", ")}")
     }
   }
 
@@ -107,11 +107,11 @@ class ZincComponentManager(
   }
 
   private def secondaryCacheFile(id: String, dir: File): File = {
-    new File(new File(dir, SbtOrganization), s"$id-${ZincComponentManager.stampedVersion}.jar")
+    new File(new File(dir, SbtOrganization), s"$id-${BloopComponentManager.stampedVersion}.jar")
   }
 }
 
-object ZincComponentManager {
+object BloopComponentManager {
   lazy val (version, timestamp) = {
     val properties = ResourceLoader.getPropertiesFor("/incrementalcompiler.version.properties")
     (properties.getProperty("version"), properties.getProperty("timestamp"))
