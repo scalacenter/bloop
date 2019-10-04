@@ -7,15 +7,9 @@ import sbt.librarymanagement._
 import sbt.librarymanagement.ivy._
 import coursier.core.Repository
 import coursier.error.CoursierError
+import coursier.{Dependency, Attributes, Type, Classifier, Module, Fetch, Repositories}
 
 object DependencyResolution {
-  private final val BloopResolvers =
-    Vector(Resolver.defaultLocal, Resolver.mavenCentral, Resolver.sonatypeRepo("staging"))
-  private[bloop] def getEngine(userResolvers: List[Resolver]): DependencyResolution = {
-    val resolvers = if (userResolvers.isEmpty) BloopResolvers else userResolvers.toVector
-    val configuration = InlineIvyConfiguration().withResolvers(resolvers)
-    IvyDependencyResolution(configuration)
-  }
 
   /**
    * Resolve the specified module and get all the files. By default, the local ivy
@@ -34,9 +28,10 @@ object DependencyResolution {
       module: String,
       version: String,
       logger: Logger,
+      resolveSources: Boolean = false,
       additionalRepos: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
-    resolveWithErrors(organization, module, version, logger, additionalRepos) match {
+    resolveWithErrors(organization, module, version, logger, resolveSources, additionalRepos) match {
       case Right(paths) => paths
       case Left(error) => throw error
     }
@@ -59,18 +54,42 @@ object DependencyResolution {
       module: String,
       version: String,
       logger: Logger,
+      resolveSources: Boolean = false,
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
-    import coursier._
     logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)
-    val dependency = Dependency(Module(org, moduleName), version)
+    val attributes =
+      if (!resolveSources) Attributes() else Attributes(Type.empty, Classifier.sources)
+    val dependency = Dependency(Module(org, moduleName), version, attributes = attributes)
+    resolveDependenciesWithErrors(List(dependency), logger, resolveSources, additionalRepositories)
+  }
+
+  /**
+   * Resolve the specified dependencies and get all the files. By default, the
+   * local ivy repository and Maven Central are included in resolution. This
+   * resolution is pure and returns either some errors or some resolved jars.
+   *
+   * @param dependencies           Dependencies to resolve.
+   * @param logger                 A logger that receives messages about resolution.
+   * @param additionalRepositories Additional repositories to include in resolition.
+   * @return Either a coursier error or all the resolved files.
+   */
+  def resolveDependenciesWithErrors(
+      dependencies: Seq[Dependency],
+      logger: Logger,
+      resolveSources: Boolean = false,
+      additionalRepositories: Seq[Repository] = Nil
+  )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
     var fetch = Fetch()
-      .addDependencies(dependency)
+      .withDependencies(dependencies)
       .addRepositories(Repositories.bintray("scalacenter", "releases"))
+    if (resolveSources) {
+      fetch = fetch.addArtifactTypes(Type.source, Type.jar)
+    }
     for (repository <- additionalRepositories) {
-      fetch.addRepositories(repository)
+      fetch = fetch.addRepositories(repository)
     }
 
     try Right(fetch.run().map(f => AbsolutePath(f.toPath)).toArray)

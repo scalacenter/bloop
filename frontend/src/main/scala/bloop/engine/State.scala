@@ -8,6 +8,7 @@ import bloop.io.Paths
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 import bloop.data.WorkspaceSettings
+import sbt.internal.inc.BloopComponentCompiler
 
 /**
  * Represents the state for a given build.
@@ -45,7 +46,8 @@ object State {
     if (singleCompilerCache != null) singleCompilerCache
     else {
       import sbt.internal.inc.bloop.ZincInternals
-      val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
+      val provider =
+        BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("components"))
       val jars = Paths.getCacheDirectory("scala-jars")
       singleCompilerCache = new CompilerCache(provider, jars, logger, Nil)
       singleCompilerCache

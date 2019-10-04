@@ -26,6 +26,7 @@ import monix.eval.Task
 import monix.execution.misc.NonFatal
 import sbt.internal.inc.bloop.ZincInternals
 import bloop.engine.tasks.compilation.CompileGatekeeper
+import sbt.internal.inc.BloopComponentCompiler
 
 object CommunityBuild
     extends CommunityBuild(
@@ -82,7 +83,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
   val compilerCache: CompilerCache = {
     import bloop.io.Paths
     val jars = Paths.getCacheDirectory("scala-jars")
-    val provider = ZincInternals.getComponentProvider(Paths.getCacheDirectory("components"))
+    val provider =
+      BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("components"))
     new CompilerCache(provider, jars, NoopLogger, Nil)
   }
 
