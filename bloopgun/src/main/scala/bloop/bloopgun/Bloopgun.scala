@@ -423,7 +423,7 @@ class BloopgunCli(
         val fullPath = path.toAbsolutePath().toString()
         if (Files.isExecutable(path.toRealPath())) {
           val jargs = finalJvmOpts(Nil).map(arg => s"-J$arg")
-          val cmd = fullPath :: (jargs ++ serverArgs)
+          val cmd = fullPath :: (serverArgs ++ jargs)
           shell.deriveCommandForPlatform(cmd, attachTerminal = false)
         } else {
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
@@ -435,7 +435,7 @@ class BloopgunCli(
         case AvailableAtPath(path) => deriveCmdForPath(path) -> usedExtraJvmOpts
         case AvailableWithCommand(cmd) =>
           val jargs = finalJvmOpts(Nil).map(arg => s"-J$arg")
-          (cmd ++ jargs ++ serverArgs) -> usedExtraJvmOpts
+          (cmd ++ serverArgs ++ jargs) -> usedExtraJvmOpts
         case ResolvedAt(classpath) =>
           val delimiter = java.io.File.pathSeparator
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
@@ -461,7 +461,7 @@ class BloopgunCli(
 
     def sysproc(cmd: List[String]): StatusCommand = {
       logger.info(Feedback.startingBloopServer(config))
-      logger.debug(s"-> Command: $cmd")
+      logger.info(s"-> Command: $cmd")
 
       // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
       val process = new ProcessBuilder()
@@ -473,6 +473,7 @@ class BloopgunCli(
         process.redirectError()
       }
 
+      process.redirectErrorStream()
       val started = process.start()
       val is = started.getInputStream()
       val code = started.waitFor()
@@ -491,7 +492,7 @@ class BloopgunCli(
     val elapsedFirstCmd = end - start
 
     // Don't run server twice, exit was successful or user args already contain performance-sensitive args
-    if (firstStatus.code == 0 || usedExtraJvmOpts) firstCmd -> firstStatus
+    if (firstStatus.code == 0 || !usedExtraJvmOpts) firstCmd -> firstStatus
     else {
       val isExitRelatedToPerformanceSensitiveOpts = {
         performanceSensitiveOpts.exists(firstStatus.output.contains(_)) ||

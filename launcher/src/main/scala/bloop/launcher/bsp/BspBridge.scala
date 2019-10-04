@@ -96,7 +96,7 @@ final class BspBridge(
     // For Windows, pick TCP until we fix https://github.com/scalacenter/bloop/issues/281
     if (useTcp || Environment.isWindows) {
       // We draw a random port from a "safe" tcp port range...
-      val randomPort = Shell.portNumberWithin(17812, 18222)
+      val randomPort = Shell.portNumberWithin(11322, 45411)
       val cmd = List("bsp", "--protocol", "tcp", "--port", randomPort.toString)
       (cmd, BspConnection.Tcp("127.0.0.1", randomPort))
     } else {
@@ -112,7 +112,7 @@ final class BspBridge(
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
     println("Waiting 50ms until the bsp connection is up...", out)
     Thread.sleep(50)
-    if (attempts == 100) {
+    if (attempts == 200) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
       printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
       None

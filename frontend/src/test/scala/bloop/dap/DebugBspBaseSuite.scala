@@ -44,7 +44,8 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       userComputationScheduler,
       clientClassesRootDir,
       clientName,
-      bloopExtraParams
+      bloopExtraParams,
+      compileStartPromises
     )
   }
 }

@@ -438,7 +438,9 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       ioScheduler
     )
 
-    val bspServerStarted = bspServer.runAsync(ioScheduler)
+    val bspServerStarted = bspServer
+      .doOnFinish(_ => Task(subject.onComplete()))
+      .runAsync(ioScheduler)
     val stringifiedDiagnostics = new ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder]()
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream

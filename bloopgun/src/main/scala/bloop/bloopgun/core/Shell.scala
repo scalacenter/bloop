@@ -184,11 +184,11 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       socket.setTcpNoDelay(true)
       import java.net.InetAddress
       import java.net.InetSocketAddress
+      logger.info("Attempting a connection to the server...")
       socket.connect(new InetSocketAddress(config.userOrDefaultHost, config.userOrDefaultPort))
       socket.isConnected()
     } catch {
       case NonFatal(t) =>
-        logger.info("Attempting a connection to the server...")
         logger.debug(s"Connection to port $config failed with '${t.getMessage()}'")
         false
     } finally {

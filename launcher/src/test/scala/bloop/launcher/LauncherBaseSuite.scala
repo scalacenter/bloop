@@ -308,7 +308,7 @@ abstract class LauncherBaseSuite(
         case Some(LauncherStatus.SuccessfulRun) => ()
         case unexpected =>
           System.err.println(launcherLogs.mkString(System.lineSeparator))
-          fail(s"Expected 'SuccessfulRun', obtained ${unexpected}! Printing logs:")
+          fail(s"Expected 'SuccessfulRun', obtained ${unexpected}!")
       }
     }
   }

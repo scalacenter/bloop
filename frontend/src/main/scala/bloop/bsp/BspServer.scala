@@ -233,14 +233,7 @@ object BspServer {
         .liftByOperator(new PumpOperator(bufferedObserver, consumerFuture))
         .completedL
         .doOnFinish(_ => cancelWhenStreamIsClosed)
-        .flatMap { _ =>
-          Task.fromFuture(consumerFuture).map { latestState =>
-            // Complete the states observable to signal exit on consumers
-            externalObserver.foreach(_.onComplete())
-            // Return the latest state
-            latestState
-          }
-        }
+        .flatMap(_ => Task.fromFuture(consumerFuture))
 
       // Make sure we only start listening when the subscription has started,
       // there is a race condition and we might miss the initialization messages

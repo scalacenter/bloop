@@ -33,8 +33,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
         val projects = List(`A`)
         val state = loadState(workspace, projects, logger)
         val compiledState = state.compile(`A`)
-        try Predef.assert(compiledState.status == ExitStatus.Ok)
-        finally logger.dump()
+        Predef.assert(compiledState.status == ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
       }
     }
