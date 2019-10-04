@@ -393,21 +393,21 @@ object BuildImplementation {
     private final val kafka =
       uri("https://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
 
+    // Currently unused, we leave it here because we might need it in the future
+    private def cloneKafka(state: State): State = {
+      val staging = getStagingDirectory(state)
+      sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
+        case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
+        case None =>
+          state.log.error("Kafka git reference is invalid and cannot be cloned"); state
+      }
+    }
+
     /** This onLoad hook will clone any repository required for the build tool integration tests.
      * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
-        val staging = getStagingDirectory(state)
-        // Side-effecting operation to clone kafka if it hasn't been cloned yet
-        val newState = {
-          sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
-            case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
-            case None =>
-              state.log.error("Kafka git reference is invalid and cannot be cloned"); state
-          }
-        }
-
-        exportProjectsInTestResources(newState, enableCache = true)
+        exportProjectsInTestResources(state, enableCache = true)
       }
     }
 
