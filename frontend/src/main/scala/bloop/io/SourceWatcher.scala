@@ -20,6 +20,9 @@ import monix.reactive.{MulticastStrategy, Observable}
 import monix.execution.misc.NonFatal
 import monix.execution.atomic.AtomicBoolean
 import monix.reactive.OverflowStrategy
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.nio.file.attribute.BasicFileAttributes
 
 final class SourceWatcher private (
     projectNames: List[String],
@@ -58,12 +61,55 @@ final class SourceWatcher private (
         //logger.trace(e)
       }
 
+      private[this] val scheduledResubmissions = new ConcurrentHashMap[Path, Cancelable]()
       override def onEvent(event: DirectoryChangeEvent): Unit = {
         val targetFile = event.path()
         val targetPath = targetFile.toFile.getAbsolutePath()
-        if (Files.isRegularFile(targetFile) &&
+        val attrs = Files.readAttributes(targetFile, classOf[BasicFileAttributes])
+        if (attrs.isRegularFile &&
             (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
-          observer.onNext(event)
+          if (attrs.size != 0L) {
+            val resubmission = scheduledResubmissions.remove(targetFile)
+            if (resubmission != null) resubmission.cancel()
+            observer.onNext(event)
+          } else {
+            /*
+             * This is a workaround for an issue that happens when using
+             * "Remote Development" in VS Code. When the user runs the "Save
+             * file" action in their remote frontend, the current
+             * implementation in the server seems to cause two side effects:
+             *
+             * 1. First, it empties out the file with size == 0.
+             * 2. Then, it fills in the new contents of the saved file.
+             *
+             * One would expect that the save action is atomic, but in this
+             * scenario it isn't. Therefore, sometimes Metals sends a compile
+             * request between the two side effects, meaning it can get to
+             * compile the project with an empty source file which usually
+             * generates errors. If the file watcher is running in the
+             * background, it acts on the first side effect and deduplicates
+             * from BSP, the errors will be shown in the terminal. This
+             * workaround here waits 500ms before acting on a MODIFY event for
+             * a file with size == 0, which means the file watcher will not act
+             * on the first side effect but the second. If the second was never
+             * to happen after 500ms, then the first side effect would be
+             * resubmitted and would generate a build action.
+             */
+            val scheduled = ExecutionContext.ioScheduler.scheduleOnce(
+              500,
+              TimeUnit.MILLISECONDS,
+              new Runnable {
+                def run(): Unit = {
+                  scheduledResubmissions.remove(targetFile)
+                  if (Files.size(targetFile) == 0) {
+                    observer.onNext(event)
+                  }
+                  ()
+                }
+              }
+            )
+            scheduledResubmissions.putIfAbsent(targetFile, scheduled)
+          }
           ()
         }
       }

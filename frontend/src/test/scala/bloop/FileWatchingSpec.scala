@@ -155,6 +155,93 @@ object FileWatchingSpec extends BaseSuite {
     }
   }
 
+  test("don't act on MODIFY events with size == 0 right away") {
+    TestUtil.withinWorkspace { workspace =>
+      import ExecutionContext.ioScheduler
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |class A {
+            |  def foo(s: String) = s.toString
+            |}
+          """.stripMargin
+
+        val `B.scala` =
+          """/B.scala
+            |object B extends A
+          """.stripMargin
+
+        val `A2.scala` =
+          """/A.scala
+          """.stripMargin
+
+        val `A3.scala` =
+          """/A.scala
+            |class A {
+            |  def foo2(s: String) = s.toString
+            |}
+          """.stripMargin
+      }
+
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val `B` = TestProject(workspace, "b", List(Sources.`B.scala`), List(`A`))
+      val projects = List(`A`, `B`)
+
+      val initialState = loadState(workspace, projects, new RecordingLogger())
+      val compiledState = initialState.compile(`B`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val (logObserver, logsObservable) =
+        Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
+      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+
+      val futureWatchedCompiledState =
+        compiledState.withLogger(logger).compileHandle(`B`, watch = true)
+
+      val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`B`))}"
+      def waitUntilIteration(totalIterations: Int): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg)
+
+      def testValidLatestState: TestState = {
+        val state = compiledState.getLatestSavedStateGlobally()
+        assert(state.status == ExitStatus.Ok)
+        assertValidCompilationState(state, projects)
+        state
+      }
+
+      TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
+        for {
+          _ <- waitUntilIteration(1)
+          initialWatchedState <- Task(testValidLatestState)
+          // Write two events, notifications should be buffered and trigger one compilation
+          _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
+          // Write another change with a delay to simulate remote development in VS Code
+          _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A3.scala`))
+            .delayExecution(FiniteDuration(250, TimeUnit.MILLISECONDS))
+          _ <- waitUntilIteration(2)
+          firstWatchedState <- Task(testValidLatestState)
+          _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
+          _ <- waitUntilIteration(3)
+          secondWatchedState <- Task(compiledState.getLatestSavedStateGlobally())
+        } yield {
+          Predef.assert(firstWatchedState.status == ExitStatus.Ok)
+          Predef.assert(secondWatchedState.status == ExitStatus.Ok)
+          val targetBPath = TestUtil.universalPath("b/src/B.scala")
+          assertNoDiff(
+            logger.renderErrors(exceptContaining = "Failed to compile"),
+            s"""|[E1] ${targetBPath}:1:18
+                |     not found: type A
+                |     L1: object B extends A
+                |                          ^
+                |$targetBPath: L1 [E1]
+                |""".stripMargin
+          )
+        }
+      }
+    }
+  }
+
   def waitUntilWatchIteration(
       logsObservable: Observable[(String, String)],
       totalIterations: Int,
