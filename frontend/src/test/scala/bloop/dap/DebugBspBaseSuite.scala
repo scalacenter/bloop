@@ -10,6 +10,11 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 
 import monix.execution.Scheduler
 
+import ch.epfl.scala.bsp
+
+import scala.collection.mutable
+import scala.concurrent.Promise
+
 abstract class DebugBspBaseSuite extends BspBaseSuite {
   protected val debugDefaultScheduler: Scheduler =
     TestSchedulers.async("debug-bsp-default", threads = 5)
@@ -25,7 +30,8 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       userComputationScheduler: Option[Scheduler] = None,
       clientClassesRootDir: Option[AbsolutePath] = None,
       clientName: String = "test-bloop-client",
-      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
+      compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
   ): UnmanagedBspTestState = {
     val ioScheduler = userIOScheduler.orElse(Some(debugDefaultScheduler))
     super.openBspConnection(
@@ -38,7 +44,8 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       userComputationScheduler,
       clientClassesRootDir,
       clientName,
-      bloopExtraParams
+      bloopExtraParams,
+      compileStartPromises
     )
   }
 }

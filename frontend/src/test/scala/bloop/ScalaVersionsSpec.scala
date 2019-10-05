@@ -33,13 +33,13 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
         val projects = List(`A`)
         val state = loadState(workspace, projects, logger)
         val compiledState = state.compile(`A`)
-        assert(compiledState.status == ExitStatus.Ok)
+        Predef.assert(compiledState.status == ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
       }
     }
 
     val `2.10` = compileProjectFor("2.10.7")
-    val `2.11` = compileProjectFor("2.11.11")
+    val `2.11` = compileProjectFor("2.11.12")
     val `2.12` = compileProjectFor("2.12.9")
     val `2.13` = compileProjectFor("2.13.0")
     val all = {

@@ -39,6 +39,7 @@ import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 import bloop.data.WorkspaceSettings
 import bloop.data.LoadedProject
+import sbt.internal.inc.BloopComponentCompiler
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -57,7 +58,7 @@ object TestUtil {
   }
 
   final val componentProvider =
-    ZincInternals.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
+    BloopComponentCompiler.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
 
   private var singleCompilerCache: CompilerCache = null
   def getCompilerCache(logger: Logger): CompilerCache = synchronized {
