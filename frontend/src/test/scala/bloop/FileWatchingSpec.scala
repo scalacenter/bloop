@@ -17,6 +17,7 @@ import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
+import monix.execution.misc.NonFatal
 
 object FileWatchingSpec extends BaseSuite {
   test("simulate an incremental compiler session with file watching enabled") {
@@ -116,8 +117,9 @@ object FileWatchingSpec extends BaseSuite {
           // Write two events, notifications should be buffered and trigger one compilation
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
+          // Write another even, which should be processed immediately after the previous batch
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D3.scala`))
-            .delayExecution(FiniteDuration(150, TimeUnit.MILLISECONDS))
+            .delayExecution(FiniteDuration(600, TimeUnit.MILLISECONDS))
           _ <- waitUntilIteration(3)
           firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
@@ -245,17 +247,29 @@ object FileWatchingSpec extends BaseSuite {
       totalIterations: Int,
       targetMsg: String
   ): Task[Unit] = {
+
     def count(ps: List[(String, String)]) = ps.count(_._2.contains(targetMsg))
 
     def waitForIterationFor(duration: FiniteDuration): Task[Unit] = {
       logsObservable
         .takeByTimespan(duration)
         .toListL
-        .map(ps => assert(totalIterations == count(ps)))
+        .map { logs =>
+          val obtainedIterations = count(logs)
+          try assert(totalIterations == obtainedIterations)
+          catch {
+            case NonFatal(t) =>
+              val output = logs.map {
+                case (level, log) => s"[$level] $log"
+              }
+              System.err.println(output.mkString(System.lineSeparator()))
+          }
+
+        }
     }
 
     waitForIterationFor(FiniteDuration(1500, "ms"))
-      .onErrorFallbackTo(waitForIterationFor(FiniteDuration(3000, "ms")))
+      .onErrorFallbackTo(waitForIterationFor(FiniteDuration(5000, "ms")))
   }
 
   test("cancel file watcher") {
