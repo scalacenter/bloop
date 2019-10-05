@@ -116,10 +116,8 @@ object FileWatchingSpec extends BaseSuite {
           // Write two events, notifications should be buffered and trigger one compilation
           _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
-          // Write another change with a delay, no recompilation should happen
-          // because consumer is still busy with the previous compilation
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D3.scala`))
-            .delayExecution(FiniteDuration(300, TimeUnit.MILLISECONDS))
+            .delayExecution(FiniteDuration(150, TimeUnit.MILLISECONDS))
           _ <- waitUntilIteration(3)
           firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
