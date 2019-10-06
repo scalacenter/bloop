@@ -243,12 +243,18 @@ object ReleaseUtils {
       origin: FormulaOrigin,
       installSha: String
   ): String = {
-    val source = archPackageSource(origin)
     // Note: pkgver must only contain letters, numbers and periods to be valid
+    val safeVersion = version.replace('-', '.').replace('+', '.').replace(' ', '.')
+    
+    // Replace "install.py" by a unique name to avoid conflicts with the other packages
+    // and caching problems with older versions of the bloop package.
+    val script = s"install-bloop-$safeVersion.py"
+    val source = script + "::" + archPackageSource(origin)
+    
     s"""# Maintainer: Guillaume Raffin <theelectronwill@gmail.com>
        |# Generator: Bloop release utilities <https://github.com/scalacenter/bloop>
        |pkgname=bloop
-       |pkgver=${version.replace('-', '.').replace('+', '.')}
+       |pkgver=$safeVersion
        |pkgrel=1
        |pkgdesc="Bloop gives you fast edit/compile/test workflows for Scala."
        |arch=(any)
@@ -259,7 +265,7 @@ object ReleaseUtils {
        |sha256sums=('$installSha')
        |
        |build() {
-       |  python ./install.py --dest "$$srcdir/bloop"
+       |  python ./$script --dest "$$srcdir/bloop"
        |  # fix paths
        |  sed -i "s|$$srcdir/bloop|/usr/bin|g" bloop/systemd/bloop.service
        |  sed -i "s|$$srcdir/bloop/xdg|/usr/share/pixmaps|g" bloop/xdg/bloop.desktop
