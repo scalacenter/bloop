@@ -254,7 +254,7 @@ object ReleaseUtils {
        |arch=(any)
        |url="https://scalacenter.github.io/bloop/"
        |license=('Apache')
-       |depends=('scala' 'python')
+       |depends=('java-environment>=8' 'python')
        |source=("$source")
        |sha256sums=('$installSha')
        |
@@ -309,7 +309,7 @@ object ReleaseUtils {
        |url = https://scalacenter.github.io/bloop/
        |arch = any
        |license = Apache
-       |depends = scala
+       |depends = java-environment>=8
        |depends = python
        |source = $source
        |sha256sums = $installSha
