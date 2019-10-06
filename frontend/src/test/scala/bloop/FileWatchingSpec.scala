@@ -79,6 +79,22 @@ object FileWatchingSpec extends BaseSuite {
             |  SleepMacro.sleep()
             |}
           """.stripMargin
+
+        val `D4.scala` =
+          """/D.scala
+            |object D extends A {
+            |  println("D4")
+            |  SleepMacro.sleep()
+            |}
+          """.stripMargin
+
+        val `D5.scala` =
+          """/D.scala
+            |object D extends A {
+            |  println("D5")
+            |  SleepMacro.sleep()
+            |}
+          """.stripMargin
       }
 
       val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
@@ -100,8 +116,8 @@ object FileWatchingSpec extends BaseSuite {
         compiledState.withLogger(logger).compileHandle(`C`, watch = true)
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`C`))}"
-      def waitUntilIteration(totalIterations: Int): Task[Unit] =
-        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg)
+      def waitUntilIteration(totalIterations: Int, duration: Option[Long] = None): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, duration)
 
       def testValidLatestState: TestState = {
         val state = compiledState.getLatestSavedStateGlobally()
@@ -110,24 +126,38 @@ object FileWatchingSpec extends BaseSuite {
         state
       }
 
-      TestUtil.await(FiniteDuration(12, TimeUnit.SECONDS)) {
+      TestUtil.await(FiniteDuration(12, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
         for {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(testValidLatestState)
+
           // Write two events, notifications should be buffered and trigger one compilation
-          _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`))
-          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`))
-          // Write another even, which should be processed immediately after the previous batch
+          _ <- Task {
+            writeFile(`C`.srcFor("C.scala"), Sources.`C2.scala`)
+            writeFile(`C`.srcFor("D.scala"), Sources.`D2.scala`)
+          }
+
+          // Write other events that should be processed immediately after the previous batch
           _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D3.scala`))
-            .delayExecution(FiniteDuration(600, TimeUnit.MILLISECONDS))
-          _ <- waitUntilIteration(3)
+            .delayExecution(FiniteDuration(200, TimeUnit.MILLISECONDS))
+          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D4.scala`))
+            .delayExecution(FiniteDuration(100, TimeUnit.MILLISECONDS))
+          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D5.scala`))
+            .delayExecution(FiniteDuration(100, TimeUnit.MILLISECONDS))
+
+          _ <- waitUntilIteration(3, Some(6000L))
           firstWatchedState <- Task(testValidLatestState)
+
           _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
+
           _ <- waitUntilIteration(3)
           secondWatchedState <- Task(testValidLatestState)
+
           // Revert to change without macro calls, third compilation should happen
-          _ <- Task(writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`))
-          _ <- Task(writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`))
+          _ <- Task {
+            writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`)
+            writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`)
+          }
           _ <- waitUntilIteration(4)
           thirdWatchedState <- Task(testValidLatestState)
         } yield {
@@ -201,7 +231,7 @@ object FileWatchingSpec extends BaseSuite {
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`B`))}"
       def waitUntilIteration(totalIterations: Int): Task[Unit] =
-        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg)
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, None)
 
       def testValidLatestState: TestState = {
         val state = compiledState.getLatestSavedStateGlobally()
@@ -245,7 +275,8 @@ object FileWatchingSpec extends BaseSuite {
   def waitUntilWatchIteration(
       logsObservable: Observable[(String, String)],
       totalIterations: Int,
-      targetMsg: String
+      targetMsg: String,
+      initialDuration: Option[Long]
   ): Task[Unit] = {
 
     def count(ps: List[(String, String)]) = ps.count(_._2.contains(targetMsg))
@@ -268,7 +299,7 @@ object FileWatchingSpec extends BaseSuite {
         }
     }
 
-    waitForIterationFor(FiniteDuration(1500, "ms"))
+    waitForIterationFor(FiniteDuration(initialDuration.getOrElse(1500L), "ms"))
       .onErrorFallbackTo(waitForIterationFor(FiniteDuration(5000, "ms")))
   }
 
@@ -301,7 +332,7 @@ object FileWatchingSpec extends BaseSuite {
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`A`))}"
       def waitUntilIteration(totalIterations: Int): Task[Unit] =
-        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg)
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, None)
 
       TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS)) {
         for {

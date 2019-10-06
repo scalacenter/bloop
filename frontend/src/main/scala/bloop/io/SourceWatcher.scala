@@ -191,12 +191,12 @@ final class SourceWatcher private (
      */
 
     import bloop.util.monix.{BloopBufferTimedObservable, BloopWhileBusyDropEventsAndSignalOperator}
-    val timespan = FiniteDuration(40, "ms")
+    val timespan = FiniteDuration(20, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       .liftByOperator(
         new BloopWhileBusyDropEventsAndSignalOperator(
-          (a: Seq[Seq[DirectoryChangeEvent]]) => a.flatten
+          (es: Seq[Seq[DirectoryChangeEvent]]) => es.flatten
         )
       )
       .consumeWith(fileEventConsumer)
