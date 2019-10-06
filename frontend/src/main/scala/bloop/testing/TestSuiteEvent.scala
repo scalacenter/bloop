@@ -33,12 +33,15 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   private type SuiteName = String
   private type TestName = String
   private type FailureMessage = String
+
+  protected var suitesTotal = 0
   protected var suitesDuration = 0L
   protected var suitesPassed = 0
   protected var suitesAborted = 0
   protected val testsFailedBySuite =
     mutable.SortedMap.empty[SuiteName, Map[TestName, FailureMessage]]
-  protected var suitesTotal = 0
+
+  private var totalTests = 0
 
   protected def formatMetrics(metrics: List[(Int, String)]): String = {
     val relevant = metrics.iterator.filter(_._1 > 0)
@@ -98,8 +101,9 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
 
         val previousFailedTests = testsFailedBySuite.getOrElse(testSuite, Map.empty)
         testsFailedBySuite += testSuite -> (previousFailedTests ++ currentFailedTests)
-      } else if (testsTotal <= 0) logger.info("No test suite was run")
-      else {
+      } else if (testsTotal <= 0) {
+        logger.info("No test suite was run")
+      } else {
         suitesPassed += 1
         logger.info(s"All tests in $testSuite passed")
       }
@@ -112,9 +116,16 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   }
 
   override def report(): Unit = {
+    // We want to show the following:
+    //
+
     // TODO: Shall we think of a better way to format this delimiter based on screen length?
-    logger.info("===============================================")
+    logger.info("")
     logger.info(s"Total duration: ${TimeFormat.readableMillis(suitesDuration)}")
+    logger.info("😎 ")
+
+    def error(msg: String): String = s"❌  $msg"
+    def success(msg: String): String = s"✅  $msg"
 
     if (suitesTotal == 0) {
       logger.info(s"No test suites were run.")
@@ -127,10 +138,11 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
         suitesAborted -> "aborted"
       )
 
+      // 👎
       logger.info(formatMetrics(metrics))
       if (testsFailedBySuite.nonEmpty) {
         logger.info("")
-        logger.info("Failed:")
+        logger.info("Failed: 👎")
         testsFailedBySuite.foreach {
           case (suiteName, failedTests) =>
             logger.info(s"- $suiteName:")

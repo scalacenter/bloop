@@ -67,12 +67,14 @@ object LoggingEventHandlerSpec extends BaseSuite {
          |Total duration: ???
          |2 failed
          |
-         |Failed:
+         |Total failures
          |- suite1:
-         | * failed.test1 - failure message1
-         | * failed.test2 - failure message2
+         |  failed.test1 - failure message1
+         |  failed.test2 - failure message2
          |- suite2:
-         | * failed.test3 - failure message1
+         |  failed.test3 - failure message1
+         |
+         |Total duration: 
          |===============================================
          |""".stripMargin
     )
