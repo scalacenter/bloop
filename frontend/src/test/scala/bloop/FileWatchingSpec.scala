@@ -126,7 +126,7 @@ object FileWatchingSpec extends BaseSuite {
         state
       }
 
-      TestUtil.await(FiniteDuration(12, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
+      TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
         for {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(testValidLatestState)
