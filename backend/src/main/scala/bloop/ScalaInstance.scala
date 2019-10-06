@@ -12,6 +12,7 @@ import bloop.internal.build.BloopScalaInfo
 import bloop.logging.{DebugFilter, Logger}
 
 import scala.util.control.NonFatal
+import sbt.internal.inc.BloopComponentCompiler
 
 final class ScalaInstance private (
     val organization: String,
@@ -29,8 +30,7 @@ final class ScalaInstance private (
   }
 
   /** Is this `ScalaInstance` using Dotty? */
-  def isDotty: Boolean =
-    organization == "ch.epfl.lamp" && sbt.internal.inc.ScalaInstance.isDotty(version)
+  def isDotty: Boolean = organization == "ch.epfl.lamp" && version.startsWith("0.")
 
   override lazy val loaderLibraryOnly: ClassLoader =
     new URLClassLoader(Array(libraryJar.toURI.toURL), ScalaInstance.bootClassLoader)

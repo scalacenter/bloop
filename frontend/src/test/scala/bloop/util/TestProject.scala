@@ -69,6 +69,8 @@ object TestProject {
       directDependencies: List[TestProject] = Nil,
       enableTests: Boolean = false,
       scalacOptions: List[String] = Nil,
+      scalaOrg: Option[String] = None,
+      scalaCompiler: Option[String] = None,
       scalaVersion: Option[String] = None,
       resources: List[String] = Nil,
       jvmConfig: Option[Config.JvmConfig] = None,
@@ -87,8 +89,11 @@ object TestProject {
 
     import bloop.engine.ExecutionContext.ioScheduler
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
+
+    val finalScalaOrg = scalaOrg.getOrElse("org.scala-lang")
+    val finalScalaCompiler = scalaCompiler.getOrElse("scala-compiler")
     val instance = scalaVersion
-      .map(v => ScalaInstance.apply("org.scala-lang", "scala-compiler", v, jars.toList, NoopLogger))
+      .map(v => ScalaInstance.apply(finalScalaOrg, finalScalaCompiler, v, jars.toList, NoopLogger))
       .getOrElse(TestUtil.scalaInstance)
 
     val allJars = instance.allJars.map(AbsolutePath.apply)
@@ -98,8 +103,8 @@ object TestProject {
     val javaEnv = JavaEnv.fromConfig(javaConfig)
     val setup = Config.CompileSetup.empty.copy(order = order)
     val scalaConfig = Config.Scala(
-      "org.scala-lang",
-      "scala-compiler",
+      finalScalaOrg,
+      finalScalaCompiler,
       version,
       scalacOptions,
       allJars.map(_.underlying).toList,

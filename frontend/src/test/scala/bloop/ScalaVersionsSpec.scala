@@ -12,24 +12,42 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
   test("cross-compile build to latest Scala versions") {
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>
-        val sources = List(
-          """/main/scala/Foo.scala
-            |class Foo
-          """.stripMargin
-        )
+        val (compilerOrg, compilerArtifact) = {
+          if (scalaVersion.startsWith("0.")) "ch.epfl.lamp" -> "dotty-compiler_0.20"
+          else "org.scala-lang" -> "scala-compiler"
+        }
+
         def jarsForScalaVersion(version: String, logger: RecordingLogger) = {
           ScalaInstance
-            .resolve("org.scala-lang", "scala-compiler", version, logger)(
-              ExecutionContext.ioScheduler
-            )
+            .resolve(compilerOrg, compilerArtifact, version, logger)(ExecutionContext.ioScheduler)
             .allJars
             .map(AbsolutePath(_))
         }
 
+        val source = {
+          if (compilerArtifact.contains("dotty-compiler")) {
+            """/main/scala/Foo.scala
+              |class Foo { val x: String | Int = 1 }
+            """.stripMargin
+          } else {
+            """/main/scala/Foo.scala
+              |class Foo
+            """.stripMargin
+          }
+        }
+
         val logger = new RecordingLogger(ansiCodesSupported = false)
         val jars = jarsForScalaVersion(scalaVersion, logger)
-        val `A` =
-          TestProject(workspace, "a", sources, scalaVersion = Some(scalaVersion), jars = jars)
+        val `A` = TestProject(
+          workspace,
+          "a",
+          List(source),
+          scalaOrg = Some(compilerOrg),
+          scalaCompiler = Some(compilerArtifact),
+          scalaVersion = Some(scalaVersion),
+          jars = jars
+        )
+
         val projects = List(`A`)
         val state = loadState(workspace, projects, logger)
         val compiledState = state.compile(`A`)
@@ -42,8 +60,9 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     val `2.11` = compileProjectFor("2.11.12")
     val `2.12` = compileProjectFor("2.12.9")
     val `2.13` = compileProjectFor("2.13.0")
+    val LatestDotty = compileProjectFor("0.20.0-bin-20191005-d67af24-NIGHTLY")
     val all = {
-      if (TestUtil.isJdk8) List(`2.10`, `2.11`, `2.12`, `2.13`)
+      if (TestUtil.isJdk8) List(`2.10`, `2.11`, `2.12`, `2.13`, LatestDotty)
       else List(`2.12`, `2.13`)
     }
 

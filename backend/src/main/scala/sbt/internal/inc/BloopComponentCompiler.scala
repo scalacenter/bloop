@@ -55,15 +55,16 @@ object BloopComponentCompiler {
       }
     }
 
-    val (organization, version) = scalaInstance match {
+    val (isDotty, organization, version) = scalaInstance match {
       case instance: BloopScalaInstance =>
-        if (instance.isDotty) instance.organization -> instance.version
-        else "ch.epfl.scala" -> latestVersion
-      case instance: ScalaInstance => "ch.epfl.scala" -> latestVersion
+        if (instance.isDotty) (true, instance.organization, instance.version)
+        else (false, "ch.epfl.scala", latestVersion)
+      case instance: ScalaInstance => (false, "ch.epfl.scala", latestVersion)
     }
 
     val bridgeId = compilerBridgeId(scalaInstance.version)
-    ModuleID(organization, bridgeId, version).withConfigurations(CompileConf).sources()
+    val module = ModuleID(organization, bridgeId, version).withConfigurations(CompileConf)
+    if (isDotty) module else module.sources()
   }
 
   /**
@@ -111,9 +112,8 @@ object BloopComponentCompiler {
     }
 
     override def fetchCompiledBridge(scalaInstance: ScalaInstance, logger: Logger): File = {
-      val bridgeSources = userProvidedBridgeSources.getOrElse(
-        getModuleForBridgeSources(scalaInstance)
-      )
+      val bridgeSources =
+        userProvidedBridgeSources.getOrElse(getModuleForBridgeSources(scalaInstance))
       compiledBridge(bridgeSources, scalaInstance)
     }
 
@@ -122,7 +122,7 @@ object BloopComponentCompiler {
     private def getScalaArtifacts(scalaVersion: String, logger: Logger): ScalaArtifacts = {
       def isPrefixedWith(artifact: File, prefix: String) = artifact.getName.startsWith(prefix)
       import scala.concurrent.ExecutionContext.Implicits.global
-      val allArtifacts = _root_.bloop.DependencyResolution
+      val allArtifacts = BloopDependencyResolution
         .resolve(ScalaOrganization, ScalaCompilerID, scalaVersion, bloopLogger)
         .map(_.toFile)
         .toVector
@@ -233,23 +233,37 @@ private[inc] class BloopComponentCompiler(
       val target = new File(binaryDirectory, s"$compilerBridgeId.jar")
       logger.bufferQuietly {
         IO.withTemporaryDirectory { retrieveDirectory =>
+          import coursier.core.Type
           import scala.concurrent.ExecutionContext.Implicits.global
-          val allArtifacts = _root_.bloop.DependencyResolution.resolveWithErrors(
+          val resolveSources = bridgeSources.explicitArtifacts.exists(_.`type` == Type.source.value)
+          val allArtifacts = BloopDependencyResolution.resolveWithErrors(
             bridgeSources.organization,
             bridgeSources.name,
             bridgeSources.revision,
             bloopLogger,
-            resolveSources = true
+            resolveSources = resolveSources
           ) match {
             case Right(paths) => paths.map(_.toFile).toVector
             case Left(t) =>
               val msg = s"Couldn't retrieve module $bridgeSources"
               throw new InvalidComponent(msg, t)
           }
-          val (srcs, xsbtiJars) = allArtifacts.partition(_.getName.endsWith("-sources.jar"))
-          val toCompileID = bridgeSources.name
-          AnalyzingCompiler.compileSources(srcs, target, xsbtiJars, toCompileID, compiler, logger)
-          manager.define(compilerBridgeId, Seq(target))
+
+          if (!resolveSources) {
+            manager.define(compilerBridgeId, allArtifacts)
+          } else {
+            val (srcs, xsbtiJars) = allArtifacts.partition(_.getName.endsWith("-sources.jar"))
+            val toCompileID = bridgeSources.name
+            AnalyzingCompiler.compileSources(
+              srcs,
+              target,
+              xsbtiJars,
+              toCompileID,
+              compiler,
+              bloopLogger
+            )
+            manager.define(compilerBridgeId, Seq(target))
+          }
         }
       }
     }

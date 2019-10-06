@@ -240,7 +240,7 @@ object FileWatchingSpec extends BaseSuite {
         state
       }
 
-      TestUtil.await(FiniteDuration(10, TimeUnit.SECONDS)) {
+      TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
         for {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(testValidLatestState)
@@ -248,7 +248,7 @@ object FileWatchingSpec extends BaseSuite {
           _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
           // Write another change with a delay to simulate remote development in VS Code
           _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A3.scala`))
-            .delayExecution(FiniteDuration(250, TimeUnit.MILLISECONDS))
+            .delayExecution(FiniteDuration(100, TimeUnit.MILLISECONDS))
           _ <- waitUntilIteration(2)
           firstWatchedState <- Task(testValidLatestState)
           _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
