@@ -30,14 +30,14 @@ trait TestSuiteEventHandler {
 }
 
 class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
-  import bloop.testing.TestPrinter._
   private type SuiteName = String
   private type TestName = String
   private type FailureMessage = String
   protected var suitesDuration = 0L
   protected var suitesPassed = 0
   protected var suitesAborted = 0
-  protected val testsFailedBySuite = mutable.SortedMap.empty[SuiteName, Map[TestName, FailureMessage]]
+  protected val testsFailedBySuite =
+    mutable.SortedMap.empty[SuiteName, Map[TestName, FailureMessage]]
   protected var suitesTotal = 0
 
   protected def formatMetrics(metrics: List[(Int, String)]): String = {
@@ -85,13 +85,20 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
 
       val failedStatuses = Set(Status.Error, Status.Canceled, Status.Failure)
       if (failureCount > 0) {
-        val thisSuiteFailedTests =
-          events.filter(e => failedStatuses.contains(e.status()))
-          .map(e => testSelectorToString(e.selector()) -> optionalThrowableToTestResult(e.throwable()))
-          .toMap
-        testsFailedBySuite += testSuite -> (testsFailedBySuite.getOrElse(testSuite, Map.empty) ++ thisSuiteFailedTests)
-      }
-      else if (testsTotal <= 0) logger.info("No test suite was run")
+        val currentFailedTests = {
+          events
+            .filter(e => failedStatuses.contains(e.status()))
+            .map { event =>
+              val key = TestUtils.printSelector(event.selector, logger).getOrElse("")
+              val value = TestUtils.printThrowable(event.throwable()).getOrElse("")
+              key -> value
+            }
+            .toMap
+        }
+
+        val previousFailedTests = testsFailedBySuite.getOrElse(testSuite, Map.empty)
+        testsFailedBySuite += testSuite -> (previousFailedTests ++ currentFailedTests)
+      } else if (testsTotal <= 0) logger.info("No test suite was run")
       else {
         suitesPassed += 1
         logger.info(s"All tests in $testSuite passed")
@@ -114,18 +121,25 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
     } else if (suitesPassed == suitesTotal) {
       logger.info(s"All $suitesPassed test suites passed.")
     } else {
-      val metrics =
-        List(suitesPassed -> "passed", testsFailedBySuite.size -> "failed", suitesAborted -> "aborted")
-      logger.info(formatMetrics(metrics))
+      val metrics = List(
+        suitesPassed -> "passed",
+        testsFailedBySuite.size -> "failed",
+        suitesAborted -> "aborted"
+      )
 
+      logger.info(formatMetrics(metrics))
       if (testsFailedBySuite.nonEmpty) {
         logger.info("")
         logger.info("Failed:")
-        testsFailedBySuite.foreach{case(suiteName, tests) =>
-          logger.info(s"- $suiteName:")
-          tests.foreach{ case(testName, failureMessage) =>
-            logger.info(s"  * $testName - $failureMessage")
-          }
+        testsFailedBySuite.foreach {
+          case (suiteName, failedTests) =>
+            logger.info(s"- $suiteName:")
+            failedTests.foreach {
+              case ("", failureMessage) => logger.info(s"  * $failureMessage")
+              case (testSuiteName, "") => logger.info(s"  * $testSuiteName")
+              case (testSuiteName, failureMessage) =>
+                logger.info(s"  * $testSuiteName - $failureMessage")
+            }
         }
       }
     }
