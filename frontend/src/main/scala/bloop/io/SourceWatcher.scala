@@ -191,7 +191,7 @@ final class SourceWatcher private (
      */
 
     import bloop.util.monix.{BloopBufferTimedObservable, BloopWhileBusyDropEventsAndSignalOperator}
-    val timespan = FiniteDuration(20, "ms")
+    val timespan = FiniteDuration(40, "ms")
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       .liftByOperator(

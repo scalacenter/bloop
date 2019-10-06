@@ -263,8 +263,8 @@ object FileWatchingSpec extends BaseSuite {
                 case (level, log) => s"[$level] $log"
               }
               System.err.println(output.mkString(System.lineSeparator()))
+              throw t
           }
-
         }
     }
 
