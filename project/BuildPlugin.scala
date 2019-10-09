@@ -309,6 +309,7 @@ object BuildImplementation {
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := Dependencies.Scala212Version,
+    //sbt.nio.Keys.watchTriggeredMessage := sbt.Watch.clearScreenOnTrigger,
     Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value

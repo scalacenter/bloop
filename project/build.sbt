@@ -23,6 +23,7 @@ val `bloop-build` = project
     addSbtPlugin("ch.epfl.scala" % "sbt-bloop-build-shaded" % "1.0.0-SNAPSHOT"),
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
+      "org.eclipse.jgit" % "org.eclipse.jgit" % "4.6.0.201612231935-r",
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
       "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mvnPluginToolsVersion,
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % mvnPluginToolsVersion,
@@ -53,12 +54,13 @@ Keys.onLoad in Global := {
   val oldOnLoad = (Keys.onLoad in Global).value
   oldOnLoad.andThen { state =>
     val files = IO.listFiles(state.baseDir / "benchmark-bridge")
-    if (files.isEmpty) {
+    if (!files.isEmpty) state
+    else {
       throw new sbt.internal.util.MessageOnlyException(
         """
           |It looks like you didn't fully set up Bloop after cloning (git submodules are missing).
           |Read the contributing guide for more information: https://scalacenter.github.io/bloop/docs/contributing-guide#set-the-repository-up""".stripMargin
       )
-    } else state
+    }
   }
 }

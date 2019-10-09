@@ -9,6 +9,7 @@ matrix:
           "jsonConfig210/test" \
           "jsonConfig211/test" \
           "jsonConfig212/test" \
+          "jsonConfig213/test" \
           "millBloop/compile" \
           "mavenBloop/compile" \
           "gradleBloop211/compile" \
@@ -35,6 +36,7 @@ matrix:
           "jsonConfig210/test" \
           "jsonConfig211/test" \
           "jsonConfig212/test" \
+          "jsonConfig213/test" \
           "millBloop/compile" \
           "mavenBloop/compile" \
           "sbtBloop013/publishLocal" \

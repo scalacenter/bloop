@@ -245,12 +245,12 @@ object ReleaseUtils {
   ): String = {
     // Note: pkgver must only contain letters, numbers and periods to be valid
     val safeVersion = version.replace('-', '.').replace('+', '.').replace(' ', '.')
-    
+
     // Replace "install.py" by a unique name to avoid conflicts with the other packages
     // and caching problems with older versions of the bloop package.
     val script = s"install-bloop-$safeVersion.py"
     val source = script + "::" + archPackageSource(origin)
-    
+
     s"""# Maintainer: Guillaume Raffin <theelectronwill@gmail.com>
        |# Generator: Bloop release utilities <https://github.com/scalacenter/bloop>
        |pkgname=bloop
@@ -402,8 +402,8 @@ object ReleaseUtils {
   }
 
   def sha256(file: sbt.File): String = {
-    import org.apache.commons.codec.digest.MessageDigestAlgorithms.SHA_256
-    import org.apache.commons.codec.digest.DigestUtils
+    import _root_.org.apache.commons.codec.digest.MessageDigestAlgorithms.SHA_256
+    import _root_.org.apache.commons.codec.digest.DigestUtils
     new DigestUtils(SHA_256).digestAsHex(file)
   }
 }

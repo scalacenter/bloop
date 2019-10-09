@@ -5,9 +5,9 @@ import java.io.File
 import sbt.{Def, MessageOnlyException}
 import sbt.io.syntax.fileToRichFile
 
-import org.eclipse.jgit.api.{Git, TransportCommand, PushCommand, CloneCommand}
-import org.eclipse.jgit.lib.ObjectId
-import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
+import _root_.org.eclipse.jgit.api.{Git, TransportCommand, PushCommand, CloneCommand}
+import _root_.org.eclipse.jgit.lib.ObjectId
+import _root_.org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 
 /** Utility functions that help manipulate git repos */
 object GitUtils {
@@ -26,11 +26,13 @@ object GitUtils {
    * @param changes The paths of the files that must be committed, relative to the repo's root.
    * @param message The commit message.
    */
-  def commitChangesIn(git: Git,
-                      changes: Seq[String],
-                      message: String,
-                      committerName: String,
-                      committerEmail: String): Unit = {
+  def commitChangesIn(
+      git: Git,
+      changes: Seq[String],
+      message: String,
+      committerName: String,
+      committerEmail: String
+  ): Unit = {
     val add = git.add()
     val cmd = changes.foldLeft(git.add) {
       case (cmd, path) => cmd.addFilepattern(path)
@@ -43,7 +45,7 @@ object GitUtils {
   def latestTagIn(git: Git): Option[String] = Option(git.describe().call())
 
   /** Function that takes a TransportCommand and applies some authentication method on it. */
-  type GitAuth = TransportCommand[_,_] => Unit
+  type GitAuth = TransportCommand[_, _] => Unit
 
   /** Github access token given by the environment variable BLOOPOID_GITHUB_TOKEN. */
   private def getEnvToken: String = sys.env.get("BLOOPOID_GITHUB_TOKEN").getOrElse {
@@ -51,9 +53,10 @@ object GitUtils {
   }
 
   /** SSH private key file given by the environment variable BLOOPOID_AUR_KEY_PATH. */
-  private def getEnvSshKey: File = sys.env.get("BLOOPOID_PRIVATE_KEY_PATH").map(new File(_)).getOrElse {
-    throw new MessageOnlyException("Couldn't find AUR ssh key in `BLOOPOID_PRIVATE_KEY_PATH`")
-  }
+  private def getEnvSshKey: File =
+    sys.env.get("BLOOPOID_PRIVATE_KEY_PATH").map(new File(_)).getOrElse {
+      throw new MessageOnlyException("Couldn't find AUR ssh key in `BLOOPOID_PRIVATE_KEY_PATH`")
+    }
 
   /**
    * Returns a function that uses the given access token to authenticate the user with jgit.
@@ -70,11 +73,11 @@ object GitUtils {
    * @param keyFile the file that contains the private SSH key
    */
   def authSshKey(keyFile: File = getEnvSshKey): GitAuth = {
-    import com.jcraft.jsch.Session
-    import org.eclipse.jgit.api.TransportConfigCallback
-    import org.eclipse.jgit.transport.{JschConfigSessionFactory, Transport, SshTransport}
-    import org.eclipse.jgit.transport.OpenSshConfig.Host
-    import org.eclipse.jgit.util.FS
+    import _root_.com.jcraft.jsch.Session
+    import _root_.org.eclipse.jgit.api.TransportConfigCallback
+    import _root_.org.eclipse.jgit.transport.{JschConfigSessionFactory, Transport, SshTransport}
+    import _root_.org.eclipse.jgit.transport.OpenSshConfig.Host
+    import _root_.org.eclipse.jgit.util.FS
 
     val sessionFactory = new JschConfigSessionFactory {
       override def configure(h: Host, s: Session) = {

@@ -10,10 +10,11 @@ val sharedSettings = List(
 val sbtBloopBuildShadedDeps = project
   .in(file("target")./("sbt-bloop-build-shaded-deps"))
   .settings(
+    scalacOptions in Compile :=
+      (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
     libraryDependencies ++= List(
-      // Don't shade scala-reflect as it creates misbehaviors
-      "io.circe" %% "circe-parser" % "0.9.3",
-      "io.circe" %% "circe-derivation" % "0.9.0-M3"
+      "io.circe" %% "circe-parser" % "0.12.2",
+      "io.circe" %% "circe-derivation" % "0.12.0-M7"
     )
   )
 
@@ -50,6 +51,7 @@ val sbtBloopBuildShaded = project
       "machinist",
       "cats",
       "jawn",
+      "org.typelevel.jawn",
       "io.circe"
     ),
     // Let's add our sbt plugin sources to the module
