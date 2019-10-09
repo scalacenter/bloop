@@ -14,6 +14,14 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
 import bloop.engine.ExecutionContext
 
+import com.microsoft.java.debug.core.protocol.Types.Capabilities
+import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
+import com.microsoft.java.debug.core.protocol.Types
+import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
+import java.nio.file.Path
+import bloop.logging.Logger
+import bloop.logging.NoopLogger
+
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
   private val Success: ExitStatus = ExitStatus.Ok
@@ -46,7 +54,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   test("sends exit and terminated events when cancelled") {
     TestUtil.withinWorkspace { workspace =>
       val main =
-        """|/main/scala/Main.scala
+        """|/Main.scala
            |object Main {
            |  def main(args: Array[String]): Unit = {
            |    synchronized(wait())  // block for all eternity
@@ -65,6 +73,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
             client <- server.startConnection
             _ <- client.initialize()
             _ <- client.launch()
+            _ <- client.initialized
             _ <- client.configurationDone()
             _ <- Task(server.cancel())
             _ <- client.terminated
@@ -100,13 +109,144 @@ object DebugServerSpec extends DebugBspBaseSuite {
             _ <- client.initialize()
             _ <- client.launch()
             _ <- client.configurationDone()
-            _ <- client.terminated
             _ <- client.exited
+            _ <- client.terminated
             _ <- Task.fromFuture(client.closedPromise.future)
-            output <- client.allOutput
+            output <- client.takeCurrentOutput
           } yield {
             assert(client.socket.isClosed)
             assertNoDiff(output, "Hello, World!")
+          }
+
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
+  test("supports scala and java breakpoints") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val javaClass =
+          """|/HelloJava.java
+             |public class HelloJava {
+             |  public HelloJava() {
+             |    System.out.println("Breakpoint in hello java class constructor");
+             |  }
+             |  
+             |  public void greet() {
+             |    System.out.println("Breakpoint in hello java greet method");
+             |  }
+             |}
+             |""".stripMargin
+        val scalaMain =
+          """|/Main.scala
+             |object Main {
+             |  def main(args: Array[String]): Unit = {
+             |    println("Breakpoint in main method")
+             |    val h = new Hello
+             |    h.greet()
+             |    Hello.a // Force initialization of constructor
+             |    val h2 = new HelloJava()
+             |    h2.greet()
+             |    println("Finished all breakpoints")
+             |  }
+             |  class Hello {
+             |    def greet(): Unit = {
+             |      println("Breakpoint in hello class")
+             |    }
+             |  }
+             |  object Hello {
+             |    println("Breakpoint in hello object")
+             |    val a = 1
+             |  }
+             |}
+             |""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "r", List(Sources.scalaMain, Sources.javaClass))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val runner = mainRunner(project, state)
+
+        val buildProject = state.toTestState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `Main.scala` = srcFor("Main.scala")
+        val `HelloJava.java` = srcFor("HelloJava.java")
+
+        val scalaBreakpoints = {
+          val arguments = new SetBreakpointArguments()
+          // Breakpoint in main method
+          val breakpoint1 = new SourceBreakpoint()
+          breakpoint1.line = 3
+          // Breakpoint in Hello class, in method greet
+          val breakpoint2 = new SourceBreakpoint()
+          breakpoint2.line = 13
+          // Breakpoint in Hello object, inside constructor
+          val breakpoint3 = new SourceBreakpoint()
+          breakpoint3.line = 17
+          // Breakpoint in end of main method
+          val breakpoint4 = new SourceBreakpoint()
+          breakpoint4.line = 9
+          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
+          arguments.sourceModified = false
+          arguments.breakpoints = Array(breakpoint1, breakpoint2, breakpoint3, breakpoint4)
+          arguments
+        }
+
+        val javaBreakpoints = {
+          val arguments = new SetBreakpointArguments()
+          // Breakpoint in Hello java class, in constructor
+          val breakpoint1 = new SourceBreakpoint()
+          breakpoint1.line = 3
+          // Breakpoint in Hello java class, in method greet
+          val breakpoint2 = new SourceBreakpoint()
+          breakpoint2.line = 7
+          arguments.source = new Types.Source(`HelloJava.java`.syntax, 0)
+          arguments.sourceModified = false
+          arguments.breakpoints = Array(breakpoint1, breakpoint2)
+          arguments
+        }
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.startConnection
+            capabilities <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            _ <- client.setBreakpoints(scalaBreakpoints)
+            _ <- client.setBreakpoints(javaBreakpoints)
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            _ <- client.continue(stopped.threadId)
+            stopped2 <- client.stopped
+            _ <- client.continue(stopped2.threadId)
+            stopped3 <- client.stopped
+            _ <- client.continue(stopped3.threadId)
+            stopped4 <- client.stopped
+            _ <- client.continue(stopped4.threadId)
+            stopped5 <- client.stopped
+            _ <- client.continue(stopped5.threadId)
+            stopped6 <- client.stopped
+            _ <- client.continue(stopped6.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            output <- client.takeCurrentOutput
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(
+              output,
+              """|Breakpoint in main method
+                 |Breakpoint in hello class
+                 |Breakpoint in hello object
+                 |Breakpoint in hello java class constructor
+                 |Breakpoint in hello java greet method
+                 |Finished all breakpoints
+                 |""".stripMargin
+            )
           }
 
           TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
@@ -129,6 +269,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
             client <- server.startConnection
             _ <- client.initialize()
             _ <- client.launch()
+            _ <- client.initialized
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
@@ -289,7 +430,17 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   def startDebugServer(task: Task[ExitStatus])(f: TestServer => Any): Unit = {
-    startDebugServer(_ => task)(f)
+    val runner = new DebuggeeRunner {
+      def logger: Logger = NoopLogger
+      def run(logger: DebugSessionLogger): Task[ExitStatus] = task
+      def classFilesMappedTo(
+          origin: Path,
+          lines: Array[Int],
+          columns: Array[Int]
+      ): List[Path] = Nil
+    }
+
+    startDebugServer(runner)(f)
   }
 
   def startDebugServer(runner: DebuggeeRunner)(f: TestServer => Any): Unit = {

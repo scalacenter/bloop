@@ -48,9 +48,12 @@ private[dap] object DebugTestProtocol {
   }
 
   final class Event[A <: DebugEvent: ClassTag](val name: String) {
+    def rawDeserialize(event: Messages.Event): Try[A] = {
+      DebugTestProtocol.deserialize[A](event.body)
+    }
+
     def deserialize(event: Messages.Event): Task[A] = {
-      val parsed = DebugTestProtocol.deserialize[A](event.body)
-      Task.fromTry(parsed)
+      Task.fromTry(rawDeserialize(event))
     }
 
     def deserialize(events: Seq[Messages.Event]): Task[Seq[A]] = {

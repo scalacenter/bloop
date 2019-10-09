@@ -21,6 +21,8 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
+import com.microsoft.java.debug.core.adapter.IProviderContext
+
 /**
  *  This debug adapter maintains the lifecycle of the debuggee in separation from JDI.
  *  The debuggee is started/closed together with the session.
@@ -30,14 +32,15 @@ import scala.util.Try
  */
 final class DebugSession(
     socket: Socket,
-    initialState: DebugSession.State,
+    initialDebugState: DebugSession.State,
+    context: IProviderContext,
     initialLogger: Logger,
     ioScheduler: Scheduler,
     loggerAdapter: DebugSession.LoggerAdapter
 ) extends DapServer(
       socket.getInputStream,
       socket.getOutputStream,
-      DebugExtensions.newContext,
+      context,
       DebugSession.loggerFactory(loggerAdapter)
     )
     with Cancelable {
@@ -51,7 +54,7 @@ final class DebugSession(
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
   private val attachedPromise = Promise[Unit]()
-  private val state = new Synchronized(initialState)
+  private val debugState = new Synchronized(initialDebugState)
 
   /*
    * We reach an end of connection when all expected terminal events have been
@@ -76,8 +79,8 @@ final class DebugSession(
    * the DAP server starts listening to client requests in an IO thread.
    */
   def startDebuggeeAndServer(): Unit = {
-    state.transform {
-      case DebugSession.Idle(runner) =>
+    debugState.transform {
+      case DebugSession.Ready(runner) =>
         def terminateGracefully(result: Option[Throwable]): Task[Unit] = {
           Task.fromFuture(endOfConnection.future).map { _ =>
             sessionStatusPromise.trySuccess(DebugSession.Terminated)
@@ -96,7 +99,8 @@ final class DebugSession(
         val logger = new DebugSessionLogger(this, addr => debugAddress.success(addr), initialLogger)
 
         // all output events are sent before debuggee task gets finished
-        val debuggee = runner(logger)
+        val debuggee = runner
+          .run(logger)
           .transform(cancelIfError, cancelPromises)
           .doOnFinish(terminateGracefully)
           .doOnCancel(terminateGracefully(None))
@@ -153,7 +157,7 @@ final class DebugSession(
           // Exited event should not be expected if debugger has already disconnected from the JVM
           expectedTerminalEvents.remove("exited")
 
-          state.transform {
+          debugState.transform {
             case DebugSession.Started(debuggee) =>
               cancelPromises(new CancellationException("Client disconnected"))
               cancelDebuggee(debuggee)
@@ -233,8 +237,8 @@ final class DebugSession(
       ()
     }
 
-    state.transform {
-      case DebugSession.Idle(_) =>
+    debugState.transform {
+      case DebugSession.Ready(_) =>
         socket.close()
         DebugSession.Cancelled
 
@@ -266,19 +270,20 @@ object DebugSession {
   final case object Terminated extends ExitStatus
 
   sealed trait State
-  final case class Idle(runner: DebugSessionLogger => Task[DebuggeeExitStatus]) extends State
+  final case class Ready(runner: DebuggeeRunner) extends State
   final case class Started(debuggee: Cancelable) extends State
   final case object Cancelled extends State
 
   def apply(
       socket: Socket,
-      startDebuggee: DebugSessionLogger => Task[DebuggeeExitStatus],
-      initialLogger: Logger,
+      runner: DebuggeeRunner,
+      logger: Logger,
       ioScheduler: Scheduler
   ): DebugSession = {
-    val loggerAdapter = new LoggerAdapter(initialLogger)
-    val initialState = Idle(startDebuggee)
-    new DebugSession(socket, initialState, initialLogger, ioScheduler, loggerAdapter)
+    val adapter = new LoggerAdapter(logger)
+    val context = DebugExtensions.newContext(runner)
+    val initialState = Ready(runner)
+    new DebugSession(socket, initialState, context, logger, ioScheduler, adapter)
   }
 
   private[DebugSession] def toAttachRequest(seq: Int, address: InetSocketAddress): Request = {

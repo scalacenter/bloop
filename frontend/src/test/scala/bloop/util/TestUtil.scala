@@ -434,9 +434,7 @@ object TestUtil {
       case (relativePath, contents) =>
         val fullPath = relativePath.toAbsolute(base)
         Files.createDirectories(fullPath.getParent.underlying)
-        val writer = Files.newBufferedWriter(fullPath.underlying, Charset.forName("UTF-8"))
-        try writer.write(contents)
-        finally writer.close()
+        Files.write(fullPath.underlying, contents.getBytes("UTF-8"))
     }
   }
 
