@@ -44,8 +44,9 @@ final class BspProjectReporter(
       case Some(file) =>
         // If it's the first diagnostic for this file, set clear to true
         val clear = clearedFilesForClient.putIfAbsent(file, true).isEmpty
-        logger.diagnostic(CompilationEvent.Diagnostic(project.bspUri, problem, clear))
-      case None => logger.diagnostic(CompilationEvent.Diagnostic(project.bspUri, problem, false))
+        logger.diagnostic(compilationDiagnostic(project, problem, clear))
+      case None =>
+        logger.diagnostic(compilationDiagnostic(project, problem, false))
     }
   }
 
@@ -187,9 +188,7 @@ final class BspProjectReporter(
                   problemsInPreviousAnalysis.foreach {
                     case ProblemPerPhase(problem, _) =>
                       val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-                      logger.diagnostic(
-                        CompilationEvent.Diagnostic(project.bspUri, problem, clear)
-                      )
+                      logger.diagnostic(compilationDiagnostic(project, problem, clear))
                   }
                 }
 
@@ -205,7 +204,7 @@ final class BspProjectReporter(
     problems.foreach {
       case ProblemPerPhase(problem, _) =>
         val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-        logger.diagnostic(CompilationEvent.Diagnostic(project.bspUri, problem, clear))
+        logger.diagnostic(compilationDiagnostic(project, problem, clear))
     }
   }
 
@@ -265,9 +264,7 @@ final class BspProjectReporter(
                 problemsInPreviousAnalysis.foreach {
                   case ProblemPerPhase(problem, _) =>
                     val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-                    logger.diagnostic(
-                      CompilationEvent.Diagnostic(project.bspUri, problem, clear)
-                    )
+                    logger.diagnostic(compilationDiagnostic(project, problem, clear))
                 }
               }
 
@@ -289,5 +286,14 @@ final class BspProjectReporter(
     clearedFilesForClient.clear()
     compilingFiles.clear()
     super.reportEndCompilation(previousSuccessfulProblems, code)
+  }
+
+  private def compilationDiagnostic(
+      project: Project,
+      problem: xsbti.Problem,
+      clear: Boolean
+  ): CompilationEvent.Diagnostic = {
+    val isOneBased = !project.scalaInstance.exists(_.isDotty)
+    CompilationEvent.Diagnostic(project.bspUri, problem, clear, isOneBased)
   }
 }

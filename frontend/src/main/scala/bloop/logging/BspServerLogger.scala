@@ -85,6 +85,13 @@ final class BspServerLogger private (
 
   def diagnostic(event: CompilationEvent.Diagnostic): Unit = {
     import sbt.util.InterfaceUtil.toOption
+
+    // One-based indexing must be adjusted - BSP expects 0-based positions
+    def position(line: Int, column: Int): bsp.Position = {
+      if (event.hasOneBasedPosition) new bsp.Position(line - 1, column)
+      else new bsp.Position(line, column)
+    }
+
     val message = event.problem.message
     val problemPos = event.problem.position
     val problemSeverity = event.problem.severity
@@ -92,14 +99,13 @@ final class BspServerLogger private (
 
     (problemPos, sourceFile) match {
       case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
-        // Lines in Scalac are indexed by 1, BSP expects 0-index positions
         val pos = problemPos match {
           case ZincInternals.ZincRangePos(endLine, endColumn) =>
-            val start = bsp.Position(startLine - 1, startColumn)
-            val end = bsp.Position(endLine - 1, endColumn)
+            val start = position(startLine, startColumn)
+            val end = position(endLine, endColumn)
             bsp.Range(start, end)
           case _ =>
-            val pos = bsp.Position(startLine - 1, startColumn)
+            val pos = position(startLine, startColumn)
             bsp.Range(pos, pos)
         }
 
