@@ -8,5 +8,4 @@ trait LowLevelBuildClientApi[F[_]] {
   def initialize: F[InitializeBuildResult]
   def compile(params: CompileParams): F[CompileResult]
   def exit: F[Unit]
-
 }

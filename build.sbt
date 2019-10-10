@@ -370,8 +370,7 @@ lazy val launcher: Project = project
     parallelExecution in Test := false,
     libraryDependencies ++= List(
       Dependencies.coursier,
-      Dependencies.coursierCache,
-      Dependencies.nuprocess
+      Dependencies.coursierCache
     )
   )
 
@@ -425,26 +424,36 @@ lazy val benchmarks = project
 
 val integrations = file("integrations")
 
-def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToShade: Reference) =
+def shadeSbtSettingsForModule(
+    moduleId: String,
+    module: Reference,
+    dependencyModules: List[Reference]
+) = {
   List(
     packageBin in Compile := {
       Def.taskDyn {
+        val data = Keys.settingsData.value
         val baseJar = Keys.packageBin.in(Compile).in(module).value
-        val unshadedJars = List(Keys.packageBin.in(Compile).in(dependencyToShade).value)
+        val unshadedDepJarTasks = dependencyModules.flatMap { dep =>
+          Keys.packageBin.in(Compile).in(dep).get(data).toList
+        }.join
         Def.taskDyn {
-          shadingPackageBin(baseJar, unshadedJars)
+          val unshadedDepJars = unshadedDepJarTasks.value
+          shadingPackageBin(baseJar, unshadedDepJars)
         }
       }.value
     },
     toShadeJars := {
       // Redefine toShadeJars as it seems broken in sbt-shading
       Def.taskDyn {
-        Def.task {
-          val projectDepNames = List(Keys.name.in(dependencyToShade).value)
+        val data = Keys.settingsData.value
+        val projectDepModuleNames = dependencyModules.flatMap { dep =>
+          Keys.name.get(data).toList
+        }
 
-          // We get dependency jars from dependencyToShade because if we get them from `module`
-          // we get all of the jars in the sbt universe and we only want to share our deps!
-          val depJars = dependencyClasspath.in(Compile).in(dependencyToShade).value.map(_.data)
+        Def.task {
+          val projectDepNames = Keys.name.in(module).value :: projectDepModuleNames
+          val depJars = fullClasspath.in(Runtime).in(module).value.map(_.data)
           depJars.filter {
             path =>
               val ppath = path.toString
@@ -455,7 +464,9 @@ def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToS
                   ppath.contains("scala-reflect") ||
                   ppath.contains("scala-xml") ||
                   ppath.contains("macro-compat") ||
-                  ppath.contains("scalamacros") || {
+                  ppath.contains("scalamacros") ||
+                  ppath.contains("jna") ||
+                  ppath.contains("jna-platform") || {
                   if (!System.getProperty("java.specification.version").startsWith("1.")) false
                   else {
                     val toolsJarPath =
@@ -475,28 +486,39 @@ def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToS
       "jawn",
       "org.typelevel.jawn",
       "io.circe",
-      "com.github.plokhotnyuk.jsoniter_scala"
+      "com.github.plokhotnyuk.jsoniter_scala",
+      "snailgun",
+      "org.zeroturnaround",
+      "io.github.soc",
+      "org.slf4j",
+      "scopt",
+      "macrocompat",
+      "com.zaxxer.nuprocess",
+      "coursier",
+      "shapeless",
+      "argonaut"
     ),
     toShadeClasses := {
       // Only shade dependencies, not bloop config code
       toShadeClasses.value.filter(!_.startsWith("bloop"))
     }
   )
+}
 
 def defineShadedSbtPlugin(
     projectName: String,
     sbtVersion: String,
     sbtBloop: Reference,
-    jsonConfig: Reference
+    dependencyModules: List[Reference]
 ) = {
   sbt
     .Project(projectName, integrations / "sbt-bloop" / "target" / s"sbt-bloop-shaded-$sbtVersion")
     .enablePlugins(BloopShadingPlugin)
     .disablePlugins(ScriptedPlugin)
     .disablePlugins(SbtJdiTools)
-    .settings(sbtPluginSettings("sbt-bloop", sbtVersion, jsonConfig))
+    .settings(sbtPluginSettings("sbt-bloop", sbtVersion))
     .settings(shadedModuleSettings)
-    .settings(shadeSbtSettingsForModule("sbt-bloop-core", sbtBloop, jsonConfig))
+    .settings(shadeSbtSettingsForModule("sbt-bloop-core", sbtBloop, dependencyModules))
     .settings(
       fork in run := true,
       fork in Test := true,
@@ -507,14 +529,19 @@ def defineShadedSbtPlugin(
 }
 
 lazy val sbtBloop10: Project = project
-  .dependsOn(jsonConfig212)
+  .dependsOn(jsonConfig212, launcher)
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
-  .settings(sbtPluginSettings("sbt-bloop-core", Sbt1Version, jsonConfig212))
+  .settings(sbtPluginSettings("sbt-bloop-core", Sbt1Version))
 
 lazy val sbtBloop10Shaded: Project =
-  defineShadedSbtPlugin("sbtBloop10Shaded", Sbt1Version, sbtBloop10, jsonConfig212)
+  defineShadedSbtPlugin(
+    "sbtBloop10Shaded",
+    Sbt1Version,
+    sbtBloop10,
+    List(jsonConfig212, sockets, bloopgun, launcher)
+  )
 
 lazy val sbtBloop013 = project
   .dependsOn(jsonConfig210)
@@ -522,11 +549,11 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version, jsonConfig210))
+  .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version))
   .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
 
 lazy val sbtBloop013Shaded =
-  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013, jsonConfig210)
+  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013, List(jsonConfig210))
 
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")

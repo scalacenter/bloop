@@ -219,7 +219,6 @@ object BuildKeys {
   def sbtPluginSettings(
       name: String,
       sbtVersion: String,
-      jsonConfig: Reference
   ): Seq[Def.Setting[_]] = List(
     Keys.name := name,
     Keys.sbtPlugin := true,
@@ -229,8 +228,7 @@ object BuildKeys {
     BintrayKeys.bintrayOrganization := Some("sbt"),
     BintrayKeys.bintrayRepository := "sbt-plugin-releases",
     Keys.publishMavenStyle :=
-      ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher,
-    Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishLocal in jsonConfig).value
+      ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher
   )
 
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(

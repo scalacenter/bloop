@@ -1,14 +1,14 @@
-package bloop.bloop4j.api.internal
+package bloop.bloop4j.api.handlers
 
 import ch.epfl.scala.bsp4j._
 import com.google.gson.{Gson, JsonElement}
 
 import scala.collection.mutable.ListBuffer
 
-class TestBuildClient extends BuildClient {
-  val gson: Gson = new Gson()
+class BuildClientHandlers extends BuildClient {
+  private[this] val gson: Gson = new Gson()
 
-  val showMessages: ListBuffer[ShowMessageParams] = ListBuffer.empty
+  private[this] val showMessages: ListBuffer[ShowMessageParams] = ListBuffer.empty
   val logMessages: ListBuffer[LogMessageParams] = ListBuffer.empty
   val diagnostics: ListBuffer[PublishDiagnosticsParams] = ListBuffer.empty
   val compileReports: ListBuffer[CompileReport] = ListBuffer.empty
@@ -23,6 +23,7 @@ class TestBuildClient extends BuildClient {
     diagnostics.clear()
     compileReports.clear()
   }
+
   override def onBuildShowMessage(params: ShowMessageParams): Unit = {
     showMessages += params
   }

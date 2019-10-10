@@ -2,13 +2,14 @@ package bloop.bloop4j.api
 
 import bloop.config.Config
 import bloop.bloop4j.util.Environment
-import bloop.bloop4j.api.internal.TestBuildClient
+import bloop.bloop4j.api.handlers.BuildClientHandlers
 
 import java.net.URI
 import java.{util => ju}
 import java.nio.file.{Files, Path}
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.CompletableFuture
 
 import org.eclipse.lsp4j.jsonrpc.Launcher
@@ -22,27 +23,26 @@ import ch.epfl.scala.bsp4j.InitializeBuildResult
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 import ch.epfl.scala.bsp4j.CompileParams
 import ch.epfl.scala.bsp4j.CompileResult
-import java.lang.ProcessBuilder.Redirect
 
 class NakedLowLevelBuildClient(
+    clientName: String,
+    clientVersion: String,
     clientIn: InputStream,
     clientOut: OutputStream,
+    handlers: BuildClientHandlers,
     underlyingProcess: Option[Process]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
   val testDirectory = Files.createTempDirectory("remote-bloop-client")
 
-  private var client: TestBuildClient = null
   private var server: ScalaBuildServerBridge = null
-
   def initialize: CompletableFuture[InitializeBuildResult] = {
-    client = new TestBuildClient
-    server = unsafeConnectToBuildServer(client, testDirectory)
+    server = unsafeConnectToBuildServer(handlers, testDirectory)
 
     import scala.collection.JavaConverters._
     val capabilities = new BuildClientCapabilities(List("scala", "java").asJava)
     val initializeParams = new InitializeBuildParams(
-      "test-client",
-      "1.0.0",
+      clientName,
+      clientVersion,
       "2.0.0-M4",
       testDirectory.toUri.toString,
       capabilities
@@ -88,8 +88,11 @@ class NakedLowLevelBuildClient(
 
 object RemoteBloopClient {
   def fromLauncherJars(
+      clientName: String,
+      clientVersion: String,
       buildDir: Path,
       launcherJars: Seq[Path],
+      handlers: BuildClientHandlers,
       additionalEnv: ju.Map[String, String] = new ju.HashMap()
   ): NakedLowLevelBuildClient = {
     import scala.collection.JavaConverters._
@@ -104,6 +107,13 @@ object RemoteBloopClient {
     val stringClasspath = launcherJars.map(_.normalize().toAbsolutePath).mkString(delimiter)
     val cmd = List("java", "-classpath", stringClasspath, "bloop.launcher.Launcher")
     val process = builder.command(cmd.asJava).directory(buildDir.toFile).start()
-    new NakedLowLevelBuildClient(process.getInputStream(), process.getOutputStream(), Some(process))
+    new NakedLowLevelBuildClient(
+      clientName,
+      clientVersion,
+      process.getInputStream(),
+      process.getOutputStream(),
+      handlers,
+      Some(process)
+    )
   }
 }
