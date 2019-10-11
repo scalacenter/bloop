@@ -220,7 +220,7 @@ object Config {
       sources: List[Path],
       dependencies: List[String],
       classpath: List[Path],
-      processorpath: List[Path],
+      processorpath: Option[List[Path]],
       out: Path,
       classesDir: Path,
       resources: Option[List[Path]],
@@ -234,7 +234,7 @@ object Config {
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, None, List(), List(), List(), List(), emptyPath, emptyPath, None, None, None, None, None, None, None)
+    private[bloop] val empty: Project = Project("", emptyPath, None, List(), List(), List(), None, emptyPath, emptyPath, None, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -281,7 +281,7 @@ object Config {
         List(sourceFile),
         List("dummy-2"),
         List(scalaLibraryJar),
-        List(annotationProcessorJar),
+        Some(List(annotationProcessorJar)),
         outDir,
         classesDir,
         Some(List(outDir.resolve("resource1.xml"))),

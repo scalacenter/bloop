@@ -103,7 +103,7 @@ object Bloop extends ExternalModule {
         sources = module.allSources().map(_.path.toNIO).toList,
         dependencies = module.moduleDeps.map(name).toList,
         classpath = classpath().map(_.toNIO).toList,
-        processorpath = List.empty,
+        processorpath = None,
         out = out(module).toNIO,
         classesDir = classes(module).toNIO,
         resources = Some(resources()),

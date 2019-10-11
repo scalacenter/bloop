@@ -173,7 +173,7 @@ object Project {
       project.dependencies,
       instance,
       project.classpath.map(AbsolutePath.apply),
-      project.processorpath.map(AbsolutePath.apply),
+      project.processorpath.toList.flatten.map(AbsolutePath.apply),
       resources,
       setup,
       AbsolutePath(project.classesDir),

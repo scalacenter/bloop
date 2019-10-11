@@ -232,8 +232,11 @@ final class BloopConverter(parameters: BloopParameters) {
 
       val annotationProcessorPaths =
         Option(project.getConfiguration("annotationProcessor")) match {
-          case None => List.empty
-          case Some(conf) => conf.getResolvedConfiguration.getFiles.asScala.toList.map(_.toPath)
+          case None => None
+          case Some(conf) => conf.getResolvedConfiguration.getFiles.asScala.toList.map(_.toPath) match {
+            case Nil => None
+            case paths => Some(paths)
+          }
         }
 
       for {
