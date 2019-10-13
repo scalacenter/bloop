@@ -1,7 +1,7 @@
 libraryDependencies += "io.circe" %% "circe-derivation" % "0.9.0-M3"
 libraryDependencies ++= List(
-  "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "0.54.0" % Compile,
-  "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "0.54.0" % Provided
+  "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "1.0.0" % Compile,
+  "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "1.0.0" % Provided
 )
 // Let's add our sbt plugin to the sbt too ;)
 unmanagedSourceDirectories in Compile ++= {

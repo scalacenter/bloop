@@ -13,7 +13,7 @@ object ConfigReader {
 
   implicit val codecPath: JsonValueCodec[Path] = new JsonValueCodec[Path] {
     val nullValue: Path = Paths.get("")
-    def encodeValue(x: Path, out: JsonWriter): Unit = out.writeVal(x.toAbsolutePath().toString)
+    def encodeValue(x: Path, out: JsonWriter): Unit = out.writeVal(x.toString)
     def decodeValue(in: JsonReader, default: Path): Path = {
       if (in.isNextToken('"')) {
         in.rollbackToken()
@@ -62,7 +62,7 @@ object ConfigReader {
   }
 
   implicit val codecFile: JsonValueCodec[Config.File] =
-    JsonCodecMaker.make[Config.File](CodecMakerConfig())
+    JsonCodecMaker.make[Config.File](CodecMakerConfig)
 
   def read(configDir: Path): Option[Config.File] = {
     val bytes = Files.readAllBytes(configDir)

@@ -43,8 +43,8 @@ val `bloop-build` = project
     ),
     libraryDependencies ++= List(circeDerivation),
     libraryDependencies ++= List(
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "0.54.0" % Compile,
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "0.54.0" % Provided
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "1.0.0" % Compile,
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "1.0.0" % Provided
     ),
     // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
     dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion)
