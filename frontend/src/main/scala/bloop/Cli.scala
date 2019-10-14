@@ -286,23 +286,25 @@ object Cli {
     val isClientConnected = AtomicBoolean(true)
     pool.addListener(_ => isClientConnected.set(false))
     val client = ClientInfo.CliClientInfo("bloop-cli", () => isClientConnected.get)
-    val currentState =
-      State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
 
     val exitPromise = Promise[Unit]()
     val dir = configDirectory.underlying
     waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, exitPromise, cancel) {
-      val taskToInterpret = Interpreter.execute(action, currentState).map { newState =>
-        // Only update the build if the command is not a BSP long-running
-        // session. The BSP implementation reads and stores the state in every
-        // action, so updating the build at the end of the BSP session can
-        // override a newer state updated by newer clients which is unknown to BSP
-        action match {
-          case Run(_: Commands.ValidatedBsp, _) => ()
-          case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-        }
+      val taskToInterpret = { () =>
+        val currentState =
+          State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
+        Interpreter.execute(action, currentState).map { newState =>
+          // Only update the build if the command is not a BSP long-running
+          // session. The BSP implementation reads and stores the state in every
+          // action, so updating the build at the end of the BSP session can
+          // override a newer state updated by newer clients which is unknown to BSP
+          action match {
+            case Run(_: Commands.ValidatedBsp, _) => ()
+            case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
+          }
 
-        newState
+          newState
+        }
       }
 
       acquireBuildCliLock(configDirectory, action, exitPromise, taskToInterpret, logger)
@@ -325,7 +327,7 @@ object Cli {
       configDir: AbsolutePath,
       action: Action,
       syncPromise: Promise[Unit],
-      taskToRun: Task[State],
+      createTaskToRun: () => Task[State],
       logger: Logger
   ): Task[ExitStatus] = {
     val timeoutTask = Task {
@@ -335,16 +337,16 @@ object Cli {
     }
 
     action match {
-      case Exit(_) => taskToRun.map(_.status)
+      case Exit(_) => createTaskToRun().map(_.status)
       // Don't synchronize on lock commands that can run concurrently on the same build for the same client
-      case Run(_: Commands.About, next) => taskToRun.map(_.status)
-      case Run(_: Commands.Projects, next) => taskToRun.map(_.status)
-      case Run(_: Commands.Autocomplete, next) => taskToRun.map(_.status)
-      case Run(_: Commands.Bsp, next) => taskToRun.map(_.status)
-      case Run(_: Commands.ValidatedBsp, next) => taskToRun.map(_.status)
+      case Run(_: Commands.About, next) => createTaskToRun().map(_.status)
+      case Run(_: Commands.Projects, next) => createTaskToRun().map(_.status)
+      case Run(_: Commands.Autocomplete, next) => createTaskToRun().map(_.status)
+      case Run(_: Commands.Bsp, next) => createTaskToRun().map(_.status)
+      case Run(_: Commands.ValidatedBsp, next) => createTaskToRun().map(_.status)
       case _ =>
         val currentPromise = activeCliSessions.putIfAbsent(configDir.underlying, syncPromise)
-        if (currentPromise == null) taskToRun.map(_.status)
+        if (currentPromise == null) createTaskToRun().map(_.status)
         else {
           logger.info("Waiting on external CLI client to release lock on this build...")
           Task
@@ -355,7 +357,7 @@ object Cli {
               if (syncPromise.isCompleted) {
                 Task.now(ExitStatus.Ok)
               } else {
-                acquireBuildCliLock(configDir, action, syncPromise, taskToRun, logger)
+                acquireBuildCliLock(configDir, action, syncPromise, createTaskToRun, logger)
               }
             }
         }
