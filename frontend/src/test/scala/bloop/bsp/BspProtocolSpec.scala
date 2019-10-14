@@ -190,6 +190,7 @@ class BspProtocolSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
+        val compiledState = build.state.compile(project)
         val expectedClasses = Set(
           "JUnitTest",
           "ScalaTestTest",
@@ -201,13 +202,13 @@ class BspProtocolSpec(
           "ResourcesTest"
         ).map("hello." + _)
 
-        val testClasses = build.state.testClasses(project)
+        val testClasses = compiledState.testClasses(project)
         val items = testClasses.items
         assert(items.size == 1)
 
         val classes = items.head.classes.toSet
         try assertEquals(classes, expectedClasses)
-        catch { case _: TestFailedException => logger.dump() }
+        catch { case t: TestFailedException => logger.dump(); throw t }
       }
     }
   }

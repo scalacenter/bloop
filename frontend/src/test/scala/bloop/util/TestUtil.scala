@@ -131,7 +131,7 @@ object TestUtil {
     Interpreter.execute(a, Task.now(state))
   }
 
-  def blockOnTask[T](task: Task[T], seconds: Long, logger: Option[RecordingLogger] = None): T = {
+  def blockOnTask[T](task: Task[T], seconds: Long, logger: List[RecordingLogger] = Nil): T = {
     val duration = Duration(seconds, TimeUnit.SECONDS)
     val handle = task.runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)

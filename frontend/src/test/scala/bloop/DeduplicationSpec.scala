@@ -865,7 +865,11 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           .runAsync(ExecutionContext.ioScheduler)
 
         val (firstCompiledState, secondCompiledState) =
-          TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 7, Some(logger))
+          TestUtil.blockOnTask(
+            mapBoth(firstCompilation, secondCompilation),
+            8,
+            List(cliLogger, bspLogger)
+          )
 
         assert(firstCompiledState.status == ExitStatus.CompilationError)
         assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))

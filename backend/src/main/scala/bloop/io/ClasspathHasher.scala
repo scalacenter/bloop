@@ -156,29 +156,33 @@ object ClasspathHasher {
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
       def acquireHashingEntry(entry: File, entryIdx: Int): Unit = {
-        val entryPromise = Promise[FileHash]()
-        val promise = hashingPromises.putIfAbsent(entry, entryPromise)
-        if (promise == null) { // The hashing is done by this process
-          acquiredByThisHashingProcess.+=(AcquiredTask(entry, entryIdx, entryPromise))
-        } else { // The hashing is acquired by another process, wait on its result
-          acquiredByOtherTasks.+=(
-            Task.fromFuture(promise.future).flatMap { hash =>
-              if (hash == BloopStamps.cancelledHash) {
-                if (cancelCompilation.isCompleted) Task.now(())
-                else {
-                  // If the process that acquired it cancels the computation, try acquiring it again
-                  logger.warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
-                  Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
-                }
-              } else {
-                Task.now {
-                  // Save the result hash in its index
-                  classpathHashes(entryIdx) = hash
-                  ()
+        if (isCancelled.get) ()
+        else {
+          val entryPromise = Promise[FileHash]()
+          val promise = hashingPromises.putIfAbsent(entry, entryPromise)
+          if (promise == null) { // The hashing is done by this process
+            acquiredByThisHashingProcess.+=(AcquiredTask(entry, entryIdx, entryPromise))
+          } else { // The hashing is acquired by another process, wait on its result
+            acquiredByOtherTasks.+=(
+              Task.fromFuture(promise.future).flatMap { hash =>
+                if (hash == BloopStamps.cancelledHash) {
+                  if (cancelCompilation.isCompleted) Task.now(())
+                  else {
+                    // If the process that acquired it cancels the computation, try acquiring it again
+                    logger
+                      .warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
+                    Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
+                  }
+                } else {
+                  Task.now {
+                    // Save the result hash in its index
+                    classpathHashes(entryIdx) = hash
+                    ()
+                  }
                 }
               }
-            }
-          )
+            )
+          }
         }
       }
 

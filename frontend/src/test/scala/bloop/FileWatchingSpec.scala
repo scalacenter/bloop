@@ -20,7 +20,7 @@ import scala.concurrent.duration.FiniteDuration
 import monix.execution.misc.NonFatal
 
 object FileWatchingSpec extends BaseSuite {
-  System.setProperty("file-watcher-batch-window-ms", "50")
+  System.setProperty("file-watcher-batch-window-ms", "100")
   test("simulate an incremental compiler session with file watching enabled") {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler

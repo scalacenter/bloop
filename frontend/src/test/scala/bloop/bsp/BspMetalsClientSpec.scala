@@ -278,7 +278,7 @@ class BspMetalsClientSpec(
       val metalsClient = createClient(metalsClientVersion, "Metals")
 
       val allClients = List(client1, client2, client3, client4, client5, metalsClient)
-      TestUtil.await(FiniteDuration(10, "s"), poolFor6Clients) {
+      TestUtil.await(FiniteDuration(20, "s"), poolFor6Clients) {
         Task.gatherUnordered(allClients).map(_ => ())
       }
 
