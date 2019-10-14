@@ -16,7 +16,7 @@ import monix.eval.Task
 import sbt.internal.inc.bloop.internal.BloopStamps
 
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {
-  test("cancellation works OK") {
+  ignore("cancellation works OK") {
     import bloop.engine.ExecutionContext.ioScheduler
     val logger = new RecordingLogger()
     val cancelPromise = Promise[Unit]()
