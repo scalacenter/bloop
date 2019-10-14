@@ -192,7 +192,7 @@ object ReleaseUtils {
        |  "bin": "bloop.cmd",
        |  "env_add_path": "$$dir",
        |  "env_set": {
-       |    "HOME": "$$dir",
+       |    "BLOOP_HOME": "$$dir",
        |    "BLOOP_IN_SCOOP": "true"
        |  },
        |  "installer": {
