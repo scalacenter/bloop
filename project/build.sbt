@@ -16,7 +16,6 @@ val `bloop-build` = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
-    addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M13-2"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.4.0"),

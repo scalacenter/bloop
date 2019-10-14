@@ -910,7 +910,7 @@ final class BloopBspServices(
                   .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
                   .toList
               }
-            }
+            }.distinct
             bsp.DependencySourcesItem(target, sourceJars)
         }.toList
       )

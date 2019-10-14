@@ -508,6 +508,7 @@ lazy val sbtBloop013 = project
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
   .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version, jsonConfig210))
+  .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
 
 lazy val sbtBloop013Shaded =
   defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013, jsonConfig210)
@@ -660,7 +661,7 @@ lazy val nativeBridge04 = project
 
 /* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
 lazy val twitterIntegrationProjects = project
-  .disablePlugins(CoursierPlugin, BloopPlugin)
+  .disablePlugins(BloopPlugin)
   .in(file("target") / "twitter-integration-projects")
   .settings(
     resolvers += MavenRepository("twitter-resolver", "https://maven.twttr.com"),
