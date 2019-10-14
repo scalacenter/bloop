@@ -942,7 +942,8 @@ final class BloopBspServices(
             val dag = state.build.getDagFor(project)
             val fullClasspath = project.fullClasspath(dag, state.client)
             val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
-            val classesDir = state.client.getUniqueClassesDirFor(project).toBspUri
+            val classesDir =
+              state.client.getUniqueClassesDirFor(project, forceGeneration = true).toBspUri
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,

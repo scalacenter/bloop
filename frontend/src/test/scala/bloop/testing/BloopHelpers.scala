@@ -244,7 +244,7 @@ trait BloopHelpers {
 
     def getClientExternalDir(project: TestProject): AbsolutePath = {
       val buildProject = getProjectFor(project)
-      client.getUniqueClassesDirFor(buildProject)
+      client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
     }
 
     def getLatestSavedStateGlobally(): TestState = {

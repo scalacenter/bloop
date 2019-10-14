@@ -353,7 +353,7 @@ class BspMetalsClientSpec(
 
   private def assertSemanticdbFileFor(sourceFileName: String, state: TestState): Unit = {
     val projectA = state.build.getProjectFor("A").get
-    val classesDir = state.client.getUniqueClassesDirFor(projectA)
+    val classesDir = state.client.getUniqueClassesDirFor(projectA, forceGeneration = true)
     val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
     assertIsFile(
       classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")

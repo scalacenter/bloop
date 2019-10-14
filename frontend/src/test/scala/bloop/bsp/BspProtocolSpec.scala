@@ -16,6 +16,7 @@ import ch.epfl.scala.bsp.ScalacOptionsItem
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import io.circe.Json
 import ch.epfl.scala.bsp.Uri
+import bloop.testing.DiffAssertions.TestFailedException
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -205,7 +206,8 @@ class BspProtocolSpec(
         assert(items.size == 1)
 
         val classes = items.head.classes.toSet
-        assertEquals(classes, expectedClasses)
+        try assertEquals(classes, expectedClasses)
+        catch { case _: TestFailedException => logger.dump() }
       }
     }
   }

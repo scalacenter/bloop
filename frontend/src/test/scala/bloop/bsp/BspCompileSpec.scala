@@ -398,7 +398,8 @@ class BspCompileSpec(
         assertValidCompilationState(compiledState, projects)
 
         val buildProject = compiledState.toTestState.getProjectFor(`A`)
-        val externalClassesDirA = compiledState.client.getUniqueClassesDirFor(buildProject)
+        val externalClassesDirA =
+          compiledState.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
 
         // There must be three top-level paths in this dir: A.class, A$.class and META-INF
         val classFilesAfterSuccess = takeDirectorySnapshot(externalClassesDirA)
@@ -427,7 +428,8 @@ class BspCompileSpec(
       loadBspState(workspace, projects, logger) { newStateAfterFailure =>
         val freshCompiledState = newStateAfterFailure.compile(`A`)
         val buildProject = freshCompiledState.toTestState.getProjectFor(`A`)
-        val externalClassesDirA = freshCompiledState.client.getUniqueClassesDirFor(buildProject)
+        val externalClassesDirA =
+          freshCompiledState.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
 
         val classFilesAfterFreshFailure = takeDirectorySnapshot(externalClassesDirA)
         assertNoDiff(

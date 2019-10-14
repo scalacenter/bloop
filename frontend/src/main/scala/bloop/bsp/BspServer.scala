@@ -283,7 +283,8 @@ object BspServer {
         import bloop.io.Paths
         val project = loadedProject.project
         try {
-          val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+          val externalClientClassesDir =
+            latestState.client.getUniqueClassesDirFor(project, forceGeneration = false)
           val skipDirectoryManagement =
             externalClientClassesDir == project.genericClassesDir ||
               latestState.client.hasManagedClassesDirectories

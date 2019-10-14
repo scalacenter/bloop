@@ -186,8 +186,10 @@ class BaseSuite extends TestSuite with BloopHelpers {
       printDiff: Boolean = true
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     val projectName = project.config.name
-    val a = s1.client.getUniqueClassesDirFor(s1.build.getProjectFor(projectName).get)
-    val b = s2.client.getUniqueClassesDirFor(s2.build.getProjectFor(projectName).get)
+    val a = s1.client
+      .getUniqueClassesDirFor(s1.build.getProjectFor(projectName).get, forceGeneration = true)
+    val b = s2.client
+      .getUniqueClassesDirFor(s2.build.getProjectFor(projectName).get, forceGeneration = true)
     val filesA = takeDirectorySnapshot(a)
     val filesB = takeDirectorySnapshot(b)
     assertNoDiff(
@@ -301,7 +303,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
           assert(stamps.getAllSourceStamps.asScala.nonEmpty)
 
           if (hasSameContentsInClassesDir) {
-            val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+            val projectClassesDir =
+              state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
             assert(takeDirectorySnapshot(result.classesDir).nonEmpty)
             assertSameFilesIn(projectClassesDir, result.classesDir)
           }
@@ -325,7 +328,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
       existing: Boolean
   ): Unit = {
     val buildProject = state.build.getProjectFor(project.config.name).get
-    val externalClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+    val externalClassesDir =
+      state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
     if (existing) assert(externalClassesDir.resolve(classFile).exists)
     else assert(!externalClassesDir.resolve(classFile).exists)
   }
@@ -397,7 +401,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
         assertNotFile(buildProject.analysisOut)
         assert(state.getLastSuccessfulResultFor(testProject).isEmpty)
         assert(state.getLastResultFor(testProject) == Compiler.Result.Empty)
-        val classesDir = state.client.getUniqueClassesDirFor(buildProject)
+        val classesDir = state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
         assert(takeDirectorySnapshot(classesDir).isEmpty)
     }
   }
@@ -424,7 +428,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
         //assert(stamps.getAllBinaryStamps.asScala.nonEmpty)
 
         assert(takeDirectorySnapshot(latestResult.classesDir).nonEmpty)
-        val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+        val projectClassesDir =
+          state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
         assertSameFilesIn(projectClassesDir, latestResult.classesDir)
     }
   }

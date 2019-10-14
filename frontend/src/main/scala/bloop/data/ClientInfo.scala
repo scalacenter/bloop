@@ -39,7 +39,7 @@ sealed trait ClientInfo {
    * isolate the side-effects of concurrent clients over otherwise
    * shared global classes directories.
    */
-  def getUniqueClassesDirFor(project: Project): AbsolutePath
+  def getUniqueClassesDirFor(project: Project, forceGeneration: Boolean): AbsolutePath
 
   /**
    * Tells the caller whether this client manages its own client classes
@@ -58,7 +58,7 @@ object ClientInfo {
     def hasManagedClassesDirectories: Boolean = false
     def getConnectionTimestamp: Long = connectionTimestamp
 
-    def getUniqueClassesDirFor(project: Project): AbsolutePath = {
+    def getUniqueClassesDirFor(project: Project, forceGeneration: Boolean): AbsolutePath = {
       // CLI clients use the classes directory from the project, that's why
       // we don't support concurrent CLI client executions for the same build
       AbsolutePath(Files.createDirectories(project.genericClassesDir.underlying).toRealPath())
@@ -126,7 +126,7 @@ object ClientInfo {
      * managed by the client without any further intervention except its
      * deletion when the client exits.
      */
-    def getUniqueClassesDirFor(project: Project): AbsolutePath = {
+    def getUniqueClassesDirFor(project: Project, forceGeneration: Boolean): AbsolutePath = {
       uniqueDirs.computeIfAbsent(
         project,
         (project: Project) => {
@@ -141,7 +141,10 @@ object ClientInfo {
               val projectDirName = s"$classesDirName-$uniqueId"
               managedProjectRootDir.resolve(projectDirName)
           }
-          AbsolutePath(Files.createDirectories(newClientDir.underlying).toRealPath())
+          AbsolutePath(
+            if (!forceGeneration) newClientDir.underlying
+            else Files.createDirectories(newClientDir.underlying).toRealPath()
+          )
         }
       )
     }

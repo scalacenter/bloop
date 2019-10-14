@@ -258,7 +258,8 @@ object CompileGraph {
                 results.fromCompiler match {
                   case s: Compiler.Result.Success =>
                     // Wait on new classes to be populated for correctness
-                    val externalClassesDir = client.getUniqueClassesDirFor(bundle.project)
+                    val externalClassesDir =
+                      client.getUniqueClassesDirFor(bundle.project, forceGeneration = true)
                     val runningBackgroundTasks = s.backgroundTasks
                       .trigger(externalClassesDir, bundle.tracer)
                       .runAsync(ExecutionContext.ioScheduler)
