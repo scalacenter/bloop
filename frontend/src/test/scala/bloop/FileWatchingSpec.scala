@@ -20,6 +20,7 @@ import scala.concurrent.duration.FiniteDuration
 import monix.execution.misc.NonFatal
 
 object FileWatchingSpec extends BaseSuite {
+  System.setProperty("file-watcher-batch-window-ms", "50")
   test("simulate an incremental compiler session with file watching enabled") {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
@@ -59,6 +60,11 @@ object FileWatchingSpec extends BaseSuite {
         val `D.scala` =
           """/D.scala
             |object D
+          """.stripMargin
+
+        val `E.scala` =
+          """/E.scala
+            |object E
           """.stripMargin
 
         val `C2.scala` =
@@ -148,12 +154,12 @@ object FileWatchingSpec extends BaseSuite {
           _ <- waitUntilIteration(3, Some(6000L))
           firstWatchedState <- Task(testValidLatestState)
 
-          _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
+          _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`E.scala`))
 
-          _ <- waitUntilIteration(3)
+          _ <- waitUntilIteration(3, Some(1000L))
           secondWatchedState <- Task(testValidLatestState)
 
-          // Revert to change without macro calls, third compilation should happen
+          // Revert to change without macro calls, fourth compilation should happen
           _ <- Task {
             writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`)
             writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`)

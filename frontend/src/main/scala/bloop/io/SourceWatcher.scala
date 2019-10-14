@@ -191,7 +191,12 @@ final class SourceWatcher private (
      */
 
     import bloop.util.monix.{BloopBufferTimedObservable, BloopWhileBusyDropEventsAndSignalOperator}
-    val timespan = FiniteDuration(20, "ms")
+    val timespan = {
+      val userMs = Integer.getInteger("file-watcher-batch-window-ms")
+      if (userMs == null) FiniteDuration(20L, "ms")
+      else FiniteDuration(userMs.toLong, "ms")
+    }
+
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       .liftByOperator(
