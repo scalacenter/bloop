@@ -33,21 +33,23 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
       ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer, System.out)
     val running = hashClasspathTask.runAsync(ioScheduler)
 
-    Thread.sleep(150)
+    Thread.sleep(10)
     val running2 = competingHashClasspathTask.runAsync(ioScheduler)
 
-    Thread.sleep(20)
+    Thread.sleep(5)
     running.cancel()
 
     val result = Await.result(running, FiniteDuration(20, "s"))
-    assert(cancelPromise.isCompleted)
-    assert(result.isLeft)
+    TestUtil.await(FiniteDuration(1, "s"), ioScheduler)(Task.fromFuture(cancelPromise.future))
+    assert(!cancelPromise2.isCompleted, result.isLeft)
 
     // Cancelling the first result doesn't affect the results of the second
     val competingResult = Await.result(running2, FiniteDuration(20, "s"))
-    assert(competingResult.isRight)
-    assert(competingResult.forall(s => s != BloopStamps.cancelledHash))
-    assert(!cancelPromise2.isCompleted)
+    assert(
+      competingResult.isRight,
+      competingResult.forall(s => s != BloopStamps.cancelledHash),
+      !cancelPromise2.isCompleted
+    )
   }
 
   ignore("detect macros in classpath") {

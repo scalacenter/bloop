@@ -199,12 +199,9 @@ object ClasspathHasher {
 
       val cancelableAcquiredTask = Task.create[Unit] { (scheduler, cb) =>
         val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
-        // Ignore source subscription, cancelling it leaves us in a hanging state!
         val _ = acquiredTask.subscribe(out)
         Cancelable { () =>
-          isCancelled.compareAndSet(false, true)
-          consumerSubscription.cancel()
-          cb.onSuccess(())
+          isCancelled.compareAndSet(false, true); ()
         }
       }
 
@@ -217,7 +214,8 @@ object ClasspathHasher {
               Task.now(Left(()))
             } else {
               Task.sequence(acquiredByOtherTasks.toList).map { _ =>
-                if (isCancelled.get || cancelCompilation.isCompleted) {
+                val hasCancelledHash = classpathHashes.exists(_.hash() == BloopStamps.cancelledHash)
+                if (hasCancelledHash || isCancelled.get || cancelCompilation.isCompleted) {
                   cancelCompilation.trySuccess(())
                   Left(())
                 } else {

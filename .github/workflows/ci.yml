@@ -1,3 +1,4 @@
+name: Continuous Integration
 on:
   push:
 jobs:
@@ -8,7 +9,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         jdk: [graalvm@, adopt@1.11]
-    name: Test Bloop on ${{ matrix.os }} ${{ matrix.jdk }}
+    name: ${{ matrix.os }} -- ${{ matrix.jdk }}
     steps:
       - uses: actions/checkout@v1
         with:
@@ -38,6 +39,5 @@ jobs:
               "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" \
               "frontend/it:run" \
-              "gradleBloop212/test" \
-              "docs/run"
+              "gradleBloop212/test"
         shell: bash
