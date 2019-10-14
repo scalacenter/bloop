@@ -30,7 +30,7 @@ object TopologicalSort {
   }
 
   def tasks(from: Project, projects: Map[String, Project]): Array[Array[Project]] =
-    sort(reachable(from, projects)).map(_.map(p =>
-      p.copy(dependencies = projects(p.name).dependencies)))
+    sort(reachable(from, projects))
+      .map(_.map(p => p.copy(dependencies = projects(p.name).dependencies)))
 
 }

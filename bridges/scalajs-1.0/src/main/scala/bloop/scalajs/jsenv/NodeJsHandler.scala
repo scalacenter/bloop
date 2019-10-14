@@ -12,7 +12,7 @@ import org.scalajs.io.{FileVirtualBinaryFile, JSUtils, VirtualBinaryFile}
 import scala.concurrent.Promise
 
 final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[VirtualBinaryFile])
-  extends NuAbstractProcessHandler {
+    extends NuAbstractProcessHandler {
   implicit val debugFilter: DebugFilter = DebugFilter.Link
   private val buffer = new Array[Byte](NuProcess.BUFFER_CAPACITY)
   private var currentFileIndex: Int = 0
@@ -27,7 +27,10 @@ final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[Virtu
 
   /** @return false if we have nothing else to write */
   override def onStdinReady(output: ByteBuffer): Boolean = {
-    if (currentFileIndex < files.length) { files(currentFileIndex) match { case f: FileVirtualBinaryFile => logger.debug(s"Sending js file $f...")
+    if (currentFileIndex < files.length) {
+      files(currentFileIndex) match {
+        case f: FileVirtualBinaryFile =>
+          logger.debug(s"Sending js file $f...")
           val path = f.file.getAbsolutePath
           val str = s"""require("${JSUtils.escapeJS(path)}");"""
           output.put(str.getBytes("UTF-8"))

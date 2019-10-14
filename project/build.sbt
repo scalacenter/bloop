@@ -8,7 +8,7 @@ val `bloop-build` = project
     scalaVersion := "2.12.9",
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
-    addSbtPlugin("com.lucidchart" % "sbt-scalafmt" % "1.14"),
+    addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
     addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0"),
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.3"),
     addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.6"),

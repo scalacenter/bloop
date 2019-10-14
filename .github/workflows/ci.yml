@@ -23,21 +23,50 @@ jobs:
       - run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
-          sbt "frontend/test:compile" \
-              "jsBridge06/publishLocal" \
-              "jsBridge10/publishLocal" \
-              "backend/test" \
-              "frontend/testOnly bloop.ScalaVersionsSpec" \
-              "frontend/testOnly -bloop.ScalaVersionsSpec" \
+        shell: bash
+      - name: Check formatting
+        if: matrix.os == 'windows-latest'
+        run: |
+          ./bin/sbt-ci.sh \
+              "scalafmtCheckAll" \
+        shell: bash
+      - name: Compile and test main projects
+        run: |
+          ./bin/sbt-ci.sh \
+              "frontend/test:compile" \
+              "sbtBloop013/compile" \
+              "sbtBloop10/compile" \
               "millBloop/compile" \
               "mavenBloop/compile" \
-              "jsBridge10/test" \
-              "sbtBloop013/publishLocal" \
-              "sbtBloop10/publishLocal" \
-              "frontend/it:run" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md" \
+              "backend/test" \
+              "jsBridge06/publishLocal" \
+              "jsBridge10/publishLocal" \
+              "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" \
-              "frontend/it:run" \
-              "gradleBloop212/test"
+              "jsBridge06/test" \
+              "jsBridge10/test" \
+              "frontend/runMain bloop.util.CommandsDocGenerator --test" \
+              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md"
         shell: bash
+      - name: Check docs are up-to-date
+        run: |
+          ./bin/check-good-practices.sh
+        shell: bash
+      - name: Run launcher tests
+        run: |
+          ./bin/sbt-ci.sh "install" "launcher/test"
+        shell: bash
+      - name: Run build tool + native tests
+        if: matrix.jdk == 'graalvm@'
+        run: |
+          ./bin/sbt-ci.sh \
+              "millBloop/compile" \
+              "mavenBloop/compile" \
+              "gradleBloop211/compile" \
+              "gradleBloop212/compile" \
+              "gradleBloop212/test" \
+              "sbtBloop10Shaded/publishLocal" \
+              "sbtBloop10/scripted" \
+              "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
+        shell: bash
+

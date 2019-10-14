@@ -111,17 +111,20 @@ object ConfigEncoderDecoders {
         val configJson = jvmEncoder(config)
         val mainClassJson = OptionStringEncoder.apply(mainClass)
         Json.fromFields(
-          List((N, Json.fromString(Platform.Jvm.name)), (C, configJson), (M, mainClassJson)))
+          List((N, Json.fromString(Platform.Jvm.name)), (C, configJson), (M, mainClassJson))
+        )
       case Platform.Js(config, mainClass) =>
         val configJson = jsEncoder(config)
         val mainClassJson = OptionStringEncoder.apply(mainClass)
         Json.fromFields(
-          List((N, Json.fromString(Platform.Js.name)), (C, configJson), (M, mainClassJson)))
+          List((N, Json.fromString(Platform.Js.name)), (C, configJson), (M, mainClassJson))
+        )
       case Platform.Native(config, mainClass) =>
         val configJson = nativeEncoder(config)
         val mainClassJson = OptionStringEncoder.apply(mainClass)
         Json.fromFields(
-          List((N, Json.fromString(Platform.Native.name)), (C, configJson), (M, mainClassJson)))
+          List((N, Json.fromString(Platform.Native.name)), (C, configJson), (M, mainClassJson))
+        )
     }
   }
 

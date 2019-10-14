@@ -22,11 +22,10 @@ object BuildPlugin extends AutoPlugin {
   import sbt.plugins.IvyPlugin
   import com.typesafe.sbt.SbtPgp
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
-  import com.lucidchart.sbt.scalafmt.ScalafmtCorePlugin
 
   override def trigger: PluginTrigger = allRequirements
   override def requires: Plugins =
-    JvmPlugin && ScalafmtCorePlugin && ReleaseEarlyPlugin && SbtPgp && IvyPlugin
+    JvmPlugin && ReleaseEarlyPlugin && SbtPgp && IvyPlugin
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -499,6 +498,7 @@ object BuildImplementation {
     import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
     val gradlePluginBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
+        Keys.fork in Test := true,
         Keys.resolvers ++= List(
           MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
         ),

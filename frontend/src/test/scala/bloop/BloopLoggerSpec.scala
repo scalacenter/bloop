@@ -169,7 +169,8 @@ class BloopLoggerSpec {
       assertTrue("Logged message should have debug level.", isDebug(errMsgs(0)))
       assertTrue(
         s"Logged message should contain '$expectedMessage'",
-        errMsgs(0).contains(expectedMessage))
+        errMsgs(0).contains(expectedMessage)
+      )
     }
   }
 
@@ -209,8 +210,9 @@ class BloopLoggerSpec {
 
   private def runAndCheck(
       op: BloopLogger => Unit
-  )(check: (Seq[String], Seq[String]) => Unit)(
-      implicit ctx: DebugFilter = DebugFilter.All): Unit = {
+  )(
+      check: (Seq[String], Seq[String]) => Unit
+  )(implicit ctx: DebugFilter = DebugFilter.All): Unit = {
     val outStream = new ByteArrayOutputStream
     val errStream = new ByteArrayOutputStream
 

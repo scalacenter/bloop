@@ -14,8 +14,8 @@ import scala.util.control.NonFatal
 object syntax {
 
   /**
-    * Extension methods for Gradle's Project model
-    */
+   * Extension methods for Gradle's Project model
+   */
   implicit class ProjectExtension(project: Project) {
     def createTask[T <: Task](name: String)(implicit t: ClassTag[T]): T = {
       project.getTasks.create(name, t.runtimeClass.asInstanceOf[Class[T]])
@@ -36,7 +36,10 @@ object syntax {
         project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.getByName(name)
       } catch {
         case NonFatal(e) =>
-          throw new GradleException(s"Could not find java plugin convention for $name in $project with plugins $plugins", e)
+          throw new GradleException(
+            s"Could not find java plugin convention for $name in $project with plugins $plugins",
+            e
+          )
       }
     }
 
@@ -45,7 +48,7 @@ object syntax {
     }
 
     def createExtension[T](name: String, params: Object*)(implicit t: ClassTag[T]): Unit = {
-      project.getExtensions.create(name, t.runtimeClass.asInstanceOf[Class[T]], params : _*)
+      project.getExtensions.create(name, t.runtimeClass.asInstanceOf[Class[T]], params: _*)
       ()
     }
 
@@ -55,8 +58,8 @@ object syntax {
   }
 
   /**
-    * Extension methods for java.io.File
-    */
+   * Extension methods for java.io.File
+   */
   implicit class FileExtension(file: File) {
     def /(child: String): File = new File(file, child)
   }

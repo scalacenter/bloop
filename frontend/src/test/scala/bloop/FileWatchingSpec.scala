@@ -160,10 +160,7 @@ object FileWatchingSpec extends BaseSuite {
           secondWatchedState <- Task(testValidLatestState)
 
           // Revert to change without macro calls, fourth compilation should happen
-          _ <- Task {
-            writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`)
-            writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`)
-          }
+          _ <- Task { writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`) }
           _ <- waitUntilIteration(4)
           thirdWatchedState <- Task(testValidLatestState)
         } yield {

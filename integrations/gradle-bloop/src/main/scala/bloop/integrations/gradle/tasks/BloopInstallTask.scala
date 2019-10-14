@@ -51,7 +51,9 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
     generateBloopConfiguration(mainProjectName, Nil, mainSourceSet, targetDir, true)
 
     // Hardcode an implicit dependency for every source set to the main source set (compile) if it exists
-    val strictDependencies =  List(SourceSetDep(mainProjectName, converter.getClassesDir(targetDir, project, mainSourceSet)))
+    val strictDependencies = List(
+      SourceSetDep(mainProjectName, converter.getClassesDir(targetDir, project, mainSourceSet))
+    )
 
     // Generate the bloop configuration files for the rest of the source sets
     for (sourceSet <- otherSourceSets) {

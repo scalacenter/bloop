@@ -97,24 +97,21 @@ object ConfigEncoderDecoders {
       case Platform.Jvm(config, mainClass) =>
         val configJson = jvmEncoder(config)
         val mainClassJson = implicitly[RootEncoder[Option[String]]].apply(mainClass)
-        Json.fromFields(List(
-          (N, Json.fromString(Platform.Jvm.name)),
-          (C, configJson),
-          (M, mainClassJson)))
+        Json.fromFields(
+          List((N, Json.fromString(Platform.Jvm.name)), (C, configJson), (M, mainClassJson))
+        )
       case Platform.Js(config, mainClass) =>
         val configJson = jsEncoder(config)
         val mainClassJson = implicitly[RootEncoder[Option[String]]].apply(mainClass)
-        Json.fromFields(List(
-          (N, Json.fromString(Platform.Js.name)),
-          (C, configJson),
-          (M, mainClassJson)))
+        Json.fromFields(
+          List((N, Json.fromString(Platform.Js.name)), (C, configJson), (M, mainClassJson))
+        )
       case Platform.Native(config, mainClass) =>
         val configJson = nativeEncoder(config)
         val mainClassJson = implicitly[RootEncoder[Option[String]]].apply(mainClass)
-        Json.fromFields(List(
-          (N, Json.fromString(Platform.Native.name)),
-          (C, configJson),
-          (M, mainClassJson)))
+        Json.fromFields(
+          List((N, Json.fromString(Platform.Native.name)), (C, configJson), (M, mainClassJson))
+        )
     }
   }
 
@@ -122,15 +119,33 @@ object ConfigEncoderDecoders {
     private final val C = "config"
     override def apply(c: HCursor): Result[Platform] = {
       c.downField(N).as[String].right.flatMap {
-        case Platform.Jvm.name => c.get[JvmConfig](C).right.flatMap(config =>
-          c.get[List[String]](M).right.map(mainClass =>
-            Platform.Jvm(config, mainClass.headOption)))
-        case Platform.Js.name => c.get[JsConfig](C).right.flatMap(config =>
-          c.get[List[String]](M).right.map(mainClass =>
-            Platform.Js(config, mainClass.headOption)))
-        case Platform.Native.name => c.get[NativeConfig](C).right.flatMap(config =>
-          c.get[List[String]](M).right.map(mainClass =>
-            Platform.Native(config, mainClass.headOption)))
+        case Platform.Jvm.name =>
+          c.get[JvmConfig](C)
+            .right
+            .flatMap(
+              config =>
+                c.get[List[String]](M)
+                  .right
+                  .map(mainClass => Platform.Jvm(config, mainClass.headOption))
+            )
+        case Platform.Js.name =>
+          c.get[JsConfig](C)
+            .right
+            .flatMap(
+              config =>
+                c.get[List[String]](M)
+                  .right
+                  .map(mainClass => Platform.Js(config, mainClass.headOption))
+            )
+        case Platform.Native.name =>
+          c.get[NativeConfig](C)
+            .right
+            .flatMap(
+              config =>
+                c.get[List[String]](M)
+                  .right
+                  .map(mainClass => Platform.Native(config, mainClass.headOption))
+            )
         case _ =>
           val msg = s"Expected platform ${Platform.All.map(s => s"'$s'").mkString(", ")})"
           Left(DecodingFailure(msg, c.history))

@@ -144,7 +144,7 @@ object CommandsDocGenerator {
       s"bloop link $ExampleProjectName --main $ExampleMainClass",
       s"bloop link $ExampleProjectName -O debug -w",
       s"bloop link $ExampleProjectName -O release -w",
-      s"bloop link $ExampleProjectName --main $ExampleMainClass -w",
+      s"bloop link $ExampleProjectName --main $ExampleMainClass -w"
     )
   }
 

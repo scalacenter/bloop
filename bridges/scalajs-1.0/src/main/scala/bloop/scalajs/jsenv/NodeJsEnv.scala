@@ -9,7 +9,15 @@ import monix.execution.atomic.AtomicBoolean
 import org.scalajs.jsenv.nodejs.NodeJSEnv.SourceMap
 import org.scalajs.io.{MemVirtualBinaryFile, VirtualBinaryFile}
 import org.scalajs.jsenv.nodejs.{BloopComRun, Support}
-import org.scalajs.jsenv.{ExternalJSRun, Input, JSComRun, JSEnv, JSRun, RunConfig, UnsupportedInputException}
+import org.scalajs.jsenv.{
+  ExternalJSRun,
+  Input,
+  JSComRun,
+  JSEnv,
+  JSRun,
+  RunConfig,
+  UnsupportedInputException
+}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
@@ -134,7 +142,8 @@ object NodeJSEnv {
   private lazy val installSourceMap: MemVirtualBinaryFile = {
     MemVirtualBinaryFile.fromStringUTF8(
       "sourceMapSupport.js",
-      "require('source-map-support').install();")
+      "require('source-map-support').install();"
+    )
   }
 
   private[jsenv] lazy val runtimeEnv: MemVirtualBinaryFile = {
