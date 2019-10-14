@@ -113,7 +113,6 @@ object SourceHasher {
     val collectAllSources = Task.create[mutable.ListBuffer[HashedSource]] { (scheduler, cb) =>
       if (isCancelled.get) {
         cb.onSuccess(mutable.ListBuffer.empty)
-        isCancelled.compareAndSet(false, true)
         subscribed.success(())
         observer.onComplete()
         Cancelable.empty
@@ -140,13 +139,15 @@ object SourceHasher {
     }
 
     val orderlyDiscovery = Task.fromFuture(subscribed.future).flatMap(_ => discoverFileTree)
-    Task.mapBoth(orderlyDiscovery, collectAllSources) {
-      case (_, sources) =>
-        if (!isCancelled.get) Right(sources.toList.distinct)
-        else {
-          cancelCompilation.trySuccess(())
-          Left(())
-        }
-    }
+    Task
+      .mapBoth(orderlyDiscovery, collectAllSources) {
+        case (_, sources) =>
+          if (!isCancelled.get) Right(sources.toList.distinct)
+          else {
+            cancelCompilation.trySuccess(())
+            Left(())
+          }
+      }
+      .doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
   }
 }

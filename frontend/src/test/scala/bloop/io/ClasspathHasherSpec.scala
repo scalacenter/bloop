@@ -22,22 +22,26 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     val cancelPromise = Promise[Unit]()
     val cancelPromise2 = Promise[Unit]()
     val tracer = BraveTracer("cancels-correctly-test")
-    val jars = DependencyResolution.resolve("org.apache.spark", "spark-core_2.11", "2.4.4", logger)
+    val jars = {
+      DependencyResolution.resolve("org.apache.spark", "spark-core_2.11", "2.4.4", logger) ++
+        DependencyResolution.resolve("org.apache.hadoop", "hadoop-main", "3.2.1", logger) ++
+        DependencyResolution.resolve("io.monix", "monix_2.12", "3.0.0", logger)
+    }
     val hashClasspathTask =
-      ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer)
+      ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer, System.out)
     val competingHashClasspathTask =
-      ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer)
+      ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer, System.out)
     val running = hashClasspathTask.runAsync(ioScheduler)
 
-    Thread.sleep(10)
+    Thread.sleep(150)
     val running2 = competingHashClasspathTask.runAsync(ioScheduler)
 
-    Thread.sleep(5)
+    Thread.sleep(20)
     running.cancel()
 
     val result = Await.result(running, FiniteDuration(20, "s"))
-    assert(result.isLeft)
     assert(cancelPromise.isCompleted)
+    assert(result.isLeft)
 
     // Cancelling the first result doesn't affect the results of the second
     val competingResult = Await.result(running2, FiniteDuration(20, "s"))

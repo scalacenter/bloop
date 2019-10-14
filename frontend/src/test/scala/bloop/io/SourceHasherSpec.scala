@@ -45,8 +45,8 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       running.cancel()
 
       val cancelledResult = Await.result(running, FiniteDuration(20, "s"))
-      assert(cancelledResult.isLeft)
       assert(cancelPromise.isCompleted)
+      assert(cancelledResult.isLeft)
 
       val sourceHashesTask2 =
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise2, ioScheduler)

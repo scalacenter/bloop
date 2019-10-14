@@ -24,6 +24,7 @@ import monix.reactive.Observable
 import xsbti.compile.PreviousResult
 import scala.concurrent.ExecutionContext
 import bloop.CompileOutPaths
+import bloop.cli.CommonOptions
 
 sealed trait CompileBundle
 
@@ -158,7 +159,8 @@ object CompileBundle {
       cancelCompilation: Promise[Unit],
       logger: ObservedLogger[Logger],
       mirror: Observable[Either[ReporterAction, LoggerAction]],
-      tracer: BraveTracer
+      tracer: BraveTracer,
+      options: CommonOptions
   ): Task[CompileBundle] = {
     import inputs.{project, dag, dependentProducts}
     tracer.traceTask(s"computing bundle ${project.name}") { tracer =>
@@ -174,8 +176,9 @@ object CompileBundle {
       // Dependency classpath is not yet complete, but the hashes only cares about jars
       import bloop.engine.ExecutionContext.ioScheduler
       import compileDependenciesData.dependencyClasspath
+      val out = options.ngout
       val classpathHashesTask = bloop.io.ClasspathHasher
-        .hash(dependencyClasspath, 10, cancelCompilation, ioScheduler, logger, tracer)
+        .hash(dependencyClasspath, 10, cancelCompilation, ioScheduler, logger, tracer, out)
         .executeOn(ioScheduler)
 
       val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
