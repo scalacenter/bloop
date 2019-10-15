@@ -932,15 +932,18 @@ object BloopDefaults {
   private final val allJson = sbt.GlobFilter("*.json")
   private final val removeStaleProjects = {
     allConfigDirs: Set[File] =>
-      { (s: State, generatedFiles: Set[Option[File]]) =>
-        val logger = s.globalLogging.full
+      { (state: State, generatedFiles: Set[Option[File]]) =>
+        val logger = state.globalLogging.full
         val allConfigs =
           allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
         allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
-          sbt.IO.delete(configFile)
-          logger.warn(s"Removed stale $configFile")
+          if (configFile.getName() == "bloop.settings.json") ()
+          else {
+            sbt.IO.delete(configFile)
+            logger.warn(s"Removed stale $configFile")
+          }
         }
-        s
+        state
       }
   }
 
