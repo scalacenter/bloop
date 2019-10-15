@@ -745,24 +745,10 @@ object BloopDefaults {
     }
   }
 
-  def parseConfig(jsonConfig: Path): Config.File = {
-    import io.circe.parser
-    import bloop.config.ConfigEncoderDecoders._
-    val contents = new String(Files.readAllBytes(jsonConfig), StandardCharsets.UTF_8)
-    parser.parse(contents) match {
-      case Left(failure) => throw failure
-      case Right(json) =>
-        allDecoder.decodeJson(json) match {
-          case Right(file) => file
-          case Left(failure) => throw failure
-        }
-    }
-  }
-
   def safeParseConfig(jsonConfig: Path, logger: Logger): Option[Config.File] = {
-    Try(parseConfig(jsonConfig)) match {
-      case Success(config) => Some(config)
-      case Failure(t) =>
+    bloop.config.read(jsonConfig) match {
+      case Right(config) => Some(config)
+      case Left(t) =>
         logger.error(s"Unexpected error when parsing $jsonConfig: ${t.getMessage}, skipping!")
         logger.trace(t)
         None

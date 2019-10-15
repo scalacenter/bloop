@@ -13,8 +13,8 @@ val sbtBloopBuildShadedDeps = project
     scalacOptions in Compile :=
       (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
     libraryDependencies ++= List(
-      "io.circe" %% "circe-parser" % "0.12.2",
-      "io.circe" %% "circe-derivation" % "0.12.0-M7"
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "1.0.0",
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "1.0.0" % Provided
     )
   )
 
@@ -36,7 +36,8 @@ val sbtBloopBuildShaded = project
           (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter { path =>
             val ppath = path.toString
             !(
-              ppath.contains("scala-library") ||
+              ppath.contains("scala-compiler") ||
+                ppath.contains("scala-library") ||
                 ppath.contains("scala-reflect") ||
                 ppath.contains("scala-xml") ||
                 ppath.contains("macro-compat") ||
@@ -47,20 +48,14 @@ val sbtBloopBuildShaded = project
       }.value
     },
     shadingNamespace := "build",
-    shadeNamespaces := Set(
-      "machinist",
-      "cats",
-      "jawn",
-      "org.typelevel.jawn",
-      "io.circe"
-    ),
+    shadeNamespaces := Set("com.github.plokhotnyuk.jsoniter_scala"),
     // Let's add our sbt plugin sources to the module
     unmanagedSourceDirectories in Compile ++= {
       val baseDir = baseDirectory.value.getParentFile.getParentFile.getParentFile.getParentFile
       val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
         baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala-2.11-12",
+        baseDir / "config" / "src" / "main" / "scala-2.11-13",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )

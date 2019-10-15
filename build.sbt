@@ -113,11 +113,11 @@ lazy val jsonConfig211 = project
     target := (file("config") / "target" / "json-config-2.11").getAbsoluteFile,
     scalaVersion := Scala211Version,
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
+      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-13"),
     libraryDependencies ++= {
       List(
-        Dependencies.circeParser,
-        Dependencies.circeDerivation,
+        Dependencies.jsoniterCore,
+        Dependencies.jsoniterMacros % Provided,
         Dependencies.scalacheck % Test
       )
     }
@@ -132,7 +132,7 @@ lazy val jsonConfig212 = project
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
+      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-13"),
     target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
     scalaVersion := Keys.scalaVersion.in(backend).value,
     scalacOptions := {
@@ -140,8 +140,8 @@ lazy val jsonConfig212 = project
     },
     libraryDependencies ++= {
       List(
-        Dependencies.circeParser,
-        Dependencies.circeDerivation,
+        Dependencies.jsoniterCore,
+        Dependencies.jsoniterMacros % Provided,
         Dependencies.scalacheck % Test
       )
     }
@@ -155,7 +155,7 @@ lazy val jsonConfig213 = project
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
+      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-13"),
     target := (file("config") / "target" / "json-config-2.13").getAbsoluteFile,
     scalaVersion := "2.13.1",
     scalacOptions := {
@@ -164,8 +164,8 @@ lazy val jsonConfig213 = project
     },
     libraryDependencies ++= {
       List(
-        Dependencies.newCirceParser,
-        Dependencies.newCirceDerivation
+        Dependencies.jsoniterCore,
+        Dependencies.jsoniterMacros % Provided
       )
     }
   )
@@ -224,6 +224,7 @@ lazy val frontend: Project = project
     fork in run in IntegrationTest := true,
     parallelExecution in test := false,
     libraryDependencies ++= List(
+      Dependencies.jsoniterMacros % Provided,
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
@@ -449,6 +450,7 @@ def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToS
               val ppath = path.toString
               !(
                 projectDepNames.exists(n => ppath.contains(n)) ||
+                  ppath.contains("scala-compiler") ||
                   ppath.contains("scala-library") ||
                   ppath.contains("scala-reflect") ||
                   ppath.contains("scala-xml") ||
@@ -472,7 +474,8 @@ def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToS
       "cats",
       "jawn",
       "org.typelevel.jawn",
-      "io.circe"
+      "io.circe",
+      "com.github.plokhotnyuk.jsoniter_scala"
     ),
     toShadeClasses := {
       // Only shade dependencies, not bloop config code
@@ -579,9 +582,8 @@ lazy val buildpressConfig = (project in file("buildpress-config"))
   .settings(
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
-      Dependencies.circeParser,
-      Dependencies.circeCore,
-      Dependencies.circeGeneric
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros
     ),
     addCompilerPlugin(
       "org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full

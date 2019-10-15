@@ -10,6 +10,8 @@ import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths, RelativePath}
 import bloop.logging.NoopLogger
 import bloop.util.TestUtil.ProjectArchetype
+import bloop.config.ConfigCodecs
+
 import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
@@ -55,7 +57,7 @@ final case class TestProject(
   }
 
   def toJson: String = {
-    bloop.config.toStr(
+    ConfigCodecs.toStr(
       Config.File.empty.copy(project = config)
     )
   }

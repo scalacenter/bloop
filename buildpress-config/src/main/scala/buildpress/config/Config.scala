@@ -4,33 +4,50 @@ import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
-import io.circe.{Decoder, Encoder, Printer}
+
+import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, JsonWriter, JsonReader}
+import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
 
 object Config {
   val BuildpressCacheFileName = "repository-cache.json"
 
-  implicit val pathEnc: Encoder[Path] =
-    Encoder.encodeString.contramap[Path](_.toString)
-  implicit val pathDec: Decoder[Path] =
-    Decoder.decodeString.emapTry(s => Try(Paths.get(s)))
+  implicit val codecPath: JsonValueCodec[Path] = new JsonValueCodec[Path] {
+    val nullValue: Path = Paths.get("")
+    def encodeValue(x: Path, out: JsonWriter): Unit = out.writeVal(x.toString)
+    def decodeValue(in: JsonReader, default: Path): Path =
+      if (in.isNextToken('"')) {
+        in.rollbackToken()
+        Try(Paths.get(in.readString(""))).toOption.getOrElse(nullValue)
+      } else {
+        in.rollbackToken()
+        nullValue
+      }
+  }
 
-  implicit val uriEnc: Encoder[URI] =
-    Encoder.encodeString.contramap[URI](_.toString)
-  implicit val uriDec: Decoder[URI] =
-    Decoder.decodeString.emapTry(s => Try(URI.create(s)))
+  implicit val codecURI: JsonValueCodec[URI] = new JsonValueCodec[URI] {
+    val nullValue: URI = null
+    def encodeValue(x: URI, out: JsonWriter): Unit = out.writeVal(x.toString)
+    def decodeValue(in: JsonReader, default: URI): URI =
+      if (in.isNextToken('"')) {
+        in.rollbackToken()
+        Try(URI.create(in.readString(""))).toOption.getOrElse(nullValue)
+      } else {
+        in.rollbackToken()
+        nullValue
+      }
+  }
 
   case class RepoCacheEntries(repos: List[RepoCacheEntry])
   object RepoCacheEntries {
-    import io.circe.generic.semiauto._
-    implicit val enc: Encoder[RepoCacheEntries] = deriveEncoder[RepoCacheEntries]
-    implicit val dec: Decoder[RepoCacheEntries] = deriveDecoder[RepoCacheEntries]
+    implicit val codecSettings: JsonValueCodec[RepoCacheEntries] =
+      JsonCodecMaker.make[RepoCacheEntries](CodecMakerConfig)
   }
 
   case class HashedPath(path: Path, hash: Int)
   object HashedPath {
-    import io.circe.generic.semiauto._
-    implicit val enc: Encoder[HashedPath] = deriveEncoder[HashedPath]
-    implicit val dec: Decoder[HashedPath] = deriveDecoder[HashedPath]
+    implicit val codecSettings: JsonValueCodec[HashedPath] =
+      JsonCodecMaker.make[HashedPath](CodecMakerConfig)
   }
 
   final case class BuildSettingsHashes(individual: List[HashedPath]) {
@@ -52,16 +69,14 @@ object Config {
     override def toString: String = s"BuildSettingsHashes($fastHash, $individual)"
   }
   object BuildSettingsHashes {
-    import io.circe.generic.semiauto._
-    implicit val enc: Encoder[BuildSettingsHashes] = deriveEncoder[BuildSettingsHashes]
-    implicit val dec: Decoder[BuildSettingsHashes] = deriveDecoder[BuildSettingsHashes]
+    implicit val codecSettings: JsonValueCodec[BuildSettingsHashes] =
+      JsonCodecMaker.make[BuildSettingsHashes](CodecMakerConfig)
   }
 
   case class RepoCacheEntry(id: String, uri: URI, localPath: Path, hashes: BuildSettingsHashes)
   object RepoCacheEntry {
-    import io.circe.generic.semiauto._
-    implicit val enc: Encoder[RepoCacheEntry] = deriveEncoder[RepoCacheEntry]
-    implicit val dec: Decoder[RepoCacheEntry] = deriveDecoder[RepoCacheEntry]
+    implicit val codecSettings: JsonValueCodec[RepoCacheEntry] =
+      JsonCodecMaker.make[RepoCacheEntry](CodecMakerConfig)
   }
 
   case class RepoCacheFile(version: String, cache: RepoCacheEntries)
@@ -70,28 +85,18 @@ object Config {
     // We cannot have the version coming from the build tool
     final val LatestVersion = "1.0.0"
 
-    import io.circe.generic.semiauto._
-    implicit val enc: Encoder[RepoCacheFile] = deriveEncoder[RepoCacheFile]
-    implicit val dec: Decoder[RepoCacheFile] = deriveDecoder[RepoCacheFile]
-  }
-
-  def toStr(all: RepoCacheFile): String = {
-    Printer.spaces4
-      .copy(dropNullValues = true)
-      .pretty(
-        Encoder[RepoCacheFile].apply(all)
-      )
+    implicit val codecSettings: JsonValueCodec[RepoCacheFile] =
+      JsonCodecMaker.make[RepoCacheFile](CodecMakerConfig)
   }
 
   def write(all: RepoCacheFile, target: Path): Unit = {
-    Files.write(target, toStr(all).getBytes(StandardCharsets.UTF_8))
+    val contents = jsoniter.writeToArray(all)
+    Files.write(target, contents)
     ()
   }
 
   def readBuildpressConfig(file: Path): Either[String, RepoCacheFile] = {
-    val bs: Array[Byte] = Files.readAllBytes(file)
-    val cfg = new String(bs, StandardCharsets.UTF_8)
-    import io.circe.parser._
-    decode[RepoCacheFile](cfg).left.map(io.circe.Error.showError.show)
+    val bytes = Files.readAllBytes(file)
+    Try(jsoniter.readFromArray[RepoCacheFile](bytes)).toEither.left.map(_.getMessage)
   }
 }

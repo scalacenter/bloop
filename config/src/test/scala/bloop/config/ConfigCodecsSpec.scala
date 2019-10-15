@@ -2,22 +2,21 @@ package bloop.config
 
 import bloop.config.Config.File
 import org.junit.{Assert, Test}
+import java.nio.file.Paths
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import scala.io.Source
 
-class JsonSpec {
-  def parseConfig(jsonConfig: String): Config.File = {
-    import io.circe.parser
-    import ConfigEncoderDecoders._
-    val parsed = parser.parse(jsonConfig).right.getOrElse(sys.error("error parsing"))
-    allDecoder.decodeJson(parsed) match {
-      case Right(parsedConfig) => parsedConfig
-      case Left(failure) => throw failure
-    }
-  }
-
-  def parseFile(config: File): Unit = {
-    val jsonConfig = toStr(config)
+class ConfigCodecsSpec {
+  import ConfigCodecs._
+  def parseConfig(contents: String): Config.File =
+    bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)).right.get
+  def parseFile(configFile: File): Unit = {
+    val jsonConfig = bloop.config.write(configFile)
     val parsedConfig = parseConfig(jsonConfig)
-    Assert.assertEquals(parsedConfig, config)
+    Assert.assertEquals(configFile, parsedConfig)
   }
 
   @Test def testEmptyConfigJson(): Unit = {
@@ -52,6 +51,14 @@ class JsonSpec {
         |}
       """.stripMargin
     parseConfig(jsonConfig)
+    ()
+  }
+
+  @Test def testRealWorldJsonFile(): Unit = {
+    val contents = Source.fromInputStream(
+      this.getClass.getClassLoader.getResourceAsStream("real-world-config.json")
+    )
+    parseConfig(contents.mkString)
     ()
   }
 }

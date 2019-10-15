@@ -4,7 +4,7 @@ import java.io.File
 
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
-import com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
+import _root_.com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
 import sbt.{AutoPlugin, BuildPaths, Def, Keys, PluginTrigger, Plugins, State, Task, ThisBuild, uri}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
@@ -20,7 +20,7 @@ import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   import sbt.plugins.IvyPlugin
-  import com.typesafe.sbt.SbtPgp
+  import _root_.com.typesafe.sbt.SbtPgp
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
 
   override def trigger: PluginTrigger = allRequirements
@@ -55,7 +55,7 @@ object BuildKeys {
   def createScalaCenterProject(name: String, f: File): RootProject = {
     if (isCiDisabled) RootProject(f)
     else {
-      val headSha = new com.typesafe.sbt.git.DefaultReadableGit(f).withGit(_.headCommitSha)
+      val headSha = new _root_.com.typesafe.sbt.git.DefaultReadableGit(f).withGit(_.headCommitSha)
       headSha match {
         case Some(commit) => RootProject(uri(s"https://github.com/scalacenter/${name}.git#$commit"))
         case None => sys.error(s"The 'HEAD' sha of '${f}' could not be retrieved.")
@@ -510,8 +510,8 @@ object BuildImplementation {
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
         Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
         BuildKeys.fetchGradleApi := {
-            val logger = Keys.streams.value.log
-            val targetDir = (Keys.baseDirectory in Compile).value / "lib"
+          val logger = Keys.streams.value.log
+          val targetDir = (Keys.baseDirectory in Compile).value / "lib"
           if (!System.getProperty("java.specification.version").startsWith("1.")) ()
           else {
             // TODO: we may want to fetch it to a custom unmanaged lib directory under build

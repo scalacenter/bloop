@@ -5,7 +5,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
-import bloop.config.{Config, ConfigEncoderDecoders}
+import bloop.config.Config
 import bloop.engine.Dag
 import bloop.engine.caches.SemanticDBCache
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
@@ -19,6 +19,7 @@ import scala.collection.mutable
 import ch.epfl.scala.{bsp => Bsp}
 
 import xsbti.compile.{ClasspathOptions, CompileOrder}
+import bloop.config.ConfigCodecs
 
 final case class Project(
     name: String,
@@ -190,16 +191,10 @@ object Project {
   }
 
   def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
-    import _root_.io.circe.parser
     logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
-    val contents = new String(bytes, StandardCharsets.UTF_8)
-    parser.parse(contents) match {
+    ConfigCodecs.read(bytes) match {
       case Left(failure) => throw failure
-      case Right(json) =>
-        ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
-          case Right(file) => Project.fromConfig(file, origin, logger)
-          case Left(failure) => throw failure
-        }
+      case Right(file) => Project.fromConfig(file, origin, logger)
     }
   }
 
