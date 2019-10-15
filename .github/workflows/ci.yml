@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '10.x'
       - run: |
+          echo "$JAVA_HOME"
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
         shell: bash
