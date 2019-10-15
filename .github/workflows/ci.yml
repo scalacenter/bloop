@@ -26,7 +26,7 @@ jobs:
           yarn --help
         shell: bash
       - name: Check formatting
-        if: matrix.os == 'windows-latest'
+        if: matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
               "scalafmtCheckAll" \
