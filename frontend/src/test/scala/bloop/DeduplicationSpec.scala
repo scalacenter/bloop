@@ -780,7 +780,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  def sleep(): Unit = macro sleepImpl
             |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
             |    import c.universe._
-            |    Thread.sleep(1000)
+            |    Thread.sleep(500)
+            |    Thread.sleep(500)
+            |    Thread.sleep(500)
+            |    Thread.sleep(500)
             |    reify { () }
             |  }
             |}""".stripMargin

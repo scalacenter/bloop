@@ -59,7 +59,7 @@ jobs:
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
       - name: Run build tool + native tests
-        if: matrix.jdk == 'graalvm@'
+        if: matrix.jdk == 'graalvm@' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
               "millBloop/compile" \

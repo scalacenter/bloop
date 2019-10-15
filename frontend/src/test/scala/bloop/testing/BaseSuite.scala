@@ -597,6 +597,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
               s"Caught exception on flaky test run (remaining $attempts), restarting..."
             )
             t.printStackTrace(System.err)
+            Thread.sleep(10000)
             retry(fun, attempts - 1)
           }
       }
