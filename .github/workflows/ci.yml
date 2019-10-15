@@ -54,6 +54,7 @@ jobs:
           ./bin/check-good-practices.sh
         shell: bash
       - name: Run launcher tests
+        if: matrix.jdk == 'graalvm@'
         run: |
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
