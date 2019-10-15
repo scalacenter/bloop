@@ -84,6 +84,9 @@ object BloopDefaults {
   import Compat._
   import sbt.{Task, Defaults, State}
 
+  val productDirectoriesUndeprecatedKey =
+    sbt.TaskKey[Seq[File]]("productDirectories", rank = sbt.KeyRanks.CTask)
+
   private lazy val cwd: String = System.getProperty("user.dir")
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopExportJarClassifiers := None,
@@ -153,7 +156,7 @@ object BloopDefaults {
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := Def.taskDyn {
-        Keys.productDirectories.?.value match {
+        productDirectoriesUndeprecatedKey.?.value match {
           case Some(_) => bloopInternalDependencyClasspath
           case None => Def.task(Nil: Seq[(File, File)])
         }
@@ -760,7 +763,8 @@ object BloopDefaults {
     val project = Keys.thisProject.value
     val configuration = Keys.configuration.value
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
-    val existsIntegrationTest = Keys.productDirectories.in(IntegrationTest).?.value.isDefined
+    val existsIntegrationTest =
+      productDirectoriesUndeprecatedKey.in(IntegrationTest).?.value.isDefined
 
     if (isMetaBuild && configuration == Test) Def.task(None)
     else if (configuration == IntegrationTest && !existsIntegrationTest) Def.task(None)
@@ -982,7 +986,7 @@ object BloopDefaults {
       val bloopProductDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       for ((dep, c) <- visited) {
         if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-          val classpathKey = Keys.productDirectories in (dep, sbt.ConfigKey(c))
+          val classpathKey = productDirectoriesUndeprecatedKey in (dep, sbt.ConfigKey(c))
           productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
           val bloopKey = BloopKeys.bloopProductDirectories in (dep, sbt.ConfigKey(c))
           bloopProductDirs += bloopKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))

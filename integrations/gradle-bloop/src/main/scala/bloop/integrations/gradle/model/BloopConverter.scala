@@ -324,12 +324,14 @@ final class BloopConverter(parameters: BloopParameters) {
     try {
       val getTargetConfiguration = classOf[ProjectDependency].getMethod("getTargetConfiguration")
       val targetConfigName = getTargetConfiguration.invoke(projectDependency)
-      if (targetConfigName == null)
-        Dependency.DEFAULT_CONFIGURATION
-      else
-        targetConfigName.asInstanceOf[String]
+      if (targetConfigName == null) Dependency.DEFAULT_CONFIGURATION
+      else targetConfigName.asInstanceOf[String]
     } catch {
-      case _: NoSuchMethodException => projectDependency.getConfiguration;
+      case _: NoSuchMethodException =>
+        val getConfiguration = classOf[ProjectDependency].getMethod("getConfiguration")
+        val configName = getConfiguration.invoke(projectDependency)
+        if (configName == null) Dependency.DEFAULT_CONFIGURATION
+        else configName.asInstanceOf[String]
     }
   }
 
