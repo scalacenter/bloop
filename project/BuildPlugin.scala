@@ -510,10 +510,13 @@ object BuildImplementation {
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
         Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
         BuildKeys.fetchGradleApi := {
-          val logger = Keys.streams.value.log
-          // TODO: we may want to fetch it to a custom unmanaged lib directory under build
-          val targetDir = (Keys.baseDirectory in Compile).value / "lib"
-          GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
+          if (System.getProperty("java.specification.version").startsWith("1.")) ()
+          else {
+            val logger = Keys.streams.value.log
+            // TODO: we may want to fetch it to a custom unmanaged lib directory under build
+            val targetDir = (Keys.baseDirectory in Compile).value / "lib"
+            GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
+          }
         },
         // Only generate for tests (they are not published and can contain user-dependent data)
         BuildInfoKeys.buildInfo in Compile := Nil,
