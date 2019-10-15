@@ -22,6 +22,7 @@ import org.junit.rules.TemporaryFolder
 import bloop.engine.BuildLoader
 
 import scala.collection.JavaConverters._
+import java.nio.file.Path
 
 class ConfigGenerationSuite481 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "4.8.1"
@@ -957,7 +958,7 @@ abstract class ConfigGenerationSuite {
     assert(platform.isDefined)
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
-    assert(config.home.contains(Paths.get("/opt/jdk11")))
+    assert(config.home.contains((p: Path) => p.toAbsolutePath.toString.contains("jdk11")))
     assert(config.options.toSet == Set("-XX:MaxMetaSpaceSize=512m", "-Xms1g", "-Xmx2g"))
   }
 
