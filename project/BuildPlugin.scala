@@ -510,7 +510,7 @@ object BuildImplementation {
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
         Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
         BuildKeys.fetchGradleApi := {
-          if (System.getProperty("java.specification.version").startsWith("1.")) ()
+          if (!System.getProperty("java.specification.version").startsWith("1.")) ()
           else {
             val logger = Keys.streams.value.log
             // TODO: we may want to fetch it to a custom unmanaged lib directory under build

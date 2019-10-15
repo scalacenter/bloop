@@ -20,8 +20,8 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: '10.x'
-      - run: |
-          echo "$JAVA_HOME"
+      - name: Set up environment
+        run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
         shell: bash
