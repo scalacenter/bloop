@@ -153,7 +153,8 @@ abstract class LauncherBaseSuite(
     val ourEnv = System.getenv().asScala.toMap
     val currentPath = ourEnv
       .get(pathVariableName)
-      .getOrElse(sys.error(s"No $pathVariableName in env!"))
+      .orElse(ourEnv.get("PATH"))
+      .getOrElse(sys.error(s"No Path or PATH in env!"))
     val newPath = newEntry + File.pathSeparator + currentPath
     changeEnvironment((ourEnv + (pathVariableName -> newPath)).asJava)
   }

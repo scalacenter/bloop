@@ -584,6 +584,25 @@ class BaseSuite extends TestSuite with BloopHelpers {
     else ignore(name, label = s"IGNORED ON JAVA v${TestUtil.jdkVersion}")(fun)
   }
 
+  def flakyTest(name: String, attempts: Int)(fun: => Any): Unit = {
+    assert(attempts >= 0)
+    def retry(fun: => Any, attempts: Int): Unit = {
+      if (attempts == 0) ()
+      else {
+        try {
+          fun; ()
+        } catch {
+          case NonFatal(t) =>
+            System.err.println(s"Caught exception on #${attempts} flaky test run, restarting...")
+            t.printStackTrace(System.err)
+            retry(fun, attempts - 1)
+        }
+      }
+    }
+
+    myTests += FlatTest(name, () => { retry(fun, attempts); () })
+  }
+
   def test(name: String)(fun: => Any): Unit = {
     myTests += FlatTest(name, () => { fun; () })
   }

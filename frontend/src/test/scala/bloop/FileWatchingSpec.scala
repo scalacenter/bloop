@@ -21,7 +21,7 @@ import monix.execution.misc.NonFatal
 
 object FileWatchingSpec extends BaseSuite {
   System.setProperty("file-watcher-batch-window-ms", "100")
-  test("simulate an incremental compiler session with file watching enabled") {
+  flakyTest("simulate an incremental compiler session with file watching enabled", 3) {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
       object Sources {
