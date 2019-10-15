@@ -867,7 +867,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val (firstCompiledState, secondCompiledState) =
           TestUtil.blockOnTask(
             mapBoth(firstCompilation, secondCompilation),
-            7,
+            10,
             loggers = List(cliLogger, bspLogger),
             userScheduler = Some(ExecutionContext.ioScheduler)
           )

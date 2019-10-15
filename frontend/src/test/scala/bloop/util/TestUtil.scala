@@ -143,7 +143,7 @@ object TestUtil {
     catch {
       case NonFatal(t) =>
         handle.cancel()
-        loggers.foreach(_.dump())
+        loggers.foreach(logger => { logger.dump(); Thread.sleep(100) })
         t match {
           case e: ExecutionException => throw e.getCause()
           case _ => throw t
