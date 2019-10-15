@@ -62,10 +62,11 @@ object TestUtil {
 
   private var singleCompilerCache: CompilerCache = null
   def getCompilerCache(logger: Logger): CompilerCache = synchronized {
-    if (singleCompilerCache != null) singleCompilerCache
+    if (singleCompilerCache != null) singleCompilerCache.withLogger(logger)
     else {
+      val scheduler = ExecutionContext.ioScheduler
       val jars = bloop.io.Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, Nil)
+      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, Nil, None, scheduler)
       singleCompilerCache
     }
   }
@@ -130,13 +131,19 @@ object TestUtil {
     Interpreter.execute(a, Task.now(state))
   }
 
-  def blockOnTask[T](task: Task[T], seconds: Long): T = {
+  def blockOnTask[T](
+      task: Task[T],
+      seconds: Long,
+      loggers: List[RecordingLogger] = Nil,
+      userScheduler: Option[Scheduler] = None
+  ): T = {
     val duration = Duration(seconds, TimeUnit.SECONDS)
-    val handle = task.runAsync(ExecutionContext.scheduler)
+    val handle = task.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) =>
         handle.cancel()
+        loggers.foreach(logger => { logger.dump(); Thread.sleep(100) })
         t match {
           case e: ExecutionException => throw e.getCause()
           case _ => throw t
@@ -570,5 +577,22 @@ object TestUtil {
     val configDir = TestProject.populateWorkspace(baseDir, projects)
     val logger = BloopLogger.default(configDir.toString())
     TestUtil.loadTestProject(configDir.underlying, logger, false, identity(_))
+  }
+
+  def threadDump: String = {
+    // Get the PID of the current JVM process
+    val selfName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName()
+    val selfPid = selfName.substring(0, selfName.indexOf('@'))
+
+    // Attach to the VM
+    import com.sun.tools.attach.VirtualMachine
+    import sun.tools.attach.HotSpotVirtualMachine;
+    val vm = VirtualMachine.attach(selfPid);
+    val hotSpotVm = vm.asInstanceOf[HotSpotVirtualMachine];
+
+    // Request a thread dump
+    val inputStream = hotSpotVm.remoteDataDump()
+    try new String(Stream.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray)
+    finally inputStream.close()
   }
 }

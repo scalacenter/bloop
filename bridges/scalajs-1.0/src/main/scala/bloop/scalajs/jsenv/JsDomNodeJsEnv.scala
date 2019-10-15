@@ -7,7 +7,15 @@ import java.nio.file.{Files, StandardCopyOption}
 import bloop.logging.Logger
 import org.scalajs.io.{FileVirtualFile, JSUtils, MemVirtualBinaryFile, VirtualBinaryFile}
 import org.scalajs.jsenv.nodejs.{BloopComRun, ComRun, Support}
-import org.scalajs.jsenv.{ExternalJSRun, Input, JSComRun, JSEnv, JSRun, RunConfig, UnsupportedInputException}
+import org.scalajs.jsenv.{
+  ExternalJSRun,
+  Input,
+  JSComRun,
+  JSEnv,
+  JSRun,
+  RunConfig,
+  UnsupportedInputException
+}
 
 import scala.util.control.NonFatal
 

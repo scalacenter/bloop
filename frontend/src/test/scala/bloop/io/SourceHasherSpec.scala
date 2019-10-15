@@ -9,7 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 import bloop.util.TestProject
 
 object SourceHasherSpec extends bloop.testing.BaseSuite {
-  test("cancellation works") {
+  flakyTest("cancellation works", 3) {
     val largeFileContents = {
       val sb = new StringBuilder()
       var base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -45,8 +45,8 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       running.cancel()
 
       val cancelledResult = Await.result(running, FiniteDuration(20, "s"))
-      assert(cancelledResult.isLeft)
       assert(cancelPromise.isCompleted)
+      assert(cancelledResult.isLeft)
 
       val sourceHashesTask2 =
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise2, ioScheduler)

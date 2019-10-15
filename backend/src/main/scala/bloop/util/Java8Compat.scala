@@ -44,8 +44,9 @@ object Java8Compat {
    * This is much like working with Scala's
    * [[scala.concurrent.Promise Promise]], only safer.
    */
-  def async[A](register: (Try[A] => Unit) => Cancelable)(
-      implicit ec: ExecutionContext): CancelableFuture[A] = {
+  def async[A](
+      register: (Try[A] => Unit) => Cancelable
+  )(implicit ec: ExecutionContext): CancelableFuture[A] = {
 
     val p = Promise[A]()
     val cRef = SingleAssignmentCancelable()

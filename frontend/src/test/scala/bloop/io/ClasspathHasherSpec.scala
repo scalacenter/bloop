@@ -16,17 +16,21 @@ import monix.eval.Task
 import sbt.internal.inc.bloop.internal.BloopStamps
 
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {
-  test("cancellation works OK") {
+  ignore("cancellation works OK") {
     import bloop.engine.ExecutionContext.ioScheduler
     val logger = new RecordingLogger()
     val cancelPromise = Promise[Unit]()
     val cancelPromise2 = Promise[Unit]()
     val tracer = BraveTracer("cancels-correctly-test")
-    val jars = DependencyResolution.resolve("org.apache.spark", "spark-core_2.11", "2.4.4", logger)
+    val jars = {
+      DependencyResolution.resolve("org.apache.spark", "spark-core_2.11", "2.4.4", logger) ++
+        DependencyResolution.resolve("org.apache.hadoop", "hadoop-main", "3.2.1", logger) ++
+        DependencyResolution.resolve("io.monix", "monix_2.12", "3.0.0", logger)
+    }
     val hashClasspathTask =
-      ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer)
+      ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer, System.out)
     val competingHashClasspathTask =
-      ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer)
+      ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer, System.out)
     val running = hashClasspathTask.runAsync(ioScheduler)
 
     Thread.sleep(10)
@@ -36,14 +40,16 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     running.cancel()
 
     val result = Await.result(running, FiniteDuration(20, "s"))
-    assert(result.isLeft)
-    assert(cancelPromise.isCompleted)
+    TestUtil.await(FiniteDuration(1, "s"), ioScheduler)(Task.fromFuture(cancelPromise.future))
+    assert(!cancelPromise2.isCompleted, result.isLeft)
 
     // Cancelling the first result doesn't affect the results of the second
     val competingResult = Await.result(running2, FiniteDuration(20, "s"))
-    assert(competingResult.isRight)
-    assert(competingResult.forall(s => s != BloopStamps.cancelledHash))
-    assert(!cancelPromise2.isCompleted)
+    assert(
+      competingResult.isRight,
+      competingResult.forall(s => s != BloopStamps.cancelledHash),
+      !cancelPromise2.isCompleted
+    )
   }
 
   ignore("detect macros in classpath") {

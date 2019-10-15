@@ -7,9 +7,14 @@ import bloop.io.AbsolutePath
 import bloop.util.TestProject
 import bloop.cli.ExitStatus
 import scala.concurrent.duration.FiniteDuration
+import bloop.engine.State
+import java.util.concurrent.TimeoutException
+import monix.execution.misc.NonFatal
+import java.lang.management.ManagementFactory
 
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {
   test("cross-compile build to latest Scala versions") {
+    var loggers: List[RecordingLogger] = Nil
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>
         val (compilerOrg, compilerArtifact) = {
@@ -37,6 +42,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
         }
 
         val logger = new RecordingLogger(ansiCodesSupported = false)
+        loggers.synchronized { loggers = logger :: loggers }
         val jars = jarsForScalaVersion(scalaVersion, logger)
         val `A` = TestProject(
           workspace,
@@ -51,8 +57,10 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
         val projects = List(`A`)
         val state = loadState(workspace, projects, logger)
         val compiledState = state.compile(`A`)
-        Predef.assert(compiledState.status == ExitStatus.Ok)
-        assertValidCompilationState(compiledState, projects)
+        try {
+          Predef.assert(compiledState.status == ExitStatus.Ok)
+          assertValidCompilationState(compiledState, projects)
+        } finally loggers.synchronized { loggers = loggers.filterNot(_ == logger) }
       }
     }
 
@@ -66,8 +74,19 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
       else List(`2.12`, `2.13`)
     }
 
-    TestUtil.await(FiniteDuration(100, "s"), ExecutionContext.ioScheduler) {
-      Task.sequence(all).map(_ => ())
-    }
+    try {
+      TestUtil.await(FiniteDuration(120, "s"), ExecutionContext.ioScheduler) {
+        Task
+          .sequence(all.grouped(2).map(group => Task.gatherUnordered(group)))
+          .map(_ => ())
+      }
+    } catch {
+      case NonFatal(t) =>
+        loggers.foreach(logger => logger.dump())
+        Thread.sleep(100)
+        System.err.println(TestUtil.threadDump)
+        Thread.sleep(100)
+        throw t
+    } finally {}
   }
 }

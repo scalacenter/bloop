@@ -52,7 +52,7 @@ object CommonOptions {
         case (k, v) =>
           pp.setProperty(k, v)
       }
-      
+
       pp
     }
   }

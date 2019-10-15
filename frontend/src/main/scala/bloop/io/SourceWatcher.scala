@@ -56,7 +56,7 @@ final class SourceWatcher private (
 
       // Make sure that errors on the file watcher are reported back
       override def onException(e: Exception): Unit = {
-        slf4jLogger.error(s"File watching threw an exception: ${e.getMessage}")
+        slf4jLogger.debug(s"File watching threw an exception: ${e.getMessage}")
         // Enable tracing when https://github.com/scalacenter/bloop/issues/433 is done
         //logger.trace(e)
       }
@@ -191,7 +191,12 @@ final class SourceWatcher private (
      */
 
     import bloop.util.monix.{BloopBufferTimedObservable, BloopWhileBusyDropEventsAndSignalOperator}
-    val timespan = FiniteDuration(20, "ms")
+    val timespan = {
+      val userMs = Integer.getInteger("file-watcher-batch-window-ms")
+      if (userMs == null) FiniteDuration(20L, "ms")
+      else FiniteDuration(userMs.toLong, "ms")
+    }
+
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       .liftByOperator(

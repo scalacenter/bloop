@@ -37,21 +37,23 @@ import sbt.internal.inc.javac.{
 }
 import sbt.internal.util.LoggerWriter
 import java.io.IOException
+import scala.concurrent.ExecutionContext
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
     retrieveDir: AbsolutePath,
     logger: Logger,
-    userResolvers: List[Resolver]
+    userResolvers: List[Resolver],
+    useSiteCache: Option[ConcurrentHashMap[ScalaInstance, Compilers]],
+    scheduler: ExecutionContext
 ) {
 
-  private val cache = new ConcurrentHashMap[ScalaInstance, Compilers]()
-
+  private val cache = useSiteCache.getOrElse(new ConcurrentHashMap[ScalaInstance, Compilers]())
   def get(scalaInstance: ScalaInstance): Compilers =
     cache.computeIfAbsent(scalaInstance, newCompilers)
 
-  private[bloop] def duplicateWith(logger: Logger): CompilerCache =
-    new CompilerCache(componentProvider, retrieveDir, logger, userResolvers)
+  private[bloop] def withLogger(logger: Logger): CompilerCache =
+    new CompilerCache(componentProvider, retrieveDir, logger, userResolvers, Some(cache), scheduler)
 
   private val compileJavaHomeKey = "bloop.compilation.java-home"
   private val compileJavaHome = Option(System.getProperty(compileJavaHomeKey))
@@ -88,7 +90,8 @@ final class CompilerCache(
           Some(Paths.getCacheDirectory("bridge-cache").toFile),
           bridgeSources,
           retrieveDir.toFile,
-          logger
+          logger,
+          scheduler
         )
     }
   }

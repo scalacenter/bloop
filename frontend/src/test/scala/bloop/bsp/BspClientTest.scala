@@ -291,6 +291,7 @@ trait BspClientTest {
 
         ()
       }
+      .notification(endpoints.Build.taskProgress) { case p => () }
       .notification(endpoints.Build.publishDiagnostics) {
         case p @ bsp.PublishDiagnosticsParams(tid, btid, originId, diagnostics, reset) =>
           record(

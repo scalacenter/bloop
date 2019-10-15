@@ -13,6 +13,7 @@ import sbt.io.syntax.File
 import xsbti.compile.ClassFileManager
 import java.nio.file.Files
 import bloop.io.Paths
+import scala.concurrent.ExecutionContext
 
 @Category(Array(classOf[FastTests]))
 class CompilerCacheSpec {
@@ -70,7 +71,8 @@ class CompilerCacheSpec {
         val wr2 = new WriteReportingJavaFileObject(fo2, classFileManager)
         val wr3 = new WriteReportingJavaFileObject(fo3, classFileManager)
 
-        val compilerCache = new CompilerCache(null, tempDir, logger, List.empty)
+        val ec = ExecutionContext.global
+        val compilerCache = new CompilerCache(null, tempDir, logger, List.empty, None, ec)
         val bloopCompiler = new compilerCache.BloopJavaCompiler(compiler)
         val invalidatingFileManager =
           new bloopCompiler.BloopInvalidatingFileManager(javacFileManager, classFileManager)

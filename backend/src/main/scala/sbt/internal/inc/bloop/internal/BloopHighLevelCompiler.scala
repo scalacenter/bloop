@@ -21,6 +21,7 @@ import xsbti.compile._
 import scala.util.control.NonFatal
 import sbt.internal.inc.JarUtils
 import scala.concurrent.Promise
+import xsbt.InterfaceCompileCancelled
 
 /**
  *
@@ -63,7 +64,8 @@ final class BloopHighLevelCompiler(
       changes: DependencyChanges,
       callback: AnalysisCallback,
       classfileManager: ClassFileManager,
-      compileMode: CompileMode
+      compileMode: CompileMode,
+      cancelPromise: Promise[Unit]
   ): Task[Unit] = {
     def timed[T](label: String)(t: => T): T = {
       tracer.trace(label) { _ =>
@@ -129,7 +131,12 @@ final class BloopHighLevelCompiler(
             case NonFatal(t) =>
               // If scala compilation happens, complete the java promise so that it doesn't block
               completeJava.tryFailure(t)
-              throw t
+
+              t match {
+                case _: NullPointerException if cancelPromise.isCompleted =>
+                  throw new InterfaceCompileCancelled(Array(), "Caught NPE when compilation was cancelled!")
+                case t => throw t
+              }
           }
         }
 

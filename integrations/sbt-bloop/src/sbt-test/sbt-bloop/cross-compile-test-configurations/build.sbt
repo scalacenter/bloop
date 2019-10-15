@@ -108,6 +108,8 @@ checkSourceAndDocs in ThisBuild := {
     modulesWithSourceAndDocs.forall(_._2),
     s"Modules ${modulesWithSourceAndDocs.filter(!_._2).map(_._1).mkString(", ")} have no sources and docs!"
   )
+  /*
   val classpathSize = fooBloopFile.project.classpath.size
   assert(classpathSize == modules.size, "There are more modules than classpath entries!")
+ */
 }

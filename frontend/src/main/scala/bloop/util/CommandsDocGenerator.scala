@@ -118,7 +118,7 @@ object CommandsDocGenerator {
       s"bloop clean $ExampleProjectName",
       s"bloop clean $ExampleProjectName $ExampleProjectName2",
       s"bloop clean $ExampleProjectName --propagate",
-      s"bloop bsp --protocol local --socket ${tmp.resolve("socket").toString} --pipe-name windows-name-pipe",
+      s"bloop bsp --protocol local --socket ${tmp.resolve("socket").toString} --pipe-name \\\\.\\pipe\\my-name-pipe",
       "bloop bsp --protocol tcp --host 127.0.0.1 --port 5101",
       s"bloop compile $ExampleProjectName",
       s"bloop compile $ExampleProjectName --cascade",
@@ -144,7 +144,7 @@ object CommandsDocGenerator {
       s"bloop link $ExampleProjectName --main $ExampleMainClass",
       s"bloop link $ExampleProjectName -O debug -w",
       s"bloop link $ExampleProjectName -O release -w",
-      s"bloop link $ExampleProjectName --main $ExampleMainClass -w",
+      s"bloop link $ExampleProjectName --main $ExampleMainClass -w"
     )
   }
 

@@ -32,7 +32,8 @@ abstract class BaseTestSpec(val projectName: String, buildName: String)
   testProject("runs all available suites", testOnlyOnJava8) { (build, logger) =>
     val project = build.projectFor(projectName)
     val testState = build.state.test(project)
-    assert(logger.errors.size == 0)
+    try assert(logger.errors.size == 0)
+    catch { case _: AssertionError => logger.dump() }
     assertNoDiff(
       logger.renderTimeInsensitiveTestInfos,
       expectedFullTestsOutput

@@ -30,6 +30,9 @@ import utest.ufansi.Color
 
 import monix.eval.Task
 import bloop.io.Paths
+import monix.execution.misc.NonFatal
+import bloop.logging.RecordingLogger
+import bloop.logging.BspServerLogger
 
 class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
@@ -105,6 +108,23 @@ class BaseSuite extends TestSuite with BloopHelpers {
     }
   }
 
+  def assertExitStatus(obtainedState: TestState, expected: ExitStatus): Unit = {
+    val obtained = obtainedState.status
+    try assert(obtained == expected)
+    catch {
+      case NonFatal(t) =>
+        obtainedState.state.logger match {
+          case logger: RecordingLogger => logger.dump(); throw t
+          case logger: BspServerLogger =>
+            logger.underlying match {
+              case logger: RecordingLogger => logger.dump(); throw t
+              case _ => throw t
+            }
+          case _ => throw t
+        }
+    }
+  }
+
   def assertSameResult(
       a: LastSuccessfulResult,
       b: LastSuccessfulResult
@@ -166,8 +186,10 @@ class BaseSuite extends TestSuite with BloopHelpers {
       printDiff: Boolean = true
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     val projectName = project.config.name
-    val a = s1.client.getUniqueClassesDirFor(s1.build.getProjectFor(projectName).get)
-    val b = s2.client.getUniqueClassesDirFor(s2.build.getProjectFor(projectName).get)
+    val a = s1.client
+      .getUniqueClassesDirFor(s1.build.getProjectFor(projectName).get, forceGeneration = true)
+    val b = s2.client
+      .getUniqueClassesDirFor(s2.build.getProjectFor(projectName).get, forceGeneration = true)
     val filesA = takeDirectorySnapshot(a)
     val filesB = takeDirectorySnapshot(b)
     assertNoDiff(
@@ -281,7 +303,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
           assert(stamps.getAllSourceStamps.asScala.nonEmpty)
 
           if (hasSameContentsInClassesDir) {
-            val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+            val projectClassesDir =
+              state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
             assert(takeDirectorySnapshot(result.classesDir).nonEmpty)
             assertSameFilesIn(projectClassesDir, result.classesDir)
           }
@@ -305,7 +328,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
       existing: Boolean
   ): Unit = {
     val buildProject = state.build.getProjectFor(project.config.name).get
-    val externalClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+    val externalClassesDir =
+      state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
     if (existing) assert(externalClassesDir.resolve(classFile).exists)
     else assert(!externalClassesDir.resolve(classFile).exists)
   }
@@ -377,7 +401,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
         assertNotFile(buildProject.analysisOut)
         assert(state.getLastSuccessfulResultFor(testProject).isEmpty)
         assert(state.getLastResultFor(testProject) == Compiler.Result.Empty)
-        val classesDir = state.client.getUniqueClassesDirFor(buildProject)
+        val classesDir = state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
         assert(takeDirectorySnapshot(classesDir).isEmpty)
     }
   }
@@ -404,7 +428,8 @@ class BaseSuite extends TestSuite with BloopHelpers {
         //assert(stamps.getAllBinaryStamps.asScala.nonEmpty)
 
         assert(takeDirectorySnapshot(latestResult.classesDir).nonEmpty)
-        val projectClassesDir = state.client.getUniqueClassesDirFor(buildProject)
+        val projectClassesDir =
+          state.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
         assertSameFilesIn(projectClassesDir, latestResult.classesDir)
     }
   }
@@ -557,6 +582,28 @@ class BaseSuite extends TestSuite with BloopHelpers {
   def testOnlyOnJava8(name: String)(fun: => Any): Unit = {
     if (TestUtil.isJdk8) test(name)(fun)
     else ignore(name, label = s"IGNORED ON JAVA v${TestUtil.jdkVersion}")(fun)
+  }
+
+  def flakyTest(name: String, attempts: Int)(fun: => Any): Unit = {
+    assert(attempts >= 0)
+    def retry(fun: => Any, attempts: Int): Unit = {
+      try {
+        fun; ()
+      } catch {
+        case NonFatal(t) =>
+          if (attempts == 0) throw t
+          else {
+            System.err.println(
+              s"Caught exception on flaky test run (remaining $attempts), restarting..."
+            )
+            t.printStackTrace(System.err)
+            Thread.sleep(10000)
+            retry(fun, attempts - 1)
+          }
+      }
+    }
+
+    myTests += FlatTest(name, () => { retry(fun, attempts); () })
   }
 
   def test(name: String)(fun: => Any): Unit = {

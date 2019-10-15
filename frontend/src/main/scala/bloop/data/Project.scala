@@ -80,12 +80,12 @@ final case class Project(
 
   def fullClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
     val addedResources = new mutable.HashSet[AbsolutePath]()
-    val selfUniqueClassesDir = client.getUniqueClassesDirFor(this)
+    val selfUniqueClassesDir = client.getUniqueClassesDirFor(this, forceGeneration = true)
     val cp = (selfUniqueClassesDir :: rawClasspath).toBuffer
     // Add the resources right before the classes directory if found in the classpath
     Dag.dfs(dag).foreach { p =>
       val genericClassesDir = p.genericClassesDir
-      val uniqueClassesDir = client.getUniqueClassesDirFor(p)
+      val uniqueClassesDir = client.getUniqueClassesDirFor(p, forceGeneration = true)
       val index = cp.indexOf(genericClassesDir)
       val newResources = p.pickValidResources.filterNot(r => addedResources.contains(r))
       newResources.foreach(r => addedResources.add(r))

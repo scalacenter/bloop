@@ -93,9 +93,10 @@ class LauncherSpec(bloopVersion: String)
       run.output.reset()
 
       // We should detect the bloop binary in the place where we installed it!
-      val bloopDir = Environment.defaultBloopDirectory
+      val bloopDir = Environment.defaultBloopDirectory.toAbsolutePath().toRealPath()
       state match {
-        case Some(AvailableAtPath(path)) if path.toAbsolutePath.getParent == bloopDir =>
+        case Some(AvailableAtPath(path))
+            if path.toAbsolutePath().toRealPath().getParent == bloopDir =>
           // After installing, let's run the launcher in an environment where bloop is available
           val result1 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
           val expectedLogs1 = List(

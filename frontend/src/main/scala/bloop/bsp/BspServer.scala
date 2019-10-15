@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import monix.execution.cancelables.AssignableCancelable
 import java.nio.file.NoSuchFileException
+import monix.reactive.subjects.BehaviorSubject
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
@@ -49,7 +50,7 @@ object BspServer {
       state: State,
       config: RelativePath,
       promiseWhenStarted: Option[Promise[Unit]],
-      externalObserver: Option[Observer.Sync[State]],
+      externalObserver: Option[BehaviorSubject[State]],
       scheduler: Scheduler,
       ioScheduler: Scheduler
   ): Task[State] = {
@@ -264,7 +265,7 @@ object BspServer {
   }
 
   def closeCommunication(
-      externalObserver: Option[Observer[State]],
+      externalObserver: Option[BehaviorSubject[State]],
       latestState: State,
       socket: Socket,
       serverSocket: ServerSocket
@@ -282,7 +283,8 @@ object BspServer {
         import bloop.io.Paths
         val project = loadedProject.project
         try {
-          val externalClientClassesDir = latestState.client.getUniqueClassesDirFor(project)
+          val externalClientClassesDir =
+            latestState.client.getUniqueClassesDirFor(project, forceGeneration = false)
           val skipDirectoryManagement =
             externalClientClassesDir == project.genericClassesDir ||
               latestState.client.hasManagedClassesDirectories

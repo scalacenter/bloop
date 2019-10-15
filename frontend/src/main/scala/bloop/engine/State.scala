@@ -43,13 +43,13 @@ object State {
   private[bloop] val stateCache: StateCache = StateCache.empty
   private var singleCompilerCache: CompilerCache = null
   private def getCompilerCache(logger: Logger): CompilerCache = synchronized {
-    if (singleCompilerCache != null) singleCompilerCache
+    if (singleCompilerCache != null) singleCompilerCache.withLogger(logger)
     else {
-      import sbt.internal.inc.bloop.ZincInternals
-      val provider =
-        BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("components"))
+      val scheduler = ExecutionContext.ioScheduler
+      val componentsDir = Paths.getCacheDirectory("components")
+      val provider = BloopComponentCompiler.getComponentProvider(componentsDir)
       val jars = Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(provider, jars, logger, Nil)
+      singleCompilerCache = new CompilerCache(provider, jars, logger, Nil, None, scheduler)
       singleCompilerCache
     }
   }

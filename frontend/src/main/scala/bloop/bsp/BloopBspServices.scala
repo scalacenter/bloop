@@ -46,13 +46,14 @@ import scala.util.Failure
 import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
 import bloop.engine.Feedback
+import monix.reactive.subjects.BehaviorSubject
 
 final class BloopBspServices(
     callSiteState: State,
     client: JsonRpcClient,
     relativeConfigPath: RelativePath,
     stopBspServer: Cancelable,
-    observer: Option[Observer.Sync[State]],
+    observer: Option[BehaviorSubject[State]],
     isClientConnected: AtomicBoolean,
     connectedBspClients: ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath],
     computationScheduler: Scheduler,
@@ -155,9 +156,8 @@ final class BloopBspServices(
       bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
       // Save the state globally so that it can be accessed by other clients
       State.stateCache.updateBuild(state)
-      observer.foreach(_.onNext(state))
-      ()
-    }
+      publishStateInObserver(state)
+    }.flatten
   }
 
   // Completed whenever the initialization happens, used in `initialized`
@@ -233,28 +233,36 @@ final class BloopBspServices(
       }
     }
 
-    reloadState(configDir, client, metalsSettings, bspLogger).map { state =>
+    reloadState(configDir, client, metalsSettings, bspLogger).flatMap { state =>
       callSiteState.logger.info(s"request received: build/initialize")
       clientInfo.success(client)
       connectedBspClients.put(client, configDir)
-      observer.foreach(_.onNext(state.copy(client = client)))
-      Right(
-        bsp.InitializeBuildResult(
-          BuildInfo.bloopName,
-          BuildInfo.version,
-          BuildInfo.bspVersion,
-          bsp.BuildServerCapabilities(
-            compileProvider = Some(BloopBspServices.DefaultCompileProvider),
-            testProvider = Some(BloopBspServices.DefaultTestProvider),
-            runProvider = Some(BloopBspServices.DefaultRunProvider),
-            inverseSourcesProvider = Some(true),
-            dependencySourcesProvider = Some(true),
-            resourcesProvider = Some(true),
-            buildTargetChangedProvider = Some(false)
-          ),
-          None
+      publishStateInObserver(state.copy(client = client)).map { _ =>
+        Right(
+          bsp.InitializeBuildResult(
+            BuildInfo.bloopName,
+            BuildInfo.version,
+            BuildInfo.bspVersion,
+            bsp.BuildServerCapabilities(
+              compileProvider = Some(BloopBspServices.DefaultCompileProvider),
+              testProvider = Some(BloopBspServices.DefaultTestProvider),
+              runProvider = Some(BloopBspServices.DefaultRunProvider),
+              inverseSourcesProvider = Some(true),
+              dependencySourcesProvider = Some(true),
+              resourcesProvider = Some(true),
+              buildTargetChangedProvider = Some(false)
+            ),
+            None
+          )
         )
-      )
+      }
+    }
+  }
+
+  private def publishStateInObserver(state: State): Task[Unit] = {
+    observer match {
+      case None => Task.unit
+      case Some(observer) => Task.fromFuture(observer.onNext(state)).map(_ => ())
     }
   }
 
@@ -902,7 +910,7 @@ final class BloopBspServices(
                   .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
                   .toList
               }
-            }
+            }.distinct
             bsp.DependencySourcesItem(target, sourceJars)
         }.toList
       )
@@ -934,7 +942,8 @@ final class BloopBspServices(
             val dag = state.build.getDagFor(project)
             val fullClasspath = project.fullClasspath(dag, state.client)
             val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
-            val classesDir = state.client.getUniqueClassesDirFor(project).toBspUri
+            val classesDir =
+              state.client.getUniqueClassesDirFor(project, forceGeneration = true).toBspUri
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,

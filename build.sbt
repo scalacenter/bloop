@@ -135,11 +135,37 @@ lazy val jsonConfig212 = project
       Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
     target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
     scalaVersion := Keys.scalaVersion.in(backend).value,
+    scalacOptions := {
+      scalacOptions.value.filterNot(opt => opt == "-deprecation"),
+    },
     libraryDependencies ++= {
       List(
         Dependencies.circeParser,
         Dependencies.circeDerivation,
         Dependencies.scalacheck % Test
+      )
+    }
+  )
+
+lazy val jsonConfig213 = project
+  .in(file("config"))
+  .disablePlugins(ScriptedPlugin)
+  .settings(testSettings)
+  .settings(publishJsonModuleSettings)
+  .settings(
+    name := "bloop-config",
+    unmanagedSourceDirectories in Compile +=
+      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-12"),
+    target := (file("config") / "target" / "json-config-2.13").getAbsoluteFile,
+    scalaVersion := "2.13.1",
+    scalacOptions := {
+      scalacOptions.value
+        .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
+    },
+    libraryDependencies ++= {
+      List(
+        Dependencies.newCirceParser,
+        Dependencies.newCirceDerivation
       )
     }
   )
@@ -269,22 +295,28 @@ def shadeSettingsForModule(
         Keys.name.get(data).toList
       }
       Def.task {
-        val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
         val projectDepNames = Keys.name.in(module).value :: projectDepModuleNames
         val depJars = dependencyClasspath.in(Compile).in(module).value.map(_.data)
-        depJars.filter { path =>
-          val ppath = path.toString
-          !(
-            projectDepNames.exists(n => ppath.contains(n)) ||
-              ppath.contains("sockets") || // Our own sockets library
-              ppath.contains("scala-library") ||
-              ppath.contains("scala-reflect") ||
-              ppath.contains("scala-xml") ||
-              ppath.contains("jna-platform") ||
-              ppath.contains("jna") ||
-              ppath.contains("macro-compat") ||
-              ppath.contains(toolsJarPath)
-          ) && path.exists && !path.isDirectory
+        depJars.filter {
+          path =>
+            val ppath = path.toString
+            !(
+              projectDepNames.exists(n => ppath.contains(n)) ||
+                ppath.contains("sockets") || // Our own sockets library
+                ppath.contains("scala-library") ||
+                ppath.contains("scala-reflect") ||
+                ppath.contains("scala-xml") ||
+                ppath.contains("jna-platform") ||
+                ppath.contains("jna") ||
+                ppath.contains("macro-compat") || {
+                if (!System.getProperty("java.specification.version").startsWith("1.")) false
+                else {
+                  val toolsJarPath =
+                    org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+                  ppath.contains(toolsJarPath)
+                }
+              }
+            ) && path.exists && !path.isDirectory
         }
       }
     }.value
@@ -407,28 +439,41 @@ def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToS
       // Redefine toShadeJars as it seems broken in sbt-shading
       Def.taskDyn {
         Def.task {
-          val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
           val projectDepNames = List(Keys.name.in(dependencyToShade).value)
 
           // We get dependency jars from dependencyToShade because if we get them from `module`
           // we get all of the jars in the sbt universe and we only want to share our deps!
           val depJars = dependencyClasspath.in(Compile).in(dependencyToShade).value.map(_.data)
-          depJars.filter { path =>
-            val ppath = path.toString
-            !(
-              projectDepNames.exists(n => ppath.contains(n)) ||
-                ppath.contains("scala-library") ||
-                ppath.contains("scala-reflect") ||
-                ppath.contains("scala-xml") ||
-                ppath.contains("macro-compat") ||
-                ppath.contains("scalamacros") ||
-                ppath.contains(toolsJarPath)
-            ) && path.exists && !path.isDirectory
+          depJars.filter {
+            path =>
+              val ppath = path.toString
+              !(
+                projectDepNames.exists(n => ppath.contains(n)) ||
+                  ppath.contains("scala-library") ||
+                  ppath.contains("scala-reflect") ||
+                  ppath.contains("scala-xml") ||
+                  ppath.contains("macro-compat") ||
+                  ppath.contains("scalamacros") || {
+                  if (!System.getProperty("java.specification.version").startsWith("1.")) false
+                  else {
+                    val toolsJarPath =
+                      org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+                    ppath.contains(toolsJarPath)
+                  }
+                }
+              ) && path.exists && !path.isDirectory
           }
         }
       }.value
     },
-    shadeNamespaces := Set("machinist", "shapeless", "cats", "jawn", "io.circe"),
+    shadeNamespaces := Set(
+      "machinist",
+      "shapeless",
+      "cats",
+      "jawn",
+      "org.typelevel.jawn",
+      "io.circe"
+    ),
     toShadeClasses := {
       // Only shade dependencies, not bloop config code
       toShadeClasses.value.filter(!_.startsWith("bloop"))
@@ -475,6 +520,7 @@ lazy val sbtBloop013 = project
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
   .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version, jsonConfig210))
+  .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
 
 lazy val sbtBloop013Shaded =
   defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013, jsonConfig210)
@@ -627,7 +673,7 @@ lazy val nativeBridge04 = project
 
 /* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
 lazy val twitterIntegrationProjects = project
-  .disablePlugins(CoursierPlugin, BloopPlugin)
+  .disablePlugins(BloopPlugin)
   .in(file("target") / "twitter-integration-projects")
   .settings(
     resolvers += MavenRepository("twitter-resolver", "https://maven.twttr.com"),
@@ -645,6 +691,7 @@ val allProjects = Seq(
   jsonConfig210,
   jsonConfig211,
   jsonConfig212,
+  jsonConfig213,
   sbtBloop013,
   sbtBloop10,
   mavenBloop,
@@ -699,6 +746,7 @@ addCommandAlias(
     s"${jsonConfig210.id}/$publishLocalCmd",
     s"${jsonConfig211.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
+    s"${jsonConfig213.id}/$publishLocalCmd",
     s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
     s"${sbtBloop013Shaded.id}/$publishLocalCmd",
@@ -748,6 +796,7 @@ val allBloopReleases = List(
   s"${jsonConfig210.id}/$releaseEarlyCmd",
   s"${jsonConfig211.id}/$releaseEarlyCmd",
   s"${jsonConfig212.id}/$releaseEarlyCmd",
+  s"${jsonConfig213.id}/$releaseEarlyCmd",
   s"${sbtBloop013.id}/$releaseEarlyCmd",
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${sbtBloop013Shaded.id}/$releaseEarlyCmd",

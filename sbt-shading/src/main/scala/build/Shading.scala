@@ -11,8 +11,8 @@ import com.tonicsystems.jarjar.transform.config.ClassRename
 import com.tonicsystems.jarjar.transform.jar.DefaultJarProcessor
  */
 
-import org.pantsbuild.jarjar._
-import org.pantsbuild.jarjar.util._
+import _root_.org.pantsbuild.jarjar._
+import _root_.org.pantsbuild.jarjar.util._
 
 import sbt.file
 

@@ -555,6 +555,6 @@ class BloopgunCli(
   }
 }
 
-object Bloopgun extends BloopgunCli("1.3.2", System.in, System.out, System.err, Shell.default) {
+object Bloopgun extends BloopgunCli("1.3.4", System.in, System.out, System.err, Shell.default) {
   def main(args: Array[String]): Unit = System.exit(run(args))
 }

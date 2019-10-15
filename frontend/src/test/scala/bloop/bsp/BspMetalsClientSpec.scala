@@ -278,7 +278,7 @@ class BspMetalsClientSpec(
       val metalsClient = createClient(metalsClientVersion, "Metals")
 
       val allClients = List(client1, client2, client3, client4, client5, metalsClient)
-      TestUtil.await(FiniteDuration(10, "s"), poolFor6Clients) {
+      TestUtil.await(FiniteDuration(20, "s"), poolFor6Clients) {
         Task.gatherUnordered(allClients).map(_ => ())
       }
 
@@ -353,7 +353,7 @@ class BspMetalsClientSpec(
 
   private def assertSemanticdbFileFor(sourceFileName: String, state: TestState): Unit = {
     val projectA = state.build.getProjectFor("A").get
-    val classesDir = state.client.getUniqueClassesDirFor(projectA)
+    val classesDir = state.client.getUniqueClassesDirFor(projectA, forceGeneration = true)
     val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
     assertIsFile(
       classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")

@@ -218,7 +218,8 @@ object BloopComRun {
    *      initializes `scalaJSCom` on `global`. Requires Node.js libraries.
    */
   def start(config: RunConfig, onMessage: String => Unit)(
-      startRun: VirtualBinaryFile => JSRun): JSComRun = {
+      startRun: VirtualBinaryFile => JSRun
+  ): JSComRun = {
     try {
       val serverSocket =
         new ServerSocket(0, 0, InetAddress.getByName(null)) // Loopback address
@@ -246,8 +247,8 @@ object BloopComRun {
   private final case class Connected(
       comSocket: Socket,
       jvm2js: DataOutputStream,
-      js2jvm: DataInputStream)
-      extends State
+      js2jvm: DataInputStream
+  ) extends State
 
   private final case object Closing extends State
 

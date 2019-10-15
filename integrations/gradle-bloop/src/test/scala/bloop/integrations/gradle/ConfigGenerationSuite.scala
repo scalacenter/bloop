@@ -957,7 +957,7 @@ abstract class ConfigGenerationSuite {
     assert(platform.isDefined)
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
-    assert(config.home.contains(Paths.get("/opt/jdk11")))
+    if (!scala.util.Properties.isWin) assert(config.home.contains(Paths.get("/opt/jdk11")))
     assert(config.options.toSet == Set("-XX:MaxMetaSpaceSize=512m", "-Xms1g", "-Xmx2g"))
   }
 
@@ -1000,7 +1000,15 @@ abstract class ConfigGenerationSuite {
     assert(platform.isDefined)
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
-    assert(config.options.toSet == Set("-XX:+UseG1GC", "-verbose:gc", "-Xms1g", "-Xmx2g", "-Dproperty=value"))
+    assert(
+      config.options.toSet == Set(
+        "-XX:+UseG1GC",
+        "-verbose:gc",
+        "-Xms1g",
+        "-Xmx2g",
+        "-Dproperty=value"
+      )
+    )
   }
 
   @Test def setsCorrectCompileOrder(): Unit = {
@@ -1085,8 +1093,6 @@ abstract class ConfigGenerationSuite {
     val setupB = getSetup(buildDirB)
     assert(setupB.order == Mixed)
   }
-
-
   @Test def maintainsClassPathOrder(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
     val buildDirA = testProjectDir.newFolder("a")

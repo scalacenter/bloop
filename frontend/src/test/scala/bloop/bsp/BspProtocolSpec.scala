@@ -16,6 +16,7 @@ import ch.epfl.scala.bsp.ScalacOptionsItem
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import io.circe.Json
 import ch.epfl.scala.bsp.Uri
+import bloop.testing.DiffAssertions.TestFailedException
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -189,6 +190,7 @@ class BspProtocolSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
+        val compiledState = build.state.compile(project)
         val expectedClasses = Set(
           "JUnitTest",
           "ScalaTestTest",
@@ -200,12 +202,13 @@ class BspProtocolSpec(
           "ResourcesTest"
         ).map("hello." + _)
 
-        val testClasses = build.state.testClasses(project)
+        val testClasses = compiledState.testClasses(project)
         val items = testClasses.items
         assert(items.size == 1)
 
         val classes = items.head.classes.toSet
-        assertEquals(classes, expectedClasses)
+        try assertEquals(classes, expectedClasses)
+        catch { case t: TestFailedException => logger.dump(); throw t }
       }
     }
   }

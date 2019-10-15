@@ -24,7 +24,7 @@ import monix.execution.atomic.AtomicInt
  */
 final class BspServerLogger private (
     override val name: String,
-    underlying: Logger,
+    private[bloop] val underlying: Logger,
     implicit val client: JsonRpcClient,
     taskIdCounter: AtomicInt,
     ansiSupported: Boolean,

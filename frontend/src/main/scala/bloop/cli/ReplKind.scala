@@ -12,7 +12,8 @@ object ReplKind {
     ArgParser.instance[ReplKind]("repl") { input =>
       repls.find(_.name == input) match {
         case Some(repl) => Right(repl)
-        case None => Left(s"Unrecognized repl: $input. Available: ${repls.map(_.name).mkString(", ")}")
+        case None =>
+          Left(s"Unrecognized repl: $input. Available: ${repls.map(_.name).mkString(", ")}")
       }
     }
   }

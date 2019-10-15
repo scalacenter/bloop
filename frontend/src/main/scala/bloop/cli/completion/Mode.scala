@@ -40,7 +40,8 @@ object Mode {
       Reporters,
       Protocols,
       TestsFQCN,
-      MainsFQCN)
+      MainsFQCN
+    )
 
   implicit val completionModeRead: ArgParser[Mode] = {
     ArgParser.instance[Mode]("mode") { input =>

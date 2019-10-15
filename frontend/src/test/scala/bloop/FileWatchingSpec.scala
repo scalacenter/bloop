@@ -20,7 +20,8 @@ import scala.concurrent.duration.FiniteDuration
 import monix.execution.misc.NonFatal
 
 object FileWatchingSpec extends BaseSuite {
-  test("simulate an incremental compiler session with file watching enabled") {
+  System.setProperty("file-watcher-batch-window-ms", "100")
+  flakyTest("simulate an incremental compiler session with file watching enabled", 3) {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
       object Sources {
@@ -59,6 +60,11 @@ object FileWatchingSpec extends BaseSuite {
         val `D.scala` =
           """/D.scala
             |object D
+          """.stripMargin
+
+        val `E.scala` =
+          """/E.scala
+            |object E
           """.stripMargin
 
         val `C2.scala` =
@@ -148,16 +154,13 @@ object FileWatchingSpec extends BaseSuite {
           _ <- waitUntilIteration(3, Some(6000L))
           firstWatchedState <- Task(testValidLatestState)
 
-          _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`C.scala`))
+          _ <- Task(writeFile(`C`.baseDir.resolve("E.scala"), Sources.`E.scala`))
 
-          _ <- waitUntilIteration(3)
+          _ <- waitUntilIteration(3, Some(1000L))
           secondWatchedState <- Task(testValidLatestState)
 
-          // Revert to change without macro calls, third compilation should happen
-          _ <- Task {
-            writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`)
-            writeFile(`C`.srcFor("D.scala"), Sources.`D.scala`)
-          }
+          // Revert to change without macro calls, fourth compilation should happen
+          _ <- Task { writeFile(`C`.srcFor("C.scala"), Sources.`C.scala`) }
           _ <- waitUntilIteration(4)
           thirdWatchedState <- Task(testValidLatestState)
         } yield {
@@ -281,6 +284,7 @@ object FileWatchingSpec extends BaseSuite {
 
     def count(ps: List[(String, String)]) = ps.count(_._2.contains(targetMsg))
 
+    var errorMessage: String = ""
     def waitForIterationFor(duration: FiniteDuration): Task[Unit] = {
       logsObservable
         .takeByTimespan(duration)
@@ -290,10 +294,8 @@ object FileWatchingSpec extends BaseSuite {
           try assert(totalIterations == obtainedIterations)
           catch {
             case NonFatal(t) =>
-              val output = logs.map {
-                case (level, log) => s"[$level] $log"
-              }
-              System.err.println(output.mkString(System.lineSeparator()))
+              errorMessage =
+                logs.map { case (level, log) => s"[$level] $log" }.mkString(System.lineSeparator())
               throw t
           }
         }
@@ -301,6 +303,10 @@ object FileWatchingSpec extends BaseSuite {
 
     waitForIterationFor(FiniteDuration(initialDuration.getOrElse(1500L), "ms"))
       .onErrorFallbackTo(waitForIterationFor(FiniteDuration(5000, "ms")))
+      .doOnFinish {
+        case Some(value) => Task.eval(System.err.println(errorMessage))
+        case None => Task.unit
+      }
   }
 
   test("cancel file watcher") {
