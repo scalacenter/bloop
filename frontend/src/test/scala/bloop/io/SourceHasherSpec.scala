@@ -9,7 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 import bloop.util.TestProject
 
 object SourceHasherSpec extends bloop.testing.BaseSuite {
-  test("cancellation works") {
+  flakyTest("cancellation works", 3) {
     val largeFileContents = {
       val sb = new StringBuilder()
       var base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

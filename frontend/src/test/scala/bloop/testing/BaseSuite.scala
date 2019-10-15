@@ -587,16 +587,18 @@ class BaseSuite extends TestSuite with BloopHelpers {
   def flakyTest(name: String, attempts: Int)(fun: => Any): Unit = {
     assert(attempts >= 0)
     def retry(fun: => Any, attempts: Int): Unit = {
-      if (attempts == 0) ()
-      else {
-        try {
-          fun; ()
-        } catch {
-          case NonFatal(t) =>
-            System.err.println(s"Caught exception on #${attempts} flaky test run, restarting...")
+      try {
+        fun; ()
+      } catch {
+        case NonFatal(t) =>
+          if (attempts == 0) throw t
+          else {
+            System.err.println(
+              s"Caught exception on flaky test run (remaining $attempts), restarting..."
+            )
             t.printStackTrace(System.err)
             retry(fun, attempts - 1)
-        }
+          }
       }
     }
 

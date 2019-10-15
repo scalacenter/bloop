@@ -920,6 +920,7 @@ abstract class ConfigGenerationSuite {
 
   @Test def importsPlatformJavaHomeAndOpts(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
+    val pathJdk = if (scala.util.Properties.isWin) "C:\\opt\\jdk11" else "/opt/jdk11"
     writeBuildScript(
       buildFile,
       s"""
@@ -930,7 +931,7 @@ abstract class ConfigGenerationSuite {
          |apply plugin: 'bloop'
          |
          |compileJava {
-         |  options.forkOptions.javaHome = file("/opt/jdk11")
+         |  options.forkOptions.javaHome = file("${pathJdk}")
          |  options.forkOptions.jvmArgs += "-XX:MaxMetaSpaceSize=512m"
          |  options.forkOptions.memoryInitialSize = "1g"
          |  options.forkOptions.memoryMaximumSize = "2g"
