@@ -295,22 +295,28 @@ def shadeSettingsForModule(
         Keys.name.get(data).toList
       }
       Def.task {
-        val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
         val projectDepNames = Keys.name.in(module).value :: projectDepModuleNames
         val depJars = dependencyClasspath.in(Compile).in(module).value.map(_.data)
-        depJars.filter { path =>
-          val ppath = path.toString
-          !(
-            projectDepNames.exists(n => ppath.contains(n)) ||
-              ppath.contains("sockets") || // Our own sockets library
-              ppath.contains("scala-library") ||
-              ppath.contains("scala-reflect") ||
-              ppath.contains("scala-xml") ||
-              ppath.contains("jna-platform") ||
-              ppath.contains("jna") ||
-              ppath.contains("macro-compat") ||
-              ppath.contains(toolsJarPath)
-          ) && path.exists && !path.isDirectory
+        depJars.filter {
+          path =>
+            val ppath = path.toString
+            !(
+              projectDepNames.exists(n => ppath.contains(n)) ||
+                ppath.contains("sockets") || // Our own sockets library
+                ppath.contains("scala-library") ||
+                ppath.contains("scala-reflect") ||
+                ppath.contains("scala-xml") ||
+                ppath.contains("jna-platform") ||
+                ppath.contains("jna") ||
+                ppath.contains("macro-compat") || {
+                if (!System.getProperty("java.specification.version").startsWith("1.")) false
+                else {
+                  val toolsJarPath =
+                    org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+                  ppath.contains(toolsJarPath)
+                }
+              }
+            ) && path.exists && !path.isDirectory
         }
       }
     }.value
@@ -433,23 +439,29 @@ def shadeSbtSettingsForModule(moduleId: String, module: Reference, dependencyToS
       // Redefine toShadeJars as it seems broken in sbt-shading
       Def.taskDyn {
         Def.task {
-          val toolsJarPath = org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
           val projectDepNames = List(Keys.name.in(dependencyToShade).value)
 
           // We get dependency jars from dependencyToShade because if we get them from `module`
           // we get all of the jars in the sbt universe and we only want to share our deps!
           val depJars = dependencyClasspath.in(Compile).in(dependencyToShade).value.map(_.data)
-          depJars.filter { path =>
-            val ppath = path.toString
-            !(
-              projectDepNames.exists(n => ppath.contains(n)) ||
-                ppath.contains("scala-library") ||
-                ppath.contains("scala-reflect") ||
-                ppath.contains("scala-xml") ||
-                ppath.contains("macro-compat") ||
-                ppath.contains("scalamacros") ||
-                ppath.contains(toolsJarPath)
-            ) && path.exists && !path.isDirectory
+          depJars.filter {
+            path =>
+              val ppath = path.toString
+              !(
+                projectDepNames.exists(n => ppath.contains(n)) ||
+                  ppath.contains("scala-library") ||
+                  ppath.contains("scala-reflect") ||
+                  ppath.contains("scala-xml") ||
+                  ppath.contains("macro-compat") ||
+                  ppath.contains("scalamacros") || {
+                  if (!System.getProperty("java.specification.version").startsWith("1.")) false
+                  else {
+                    val toolsJarPath =
+                      org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
+                    ppath.contains(toolsJarPath)
+                  }
+                }
+              ) && path.exists && !path.isDirectory
           }
         }
       }.value
