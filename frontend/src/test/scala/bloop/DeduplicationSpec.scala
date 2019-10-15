@@ -765,7 +765,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   // TODO(jvican): Compile project of cancelled compilation to ensure no deduplication trace is left
-  flakyTest("cancel deduplicated compilation finishes all clients", 3) {
+  test("cancel deduplicated compilation finishes all clients") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -858,7 +858,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         bspLogger,
         compileStartPromises = Some(compileStartPromises)
       ) { bspState =>
-        val firstCompilation = bspState.compileHandle(`B`)
+        val firstCompilation =
+          bspState.compileHandle(`B`, userScheduler = Some(ExecutionContext.ioScheduler))
         val secondCompilation =
           waitUntilStartAndCompile(compiledState, `B`, startedFirstCompilation, cliLogger)
 
@@ -981,7 +982,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           bspLogger,
           compileStartPromises = Some(compileStartPromises)
         ) { bspState =>
-          val firstCompilation = bspState.compileHandle(`B`)
+          val firstCompilation =
+            bspState.compileHandle(`B`, userScheduler = Some(ExecutionContext.ioScheduler))
           val secondCompilation =
             waitUntilStartAndCompile(compiledState, `B`, startedFirstCompilation, cliLogger)
 

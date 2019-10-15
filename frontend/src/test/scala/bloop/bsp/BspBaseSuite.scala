@@ -155,7 +155,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     def compileHandle(
         project: TestProject,
-        delay: Option[FiniteDuration] = None
+        delay: Option[FiniteDuration] = None,
+        userScheduler: Option[Scheduler] = None
     ): CancelableFuture[ManagedBspTestState] = {
       val interpretedTask = {
         val task = compileTask(project, None)
@@ -165,7 +166,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         }
       }
 
-      interpretedTask.runAsync(ExecutionContext.scheduler)
+      interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
     def compile(project: TestProject, originId: Option[String] = None): ManagedBspTestState = {
