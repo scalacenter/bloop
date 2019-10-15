@@ -22,7 +22,6 @@ import org.junit.rules.TemporaryFolder
 import bloop.engine.BuildLoader
 
 import scala.collection.JavaConverters._
-import java.nio.file.Path
 
 class ConfigGenerationSuite481 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "4.8.1"
@@ -920,7 +919,6 @@ abstract class ConfigGenerationSuite {
 
   @Test def importsPlatformJavaHomeAndOpts(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    val pathJdk = if (scala.util.Properties.isWin) "C:\\opt\\jdk11" else "/opt/jdk11"
     writeBuildScript(
       buildFile,
       s"""
@@ -931,7 +929,7 @@ abstract class ConfigGenerationSuite {
          |apply plugin: 'bloop'
          |
          |compileJava {
-         |  options.forkOptions.javaHome = file("${pathJdk}")
+         |  options.forkOptions.javaHome = file("/opt/jdk11")
          |  options.forkOptions.jvmArgs += "-XX:MaxMetaSpaceSize=512m"
          |  options.forkOptions.memoryInitialSize = "1g"
          |  options.forkOptions.memoryMaximumSize = "2g"
@@ -959,7 +957,7 @@ abstract class ConfigGenerationSuite {
     assert(platform.isDefined)
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
-    assert(config.home.contains((p: Path) => p.toAbsolutePath.toString.contains("jdk11")))
+    if (!scala.util.Properties.isWin) assert(config.home.contains(Paths.get("/opt/jdk11")))
     assert(config.options.toSet == Set("-XX:MaxMetaSpaceSize=512m", "-Xms1g", "-Xmx2g"))
   }
 
