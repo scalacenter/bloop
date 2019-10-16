@@ -2,14 +2,18 @@ package bloop.config
 
 import java.nio.file.{Files, Path, Paths}
 
-import com.github.plokhotnyuk.jsoniter_scala.macros._
-import com.github.plokhotnyuk.jsoniter_scala.core._
-
 import scala.util.Try
 import java.nio.charset.StandardCharsets
 import java.io.ByteArrayOutputStream
 import scala.util.Failure
 import scala.util.Success
+
+import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonWriter
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReader
+import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
+import com.github.plokhotnyuk.jsoniter_scala.macros._
 
 object ConfigCodecs {
 
@@ -112,22 +116,22 @@ object ConfigCodecs {
   }
 
   implicit val codecJvmConfig: JsonValueCodec[Config.JvmConfig] =
-    JsonCodecMaker.make[Config.JvmConfig](CodecMakerConfig)
+    JsonCodecMaker.make[Config.JvmConfig](CodecMakerConfig.withTransientEmpty(false))
 
   implicit val codecJsConfig: JsonValueCodec[Config.JsConfig] =
-    JsonCodecMaker.make[Config.JsConfig](CodecMakerConfig)
+    JsonCodecMaker.make[Config.JsConfig](CodecMakerConfig.withTransientEmpty(false))
 
   implicit val codecNativeConfig: JsonValueCodec[Config.NativeConfig] =
-    JsonCodecMaker.make[Config.NativeConfig](CodecMakerConfig)
+    JsonCodecMaker.make[Config.NativeConfig](CodecMakerConfig.withTransientEmpty(false))
 
   private case class MainClass(mainClass: Option[String])
   private implicit val codecMainClass: JsonValueCodec[MainClass] = {
     new JsonValueCodec[MainClass] {
       val nullValue: MainClass = null.asInstanceOf[MainClass]
       val codecOption: JsonValueCodec[Option[String]] =
-        JsonCodecMaker.make[Option[String]](CodecMakerConfig)
+        JsonCodecMaker.make[Option[String]](CodecMakerConfig.withTransientEmpty(false))
       val codecList: JsonValueCodec[List[String]] =
-        JsonCodecMaker.make[List[String]](CodecMakerConfig)
+        JsonCodecMaker.make[List[String]](CodecMakerConfig.withTransientEmpty(false))
       def encodeValue(x: MainClass, out: JsonWriter): Unit = {
         codecOption.encodeValue(x.mainClass, out)
       }
@@ -159,7 +163,9 @@ object ConfigCodecs {
     new JsonValueCodec[Config.Platform] {
       val codec: JsonValueCodec[JsoniterPlatform] =
         JsonCodecMaker.make[JsoniterPlatform](
-          CodecMakerConfig.withDiscriminatorFieldName(Some("name"))
+          CodecMakerConfig
+            .withDiscriminatorFieldName(Some("name"))
+            .withTransientEmpty(false)
         )
       val nullValue: Config.Platform = null.asInstanceOf[Config.Platform]
       def encodeValue(x: Config.Platform, out: JsonWriter): Unit = {
@@ -182,23 +188,24 @@ object ConfigCodecs {
     }
 
   implicit val codecProject: JsonValueCodec[Config.Project] =
-    JsonCodecMaker.make[Config.Project](CodecMakerConfig)
+    JsonCodecMaker.make[Config.Project](CodecMakerConfig.withTransientEmpty(false))
 
   implicit val codecFile: JsonValueCodec[Config.File] =
-    JsonCodecMaker.make[Config.File](CodecMakerConfig)
+    JsonCodecMaker.make[Config.File](CodecMakerConfig.withTransientEmpty(false))
 
   def read(configDir: Path): Either[Throwable, Config.File] = {
     read(Files.readAllBytes(configDir))
   }
 
   def read(bytes: Array[Byte]): Either[Throwable, Config.File] = {
-    Try(readFromArray[Config.File](bytes)) match {
+    Try(jsoniter.readFromArray[Config.File](bytes)) match {
       case Failure(exception) => Left(exception)
       case Success(value) => Right(value)
     }
   }
 
   def toStr(all: Config.File): String = {
-    new String(writeToArray[Config.File](all), StandardCharsets.UTF_8)
+    val config = WriterConfig.withIndentionStep(4)
+    new String(jsoniter.writeToArray[Config.File](all, config), StandardCharsets.UTF_8)
   }
 }

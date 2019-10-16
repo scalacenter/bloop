@@ -15,7 +15,7 @@ import java.nio.file.Path
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 
-import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec}
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, WriterConfig}
 import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
 
 /**
@@ -54,7 +54,7 @@ object WorkspaceSettings {
   private[bloop] val settingsFileName = RelativePath("bloop.settings.json")
 
   private implicit val codecSettings: JsonValueCodec[WorkspaceSettings] =
-    JsonCodecMaker.make[WorkspaceSettings](CodecMakerConfig)
+    JsonCodecMaker.make[WorkspaceSettings](CodecMakerConfig.withTransientEmpty(false))
   import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
   def readFromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
     val settingsPath = configPath.resolve(settingsFileName)
@@ -76,7 +76,7 @@ object WorkspaceSettings {
   ): AbsolutePath = {
     val settingsFile = configDir.resolve(settingsFileName)
     logger.debug(s"Writing workspace settings to $settingsFile")(DebugFilter.All)
-    val bytes = jsoniter.writeToArray(settings)
+    val bytes = jsoniter.writeToArray(settings, WriterConfig.withIndentionStep(4))
     Files.write(settingsFile.underlying, bytes)
     settingsFile
   }

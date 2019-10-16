@@ -6,7 +6,12 @@ import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
 
 import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
-import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, JsonWriter, JsonReader}
+import com.github.plokhotnyuk.jsoniter_scala.core.{
+  JsonValueCodec,
+  JsonWriter,
+  JsonReader,
+  WriterConfig
+}
 import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
 
 object Config {
@@ -41,13 +46,13 @@ object Config {
   case class RepoCacheEntries(repos: List[RepoCacheEntry])
   object RepoCacheEntries {
     implicit val codecSettings: JsonValueCodec[RepoCacheEntries] =
-      JsonCodecMaker.make[RepoCacheEntries](CodecMakerConfig)
+      JsonCodecMaker.make[RepoCacheEntries](CodecMakerConfig.withTransientEmpty(false))
   }
 
   case class HashedPath(path: Path, hash: Int)
   object HashedPath {
     implicit val codecSettings: JsonValueCodec[HashedPath] =
-      JsonCodecMaker.make[HashedPath](CodecMakerConfig)
+      JsonCodecMaker.make[HashedPath](CodecMakerConfig.withTransientEmpty(false))
   }
 
   final case class BuildSettingsHashes(individual: List[HashedPath]) {
@@ -70,13 +75,13 @@ object Config {
   }
   object BuildSettingsHashes {
     implicit val codecSettings: JsonValueCodec[BuildSettingsHashes] =
-      JsonCodecMaker.make[BuildSettingsHashes](CodecMakerConfig)
+      JsonCodecMaker.make[BuildSettingsHashes](CodecMakerConfig.withTransientEmpty(false))
   }
 
   case class RepoCacheEntry(id: String, uri: URI, localPath: Path, hashes: BuildSettingsHashes)
   object RepoCacheEntry {
     implicit val codecSettings: JsonValueCodec[RepoCacheEntry] =
-      JsonCodecMaker.make[RepoCacheEntry](CodecMakerConfig)
+      JsonCodecMaker.make[RepoCacheEntry](CodecMakerConfig.withTransientEmpty(false))
   }
 
   case class RepoCacheFile(version: String, cache: RepoCacheEntries)
@@ -86,12 +91,12 @@ object Config {
     final val LatestVersion = "1.0.0"
 
     implicit val codecSettings: JsonValueCodec[RepoCacheFile] =
-      JsonCodecMaker.make[RepoCacheFile](CodecMakerConfig)
+      JsonCodecMaker.make[RepoCacheFile](CodecMakerConfig.withTransientEmpty(false))
   }
 
   def write(all: RepoCacheFile, target: Path): Unit = {
-    val contents = jsoniter.writeToArray(all)
-    Files.write(target, contents)
+    val bytes = jsoniter.writeToArray(all, WriterConfig.withIndentionStep(4))
+    Files.write(target, bytes)
     ()
   }
 

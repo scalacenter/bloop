@@ -20,7 +20,12 @@ class ConfigCodecsSpec {
   }
 
   @Test def testEmptyConfigJson(): Unit = {
-    parseFile(File.empty)
+    val configFile = File.empty
+    val jsonConfig = bloop.config.write(configFile)
+    // Assert that empty collection fields such as sources are present in the format
+    Assert.assertTrue(jsonConfig.contains("\"sources\""))
+    val parsedConfig = parseConfig(jsonConfig)
+    Assert.assertEquals(configFile, parsedConfig)
   }
 
   @Test def testSimpleConfigJson(): Unit = {
