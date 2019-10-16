@@ -23,6 +23,7 @@ import monix.eval.Task
 import scala.concurrent.duration.FiniteDuration
 
 import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
+import bloop.engine.ExecutionContext
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -228,10 +229,6 @@ class BspMetalsClientSpec(
 
   test("initialize multiple metals clients and save settings") {
     TestUtil.withinWorkspace { workspace =>
-      val poolFor6Clients: Scheduler = Scheduler(
-        java.util.concurrent.Executors.newFixedThreadPool(20),
-        ExecutionModel.Default
-      )
       val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some(testedScalaVersion))
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -250,7 +247,7 @@ class BspMetalsClientSpec(
           val bspLogger = new BspClientLogger(logger)
           val bspCommand = createBspCommand(configDir)
           val state = TestUtil.loadTestProject(configDir.underlying, logger)
-          val scheduler = Some(poolFor6Clients)
+          val scheduler = Some(ExecutionContext.ioScheduler)
           val bspState = openBspConnection(
             state,
             bspCommand,
@@ -277,8 +274,8 @@ class BspMetalsClientSpec(
       val client5 = createClient(normalClientsVersion)
       val metalsClient = createClient(metalsClientVersion, "Metals")
 
-      val allClients = List(client1, client2, client3, client4, client5, metalsClient)
-      TestUtil.await(FiniteDuration(20, "s"), poolFor6Clients) {
+      val allClients = List(client1, client2, client3, metalsClient, client4, client5)
+      TestUtil.await(FiniteDuration(20, "s"), ExecutionContext.ioScheduler) {
         Task.gatherUnordered(allClients).map(_ => ())
       }
 
