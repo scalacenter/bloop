@@ -218,7 +218,7 @@ object BuildKeys {
 
   def sbtPluginSettings(
       name: String,
-      sbtVersion: String,
+      sbtVersion: String
   ): Seq[Def.Setting[_]] = List(
     Keys.name := name,
     Keys.sbtPlugin := true,
@@ -398,6 +398,7 @@ object BuildImplementation {
      * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
+        // TODO enable back, this is just temporary
         exportProjectsInTestResources(state, enableCache = true)
       }
     }

@@ -42,6 +42,7 @@ object BloopPlugin extends AutoPlugin {
 }
 
 object BloopKeys {
+  import Compat.CompileAnalysis
   import sbt.{SettingKey, TaskKey, settingKey, taskKey}
 
   val bloopConfigDir: SettingKey[File] =
@@ -64,8 +65,16 @@ object BloopKeys {
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
+  val bloopGenerateInternal: sbt.TaskKey[Option[BloopProjectConfig]] =
+    TaskKey[Option[BloopProjectConfig]](
+      "bloopGenerateInternal",
+      "Generate bloop configuration file for this project, returning in-memory configuration",
+      rank = sbt.KeyRanks.Invisible
+    )
   val bloopGenerate: sbt.TaskKey[Option[File]] =
-    taskKey[Option[File]]("Generate bloop configuration files for this project")
+    taskKey[Option[File]]("Generate bloop configuration file for this project")
+  val bloopCompile: sbt.TaskKey[CompileAnalysis] =
+    taskKey[CompileAnalysis]("Offload compilation to Bloop via BSP.")
   val bloopAnalysisOut: SettingKey[Option[File]] =
     settingKey[Option[File]]("User-defined location for the incremental analysis file")
   val bloopScalaJSStage: SettingKey[Option[String]] =
@@ -103,6 +112,11 @@ object BloopDefaults {
       val baseDirectory = new File(buildStructure.root)
       val isMetaBuild = Keys.sbtPlugin.in(LocalRootProject).value
       isMetaBuild && baseDirectory.getAbsolutePath != cwd
+    },
+    Keys.initialize := {
+      val _ = Keys.initialize.value
+      Offloader.bloopInitializeConnection.value
+      ()
     },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
@@ -161,15 +175,25 @@ object BloopDefaults {
           case None => Def.task(Nil: Seq[(File, File)])
         }
       }.value,
+      BloopKeys.bloopGenerateInternal := bloopGenerateInternal.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := None,
       BloopKeys.bloopMainClass := None,
-      BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
+      BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value,
+      BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value
     ) ++ discoveredSbtPluginsSettings
 
+  val compileSettings = List(
+    Keys.compile := {
+      val p = Keys.thisProjectRef.value
+      println(s"[sbt] Compiling project ${p.project}")
+      Keys.compile.value
+    }
+  )
+
   lazy val projectSettings: Seq[Def.Setting[_]] = {
-    sbt.inConfig(Compile)(configSettings) ++
-      sbt.inConfig(Test)(configSettings) ++
+    sbt.inConfig(Compile)(configSettings ++ compileSettings) ++
+      sbt.inConfig(Test)(configSettings ++ compileSettings) ++
       sbt.inConfig(IntegrationTest)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
@@ -758,7 +782,7 @@ object BloopDefaults {
     }
   }
 
-  lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
+  lazy val bloopGenerateInternal: Def.Initialize[Task[Option[BloopProjectConfig]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
     val configuration = Keys.configuration.value
@@ -914,9 +938,13 @@ object BloopDefaults {
 
         logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'")
         logger.success(s"Generated $userFriendlyConfigPath")
-        Some(outFile)
+        Some(BloopProjectConfig(outFile, config))
       }
     }
+  }
+
+  lazy val bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.task {
+    bloopGenerateInternal.value.map(_.target)
   }
 
   private final val allJson = sbt.GlobFilter("*.json")

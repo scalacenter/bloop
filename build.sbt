@@ -235,6 +235,7 @@ lazy val frontend: Project = project
 
 lazy val bloopgun: Project = project
   .disablePlugins(ScriptedPlugin)
+  .enablePlugins(BuildInfoPlugin)
   .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
   .settings(
@@ -465,6 +466,9 @@ def shadeSbtSettingsForModule(
                   ppath.contains("scala-xml") ||
                   ppath.contains("macro-compat") ||
                   ppath.contains("scalamacros") ||
+                  // Eclipse jars are signed and cannot be uberjar'd
+                  ppath.contains("eclipse") ||
+                  ppath.contains("jsr305") ||
                   ppath.contains("jna") ||
                   ppath.contains("jna-platform") || {
                   if (!System.getProperty("java.specification.version").startsWith("1.")) false
@@ -496,7 +500,11 @@ def shadeSbtSettingsForModule(
       "com.zaxxer.nuprocess",
       "coursier",
       "shapeless",
-      "argonaut"
+      "argonaut",
+      "org.checkerframework",
+      "com.google",
+      "org.codehaus",
+      "ch.epfl.scala.bsp4j"
     ),
     toShadeClasses := {
       // Only shade dependencies, not bloop config code
@@ -529,7 +537,7 @@ def defineShadedSbtPlugin(
 }
 
 lazy val sbtBloop10: Project = project
-  .dependsOn(jsonConfig212, launcher)
+  .dependsOn(jsonConfig212, launcher, bloop4j)
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
@@ -540,7 +548,7 @@ lazy val sbtBloop10Shaded: Project =
     "sbtBloop10Shaded",
     Sbt1Version,
     sbtBloop10,
-    List(jsonConfig212, sockets, bloopgun, launcher)
+    List(jsonConfig212, sockets, bloopgun, launcher, bloop4j)
   )
 
 lazy val sbtBloop013 = project

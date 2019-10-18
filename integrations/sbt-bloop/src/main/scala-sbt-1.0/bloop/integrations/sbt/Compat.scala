@@ -6,6 +6,7 @@ import sbt.{Artifact, Exec, Keys, SettingKey}
 import sbt.librarymanagement.ScalaModuleInfo
 
 object Compat {
+  type CompileAnalysis = xsbti.compile.CompileAnalysis
   type PluginData = sbt.PluginData
   val PluginData = sbt.PluginData
   val PluginDiscovery = sbt.internal.PluginDiscovery

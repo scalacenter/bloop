@@ -5,6 +5,8 @@ import sbt.{Def, Artifact, Keys, SettingKey}
 import java.io.File
 
 object Compat {
+  type CompileAnalysis = sbt.inc.Analysis
+  val CompileAnalysis = sbt.inc.Analysis
   type PluginData = sbt.PluginData
   val PluginData = sbt.PluginData
   val PluginDiscovery = sbt.PluginDiscovery

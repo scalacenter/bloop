@@ -21,7 +21,8 @@ val sbtBloopBuildShadedDeps = project
       "io.get-coursier" %% "coursier" % "1.1.0-M14-4",
       "io.get-coursier" %% "coursier-cache" % "1.1.0-M14-4",
       "net.java.dev.jna" % "jna" % "4.5.0",
-      "net.java.dev.jna" % "jna-platform" % "4.5.0"
+      "net.java.dev.jna" % "jna-platform" % "4.5.0",
+      "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
     )
   )
 
@@ -40,23 +41,31 @@ val sbtBloopBuildShaded = project
       Def.taskDyn {
         Def.task {
           // Only shade transitive dependencies, not bloop deps
-          (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter { path =>
-            val ppath = path.toString
-            !(
-              ppath.contains("scala-compiler") ||
-                ppath.contains("scala-library") ||
-                ppath.contains("scala-reflect") ||
-                ppath.contains("scala-xml") ||
-                ppath.contains("macro-compat") ||
-                ppath.contains("jna-platform") ||
-                ppath.contains("jna") ||
-                ppath.contains("scalamacros")
-            ) && path.exists
+          val a = (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter {
+            path =>
+              val ppath = path.toString
+              !(
+                ppath.contains("scala-compiler") ||
+                  ppath.contains("scala-library") ||
+                  ppath.contains("scala-reflect") ||
+                  ppath.contains("scala-xml") ||
+                  ppath.contains("macro-compat") ||
+                  ppath.contains("jna-platform") ||
+                  ppath.contains("jna") ||
+                  ppath.contains("jsr305") ||
+                  ppath.contains("gson") ||
+                  ppath.contains("google") ||
+                  // Eclipse jars are signed and cannot be uberjar'd
+                  ppath.contains("eclipse") ||
+                  ppath.contains("scalamacros")
+              ) && path.exists
           }
+          println(s"a $a")
+          a
         }
       }.value
     },
-    shadingNamespace := "build",
+    shadingNamespace := "shaded.build",
     shadeNamespaces := Set(
       "com.github.plokhotnyuk.jsoniter_scala",
       "machinist",
@@ -69,7 +78,11 @@ val sbtBloopBuildShaded = project
       "com.zaxxer.nuprocess",
       "coursier",
       "shapeless",
-      "argonaut"
+      "argonaut",
+      "org.checkerframework",
+      //"com.google",
+      "org.codehaus",
+      "ch.epfl.scala.bsp4j"
     ),
     // Let's add our sbt plugin sources to the module
     unmanagedSourceDirectories in Compile ++= {
@@ -79,6 +92,7 @@ val sbtBloopBuildShaded = project
         baseDir / "config" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala-2.11-13",
         baseDir / "sockets" / "src" / "main" / "java",
+        baseDir / "bloop4j" / "src" / "main" / "scala",
         baseDir / "bloopgun" / "src" / "main" / "scala",
         baseDir / "launcher" / "src" / "main" / "scala",
         pluginMainDir / "scala",

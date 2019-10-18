@@ -133,7 +133,8 @@ object ConfigCodecs {
       val codecList: JsonValueCodec[List[String]] =
         JsonCodecMaker.make[List[String]](CodecMakerConfig.withTransientEmpty(false))
       def encodeValue(x: MainClass, out: JsonWriter): Unit = {
-        codecOption.encodeValue(x.mainClass, out)
+        //codecOption.encodeValue(x.mainClass, out)
+        codecList.encodeValue(x.mainClass.toList, out)
       }
 
       def decodeValue(in: JsonReader, default: MainClass): MainClass = {

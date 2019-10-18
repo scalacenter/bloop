@@ -89,6 +89,7 @@ final class BspServerLogger private (
     val problemPos = event.problem.position
     val problemSeverity = event.problem.severity
     val sourceFile = toOption(problemPos.sourceFile())
+    // TODO: Add code content
 
     (problemPos, sourceFile) match {
       case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>

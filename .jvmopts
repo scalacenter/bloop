@@ -1,1 +1,2 @@
 -XX:ReservedCodeCacheSize=512m
+-Dbloop.generate.sbt=false

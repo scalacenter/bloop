@@ -11,6 +11,8 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.CompletableFuture
+import java.io.PrintWriter
+import java.util.concurrent.ExecutorService
 
 import org.eclipse.lsp4j.jsonrpc.Launcher
 
@@ -27,16 +29,16 @@ import ch.epfl.scala.bsp4j.CompileResult
 class NakedLowLevelBuildClient(
     clientName: String,
     clientVersion: String,
+    clientBaseDir: Path,
     clientIn: InputStream,
     clientOut: OutputStream,
     handlers: BuildClientHandlers,
-    underlyingProcess: Option[Process]
+    underlyingProcess: Option[Process],
+    executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
-  val testDirectory = Files.createTempDirectory("remote-bloop-client")
-
   private var server: ScalaBuildServerBridge = null
   def initialize: CompletableFuture[InitializeBuildResult] = {
-    server = unsafeConnectToBuildServer(handlers, testDirectory)
+    server = unsafeConnectToBuildServer(handlers, clientBaseDir)
 
     import scala.collection.JavaConverters._
     val capabilities = new BuildClientCapabilities(List("scala", "java").asJava)
@@ -44,7 +46,7 @@ class NakedLowLevelBuildClient(
       clientName,
       clientVersion,
       "2.0.0-M4",
-      testDirectory.toUri.toString,
+      clientBaseDir.toUri.toString,
       capabilities
     )
 
@@ -71,13 +73,13 @@ class NakedLowLevelBuildClient(
       localClient: BuildClient,
       baseDir: Path
   ): ScalaBuildServerBridge = {
-    val launcher = new Launcher.Builder[ScalaBuildServerBridge]()
-    //.traceMessages(new PrintWriter(System.out))
+    val builder = new Launcher.Builder[ScalaBuildServerBridge]()
       .setRemoteInterface(classOf[ScalaBuildServerBridge])
       .setInput(clientIn)
       .setOutput(clientOut)
       .setLocalService(localClient)
-      .create()
+    executor.foreach(executor => builder.setExecutorService(executor))
+    val launcher = builder.create()
 
     launcher.startListening()
     val serverBridge = launcher.getRemoteProxy
@@ -86,13 +88,14 @@ class NakedLowLevelBuildClient(
   }
 }
 
-object RemoteBloopClient {
+object NakedLowLevelBuildClient {
   def fromLauncherJars(
       clientName: String,
       clientVersion: String,
-      buildDir: Path,
+      clientBaseDir: Path,
       launcherJars: Seq[Path],
       handlers: BuildClientHandlers,
+      executor: Option[ExecutorService],
       additionalEnv: ju.Map[String, String] = new ju.HashMap()
   ): NakedLowLevelBuildClient = {
     import scala.collection.JavaConverters._
@@ -106,14 +109,16 @@ object RemoteBloopClient {
     val delimiter = if (Environment.isWindows) ";" else ":"
     val stringClasspath = launcherJars.map(_.normalize().toAbsolutePath).mkString(delimiter)
     val cmd = List("java", "-classpath", stringClasspath, "bloop.launcher.Launcher")
-    val process = builder.command(cmd.asJava).directory(buildDir.toFile).start()
+    val process = builder.command(cmd.asJava).directory(clientBaseDir.toFile).start()
     new NakedLowLevelBuildClient(
       clientName,
       clientVersion,
+      clientBaseDir,
       process.getInputStream(),
       process.getOutputStream(),
       handlers,
-      Some(process)
+      Some(process),
+      executor
     )
   }
 }
