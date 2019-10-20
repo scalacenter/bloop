@@ -175,7 +175,8 @@ lazy val sockets: Project = project
     crossPaths := false,
     autoScalaLibrary := false,
     description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
-    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform)
+    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform),
+    javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
   )
 
 import build.BuildImplementation.jvmOptions
@@ -784,9 +785,9 @@ addCommandAlias(
     s"${jsonConfig211.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
     s"${jsonConfig213.id}/$publishLocalCmd",
-    s"${sbtBloop013.id}/$publishLocalCmd",
+    //s"${sbtBloop013.id}/$publishLocalCmd",
     s"${sbtBloop10.id}/$publishLocalCmd",
-    s"${sbtBloop013Shaded.id}/$publishLocalCmd",
+    //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
     s"${sbtBloop10Shaded.id}/$publishLocalCmd",
     s"${mavenBloop.id}/$publishLocalCmd",
     s"${gradleBloop211.id}/$publishLocalCmd",
@@ -820,7 +821,9 @@ addCommandAlias(
     s"${jsonConfig210.id}/$publishLocalCmd",
     s"${jsonConfig212.id}/$publishLocalCmd",
     s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd"
+    s"${sbtBloop10.id}/$publishLocalCmd",
+    s"${sbtBloop013Shaded.id}/$publishLocalCmd",
+    s"${sbtBloop10Shaded.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 

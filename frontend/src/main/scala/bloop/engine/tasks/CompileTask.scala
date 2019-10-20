@@ -58,6 +58,7 @@ object CompileTask {
       pipeline: Boolean,
       excludeRoot: Boolean,
       cancelCompilation: Promise[Unit],
+      store: CompileClientStore,
       rawLogger: UseSiteLogger
   ): Task[State] = {
     import bloop.data.ClientInfo
@@ -267,8 +268,8 @@ object CompileTask {
     }
 
     val client = state.client
-    CompileGraph.traverse(dag, client, setup(_), compile(_), pipeline).flatMap { partialDag =>
-      val partialResults = Dag.dfs(partialDag)
+    CompileGraph.traverse(dag, client, store, setup(_), compile(_), pipeline).flatMap { pdag =>
+      val partialResults = Dag.dfs(pdag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         val cleanUpTasksToRunInBackground =
@@ -335,7 +336,6 @@ object CompileTask {
     }
   }
 
-  private final val GeneratePicklesFlag = "-Ygenerate-pickles"
   case class ConfiguredCompilation(mode: CompileMode, scalacOptions: List[String])
   private def configureCompilation(
       project: Project,

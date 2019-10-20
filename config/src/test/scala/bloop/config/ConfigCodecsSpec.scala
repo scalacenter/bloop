@@ -10,7 +10,7 @@ import java.io.InputStreamReader
 import scala.io.Source
 
 class ConfigCodecsSpec {
-  import ConfigCodecs._
+  import bloop.config.ConfigCodecs._
   def parseConfig(contents: String): Config.File =
     bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)).right.get
   def parseFile(configFile: File): Unit = {

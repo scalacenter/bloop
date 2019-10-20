@@ -47,6 +47,9 @@ import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
 import bloop.engine.Feedback
 import monix.reactive.subjects.BehaviorSubject
+import bloop.engine.tasks.compilation.CompileClientStore
+import bloop.data.ClientInfo.BspClientInfo
+import bloop.data.ClientInfo.CliClientInfo
 
 final class BloopBspServices(
     callSiteState: State,
@@ -104,6 +107,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
+    .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -346,6 +350,12 @@ final class BloopBspServices(
    */
   private val compiledTargetsAtLeastOnce = new TrieMap[bsp.BuildTargetIdentifier, Boolean]()
 
+  private val originToCompileStores = new TrieMap[String, CompileClientStore.ConcurrentStore]()
+
+  def stopClientCaching(params: BloopBspDefinitions.StopClientCachingParams): Task[Unit] = {
+    Task.fork(Task.eval { originToCompileStores.remove(params.originId); () })
+  }
+
   def compileProjects(
       userProjects: Seq[ProjectMapping],
       state: State,
@@ -365,12 +375,19 @@ final class BloopBspServices(
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
+      val isSbtClient = state.client match {
+        case BspClientInfo(name, _, _, _, _) if name == "sbt" => true
+        case _ => false
+      }
+
       val createReporter = (inputs: ReporterInputs[BspServerLogger]) => {
         val btid = bsp.BuildTargetIdentifier(inputs.project.bspUri)
         val reportAllPreviousProblems = {
-          compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
-            case Some(_) => false
-            case None => true
+          isSbtClient || {
+            compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
+              case Some(_) => false
+              case None => true
+            }
           }
         }
 
@@ -384,7 +401,31 @@ final class BloopBspServices(
       }
 
       val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
-      CompileTask.compile(state, dag, createReporter, pipeline, false, cancelCompilation, logger)
+      val store = {
+        if (!isSbtClient) CompileClientStore.NoStore
+        else {
+          originId match {
+            case None => CompileClientStore.NoStore
+            case Some(originId) =>
+              val newStore = new CompileClientStore.ConcurrentStore()
+              originToCompileStores.putIfAbsent(originId, newStore) match {
+                case Some(store) => store
+                case None => newStore
+              }
+          }
+        }
+      }
+
+      CompileTask.compile(
+        state,
+        dag,
+        createReporter,
+        pipeline,
+        false,
+        cancelCompilation,
+        store,
+        logger
+      )
     }
 
     val projects: List[Project] = {

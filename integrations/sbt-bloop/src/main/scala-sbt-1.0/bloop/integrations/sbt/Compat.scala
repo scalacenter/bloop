@@ -34,4 +34,20 @@ object Compat {
   private final val anyWriter = implicitly[sbt.util.OptJsonWriter[AnyRef]]
   def toAnyRefSettingKey(id: String, m: Manifest[AnyRef]): SettingKey[AnyRef] =
     SettingKey(id)(m, anyWriter)
+
+  import sbt.Task
+  def cloneTask[T](task: Task[T]): Task[T] = {
+    task.copy(
+      info = task.info.setName("randooooooooooom1"),
+      work = {
+        task.work match {
+          case sbt.DependsOn(in, deps) => sbt.DependsOn(in, deps)
+          case w: sbt.Mapped[t, k] => sbt.Mapped[t, k](w.in, w.f, w.alist)
+          case w: sbt.FlatMapped[t, k] => sbt.FlatMapped[t, k](w.in, w.f, w.alist)
+          case sbt.Join(in, f) => sbt.Join(in, f)
+          case sbt.Pure(f, inline) => sbt.Pure(f, inline)
+        }
+      }
+    )
+  }
 }

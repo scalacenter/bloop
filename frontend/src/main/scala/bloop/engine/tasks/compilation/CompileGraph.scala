@@ -58,6 +58,7 @@ object CompileGraph {
   def traverse(
       dag: Dag[Project],
       client: ClientInfo,
+      store: CompileClientStore,
       setup: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[ResultBundle],
       pipeline: Boolean
@@ -65,8 +66,8 @@ object CompileGraph {
     /* We use different traversals for normal and pipeline compilation because the
      * pipeline traversal has an small overhead (2-3%) for some projects. Check
      * https://benchs.scala-lang.org/dashboard/snapshot/sLrZTBfntTxMWiXJPtIa4DIrmT0QebYF */
-    if (pipeline) pipelineTraversal(dag, client, setup, compile)
-    else normalTraversal(dag, client, setup, compile)
+    if (pipeline) pipelineTraversal(dag, client, store, setup, compile)
+    else normalTraversal(dag, client, store, setup, compile)
   }
 
   private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
@@ -373,11 +374,16 @@ object CompileGraph {
   private def normalTraversal(
       dag: Dag[Project],
       client: ClientInfo,
+      store: CompileClientStore,
       computeBundle: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[ResultBundle]
   ): CompileTraversal = {
     val tasks = new mutable.HashMap[Dag[Project], CompileTraversal]()
-    def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
+    def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = {
+      val toCache = store.findPreviousTraversalOrAddNew(k, v).getOrElse(v)
+      tasks.put(k, toCache)
+      toCache
+    }
 
     /*
      * [[PartialCompileResult]] is our way to represent errors at the build graph
@@ -482,11 +488,16 @@ object CompileGraph {
   private def pipelineTraversal(
       dag: Dag[Project],
       client: ClientInfo,
+      store: CompileClientStore,
       computeBundle: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[ResultBundle]
   ): CompileTraversal = {
     val tasks = new scala.collection.mutable.HashMap[Dag[Project], CompileTraversal]()
-    def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = { tasks.put(k, v); v }
+    def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = {
+      val toCache = store.findPreviousTraversalOrAddNew(k, v).getOrElse(v)
+      tasks.put(k, toCache)
+      toCache
+    }
 
     def loop(dag: Dag[Project]): CompileTraversal = {
       tasks.get(dag) match {

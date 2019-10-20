@@ -29,6 +29,7 @@ import sbt.{
 import xsbti.compile.CompileOrder
 
 import scala.util.{Try, Success, Failure}
+import xsbti.compile.CompileResult
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -43,8 +44,10 @@ object BloopPlugin extends AutoPlugin {
 
 object BloopKeys {
   import Compat.CompileAnalysis
-  import sbt.{SettingKey, TaskKey, settingKey, taskKey}
+  import sbt.{SettingKey, TaskKey, AttributeKey, ScopedKey, settingKey, taskKey}
 
+  val bloopTargetName: SettingKey[String] =
+    settingKey[String]("Bloop target name")
   val bloopConfigDir: SettingKey[File] =
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopIsMetaBuild: SettingKey[Boolean] =
@@ -65,18 +68,24 @@ object BloopKeys {
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
-  val bloopGenerateInternal: sbt.TaskKey[Option[BloopProjectConfig]] =
+  val bloopGenerateInternal: TaskKey[Option[BloopProjectConfig]] =
     TaskKey[Option[BloopProjectConfig]](
       "bloopGenerateInternal",
       "Generate bloop configuration file for this project, returning in-memory configuration",
       rank = sbt.KeyRanks.Invisible
     )
-  val bloopGenerate: sbt.TaskKey[Option[File]] =
+  val bloopGenerate: TaskKey[Option[File]] =
     taskKey[Option[File]]("Generate bloop configuration file for this project")
-  val bloopCompile: sbt.TaskKey[CompileAnalysis] =
-    taskKey[CompileAnalysis]("Offload compilation to Bloop via BSP.")
-  val bloopAnalysisOut: SettingKey[Option[File]] =
-    settingKey[Option[File]]("User-defined location for the incremental analysis file")
+  val bloopCompileInputsInternal: TaskKey[Option[BloopCompileInputs]] =
+    TaskKey[Option[BloopCompileInputs]](
+      "bloopCompileInputs",
+      "Obtain the compile inputs required to offload compilation",
+      rank = sbt.KeyRanks.Invisible
+    )
+  val bloopCompile: TaskKey[CompileResult] =
+    taskKey[CompileResult]("Offload compilation to Bloop via BSP.")
+  val bloopAnalysisOut: TaskKey[Option[File]] =
+    taskKey[Option[File]]("User-defined location for the incremental analysis file")
   val bloopScalaJSStage: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
@@ -87,6 +96,24 @@ object BloopKeys {
     settingKey[Seq[Configuration]](
       "The sequence of configurations that are used to detect inter-project dependencies by bloop."
     )
+
+  val bloopDefinitionKey = AttributeKey[ScopedKey[_]](
+    "bloop-definition-key",
+    "Internal: used to map a task back to its ScopedKey.",
+    sbt.KeyRanks.Invisible
+  )
+
+  val bloopCompileEntrypoint = AttributeKey[sbt.ScopedKey[_]](
+    "bloopCompileEntrypoint",
+    "Internal: used to map a task back to its ScopedKey.",
+    sbt.KeyRanks.Invisible
+  )
+
+  val bloopWaitForCompile = AttributeKey[sbt.ScopedKey[_]](
+    "bloopCompileEntrypoint",
+    "Internal: used to map a task back to its ScopedKey.",
+    sbt.KeyRanks.Invisible
+  )
 }
 
 object BloopDefaults {
@@ -116,7 +143,6 @@ object BloopDefaults {
     Keys.initialize := {
       val _ = Keys.initialize.value
       Offloader.bloopInitializeConnection.value
-      ()
     },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
@@ -127,7 +153,7 @@ object BloopDefaults {
       }
     },
     BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest)
-  )
+  ) ++ Offloader.bloopExtraGlobalSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
   def runCommandAndRemaining(command: String): State => State = { st: State =>
@@ -167,6 +193,7 @@ object BloopDefaults {
    */
   def configSettings: Seq[Def.Setting[_]] =
     List(
+      BloopKeys.bloopTargetName := bloopTargetName.value,
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := Def.taskDyn {
@@ -177,17 +204,80 @@ object BloopDefaults {
       }.value,
       BloopKeys.bloopGenerateInternal := bloopGenerateInternal.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
-      BloopKeys.bloopAnalysisOut := None,
+      BloopKeys.bloopAnalysisOut := Offloader.bloopAnalysisOut.value,
       BloopKeys.bloopMainClass := None,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value,
-      BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value
+      BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value,
+      BloopKeys.bloopCompileInputsInternal := Offloader.bloopCompileInputs.value
     ) ++ discoveredSbtPluginsSettings
+
+  val dependencyClasspathFiles =
+    sbt.taskKey[Seq[Path]]("The dependency classpath for a task.")
+
+  /*
+  val compileOutputsKey = sbt.TaskKey[Seq[Path]]("compileOutputs")
+
+  import sbt.nio.FileStamp
+  val compileSourceFileInputs =
+    sbt.taskKey[Map[String, Seq[(Path, FileStamp)]]]("Source file stamps stored by scala version")
+  val compileBinaryFileInputs =
+    sbt.taskKey[Map[String, Seq[(Path, FileStamp)]]]("Source file stamps stored by scala version")
+   */
 
   val compileSettings = List(
     Keys.compile := {
+      Offloader.compile.value
+    },
+    Keys.compileIncremental := {
+      Offloader.compileIncremental.value
+    },
+    /*
+    Keys.compile.set(
+      Offloader.compile,
+      sbt.internal.util.NoPosition
+    ),
+    compileOutputsKey := {
+      import sbt._
+      //import sbt.io.syntax._
+      //val classFilesGlob = (Keys.classDirectory.value: File).toGlob / ** / "*.class"
+      Nil
+    },
+    compileSourceFileInputs := Map.empty,
+    compileBinaryFileInputs := Map.empty,
+    Keys.compileIncremental := {
       val p = Keys.thisProjectRef.value
-      println(s"[sbt] Compiling project ${p.project}")
-      Keys.compile.value
+      println(s"Incremental compile on ${p.project}")
+      Keys.compileIncremental.value
+    },
+    Keys.manipulateBytecode := {
+      val p = Keys.thisProjectRef.value
+      println(s"manipulate bytecode on ${p.project}")
+      Keys.manipulateBytecode.value
+    },
+     */
+    /*
+    Keys.dependencyClasspath.set(
+      Keys.dependencyClasspath.runBefore(BloopKeys.bloopCompile),
+      sbt.internal.util.NoPosition
+    ),
+    dependencyClasspathFiles.set(
+      dependencyClasspathFiles.runBefore(BloopKeys.bloopCompile),
+      sbt.internal.util.NoPosition
+    ),
+    Keys.products.set({
+      //val scope = Keys.resolvedScoped.value
+      //println(s"products on ${scope}")
+      Keys.products.runBefore(Keys.compile)
+    }, sbt.internal.util.NoPosition),
+    Keys.internalDependencyClasspath.set(
+      Keys.internalDependencyClasspath.runBefore(Keys.compile),
+      sbt.internal.util.NoPosition
+    ),
+     */
+    Keys.discoveredMainClasses := {
+      val p = Keys.thisProjectRef.value
+      println(s"discoveredMainClassesa on ${p.project}")
+      Keys.discoveredMainClasses.value
     }
   )
 
@@ -309,9 +399,12 @@ object BloopDefaults {
   lazy val generateBloopProductDirectories: Def.Initialize[File] = Def.setting {
     val configuration = Keys.configuration.value
     val bloopTarget = BloopKeys.bloopTargetDir.value
-    val classesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
-    if (!classesDir.exists()) sbt.IO.createDirectory(classesDir)
-    classesDir
+    val bloopClassesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
+    if (!bloopClassesDir.exists()) sbt.IO.createDirectory(bloopClassesDir)
+    Keys.classDirectory.?.value match {
+      case None => bloopClassesDir
+      case Some(value) => value
+    }
   }
 
   lazy val bloopMainDependency: Def.Initialize[Seq[ClasspathDependency]] = Def.setting {
@@ -378,7 +471,7 @@ object BloopDefaults {
        * ```
        *
        * But instead obtain the configuration object in "line 3", which is
-       * different from that on "line 2" because it does not exted `Test`.
+       * different from that on "line 2" because it does not extend `Test`.
        *
        * To work around this limitation, we obtain here both the config
        * in the scope and the possibly other real config from the project
@@ -782,6 +875,13 @@ object BloopDefaults {
     }
   }
 
+  lazy val bloopTargetName: Def.Initialize[String] = Def.setting {
+    val logger = Keys.sLog.value
+    val project = Keys.thisProject.value
+    val configuration = Keys.configuration.value
+    projectNameFromString(project.id, configuration, logger)
+  }
+
   lazy val bloopGenerateInternal: Def.Initialize[Task[Option[BloopProjectConfig]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -914,7 +1014,7 @@ object BloopDefaults {
         val config = {
           val c = Keys.classpathOptions.value
           val java = Config.Java(javacOptions)
-          val analysisOut = None
+          val analysisOut = Some(out.resolve(s"${projectName}-analysis.bin"))
           val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
           val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
           val resources = Some(bloopResourcesTask.value)
