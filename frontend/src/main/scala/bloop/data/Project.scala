@@ -237,13 +237,10 @@ object Project {
       // engine so that semanticdb files are replicated in those directories
       val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
       val pluginOption = if (hasSemanticDB) Nil else List(s"-Xplugin:$pluginPath")
-      val sourceRootOption =
-        if (hasSemanticdbSourceRoot(options)) {
-          Nil
-        } else {
-          List(s"-P:semanticdb:sourceroot:$workspaceDir")
-        }
-      (options ++ baseSemanticdbOptions ++ pluginOption ++ sourceRootOption).distinct
+      val baseOptions = s"-P:semanticdb:sourceroot:$workspaceDir" :: options.filterNot(
+        isSemanticdbSourceRoot
+      )
+      (baseOptions ++ baseSemanticdbOptions ++ pluginOption).distinct
     }
 
     def enableRangePositions(options: List[String]): List[String] = {
@@ -267,7 +264,7 @@ object Project {
     options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
   }
 
-  def hasSemanticdbSourceRoot(options: List[String]): Boolean = {
-    options.exists(opt => opt.contains("semanticdb:sourceroot"))
+  def isSemanticdbSourceRoot(option: String): Boolean = {
+    option.contains("semanticdb:sourceroot")
   }
 }

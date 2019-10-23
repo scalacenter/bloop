@@ -151,11 +151,14 @@ class BspMetalsClientSpec(
     }
   }
 
-  test("initialize metals client in workspace with already enabled semanticdb and -Yrangepos") {
+  test(
+    "initialize metals client in workspace with already enabled semanticdb, -Yrangepos and invalid sourcepath"
+  ) {
     TestUtil.withinWorkspace { workspace =>
+      val correctSourceRootOption = s"-P:semanticdb:sourceroot:$workspace"
       val defaultScalacOptions = List(
+        s"-P:semanticdb:sourceroot:bad-root",
         "-P:semanticdb:failures:warning",
-        s"-P:semanticdb:sourceroot:$workspace",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
         s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar",
@@ -191,7 +194,7 @@ class BspMetalsClientSpec(
         )
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
-        assert(scalacOptions == defaultScalacOptions)
+        assert(scalacOptions == correctSourceRootOption :: defaultScalacOptions.drop(1))
       }
     }
   }
