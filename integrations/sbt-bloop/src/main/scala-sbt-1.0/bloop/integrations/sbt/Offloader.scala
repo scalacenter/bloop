@@ -23,7 +23,8 @@ import sbt.{
   AttributeKey,
   State,
   ClasspathDep,
-  ProjectRef
+  ProjectRef,
+  IntegrationTest
 }
 
 import bloop.bloopgun.core.Shell
@@ -94,8 +95,10 @@ import sbt.Value
  *   5. Send BSP exit when users run `exit`
  *   6. Show errors properly and pretty print them
  *   7. Integrate with heavy task-based input caching
+ *   8. Detect when connection been broken and reinitialize it
  */
 object Offloader {
+
   lazy val bloopAnalysisOut: Def.Initialize[Task[Option[File]]] = Def.task {
     import sbt.io.syntax.fileToRichFile
     val cacheDir = Keys.streams.value.cacheDirectory
@@ -104,15 +107,23 @@ object Offloader {
 
   private val compileReporterKey =
     TaskKey[CompileReporter]("compilerReporter", rank = sbt.KeyRanks.DTask)
-  lazy val bloopCompileInputs: Def.Initialize[Task[Option[BloopCompileInputs]]] = Def.task {
-    val config = BloopKeys.bloopGenerateInternal.value
-    val reporter = compileReporterKey.in(Keys.compile).?.value
-    val analysisOut = BloopKeys.bloopAnalysisOut.value
-    for {
-      c <- config
-      r <- reporter
-      a <- analysisOut
-    } yield BloopCompileInputs(c, r, a)
+  lazy val bloopCompileInputs: Def.Initialize[Task[Option[BloopCompileInputs]]] = Def.taskDyn {
+    val compileIsNotScopedInIntegrationTest =
+      BloopDefaults.productDirectoriesUndeprecatedKey.?.value.isEmpty
+
+    if (compileIsNotScopedInIntegrationTest) Def.task(None)
+    else {
+      Def.task {
+        val config = BloopKeys.bloopGenerateInternal.value
+        val reporter = compileReporterKey.in(Keys.compile).?.value
+        val analysisOut = BloopKeys.bloopAnalysisOut.value
+        for {
+          c <- config
+          r <- reporter
+          a <- analysisOut
+        } yield BloopCompileInputs(c, r, a)
+      }
+    }
   }
 
   lazy val compileOutputsKey: Def.Initialize[Task[Seq[Path]]] = Def.task {
@@ -148,6 +159,8 @@ object Offloader {
     val buildTargetId = Utils.toBuildTargetIdentifier(baseDirectory, targetName)
     val sessionKey = state.history.executed.headOption
     val compileRequestId = sessionKey.hashCode.toString
+    val compileIsNotScopedInIntegrationTest =
+      BloopDefaults.productDirectoriesUndeprecatedKey.?.value.isEmpty
 
     previousSessionKey.synchronized {
       if (sessionKey != previousSessionKey) {
@@ -161,7 +174,8 @@ object Offloader {
     }
 
     val alreadyCompiledAnalysis = compiledBloopProjects.get(buildTargetId)
-    if (alreadyCompiledAnalysis != null) Def.task(alreadyCompiledAnalysis)
+    if (compileIsNotScopedInIntegrationTest) Def.task(sys.error("boo"))
+    else if (alreadyCompiledAnalysis != null) Def.task(alreadyCompiledAnalysis)
     else {
       val compileTask = Def.taskDyn {
         logger.info(s"Bloop is compiling $buildTargetId!")
@@ -215,7 +229,6 @@ object Offloader {
         .flatMap {
           case Value(compileResult) => sbt.std.TaskExtra.inlineTask(compileResult)
           case Inc(cause) =>
-            println(s"retrying, inc is $cause")
             cause.directCause match {
               case Some(t) => waitForResult(5)
               case None => sys.error("unexpected")
@@ -281,48 +294,6 @@ object Offloader {
     task.copy(info = task.info.set(Keys.taskDefinitionKey, newKey))
   }
 
-  /*
-  val taskDefinitionKey = AttributeKey[sbt.ScopedKey[_]](
-    "task-definition-key",
-    "Internal: used to map a task back to its ScopedKey.",
-    sbt.KeyRanks.Invisible
-  )
-
-  val cloneId = new java.util.concurrent.atomic.AtomicInteger(0)
-  def randomKey = AttributeKey[sbt.ScopedKey[_]](
-    "random-key-" + cloneId.incrementAndGet(),
-    "Internal: used to map a task back to its ScopedKey.",
-    sbt.KeyRanks.Invisible
-  )
-
-  def changeTaskDefinition[T](task: Task[T]): Task[T] = {
-    task.info.get(taskDefinitionKey) match {
-      case None => task
-      case Some(value) =>
-        val scoped = new sbt.ScopedKey(value.scope, randomKey)
-        task.copy(info = task.info.set(taskDefinitionKey, scoped))
-    }
-  }
-
-  def cloneTask[T](task: Task[T]): Task[T] = {
-    changeTaskDefinition(
-      task.copy(
-        work = {
-          task.work match {
-            case sbt.DependsOn(in, deps) => sbt.DependsOn((in), deps)
-            case w: sbt.Mapped[Task[T], k] =>
-              println(w.in.asInstanceOf[Task[T]].info)
-              sbt.Mapped[Task[T], k](changeTaskDefinition(w.in.asInstanceOf[Task[T]]), w.f, w.alist)
-            case w: sbt.FlatMapped[t, k] => sbt.FlatMapped[t, k]((w.in), w.f, w.alist)
-            case sbt.Join(in, f) => sbt.Join((in), f)
-            case sbt.Pure(f, inline) => sbt.Pure((f), inline)
-          }
-        }
-      )
-    )
-  }
-   */
-
   lazy val bloopInitializeConnection: Def.Initialize[Unit] = Def.setting {
     val globalLogger = Keys.sLog.value
     val maxErrors = Keys.maxErrors.in(Keys.compile).value
@@ -379,6 +350,13 @@ object Offloader {
 
   val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
     //Keys.progressReports += Keys.TaskProgress(OffloadingExecuteProgress)
+  )
+
+  val offloaderSettings: Seq[Def.Setting[_]] = List(
+    Keys.compile := Offloader.compile.value,
+    Keys.compileIncremental := Offloader.compileIncremental.value,
+    //BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value,
+    BloopKeys.bloopCompileInputsInternal := Offloader.bloopCompileInputs.value
   )
 
 }

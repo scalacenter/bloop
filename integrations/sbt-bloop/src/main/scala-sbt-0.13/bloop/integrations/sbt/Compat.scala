@@ -12,6 +12,8 @@ object Compat {
   val PluginDiscovery = sbt.PluginDiscovery
   val PluginManagement = sbt.PluginManagement
 
+  type CompileResult = sbt.Compiler.CompileResult
+
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
 
   def currentCommandFromState(s: sbt.State): Option[String] = Some(s.history.current)

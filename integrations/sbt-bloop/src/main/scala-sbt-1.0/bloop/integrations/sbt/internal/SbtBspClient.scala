@@ -242,11 +242,12 @@ object SbtBspClient {
   private[SbtBspClient] def readAndStoreAnalysis(inputs: BloopCompileInputs): AnalysisContents = {
     try {
       //val analysisOut = inputs.analysisOut //setup.cacheFile()
-      val analysisOut = inputs.config.config.project.scala.flatMap(_.analysis).get.toFile
-      val store = Utils.bloopStaticCacheStore(analysisOut)
+      val store = Utils.bloopStaticCacheStore(inputs.analysisOut)
+      assert(store != null)
       store.forceAnalysisRead //.getAnalysis
     } catch {
       case NonFatal(t) =>
+        System.err.println(s"Fatal error when reading analysis from ${inputs.analysisOut}")
         t.printStackTrace()
         throw t
     }

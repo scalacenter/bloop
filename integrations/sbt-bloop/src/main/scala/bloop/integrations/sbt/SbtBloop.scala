@@ -29,7 +29,6 @@ import sbt.{
 import xsbti.compile.CompileOrder
 
 import scala.util.{Try, Success, Failure}
-import xsbti.compile.CompileResult
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -43,7 +42,7 @@ object BloopPlugin extends AutoPlugin {
 }
 
 object BloopKeys {
-  import Compat.CompileAnalysis
+  import Compat.{CompileAnalysis, CompileResult}
   import sbt.{SettingKey, TaskKey, AttributeKey, ScopedKey, settingKey, taskKey}
 
   val bloopTargetName: SettingKey[String] =
@@ -206,84 +205,12 @@ object BloopDefaults {
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopAnalysisOut := Offloader.bloopAnalysisOut.value,
       BloopKeys.bloopMainClass := None,
-      BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value,
-      BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value,
-      BloopKeys.bloopCompileInputsInternal := Offloader.bloopCompileInputs.value
-    ) ++ discoveredSbtPluginsSettings
-
-  val dependencyClasspathFiles =
-    sbt.taskKey[Seq[Path]]("The dependency classpath for a task.")
-
-  /*
-  val compileOutputsKey = sbt.TaskKey[Seq[Path]]("compileOutputs")
-
-  import sbt.nio.FileStamp
-  val compileSourceFileInputs =
-    sbt.taskKey[Map[String, Seq[(Path, FileStamp)]]]("Source file stamps stored by scala version")
-  val compileBinaryFileInputs =
-    sbt.taskKey[Map[String, Seq[(Path, FileStamp)]]]("Source file stamps stored by scala version")
-   */
-
-  val compileSettings = List(
-    Keys.compile := {
-      Offloader.compile.value
-    },
-    Keys.compileIncremental := {
-      Offloader.compileIncremental.value
-    },
-    /*
-    Keys.compile.set(
-      Offloader.compile,
-      sbt.internal.util.NoPosition
-    ),
-    compileOutputsKey := {
-      import sbt._
-      //import sbt.io.syntax._
-      //val classFilesGlob = (Keys.classDirectory.value: File).toGlob / ** / "*.class"
-      Nil
-    },
-    compileSourceFileInputs := Map.empty,
-    compileBinaryFileInputs := Map.empty,
-    Keys.compileIncremental := {
-      val p = Keys.thisProjectRef.value
-      println(s"Incremental compile on ${p.project}")
-      Keys.compileIncremental.value
-    },
-    Keys.manipulateBytecode := {
-      val p = Keys.thisProjectRef.value
-      println(s"manipulate bytecode on ${p.project}")
-      Keys.manipulateBytecode.value
-    },
-     */
-    /*
-    Keys.dependencyClasspath.set(
-      Keys.dependencyClasspath.runBefore(BloopKeys.bloopCompile),
-      sbt.internal.util.NoPosition
-    ),
-    dependencyClasspathFiles.set(
-      dependencyClasspathFiles.runBefore(BloopKeys.bloopCompile),
-      sbt.internal.util.NoPosition
-    ),
-    Keys.products.set({
-      //val scope = Keys.resolvedScoped.value
-      //println(s"products on ${scope}")
-      Keys.products.runBefore(Keys.compile)
-    }, sbt.internal.util.NoPosition),
-    Keys.internalDependencyClasspath.set(
-      Keys.internalDependencyClasspath.runBefore(Keys.compile),
-      sbt.internal.util.NoPosition
-    ),
-     */
-    Keys.discoveredMainClasses := {
-      val p = Keys.thisProjectRef.value
-      println(s"discoveredMainClassesa on ${p.project}")
-      Keys.discoveredMainClasses.value
-    }
-  )
+      BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
+    ) ++ discoveredSbtPluginsSettings ++ Offloader.offloaderSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
-    sbt.inConfig(Compile)(configSettings ++ compileSettings) ++
-      sbt.inConfig(Test)(configSettings ++ compileSettings) ++
+    sbt.inConfig(Compile)(configSettings) ++
+      sbt.inConfig(Test)(configSettings) ++
       sbt.inConfig(IntegrationTest)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
@@ -1014,7 +941,7 @@ object BloopDefaults {
         val config = {
           val c = Keys.classpathOptions.value
           val java = Config.Java(javacOptions)
-          val analysisOut = Some(out.resolve(s"${projectName}-analysis.bin"))
+          val analysisOut = BloopKeys.bloopAnalysisOut.value.map(_.toPath)//.getOrElse(out.resolve(s"${projectName}-analysis.bin"))
           val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
           val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
           val resources = Some(bloopResourcesTask.value)

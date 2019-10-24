@@ -11,6 +11,7 @@ object Compat {
   val PluginData = sbt.PluginData
   val PluginDiscovery = sbt.internal.PluginDiscovery
   val PluginManagement = sbt.internal.PluginManagement
+  type CompileResult = xsbti.compile.CompileResult
 
   implicit class WithIvyScala(keys: Keys.type) {
     def ivyScala: SettingKey[Option[ScalaModuleInfo]] = keys.scalaModuleInfo
