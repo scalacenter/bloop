@@ -227,27 +227,26 @@ object Project {
       logger: Logger
   ): Project = {
     def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
+      val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
+      val baseSemanticdbOptions = List(
+        "-P:semanticdb:failures:warning",
+        "-P:semanticdb:synthetics:on",
+        "-Xplugin-require:semanticdb"
+      )
+      // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
+      // engine so that semanticdb files are replicated in those directories
       val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
-      if (hasSemanticDB) options
-      else {
-        val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
-        // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
-        // engine so that semanticdb files are replicated in those directories
-        val semanticdbScalacOptions = List(
-          "-P:semanticdb:failures:warning",
-          s"-P:semanticdb:sourceroot:$workspaceDir",
-          "-P:semanticdb:synthetics:on",
-          "-Xplugin-require:semanticdb",
-          s"-Xplugin:$pluginPath"
-        )
-
-        (options ++ semanticdbScalacOptions.toList).distinct
-      }
+      val pluginOption = if (hasSemanticDB) Nil else List(s"-Xplugin:$pluginPath")
+      val baseOptions = s"-P:semanticdb:sourceroot:$workspaceDir" :: options.filterNot(
+        isSemanticdbSourceRoot
+      )
+      (baseOptions ++ baseSemanticdbOptions ++ pluginOption).distinct
     }
 
     def enableRangePositions(options: List[String]): List[String] = {
       val hasYrangepos = options.exists(_.contains("-Yrangepos"))
-      if (hasYrangepos) options else options :+ "-Yrangepos"
+      val isDotty = project.scalaInstance.exists(_.isDotty)
+      if (hasYrangepos || isDotty) options else options :+ "-Yrangepos"
     }
 
     val projectWithRangePositions =
@@ -263,5 +262,9 @@ object Project {
 
   def hasSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
     options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
+  }
+
+  def isSemanticdbSourceRoot(option: String): Boolean = {
+    option.contains("semanticdb:sourceroot")
   }
 }

@@ -106,12 +106,13 @@ class BspMetalsClientSpec(
 
   test("initialize metals client in workspace with already enabled semanticdb") {
     TestUtil.withinWorkspace { workspace =>
+      val pluginPath = s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar"
       val defaultScalacOptions = List(
         "-P:semanticdb:failures:warning",
         s"-P:semanticdb:sourceroot:$workspace",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
-        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar"
+        pluginPath
       )
 
       val `A` = TestProject(
@@ -119,7 +120,7 @@ class BspMetalsClientSpec(
         "A",
         Nil,
         scalaVersion = Some(testedScalaVersion),
-        scalacOptions = defaultScalacOptions
+        scalacOptions = List(pluginPath)
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -143,18 +144,21 @@ class BspMetalsClientSpec(
              |""".stripMargin
         )
 
-        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
-        val expected = defaultScalacOptions :+ "-Yrangepos"
+        val scalacOptions = state.scalaOptions(`A`)._2.items.head.options.toSet
+        val expected = (defaultScalacOptions :+ "-Yrangepos").toSet
         assert(scalacOptions == expected)
       }
     }
   }
 
-  test("initialize metals client in workspace with already enabled semanticdb and -Yrangepos") {
+  test(
+    "initialize metals client in workspace with already enabled semanticdb, -Yrangepos and invalid sourcepath"
+  ) {
     TestUtil.withinWorkspace { workspace =>
+      val correctSourceRootOption = s"-P:semanticdb:sourceroot:$workspace"
       val defaultScalacOptions = List(
+        s"-P:semanticdb:sourceroot:bad-root",
         "-P:semanticdb:failures:warning",
-        s"-P:semanticdb:sourceroot:$workspace",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
         s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar",
@@ -190,7 +194,7 @@ class BspMetalsClientSpec(
         )
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
-        assert(scalacOptions == defaultScalacOptions)
+        assert(scalacOptions == correctSourceRootOption :: defaultScalacOptions.drop(1))
       }
     }
   }

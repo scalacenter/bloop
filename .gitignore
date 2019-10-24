@@ -40,5 +40,3 @@ benchmark-bridge/corpus/
 lowered.hnir
 
 project/metals.sbt
-.bloop/*
-.metals/*
