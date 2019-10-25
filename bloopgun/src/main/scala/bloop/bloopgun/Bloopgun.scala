@@ -48,7 +48,7 @@ import java.io.BufferedReader
  *
  *   1. Prints Bloop-specific feedback to the user to improve the CLI UX.
  *      * Print custom error if user types `bloop repl`.
- *      * Recomend using `bloop --nailgun-help` if `help` set to print CLI help.
+ *      * Recommend using `bloop --nailgun-help` if `help` set to print CLI help.
  *   2. Starts the server if already not running or if `bloop server` is used.
  *   3. Invokes Ammonite if `bloop console` is used and repl kind is default or
  *      matches Ammonite.
