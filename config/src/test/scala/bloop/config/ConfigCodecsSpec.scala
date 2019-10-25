@@ -19,6 +19,7 @@ class ConfigCodecsSpec {
     Assert.assertEquals(configFile, parsedConfig)
   }
 
+  sys.error("asdffasdfasd")
   @Test def testEmptyConfigJson(): Unit = {
     val configFile = File.empty
     val jsonConfig = bloop.config.write(configFile)

@@ -16,6 +16,7 @@ import xsbti.compile.AnalysisContents
 import sbt.internal.inc.FileAnalysisStore
 import sbt.ProjectRef
 import sbt.ClasspathDep
+import sbt.util.InterfaceUtil
 
 object Utils {
   def foldMappers[A](mappers: Seq[A => Option[A]]) = {
@@ -70,7 +71,15 @@ object Utils {
 
   final class BloopAnalysisStore(backing: AnalysisStore) extends AnalysisStore {
     private var lastStore: ju.Optional[AnalysisContents] = ju.Optional.empty()
-    def forceAnalysisRead: AnalysisContents = backing.get().get()
+    def readFromDisk: Option[AnalysisContents] = {
+      val read = backing.get()
+      lastStore.synchronized {
+        if (!lastStore.isPresent()) {
+          lastStore = read
+        }
+      }
+      InterfaceUtil.toOption(read)
+    }
     override def set(analysisFile: AnalysisContents): Unit = ()
     override def get(): ju.Optional[AnalysisContents] = synchronized {
       if (!lastStore.isPresent())

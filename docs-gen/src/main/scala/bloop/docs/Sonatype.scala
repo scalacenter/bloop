@@ -17,34 +17,47 @@ case class Release(version: String, lastModified: Date) {
 }
 
 object Sonatype {
-  lazy val releaseBloop = Sonatype.fetchLatest("bloop-frontend_2.12", "public")
-  lazy val releaseLauncher = Sonatype.fetchLatest("bloop-launcher_2.12", "public")
-
-  // Copy-pasted from https://github.com/scalameta/metals/blob/994e5e6746ad327ce727d688ad9831e0fbb69b3f/metals-docs/src/main/scala/docs/Snapshot.scala
-  lazy val current: Release = Release(BuildInfo.version, new Date())
+  import bloop.engine.ExecutionContext.ioScheduler
+  lazy val releaseBloop = fetchLatest("bloop-frontend_2.12")
+  lazy val releaseLauncher = fetchLatest("bloop-launcher_2.12")
+  println("HAY")
 
   /** Returns the latest published snapshot release, or the current release if. */
-  private def fetchLatest(artifact: String, repo: String): Release = {
-    // maven-metadata.xml is consistently outdated so we scrape the "Last modified" column
-    // of the HTML page that lists all snapshot releases instead.
+  private def fetchLatest(artifact: String): Release = {
     val doc = Jsoup
       .connect(
-        s"https://oss.sonatype.org/content/repositories/$repo/ch/epfl/scala/$artifact/"
+        s"https://oss.sonatype.org/content/repositories/releases/ch/epfl/scala/$artifact/"
       )
       .get
-    val dateTime = new SimpleDateFormat("EEE MMM d H:m:s z yyyy")
-    val versions: Seq[Release] = doc.select("tr").asScala.flatMap { tr =>
-      val lastModified =
-        tr.select("td:nth-child(2)").text()
-      val version =
-        tr.select("td:nth-child(1)").text().stripSuffix("/")
-      if (lastModified.nonEmpty && !version.contains("maven-metadata")) {
-        val date = dateTime.parse(lastModified)
-        List(Release(version, date))
-      } else {
-        List()
+
+    val dateTime = new SimpleDateFormat("yyyy-MM-dd HH:mm")
+    val releases = doc
+      .select("pre")
+      .asScala
+      .flatMap { versionRow =>
+        val elements = versionRow.getAllElements().asScala
+        val nodes = versionRow.textNodes().asScala
+        elements.zip(nodes).flatMap {
+          case (element, node) =>
+            val version = element.text().stripSuffix("/")
+            if (version.startsWith("maven-metadata")) Nil
+            else {
+              node.text().trim().split("\\s+").init.toList match {
+                case List(date, time) =>
+                  try {
+                    val parsedDate = dateTime.parse(s"$date $time")
+                    List(Release(version, parsedDate))
+                  } catch {
+                    case NonFatal(t) => Nil
+                  }
+                case _ => Nil
+              }
+            }
+        }
       }
-    }
-    versions.maxBy(_.lastModified.getTime)
+
+    releases.maxBy(_.lastModified.getTime)
   }
+
+  lazy val current: Release = Release(BuildInfo.version, new Date())
 }

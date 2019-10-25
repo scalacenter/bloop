@@ -1,0 +1,55 @@
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "method": "build/initialize",
+  "params": {
+    "rootUri": "file:///home/jvican/Code/bloop/",
+    "displayName": "sbt",
+    "version": "2.0.0-M4",
+    "bspVersion": "2.0.0-M4",
+    "capabilities": {
+      "languageIds": [
+        "scala",
+        "java"
+      ]
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "displayName": "bloop",
+    "version": "1.3.4+41-a411d3ab+20191024-1402",
+    "bspVersion": "2.0.0-M4+10-61e61e87",
+    "capabilities": {
+      "compileProvider": {
+        "languageIds": [
+          "scala",
+          "java"
+        ]
+      },
+      "testProvider": {
+        "languageIds": [
+          "scala",
+          "java"
+        ]
+      },
+      "runProvider": {
+        "languageIds": [
+          "scala",
+          "java"
+        ]
+      },
+      "inverseSourcesProvider": true,
+      "dependencySourcesProvider": true,
+      "resourcesProvider": true,
+      "buildTargetChangedProvider": false
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/initialized",
+  "params": null
+}

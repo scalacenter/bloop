@@ -17,7 +17,7 @@ object Dependencies {
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
-  val coursierVersion = "1.1.0-M14-4"
+  val coursierVersion = "2.0.0-RC3-4"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
   val caseAppVersion = "1.2.0-faster-compile-time"

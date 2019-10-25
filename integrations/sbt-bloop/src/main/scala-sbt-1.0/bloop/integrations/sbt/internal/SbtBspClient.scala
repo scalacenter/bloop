@@ -129,11 +129,16 @@ class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClien
             val requestId = report.getOriginId()
             val compileData = compileRequestDataMap.get(requestId)
             val inputs = compileData.get(target)
-            val futureAnalysis = executor.submit(() => readAndStoreAnalysis(inputs))
+            val futureAnalysis = executor.submit { () =>
+              readAndStoreAnalysis(inputs, logger)
+            }
             val analysisMap = compileAnalysisMapPerRequest.computeIfAbsent(
               requestId,
               (_: String) => {
-                new ConcurrentHashMap[BuildTargetIdentifier, JFuture[AnalysisContents]]()
+                val initial =
+                  new ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]()
+                initial.put(target, futureAnalysis)
+                initial
               }
             )
             analysisMap.put(target, futureAnalysis)
@@ -173,7 +178,8 @@ object SbtBspClient {
   val compileRequestDataMap =
     new ConcurrentHashMap[String, ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]]()
 
-  type CompileAnalysisMap = ConcurrentHashMap[BuildTargetIdentifier, JFuture[AnalysisContents]]
+  type CompileAnalysisMap =
+    ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]
   val compileAnalysisMapPerRequest = new ConcurrentHashMap[String, CompileAnalysisMap]()
 
   private var cachedBloopBuildClient: Option[NakedLowLevelBuildClient] = None
@@ -238,18 +244,17 @@ object SbtBspClient {
     }
   }
 
-  // TODO return optional?
-  private[SbtBspClient] def readAndStoreAnalysis(inputs: BloopCompileInputs): AnalysisContents = {
+  def readAndStoreAnalysis(
+      inputs: BloopCompileInputs,
+      logger: Logger
+  ): Option[AnalysisContents] = {
     try {
-      //val analysisOut = inputs.analysisOut //setup.cacheFile()
-      val store = Utils.bloopStaticCacheStore(inputs.analysisOut)
-      assert(store != null)
-      store.forceAnalysisRead //.getAnalysis
+      Utils.bloopStaticCacheStore(inputs.analysisOut).readFromDisk
     } catch {
       case NonFatal(t) =>
-        System.err.println(s"Fatal error when reading analysis from ${inputs.analysisOut}")
-        t.printStackTrace()
-        throw t
+        logger.error(s"Fatal error when reading analysis from ${inputs.analysisOut}")
+        logger.trace(t)
+        None
     }
   }
 }

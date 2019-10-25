@@ -181,39 +181,45 @@ object Offloader {
     else if (alreadyCompiledAnalysis != null) Def.task(alreadyCompiledAnalysis)
     else {
       val compileTask = Def.taskDyn {
-        logger.info(s"Bloop is compiling $buildTargetId!")
+        val alreadyCompiledAnalysis2 = compiledBloopProjects.get(buildTargetId)
+        if (alreadyCompiledAnalysis2 != null) Def.task(alreadyCompiledAnalysis2)
+        else {
+          logger.info(s"Bloop is compiling $buildTargetId!")
 
-        val maxErrors = Keys.maxErrors.in(Keys.compile).value
-        val mappers = Utils.foldMappers(Keys.sourcePositionMappers.in(Keys.compile).value)
-        val reporter = new LoggedReporter(maxErrors, logger, mappers)
-        val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
-        val client = SbtBspClient.initializeConnection(false, rootBaseDir, logger, reporter)
+          val maxErrors = Keys.maxErrors.in(Keys.compile).value
+          val mappers = Utils.foldMappers(Keys.sourcePositionMappers.in(Keys.compile).value)
+          val reporter = new LoggedReporter(maxErrors, logger, mappers)
+          val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
+          val client = SbtBspClient.initializeConnection(false, rootBaseDir, logger, reporter)
 
-        val compileInputs = dependencyBloopCompileInputs.value
-        val currentInputs = compileInputs.head
+          val compileInputs = dependencyBloopCompileInputs.value
+          val currentInputs = compileInputs.head
 
-        val transitiveInputs0 = new ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]()
-        val transitiveInputs = Option(
-          SbtBspClient.compileRequestDataMap.putIfAbsent(compileRequestId, transitiveInputs0)
-        ).getOrElse(transitiveInputs0)
+          val transitiveInputs0 = new ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]()
+          val transitiveInputs = Option(
+            SbtBspClient.compileRequestDataMap.putIfAbsent(compileRequestId, transitiveInputs0)
+          ).getOrElse(transitiveInputs0)
 
-        compileInputs.foreach { in =>
-          val transitiveTarget = Utils.toBuildTargetIdentifier(in.config)
-          transitiveInputs.synchronized {
-            transitiveInputs.put(transitiveTarget, in)
+          compileInputs.foreach { in =>
+            val transitiveTarget = Utils.toBuildTargetIdentifier(in.config)
+            transitiveInputs.synchronized {
+              if (!transitiveInputs.containsKey(transitiveTarget)) {
+                transitiveInputs.put(transitiveTarget, in)
+              }
+            }
           }
+
+          // Assemble and make compile request to Bloop server
+          val params = new CompileParams(ju.Arrays.asList(buildTargetId))
+          params.setOriginId(compileRequestId)
+          val result = client.compile(params)
+
+          waitForResult(buildTargetId, compileRequestId, currentInputs, result, logger)
+            .apply(markBloopWaitForCompile(_, scopedKey))
         }
-
-        // Assemble and make compile request to Bloop server
-        val params = new CompileParams(ju.Arrays.asList(buildTargetId))
-        params.setOriginId(compileRequestId)
-        val result = client.compile(params)
-
-        waitForResult(buildTargetId, compileRequestId, currentInputs, result, logger)
-          .apply(markBloopWaitForCompile(_, scopedKey))
       }
 
-      compileTask.apply(markBloopCompileEntrypoint(_, scopedKey))
+      compileTask //.apply(markBloopCompileEntrypoint(_, scopedKey))
     }
   }
 
@@ -224,12 +230,12 @@ object Offloader {
       futureResult: JFuture[Bsp4jCompileResult],
       logger: Logger
   ): Def.Initialize[Task[CompileResult]] = {
-
     def waitForResult(timeoutMillis: Long): Task[Bsp4jCompileResult] = {
-      sbt.std.TaskExtra
+      val task0 = sbt.std.TaskExtra
         .task(futureResult.get(timeoutMillis, TimeUnit.MILLISECONDS))
         .tag(BloopWait)
-        .result
+      val task = task0
+      task.result
         .flatMap {
           case Value(compileResult) => sbt.std.TaskExtra.inlineTask(compileResult)
           case Inc(cause) =>
@@ -241,6 +247,7 @@ object Offloader {
     }
 
     Def.task {
+      logger.info(s"Waiting for result of ${buildTarget.getUri()}")
       val result = waitForResult(50).value
       Option(SbtBspClient.compileAnalysisMapPerRequest.get(compileRequestId)) match {
         case None =>
@@ -248,11 +255,11 @@ object Offloader {
           CompileResult.create(Analysis.Empty, setup, false)
 
         case Some(analysisFutures) =>
-          logger.info("Blocking on analysis futures")
+          logger.info(s"Blocking on analysis of ${buildTarget.getUri()}")
           import scala.collection.JavaConverters._
-          val transitiveResults = analysisFutures.asScala.map(kv => kv._1 -> kv._2.get()).map {
-            case (key, analysis) =>
-              // TODO: Try to return valid result for `hasModified`
+          val transitiveResults = analysisFutures.asScala.map(kv => kv._1 -> kv._2.get()).collect {
+            case (key, Some(analysis)) =>
+              // TODO: Return valid result for `hasModified`
               key -> CompileResult.create(analysis.getAnalysis, analysis.getMiniSetup, false)
           }
 
@@ -290,6 +297,11 @@ object Offloader {
 
   def markBloopCompileEntrypoint[T](task: Task[T], currentKey: sbt.ScopedKey[_]): Task[T] = {
     val newKey = new sbt.ScopedKey(currentKey.scope, BloopKeys.bloopCompileEntrypoint)
+    task.copy(info = task.info.set(Keys.taskDefinitionKey, newKey))
+  }
+
+  def markBloopCompileProxy[T](task: Task[T], currentKey: sbt.ScopedKey[_]): Task[T] = {
+    val newKey = new sbt.ScopedKey(currentKey.scope, BloopKeys.bloopCompileProxy)
     task.copy(info = task.info.set(Keys.taskDefinitionKey, newKey))
   }
 
@@ -354,7 +366,7 @@ object Offloader {
 
   private val LimitAllPattern = "Limit all to (\\d+)".r
   val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
-    //Keys.progressReports += Keys.TaskProgress(OffloadingExecuteProgress)
+    //Keys.progressReports += Keys.TaskProgress(OffloadingExecuteProgress),
     Keys.concurrentRestrictions := {
       val currentRestrictions = Keys.concurrentRestrictions.value
       val elevatedRestrictions = currentRestrictions.map { restriction =>

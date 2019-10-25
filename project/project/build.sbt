@@ -18,8 +18,8 @@ val sbtBloopBuildShadedDeps = project
       "org.zeroturnaround" % "zt-exec" % "1.11",
       "org.slf4j" % "slf4j-nop" % "1.7.2",
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
-      "io.get-coursier" %% "coursier" % "1.1.0-M14-4",
-      "io.get-coursier" %% "coursier-cache" % "1.1.0-M14-4",
+      "io.get-coursier" %% "coursier" % "2.0.0-RC3-4",
+      "io.get-coursier" %% "coursier-cache" % "2.0.0-RC3-4",
       "net.java.dev.jna" % "jna" % "4.5.0",
       "net.java.dev.jna" % "jna-platform" % "4.5.0",
       "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"

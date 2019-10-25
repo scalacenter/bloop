@@ -25,6 +25,8 @@ import ch.epfl.scala.bsp4j.InitializeBuildResult
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 import ch.epfl.scala.bsp4j.CompileParams
 import ch.epfl.scala.bsp4j.CompileResult
+import java.nio.file.Paths
+import java.io.PrintStream
 
 class NakedLowLevelBuildClient(
     clientName: String,
@@ -69,11 +71,16 @@ class NakedLowLevelBuildClient(
 
   trait ScalaBuildServerBridge extends BuildServer with ScalaBuildServer
 
+  val cwd = sys.props("user.dir")
   private def unsafeConnectToBuildServer(
       localClient: BuildClient,
       baseDir: Path
   ): ScalaBuildServerBridge = {
+    val offloadingFile = Paths.get(cwd).resolve("bloop-offloading.logs")
+    if (!Files.exists(offloadingFile)) Files.createFile(offloadingFile)
+    val ps = new PrintWriter(Files.newOutputStream(offloadingFile))
     val builder = new Launcher.Builder[ScalaBuildServerBridge]()
+      .traceMessages(ps)
       .setRemoteInterface(classOf[ScalaBuildServerBridge])
       .setInput(clientIn)
       .setOutput(clientOut)

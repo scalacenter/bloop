@@ -102,6 +102,12 @@ object BloopKeys {
     sbt.KeyRanks.Invisible
   )
 
+  val bloopCompileProxy = AttributeKey[sbt.ScopedKey[_]](
+    "bloopCompileProxy",
+    "Internal: used to map a task back to its ScopedKey.",
+    sbt.KeyRanks.Invisible
+  )
+
   val bloopCompileEntrypoint = AttributeKey[sbt.ScopedKey[_]](
     "bloopCompileEntrypoint",
     "Internal: used to map a task back to its ScopedKey.",
@@ -109,7 +115,7 @@ object BloopKeys {
   )
 
   val bloopWaitForCompile = AttributeKey[sbt.ScopedKey[_]](
-    "bloopCompileEntrypoint",
+    "bloopWaitForCompile",
     "Internal: used to map a task back to its ScopedKey.",
     sbt.KeyRanks.Invisible
   )
@@ -326,11 +332,12 @@ object BloopDefaults {
   lazy val generateBloopProductDirectories: Def.Initialize[File] = Def.setting {
     val configuration = Keys.configuration.value
     val bloopTarget = BloopKeys.bloopTargetDir.value
-    val bloopClassesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
-    if (!bloopClassesDir.exists()) sbt.IO.createDirectory(bloopClassesDir)
     Keys.classDirectory.?.value match {
-      case None => bloopClassesDir
       case Some(value) => value
+      case None =>
+        val bloopClassesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
+        if (!bloopClassesDir.exists()) sbt.IO.createDirectory(bloopClassesDir)
+        bloopClassesDir
     }
   }
 
