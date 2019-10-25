@@ -110,7 +110,7 @@ final class CompilerCache(
 
   /**
    * A Java compiler that will invalidate class files from a forked java
-   * compiler by adding a new classes directory to the begining of the
+   * compiler by adding a new classes directory to the beginning of the
    * `-classpath` compiler option where we will write an empty class file for
    * every invalidated class file. This empty class file will force the javac
    * compiler to output an error similar to:
