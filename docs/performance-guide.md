@@ -76,7 +76,7 @@ the Bloop server getting hotter and hotter with every iteration.
 However, how can Zipkin help us create a precise model of our build? Let's
 click on a trace to find out.
 
-![A Zipkin instance showing a detaild profile of a build trace from the akka/akka project](assets/zipkin-akka-traces-2.png)
+![A Zipkin instance showing a detailed profile of a build trace from the akka/akka project](assets/zipkin-akka-traces-2.png)
 
 The hierarchical UI of the traces help us visualize, among others:
 
