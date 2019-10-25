@@ -87,6 +87,7 @@ import java.util.concurrent.TimeoutException
 import ch.epfl.scala.bsp4j.{CompileResult => Bsp4jCompileResult}
 import sbt.Inc
 import sbt.Value
+import sbt.Tags
 
 /**
  * Todo list:
@@ -149,6 +150,8 @@ object Offloader {
       bloopOffloadCompilationTask.value
     }
   }
+
+  val BloopWait = sbt.Tags.Tag("bloop-wait")
 
   lazy val bloopOffloadCompilationTask: Def.Initialize[Task[CompileResult]] = Def.taskDyn {
     val state = Keys.state.value
@@ -225,19 +228,20 @@ object Offloader {
     def waitForResult(timeoutMillis: Long): Task[Bsp4jCompileResult] = {
       sbt.std.TaskExtra
         .task(futureResult.get(timeoutMillis, TimeUnit.MILLISECONDS))
+        .tag(BloopWait)
         .result
         .flatMap {
           case Value(compileResult) => sbt.std.TaskExtra.inlineTask(compileResult)
           case Inc(cause) =>
             cause.directCause match {
-              case Some(t) => waitForResult(5)
+              case Some(t) => waitForResult(50)
               case None => sys.error("unexpected")
             }
         }
     }
 
     Def.task {
-      val result = waitForResult(5).value
+      val result = waitForResult(50).value
       Option(SbtBspClient.compileAnalysisMapPerRequest.get(compileRequestId)) match {
         case None =>
           val setup = toMiniSetup(currentInputs)
@@ -348,15 +352,50 @@ object Offloader {
     }
   }
 
+  private val LimitAllPattern = "Limit all to (\\d+)".r
   val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
     //Keys.progressReports += Keys.TaskProgress(OffloadingExecuteProgress)
+    Keys.concurrentRestrictions := {
+      val currentRestrictions = Keys.concurrentRestrictions.value
+      val elevatedRestrictions = currentRestrictions.map { restriction =>
+        restriction.toString match {
+          case LimitAllPattern(n) =>
+            val allCores = Integer.parseInt(n)
+            Tags.limitAll(allCores + 2)
+          case _ => restriction
+        }
+      }
+      elevatedRestrictions ++ List(Tags.limit(BloopWait, 1))
+    }
   )
+
+  lazy val compileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.taskDyn {
+    val currentSetup = Keys.compileIncSetup.?.value
+    currentSetup match {
+      case None => Def.task(sys.error(""))
+      case Some(setup) =>
+        Def.task {
+          val bloopCacheFile = BloopKeys.bloopAnalysisOut.value.getOrElse(setup.cacheFile())
+          CompileSetup.create(
+            setup.perClasspathEntryLookup(),
+            setup.skip(),
+            bloopCacheFile,
+            setup.cache(),
+            setup.incrementalCompilerOptions(),
+            setup.reporter(),
+            setup.progress(),
+            setup.extra()
+          )
+        }
+    }
+  }
 
   val offloaderSettings: Seq[Def.Setting[_]] = List(
     Keys.compile := Offloader.compile.value,
     Keys.compileIncremental := Offloader.compileIncremental.value,
     //BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value,
-    BloopKeys.bloopCompileInputsInternal := Offloader.bloopCompileInputs.value
+    BloopKeys.bloopCompileInputsInternal := Offloader.bloopCompileInputs.value,
+    Keys.compileIncSetup := compileIncSetup.value
   )
 
 }
