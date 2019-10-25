@@ -72,7 +72,7 @@ Bloop supports the following mechanisms out-of-the-box:
 > Check this [ticket](https://github.com/scalacenter/bloop/issues/766).
 
 If you are using a SDK manager, you should ensure that the managed bloop server has 
-access to a `java` binary from the `$PATH` environement variable.
+access to a `java` binary from the `$PATH` environment variable.
 
 ### via `brew services`
 
