@@ -38,7 +38,7 @@ private final class BloopComRun(
 ) extends JSComRun {
   import BloopComRun._
 
-  /** Promise that completes once the reciever thread is completed. */
+  /** Promise that completes once the receiver thread is completed. */
   private[this] val promise = Promise[Unit]()
 
   @volatile
