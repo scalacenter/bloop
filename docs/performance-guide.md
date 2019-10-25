@@ -270,7 +270,7 @@ version. For example, if you are using 2.11.11 while the latest compiler
 developments are in 2.13.0, you're most likely missing out on a lot of
 life-quality performance improvements.
 
-### Pick appropiate JVM and GC options
+### Pick appropriate JVM and GC options
 
 The best JVM options are those striking a balance between making an
 efficient use of your system's available resources and allowing the build

@@ -11,7 +11,7 @@ with no sacrifices in correctness or compromises in user experience. In spite
 of these constraints, Bloop is in fact as fast as or faster than the most
 popular build tools in the Scala ecosystem.
 
-However, it is easy to go astray without an appropiate set of tools that
+However, it is easy to go astray without an appropriate set of tools that
 identify regressions and measure build performance objectively. Builds stress
 their use of a toolchain uniquely, so it is necessary these tools are not
 only used during development but by users wishing to keep their build
@@ -275,7 +275,7 @@ version. For example, if you are using 2.11.11 while the latest compiler
 developments are in 2.13.0, you're most likely missing out on a lot of
 life-quality performance improvements.
 
-### Pick appropiate JVM and GC options
+### Pick appropriate JVM and GC options
 
 The best JVM options are those striking a balance between making an
 efficient use of your system's available resources and allowing the build
