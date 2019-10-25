@@ -191,7 +191,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assert(secondCompiledState.status == ExitStatus.CompilationError)
       assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
       assertValidCompilationState(secondCompiledState, List(`A`))
-      // The internal classes dir for `A` should not exist, B failed to compile but A succeded
+      // The internal classes dir for `A` should not exist, B failed to compile but A succeeded
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
 
       assertInvalidCompilationState(
