@@ -62,7 +62,7 @@ abstract class CompilerOracle {
 
   /**
    * Collects all downstream signatures of transitive dependencies that have
-   * not yet finished compilation. Those dependenciess that finished
+   * not yet finished compilation. Those dependencies that finished
    * compilation don't need to provide their signatures because they will be
    * loaded from the classes directory.
    */
