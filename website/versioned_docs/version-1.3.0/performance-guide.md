@@ -139,7 +139,7 @@ certain degree of reproducibility, invest time to stabilize it.
 
 It's legit to ignore any of these steps if, for example, the impact of your
 changes would be higher by enabling NUMA/Turbo Boost or you want to collect
-more "realistic" benchmark data that ressembles better the noisy machines
+more "realistic" benchmark data that resembles better the noisy machines
 developers compile in.
 
 Remember, performance is not composable!
