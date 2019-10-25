@@ -72,7 +72,7 @@ object JsBridge {
       case _ =>
         if (runMain) {
           logger.debug(s"Setting up no module initializers, commonjs module detected ${project}")
-          Nil // If run is disabled, it'a commonjs module and we link with exports
+          Nil // If run is disabled, it's a commonjs module and we link with exports
         } else {
           // There is no main class, install the test module initializers
           logger.debug(s"Setting up test module initializers for ${project}")
