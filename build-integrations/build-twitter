@@ -208,7 +208,7 @@ function run_commands {
         for command in "${commandsArray[@]}"; do
             if [[ -n "$scala_version" ]]; then
                 if [[ $command != *"++"* ]] && [[ $command != *"^^"* ]]; then
-                    # if we were passed a scala version and the command doesn't already explicity set a scala nor sbt version
+                    # if we were passed a scala version and the command doesn't already explicitly set a scala nor sbt version
                     command="${command//+/}" # remove + for cross-compile
                     command="${command//.\/sbt /./sbt ++$scala_version }" # add scala version
                 fi
