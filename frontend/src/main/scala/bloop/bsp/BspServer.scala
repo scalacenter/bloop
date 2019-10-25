@@ -214,7 +214,7 @@ object BspServer {
        *
        *   1. Clients quickly sent an exit request and closed its socket input
        *      stream.
-       *   2. Clients suddently crash/exit (especially when using Unix domain
+       *   2. Clients suddenly crash/exit (especially when using Unix domain
        *      sockets and Windows named pipes as their implementation doesn't signal
        *      a forceful client close explicitly unlike TCP with `FIN` and `RST`,
        *      which means checking `isClosed` from the server side will always be
