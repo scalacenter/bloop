@@ -97,11 +97,11 @@ abstract class Reporter(
   private def deduplicate(problem: xsbti.Problem): Boolean = {
     val pos = problem.position
     val msg = problem.message()
-    def processNewPosition(id: PositionId, supress: Boolean): Boolean = {
+    def processNewPosition(id: PositionId, suppress: Boolean): Boolean = {
       _severities.putIfAbsent(id, problem.severity())
       val old = _messages.getOrElseUpdate(id, List(msg))
       if (old != List(msg)) _messages.update(id, msg :: old)
-      supress
+      suppress
     }
 
     (InterfaceUtil.toOption(pos.sourcePath()), InterfaceUtil.toOption(pos.offset())) match {
@@ -110,16 +110,16 @@ abstract class Reporter(
         _severities.get(positionId) match {
           case Some(xsbti.Severity.Error) => processNewPosition(positionId, true)
           case Some(severity) if severity == problem.severity =>
-            val supress = _messages.getOrElse(positionId, Nil).contains(problem.message())
-            processNewPosition(positionId, supress)
+            val suppress = _messages.getOrElse(positionId, Nil).contains(problem.message())
+            processNewPosition(positionId, suppress)
           case Some(severity) =>
-            val supress = (severity, problem.severity) match {
+            val suppress = (severity, problem.severity) match {
               case (xsbti.Severity.Error, xsbti.Severity.Info) => true
               case (xsbti.Severity.Error, xsbti.Severity.Warn) => true
               case (xsbti.Severity.Warn, xsbti.Severity.Info) => true
               case _ => false
             }
-            processNewPosition(positionId, supress)
+            processNewPosition(positionId, suppress)
           case _ => processNewPosition(positionId, false)
         }
       case _ => false
