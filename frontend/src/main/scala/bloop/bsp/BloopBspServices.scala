@@ -66,7 +66,7 @@ final class BloopBspServices(
   /** The return type of every endpoint implementation */
   private type BspEndpointResponse[T] = Task[BspResponse[T]]
 
-  /** The return type of intermediate BSP compputations */
+  /** The return type of intermediate BSP computations */
   private type BspResult[T] = Task[(State, BspResponse[T])]
 
   /** The return type of a bsp computation wrapped by `ifInitialized` */
