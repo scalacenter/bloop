@@ -320,7 +320,7 @@ object BloopDefaults {
   /**
    * Detect the eligible configuration dependencies from a given configuration.
    *
-   * A configuration is elibile if the project defines it and `bloopGenerate`
+   * A configuration is eligible if the project defines it and `bloopGenerate`
    * exists for it. Otherwise, the configuration dependency is ignored.
    *
    * This is required to prevent transitive configurations like `Runtime` from
