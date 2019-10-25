@@ -122,7 +122,7 @@ object ClasspathHasher {
            * entry is too slow because of something that happened to this
            * process. The completion of the downstream promise will also log a
            * warning to the downstream users so that they know that a hashing
-           * process is unusally slow.
+           * process is unusually slow.
            */
           val timeoutCancellation = scheduler.scheduleOnce(
             timeoutSeconds,
