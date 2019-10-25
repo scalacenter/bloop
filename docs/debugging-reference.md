@@ -105,7 +105,7 @@ Here are the current limitations with the DAP implementation and debugging suppo
   Bloop will ignore the `noDebug` field in a `launch` request. A launch runs
   an application with a debugger attached by default.
 * Bloop will use the JVM options from the build target when starting a
-  debugger. There is currently no way to allow the users to programatically change them.
+  debugger. There is currently no way to allow the users to programmatically change them.
 * Bloop does not implement some DAP requests to obtain completions or
   information about sources. If you want to support these, you can have your
   build client run a proxy DAP server that lets Bloop take care of the
