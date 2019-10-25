@@ -61,7 +61,7 @@ object CompilerPluginWhitelist {
    * This is a method that can be called concurrently by different compiler
    * processes that share the same compiler option, so it needs to be
    * thread-safe. To compute whether a compiler plugin is friendly to caching
-   * or not, we first try to acquire the scalac option represeting that
+   * or not, we first try to acquire the scalac option representing that
    * compiler plugin and then process that in parallel. If we cannot acquire
    * the processing of a given compiler plugin, it means another concurrent
    * process is doing it, so before returning we wait on those background
