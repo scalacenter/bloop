@@ -40,7 +40,7 @@ The high-level logic steps of the launcher can be summarized as follows:
 1. If bloop is not detected in the `$PATH` or `$HOME/.bloop/`, install it.
    * If the universal installation (that requires `curl` and `python`) fails,
      then we attempt to resolve bloop and launch an embedded server with
-     a concrete bsp command. This operation is only atempted if and only if
+     a concrete bsp command. This operation is only attempted if and only if
      `--skip-bsp-connection` is not used.
 2. Run a server in the background if it's absent.
 3. When a server is running:
