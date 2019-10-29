@@ -49,11 +49,20 @@ object OffloadingExecuteProgress extends ExecuteProgress[Task] {
       }
     }
 
+    readBloopTask(
+      task,
+      Keys.taskDefinitionKey
+    ) match {
+      case Some(metadata) =>
+        println(s"after registered -> ${metadataToString(metadata)}")
+      case None => ()
+    }
+
     readBloopTaskMetadata(task, Keys.taskDefinitionKey, BloopKeys.bloopCompile.key) match {
       case Some(metadata) =>
         assert(!registeredBloopCompiles.containsKey(metadata.origin))
         //println( s"checking task with taskDefinitionKey = BloooCompile, already seen as dep: ${dependingOnBloopCompile .containsKey(task)}")
-        println(s"bloopCompile task found for ${metadata.ref}:${metadata.config}")
+        //println(s"bloopCompile task found for ${metadata.ref}:${metadata.config}")
         registeredBloopCompiles.put(metadata.origin, task); ()
       case None => ()
     }
@@ -64,10 +73,25 @@ object OffloadingExecuteProgress extends ExecuteProgress[Task] {
       case None =>
         readBloopTaskMetadata(task, Keys.taskDefinitionKey, BloopKeys.bloopCompileEntrypoint) match {
           case Some(metadata) =>
-            println(s"bloopCompileEntrypoint task found for ${metadata.ref}:${metadata.config}")
+            //println(s"bloopCompileEntrypoint task found for ${metadata.ref}:${metadata.config}")
             addBloopCompileDepsFor(task)
           case None => ()
         }
+    }
+  }
+
+  private def readBloopTask(
+      task: Task[_],
+      key: AttributeKey[ScopedKey[_]]
+  ): Option[BloopCompileTaskMetadata] = {
+    task.info.attributes.get(key).flatMap { scopedKey =>
+      scopedKey.scope.project.toOption match {
+        case Some(ref: ProjectRef) if scopedKey.key.label.startsWith("bloop") =>
+          val config = scopedKey.scope.config.toOption.map(_.name).getOrElse("compile")
+          //println(s"read successfully key ${key} from ${task.info}")
+          Some(BloopCompileTaskMetadata(ref, config, scopedKey))
+        case _ => None
+      }
     }
   }
 
@@ -87,8 +111,31 @@ object OffloadingExecuteProgress extends ExecuteProgress[Task] {
     }
   }
 
-  def afterReady(task: Task[_]): Unit = ()
-  def beforeWork(task: Task[_]): Unit = ()
+  def afterReady(task: Task[_]): Unit = {
+
+    readBloopTask(
+      task,
+      Keys.taskDefinitionKey
+    ) match {
+      case Some(metadata) =>
+        println(s"after ready -> ${metadataToString(metadata)}")
+      case None => ()
+    }
+  }
+  def beforeWork(task: Task[_]): Unit = {
+
+    readBloopTask(
+      task,
+      Keys.taskDefinitionKey
+    ) match {
+      case Some(metadata) =>
+        println(s"before work-> ${metadataToString(metadata)}")
+      case None => ()
+    }
+  }
+  def metadataToString(metadata: BloopCompileTaskMetadata): String = {
+    s"${metadata.ref}:${metadata.config}:${metadata.origin.key}"
+  }
 
   def afterWork[A](task: Task[A], result: Either[Task[A], Result[A]]): Unit = {
     result match {
@@ -96,18 +143,27 @@ object OffloadingExecuteProgress extends ExecuteProgress[Task] {
         Option(dependingOnBloopCompile.get(task)) match {
           case None => ()
           case Some(originTask) =>
-            readBloopTaskMetadata(
+            readBloopTask(
               generatedTask,
-              Keys.taskDefinitionKey,
-              BloopKeys.bloopCompile.key
+              Keys.taskDefinitionKey
             ) match {
-              case None => ()
               case Some(metadata) =>
-                println(s"bloopCompile task found for ${metadata.ref}:${metadata.config}")
+                println(s"dynamic task -> ${metadataToString(metadata)}")
+              case None => ()
             }
+
             dependingOnBloopCompile.put(generatedTask, originTask); ()
         }
-      case _ => ()
+      case _ =>
+        readBloopTask(
+          task,
+          Keys.taskDefinitionKey
+        ) match {
+          case Some(metadata) =>
+            println(s"after work -> ${metadataToString(metadata)}")
+          case None => ()
+        }
+        ()
     }
   }
 

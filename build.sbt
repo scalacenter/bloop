@@ -775,6 +775,21 @@ val bloop = project
 /**************************************************************************************************/
 val publishLocalCmd = Keys.publishLocal.key.label
 
+addCommandAlias(
+  "testInstall",
+  Seq(
+    s"${bloopShared.id}/$publishLocalCmd",
+    s"${jsonConfig210.id}/$publishLocalCmd",
+    s"${jsonConfig211.id}/$publishLocalCmd",
+    s"${jsonConfig212.id}/$publishLocalCmd",
+    s"${jsonConfig213.id}/$publishLocalCmd",
+    //s"${sbtBloop013.id}/$publishLocalCmd",
+    s"${sbtBloop10.id}/$publishLocalCmd",
+    //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
+    s"${sbtBloop10Shaded.id}/$publishLocalCmd"
+  ).mkString(";", ";", "")
+)
+
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
 addCommandAlias(
@@ -789,7 +804,7 @@ addCommandAlias(
     s"${sbtBloop10.id}/$publishLocalCmd",
     //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
     s"${sbtBloop10Shaded.id}/$publishLocalCmd",
-    s"${mavenBloop.id}/$publishLocalCmd",
+    //s"${mavenBloop.id}/$publishLocalCmd",
     s"${gradleBloop211.id}/$publishLocalCmd",
     s"${gradleBloop212.id}/$publishLocalCmd",
     s"${backend.id}/$publishLocalCmd",
@@ -841,7 +856,7 @@ val allBloopReleases = List(
   s"${sbtBloop10.id}/$releaseEarlyCmd",
   s"${sbtBloop013Shaded.id}/$releaseEarlyCmd",
   s"${sbtBloop10Shaded.id}/$releaseEarlyCmd",
-  s"${mavenBloop.id}/$releaseEarlyCmd",
+  //s"${mavenBloop.id}/$releaseEarlyCmd",
   s"${gradleBloop211.id}/$releaseEarlyCmd",
   s"${gradleBloop212.id}/$releaseEarlyCmd",
   s"${millBloop.id}/$releaseEarlyCmd",

@@ -91,7 +91,6 @@ class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClien
   override def onBuildPublishDiagnostics(params: PublishDiagnosticsParams): Unit = {
     // TODO: Figure out resetting the reporter state
     params.getDiagnostics().forEach { diagnostic =>
-      println(s"diagnostic: $diagnostic")
       SbtBspReporter.report(diagnostic, params.getTextDocument(), reporter)
     }
   }
@@ -141,6 +140,7 @@ class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClien
                 initial
               }
             )
+            println(s"adding future analysis for ${target}")
             analysisMap.put(target, futureAnalysis)
           }
           ()
@@ -182,16 +182,17 @@ object SbtBspClient {
     ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]
   val compileAnalysisMapPerRequest = new ConcurrentHashMap[String, CompileAnalysisMap]()
 
-  private var cachedBloopBuildClient: Option[NakedLowLevelBuildClient] = None
+  private[bloop] var cachedBloopBuildClient: Option[NakedLowLevelBuildClient[SbtBspClient]] = None
+  private[bloop] val failedToConnect = new java.util.concurrent.atomic.AtomicBoolean(false)
   def initializeConnection(
       restartLauncher: Boolean,
       baseDir: Path,
       logger: Logger,
       reporter: CompileReporter
-  ): NakedLowLevelBuildClient = {
+  ): Option[NakedLowLevelBuildClient[SbtBspClient]] = {
     cachedBloopBuildClient.synchronized {
       val bloopBuildClient = cachedBloopBuildClient match {
-        case Some(buildClient) if !restartLauncher => buildClient
+        case Some(buildClient) if !restartLauncher => Some(buildClient)
         case _ =>
           import scala.concurrent.Promise
           val firstPipe = Pipe.open()
@@ -217,29 +218,38 @@ object SbtBspClient {
 
           val launcherThread = new Thread {
             override def run(): Unit = {
-              System.err.println(launcher.cli(Array("1.3.4")))
-              logger.error("Disconnected!!!")
+              import bloop.launcher.LauncherStatus
+              try launcher.cli(Array("1.3.4"))
+              catch {
+                case _: Throwable =>
+                  failedToConnect.compareAndSet(false, true)
+              }
             }
           }
 
           launcherThread.start()
-          Await.result(startedServer.future, Duration.Inf)
-
-          val handlers = new SbtBspClient(logger, reporter)
-          val client = new NakedLowLevelBuildClient(
-            "sbt",
-            "2.0.0-M4",
-            baseDir,
-            clientIn,
-            clientOut,
-            handlers,
-            None,
-            Some(executor)
-          )
-          client.initialize.get()
-          client
+          try {
+            Await.result(startedServer.future, Duration.Inf)
+            val handlers = new SbtBspClient(logger, reporter)
+            val client = new NakedLowLevelBuildClient(
+              "sbt",
+              "2.0.0-M4",
+              baseDir,
+              clientIn,
+              clientOut,
+              handlers,
+              None,
+              Some(executor)
+            )
+            client.initialize.get()
+            Some(client)
+          } catch {
+            case _: Throwable =>
+              failedToConnect.compareAndSet(false, true)
+              None
+          }
       }
-      cachedBloopBuildClient = Some(bloopBuildClient)
+      cachedBloopBuildClient = bloopBuildClient
       bloopBuildClient
     }
   }
@@ -249,11 +259,14 @@ object SbtBspClient {
       logger: Logger
   ): Option[AnalysisContents] = {
     try {
+      //assert(inputs != null)
+      //val exists = Files.exists(inputs.analysisOut.toPath)
+      //logger.info(s"File ${inputs.analysisOut} exists: ${exists}")
       Utils.bloopStaticCacheStore(inputs.analysisOut).readFromDisk
     } catch {
       case NonFatal(t) =>
-        logger.error(s"Fatal error when reading analysis from ${inputs.analysisOut}")
-        logger.trace(t)
+        //logger.error(s"Fatal error when reading analysis from ${inputs.analysisOut}")
+        //logger.trace(t)
         None
     }
   }

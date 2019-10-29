@@ -39,9 +39,10 @@ val sbtBloopBuildShaded = project
     toShadeJars := {
       // Redefine toShadeJars as it seems broken in sbt-shading
       Def.taskDyn {
+        val _ = Keys.managedResources.in(Compile).value
         Def.task {
           // Only shade transitive dependencies, not bloop deps
-          val a = (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter {
+          (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter {
             path =>
               val ppath = path.toString
               !(
@@ -60,8 +61,6 @@ val sbtBloopBuildShaded = project
                   ppath.contains("scalamacros")
               ) && path.exists
           }
-          println(s"a $a")
-          a
         }
       }.value
     },
@@ -100,6 +99,14 @@ val sbtBloopBuildShaded = project
       )
     },
     packageBin in Compile := {
+      (packageBin in Compile)
+        .dependsOn(
+          Keys.discoveredSbtPlugins.in(Compile)
+        )
+        .value
+    },
+    packageBin in Compile := {
+      val _ = Keys.managedResources.in(Compile).value
       val namespace = shadingNamespace.?.value.getOrElse {
         throw new NoSuchElementException("shadingNamespace key not set")
       }
@@ -122,11 +129,11 @@ val sbtBloopBuildShaded = project
           changed = true
           srcs
         }
-        val inputs = Keys.sources.in(Compile).value.toSet //++
-        //Keys.dependencyClasspath.in(Compile).value.map(_.data).toSet
+        val inputs = Keys.sources.in(Compile).value.toSet
         detectChange(inputs)
         if (changed) publishLocal
         else Def.task(())
+        publishLocal
       }.value
     }
   )

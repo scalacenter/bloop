@@ -109,7 +109,7 @@ final case class Project(
    * and their existence and contents are managed by Bloop itself.
    */
   def bspClientClassesRootDirectory: AbsolutePath = {
-    genericClassesDir.getParent.resolve("bloop-bsp-clients-classes")
+    this.out.resolve("bloop-bsp-clients-classes")
   }
 }
 

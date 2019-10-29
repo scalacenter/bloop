@@ -28,13 +28,13 @@ import ch.epfl.scala.bsp4j.CompileResult
 import java.nio.file.Paths
 import java.io.PrintStream
 
-class NakedLowLevelBuildClient(
+class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     clientName: String,
     clientVersion: String,
     clientBaseDir: Path,
     clientIn: InputStream,
     clientOut: OutputStream,
-    handlers: BuildClientHandlers,
+    handlers: ClientHandlers,
     underlyingProcess: Option[Process],
     executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
@@ -69,6 +69,8 @@ class NakedLowLevelBuildClient(
     }
   }
 
+  def getHandlers: ClientHandlers = handlers
+
   trait ScalaBuildServerBridge extends BuildServer with ScalaBuildServer
 
   val cwd = sys.props("user.dir")
@@ -96,15 +98,15 @@ class NakedLowLevelBuildClient(
 }
 
 object NakedLowLevelBuildClient {
-  def fromLauncherJars(
+  def fromLauncherJars[ClientHandlers <: BuildClientHandlers](
       clientName: String,
       clientVersion: String,
       clientBaseDir: Path,
       launcherJars: Seq[Path],
-      handlers: BuildClientHandlers,
+      handlers: ClientHandlers,
       executor: Option[ExecutorService],
       additionalEnv: ju.Map[String, String] = new ju.HashMap()
-  ): NakedLowLevelBuildClient = {
+  ): NakedLowLevelBuildClient[ClientHandlers] = {
     import scala.collection.JavaConverters._
     val builder = new ProcessBuilder()
     val newEnv = builder.environment()
